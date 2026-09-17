@@ -413,9 +413,9 @@ float SuspensionSimple::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float b
             float total_brake = bt + ebt;
             this->mAppliedTorque = this->mAppliedTorque + total_brake;
         } else {
-            float bt = this->mBrake * FTLB2NM(this->mBrakes->BRAKES().At(this->mAxleIndex));
-            float ebt = this->mEBrake * FTLB2NM(this->mBrakes->EBRAKE());
-            float total_brake = bt * 10.0f + ebt * 10.0f;
+            float bt = this->mBrake * FTLB2NM(this->mBrakes->BRAKES().At(this->mAxleIndex)) * 10.0f;
+            float ebt = this->mEBrake * FTLB2NM(this->mBrakes->EBRAKE()) * 10.0f;
+            float total_brake = bt + ebt;
 
             this->mAppliedTorque += this->mAV <= 0.0f ? total_brake : -total_brake;
         }
@@ -436,8 +436,8 @@ float SuspensionSimple::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float b
 
     if (this->mAllowSlip && abs_slip > this->mMaxSlip) {
         slip_ratio = this->mMaxSlip / abs_slip;
-        is_slipping = true;
         this->mTraction = this->mTraction * slip_ratio;
+        is_slipping = true;
     }
 
     float skid_speed = UMath::Sqrt(this->mSlip * this->mSlip + lat_vel * lat_vel);
@@ -451,19 +451,19 @@ float SuspensionSimple::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float b
     }
 
     if (this->mBrakeLocked && skid_speed > 1.0f) {
-        float friction = this->mLoad * this->mTractionBoost * this->mSpecs->DYNAMIC_GRIP().At(this->mAxleIndex);
-        this->mLongitudeForce = (this->mSlip * friction) / (skid_speed * Tweak_SimpleBrakeLockSkidRatio);
-        this->mLateralForce = ((-lat_vel * friction) * Tweak_SimpleBrakeLockSkidRatio) / skid_speed;
+        float friction = this->mSpecs->DYNAMIC_GRIP().At(this->mAxleIndex);
+
+        this->mLateralForce = -lat_vel * this->mLoad * this->mTractionBoost * friction * Tweak_SimpleBrakeLockSkidRatio / skid_speed;
+        this->mLongitudeForce = this->mSlip * this->mLoad * this->mTractionBoost * friction / (skid_speed * Tweak_SimpleBrakeLockSkidRatio);
     } else if (is_slipping) {
         float PilotFactor = 0.85f;
         float speed_factor = UMath::Ramp(body_speed, MPH2MPS(30.0f), MPH2MPS(50.0f));
         float pilot_factor = speed_factor * (1.0f - PilotFactor) + PilotFactor;
         float dynamicfriction =
-            ((this->mSpecs->DYNAMIC_GRIP().At(this->mAxleIndex) * this->mTractionBoost * pilot_factor * this->mLoad) / skid_speed) * this->mSlip;
+            ((this->mSpecs->DYNAMIC_GRIP().At(this->mAxleIndex) * this->mTractionBoost * this->mLoad * pilot_factor) / skid_speed) * this->mSlip;
         float groundfriction = this->mAppliedTorque / this->mRadius;
 
-        this->mLongitudeForce = dynamicfriction;
-        this->mLongitudeForce = UMath::Limit(this->mLongitudeForce, groundfriction);
+        this->mLongitudeForce = UMath::Limit(dynamicfriction, groundfriction);
     } else {
         this->mLongitudeForce = this->mAppliedTorque / this->mRadius;
     }
@@ -965,21 +965,21 @@ void SuspensionSimple::DoWheelForces(State &state) {
         float max_compression = travel_specs[axle];
 
         if (wheel.GetCompression() == 0.0f) {
-            float delta = newCompression - max_compression;
-            maxDelta = UMath::Max(maxDelta, delta);
+            maxDelta = UMath::Max(maxDelta, newCompression - max_compression);
         }
 
         newCompression = UMath::Max(newCompression, 0.0f);
         if (newCompression > max_compression) {
-            maxDelta = UMath::Max(maxDelta, newCompression - max_compression);
+            float delta = newCompression - max_compression;
+            maxDelta = UMath::Max(maxDelta, delta);
             newCompression = max_compression;
         }
 
         if (newCompression > UMath::Epsilon && upness > VehicleSystem::ENABLE_ROLL_STOPS_THRESHOLD) {
             ++wheelsOnGround;
 
-            // TODO DWARF in this whole block
-            const float diff = newCompression - oldCompression;
+            float springForce;
+            const float diff = newCompression - wheel.GetCompression();
             float rise = diff / dT;
 
             if (UMath::Epsilon < shock_valving[axle] && shock_digression[axle] < 1.0f) {
@@ -991,26 +991,23 @@ void SuspensionSimple::DoWheelForces(State &state) {
                 }
             }
 
-            float springForce = newCompression * spring_specs[axle];
+            springForce = newCompression * spring_specs[axle];
+
             float spring = springForce * (newCompression * progression[axle] + 1.0f);
             float damp = rise > 0.0f ? rise * shock_specs[axle] : rise * shock_ext_specs[axle];
 
-            if (damp > this->mSuspensionInfo.SHOCK_BLOWOUT() * (mass * 9.81f)) {
+            if (damp > this->mSuspensionInfo.SHOCK_BLOWOUT() * 9.81f * mass) {
                 damp = 0.0f;
             }
 
-            float load = damp + spring + sway_stiffness[i];
-            load = UMath::Max(load, 0.0f);
+            float load = UMath::Max(damp + spring + sway_stiffness[i], 0.0f);
 
             const UMath::Vector3 &pointVelocity = wheel.GetVelocity();
             float xspeed = UMath::Dot(pointVelocity, lateralNormal);
             float zspeed = UMath::Dot(pointVelocity, forwardNormal);
             float traction_force = wheel.UpdateLoaded(xspeed, zspeed, state.local_vel.z, load, state.time, steerdrag_reduction);
 
-            float max_traction = xspeed / dT;
-            max_traction *= 0.25f;
-            max_traction *= mass;
-            max_traction = UMath::Abs(max_traction);
+            float max_traction = UMath::Abs(xspeed / dT * (0.25f * mass));
 
             UMath::Vector3 lateralForce;
             UMath::Scale(lateralNormal, UMath::Clamp(traction_force, -max_traction, max_traction), lateralForce);

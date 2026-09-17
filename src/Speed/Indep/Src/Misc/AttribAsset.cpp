@@ -1,8 +1,25 @@
 #include "AttribAsset.h"
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribLoadAndGo.h"
 
-VaultMap gVaults;
-FileMap gFiles;
+// Decl: 8
+class FileRecord {
+  public:
+    FileRecord(void *data, size_t bytes) {
+        mRefCount = 0;
+        mData = data;
+        mBytes = bytes;
+    }
+
+    unsigned int mRefCount; // offset 0x0, size 0x4
+    void *mData;            // offset 0x4, size 0x4
+    size_t mBytes;          // offset 0x8, size 0x4
+};
+
+class VaultMap : public std::map<unsigned int, Attrib::Vault *> {};
+class FileMap : public std::map<Attrib::AssetID, FileRecord> {};
+
+VaultMap gVaults; // Decl: 19
+FileMap gFiles;   // Decl: 20
 
 bool AddDepFile(const char *filename, void *data, size_t bytes) {
     Attrib::AssetID assetID = Attrib::StringToAssetID(filename);
@@ -44,14 +61,14 @@ class VaultGarbageCollector : public Attrib::IGarbageCollector {
 static FileGarbageCollector gFileCollector;
 static VaultGarbageCollector gVaultCollector;
 
-// UNSOLVED
-Attrib::Vault *AddVault(const char *filename, void *data, size_t bytes) {
+Attrib::Vault *AddVault(const char *filename, void *data, unsigned int bytes) {
     Attrib::AssetID headerID = Attrib::StringToAssetID(filename);
-    // TODO it stores this extra to sp8
-    VaultMap::iterator result = gVaults.find(headerID);
+
+    VaultMap::const_iterator result = gVaults.find(headerID);
     if (result != gVaults.end()) {
         return (*result).second;
     }
+
     Attrib::AssetID assetID = Attrib::StringToAssetID(filename);
     FileMap::iterator fileIter = gFiles.insert(FileMap::value_type(assetID, FileRecord(data, bytes))).first;
     (*fileIter).second.mRefCount++;
@@ -70,8 +87,7 @@ Attrib::Vault *AddVault(const char *filename, void *data, size_t bytes) {
             } else {
                 FileMap::iterator depIter = gFiles.find(depID);
                 if (depIter != gFiles.end()) {
-                    // TODO there should be only one AddRef
-                    vault->AddRef();
+                    (*depIter).second.mRefCount++;
                     vault->ResolveDependency(i, (*depIter).second.mData, (*depIter).second.mBytes, &gFileCollector);
                 } else {
                     vault->ResolveDependency(i, nullptr, 0, nullptr);
@@ -79,6 +95,7 @@ Attrib::Vault *AddVault(const char *filename, void *data, size_t bytes) {
             }
         }
     }
+
     vault->Initialize();
     gVaults.insert(VaultMap::value_type(headerID, vault));
     return vault;

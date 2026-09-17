@@ -31,7 +31,7 @@ class WCollisionMgr {
               fCInst(nullptr) {}
 
         bool HitSomething() const {
-            return fType != 0;
+            return this->fType != 0;
         }
     };
 
@@ -39,7 +39,7 @@ class WCollisionMgr {
       public:
         ICollisionHandler() {}
 
-        virtual bool OnWCollide(const WorldCollisionInfo &cInfo, const UMath::Vector3 &cPoint, void *userdata);
+        virtual bool OnWCollide(const WorldCollisionInfo &cInfo, const UMath::Vector3 &cPoint, void *userdata) = 0;
     };
 
     typedef UTL::Vector<unsigned int, 16> NodeIndexList;
@@ -65,15 +65,15 @@ class WCollisionMgr {
     bool Collide(Dynamics::Collision::Geometry *geom, const WCollisionInstanceCacheList *instanceList, ICollisionHandler *results, void *userdata);
 
     bool StripPassesExclusion(const WCollisionStrip &strip) const {
-        return (fSurfaceExclusionMask & strip.Flags()) == 0;
+        return (this->fSurfaceExclusionMask & strip.Flags()) == 0;
     }
 
     bool InstancePassesExclusion(const WCollisionInstance &inst) const {
-        return (fSurfaceExclusionMask & inst.fFlags) == 0;
+        return (this->fSurfaceExclusionMask & inst.fFlags) == 0;
     }
 
     bool SurfacePassesExclusion(const WSurface &surface) const {
-        return (fSurfaceExclusionMask & surface.Flags()) == 0;
+        return (this->fSurfaceExclusionMask & surface.Flags()) == 0;
     }
 
     void GetInstanceList(WCollisionInstanceCacheList &instList, const UMath::Vector3 &pt, float radius,

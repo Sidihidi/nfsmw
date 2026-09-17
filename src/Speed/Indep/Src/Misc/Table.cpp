@@ -2,9 +2,9 @@
 
 // Credits: Brawltendo
 // TODO variables aren't dwarf matching
-float Table::GetValue(float input) {
+float Table::GetValue(float arg) {
     const int entries = NumEntries;
-    const float normarg = IndexMultiplier * (input - MinArg);
+    const float normarg = IndexMultiplier * (arg - MinArg);
     const int index = (int)normarg;
 
     if (index < 0 || normarg < 0.0f)
@@ -20,6 +20,9 @@ float Table::GetValue(float input) {
     return (1.0f - delta) * pTable[index] + delta * pTable[index + 1];
 }
 
+// STRIPPED
+float Table::InverseLookup(float value) {}
+
 template <> void tTable<bVector2>::Blend(bVector2 *dest, bVector2 *a, bVector2 *b, float blend_a) {
     bScale(dest, a, blend_a);
     bScaleAdd(dest, dest, b, 1.0f - blend_a);
@@ -34,7 +37,7 @@ template <> void tTable<float>::Blend(float *dest, float *a, float *b, float ble
     *dest = *a * blend_a + *b * (1.0f - blend_a);
 }
 
-template <> void tGraph<float>::Blend(float *dest, float *a, float *b, const float blend_a) {
+template <> void tGraph<float>::Blend(float *dest, float *a, float *b, float blend_a) {
     *dest = *a * blend_a + *b * (1.0f - blend_a);
 }
 
@@ -66,12 +69,15 @@ float Graph::GetValue(float x) {
     return Points[0].y;
 }
 
+// STRIPPED
+float Graph::GetInverse(float y) {}
+
 void *AverageBase::Allocate(unsigned int size, const char *name) {
     return gFastMem.Alloc(size, name);
 }
 
 void AverageBase::DeAllocate(void *ptr, unsigned int size, const char *name) {
-    if (ptr) {
+    if (ptr != nullptr) {
         gFastMem.Free(ptr, size, name);
     }
 }
@@ -85,19 +91,19 @@ AverageBase::AverageBase(int size, int slots)
 Average::Average()
     : AverageBase(4, 0), //
       fAverage(0.0f),    //
-      pData(NULL),       //
+      pData(nullptr),    //
       fTotal(0.0f) {}
 
 Average::Average(int slots)
     : AverageBase(4, slots), //
       fAverage(0.0f),        //
-      pData(NULL),           //
+      pData(nullptr),        //
       fTotal(0.0f) {
-    Init(slots);
+    this->Init(slots);
 }
 
 void Average::Init(int slots) {
-    if (pData && pData != SmallDataBuffer) {
+    if ((pData != nullptr) && (pData != SmallDataBuffer)) {
         DeAllocate(pData, static_cast<unsigned int>(nSlots) << 2, "Average::pData");
         pData = nullptr;
     }
@@ -157,11 +163,11 @@ void Average::Flush(float fValue) {
 
 float Average::GetLastRecordedValue() const {
     if (nSamples != 0) {
-        int idx = nCurrentSlot - 1;
-        if (idx < 0) {
-            idx = nSlots - 1;
+        int last_slot = nCurrentSlot - 1;
+        if (last_slot < 0) {
+            last_slot = nSlots - 1;
         }
-        return pData[idx];
+        return pData[last_slot];
     }
     return 0.0f;
 }
@@ -180,18 +186,29 @@ AverageWindow::~AverageWindow() {
 }
 
 void AverageWindow::Reset(float fValue) {
-    for (int i = 0; i < nSlots; i++) {
-        pData[i] = fValue;
-        pTimeData[i] = 0.0f;
+    for (int i = 0; i < this->nSlots; i++) {
+        this->pData[i] = fValue;
+        this->pTimeData[i] = 0.0f;
     }
-    nCurrentSlot = 0;
-    fAverage = 0.0f;
-    iOldestValue = 0;
-    nSamples = 0;
-    fTotal = fValue * static_cast<int>(nSlots);
+
+    this->fTotal = fValue * static_cast<int>(this->nSlots);
+    this->fAverage = 0.0f;
+    this->nSamples = 0;
+    this->iOldestValue = 0;
+    this->nCurrentSlot = 0;
 }
 
-void AverageWindow::Record(const float fValue, const float fTimeNow) {
+// STRIPPED
+float AverageWindow::GetOldestValue() {
+    return this->pData[iOldestValue];
+}
+
+// STRIPPED
+float AverageWindow::GetOldestTime() {
+    return this->pTimeData[iOldestValue];
+}
+
+void AverageWindow::Record(float fValue, float fTimeNow) {
     if (pData[nCurrentSlot] == 0.0f && pTimeData[nCurrentSlot] == 0.0f) {
         nSamples++;
     } else {
@@ -231,3 +248,24 @@ void PidError::Record(float fError, float fTime, bool bZeroDerivative, bool bZer
     aIntegral.Record(fIntegralTerm);
     aDerivative.Record(fDerivativeTerm);
 }
+
+// STRIPPED
+void PidError::DoSnapshot(ReplaySnapshot *snapshot) {}
+
+// STRIPPED
+void PidError::Reset(float fCalibrat) {}
+
+// STRIPPED
+void PidError::ResetIntegral(float fCalibrate) {}
+
+// STRIPPED
+void PidError::ResetDerivative(float fCalibrate) {}
+
+// STRIPPED
+void Linear::Init(float x0, float y0, float x1, float y1) {}
+
+// STRIPPED
+float Linear::GetValue(float x) {}
+
+// STRIPPED
+float Linear::GetInverse(float y) {}

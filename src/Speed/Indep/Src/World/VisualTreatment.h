@@ -22,6 +22,7 @@ class IVisualTreatment {
     static IVisualTreatment *Get();
 
     void SetState(eVisualLookState state) {
+        this->Reset();
         this->State = state;
     }
 
@@ -102,5 +103,6 @@ class IVisualTreatment {
 
 void OpenVisualTreatment();
 void CloseVisualTreatment();
+float GetValueFromSpline(float value, bMatrix4 *curve);
 
 #endif

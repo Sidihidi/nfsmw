@@ -494,7 +494,6 @@ void SuspensionTrailer::DoSimpleAero(State &state) {
     this->mRB->ResolveForce(drag_vector);
 }
 
-// UNSOLVED, float math
 void SuspensionTrailer::DoWheelForces(State &state) {
     const float dT = state.time;
 
@@ -555,13 +554,13 @@ void SuspensionTrailer::DoWheelForces(State &state) {
         float max_compression = travel_specs[axle];
 
         if (wheel.GetCompression() == 0.0f) {
-            float delta = newCompression - max_compression;
-            maxDelta = UMath::Max(maxDelta, delta);
+            maxDelta = UMath::Max(maxDelta, newCompression - max_compression);
         }
 
         newCompression = UMath::Max(newCompression, 0.0f);
         if (newCompression > max_compression) {
-            maxDelta = UMath::Max(maxDelta, newCompression - max_compression);
+            float delta = newCompression - max_compression;
+            maxDelta = UMath::Max(maxDelta, delta);
             newCompression = max_compression;
         }
 
@@ -574,19 +573,18 @@ void SuspensionTrailer::DoWheelForces(State &state) {
             float spring = springForce * (newCompression * progression[axle] + 1.0f);
             float damp = rise * shock_specs[axle];
 
-            if (damp > this->mSuspensionInfo->SHOCK_BLOWOUT() * (mass * 9.81f)) {
+            if (damp > this->mSuspensionInfo.SHOCK_BLOWOUT() * 9.81f * mass) {
                 damp = 0.0f;
             }
 
-            float load = damp + spring + sway_stiffness[i];
-            load = UMath::Max(load, 0.0f);
+            springForce = UMath::Max(damp + spring + sway_stiffness[i], 0.0f);
 
-            UVector3 verticalForce = UVector3(vUp) * load;
+            UVector3 verticalForce = UVector3(vUp) * springForce;
             UVector3 driveForce;
             UVector3 lateralForce;
 
-            float d2 = UMath::Max(0.3f, upness * 4.0f - 3.0f);
-            load *= d2;
+            float d2 = UMath::Max(upness * 4.0f - 3.0f, 0.3f);
+            float load = d2 * springForce;
 
             const UMath::Vector3 &pointVelocity = wheel.GetVelocity();
             UVector3 vNorm(pointVelocity);
@@ -598,10 +596,7 @@ void SuspensionTrailer::DoWheelForces(State &state) {
             wheel.UpdateLoaded(xspeed, zspeed, load, state.time);
 
             float traction_force = wheel.GetLateralForce();
-            float max_traction = xspeed / dT;
-            max_traction *= 0.25f;
-            max_traction *= mass;
-            max_traction = UMath::Abs(max_traction);
+            float max_traction = UMath::Abs((xspeed / dT) * (0.25f * mass));
             traction_force = UMath::Clamp(traction_force, -max_traction, max_traction);
 
             lateralForce = lateralNormal * traction_force;

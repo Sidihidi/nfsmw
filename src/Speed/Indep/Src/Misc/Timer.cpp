@@ -16,21 +16,9 @@ extern float TimeDifferenceInSeconds;
 extern float MilisecondsToSeconds;
 extern float MicrosecondsToMiliseconds;
 
-volatile int32 FrameCounter = 0;
-volatile uint32 LastFrameCounterTick = 0;
-VIDEO_MODE CurrentVideoMode = MODE_NTSC;
-int32 RealTimeFrames = 1;
-int32 RealTime = 1;
-int32 RealTimeFramesElapsed = 2;
-int RealTimeElapsedQuantized = 0;
-float RealTimeElapsedFrame = 0;
-float RealTimeElapsedError = 0;
-Timer RealTimer;
-float RealTimeElapsed;
-int32 RealLoopCounter = 0;
-float DefaultLimitMinimumVideoTimeElapsed = 1.0f / 60.0f;
-float LimitMinimumVideoTimeElapsed;
-float MaxTicksPerTimestep = 4.0f;
+volatile int32 FrameCounter = 0;          // Decl: 34
+volatile uint32 LastFrameCounterTick = 0; // Decl: 35
+VIDEO_MODE CurrentVideoMode = MODE_NTSC;  // Decl: 44
 
 VIDEO_MODE GetVideoMode() {
     return CurrentVideoMode;
@@ -52,6 +40,29 @@ VIDEO_MODE GetBuildRegionVideoMode() {
     return video_mode;
 }
 
+Timer RealTimer;          // Decl: 103
+int32 RealTimeFrames = 1; // Decl: 104
+int32 RealTime = 1;       // Decl: 105
+
+int32 RealTimeFramesElapsed = 2;                       // Decl: 109
+float RealTimeElapsed = RealTimeFramesElapsed / 30.0f; // Decl: 110
+int RealTimeElapsedQuantized = 0;                      // Decl: 111
+float RealTimeElapsedFrame = 0;                        // Decl: 112
+float RealTimeElapsedError = 0;                        // Decl: 113
+int32 RealLoopCounter = 0;                             // Decl: 114
+
+float DefaultLimitMinimumVideoTimeElapsed = 1.0f / 60.0f;                 // Decl: 119
+float LimitMinimumVideoTimeElapsed = DefaultLimitMinimumVideoTimeElapsed; // Decl: 121
+
+// STRIPPED
+void SetFPSLimiter(float fps) {}
+
+// STRIPPED
+void ResetFPSLimiter() {}
+
+// STRIPPED
+float GetMaxFPS() {}
+
 float GetRealTimeElapsedFromQuantized(int real_time_elapsed_quantized) {
     return static_cast<float>(real_time_elapsed_quantized) * (1.0f / 3600.0f);
 }
@@ -60,7 +71,8 @@ int GetQuantizedRealTimeElapsed(float real_time_elapsed) {
     return static_cast<int>(real_time_elapsed * 3600.0f + 0.5f);
 }
 
-// UNSOLVED
+float MaxTicksPerTimestep = 4.0f; // Decl: 148
+
 void PrepareRealTimestep(float video_time_elapsed) {
     float start_video_time_elapsed = video_time_elapsed;
     int current_loop_counter = RealLoopCounter & 0xf;
@@ -68,62 +80,72 @@ void PrepareRealTimestep(float video_time_elapsed) {
 
     if (Joylog::IsReplaying()) {
         quantized_video_time_elapsed = Joylog::GetData(16, JOYLOG_CHANNEL_TIMESTEP);
-        Joylog::GetData(4, JOYLOG_CHANNEL_LOOP_COUNTER);
+        int previous_loop_counter = Joylog::GetData(4, JOYLOG_CHANNEL_LOOP_COUNTER);
     } else {
-        start_video_time_elapsed = video_time_elapsed + RealTimeElapsedError;
+        video_time_elapsed = video_time_elapsed + RealTimeElapsedError;
         if (!TheOnlineManager.IsOnlineRace()) {
-            start_video_time_elapsed = bMin(start_video_time_elapsed, MaxTicksPerTimestep * GetVideoFrameTime(GetVideoMode()));
+            if (GetVideoMode() == MODE_PAL) {
+                video_time_elapsed = bMin(video_time_elapsed, MaxTicksPerTimestep * (1.0f / 50.0f));
+            } else {
+                video_time_elapsed = bMin(video_time_elapsed, MaxTicksPerTimestep * (1.0f / 60.0f));
+            }
         }
-        quantized_video_time_elapsed = GetQuantizedRealTimeElapsed(start_video_time_elapsed);
-        RealTimeElapsedError = start_video_time_elapsed - Timer(GetRealTimeElapsedFromQuantized(quantized_video_time_elapsed)).GetSeconds();
+        quantized_video_time_elapsed = GetQuantizedRealTimeElapsed(video_time_elapsed);
+        RealTimeElapsedError = video_time_elapsed - Timer(GetRealTimeElapsedFromQuantized(quantized_video_time_elapsed)).GetSeconds();
         Joylog::AddData(quantized_video_time_elapsed, 16, JOYLOG_CHANNEL_TIMESTEP);
         Joylog::AddData(current_loop_counter, 4, JOYLOG_CHANNEL_LOOP_COUNTER);
     }
+
     RealTimeElapsedQuantized = quantized_video_time_elapsed;
     RealTimeElapsed = GetRealTimeElapsedFromQuantized(quantized_video_time_elapsed);
 
     static int SeenTimerProblem = 0;
-    if (TimeDifferenceInMiliseconds > 100.0f || TimeDifferenceInMiliseconds < 0.0f || TimeDifferenceInSeconds > 0.2f ||
-        TimeDifferenceInSeconds < 0.0f || video_time_elapsed > 0.2f || video_time_elapsed < 0.0f || start_video_time_elapsed > 0.2f ||
-        start_video_time_elapsed < 0.0f) {
+    if (TimeDifferenceInMiliseconds > 86400000.0f || TimeDifferenceInMiliseconds < 0.0f || TimeDifferenceInSeconds > 86400.0f ||
+        TimeDifferenceInSeconds < 0.0f || start_video_time_elapsed > 86400.0f || start_video_time_elapsed < 0.0f || video_time_elapsed > 86400.0f ||
+        video_time_elapsed < 0.0f) {
         SeenTimerProblem = 1;
     }
+
     if (SeenTimerProblem != 0) {
+        int current_y;
         static unsigned int SavedTimeDifferenceInMicroseconds = 0;
         static float SavedTimeDifferenceInMiliseconds = 0.0f;
         static float SavedTimeDifferenceInSeconds = 0.0f;
-        static float Saved_start_video_time_elapsed = 0;
+        static float Saved_start_video_time_elapsed = 0.0f;
         static int Saved_high_nibble = 0;
         int high_nibble = CurrentLoopCounter & 0xf0000000;
+
         if (high_nibble != Saved_high_nibble) {
             SavedTimeDifferenceInMicroseconds = TimeDifferenceInMicroseconds;
             SavedTimeDifferenceInMiliseconds = TimeDifferenceInMiliseconds;
             SavedTimeDifferenceInSeconds = TimeDifferenceInSeconds;
-            Saved_start_video_time_elapsed = video_time_elapsed;
+            Saved_start_video_time_elapsed = start_video_time_elapsed;
             Saved_high_nibble = CurrentLoopCounter & 0xf0000000;
         }
+
         static int HadBadTimeDifferenceInMiliseconds = 0;
         static int HadBadTimeDifferenceInSeconds = 0;
         static int HadBad_start_video_time_elapsed = 0;
         static int HadBad_video_time_elapsed = 0;
         static int HadBad_MicrosecondsToMiliseconds = 0;
         static int HadBad_MilisecondsToSeconds = 0;
-        if (TimeDifferenceInMiliseconds > 100.0f || TimeDifferenceInMiliseconds < 0.0f) {
+
+        if (TimeDifferenceInMiliseconds > 86400000.0f || TimeDifferenceInMiliseconds < 0.0f) {
             HadBadTimeDifferenceInMiliseconds = 1;
         }
-        if (TimeDifferenceInSeconds > 0.2f || TimeDifferenceInSeconds < 0.0f) {
+        if (TimeDifferenceInSeconds > 86400.0f || TimeDifferenceInSeconds < 0.0f) {
             HadBadTimeDifferenceInSeconds = 1;
         }
-        if (video_time_elapsed > 0.2f || video_time_elapsed < 0.0f) {
-            HadBad_video_time_elapsed = 1;
-        }
-        if (start_video_time_elapsed > 0.2f || start_video_time_elapsed < 0.0f) {
+        if (start_video_time_elapsed > 86400.0f || start_video_time_elapsed < 0.0f) {
             HadBad_start_video_time_elapsed = 1;
         }
-        if ((MicrosecondsToMiliseconds > 1.0f) || (MicrosecondsToMiliseconds < 0.0f)) {
+        if (video_time_elapsed > 86400.0f || video_time_elapsed < 0.0f) {
+            HadBad_video_time_elapsed = 1;
+        }
+        if (MicrosecondsToMiliseconds > 1.0f || MicrosecondsToMiliseconds < 0.0f) {
             HadBad_MicrosecondsToMiliseconds = 1;
         }
-        if ((MilisecondsToSeconds > 10000.0f) || (MilisecondsToSeconds < 0.0f)) {
+        if (MilisecondsToSeconds > 10000.0f || MilisecondsToSeconds < 0.0f) {
             HadBad_MilisecondsToSeconds = 1;
         }
     }
@@ -142,15 +164,16 @@ void AdvanceRealTime() {
     RealLoopCounter++;
 }
 
-float WorldTimeSeconds = 1.0f;
-int WorldTime = 1;
-int WorldTimeFrames = 1;
-int WorldTimeFramesElapsed = 0;
-float WorldTimeElapsed = 0;
-float WorldTimeElapsedFrame = 0;
-int WorldLoopCounter = 100000;
-Timer WorldTimer;
-int NeedToPrepareWorldTimestep = 1;
+Timer WorldTimer;                // Decl: 545
+float WorldTimeSeconds = 1.0f;   // Decl: 546
+int WorldTime = 1;               // Decl: 547
+int WorldTimeFrames = 1;         // Decl: 548
+int WorldTimeFramesElapsed = 0;  // Decl: 549
+float WorldTimeElapsed = 0;      // Decl: 550
+float WorldTimeElapsedFrame = 0; // Decl: 551
+int WorldLoopCounter = 100000;   // Decl: 552
+
+int NeedToPrepareWorldTimestep = 1; // Decl: 556
 
 void ResetWorldTime() {
     WorldTimer.SetTime(Sim::GetTime());
@@ -395,18 +418,18 @@ static void PrintToString(char *string, int flags, int hours, int minutes, int s
     }
 }
 
-// UNSOLVED
 void Timer::GetHoursMinsSeconds(int *hours, int *minutes, int *seconds, int *thousandths_seconds) {
-    int int_time = PackedTime % 4000;
-    int fractional_time = PackedTime / 4000;
-    *hours = fractional_time / 3600;
-    fractional_time = fractional_time % 3600;
-    *minutes = fractional_time / 60;
-    *seconds = fractional_time % 60;
-    if (int_time < 0) {
-        int_time += 3;
+    int int_time = this->PackedTime / 4000;
+    int fractional_time = this->PackedTime;
+    fractional_time %= 4000;
+    *hours = int_time / 3600;
+    int_time %= 3600;
+    *minutes = int_time / 60;
+    *seconds = int_time % 60;
+    if (fractional_time < 0) {
+        fractional_time += 3;
     }
-    *thousandths_seconds = int_time >> 2;
+    *thousandths_seconds = fractional_time >> 2;
 }
 
 void Timer::PrintToString(char *string, int flags) {
@@ -427,3 +450,15 @@ void Timer::PrintToString(char *string, int flags) {
         ::PrintToString(string, flags, hours, minutes, seconds, thousandths_seconds / 10);
     }
 }
+
+// STRIPPED
+void Timer::PrintToString(char *string, float fIota, int flags) {}
+
+// STRIPPED
+int Timer::CountDown(float fSeconds) {}
+
+// STRIPPED
+float Timer::GetSecondsRounded(float fIotaSeconds) {}
+
+// STRIPPED
+void Timer::RoundTime(float fIotaSeconds) {}

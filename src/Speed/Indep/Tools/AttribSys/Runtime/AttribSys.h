@@ -9,8 +9,9 @@
 // Credit: Brawltendo
 namespace Attrib {
 
+// TODO these should be in the global namespace
 typedef uint32_t HashInt;
-typedef HashInt Key; // TODO might be in the global namespace
+typedef HashInt Key;
 typedef HashInt Type;
 
 // const int kTypeHandlerCount = 7;
@@ -34,32 +35,17 @@ inline unsigned int RotateNTo32(unsigned long long v, unsigned int amount) {
     return (v << amount) | (v >> (64 - amount));
 }
 
-// TODO maybe the name is always passed here and it gets omitted in Alloc/Free? Depends on whether doing this leaves the string in .rodata
-#ifdef MILESTONE_OPT
 #define USE_ATTRIB_ALLOC(name)                                                                                                                       \
     void *operator new(size_t bytes) {                                                                                                               \
-        return (Attrib::Alloc(bytes, name));                                                                                                         \
+        return (Attrib::Alloc(bytes, #name));                                                                                                        \
     };                                                                                                                                               \
     void operator delete(void *ptr, size_t bytes) {                                                                                                  \
-        Attrib::Free(ptr, bytes, name);                                                                                                              \
+        Attrib::Free(ptr, bytes, #name);                                                                                                             \
     }                                                                                                                                                \
     void *operator new(size_t, void *ptr) {                                                                                                          \
         return (ptr);                                                                                                                                \
     }                                                                                                                                                \
     void operator delete(void *, void *) {}
-#else
-#define USE_ATTRIB_ALLOC(name)                                                                                                                       \
-    void *operator new(size_t bytes) {                                                                                                               \
-        return (Attrib::Alloc(bytes, NULL));                                                                                                         \
-    };                                                                                                                                               \
-    void operator delete(void *ptr, size_t bytes) {                                                                                                  \
-        Attrib::Free(ptr, bytes, NULL);                                                                                                              \
-    }                                                                                                                                                \
-    void *operator new(size_t, void *ptr) {                                                                                                          \
-        return (ptr);                                                                                                                                \
-    }                                                                                                                                                \
-    void operator delete(void *, void *) {}
-#endif
 
 #define ATTRIB_TYPE_ASSERT(TYPE, ATTRIB)
 #define ATTRIB_CLASS_ASSERT(KEY1, KEY2, CKEY)
@@ -120,6 +106,8 @@ class TypeDesc {
     static ITypeHandler *Lookup(Type t);
     static Type NameToType(const char *name);
 
+    USE_ATTRIB_ALLOC(Attrib::TypeDesc);
+
     TypeDesc() : mType(0), mName(""), mSize(0), mIndex(0), mHandler(nullptr) {}
 
     TypeDesc(unsigned int t) : mType(t), mName(nullptr), mSize(0), mIndex(0), mHandler(Lookup(t)) {}
@@ -143,6 +131,13 @@ class TypeDesc {
         return mHandler;
     }
 
+    TypeDesc(const TypeDesc &src)
+        : mType(src.mType),   //
+          mName(src.mName),   //
+          mSize(src.mSize),   //
+          mIndex(src.mIndex), //
+          mHandler(src.mHandler) {}
+
     bool operator<(const TypeDesc &rhs) const {
         return mType < rhs.mType;
     }
@@ -156,16 +151,24 @@ class TypeDesc {
 };
 
 // total size: 0x10
-class TypeDescPtrVec : public std::vector<const TypeDesc *> {};
+class TypeDescPtrVec : public std::vector<const TypeDesc *> {
+    USE_ATTRIB_ALLOC(Attrib::TypeDescPtrVec);
+};
 
 // total size: 0x10
-class TypeTable : public std::set<TypeDesc> {};
+class TypeTable : public std::set<TypeDesc> {
+    USE_ATTRIB_ALLOC(Attrib::TypeTable);
+};
 
 // total size: 0x8
-class CollectionList : public std::list<const Collection *> {};
+class CollectionList : public std::list<const Collection *> {
+    USE_ATTRIB_ALLOC(Attrib::CollectionList);
+};
 
 // total size: 0x8
-class ClassList : public std::list<const Class *> {};
+class ClassList : public std::list<const Class *> {
+    USE_ATTRIB_ALLOC(Attrib::ClassList);
+};
 
 // total size: 0x8
 class Database {
@@ -187,10 +190,6 @@ class Database {
         return *sThis;
     }
 
-    void operator delete(void *ptr, std::size_t bytes) {
-        Free(ptr, bytes, "Attrib::Database");
-    }
-
     bool IsInitialized() {
         return sThis != nullptr;
     }
@@ -199,6 +198,7 @@ class Database {
     friend class DatabaseExportPolicy;
 
   private:
+    USE_ATTRIB_ALLOC(Attrib::Database);
     Database(DatabasePrivate &privates);
     virtual ~Database();
 
@@ -370,6 +370,10 @@ class Array {
 
     // TODO is this really overriden?
     void operator delete(void *ptr) {}
+
+#ifdef _MSC_VER
+    void operator delete(void *mem, void *ptr) {}
+#endif
 
     ~Array() {
         if (IsReferences()) {
@@ -736,6 +740,9 @@ class Instance {
 
     AttributeIterator Iterator() const;
 
+    Gen::GenericAccessor *operator->() {
+        return reinterpret_cast<Gen::GenericAccessor *>(this);
+    }
     const Gen::GenericAccessor *operator->() const {
         return reinterpret_cast<const Gen::GenericAccessor *>(this);
     }
@@ -748,7 +755,7 @@ class Instance {
 
     UTL::COM::IUnknown *mOwner;    // offset 0x0, size 0x4
     const Collection *mCollection; // offset 0x4, size 0x4
-    void *mLayoutPtr;              // offset 0x8, size 0x4
+    mutable void *mLayoutPtr;      // offset 0x8, size 0x4
     uint32_t mMsgPort;             // offset 0xC, size 0x4
     uint16_t mFlags;               // offset 0x10, size 0x2
     mutable uint16_t mLocks;       // offset 0x12, size 0x2
@@ -915,6 +922,7 @@ class Class {
 // total size: 0xC
 class RefSpec {
   public:
+    USE_ATTRIB_ALLOC(Attrib::RefSpec);
     RefSpec(const RefSpec &src);
     void SetCollection(const Collection *collectionPtr);
     const Class *GetClass() const;
@@ -928,10 +936,6 @@ class RefSpec {
         return *this;
     }
     void Clean() const;
-
-    void operator delete(void *ptr, std::size_t bytes) {
-        Free(ptr, bytes, "RefSpec");
-    }
 
     RefSpec() : mClassKey(0), mCollectionKey(0), mCollectionPtr(nullptr) {}
 
@@ -963,32 +967,33 @@ class Blob {
     const void *mData; // offset 0x4, size 0x4
 };
 
-const Key key_default = 0xeec2271a;
-const Key h64_default = 0xeec2271a;
+const Key key_default = 0xeec2271a; // Decl: 859
+const Key h64_default = 0xeec2271a; // Decl: 860
 
 }; // namespace Attrib
 
 namespace EA {
 namespace Reflection {
 
-typedef int64_t Int64;
-typedef int32_t Int32;
-typedef int16_t Int16;
-typedef int8_t Int8;
-typedef uint64_t UInt64;
-typedef uint32_t UInt32;
-typedef uint16_t UInt16;
-typedef uint8_t UInt8;
-typedef char Char;
-typedef bool Bool;
-typedef float Float;
-typedef double Double;
-typedef const char *Text;
+typedef int64_t Int64;    // Decl: 868
+typedef int32_t Int32;    // Decl: 869
+typedef int16_t Int16;    // Decl: 870
+typedef int8_t Int8;      // Decl: 871
+typedef uint64_t UInt64;  // Decl: 872
+typedef uint32_t UInt32;  // Decl: 873
+typedef uint16_t UInt16;  // Decl: 874
+typedef uint8_t UInt8;    // Decl: 875
+typedef char Char;        // Decl: 876
+typedef bool Bool;        // Decl: 877
+typedef float Float;      // Decl: 878
+typedef double Double;    // Decl: 879
+typedef const char *Text; // Decl: 880
 typedef void *Reference;
 
 } // namespace Reflection
 } // namespace EA
 
+// Decl: 901
 #define ATTRIB_CODEGEN_GETATTRIB(TYPE, KEY)                                                                                                          \
     result = TAttrib<TYPE>(this->Get(KEY));                                                                                                          \
     return (result.IsValid())
@@ -1008,11 +1013,6 @@ typedef void *Reference;
         return (true);                                                                                                                               \
     } else                                                                                                                                           \
         return (false)
-
-// TODO I made this up
-#define ATTRIB_CODEGEN_CHECKEDGETLAYOUT(FIELD, RESULT)                                                                                               \
-    RESULT = static_cast<_LayoutStruct *>(this->GetLayoutPointer())->FIELD;                                                                          \
-    return (true)
 
 #define ATTRIB_CODEGEN_GETLAYOUT(FIELD) return (static_cast<_LayoutStruct *>(this->GetLayoutPointer())->FIELD)
 #define ATTRIB_CODEGEN_GETSTATIC(FIELD) return (gStatics.FIELD)

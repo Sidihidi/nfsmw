@@ -1,142 +1,60 @@
 #include "Spline.hpp"
-#include "Speed/Indep/bWare/Inc/bMath.hpp"
 
-void tCubic1D::MakeCoeffs() {
-    Coeff[0] = (dVal + dValDesired) - 2.0f * (ValDesired - Val);
-    Coeff[1] = ((ValDesired - Val) * 3.0f - dValDesired) - (dVal + dVal);
-    Coeff[2] = dVal;
-    Coeff[3] = Val;
-}
+// Everything is stripped here
 
-float tCubic1D::GetVal(float t) {
-    return ((Coeff[0] * t + Coeff[1]) * t + Coeff[2]) * t + Coeff[3];
-}
+static const int bSplineDebug = 0; // size: 0x4, Decl: 23
 
-float tCubic1D::GetdVal(float t) {
-    return ((2.0f * Coeff[1]) + (3.0f * Coeff[0] * t)) * t + Coeff[2];
-}
+Spline::Spline(SplineType type, int expected_number_of_control_points, int table_size) {}
 
-float tCubic1D::GetddVal(float t) {
-    return (2.0f * Coeff[1]) + (6.0f * Coeff[0] * t);
-}
+Spline::Spline(SplineType type, int number_of_control_points, bVector3 *control_point_table, int table_size) {}
 
-float tCubic1D::GetDerivative(float t) {
-    float fDG = 1.0f / duration;
-    float fG = GetdVal(t * fDG);
-    float fDF = fG * fDG;
-    return fDF;
-}
+Spline::~Spline() {}
 
-float tCubic1D::GetSecondDerivative(float t) {
-    float fDG = 1.0f / duration;
-    float fG = GetddVal(t * fDG);
-    float fDDF = fG * (fDG * fDG);
-    return fDDF;
-}
+void Spline::SetControlPoints(bVector3 *pPoints, int nPoints) {}
 
-void tCubic1D::ClampDerivative(float maxDeriv) {
-    float fDf = GetDerivative(duration);
-    float fDfAbs = bAbs(fDf);
-    if (fDfAbs > maxDeriv) {
-        float fSign = fDfAbs / fDf;
-        SetdValDesired(fSign * maxDeriv * duration);
-    }
-}
+void Spline::DoSnapshot(ReplaySnapshot *snapshot) {}
 
-void tCubic1D::ClampSecondDerivative(float fMag) {
-    float fAcc0 = GetSecondDerivative(0);
-    float fAcc0Abs = bAbs(fAcc0);
-    float fAcc1 = GetSecondDerivative(duration);
-    float fAcc1Abs = bAbs(fAcc1);
-    bool bNeedFix = false;
-    if (fAcc0Abs > fMag) {
-        float fSign = fAcc0Abs / fAcc0;
-        fAcc0 = fSign * fMag;
-        bNeedFix = true;
-    }
-    if (fAcc1Abs > fMag) {
-        float fSign = fAcc1Abs / fAcc1;
-        fAcc1 = fSign * fMag;
-        bNeedFix = true;
-    }
-    if (bNeedFix) {
-        float fDurationSquared = duration * duration;
-        fAcc0 *= fDurationSquared;
-        Coeff[1] = fAcc0 * 0.5f;
-        Coeff[0] = (fAcc1 * fDurationSquared - fAcc0) / 6.0f;
-    }
-}
+void Spline::SetControlPoint(int i, bVector3 *p) {}
 
-void tCubic1D::Update(float dt, float maxDeriv, float maxSecondDeriv) {
-    switch (state) {
-        case 2: {
-            time = 0;
-            if (flags == 0) {
-                state = 1;
-            }
-            if (maxDeriv > 0.0f) {
-                ClampDerivative(maxDeriv);
-            }
-            MakeCoeffs();
-            if (maxSecondDeriv > 0.0f) {
-                ClampSecondDerivative(maxSecondDeriv);
-            }
-        }
-        case 1: {
-            if (duration > 1e-05f) {
-                float interval = dt / duration;
-                time += interval;
-            } else {
-                time = 1.0f;
-            }
-            if (time > 1.0f) {
-                Snap();
-            }
-            float t = time;
-            Val = GetVal(t);
-            dVal = GetdVal(t);
-            break;
-        }
-        case 0:
-            break;
-    }
-}
+void Spline::AddControlPoint(bVector3 *p) {}
 
-void tCubic2D::SetValDesired(bVector2 *v) {
-    SetValDesired(v->x, v->y);
-}
+void Spline::RemoveFirstControlPoint() {}
 
-void tCubic2D::GetVal(bVector2 *v) {
-    v->x = x.Val;
-    v->y = y.Val;
-}
+bVector3 *Spline::GetControlPoint(float t) {}
 
-void tCubic3D::SetVal(const bVector3 *v) {
-    SetVal(v->x, v->y, v->z);
-}
+int Spline::MinControlPoints() {}
 
-void tCubic3D::SetdVal(bVector3 *v) {
-    SetdVal(v->x, v->y, v->z);
-}
+bVector3 *Spline::Evaluate(bVector3 *pV, float fFloor, float b0, float b1, float b2, float b3) {}
 
-void tCubic3D::SetValDesired(bVector3 *v) {
-    SetValDesired(v->x, v->y, v->z);
-}
+bVector3 *Spline::GetPoint(bVector3 *point, float parameter) {}
 
-void tCubic3D::GetVal(bVector3 *v) {
-    v->x = x.Val;
-    v->y = y.Val;
-    v->z = z.Val;
-}
+bVector3 *Spline::GetDerivative(bVector3 *slope, float parameter) {}
 
-void tCubic3D::GetValDesired(bVector3 *v) {
-    v->x = x.ValDesired;
-    v->y = y.ValDesired;
-    v->z = z.ValDesired;
-}
+bVector3 *Spline::GetSecondDerivative(bVector3 *ddv, float parameter) {}
 
-void tCubic3D::Update(float dt, float maxDeriv, float maxSecondDeriv) {
-    x.Update(dt, maxDeriv, maxSecondDeriv);
-    y.Update(dt, maxDeriv, maxSecondDeriv);
-    z.Update(dt, maxDeriv, maxSecondDeriv);
-}
+// Decl: 315
+float CalStepSize[7] = {16.0f, 64.0f, 256.0f, 1024.0f, 4096.0f, 16384.0f, 65536.0f};
+
+// Decl: 319
+float CalDiv[7] = {1.0f, 1.0f / 4, 1.0f / 16, 1.0f / 64, 1.0f / 256, 1.0f / 1024, 1.0f / 4096};
+
+// Decl: 323
+float CalMult[7] = {1.0f / 64, 1.0f / 256, 1.0f / 1024, 1.0f / 4096, 1.0f / 16384, 1.0f / 65536};
+
+void Spline::Calibrate() {}
+
+float Spline::LinearEstimateLength() {}
+
+float Spline::GetLength() {}
+
+float Spline::Dot(bVector3 *p, float fParam) {}
+
+float Spline::NormalDot(bVector3 *p, float fParam) {}
+
+float Spline::GetClosestParameter(bVector3 *p, float fDotDesired, float fTolerance) {}
+
+float Spline::GetParameter(bVector3 *p, float fTolerance) {}
+
+float Spline::GetParameter(float distance) {}
+
+void Spline::ZeroAllZValues() {}

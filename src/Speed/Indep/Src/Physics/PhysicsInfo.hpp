@@ -54,6 +54,7 @@ void Init();
 float AerodynamicDownforce(const Attrib::Gen::chassis &chassis, const float speed);
 float EngineInertia(const Attrib::Gen::engine &engine, const bool loaded);
 eInductionType InductionType(const Attrib::Gen::induction &induction);
+eInductionType InductionType(const Attrib::Gen::pvehicle &pvehicle);
 bool HasNos(const Attrib::Gen::pvehicle &pvehicle);
 bool HasRunflatTires(const Attrib::Gen::pvehicle &pvehicle);
 float NosBoost(const Attrib::Gen::nos &nos, const Tunings *tunings);
@@ -62,6 +63,7 @@ float InductionRPM(const Attrib::Gen::engine &engine, const Attrib::Gen::inducti
 float InductionBoost(const Attrib::Gen::engine &engine, const Attrib::Gen::induction &induction, float rpm, float spool, const Tunings *tunings,
                      float *psi);
 float Torque(const Attrib::Gen::engine &engine, float rpm);
+float MaxTorque(const Attrib::Gen::engine &engine, float &atrpm);
 Meters WheelDiameter(const Attrib::Gen::tires &tires, bool front);
 float MaxInductedPower(const Attrib::Gen::pvehicle &pvehicle, const Tunings *tunings);
 FtLbs AvgInductedTorque(const Attrib::Gen::engine &engine, const Attrib::Gen::induction &induction, const Attrib::Gen::transmission &transmission,
@@ -73,8 +75,11 @@ bool ShiftPoints(const Attrib::Gen::transmission &transmission, const Attrib::Ge
                  float *shift_up, float *shift_down, unsigned int numpts);
 Mps Speedometer(const Attrib::Gen::transmission &transmission, const Attrib::Gen::engine &engine, const Attrib::Gen::tires &tires, Rpm rpm,
                 GearID gear, const Tunings *tunings);
+bool EstimatePerformance(const Attrib::Gen::pvehicle &pvehicle, Performance &perf);
 bool EstimatePerformance(Performance &perf);
 bool ComputeAccelerationTable(const Attrib::Gen::pvehicle &pvehicle, float &top_speed, float *table, int num_entries);
+
+float Redline(const Attrib::Gen::pvehicle &pvehicle);
 
 extern Performance PerformanceWeights[7];
 

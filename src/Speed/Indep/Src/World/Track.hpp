@@ -19,9 +19,9 @@ class TopologyCoordinate : public bTNode<TopologyCoordinate> {
 class TrackOBB {
   public:
     void EndianSwap() {
-        bPlatEndianSwap(&TypeNameHash);
-        bPlatEndianSwap(&Matrix);
-        bPlatEndianSwap(&Dims);
+        bPlatEndianSwap(&this->TypeNameHash);
+        bPlatEndianSwap(&this->Matrix);
+        bPlatEndianSwap(&this->Dims);
     }
 
     unsigned int TypeNameHash; // offset 0x0, size 0x4
@@ -30,7 +30,6 @@ class TrackOBB {
     bVector3 Dims;             // offset 0x50, size 0x10
 };
 
-void EstablishRemoteCaffeineConnection();
 int GetNumTrackOBBs();
 TrackOBB *GetTrackOBB(int index);
 int LoaderTrackOBB(bChunk *chunk);

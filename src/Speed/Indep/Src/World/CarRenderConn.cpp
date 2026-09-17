@@ -45,14 +45,14 @@ struct TireState : public bTNode<TireState> {
         }
 
         void ResetGroup() {
-            mGroup = nullptr;
-            mEmitterKey = 0;
-            mMinVel = 0.0f;
-            mNeedsLazyInit = true;
+            this->mGroup = nullptr;
+            this->mEmitterKey = 0;
+            this->mMinVel = 0.0f;
+            this->mNeedsLazyInit = true;
 #ifndef EA_BUILD_A124
-            mZeroParticleFrameCount = 0;
+            this->mZeroParticleFrameCount = 0;
 #endif
-            mMaxVel = 0.0f;
+            this->mMaxVel = 0.0f;
         }
 
 #ifndef EA_BUILD_A124
@@ -269,7 +269,7 @@ void bRotateVector(bVector3 *dest, const bMatrix4 *m, bVector3 *v) {
 }
 
 void TireState::KillSkids() {
-    mSkidMaker.MakeNoSkid();
+    this->mSkidMaker.MakeNoSkid();
 }
 
 void TireState::DoSkids(float intensity, const bVector3 *deltaPos, const bMatrix4 *tirematrix, const bMatrix4 *bodymatrix, float SkidWidth) {
@@ -457,7 +457,7 @@ CarRenderConn::CarRenderConn(const Sim::ConnectionData &data, CarType ct, Render
     for (unsigned int i = 0; i < 4; i++) {
         this->mTireState[i] = new TireState();
 
-        GetAttributes().TireOffsets(reinterpret_cast<UMath::Vector4 &>(this->mTirePositions[i]), i);
+        this->GetAttributes().TireOffsets(reinterpret_cast<UMath::Vector4 &>(this->mTirePositions[i]), i);
         // missing stripped out ... = bVector4();
         this->mTireRadius[i] = UMath::Max(this->mTirePositions[i].w, Tweak_MinRenderTireRadius);
 
@@ -586,50 +586,51 @@ void CarRenderConn::UpdateParts(float dT, const RenderConn::Pkt_Car_Service &dat
     this->mPartState = data.mPartState;
 }
 
-// TODO the multification by M_TWOPI inside Sinr is getting optimized out I think
 void CarRenderConn::AddRoadNoise(float speed, unsigned int tires, const RoadNoiseRecord &noise) {
-    if (noise.Frequency * noise.Amplitude * noise.MaxSpeed > 0.0f) {
-        float intensity = UMath::Ramp(speed, noise.MinSpeed, noise.MaxSpeed);
-        float frequency = noise.Frequency * intensity;
-        float amplitude = this->GetAttributes().RoadNoise() * DEG2RAD(noise.Amplitude) * intensity;
-
-        unsigned int front = 3;
-        unsigned int rear = 12;
-        unsigned int right = 9;
-        unsigned int left = 6;
-
-        unsigned int do_front = tires & front;
-        unsigned int do_rear = tires & rear;
-        unsigned int do_left = tires & left;
-        unsigned int do_right = tires & right;
-        unsigned int do_pitch;
-        unsigned int do_roll = do_front | do_rear;
-
-        float noise_pitch = 0.0f;
-        if (do_roll) {
-            noise_pitch = amplitude * UMath::Sinr(this->mAnimTime * frequency) * 0.5f;
-            if (!do_front) {
-                noise_pitch = UMath::Abs(noise_pitch);
-            }
-            if (!do_rear) {
-                noise_pitch = -UMath::Abs(noise_pitch);
-            }
-        }
-
-        float noise_roll = 0.0f;
-        if (do_roll) {
-            noise_roll = amplitude * UMath::Sinr((this->mAnimTime + 0.33f) * frequency);
-            if (!do_right) {
-                noise_roll = UMath::Abs(noise_roll);
-            }
-            if (!do_left) {
-                noise_roll = -UMath::Abs(noise_roll);
-            }
-        }
-
-        this->mRoadNoise.y += noise_pitch;
-        this->mRoadNoise.x += noise_roll;
+    if (noise.Frequency * noise.Amplitude * noise.MaxSpeed <= 0.0f) {
+        return;
     }
+
+    float intensity = UMath::Ramp(speed, noise.MinSpeed, noise.MaxSpeed);
+    float frequency = noise.Frequency * intensity;
+    float amplitude = this->GetAttributes().RoadNoise() * DEG2RAD(noise.Amplitude) * intensity;
+
+    unsigned int front = 3;
+    unsigned int rear = 12;
+    unsigned int right = 9;
+    unsigned int left = 6;
+
+    unsigned int do_front = tires & front;
+    unsigned int do_rear = tires & rear;
+    unsigned int do_left = tires & left;
+    unsigned int do_right = tires & right;
+    unsigned int do_pitch;
+    unsigned int do_roll = do_front | do_rear;
+
+    float noise_pitch = 0.0f;
+    if (do_roll) {
+        noise_pitch = amplitude * (UMath::Sinr(this->mAnimTime * (frequency * UMath::TWOPI)) * 0.5f);
+        if (!do_front) {
+            noise_pitch = UMath::Abs(noise_pitch);
+        }
+        if (!do_rear) {
+            noise_pitch = -UMath::Abs(noise_pitch);
+        }
+    }
+
+    float noise_roll = 0.0f;
+    if (do_roll) {
+        noise_roll = amplitude * UMath::Sinr((this->mAnimTime + 0.33f) * (frequency * UMath::TWOPI));
+        if (!do_right) {
+            noise_roll = UMath::Abs(noise_roll);
+        }
+        if (!do_left) {
+            noise_roll = -UMath::Abs(noise_roll);
+        }
+    }
+
+    this->mRoadNoise.y += noise_pitch;
+    this->mRoadNoise.x += noise_roll;
 }
 
 static const RoadNoiseRecord Tweak_BlowOutNoise(4.0f, 1.0f, 0.0f, 10.0f);
@@ -706,7 +707,7 @@ void CarRenderConn::UpdateEngineAnimation(float dT, const RenderConn::Pkt_Car_Se
             } else if (this->mShifting < 0.0f) {
                 this->mShiftPitchAngle *= Tweak_EngineAnimShiftDownScale;
                 this->mShifting = this->mShifting + (dT * shift_speed) / max_pitch;
-                this->mShifting = UMath::Min(mShifting, 0.0f);
+                this->mShifting = UMath::Min(this->mShifting, 0.0f);
             }
         } else {
             this->mShifting = 0.0f;
@@ -739,7 +740,7 @@ void CarRenderConn::UpdateEngineAnimation(float dT, const RenderConn::Pkt_Car_Se
             this->mEngineTorqueAngle = UMath::Min(this->mEngineTorqueAngle, desired_angle);
         } else {
             this->mEngineTorqueAngle = this->mEngineTorqueAngle - rev_speed * dT;
-            this->mEngineTorqueAngle = UMath::Max(mEngineTorqueAngle, desired_angle);
+            this->mEngineTorqueAngle = UMath::Max(this->mEngineTorqueAngle, desired_angle);
         }
 
         this->mEngineTorqueAngle = UMath::Clamp(this->mEngineTorqueAngle, 0.0f, max_rev);
@@ -869,22 +870,31 @@ void CarRenderConn::UpdateTires(float dT, float carspeed, const RenderConn::Pkt_
 
     this->mWheelHop = UMath::Vector3::kZero;
     bool is_view_anchor = this->IsViewAnchor();
-    bool candofx = this->TestVisibility(renderModifier * Tweak_MaxDistanceForVehicleEffects);
+    bool candofx = this->TestVisibility(Tweak_MaxDistanceForVehicleEffects);
     CarRenderInfo *car_render_info = this->GetRenderInfo();
 
     for (unsigned int i = 0; i < 4; i++) {
         unsigned int axle = i >> 1;
-        bool onground = ((data.mGroundState >> i) & 1U) != 0;
-        bool is_flat = ((data.mBlowOuts >> i) & 1U) != 0;
+        bool onground = false;
+        bool is_flat = false;
+
+        if (((data.mGroundState >> i) & 1) != 0) {
+            onground = true;
+        }
+
+        if (((data.mBlowOuts >> i) & 1) != 0) {
+            is_flat = true;
+        }
+
         TireState *state = this->mTireState[i];
 
         eIdentity(&this->mTireMatrices[i]);
         eIdentity(&this->mBrakeMatrices[i]);
 
-        float dW = UMath::Clamp((data.mWheelSpeed[i] / this->mTireRadius[i]) * dT, -this->mMaxWheelRenderDeltaAngle, this->mMaxWheelRenderDeltaAngle);
+        float dW = (data.mWheelSpeed[i] / this->mTireRadius[i]) * dT;
         float compression = data.mCompressions[i] + (this->mTireRadius[i] - this->mPhysicsRadius[i]);
 
-        state->mRoll += dW;
+        state->mRoll += UMath::Clamp(dW, -this->mMaxWheelRenderDeltaAngle, this->mMaxWheelRenderDeltaAngle);
 
         if (static_cast<float>(M_TWOPI) <= state->mRoll) {
             state->mRoll -= static_cast<float>(M_TWOPI);
@@ -902,8 +912,8 @@ void CarRenderConn::UpdateTires(float dT, float carspeed, const RenderConn::Pkt_
         if (flatten_tires && is_flat) {
             compression += Tweak_TireBlowOffset;
 
-            float x_angle = UMath::Atan2r(-Tweak_TireBlowOffset, UMath::Abs(this->mTirePositions[i].y)) * -static_cast<float>(M_PI);
-            float y_angle = UMath::Atan2r(-Tweak_TireBlowOffset, UMath::Abs(this->mTirePositions[i].x)) * static_cast<float>(M_PI);
+            float x_angle = UMath::Atan2r(-Tweak_TireBlowOffset, UMath::Abs(this->mTirePositions[i].y)) * -0.5f;
+            float y_angle = UMath::Atan2r(-Tweak_TireBlowOffset, UMath::Abs(this->mTirePositions[i].x)) * 0.5f;
 
             if (this->mTirePositions[i].y < 0.0f) {
                 x_angle = -x_angle;
@@ -918,7 +928,7 @@ void CarRenderConn::UpdateTires(float dT, float carspeed, const RenderConn::Pkt_
             this->mFlatTireAngle.z += Tweak_TireBlowOffset * 0.25f;
         }
 
-        if (i > 1 && hop_wheels && onground) {
+        if (i > 1 && onground && hop_wheels) {
             float hop_speed_scale;
 
             if (0.0f < data.mTireSlip[i]) {
@@ -948,32 +958,28 @@ void CarRenderConn::UpdateTires(float dT, float carspeed, const RenderConn::Pkt_
         eMulVector(&state->mTirePos, &this->mRenderMatrix, &this->mTireMatrices[i].v3);
         state->UpdateWorld(this->GetWCollider(), this->GetFlag(CF_ISRAINING), is_flat);
 
-        if (onground) {
-            if (candofx) {
-                float skid = UMath::Max(UMath::Abs(data.mTireSkid[i] * 0.05f) - 0.1f, 0.0f);
-                float slip = UMath::Max(UMath::Abs(data.mTireSlip[i] * 0.2f) - 0.1f, 0.0f);
-                float skidmark_intensity = UMath::Sqrt(skid * skid + slip * slip);
+        if (onground && candofx) {
+            float skid = UMath::Max(UMath::Abs(data.mTireSkid[i] * 0.05f) - 0.1f, 0.0f);
+            float slip = UMath::Max(UMath::Abs(data.mTireSlip[i] * 0.2f) - 0.1f, 0.0f);
+            float skidmark_intensity = UMath::Sqrt(skid * skid + slip * slip);
 
-                if (0.0f < skidmark_intensity) {
-                    bVector4 delta_pos;
-                    float SkidWidth;
+            if (0.0f < skidmark_intensity) {
+                bVector4 delta_pos;
+                float SkidWidth;
 
-                    bSub(&delta_pos, &state->mTirePos, &state->mPrevTirePos);
-                    SkidWidth = this->GetAttributes().TireSkidWidth(i);
+                bSub(&delta_pos, &state->mTirePos, &state->mPrevTirePos);
+                SkidWidth = this->GetAttributes().TireSkidWidth(i);
 
-                    state->DoSkids(skidmark_intensity, reinterpret_cast<const bVector3 *>(&delta_pos), &this->mTireMatrices[i], &this->mRenderMatrix,
-                                   SkidWidth);
-                } else {
-                    state->KillSkids();
-                }
-
-                float slipfx_ratio = data.mTireSlip[i] * this->GetAttributes().SlipFX(axle);
-                float skidfx_ratio = data.mTireSkid[i] * this->GetAttributes().SkidFX(axle);
-
-                state->DoFX(slipfx_ratio, skidfx_ratio, carspeed, this->GetVelocity(), &this->mRenderMatrix, dT);
+                state->DoSkids(skidmark_intensity, reinterpret_cast<const bVector3 *>(&delta_pos), &this->mTireMatrices[i], &this->mRenderMatrix,
+                               SkidWidth);
             } else {
                 state->KillSkids();
             }
+
+            float slipfx_ratio = data.mTireSlip[i] * this->GetAttributes().SlipFX(axle);
+            float skidfx_ratio = data.mTireSkid[i] * this->GetAttributes().SkidFX(axle);
+
+            state->DoFX(slipfx_ratio, skidfx_ratio, carspeed, this->GetVelocity(), &this->mRenderMatrix, dT);
         } else {
             state->KillSkids();
         }
@@ -1190,15 +1196,15 @@ void CarRenderConn::Hide(bool b) {
                 this->mTireState[i]->KillSkids();
             }
 
-            VehicleRenderConn::Hide();
+            this->VehicleRenderConn::Hide();
 
             VehicleRenderConn::Effect *effect;
             for (effect = this->mEngineEffects.GetHead(); effect != this->mEngineEffects.EndOfList(); effect = effect->GetNext()) {
-                StopEffect(effect);
+                effect->Stop();
             }
 
             for (effect = this->mPipeEffects.GetHead(); effect != this->mPipeEffects.EndOfList(); effect = effect->GetNext()) {
-                StopEffect(effect);
+                effect->Stop();
             }
         }
     }
@@ -1222,7 +1228,7 @@ void CarRenderConn::OnFetch(float dT) {
 
 void CarRenderConn::OnLoaded(CarRenderInfo *carrender_info) {
     ProfileNode profile_node("TODO", 0);
-    VehicleRenderConn::OnLoaded(carrender_info);
+    this->VehicleRenderConn::OnLoaded(carrender_info);
 
     if (carrender_info == nullptr) {
         return;
@@ -1235,25 +1241,25 @@ void CarRenderConn::OnLoaded(CarRenderInfo *carrender_info) {
             unsigned int numSpokes = static_cast<signed char>(part_rim->GetSpokeCount());
 
             if (numSpokes == 0) {
-                numSpokes = bAbs(GetAttributes().WheelSpokeCount());
+                numSpokes = bAbs(this->GetAttributes().WheelSpokeCount());
             }
 
             if (numSpokes != 0) {
-                mMaxWheelRenderDeltaAngle = DEG2RAD(360.0f / (2.0f * numSpokes) - 1.0f);
+                this->mMaxWheelRenderDeltaAngle = DEG2RAD(360.0f / (2.0f * numSpokes) - 1.0f);
             }
         }
     }
 
-    carrender_info->InitEmitterPositions(mTirePositions);
+    carrender_info->InitEmitterPositions(this->mTirePositions);
 
-    if (mPipeEffects.IsEmpty()) {
+    if (this->mPipeEffects.IsEmpty()) {
         for (CarEmitterPosition *emitter_position = carrender_info->EmitterPositionList[10].GetHead();
              emitter_position != carrender_info->EmitterPositionList[10].EndOfList(); emitter_position = emitter_position->GetNext()) {
 
             ePositionMarker *position_marker = emitter_position->PositionMarker;
 
             if (position_marker) {
-                mPipeEffects.AddTail(new VehicleRenderConn::Effect(&position_marker->Matrix));
+                this->mPipeEffects.AddTail(new VehicleRenderConn::Effect(&position_marker->Matrix));
             } else {
                 bMatrix4 tempmat;
                 bIdentity(&tempmat);
@@ -1262,19 +1268,19 @@ void CarRenderConn::OnLoaded(CarRenderInfo *carrender_info) {
                 tempmat.v3.y = emitter_position->Y;
                 tempmat.v3.z = emitter_position->Z;
 
-                mPipeEffects.AddTail(new VehicleRenderConn::Effect(&tempmat));
+                this->mPipeEffects.AddTail(new VehicleRenderConn::Effect(&tempmat));
             }
         }
     }
 
-    if (mEngineEffects.IsEmpty()) {
+    if (this->mEngineEffects.IsEmpty()) {
         for (CarEmitterPosition *emitter_position = carrender_info->EmitterPositionList[9].GetHead();
              emitter_position != carrender_info->EmitterPositionList[9].EndOfList(); emitter_position = emitter_position->GetNext()) {
 
             ePositionMarker *position_marker = emitter_position->PositionMarker;
 
             if (position_marker) {
-                mEngineEffects.AddTail(new VehicleRenderConn::Effect(&position_marker->Matrix));
+                this->mEngineEffects.AddTail(new VehicleRenderConn::Effect(&position_marker->Matrix));
             } else {
                 bMatrix4 tempmat;
                 bIdentity(&tempmat);
@@ -1283,7 +1289,7 @@ void CarRenderConn::OnLoaded(CarRenderInfo *carrender_info) {
                 tempmat.v3.y = emitter_position->Y;
                 tempmat.v3.z = emitter_position->Z;
 
-                mEngineEffects.AddTail(new VehicleRenderConn::Effect(&tempmat));
+                this->mEngineEffects.AddTail(new VehicleRenderConn::Effect(&tempmat));
             }
         }
     }

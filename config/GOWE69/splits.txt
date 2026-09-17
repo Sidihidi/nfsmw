@@ -71,14 +71,14 @@ Speed/Indep/SourceLists/zEAXSound.cpp:
 	.text       start:0x800A6128 end:0x800CAF5C
 	.ctors      start:0x803C8B84 end:0x803C8B88
 	.rodata     start:0x803D5E38 end:0x803D9050
-	.data       start:0x80417634 end:0x80417D88
+	.data       start:0x80417634 end:0x80417E2C
 	.bss        start:0x8045B268 end:0x8045DE60
 
 Speed/Indep/SourceLists/zEAXSound2.cpp:
 	.text       start:0x800CAF5C end:0x800F486C
 	.ctors      start:0x803C8B88 end:0x803C8B8C
 	.rodata     start:0x803D9050 end:0x803DD6D8
-	.data       start:0x80417D88 end:0x8041A5A4
+	.data       start:0x80417E2C end:0x8041A5A4
 	.bss        start:0x8045DE60 end:0x8045ECB0
 
 Speed/Indep/SourceLists/zEcstasy.cpp:
@@ -140,14 +140,14 @@ Speed/Indep/SourceLists/zMain.cpp:
 	.ctors      start:0x803C8BAC end:0x803C8BB0
 	.rodata     start:0x803EF580 end:0x803F4878
 	.data       start:0x8041D7EC end:0x8041E508
-	.bss        start:0x80474024 end:0x8047F914
+	.bss        start:0x80474024 end:0x8047F8C4
 
 Speed/Indep/SourceLists/zMisc.cpp:
 	.text       start:0x801FAB64 end:0x8020DC1C
 	.ctors      start:0x803C8BB0 end:0x803C8BB4
 	.rodata     start:0x803F4878 end:0x803F6730
 	.data       start:0x8041E508 end:0x8041ED7C
-	.bss        start:0x8047F914 end:0x804801A4
+	.bss        start:0x8047F8C4 end:0x804801A4
 	.bss        start:0x804FE9CC end:0x804FEA4C align:4 common
 
 Speed/Indep/SourceLists/zMiscSmall.cpp:
@@ -862,6 +862,7 @@ Speed/Indep/Libs/snd/9/source/library/cmn/smemman.c:
 
 Speed/Indep/Libs/snd/9/source/library/cmn/sndfxbus.cpp:
 	.text       start:0x80360550 end:0x80360760
+	.rodata     start:0x80412860 end:0x80412870
 
 Speed/Indep/Libs/snd/9/source/library/cmn/spatkey.c:
 	.text       start:0x80360760 end:0x8036080C

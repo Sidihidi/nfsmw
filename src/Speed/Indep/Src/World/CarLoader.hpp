@@ -6,9 +6,7 @@
 #include "CarInfo.hpp"
 #include "Speed/Indep/bWare/Inc/bList.hpp"
 
-typedef int32 CarLoaderHandle;
-
-extern int CarLoaderMemoryPoolNumber;
+extern int CarLoaderMemoryPoolNumber; // Decl: 28
 
 class LoadedTexturePack;
 class LoadedSolidPack;
@@ -43,7 +41,9 @@ class CarLoader {
         return bMalloc(size, debug_name, 0, CarLoaderMemoryPoolNumber & 0xF | 0x2000);
     };
 
-    void FreeUserMemory(void *mem);
+    void FreeUserMemory(void *mem) {
+        bFree(mem);
+    }
 
     CarLoaderHandle Load(RideInfo *ride_info);
 
@@ -60,7 +60,7 @@ class CarLoader {
     void ServiceTweakables();
 
     int IsLoadingInProgress() {
-        return LoadingInProgress;
+        return this->LoadingInProgress;
     }
 
     void EnsureHasLoaded(CarLoaderHandle handle);
@@ -251,7 +251,7 @@ void InitCarLoader();
 void CloseCarLoader();
 int CarInfo_GetMaxCompositingBufferSize();
 
-extern CarLoader TheCarLoader;
+extern CarLoader TheCarLoader; // Decl: 275
 extern int UsePrecompositeVinyls;
 
 #endif

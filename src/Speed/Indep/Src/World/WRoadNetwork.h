@@ -21,6 +21,7 @@ struct TrackPathBarrier;
 class IBody;
 
 // total size: 0x1
+// Decl: 83
 class WRoadNetwork : public Debugable {
   public:
     USE_FASTALLOC(WRoadNetwork);
@@ -50,7 +51,7 @@ class WRoadNetwork : public Debugable {
     int GetRightMostTrafficEntrance(int node_number, int onto_segment);
     bool GetSegmentProfiles(const WRoadSegment &segment, const WRoadProfile **profile);
     int GetSegmentNumTrafficLanes(const WRoadSegment &segment);
-    int GetSegmentTrafficLaneInd(const WRoadSegment &segment, int lane_count);
+    int GetSegmentTrafficLaneInd(const WRoadSegment &segment, int laneCount);
     void GetSegmentEndPoints(const WRoadSegment &segment, UMath::Vector3 &start, UMath::Vector3 &end);
     void GetPointOnSegment(const WRoadSegment &segment, float d, UMath::Vector3 &point);
     void GetPointOnSegment(const UMath::Vector3 &start, const UMath::Vector3 &end, const WRoadSegment &segment, float d, UMath::Vector3 &point);
@@ -75,7 +76,9 @@ class WRoadNetwork : public Debugable {
 
     // bool IsValid() {}
 
-    // bool HasValidTrafficRoads() {}
+    bool HasValidTrafficRoads() {
+        return this->fValidTrafficRoads;
+    }
 
     const WRoadNode *GetNode(int index) {
         return &fNodes[index];
@@ -117,7 +120,9 @@ class WRoadNetwork : public Debugable {
         return fSegments[index].fRoadID;
     }
 
-    // void IncSegmentStamp() {}
+    void IncSegmentStamp() {
+        this->fSegmentStamp++;
+    }
 
     // unsigned long GetSegmentStamp() {}
 
@@ -148,7 +153,35 @@ class WRoadNetwork : public Debugable {
     static unsigned int nTotalMemoryUsage;        // size: 0x4, address: 0x80438FF8
 };
 
+// total size: 0x40
+// Decl: 397
+struct NavCookie {
+    UMath::Vector2 Left;               // offset 0x0, size 0x8
+    UMath::Vector2 Right;              // offset 0x8, size 0x8
+    UMath::Vector2 Forward;            // offset 0x10, size 0x8
+    float Length;                      // offset 0x18, size 0x4
+    float Curvature;                   // offset 0x1C, size 0x4
+    float LeftOffset;                  // offset 0x20, size 0x4
+    float RightOffset;                 // offset 0x24, size 0x4
+    unsigned int Flags;                // offset 0x28, size 0x4
+    float Padding;                     // offset 0x2C, size 0x4
+    UMath::Vector3 Centre;             // offset 0x30, size 0xC
+    short SegmentParameter;            // offset 0x3C, size 0x2
+    unsigned short SegmentNumber : 15; // offset 0x3E, size 0x2
+    unsigned short SegmentNodeInd : 1; // offset 0x3E, size 0x2
+
+    void SetSegmentParameter(float t) {
+        SegmentParameter = static_cast<short>(bClamp(t, 0.0f, 1.0f) * 65535.0f);
+    }
+
+    float GetSegmentParameter() const {
+        const float recip = 1.0f / 65535.0f;
+        return static_cast<float>(SegmentParameter) * recip;
+    }
+};
+
 // total size: 0x2F0
+// Decl: 425
 class WRoadNav {
   public:
     enum ENavType {
@@ -222,172 +255,184 @@ class WRoadNav {
     void SetControlPos(const WRoadSegment &segment, bool is_start);
 
     bool IsValid() const {
-        return fValid;
+        return this->fValid;
     }
 
     UMath::Vector3 &GetPosition() {
-        return fPosition;
+        return this->fPosition;
     }
 
     const UMath::Vector3 &GetRightPosition() const {
-        return fRightPosition;
+        return this->fRightPosition;
     }
 
     const UMath::Vector3 &GetLeftPosition() const {
-        return fLeftPosition;
+        return this->fLeftPosition;
     }
 
     UMath::Vector3 &GetForwardVector() {
-        return fForwardVector;
+        return this->fForwardVector;
     }
 
     float GetCurvature() {
-        return fCurvature;
+        return this->fCurvature;
     }
 
     const NavCookie &GetCurrentCookie() {
-        return mCurrentCookie;
+        return this->mCurrentCookie;
     }
 
     bool GetRaceFilter() const {
-        return bRaceFilter && WRoadNetwork::Get().IsRaceFilterValid();
+        return this->bRaceFilter && WRoadNetwork::Get().IsRaceFilterValid();
     }
 
     void SetRaceFilter(bool b) {
-        bRaceFilter = b && WRoadNetwork::Get().IsRaceFilterValid();
+        this->bRaceFilter = b && WRoadNetwork::Get().IsRaceFilterValid();
     }
 
     bool GetTrafficFilter() const {
-        return bTrafficFilter;
+        return this->bTrafficFilter;
     }
 
     void SetTrafficFilter(bool b) {
-        bTrafficFilter = b;
+        this->bTrafficFilter = b;
     }
 
     bool GetCopFilter() const {
-        return bCopFilter;
+        return this->bCopFilter;
     }
 
     void SetCopFilter(bool b) {
-        bCopFilter = b;
+        this->bCopFilter = b;
     }
 
     EPathType GetPathType() const {
-        return fPathType;
+        return this->fPathType;
     }
 
     bool RespectFullBarriers() {
-        return fPathType != kPathCop && fPathType != kPathChopper;
+        return this->fPathType != kPathCop && this->fPathType != kPathChopper;
     }
 
     bool RespectDriveThroughBarriers() {
-        return fPathType == kPathRacer || fPathType == kPathPlayer || fPathType == kPathGPS || fPathType == kPathRaceRoute;
+        return this->fPathType == kPathRacer || this->fPathType == kPathPlayer || this->fPathType == kPathGPS || this->fPathType == kPathRaceRoute;
     }
 
     ENavType GetNavType() const {
-        return fNavType;
+        return this->fNavType;
     }
 
     void SetNavType(ENavType type) {
-        fNavType = type;
+        this->fNavType = type;
     }
 
     ELaneType GetLaneType() const {
-        return fLaneType;
+        return this->fLaneType;
     }
 
     void SetLaneType(ELaneType type) {
-        fLaneType = type;
+        this->fLaneType = type;
     }
 
     bool GetDecisionFilter() {
-        return bDecisionFilter;
+        return this->bDecisionFilter;
     }
 
     void SetDecisionFilter(bool b) {
-        bDecisionFilter = b;
+        this->bDecisionFilter = b;
     }
 
     int IsOccludedByAvoidable() const {
-        return bCookieTrail ? nAvoidableOcclusion : 0;
+        return this->bCookieTrail ? this->nAvoidableOcclusion : 0;
     }
 
     const UMath::Vector3 &GetOccludedPosition() const {
-        return IsOccluded() ? fOccludedPosition : fPosition;
+        return this->IsOccluded() ? this->fOccludedPosition : this->fPosition;
     }
 
     bool IsOccluded() const {
-        return bCookieTrail && (nRoadOcclusion != 0 || nAvoidableOcclusion != 0);
+        return this->bCookieTrail && (this->nRoadOcclusion != 0 || this->nAvoidableOcclusion != 0);
+    }
+
+    float GetOccludingTrailSpeed() const {
+        return this->fOccludingTrailSpeed;
     }
 
     bool IsOccludedFromBehind() const {
-        return IsOccludedByAvoidable() != 0 && bOccludedFromBehind;
+        return this->IsOccludedByAvoidable() != 0 && this->bOccludedFromBehind;
     }
 
     const WRoadSegment *GetSegment() const {
-        return WRoadNetwork::Get().GetSegment(fSegmentInd);
+        return WRoadNetwork::Get().GetSegment(this->fSegmentInd);
     }
 
     short GetSegmentInd() const {
-        return fSegmentInd;
+        return this->fSegmentInd;
     }
 
     short GetRoadInd() const {
-        return WRoadNetwork::Get().GetSegRoadInd(fSegmentInd);
+        return WRoadNetwork::Get().GetSegRoadInd(this->fSegmentInd);
     }
 
     char GetNodeInd() const {
-        return fNodeInd;
+        return this->fNodeInd;
     }
 
     char HitDeadEnd() const {
-        return fDeadEnd;
+        return this->fDeadEnd;
     }
 
     float GetSegmentTime() const {
-        return fSegTime;
+        return this->fSegTime;
     }
 
     char GetLaneInd() const {
-        return fLaneInd;
+        return this->fLaneInd;
     }
 
     void SetLaneInd(char ind) {
-        fToLaneInd = ind;
-        fLaneInd = ind;
+        this->fToLaneInd = ind;
+        this->fLaneInd = ind;
+    }
+
+    char GetToLaneInd() const {
+        return this->fToLaneInd;
     }
 
     float GetLaneOffset() const {
-        return fLaneOffset;
+        return this->fLaneOffset;
     }
 
     void SetLaneOffset(float offset) {
-        fLaneOffset = offset;
-        fToLaneOffset = offset;
-        fFromLaneOffset = offset;
+        this->fLaneOffset = offset;
+        this->fToLaneOffset = offset;
+        this->fFromLaneOffset = offset;
     }
 
     float GetOutOfBounds() {
-        return mOutOfBounds;
+        return this->mOutOfBounds;
+    }
+
+    const UMath::Vector3 &GetApexPosition() const {
+        return this->fApexPosition;
     }
 
     void DetermineDragLane() {
-        ChangeDragLanes(0);
+        this->ChangeDragLanes(0);
     }
 
     bool HasCookieTrail() const {
-        return pCookieTrail != nullptr;
+        return this->bCookieTrail;
     }
 
     void ResetCookieTrail();
 
     AIVehicle *GetVehicle() {
-        return pAIVehicle;
+        return this->pAIVehicle;
     }
 
     float GetVehicleHalfWidth() {
-        return fVehicleHalfWidth;
+        return this->fVehicleHalfWidth;
     }
 
     void ChangeLanes(float newOffset, float dist);
@@ -401,7 +446,7 @@ class WRoadNav {
     void SetStartEndPos(const WRoadSegment &segment, float startOffset, float endOffset);
 
     void SetStartEndPos(const WRoadSegment &segment, float offset) {
-        SetStartEndPos(segment, offset, offset);
+        this->SetStartEndPos(segment, offset, offset);
     }
 
     int FindClosestSegmentInd(const UMath::Vector3 &point, const UMath::Vector3 &dir, float dirWeight, UMath::Vector3 &closestPoint, float &time);
@@ -419,26 +464,26 @@ class WRoadNav {
     void Reverse();
 
     bool HasPath() const {
-        if (pPathSegments == nullptr) {
+        if (this->pPathSegments == nullptr) {
             return false;
         }
-        return nPathSegments > 0;
+        return this->nPathSegments > 0;
     }
 
     unsigned short GetPathSegment(int n) {
-        return pPathSegments[n];
+        return this->pPathSegments[n];
     }
 
     unsigned short *GetPathSegments() {
-        return pPathSegments;
+        return this->pPathSegments;
     }
 
     void SetNumPathSegments(int n) {
-        nPathSegments = n;
+        this->nPathSegments = n;
     }
 
     int GetNumPathSegments() {
-        return nPathSegments;
+        return this->nPathSegments;
     }
 
     int GetMaxPathSegments() {
@@ -450,12 +495,14 @@ class WRoadNav {
     float GetPathDistanceRemaining();
 
     void SetPathGoal(unsigned short segment_number, float param) {
-        bCrossedPathGoal = false;
-        nPathGoalSegment = segment_number;
-        fPathGoalParam = param;
+        this->bCrossedPathGoal = false;
+        this->nPathGoalSegment = segment_number;
+        this->fPathGoalParam = param;
     }
 
-    bool IsGoalInCookieTrail() {}
+    bool IsGoalInCookieTrail() {
+        return this->IsSegmentInCookieTrail(this->nPathGoalSegment, true);
+    }
 
     bool IsPointInCookieTrail(const UMath::Vector3 &position_3d, float margin);
     void RebuildSplines(const WRoadSegment *segment);
@@ -542,12 +589,12 @@ class WRoadNav {
 class WRoadNavWithCookies : public WRoadNav {
   public:
     WRoadNavWithCookies() {
-        SetCookieTrail(&mCookieTrail);
+        this->SetCookieTrail(&this->mCookieTrail);
     }
 
     // Overrides: WRoadNav
     ~WRoadNavWithCookies() override {
-        SetCookieTrail((CookieTrail<NavCookie, 32> *)nullptr);
+        this->SetCookieTrail((CookieTrail<NavCookie, 32> *)nullptr);
     }
 
   private:

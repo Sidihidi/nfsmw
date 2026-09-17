@@ -5,7 +5,7 @@
 #include "bList.hpp"
 #include <Allocator/iallocator.h>
 
-// TODO this doesn't exist
+// TODO this file doesn't exist
 
 // total size: 0x10
 class FreeBlock : public bTNode<FreeBlock> {
@@ -126,5 +126,7 @@ void bMemorySetOverflowPoolNumber(int pool_num, int overflow_pool_number);
 void bSetMemoryPoolOverrideInfo(int pool_num, MemoryPoolOverrideInfo *override_info);
 
 void *bWareMalloc(int size, const char *debug_text, int debug_line, int allocation_params);
+
+bool bSetMemoryPoolDebugTracing(int pool_num, bool on_off);
 
 #endif

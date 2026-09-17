@@ -17,15 +17,15 @@ extern SlotPool *SkidSetSlotPool;
 class SkidSegment {
   public:
     bVector3 *GetPosition() {
-        return reinterpret_cast<bVector3 *>(Position);
+        return reinterpret_cast<bVector3 *>(this->Position);
     }
 
     void SetIntensity(uint8 intensity) {
-        Intensity = intensity;
+        this->Intensity = intensity;
     }
 
     uint8 GetIntensity() {
-        return Intensity;
+        return this->Intensity;
     }
 
     void SetPoints(bVector3 *position, bVector3 *delta_position);
@@ -68,7 +68,16 @@ class SkidSet : public bTNode<SkidSet> {
   public:
     friend class SkidMaker;
 
-    USE_SLOTALLOC(SkidSetSlotPool); // TODO bMalloc instead of bOMalloc?!
+    // Like USE_SLOTALLOC but with bMalloc: the original allocates with bMalloc here.
+    void *operator new(size_t size) {
+        return bMalloc(SkidSetSlotPool);
+    }
+    void *operator new(size_t size, const char *name) {
+        return bOMalloc(SkidSetSlotPool);
+    }
+    void operator delete(void *ptr) {
+        bFree(SkidSetSlotPool, ptr);
+    }
 
     SkidSet(SkidMaker *skid_maker, bVector3 *position, bVector3 *delta_position, int terrain_type, float intensity);
     ~SkidSet();
@@ -77,30 +86,30 @@ class SkidSet : public bTNode<SkidSet> {
     void Render(eView *view, uint8 alpha);
 
     bVector3 *GetBBoxMax() {
-        return &BBoxMax;
+        return &this->BBoxMax;
     }
 
     bVector3 *GetBBoxMin() {
-        return &BBoxMin;
+        return &this->BBoxMin;
     }
 
     bVector3 *GetBBoxCentre() {
-        return &BBoxCentre;
+        return &this->BBoxCentre;
     }
 
   private:
     int AddSegment(bVector3 *position, bVector3 *delta_position, bool skid_is_flaming, float intensity);
 
     int GetTerrainType() {
-        return TheTerrainType;
+        return this->TheTerrainType;
     }
 
     void GetLastPoints(bVector3 *position, bVector3 *delta_position) {
-        SkidSegments[NumSkidSegments - 1].GetPoints(position, delta_position);
+        this->SkidSegments[this->NumSkidSegments - 1].GetPoints(position, delta_position);
     }
 
     float GetLastIntensity() {
-        return static_cast<float>(SkidSegments[NumSkidSegments - 1].GetIntensity()) * (1.0f / 255.0f);
+        return static_cast<float>(this->SkidSegments[this->NumSkidSegments - 1].GetIntensity()) * (1.0f / 255.0f);
     }
 
     bVector3 LastNormal;                                     // offset 0x8, size 0x10

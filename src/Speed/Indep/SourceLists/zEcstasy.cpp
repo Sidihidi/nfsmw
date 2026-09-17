@@ -1,3 +1,8 @@
+// TODO remove
+#ifdef _MSC_VER
+#pragma warning(disable : 4716)
+#endif
+
 #include "Speed/Indep/Src/Ecstasy/Ecstasy.cpp"
 
 #include "Speed/Indep/Src/Ecstasy/eStreamingPack.cpp"
@@ -26,6 +31,8 @@
 #include "Speed/GameCube/Src/Ecstasy/eStrip.cpp"
 
 #include "Speed/GameCube/Src/Ecstasy/eSolidPlat.cpp"
+
+#include "Speed/GameCube/Src/Ecstasy/eViewPlat.cpp"
 #endif
 
 #include "Speed/Indep/Src/Ecstasy/EmitterSystem.cpp"

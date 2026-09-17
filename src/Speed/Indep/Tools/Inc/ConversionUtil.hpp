@@ -1,11 +1,10 @@
-/*
- *  A collection of functions to convert to and from various units.
- */
 #ifndef CONVERSION_UTIL_H
 #define CONVERSION_UTIL_H
 
 #include "types.h"
 #include "Speed/Indep/Src/Physics/PhysicsTypes.h"
+
+// TODO move these to UMath.h, this file is actually for other stuff
 
 // Credit: Brawltendo
 
@@ -15,8 +14,16 @@ inline Mph MPS2MPH(const Mps _mps_) {
     return _mps_ * 2.23699f;
 }
 
+inline Kph MPS2KPH(const Mps _mps_) {
+    return _mps_ * 3.6f;
+}
+
 inline Mps MPH2MPS(const Mph _mph_) {
     return _mph_ * 0.44703001f;
+}
+
+inline float MPH2KPH(const float _mph_) {
+    return _mph_ * 1.60931f;
 }
 
 inline float DEG2ANGLE(const float _deg_) {
@@ -39,8 +46,8 @@ inline float DEG2RAD(const float _deg_) {
     return _deg_ * 0.017453f; //  ((float)M_PI / 180.f); // TODO why doesn't the PI one match?
 }
 
-inline float RAD2DEG(const float _rad_) {
-    return _rad_ * (180.f / (float)M_PI);
+inline float RAD2DEG(float a) {
+    return a * (180.f / (float)M_PI);
 }
 
 inline float INCH2METERS(const float _inches_) {
@@ -75,8 +82,16 @@ inline Hp NM2HP(const Nm _nm, const Rpm _rpm) {
     return _nm * 0.7376f * _rpm / 5252.0f;
 }
 
-inline Mps KPH2MPS(Kph x) {
-    return x / 3.6f;
+inline Mps KPH2MPS(const float _kph_) {
+    return _kph_ / 3.6f;
+}
+
+inline Meters METERS2FT(const Meters _meters_) {
+    return _meters_ * 3.28080f;
+}
+
+inline float LB2KG(const float _lb_) {
+    return _lb_ * 0.45359f;
 }
 
 #endif

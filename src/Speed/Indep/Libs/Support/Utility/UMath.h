@@ -64,7 +64,9 @@ inline float ASinr(const float x) {
 #endif
 }
 
-void BuildRotate(Matrix4 &m, float r, float x, float y, float z);
+inline Angle ACosa(const float x) {
+    return VU0_ACos(x);
+}
 
 float Ceil(const float x);
 
@@ -74,6 +76,10 @@ inline float Distance(const Vector3 &a, const Vector3 &b) {
 
 inline float Distancexz(const Vector3 &a, const Vector3 &b) {
     return VU0_v3distancexz(a, b);
+}
+
+inline float Distancexz(const Vector4 &a, const Vector4 &b) {
+    return VU0_v4distancexz(a, b);
 }
 
 inline float DistanceSquare(const Vector3 &a, const Vector3 &b) {
@@ -163,6 +169,15 @@ inline void Mult(const Vector4 &a, const Vector4 &b, Vector4 &r) {
 }
 #endif
 
+inline void Init(UMath::Matrix4 &m) {
+    VU0_MATRIX4Init(m);
+}
+
+// Decl: Carbon: 364, GC MW: 357, PS2 MW: TODO
+inline void Init(Vector4 &a) {
+    VU0_v4Init(a);
+}
+
 inline void Mult(const Matrix4 &a, const Matrix4 &b, Matrix4 &r) {
     VU0_MATRIX4_mult(a, b, r);
 }
@@ -203,6 +218,10 @@ inline void QuaternionToMatrix4(const Vector4 &q, Matrix4 &m) {
 #else
 void QuaternionToMatrix4(const Vector4 &q, Matrix4 &m);
 #endif
+
+inline void Add(Vector3 &r, const Vector3 &b) {
+    VU0_v3add(r, b, r);
+}
 
 inline void Add(const Vector3 &a, const Vector3 &b, Vector3 &r) {
     VU0_v3add(a, b, r);
@@ -261,6 +280,10 @@ inline void AddScale(const Vector3 &a, const Vector3 &b, const float s, Vector3 
 
 inline void Sub(const Vector3 &a, const Vector3 &b, Vector3 &r) {
     VU0_v3sub(a, b, r);
+}
+
+inline void Sub(const Vector4 &a, const Vector4 &b, Vector4 &r) {
+    VU0_v4sub(a, b, r);
 }
 
 inline void Subxyz(const Vector4 &a, const Vector4 &b, Vector4 &r) {
@@ -361,6 +384,11 @@ inline void UnitCross(const Vector3 &a, const Vector3 &b, Vector3 &r) {
     VU0_v3unitcrossprod(a, b, r);
 }
 #endif
+
+// Decl: 107
+inline void UnitCrossxyz(const Vector4 &a, const Vector4 &b, Vector4 &r) {
+    VU0_v4unitcrossprodxyz(a, b, r);
+}
 
 inline float Normalize(Vector3 &r) {
     float m = VU0_v3length(r);
@@ -520,7 +548,7 @@ inline unsigned int Max(const unsigned int a, const unsigned int b) {
     return a < b ? b : a;
 }
 
-#ifdef CLANGD_DAMNIT
+#if defined(CLANGD_DAMNIT) && defined(EA_PLATFORM_GAMECUBE)
 inline size_t Max(const size_t a, const size_t b) {
     return a < b ? b : a;
 }
@@ -543,10 +571,12 @@ inline float Limit(const float a, const float l) {
 
 } // namespace UMath
 
+void BuildRotate(UMath::Matrix4 &m, float r, float x, float y, float z);
+
 #ifndef EA_BUILD_A124
-// TODO inline
+// TODO this doesn't show up in the dwarf as an inline yet
 // they moved this since outside the namespace after the alpha
-void OrthoInverse(UMath::Matrix4 &m);
+inline void OrthoInverse(UMath::Matrix4 &m);
 #endif
 
 struct UQuat : public UMath::Vector4 {

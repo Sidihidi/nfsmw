@@ -15,6 +15,8 @@
 #include "Speed/Xenon/Src/Ecstasy/eLightPlat.hpp"
 #elif defined(EA_PLATFORM_PLAYSTATION2)
 #include "Speed/PSX2/Src/Ecstasy/eLightPlat.hpp"
+#elif defined(EA_PLATFORM_WIN32)
+#include "Speed/PC/Src/Ecstasy/eLightPlat.hpp"
 #endif
 
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
@@ -276,6 +278,7 @@ int elSetupLightContext(eDynamicLightContext *light_context, eShaperLightRig *sh
                         bVector4 *camera_world_position, eView *view);
 void RestoreShaperRig(eShaperLightRig *ShaperRigP, uint32 slot, eShaperLightRig *ShaperRigBP);
 void AddQuickDynamicLight(eShaperLightRig *ShaperRigP, uint32 slot, float r, float g, float b, float intensity, bVector3 *position);
+void SetSelectCarLighting(int, float, int);
 
 extern int PrintLightQuery;
 

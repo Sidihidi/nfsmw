@@ -6,9 +6,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-// TODO
-void *memset(void *, int, unsigned long, ...);
-
 char *_nan_table[4] = {
     "-1.#INF",
     "1.#INF ",
@@ -55,7 +52,7 @@ int bReleasePrintf(const char *fmt, ...) {
     if (EnableReleasePrintf) {
         va_start(argList, fmt);
         // TODO returning this causes issues??
-        bVPrintf(fmt, &argList);
+        bVPrintf(fmt, argList);
         va_end(argList);
     } else {
         return 0;
@@ -78,14 +75,14 @@ int bVPrintf(char terminal_channel, char *fmt, char *argList) {}
 int bSPrintf(char *destString, const char *fmt, ...) {
     va_list argList;
     va_start(argList, fmt);
-    bVSPrintf(destString, fmt, &argList);
+    bVSPrintf(destString, fmt, argList);
     va_end(argList);
 }
 
 int bSNPrintf(char *buf, int max_len, const char *format, ...) {
     va_list argList;
     va_start(argList, format);
-    bVSNPrintf(buf, max_len, format, &argList);
+    bVSNPrintf(buf, max_len, format, argList);
     va_end(argList);
 }
 
@@ -190,7 +187,7 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
 
     ch = *fmt++;
 
-    while (ch != '\0') {
+    while (ch != '\0' && outLen >= 0) {
         int ci = ch - 0x20;
         int charType;
         if (static_cast<unsigned char>(ci) <= 0x5A) {
@@ -327,15 +324,16 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                         radix = 10;
 
                     GENERIC_INT: {
-                        char *p;
+                        char *p = &cvtbuf[62];
                         unsigned long long number;
                         long long tempNumber;
                         char digit;
                         int size;
                         int digit_count;
-                        volatile int group_flag;
+                        int group_flag;
 
                         if (flags & FL_SHORT) {
+                            size = 16;
                             if (flags & FL_SIGNED) {
                                 tempNumber = static_cast<short>(va_arg(argList, int));
                             } else {
@@ -381,7 +379,6 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                             prefixSz = 0;
                         }
 
-                        p = cvtbuf + 63;
                         digit_count = 0;
                         group_flag = 0;
 
@@ -391,27 +388,24 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                             }
                         }
 
-                        {
-                            char *cvtbuf_base = cvtbuf;
-                            while (precision-- > 0 || number != 0) {
-                                if (group_flag != 0) {
-                                    digit_count++;
-                                    if (digit_count > g_locale.group_len) {
-                                        *p = g_locale.group_char;
-                                        p--;
-                                        digit_count = 1;
-                                    }
+                        while (precision-- > 0 || number != 0) {
+                            if (group_flag != 0) {
+                                digit_count++;
+                                if (digit_count > g_locale.group_len) {
+                                    *p = g_locale.group_char;
+                                    p--;
+                                    digit_count = 1;
                                 }
-                                digit = static_cast<char>((number % radix) + '0');
-                                number = number / radix;
-                                if (digit > '9') {
-                                    digit = static_cast<char>(digit + hexAdd);
-                                }
-                                *p = digit;
-                                p--;
                             }
-                            size = static_cast<int>(cvtbuf_base - (p - 63));
+                            digit = static_cast<char>((number % radix) + '0');
+                            number = number / radix;
+                            if (digit > '9') {
+                                digit = static_cast<char>(digit + hexAdd);
+                            }
+                            *p = digit;
+                            p--;
                         }
+                        size = static_cast<int>(&cvtbuf[63] - p);
 
                         stringLength = size - 1;
                         if (flags & FL_FORCEOCTAL) {
@@ -541,17 +535,15 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                             }
 
                             if (d >= 1.0) {
-                                int initialDigitPos = digit_pos;
-
                                 do {
                                     if (group_flag) {
                                         int groupLen = static_cast<int>(static_cast<signed char>(g_locale.group_len));
                                         int mod = (digit_pos / groupLen) * groupLen;
-                                        if (digit_pos == mod && digit_pos != initialDigitPos) {
+                                        if (digit_pos == mod && digit_pos != count + 1) {
                                             *p++ = g_locale.group_char;
                                         }
+                                        digit_pos--;
                                     }
-                                    digit_pos--;
 
                                     int digitInt = static_cast<int>(number / d);
                                     digit = static_cast<char>(digitInt);
@@ -587,13 +579,12 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                             if (number * 10.0 >= 0.5) {
                                 {
                                     char *q = p - 1;
-                                    char c = *q;
                                     while (true) {
-                                        if (c == '9') {
+                                        if (*q == '9') {
                                             *q = '0';
-                                        } else if (c != decimalChr) {
-                                            if (!group_flag || c != g_locale.group_char) {
-                                                *q = static_cast<char>(c + 1);
+                                        } else if (*q != decimalChr) {
+                                            if (!group_flag || *q != g_locale.group_char) {
+                                                *q = static_cast<char>(*q + 1);
                                                 if (q < stringOut) {
                                                     stringOut--;
                                                 }
@@ -601,7 +592,6 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                                             }
                                         }
                                         q--;
-                                        c = *q;
                                     }
                                 }
                             }
@@ -662,7 +652,7 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                             precision = 2;
                         }
 
-                        if (lowerVal != 0 || precision > 0) {
+                        if (lowerVal != 0 || precision != 0) {
                             p -= (precision - 1);
                             int fracSize = precision + 1;
 
@@ -755,8 +745,6 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                     }
 
                     case 'v': {
-                        char tempBuffer[64];
-                        int vectType;
 
                         if (precision < 0) {
                             if (width == 0) {
@@ -765,7 +753,8 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                             }
                         }
 
-                        memset(tempBuffer, 0, 64);
+                        char tempBuffer[64] = {};
+                        int vectType;
 
                         {
                             char c = *fmt;
@@ -796,10 +785,12 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
 
                     VECT_OUTPUT:
                         flags |= FL_NOOUTPUT;
-                        stringLength = bStrLen(tempBuffer);
-                        fmt++;
-                        _stuff_str(output_info, tempBuffer, stringLength, &outLen);
-                        break;
+                        {
+                            int vectLen = bStrLen(tempBuffer);
+                            fmt++;
+                            _stuff_str(output_info, tempBuffer, vectLen, &outLen);
+                        }
+                        goto OUTPUT;
                     }
 
                     case 's': {
@@ -838,7 +829,7 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                     default:
                         break;
                 }
-                break;
+            }
 
             OUTPUT:
                 if (flags & FL_NOOUTPUT) {
@@ -863,43 +854,33 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
                     padding = 0;
                 }
 
-                if (padding > 0 && !(flags & (FL_LEFT | FL_LEADZERO))) {
-                    while (padding != 0) {
+                if (padding != 0 && !(flags & (FL_LEFT | FL_LEADZERO))) {
+                    while (padding-- != 0) {
                         _stuff_char(output_info, ' ', &outLen);
-                        padding--;
                     }
                 }
 
-                if (prefixSz > 0) {
+                if (prefixSz != 0) {
                     _stuff_str(output_info, prefix, prefixSz, &outLen);
                 }
 
                 if (padding > 0 && !(flags & FL_LEFT)) {
-                    while (padding != 0) {
+                    while (padding-- != 0) {
                         _stuff_char(output_info, '0', &outLen);
-                        padding--;
                     }
                 }
 
                 _stuff_str(output_info, stringOut, stringLength, &outLen);
 
                 if (padding > 0) {
-                    padding--;
-                    if (padding != 0) {
-                        do {
-                            _stuff_char(output_info, ' ', &outLen);
-                            padding--;
-                        } while (padding != 0);
+                    while (padding-- != 0) {
+                        _stuff_char(output_info, ' ', &outLen);
                     }
                 }
                 break;
-            }
         }
 
         ch = *fmt++;
-        if (outLen < 0) {
-            break;
-        }
     }
 
     if (output_info->StdOut) {

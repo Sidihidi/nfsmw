@@ -33,7 +33,7 @@ class AllocationHeader : public bTNode<AllocationHeader> {
     }
 
     int GetAllocationNumber() {
-#ifdef MILESTONE_OPT
+#ifdef MILESTONE_BUILD
         return *reinterpret_cast<uint16 *>(reinterpret_cast<char *>(this) - FrontPadding);
 #else
         return 0;
@@ -41,7 +41,7 @@ class AllocationHeader : public bTNode<AllocationHeader> {
     }
 
     int GetDebugLine() {
-#ifdef MILESTONE_OPT
+#ifdef MILESTONE_BUILD
         return *reinterpret_cast<uint16 *>(reinterpret_cast<char *>(this) - FrontPadding + 2);
 #else
         return 0;
@@ -556,6 +556,8 @@ void MemoryPool::TraceNewPool() {
     if (this->pDebugName != nullptr) {
         bStrNCpy(packet.Name, this->pDebugName, sizeof(packet.Name) - 1);
     }
+    // TODO probably macro instead of ifdefs here
+    // TODO apply macro for "25"
 #ifdef EA_PLATFORM_GAMECUBE
     bFunkGameCube("CODEINE", 25, &packet, sizeof(packet));
 #else
@@ -756,7 +758,7 @@ void bMemoryInit() {
 // STRIPPED
 void bMemoryUpdateTraceInformation() {}
 
-#ifdef MILESTONE_OPT
+#ifdef MILESTONE_BUILD
 void *bMalloc(int size, const char *debug_text, int debug_line, int allocation_params) {
     return bWareMalloc(size, debug_text, debug_line, allocation_params);
 }
@@ -1037,31 +1039,34 @@ static char bMemoryDebugStringNoName[8] = "NO_NAME";
 #endif
 
 void *bMemoryAllocator::Alloc(size_t size, const EA::TagValuePair &flags) {
-    // TODO magic numbers (flags)
-    int allocation_params = 0x40;
+
 #ifdef EA_BUILD_A124
     char *name = bMemoryDebugStringNoName;
 #else
     char *name;
 #endif
+    int allocation_params = BMEMORY_TOP_BIT;
+    const EA::TagValuePair *p = &flags;
+    void *ptr;
 
-    for (const EA::TagValuePair *p = &flags; p != nullptr; p = p->mNext) {
+    while (p != nullptr) {
         switch (p->mTag) {
             case 1:
                 if (p->mValue.mPointer != nullptr) {
-                    name = static_cast<char *>(p->mValue.mPointer);
+                    name = static_cast<char *>(const_cast<void *>(p->mValue.mPointer));
                 }
                 break;
             case 2:
-                allocation_params |= (p->mValue.mInt & 0x1ffc) << 6;
+                allocation_params |= BMEMORY_ALIGNMENT(p->mValue.mInt);
                 break;
             case 3:
-                allocation_params |= (p->mValue.mInt & 0x1ffc) << 0x11;
+                allocation_params |= BMEMORY_ALIGNMENT_OFFSET(p->mValue.mInt);
                 break;
             case 4:
-                allocation_params &= ~0x40;
+                allocation_params &= ~BMEMORY_TOP_BIT;
                 break;
         }
+        p = p->mNext;
     }
     return bMalloc(size, name, 0, allocation_params);
 }
