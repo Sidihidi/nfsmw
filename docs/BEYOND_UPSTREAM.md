@@ -351,9 +351,9 @@ The rule: nothing the binary can tell you is guessed.
   order and final `reg_renumber`; `.lreg`: local_alloc) or `-dR -fsched-verbose-5`; ~22 s per SourceList.
 - Micro-bench: `ngccc -S` on a one-line `.cpp` that includes the file, with the unit's flags and
   `SN_NGC_PATH` set, reproduces a function in 1-4 s (`scripts/bench.py` for SourceLists).
-- `tools/ghidra_decomp.py` decompiles the GameCube ELF headless after two patches: DWARF-1 support for
-  GCC's vendor attributes (86 -> 13,824 signatures) and the Gekko/Broadway processor (the default
-  PowerPC target silently skips paired singles). Its C normalizes semantics (seven `&&` for one `or.`):
+- `tools/ghidra_decomp.py` decompiles the GameCube ELF headless after two patches, both in `tools/ghidra/`
+  with their steps: DWARF-1 support for GCC's vendor attributes (86 -> 13,824 signatures) and the
+  Gekko/Broadway processor (the default PowerPC target cuts each function at its first paired single). Its C normalizes semantics (seven `&&` for one `or.`):
   compare forms in the asm, and check member names against offsets.
 
 ## Compiler and linker knowledge
@@ -1247,17 +1247,13 @@ These tools served the period when the metric was `linked`: how much of the DOL 
 
 ### Ghidra
 
-- `tools/ghidra_decomp.py`: decompiles functions headless and read-only from the Ghidra project of the GameCube ELF (`ghidra_project/NFSMW`, not versioned). It accepts a name, a GCC 2 unmangled name, or an address. `--info` summarises the program and searches by substring. It needs Ghidra 12.1.2, the version that saved the project, and a JDK 21, and it fails if the GUI has the project open.
-- `tools/ghidra/DecompilarFunciones.java` and `tools/ghidra/InfoPrograma.java`: the two GhidraScripts that it runs.
-- `ghidra_scripts/` (in the fork's working tree, not in the published snapshot): the headless GhidraScripts from the analysis described in `docs/GHIDRA_NFSMW.md`:
-  - `Dwarf1Run.java` runs the ghidra-dwarf1 analyzer by reflection, because headless mode does not trigger it. The analyzer is patched for GCC's attributes 0x8000–0x8050, which took the number of functions with a signature from 86 to 13,824.
-  - `SetGqr.java` sets GQR0 = 0 before auto-analysis, so `psq_l/psq_st` decompile cleanly. GQR1–7 are left alone.
-  - `ExportOpen.java` and `ExportDecomp.java` bulk-decompile an `addr,size,label` list. ExportOpen also writes the listing with hex words and a coverage summary.
-  - `ExportSymbols.java` exports the symbol table as CSV.
-  - `ExportWalls.java` and `ExportWalls2.java` dump callers, callees, references and decompilation for a fixed list of 28 of the hardest functions (the "walls").
-  - `DumpInfo.java` prints a program summary.
+Stock Ghidra reads little of the GameCube ELF. Two patches change that; both are in `tools/ghidra/`, whose `README.md` gives the steps (measured with Ghidra 12.1.2):
 
-  The DWARF-1 patch and the Gekko/750CL processor patch (needed so paired singles decode) are kept only in `docs/analisis/`, also unpublished: `r63-dwarf1-gcc-ext.patch`, `gekko_port750cl_a_ghidra_12.py` and `gekko_guard750cl_a_ghidra_12.py`. Ask for them if you want to reproduce the Ghidra setup.
+- `tools/ghidra/ghidra-dwarf1-gcc-ext.patch`: for the ghidra-dwarf1 extension (emoose's fork, commit `5b0666c`). GCC 2.9x emits six DWARF-1 attributes of its own (0x8000–0x8050), outside the user range, and the extension aborted at the first entry; the patch declares them and makes unknown attributes and tags non-fatal. Functions with their DWARF signature go from 86 to 13,824 (of 13,950 importable), structures from 11 to 4,076, enums from 2 to 2,872.
+- `tools/ghidra/gekko_750cl_ghidra12.py`: adds the Gekko/Broadway language (PowerPC 750CL with paired singles) to Ghidra 12.1.2, which does not ship it. Four language files are copied unchanged from Ghidra's own sources at commit `e2f20dab` (April 2025; no longer on master); the script adds the `ppc.ldefs` entry and ports the 750CL parts of that commit's `ppc_common.sinc` behind `@ifdef 750CL`, so the other PowerPC languages compile as in stock 12.1.2. On the stock files its output is byte for byte the one this project's analysis used, with which all 8,627 paired-single instructions of the ELF decode; without it, the disassembly stops at the first one and the function is cut there.
+- `tools/ghidra/SetGqr.java`, an import pre-script that sets GQR0 = 0 (NFSMW only ever writes 0 to it) so that `psq_l`/`psq_st` decompile without a branch per quantization type, and `tools/ghidra/Dwarf1Run.java`, which runs the DWARF-1 analyzer headless (it is not enabled by default) and writes a census before and after.
+- `tools/ghidra_decomp.py`: decompiles functions headless and read-only from the Ghidra project of the GameCube ELF (`ghidra_project/NFSMW`, not versioned). It accepts a name, a GCC 2 unmangled name, or an address. `--info` summarises the program and searches by substring. It needs the Ghidra version that saved the project (12.1.2 here) and a JDK 21, and it fails if the GUI has the project open. It runs `tools/ghidra/DecompilarFunciones.java` and `tools/ghidra/InfoPrograma.java`.
+- `ghidra_scripts/` (in the fork's working tree, not in the published snapshot) keeps the exporters of the analysis described in `docs/GHIDRA_NFSMW.md`: `ExportOpen.java` and `ExportDecomp.java` bulk-decompile an `addr,size,label` list (ExportOpen also writes the listing with hex words and a coverage summary), `ExportSymbols.java` exports the symbol table as CSV, `ExportWalls.java` and `ExportWalls2.java` dump callers, callees, references and decompilation for a fixed list of 28 of the hardest functions (the "walls"), and `DumpInfo.java` prints a program summary.
 
 ### Xbox 360 and PC names
 
@@ -1296,7 +1292,7 @@ The fork's documents are in Spanish, under `docs/`. Upstream's own documents (`g
 - `X360_EXTRACTION.md`: the verified procedure for obtaining the decrypted Xbox 360 basefile that the dtk v0.1.2 split needs.
 - `PS3_PKG_EXTRACTION.md`: the pipeline used to extract a PS2-Classic ISO of a US retail PS2 version (SLUS-21267) from a PS3 PKG. Its helper scripts live in `tools/scratch/`.
 - `docs/congelado/`: 95 JSON files, one per frozen unit, each with the SHA-256 of that unit's normalised objdiff diff. `scripts/frozen.py` writes and checks them. Debug-info changes alter the fingerprint, so many are stale.
-- `docs/analisis/`: 655 files, about 11 MB. It holds the per-round analysis reports, JSON censuses and dumps, and the only versioned copies of the Ghidra DWARF-1 and Gekko patches. Treat it as a diary: consult it, but take figures from `pctall.py`. `INDICE.md` flags two reports as refuted.
+- `docs/analisis/`: 655 files, about 11 MB. It holds the per-round analysis reports, JSON censuses and dumps. Treat it as a diary: consult it, but take figures from `pctall.py`. `INDICE.md` flags two reports as refuted.
 
 ---
 
