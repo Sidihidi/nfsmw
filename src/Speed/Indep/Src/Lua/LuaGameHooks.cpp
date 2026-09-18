@@ -111,11 +111,6 @@ static inline bool IsSinglePlayer() {
     return Sim::GetUserMode() == Sim::USER_SINGLE;
 }
 
-// Attrib::Gen::gameplay::ClassKey() es inline en la cabecera generada (compartida
-// con otras unidades), pero en el original era una funcion out-of-line a la que
-// zLua llamaba. Se declara por su nombre mangled para forzar el bl exacto.
-extern "C" unsigned int ClassKey__Q36Attrib3Gen8gameplay();
-
 // Functor de IVehicle::ForEach que acumula el maximo rendimiento de los jugadores.
 struct PerfMaximizer {
     PerfMaximizer(float minPerformance)
@@ -576,8 +571,7 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
         const GCollectionKey &startMarkerSpec = racerChar->ForceStartPosition();
 
         if (unsigned int matched_key = startMarkerSpec.GetCollectionKey()) {
-            Attrib::Gen::gameplay startMarkerCollection(
-                Attrib::FindCollection(ClassKey__Q36Attrib3Gen8gameplay(), matched_key), 0, NULL);
+            Attrib::Gen::gameplay startMarkerCollection(matched_key, 0, NULL);
 
             const UMath::Vector3 &posSwizzled = startMarkerCollection.Position();
 

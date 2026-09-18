@@ -17,9 +17,12 @@ COMPILAN. Al terminar deja configurada GOWE69 otra vez. Salida: `build/versiones
 
 LA CIFRA NO VALE SI NO ES "0 objetos no compilan". Tres trampas medidas, todas tapadas aqui:
 
-  1. objdiff cuenta al 100 % una unidad marcada `complete` que NO tiene objeto base. Una version donde
-     medio arbol no compila salia con un porcentaje altisimo. Aqui cada unidad cuyo objeto falta o es de
-     un build que fallo pasa a `complete: false` y se le quita `base_path`.
+  1. objdiff cuenta al 100 % una unidad marcada `complete` SIN compararla: la que no tiene objeto base y
+     tambien la que lo tiene y no casa. `complete` sale del flag Matching de configure.py, que es un hecho
+     de GameCube (objeto identico al byte); en PS2 contaba como casadas 124 funciones de la A124 y 261 de
+     SLUS que no lo estaban (sndfxbus.o de PS2 ni siquiera define dos de ellas). Aqui TODAS las unidades
+     pasan a `complete: false`, como en upstream, donde todas son NonMatching; y la que no tiene objeto o
+     es de un build que fallo pierde ademas `base_path`.
   2. Si el TROCEADO falla, `configure.py` no reescribe `objdiff.json` y queda el de la version anterior:
      se acaba midiendo una version como si fuera otra. Aqui se comprueba que las rutas del objdiff.json
      son de esta version antes de medir.
@@ -99,10 +102,10 @@ try:
             continue
         sin_objeto = 0
         for u in cfg.get('units', []):
+            u.setdefault('metadata', {})['complete'] = False      # el metodo de upstream: Matching no cuenta
             bp = u.get('base_path')
             if bp and (not os.path.exists(os.path.join(ROOT, bp)) or os.path.normpath(bp) in fallidos):
                 del u['base_path']
-                u.setdefault('metadata', {})['complete'] = False
                 sin_objeto += 1
         json.dump(cfg, open(pj, 'w', encoding='utf-8'), indent=2)
         rep = S + v + '.json'

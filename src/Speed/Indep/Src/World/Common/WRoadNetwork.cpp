@@ -524,15 +524,9 @@ static const bool bRoadNetworkPrints = false;
 
 float WRoadNetwork::GetSegmentPointIntersect(const WRoadSegment &segment, const UMath::Vector3 &pt, UMath::Vector3 &intersect, bool checkBound) {
     WRoadNetwork &roadNetwork = Get();
-    if (bRoadNetworkPrints) {
-        // El original reserva aqui el guard `_.tmp_11` y el thunk `__tcf_3` de un
-        // static local cuyo codigo el optimizador elimina: por eso su roadSpline de
-        // GetSegmentCurveStep acaba siendo `__tcf_4` y no `__tcf_3`. Quitarlo cuesta
-        // `__tcf_4` en GameCube (medido); en Xbox 360 es lo que separa
-        // GetSegmentPointIntersect del 100 %.
-        static USpline debugSpline;
-        roadNetwork.BuildSegmentSpline(segment, debugSpline);
-    }
+    // The original reserves a guard (`_.tmp_11`) and a destructor thunk (`__tcf_3`) here, for a
+    // function-local static inside code the optimiser removed (bRoadNetworkPrints is false). Its
+    // name and use are unknown, so it is not written; the cost is the `__tcf_4` name of the next one.
     UMath::Vector3 pos = GetNode(segment.fNodeIndex[0])->fPosition;
     UMath::Vector3 pos2 = GetNode(segment.fNodeIndex[1])->fPosition;
     return GetLinePointIntersect(pos, pos2, pt, intersect, checkBound);

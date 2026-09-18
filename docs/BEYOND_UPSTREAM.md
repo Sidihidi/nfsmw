@@ -21,9 +21,9 @@ Five builds are compiled and measured, each against its own original binary:
 
 | build | platform / compiler | upstream `fd0c355` (2026-09-16) | this fork (2026-09-18) |
 |---|---|---|---|
-| `GOWE69` | GameCube, SN ProDG GCC 2.95.3 | 55.55 % code, 11,074 functions | **97.14 %** code, 18,298 / 18,432 functions |
-| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **30.21 %**, 12,662 / 25,361 |
-| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **33.92 %**, 10,187 / 21,549 |
+| `GOWE69` | GameCube, SN ProDG GCC 2.95.3 | 55.55 % code, 11,074 functions | **97.07 %** code, 18,292 / 18,432 functions |
+| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **29.94 %**, 12,534 / 25,361 |
+| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **33.01 %**, 9,922 / 21,549 |
 | `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **1.95 %**, 2,212 / 57,575 |
 | `SPEED_EXE_1_3` | PC 1.3, MSVC 7.1 | 6.54 % | **9.99 %**, 5,788 / 46,134 |
 
@@ -31,7 +31,10 @@ How the numbers are taken, so that they are comparable:
 
 - One `objdiff-cli` report per build, with the same options upstream uses
   (`functionRelocDiffs=none`, `ppc.calculatePoolRelocations=false`). Every unit
-  counts as non-matching: the `Matching` flag in `configure.py` is ignored.
+  counts as non-matching: the `Matching` flag in `configure.py` is ignored
+  (`scripts/pctall.py` marks every unit incomplete; objdiff scores a `complete`
+  unit at 100 % without comparing it, which until 2026-09-18 added 124 and 261
+  functions that do not match to the two PS2 figures).
 - A figure is only valid if the run also says **"0 objects fail to compile"**
   (objdiff otherwise counts a `complete` unit without an object as 100 %).
   `scripts/pctall.py` measures the five builds and prints that control.
@@ -57,9 +60,10 @@ These rules explain the shape of many changes described below.
    whole instruction sequence (see the line map, below). Four assembler sources
    remain, all runtime code: SN's `crt0.s`, the MetroTRK debugger stub
    (`metrotrk.s`, hand-written assembler in the original), the PPC register
-   save/restore helpers (`pro2D4.s`) and newlib's `setjmp.s`. A few matching
-   devices from earlier phases are still in the tree; they are listed at the
-   end, under "Open fronts". Many functions keep a comment block with the
+   save/restore helpers (`pro2D4.s`) and newlib's `setjmp.s`. The matching
+   devices of earlier phases (dead "primer" functions, placement attributes,
+   joined literals, invented locals) were removed too; what that cost is listed
+   at the end, under "Open fronts". Many functions keep a comment block with the
    experiments that were measured (what was tried and what it gave), so the
    next person does not repeat them.
 2. **Differences between builds are proven, not guessed.** A member, a function
@@ -189,7 +193,7 @@ that was committed by mistake early on.
   - [SourceLists (`src/Speed/Indep/SourceLists/`)](#sourcelists-srcspeedindepsourcelists)
 - [Open fronts (diagnosed, not done)](#open-fronts-diagnosed-not-done)
   - [PS2 prototype (A124): classes whose layout still differs](#ps2-prototype-a124-classes-whose-layout-still-differs)
-  - [Leftovers that break the ground rules](#leftovers-that-break-the-ground-rules)
+  - [Leftovers that break the ground rules: removed](#leftovers-that-break-the-ground-rules-removed)
   - [Other builds](#other-builds)
 
 ---
@@ -666,8 +670,11 @@ control that has to change.
 - `REPLACE`/`INSERT`/`DELETE` rows are alignment artefacts of sequences of different length (a
   "pattern" of 460 PS2 epilogues with `ld` replaced was nothing); only `OP_MISMATCH` and
   `ARG_MISMATCH` at the same position are signals. Both lists are padded: count rows by kind.
-- A unit marked `complete` without a base object counts 100 %; a compiler label (`$L121558`) used as a
-  function name aborts the whole report, and only after the next re-split.
+- A unit marked `complete` counts 100 % without being compared: without a base object, and also with one
+  that does not match. Our `Matching` flags are GameCube facts; on PS2 they counted 124 (A124) and 261
+  (SLUS) functions that do not match, two of which our object does not even define. Measure with every
+  unit incomplete (`scripts/pctall.py` does), as upstream's all-NonMatching configuration does. A compiler
+  label (`$L121558`) used as a function name aborts the whole report, and only after the next re-split.
 - A stale `report.json` has no `functions` key; the field is `fuzzy_match_percent`; `size` is a string.
 
 ### Build and staleness
@@ -1637,11 +1644,11 @@ definitions follow the original's emission order, which GCC 2.95 takes from pars
   `ActionQueue::IsRequired()` also requires `mPort >= 0`, and the `IO_*` methods are public. `ActionRef.h` differs
   only by upstream's later edit.
 - `Lua/`: portability edits for MSVC and EE-GCC (`std::swap` instead of `_STL::swap`, `static_cast` for attribute
-  keys). One GameCube-specific declaration remains in LuaGameHooks.cpp:
-  `extern "C" unsigned int ClassKey__Q36Attrib3Gen8gameplay();`, declared by its mangled name to keep the
-  original's out-of-line call.
-- `Debug/Common/DebugDraw.cpp`, `DebugDraw.h` (new): imported from the `bit_of_ecstasyy` branch; they are in no
-  SourceList, so they are not compiled or verified, and they still contain hand-written data labels.
+  keys). `Game_AddPlayer`'s start marker is constructed by key (`Attrib::Gen::gameplay x(matched_key, 0,
+  NULL)`), which gives the original's out-of-line `ClassKey` call; it used to call a declaration by mangled name.
+- `Debug/Common/DebugDraw.cpp`, `DebugDraw.h` (new): imported from the `bit_of_ecstasyy` branch. It is the code
+  of the Xbox 360 build's `DebugDraw` class (`DebugDraw::Quad`, `ArrowFlat`, `Triangle`, … are in its symbol
+  table), which the GameCube build does not have; no SourceList compiles it yet.
 - `Tools/AttribSys/Runtime/Common/AttribClass.cpp` drops an unused include; `AttribSupport.cpp` loses
   `~Attribute`, which moved to Attribute.cpp (see above).
 
@@ -1713,19 +1720,19 @@ Matched code per unit, measured with objdiff as upstream measures ("here" = this
 | `zSpeech` | 99.22 % (700 / 703 fn) | 0 % (0) | 40.94 / 0 % | 47.91 / 0 % |
 | `zEAXSound` | 98.95 % (772 / 773) | 95.89 % (761) | 39.77 / 37.23 % | 41.34 / 34.36 % |
 | `zEAXSound2` | 97.28 % (923 / 930) | 85.78 % (903) | 52.49 / 40.96 % | 49.08 / 43.63 % |
-| `snd` (150 units) | 98.81 % (498 / 500) | 25.53 % (145) | 36.02 / 1.36 % | 26.91 / 0.52 % |
-| `path` (14 units) | 81.28 % (184 / 194) | not built | 55.97 / 0 % | 49.49 / 0 % |
-| `spch` (12 units) | 92.31 % (106 / 110) | not built | 34.61 / 0 % | not configured |
+| `snd` (150 units) | 98.81 % (498 / 500) | 25.53 % (145) | 33.00 / 1.36 % | 13.83 / 0.52 % |
+| `path` (14 units) | 77.94 % (181 / 194) | not built | 54.59 / 0 % | 47.02 / 0 % |
+| `spch` (12 units) | 92.31 % (106 / 110) | not built | 28.34 / 0 % | not configured |
 | `csis` (1 unit) | 81.56 % (52 / 57) | empty file | 0 / 0 % | 0 / 0 % |
 
 On GameCube this tree matches 1,082 functions of `zSpeech`, `snd` and the two `zEAXSound` units that upstream
-does not (700 + 351 + 31; the last 31 are 24.2 kB), plus the 342 of `path`, `spch` and `csis`, which upstream
+does not (700 + 351 + 31; the last 31 are 24.2 kB), plus the 339 of `path`, `spch` and `csis`, which upstream
 does not build; upstream matches none that this tree lacks. On PS2 upstream matches two small `zEAXSound`
 functions that this tree does not (`stSndDataLoadParams::Clear`, `UTL::Vector<EAX_HeliState *, 16>::push_back`).
 Xbox 360: `zEAXSound` 2.12 % / `zEAXSound2` 13.96 % here against 0.48 / 3.10 % upstream; PC (measured here
 only): `zEAXSound` 11.63 %, `zEAXSound2` 10.51 %, `zSpeech` 6.11 %. `matched_code` counts whole functions
 only, which is why `path` and `csis` read
-~81 % with 91–95 % of their functions matched (`PATHI_serviceaction` alone is 3,252 B at 99.32 %).
+78–82 % with 91–93 % of their functions matched (`PATHI_serviceaction` alone is 3,252 B at 99.32 %).
 
 Evidence used in this area: GameCube DWARF-1 (`symbols/mw_dwarfdump.nothpp`; `scripts/dwarf1.py`, and
 `scripts/libdwarf.py`, which serves a middleware unit's types, prototypes and locals as compilable C), the line
@@ -1851,8 +1858,8 @@ relocation.
   29 lines after the previous statement), the signature of an asm statement. The other platforms use
   upstream's plain C call.
 - **`cmn/author.cpp`, `cmn/sndfxbus.cpp`, `cmn/srandom.c`** — `author.cpp` is a data-only CU (DWARF-1 has one
-  variable, `sndlibauthor`, the build stamp of library version 9.06.00); `sndfxbus.cpp` carries an 8-aligned
-  dummy `const double` so its `.rodata` gets the original's 8-byte alignment (the linker strips it);
+  variable, `sndlibauthor`, the build stamp of library version 9.06.00); `sndfxbus.cpp`'s `.rodata` is 8-aligned in the
+  original and 4 in ours, which only a dummy `double` reproduced; the dummy is gone and the unit is NonMatching;
   `iSNDrandom` is the same multi-word add-with-carry generator as spch's `iSPCH_EACrandom`, and both stop at
   98.33 %.
 
@@ -1879,15 +1886,17 @@ relocation.
   merged by hand and measured function by function: `pathreal*.cpp` and `IPathToReal.h` whole, `pathsnd.cpp`
   without its private `extern "C"` block (it uses `snd/sndo.h`), `pathevent.cpp` keeping this tree's
   `PATH_clearallevents`/`PATHI_seteventfilter` (the branch's scored lower); the branch's `voiceID & 0x3f`
-  masks in `PATH_addmapfile` are not in the target and were removed. Still present in `pathsnd.cpp`: the
-  `PATH_AGG(x)` aggregate view (a `__typeof__` cast that changes alias analysis and emits no code; 3 uses).
+  masks in `PATH_addmapfile` are not in the target and were removed. The `PATH_AGG(x)` aggregate view (a
+  `__typeof__` cast that changed alias analysis and emitted no code) was removed too: the `PathTrackSnd`
+  constructor went from 100 to 88.57 % and `PathTrackSndStream::CheckStatus` to 98.81 %.
 - **`path/.../pathaction.cpp`, `pathnode.cpp`, `pathbank.cpp`, `pathtrack.cpp`, `pathinit.cpp`,
   `pathvol.cpp`** (+ `pathcontrol`, `pathserv`, `pathrand`, `pathdebug`) — What: the music engine, from
   scratch. Findings: the event-queue loops run 17 times over a 16-entry array (`mtctr 0x11`), an original bug
   kept as is; a `switch` fall-through was written in the source as a duplicated body (GCC cross-jumps it);
-  `lastwhile`/`lastendif` are statics of `PATHI_serviceaction` (DWARF); `pathbank.cpp` orders the `0xBEDFACED`
-  store before `LoadFile`'s arguments with `*(volatile int *)&fileop = …` (plain C; the DWARF still shows
-  `int fileop`). Left, all ten at 100 % while the library used asm aliases, pins or barriers:
+  `lastwhile`/`lastendif` are statics of `PATHI_serviceaction` (DWARF); the original stores `0xBEDFACED` before
+  setting up `LoadFile`'s arguments; ours schedules it later, and `PATHI_loadbankdata` is at 87.78 % since a
+  `*(volatile int *)` store that forced the order was removed. Left, all at 100 % while the library used asm
+  aliases, pins or barriers:
   `PATHI_serviceaction` 99.32 %, `CreateStreamTrack` 99.85 %, `PATHI_calcwaitbeat` 98.51 %, `PATHI_queuenode`
   97.54 %, `PathTrackSndBank::Play` 94.06 %, `PATHI_clearalleventfilters` 93.04 %, `PATHI_inittrack` 83.19 %,
   `PATH_addmapfile` 82.50 %, `PATHI_getmastertrack` 66.51 %, `PATH_setallocator` 43.44 %.
@@ -2055,15 +2064,15 @@ decomp.dev on GameCube but totals slightly less on PS2: 16.25 / 17.29 % against 
 | `zPhysics` | `Physics/`, `Physics/Common/` | 99.02 % (717 / 718) | 1.76 % (11) | 66.99 / 1.33 % | 66.23 / 1.35 % |
 | `zPhysicsBehaviors` | `Physics/Behaviors/` | 99.64 % (1,119 / 1,120) | 93.48 % (1,112) | 55.49 / 40.32 % | 58.31 / 43.90 % |
 | `zDynamics` | `Physics/Dynamics/` | 93.46 % (40 / 41) | 0 % (0) | 10.04 / 0 % | 10.18 / 0 % |
-| `zSim` | `Sim/` | 97.44 % (400 / 402) | 69.99 % (317) | 44.93 / 37.92 % | 59.48 / 41.91 % |
-| `zGameplay` | `Gameplay/` | 96.73 % (763 / 768) | 0 % (0) | 56.41 / 0 % | 59.27 / 0 % |
+| `zSim` | `Sim/` | 96.48 % (399 / 402) | 69.99 % (317) | 44.93 / 37.92 % | 59.48 / 41.91 % |
+| `zGameplay` | `Gameplay/` | 96.73 % (763 / 768) | 0 % (0) | 58.09 / 0 % | 59.27 / 0 % |
 | `zCamera` | `Camera/` | 92.86 % (447 / 453) | 3.27 % (24) | 18.59 / 0.69 % | 20.87 / 0.67 % |
 | `zAnim` | `Animation/` | 97.84 % (314 / 315) | 94.58 % (308) | 36.23 / 32.28 % | 30.79 / 26.31 % |
 
-On GameCube this tree matches 2,063 functions of these units that upstream does not, and upstream matches
+On GameCube this tree matches 2,062 functions of these units that upstream does not, and upstream matches
 none that this tree lacks. On PS2 upstream matches ten that this tree does not, all in the retail build
 (listed under AI, Simulation and Animation). On Xbox 360 the eight units are at 0.1–8.6 % here against
-0–4.4 % upstream; there and on PC much of the limit is function names, not code. Eighteen GameCube
+0–4.4 % upstream; there and on PC much of the limit is function names, not code. Nineteen GameCube
 functions remain below 100 % in these units; each area lists them.
 
 Evidence comes from GameCube DWARF-1 (`symbols/mw_dwarfdump.nothpp`, `scripts/dwarf1.py`; "DWARF line N"
@@ -2272,7 +2281,7 @@ already at 93 % upstream; there the changes are corrections, the static initiali
 
 ### Simulation (`src/Speed/Indep/Src/Sim/`)
 
-`zSim` is at 70 % upstream and 97.44 % here. The additions are functions absent from the tree
+`zSim` is at 70 % upstream and 96.48 % here. The additions are functions absent from the tree
 (`LocalPlayer::UpdateHud` 7,176 B and `DoRadar` 1,944 B, most of `NISActivity`, `QuickGame::IsStateDone`,
 `CanSimulate` and `CreateCars`, `OBB::BoxVsBox`/`SphereVsBox`, `Util_GenerateMatrix`, `Entity::Attach`),
 the static data that makes the garbage collectors' template instances appear, the unit's static
@@ -2306,9 +2315,8 @@ initializer (1,956 B, 12.86 % upstream) and the PS2 layout of `SimSystem`.
   order changes its code).
 - **`Sim/Activities/NISActivity.cpp`** — What: `PrepareVehicles`, `Load`, `UpdateLoading`,
   `UpdatePlaying`, `Release`, `Play` and `ResetEvents` written (about 21 kB).
-- **`Sim/Common/SimEntity.cpp`** — `Sim::Entity::Entity` matches on GameCube by passing `this` to
-  `IEntity` through a GNU statement expression, guarded with `EA_PLATFORM_GAMECUBE` (other compilers get
-  `IEntity(this)`). It is the only GCC extension left in these six directories. `Entity::Attach` and
+- **`Sim/Common/SimEntity.cpp`** — `Sim::Entity::Entity` passes `this` to `IEntity` on every platform (99.86 %
+  on GameCube; a GNU statement expression that reached 100 % was removed). `Entity::Attach` and
   `GarbageNode<Sim::Entity, 8>::_mCollector` (with initializer) are new.
 
 #### Everything else
@@ -2320,13 +2328,14 @@ initializer (1,956 B, 12.86 % upstream) and the PS2 layout of `SimSystem`.
   member (`IsRendering`, `IsSimulating`, `SimCollisionMap::Type`); `SimCollisionMap` has its constructor;
   `OnDraw` is pure; `Sim::Update`, `CanSpawnSimpleRigidBody` and `CanSpawnRigidBody` are declared.
 - Retail PS2: `LocalPlayer::GetSettings` (48 B) matches in upstream's SLUS build and is at 99.92 % here.
-- Left on GameCube: `QuickGame::CreateCars` (99.75 %), `QuickGame::OnManageTime` (94.01 %).
+- Left on GameCube: `QuickGame::CreateCars` (99.75 %), `QuickGame::OnManageTime` (94.01 %),
+  `Sim::Entity::Entity` (99.86 %).
 
 ### Gameplay (`src/Speed/Indep/Src/Gameplay/`)
 
 All 17 `.cpp` files were empty at the fork point and upstream's `zGameplay.cpp` still includes none of
 them, so the unit is at 0 % upstream on every platform; here it is at 763 of 768 functions on GameCube,
-657 on the A124 and 638 on the retail PS2. The files were transcribed from the line map fused with the
+674 on the A124 and 638 on the retail PS2. The files were transcribed from the line map fused with the
 original disassembly (`fuse.py`: 32 of the first 36 `GManager` functions matched at the first compile),
 with the DWARF for inline trees and locals; the recurring blockers were support types the tree lacked
 (`GObjectIterator<T>`, the `Attrib::Vault` export API, `PackedDecimal`) and headers with wrong accessors.
@@ -2516,10 +2525,10 @@ Matched functions per unit, measured with objdiff using upstream's method (upstr
 
 | unit | GameCube upstream | GameCube fork | PS2 A124 upstream | PS2 A124 fork |
 |---|---|---|---|---|
-| `zWorld2` (`World/Common`, collision headers) | 349/357 | 354/357 | 329/557 | 367/557 |
+| `zWorld2` (`World/Common`, collision headers) | 349/357 | 353/357 | 329/557 | 367/557 |
 | `zWorld` (cars, render glue) | 565/582 | 576/582 | 320/897 | 327/897 |
 | `zTrack` (streaming, scenery, effects) | 244/259 | 255/259 | 180/354 | 223/354 |
-| `zEcstasy` | 340/539 | 532/539 | 244/960 | 273/960 |
+| `zEcstasy` | 340/539 | 531/539 | 244/960 | 273/960 |
 | `zRender` | not built | 6/6 | not built | 3/6 |
 | `zEagl4Anim` | 165/318 | 314/318 | 145/392 | 236/392 |
 | `zMisc` / `zMiscSmall` / `zMission` | 450/450, 7/8, not built | 450/450, 8/8, 2/2 | 332/734, 6/8, — | 450/734, 6/8, 2/2 |
@@ -2548,8 +2557,9 @@ several layout and emission fixes that reach beyond this unit.
     subtraction produces. The line map places the statement, and the DWARF shows `approach_time` reassigned
     twice.
   - Result: 97.18 % with no pins (upstream's body: 94.92 %); `CookieTrailCurvature` 99.66 % (upstream: 95.94 %).
-  - A never-true `if (bRoadNetworkPrints) { static USpline debugSpline; … }` reproduces the original's
-    static-destructor numbering (`__tcf_2`, `__tcf_4`, no `__tcf_3`). The names are invented.
+  - The original reserves a guard and a destructor thunk (`__tcf_3`) in `GetSegmentPointIntersect` for a
+    function-local static inside code the optimiser removed; its name is unknown, so it is not written, and
+    the next static's thunk is `__tcf_3` here instead of `__tcf_4` (an invented `static USpline` was removed).
 - **`src/Speed/Indep/Src/World/Common/WGrid.cpp`** — What: `FindNodes` (3,456 B, 93.01 → 100 %), written as an
   early return plus five walking loops, each a guard and a hand-written `do { } while`. How: the mnemonic-count
   delta (`scripts/mnemo.py`: `cmpw+4, b+4, addi+2, subi+2, bge+2, ble+2`) predicted the five loops and their
@@ -2623,8 +2633,8 @@ recovered from the original `.rodata`/`.data`, and statement order taken from th
   located by their neighbours in the original zWorld `.rodata`. `SetMemoryPoolSize` gets the sponge loop the
   DWARF still describes (its own block with `n`, and an inline
   `bMalloc(…, "SpongeAllocation", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x2000)`), which emits no code because
-  `CarLoaderMemorySpongeNumAllocs == 0`. `DefragmentPool` (99.27 %) keeps three
-  helper locals the DWARF lacks: removing them measured 92.47 %.
+  `CarLoaderMemorySpongeNumAllocs == 0`. `DefragmentPool` is at 92.47 % without three
+  helper locals the DWARF lacks (they gave 99.27 %).
 - **`src/Speed/Indep/Src/World/TrackStreamer.cpp`**, **`.hpp`**
   - `static inline TrackMPH2MPS(mph) { return mph / 2.237f; }`, and `SceneryMPH2MPS` in `Scenery.cpp`. The ELF
     loads 1/2.237f (`0x3EE4E0C2`), not the `0.44703001f` of `ConversionUtil.hpp`, and the DWARF names a second,
@@ -2662,8 +2672,8 @@ recovered from the original `.rodata`/`.data`, and statement order taken from th
   the glare divisor `len / 17.0f` (it was `1.7f`) and the definitions `GlareFalloff = 0.02f`,
   `GlareFallon = 0.04f`, `TUNHEIGHT = 10.0f`, `FACflush` and `debugflash`.
 - `EventManager.cpp`: `emAddHandler` returns early on `function == nullptr || stream_mask == 0`; the merge-base
-  logic was wrong. `CarRenderConn.cpp`: `UpdateParts` is at 100 % but still sits inside
-  `#pragma scheduling off/reset`, a leftover steering pragma whose need was not re-measured.
+  logic was wrong. `CarRenderConn.cpp`: `UpdateParts` is at 100 % without the `#pragma scheduling
+  off/reset` that wrapped it (SN's GCC ignores that pragma).
 - `Sun.cpp`: its globals are initialized to 0 so that they land in `.data`, and `WorldLightDirectionVector`
   moves to `Ecstasy/eLight.cpp`. `RaceParameters.hpp`: bodies for `IsBurnout`, `IsShortTrackRace`,
   `IsDriftPhysics`, `IsBurnoutPhysics`. `NeuQuant.cpp`: `learn()` indexes with `i`, not `j`.
@@ -2677,7 +2687,7 @@ recovered from the original `.rodata`/`.data`, and statement order taken from th
 
 ### Ecstasy renderer core (`src/Speed/Indep/Src/Ecstasy/`)
 
-Unit `zEcstasy`. On GameCube, 340 of its 539 functions match in upstream and 532 in the fork. Part of the base
+Unit `zEcstasy`. On GameCube, 340 of its 539 functions match in upstream and 531 in the fork. Part of the base
 comes from upstream side branches: `EmitterSystem.cpp/.h`, `Texture.cpp`, `eModel.cpp` and `Ecstasy.cpp` from
 `bit_of_ecstasyy`, and parts of `Ecstasy.hpp`/`EcstasyData.hpp` from `pr-117`. The fork wrote about 2,000 lines on
 top of that base. Two data rules run through the unit:
@@ -2736,7 +2746,9 @@ top of that base. Two data rules run through the unit:
   original frame still reserves its 0xD0 bytes.
 - The `zEcstasy` SourceList gains `eLightE`, `eEnvMapE`, `eMatrixE`, `ePShader`, `eVShader`, `eVisualTreatment`
   and `TexEnumGen_ParticleTextures.cpp`, found by auditing the line map against `splits.txt`.
-- A dead order primer, `_ecs_r60_probe`, is still in `eLight.cpp`.
+- `elRotateLightContext` is at 73.14 %: without a dead `static inline` that copied an `eDynamicLightContext`
+  (removed as a primer), GCC calls the synthesized `operator=` out of line instead of inlining it. The original
+  inlines it, so something before it used that copy, but the DWARF shows nothing that did.
 
 ### Render connections (`src/Speed/Indep/Src/Render/`)
 
@@ -2909,9 +2921,10 @@ literals and 86 float constants read back from the DOL. That is why `Timer.cpp`,
 - SLUS: the 4-argument `bMalloc(size, name, line, params)` exists only in milestone builds (the A124 has
   `bMalloc__FiPCcii`; SLUS-21351 does not). The named allocations in `LoadTempPermChunks`/`HighAttribAlloc`
   (upstream's form) cost SLUS functions only while it was wrongly compiled as a milestone; it no longer is.
-- Known gap: `GameFlow.cpp` declares 17 package-name globals (`LoadingBootName`, …) and `SpeedChunks.cpp`
-  declares `ChunkNameTable`, all `extern` with no definition anywhere. They used to live in the removed data
-  block; upstream defines them.
+- `GameFlow.cpp`, `Main.cpp`, `ResourceLoader.cpp` and `SpeedChunks.cpp` define the 32 globals zMisc used and
+  nobody defined since the hand-written data blocks went away (package names, code-overlay settings,
+  `CarLoaderPoolSizes`, `ChunkNameTable`, …): every value read from the DOL, in the original `.data` order.
+  Upstream's duplicate definitions in `FEPkg_Hud.cpp` swap two of the HUD names.
 
 ### Online (`src/Speed/Indep/Src/Online/`)
 
@@ -2963,8 +2976,9 @@ paired-single builtins.
   (100 %), `SetScreenBuffers` (ten named render targets), the
   `eViewPlatInterface::Render` family, sky, motion blur, EURGB60/PAL checks; the
   4,544 B static initialiser rebuilt from twenty globals with type, ELF value and
-  order. Loose end: `e_OSBusClock` is used but defined nowhere since its asm
-  alias was removed.
+  order. The bus clock is the SDK's `OSTicksToMilliseconds(OSGetTime())`, which
+  reads `__OSBusClock` exactly as the original does (a declared `e_OSBusClock`
+  with no definition was removed).
 - **`Src/Ecstasy/EcstasyEx.cpp`** (983 → 2,848 lines) — render state, horizon
   fog, `eDataRender::Render` (5,980 B), texture buckets (moved here because the
   line map puts them here); written with 139 SN paired-single builtins
@@ -3040,12 +3054,15 @@ as upstream.
   original (the dead `lis` survives and CSE reuses it); 5,212 B in two units,
   while the same change on `bMin`/`bMax` cost 10,636 B and was not made.
   `bVector2/3/4` members follow DWARF order.
-- **`Src/bMemory.cpp`, `SpeedScript.cpp`** — four macros join two messages into
-  one literal because the target keeps them as one symbol: a data-layout device
-  from the linked-DOL phase, still present.
-- **`Src/bMath.cpp`, `bVector.cpp`, `bQuaternion.cpp`** — stripped functions
-  given plausible bodies only to reproduce their literal pools;
-  `bSinTable[513] = {0}` is a placeholder; `Slerp` uses the original's 0.05f.
+- **`Src/bMemory.cpp`, `SpeedScript.cpp`** — plain literals. Four macros that
+  joined two messages into one literal, to reproduce the splitter's single
+  symbol, were removed.
+- **`Src/bMath.cpp`, `bVector.cpp`, `bQuaternion.cpp`** — functions the linker
+  dropped keep a body only where it follows their DWARF record (`bToPolar`,
+  `bLength(const bQuaternion *)`, `bDistBetween(const bVector4 *, …)`,
+  `bGetPolyArea`); `bOldATan` and `bFastATan`, whose bodies contradicted it,
+  are only named. `bSinTable[513] = {0}` is the dropped table with its DWARF
+  name and type; `Slerp` uses the original's 0.05f.
 
 ### Everything else
 - `bList.*` (inline order from the DWARF), `Strings.*`, `Espresso.hpp`,
@@ -3090,10 +3107,10 @@ globals — against the A124 stabs, then measured on every build.
   `VU0_*`. The DWARF lists float temporaries `t0..tN` with registers and no C
   use, so each function is one `asm` with them as `"=f"` outputs and GCC picks
   the registers (`REG_ALLOC_ORDER` starts f0, f13, f12…: with N outputs the last
-  gets f0, the rest count down). 41 functions byte-identical, no pins. Caveat:
-  upstream's portable `VU0_ExtractX/Y/ZAxis3FromQuat`, `VU0_quattom4` and
-  `VU0_MATRIX4_mult` now sit in an `#ifndef EA_PLATFORM_GAMECUBE` nested inside
-  the GameCube block, so no platform builds them.
+  gets f0, the rest count down). 41 functions byte-identical, no pins.
+  Upstream's portable `VU0_ExtractX/Y/ZAxis3FromQuat`, `VU0_quattom4` and
+  `VU0_MATRIX4_mult` are compiled by the other builds (a merge had nested them
+  inside the GameCube block).
 
 ### Everything else
 - New zFoundation units: `ExpressionEvaluator.cpp` (the CARP expression VM,
@@ -3456,43 +3473,50 @@ A batch covering about twenty of the small cases (one or two extra members
 each, in the frontend, sound and gameplay code) is already in the tree; the
 sections above describe them.
 
-## Leftovers that break the ground rules
+## Leftovers that break the ground rules: removed
 
-These are matching devices from earlier phases, or loose ends, that are still in
-the tree. Each one is small; they are listed so that they can be replaced by
-real source or removed, measuring the five builds each time.
+Earlier phases left matching devices in the tree: a dead "primer" function, a scheduling pragma, a dummy
+`double` for section alignment, joined literals, invented locals and statics, a `volatile` cast and a
+`__typeof__` view that steered the optimiser, a declaration by mangled name and a GNU statement expression.
+All were removed on 2026-09-18 and their loose ends closed, measuring the five builds before and after. What
+it cost on GameCube (the DOL stays byte-identical: `sndfxbus.cpp`, whose 8-byte `.rodata` alignment only the
+dummy `double` reproduced, is now NonMatching, and the link takes the original object):
 
-- **Order and layout devices.** A dead `static inline` kept only for its effect
-  on emission order (`_ecs_r60_probe` in `Ecstasy/eLight.cpp`); `#pragma
-  scheduling off/reset` around `CarRenderConn::UpdateParts`
-  (`World/CarRenderConn.cpp`); an 8-aligned dummy `const double` with
-  `__attribute__((aligned(8)))` in snd's `cmn/sndfxbus.cpp`, only there to give
-  `.rodata` the original's alignment; four macros in `bWare/Src/bMemory.cpp`
-  and `SpeedScript.cpp` that join two messages into one literal.
-- **Invented code kept for its side effects.** Stripped functions in
-  `bWare/Src/bMath.cpp`, `bVector.cpp` and `bQuaternion.cpp` with plausible
-  bodies that only reproduce their literal pools (and `bSinTable[513] = {0}` as
-  a placeholder); a never-true `if (bRoadNetworkPrints) { static USpline
-  debugSpline; … }` in `World/Common/WRoadNetwork.cpp` whose only job is the
-  static-destructor numbering; three helper locals in
-  `CarLoader::DefragmentPool` that the DWARF does not have.
-- **Forms that steer the optimiser.** `*(volatile int *)&fileop = …` in path's
-  `pathbank.cpp` (store order), the `PATH_AGG(x)` aggregate view in
-  `pathsnd.cpp` (alias analysis, 3 uses), and
-  `ClassKey__Q36Attrib3Gen8gameplay()` declared by its mangled name in
-  `Lua/LuaGameHooks.cpp` to keep an out-of-line call.
-- **GCC-only syntax where a portable form exists.** The statement expression
-  that passes `this` to `IEntity` in `Sim/Common/SimEntity.cpp` (GameCube only;
-  the other compilers already get the plain form).
-- **Loose ends.** `e_OSBusClock` is used by `GameCube/Src/Ecstasy/EcstasyE.cpp`
-  and defined nowhere since its asm alias was removed; `Misc/GameFlow.cpp`
-  declares 17 package-name globals and `Misc/SpeedChunks.cpp` declares
-  `ChunkNameTable`, all `extern` and defined nowhere; `Debug/Common/DebugDraw.cpp`
-  is in no SourceList and still has hand-written data labels.
-- **A merge regression.** In `Libs/Support/Utility/UVectorMath.cpp`, upstream's
-  portable `VU0_ExtractX/Y/ZAxis3FromQuat`, `VU0_quattom4` and
-  `VU0_MATRIX4_mult` ended up in an `#ifndef EA_PLATFORM_GAMECUBE` block nested
-  inside the GameCube-only block, so no platform compiles them.
+| function (unit) | before | after | what was removed |
+|---|---:|---:|---|
+| `elRotateLightContext` (zEcstasy) | 100 % | 73.14 % | a dead `static inline` that copied an `eDynamicLightContext` |
+| `CarLoader::DefragmentPool` (zWorld) | 99.27 % | 92.47 % | three helper locals the DWARF does not list |
+| `PATHI_loadbankdata` (path) | 100 % | 87.78 % | a `*(volatile int *)&fileop` store |
+| `PathTrackSnd::PathTrackSnd` (path) | 100 % | 88.57 % | the `PATH_AGG(x)` aggregate view |
+| `PathTrackSndStream::CheckStatus` (path) | 100 % | 98.81 % | the same |
+| `Sim::Entity::Entity` (zSim) | 100 % | 99.86 % | a GNU statement expression |
+| `__tcf_4` (zWorld2) | 100 % | 0 % | an invented function-local `static` in dead code |
+
+GameCube goes from 18,298 to 18,292 functions (97.14 to 97.07 %). On PS2 the same `path` functions lose a
+little and `DefragmentPool` gains (A124 64.42 to 70.11 %); on Xbox 360 and PC nothing is lost.
+
+Removed at no cost: the `#pragma scheduling off/reset` around `CarRenderConn::UpdateParts` (SN's GCC ignores
+it); the joined literals of `bMemory.cpp` and `SpeedScript.cpp`; `ClassKey__Q36Attrib3Gen8gameplay()` declared
+by its mangled name (constructing `Attrib::Gen::gameplay` by key gives the same out-of-line call); the bodies of
+`bOldATan` and `bFastATan`, stripped functions whose DWARF records contradicted them; and the undefined
+`e_OSBusClock` (the SDK's `OSTicksToMilliseconds` reads `__OSBusClock` exactly as the original). Closed at the
+same time: the 32 globals zMisc used and nobody defined, now defined with the DOL's values in the original
+`.data` order; and upstream's portable `VU0_*` functions in `UVectorMath.cpp`, which a merge had nested inside
+the GameCube block (Xbox 360 and PC now compile `VU0_MATRIX4_mult`, at 93 and 99 %).
+
+Kept on purpose, because they follow the evidence: `bDistBetween(const bVector4 *, ...)`, `bGetPolyArea`,
+`bToPolar` and `bLength(const bQuaternion *)`, stripped functions whose bodies follow their DWARF records; and
+`bSinTable[513] = {0}`, a table the linker dropped, written with its DWARF name and type and a zero initialiser.
+
+Open: what the original used, before `elRotateLightContext`, that synthesized `eDynamicLightContext::operator=`
+early enough to be inlined there.
+
+**Measurement note.** The same batch showed that `scripts/pctall.py` was not fully ignoring the `Matching`
+flag: objdiff scores a unit marked `complete` at 100 % without comparing it, and our flags are GameCube facts.
+On PS2 that counted 124 (A124) and 261 (SLUS) functions that do not match, mostly in `snd`, `realcore`, `spch`,
+`path` and `rcmp`; two of them do not even exist in our `sndfxbus.o`. `pctall.py` now marks every unit
+incomplete, as upstream's all-NonMatching configuration does, and the figures in this document are the
+corrected ones.
 
 ## Other builds
 
@@ -3502,7 +3526,7 @@ real source or removed, measuring the five builds each time.
   unique function in the same order; re-running it after each batch of new code
   keeps adding names (it took X360 from 1.33 % to 1.85 % and PC from 6.75 % to
   9.16 % the first time).
-- **GameCube** is at 18,298 of 18,432 functions. The 134 left (113 kB) are
+- **GameCube** is at 18,292 of 18,432 functions. The 140 left (116 kB) are
   mostly near-misses: 74 of them (95 kB) are already above 97 % similarity, and
   the largest single one is `CarRenderInfo::Render` (11 kB at 99.9 %). Other
   large ones are SN's own `vfprintf` rewrite (no public source), VP6's

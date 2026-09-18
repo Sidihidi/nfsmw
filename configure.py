@@ -1171,7 +1171,7 @@ config.libs = [
             # NOTE: upstream lo marca Matching, pero compila a 0x25c frente a los
             # 0x210 del original ("kinda match") y desplaza todo el .text
             # posterior, rompiendo el sha1 del DOL. NonMatching hasta que case.
-            Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/sndfxbus.cpp"),
+            Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/cmn/sndfxbus.cpp"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/spatkey.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/spitch.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/sgetpvol.c"),

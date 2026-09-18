@@ -569,7 +569,6 @@ void CarRenderConn::UpdateSteering(float dT, const RenderConn::Pkt_Car_Service &
 }
 
 // UNSOLVED, the BitArray inlines are weird
-#pragma scheduling off
 void CarRenderConn::UpdateParts(float dT, const RenderConn::Pkt_Car_Service &data) {
     if (this->mPartState != data.mPartState) {
         for (unsigned int i = 0; i < 0x4c; i++) {
@@ -588,7 +587,6 @@ void CarRenderConn::UpdateParts(float dT, const RenderConn::Pkt_Car_Service &dat
         this->mPartState = data.mPartState;
     }
 }
-#pragma scheduling reset
 
 // TODO the multification by M_TWOPI inside Sinr is getting optimized out I think
 void CarRenderConn::AddRoadNoise(float speed, unsigned int tires, const RoadNoiseRecord &noise) {

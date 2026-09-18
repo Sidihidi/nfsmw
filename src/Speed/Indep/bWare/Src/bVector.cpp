@@ -13,9 +13,8 @@ float bDistBetween(const bVector3 *v1, const bVector3 *v2) {
     return bSqrt(x * x + y * y + z * z);
 }
 
-// Descartada al enlazar, pero -strip-unused-data CONSERVA su pool: es el
-// cuadruplete que al objetivo le sale entre bDistBetween(bVector3) y
-// bNormalize(bVector2), y a nosotros nos faltaba.
+// Dropped by the linker (DWARF range 0xFFFFFFFF). Written from the DWARF: the locals x, y, z, w
+// and the inline bSqrt.
 float bDistBetween(const bVector4 *v1, const bVector4 *v2) {
     float x = v1->x - v2->x;
     float y = v1->y - v2->y;
@@ -347,9 +346,8 @@ float bDistToLine(const bVector2 *point, const bVector2 *line_p1, const bVector2
     return distance;
 }
 
-// Descartada al enlazar, pero su pool cuenta: el objetivo tiene {0.0f, 0.5f}
-// justo aqui, entre bDistToLine y la primera cadena de bMemory.cpp. Es la
-// formula del cordon de zapato: acumulador a 0.0f y el medio al final.
+// Dropped by the linker (DWARF range 0xFFFFFFFF). Written from the DWARF: the local area and
+// the nested blocks of i and j (the shoelace formula).
 float bGetPolyArea(const bVector2 *points, int num_points) {
     float area = 0.0f;
     for (int i = 0; i < num_points; i++) {

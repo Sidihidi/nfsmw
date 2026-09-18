@@ -74,21 +74,37 @@ void BeginWorldLoad();
 void BeginGameFlowLoadingFrontEnd();
 void BeginGameFlowUnloadingFrontEnd();
 
-// TODO move these
-extern int EnableCodeOverlay;
-extern int EnableCodeOverlayDebuggingOnly;
-extern int CodeOverlayMemoryPoolNumber;
-extern int CodeOverlayFirstTime;
+// Defined in the original's .data order (0x8041E744-0x8041E7A4); the values are the DOL's.
+const char *WheelsModelPackFilename = "CARS\\WHEELS\\GEOMETRY.BIN";
+const char *SpoilerModelPackFilename = "CARS\\SPOILER\\GEOMETRY.BIN";
+const char *SpoilerCarreraModelPackFilename = "CARS\\SPOILER_CARRERA\\GEOMETRY.BIN";
+const char *SpoilerHatchModelPackFilename = "CARS\\SPOILER_HATCH\\GEOMETRY.BIN";
+const char *SpoilerPorschesModelPackFilename = "CARS\\SPOILER_PORSCHES\\GEOMETRY.BIN";
+const char *RoofScoopModelPackFilename = "CARS\\ROOF\\GEOMETRY.BIN";
+const char *BrakesModelPackFilename = "CARS\\BRAKES\\GEOMETRY.BIN";
+const char *BrakesTexturePackFilename = "CARS\\BRAKES\\TEXTURES.BIN";
+const char *CarTexturePackFilename = "CARS\\TEXTURES.BIN";
+const char *WheelsTexturePackFilename = "CARS\\WHEELS\\TEXTURES.BIN";
+const char *DynamicTexturePackFilename = "GLOBAL\\DYNTEX.BIN"; // Decl: 201
+const char *HudDragTexturePackFilename = "GLOBAL\\HUDTEXDRAG.BIN";
+const char *HudSingleRaceTexturePackFilename = "GLOBAL\\HUDTEXRACE.BIN";
+const char *HudSplitScreenTexturePackFilename = "GLOBAL\\HUDTEXSPLIT.BIN"; // Decl: 206
+const char *HudDragSplitScreenTexturePackFilename = "GLOBAL\\HUDTEXDRAGSPLIT.BIN";
+const char *LoadingBootName = "loading_boot.fng";                       // Decl: 218
+const char *LoadingControllerScreenPackageName = "Loading_Controller.fng"; // Decl: 220
+VMFile *pFrontEndVirtualMemBundle = nullptr;
+int CarLoaderPoolSizes[2] = {3500, 1750}; // Decl: 349
 
-extern void (*CodeOverlayCallback)(int);
+int CodeOverlayMemoryPoolNumber = 0; // Decl: 693
+int EnableCodeOverlayDebuggingOnly = 0;
+int EnableCodeOverlay = 1;
+void (*CodeOverlayCallback)(int) = nullptr;
+int CodeOverlayFirstTime = 1;
 extern char _overlay_start[];
 extern char _overlay_end[];
 
 // TODO GET RID OF THESE
-extern void *InGameMemoryFile;
-extern VMFile *pFrontEndVirtualMemBundle;
-extern const char *LoadingControllerScreenPackageName;
-extern const char *LoadingBootName;
+void *InGameMemoryFile = nullptr; // Decl: 1235
 extern int WeHaveCheckedIfJR2ServerExists;
 extern int DisableSoundUpdate;
 
@@ -114,9 +130,8 @@ void GenerateMissingCarParts();
 void InitializeSoundLoad();
 extern int AllowCompressedStreamingTexturesInThisPoolNum;
 extern int EmergencySaveMemory;
-extern int CarLoaderPoolSizes[];
-extern void *GlobalMemoryFile;
-extern int FinishedLoadingGlobalSuccesful;
+void *GlobalMemoryFile = nullptr; // Decl: 3200
+int FinishedLoadingGlobalSuccesful = 0;
 void LoadAemsInGame(void (*)(intptr_t), intptr_t);
 void UnloadAemsInGame();
 void InitSkyHash(void (*)(intptr_t), intptr_t);
@@ -455,26 +470,6 @@ void RegionLoader::FinishedLoading() {
     void BeginGameFlowLoadTrack(); // Decl: 1610
     TheGameFlowManager.SetSingleFunction(BeginGameFlowLoadTrack, "BeginGameFlowLoadTrack");
 }
-
-// The streaming pack filename globals live in the SourceList TU verbatim data
-// pool so the string pool relocations match the shipped object.
-extern const char *WheelsModelPackFilename;
-extern const char *SpoilerModelPackFilename;
-extern const char *SpoilerCarreraModelPackFilename;
-extern const char *SpoilerHatchModelPackFilename;
-extern const char *SpoilerPorschesModelPackFilename;
-extern const char *RoofScoopModelPackFilename;
-extern const char *BrakesModelPackFilename;
-extern const char *BrakesTexturePackFilename;
-extern const char *CarTexturePackFilename;
-extern const char *WheelsTexturePackFilename;
-extern const char *DynamicTexturePackFilename;
-extern const char *HudDragTexturePackFilename;
-extern const char *HudSingleRaceTexturePackFilename;
-extern const char *HudSplitScreenTexturePackFilename;
-extern const char *HudDragSplitScreenTexturePackFilename;
-extern const char *LoadingBootName;
-extern const char *LoadingControllerScreenPackageName;
 
 void RegionLoader::Unload() {
     TheGameFlowManager.SetState(GAMEFLOW_STATE_UNLOADING_REGION);

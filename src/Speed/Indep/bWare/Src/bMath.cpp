@@ -238,6 +238,7 @@ unsigned short bFastATanTable[] = {
     7856, 7877, 7899, 7920, 7942, 7963, 7984, 8005, 8026, 8047, 8068, 8089, 8110, 8131, 8151, 8172, 8192, 8192,
 };
 
+// DWARF: address 0xFFFFFFFF, the linker dropped it; its contents are unknown.
 unsigned short bSinTable[513] = {0};
 
 unsigned short bFixATanTableLow[129] = {
@@ -304,29 +305,10 @@ bAngle bASin(float x) {
     }
 }
 
-// e1: descartadas al enlazar; se escriben por su POOL. El objetivo tiene en
-// este punto {1e-4f, 5e-11, 0.5f, 1.0f, 0.0, 256.0f}: el 1e-4f es la guarda de
-// division, la terna es bSqrt y el 256.0f el paso de bFastATanTable (i >> 8).
-bAngle bFastATan(float x, float y);
-bAngle bOldATan(float x, float y) {
-    // El pool ENLAZADO da el orden y el reparto exactos: aqui {0.0f, 1e-4f,
-    // y la terna de bSqrt} y en bFastATan {0.0f, 256.0f}. O sea que el 256.0f
-    // NO es de esta funcion: bOldATan LLAMA a bFastATan, no repite la tabla.
-    if (y == 0.0f) {
-        return 0;
-    }
-    float d = x * x + y * y;
-    if (d < 1e-4f) {
-        return 0;
-    }
-    return bFastATan(bSqrt(d), y);
-}
-
-bAngle bFastATan(float x, float y) {
-    float s = (x < 0.0f) ? -y : y;
-    int i = static_cast<int>((s / x) * 256.0f);
-    return static_cast<bAngle>(bFastATanTable[i & 0xFF]);
-}
+// STRIPPED: bOldATan(float x, float y) and bFastATan(float x, float y). The linker dropped both
+// (DWARF range 0xFFFFFFFF; the A124 dropped them too). The DWARF lists their locals -- bOldATan:
+// quad, a volatile accurate_angle and fEpsilon, with bAbs, bSqrt and bACos inlined; bFastATan: quad,
+// a and two blocks with a float r, with bDegToAng -- but no build keeps their code.
 
 // Credit: Brawltendo
 bAngle bATan(float x, float y) {
@@ -459,10 +441,11 @@ bAngle bFixATan(bFix x, bFix y) {
     return static_cast<bAngle>(a);
 }
 
-// Descartada al enlazar, pero -strip-unused-data CONSERVA su pool: los
-// {5e-11, 0.5f, 1.0f} que emite bSqrt y que al objetivo si le constan.
-bPolar *bToPolar(bPolar *dest, bVector2 *cartesian) {
-    dest->r = bSqrt(cartesian->x * cartesian->x + cartesian->y * cartesian->y);
+// Dropped by the linker (DWARF range 0xFFFFFFFF). Written from the DWARF: the local r and the
+// inline bLength(const bVector2 *).
+bPolar *bToPolar(bPolar *dest, const bVector2 *cartesian) {
+    float r = bLength(cartesian);
+    dest->r = r;
     dest->a = bATan(cartesian->x, cartesian->y);
     return dest;
 }

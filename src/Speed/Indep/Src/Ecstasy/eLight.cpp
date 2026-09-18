@@ -204,8 +204,6 @@ eShaperLightRig ShaperLightsWorldObjects(
     LIGHT_OPPOSITE_SUN_DIRECTION, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.2f,
     LIGHT_CAMERA_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 
-static inline void _ecs_r60_probe(eDynamicLightContext *a, const eDynamicLightContext *b) { *a = *b; }
-
 int LoaderLights(bChunk *bchunk) {
     if (bchunk->GetID() == BCHUNK_LIGHT_MATERIALS) {
         eLightMaterial *light_material = reinterpret_cast<eLightMaterial *>(bchunk->GetData());
@@ -420,6 +418,9 @@ void CartesianToSpherical(bVector3 *v, float x, float y, float z) {
     v->z = r;
 }
 
+// 73.14 %: GCC calls the synthesized eDynamicLightContext::operator= out of line here, and the
+// original inlines it. That happens when the operator was synthesized by an earlier use in the
+// unit; the DWARF shows none, and a dead function written only to provide it was removed.
 void elRotateLightContext(eDynamicLightContext *new_light_context, eDynamicLightContext *light_context, bMatrix4 *rotate_matrix) {
     bMatrix4 invrotate_matrix;
     bVector4 light_directions[3];

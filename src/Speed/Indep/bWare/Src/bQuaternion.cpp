@@ -70,11 +70,10 @@ void bMatrixToQuaternion(bQuaternion &quat, const bMatrix4 &m) {
 // STRIPPED
 bQuaternion *bConjugate(bQuaternion *qdest, const bQuaternion *q) {}
 
-// El enlazador la descarta (nadie la referencia), pero -strip-unused-data
-// CONSERVA su pool: los {5e-11, 0.5f, 1.0f} de bSqrt que el objetivo tiene y a
-// nosotros nos faltaban. Escribir el cuerpo no puede mover el .text.
-float bLength(bQuaternion *q) {
-    return bSqrt(q->x * q->x + q->y * q->y + q->z * q->z + q->w * q->w);
+// Dropped by the linker (DWARF range 0xFFFFFFFF). The DWARF shows the inline bLength(const bVector4 *)
+// expanded here.
+float bLength(const bQuaternion *q) {
+    return bLength(reinterpret_cast<const bVector4 *>(q));
 }
 
 // MEDIDO r36 contra el ENLACE: el objetivo NO tiene pool aqui. Su cuadruplete

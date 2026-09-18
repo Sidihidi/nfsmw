@@ -2051,6 +2051,8 @@ void CarLoader::FreeDefragmentStorage() {
 // SIN anadir insns: las CUATRO reordenaciones puras que he probado son neutras al
 // byte.  222 es el `allocation_num + 1` que loop.c iza (`addi r22,r30,1` de la fila
 // 84, usado en la 132): hay que atacar SU rango, no el del bucle entero.
+// 2026-09-18: without the helper locals params, table and zero, which the DWARF does not list, the
+// function is at 92.47 % (99.27 % with them); the notes above describe that older form.
 int CarLoader::DefragmentPool() {
     ProfileNode profile_node(0, 0x40);
     if (this->MayNeedDefragmentation == 0) {
@@ -2092,10 +2094,7 @@ int CarLoader::DefragmentPool() {
     static int loop_number = 0;
 
     while (allocation_num < num_allocations) {
-        _DefragmentParams *params = &DefragmentParams;
-        void **table = allocation_table;
-        int zero = 0;
-        void *allocation = table[allocation_num];
+        void *allocation = allocation_table[allocation_num];
         int allocation_size = bGetMallocSize(allocation);
         int movement = 0;
 
@@ -2106,8 +2105,8 @@ int CarLoader::DefragmentPool() {
             // El extern restaura esa declaracion y sustituye el enum artificial
             // kHoleProbeSize sin cambiar instrucciones, simbolos ni relocs.
             extern int ChunkMovementOffset;
-            params->pAllocation = allocation;
-            bStrNCpy(params->AllocationName, bGetMallocName(allocation), 0x3F);
+            DefragmentParams.pAllocation = allocation;
+            bStrNCpy(DefragmentParams.AllocationName, bGetMallocName(allocation), 0x3F);
 
             for (;;) {
                 void *hole = bMalloc(1, 0, 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
@@ -2117,15 +2116,15 @@ int CarLoader::DefragmentPool() {
                     num_hole_filling_allocations++;
                 } else {
                     bFree(hole);
-                    params->pNewAllocation = hole;
-                    movement = reinterpret_cast<intptr_t>(hole) - reinterpret_cast<intptr_t>(params->pAllocation);
+                    DefragmentParams.pNewAllocation = hole;
+                    movement = reinterpret_cast<intptr_t>(hole) - reinterpret_cast<intptr_t>(DefragmentParams.pAllocation);
                     ChunkMovementOffset = movement;
 
                     if (!this->DefragmentAllocation(allocation)) {
                         movement = 0;
                     }
 
-                    ChunkMovementOffset = zero;
+                    ChunkMovementOffset = 0;
                     break;
                 }
             }

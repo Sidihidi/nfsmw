@@ -198,7 +198,7 @@ void MoveChunksRange(bChunk *source_chunks, int sizeof_chunks, int movement_offs
     LoadChunks(dest_chunks, sizeof_chunks, debug_name);
 }
 
-extern int ChunkMovementOffset;
+int ChunkMovementOffset = 0; // Decl: 215
 
 void MoveChunks(bChunk *dest_chunks, bChunk *source_chunks, int32 sizeof_chunks, const char *debug_name) {
     int num_chunk_ranges = 0;
@@ -370,8 +370,7 @@ bool LoadTempPermChunks(bChunk **ppchunks, int *psizeof_chunks, int allocation_p
     }
 }
 
-// TODO
-extern bool PostLoadFixupDisabled;
+bool PostLoadFixupDisabled = false; // Decl: 213
 extern int32 eDirtyTextures;
 
 void PostLoadFixup() {

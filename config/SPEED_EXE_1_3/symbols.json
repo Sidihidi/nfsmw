@@ -50037,7 +50037,7 @@
     {
       "start": 4579680,
       "end": 4579744,
-      "name": "?bToPolar@@YAPAUbPolar@@PAU1@PAUbVector2@@@Z",
+      "name": "?bToPolar@@YAPAUbPolar@@PAU1@PBUbVector2@@@Z",
       "thunk": false,
       "lib": false,
       "static": false,

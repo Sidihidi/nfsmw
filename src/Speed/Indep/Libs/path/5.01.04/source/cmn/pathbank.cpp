@@ -181,29 +181,9 @@ int PATHI_loadbankdata(PATHTRACK *track, int subbanknum, int subbanksize)
     sprintf(newpath, "%.*s%d.mus", len - 4, track->musicfilename, subbanknum);
 
     int fileop;
-    // scaf-r1: ANDAMIO FUERA, CERRADO CON ALMACEN VOLATIL. La barrera
-    // `__asm__("" : "+m"(fileop))` se retira: en su lugar el almacen se escribe
-    // `*(volatile int *)&fileop = ...`. Para el planificador un almacen volatile
-    // no lo cruzan las lecturas de la vtable (y la `lwz` de realimp sigue
-    // pudiendo adelantarse, como en el objetivo); para el DWARF la local sigue
-    // siendo `int fileop; r1+0x208` --el cast no deja rastro ni añade locales
-    // (dwbody igual, regmap 7/7). MEDIDO, sello .text/.rodata del .o:
-    //   con la barrera asm              -> 0019da19 / e3866ff5   (100 %)
-    //   sin nada                        -> 888cb6f0 / e3866ff5   (87,78 %, 12 filas)
-    //   `(&fileop)[0] = X` (ARRAY_REF)  -> 888cb6f0: el frontend lo PLIEGA,
-    //                                      igual que quitar la barrera
-    //   `*(volatile int *)&fileop = X`  -> 0019da19 / e3866ff5   EXACTO
-    // Unidad 2156/2156 B, 5/5 funciones al 100 %. El diagnostico de la r67
-    // (exencion fixed_scalar_and_varying_struct_p) sigue en pie: el volatile
-    // rompe esa exencion sin mentir el tipo (`int fileop[1]`) ni tocar .debug.
-    /* El objetivo materializa y ALMACENA el 0xBEDFACED antes de preparar los
-       argumentos de LoadFile --que es el orden de la fuente-- y nuestro
-       planificador retrasaba el `stw` doce ranuras, arrastrando con el todo el
-       bloque. `fileop` se pasa por referencia, asi que vive en la pila y la
-       barrera tiene que ser de MEMORIA: un `"+r"` se ignora en silencio cuando
-       se toma la direccion. Medidas: `"m"` de solo lectura y el clobber de
-       memoria dejan 4 filas; `"+m"` las deja a cero. */
-    *(volatile int *)&fileop = PATH_UNLIKELY_VALUE;
+    // The original stores 0xBEDFACED before setting up LoadFile's arguments, the source order; our
+    // scheduler delays the store (measured: this function at 87.78 % without a barrier).
+    fileop = PATH_UNLIKELY_VALUE;
 
     subbank->filedata = IPathToReal::realimp->LoadFile(newpath, fileop, subbanksize);
     if (!subbank->filedata)

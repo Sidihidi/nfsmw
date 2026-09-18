@@ -74,10 +74,10 @@ void eNTSCInterlace_PALProceed(int mode);
 extern PADStatus HardwarePadStatus[4];
 // El original la define (local, .rodata) en este TU: PAD_CHAN0_BIT..PAD_CHAN3_BIT.
 static const unsigned int PADMASKS[4] = {0x80000000u, 0x40000000u, 0x20000000u, 0x10000000u};
-// El original direcciona __OSBusClock con @ha/@l sobre un simbolo absoluto
-// (lis 0x8000 + lwz 248); AT_ADDRESS no hace eso con GCC 2.9, asi que lo
-// declaramos aqui como simbolo absoluto igual que GXWGFifo.
-extern unsigned int e_OSBusClock;
+// The bus clock is the SDK's: OSTicksToMilliseconds reads __OSBusClock, which dolphin/os.h
+// places at 0x800000F8 with AT_ADDRESS (SN's address attribute). That load is the original's
+// `lis 0x8000; lwz 248`, and every unit that includes os.h defines the symbol (the overlay
+// static initializer _GLOBAL_.I.__OSBusClock is named after it).
 int eDEMORFPrintf(short x, short y, short z, char *fmt, ...);
 void eDEMOInitCaption(long font_type, long width, long height);
 void eDEMOBeforeRender();
@@ -3981,7 +3981,7 @@ void eProgressiveScan_EURGB60SetMode(int os_restarted, int tv_mode) {
 void eProgressiveScan_EURGB60Proceed(int mode) {
     int bWaiting = 1;
     int timeout = 0;
-    OSTime start = OSGetTime() / (e_OSBusClock / 4 / 1000);
+    OSTime start = OSTicksToMilliseconds(OSGetTime());
 
     if (mode == 0) {
 
@@ -4048,7 +4048,7 @@ void eProgressiveScan_EURGB60Proceed(int mode) {
             }
         }
 
-        if (OSGetTime() / (e_OSBusClock / 4 / 1000) > start + timeout) {
+        if (OSTicksToMilliseconds(OSGetTime()) > start + timeout) {
             bWaiting = 0;
         }
 
@@ -4134,7 +4134,7 @@ void eNTSCInterlace_PALSetMode(int os_restarted, int tv_mode) {
 void eNTSCInterlace_PALProceed(int mode) {
     int bWaiting = 1;
     int timeout = 0;
-    OSTime start = OSGetTime() / (e_OSBusClock / 4 / 1000);
+    OSTime start = OSTicksToMilliseconds(OSGetTime());
 
     if (mode == 0) {
 
@@ -4205,7 +4205,7 @@ void eNTSCInterlace_PALProceed(int mode) {
             }
         }
 
-        if (OSGetTime() / (e_OSBusClock / 4 / 1000) > start + timeout) {
+        if (OSTicksToMilliseconds(OSGetTime()) > start + timeout) {
             bWaiting = 0;
         }
 
@@ -4264,7 +4264,7 @@ int eProgressiveScan_EURGB60DialogBox(int mode) {
     }
 
     int bRunning = 1;
-    OSTime start = OSGetTime() / (e_OSBusClock / 4 / 1000);
+    OSTime start = OSTicksToMilliseconds(OSGetTime());
 
     do {
 
@@ -4304,7 +4304,7 @@ int eProgressiveScan_EURGB60DialogBox(int mode) {
                     eProgressiveScanButtonReleased(g_InitPad[channel].button & PAD_BUTTON_UP, g_LastInitPad[channel].button & PAD_BUTTON_UP)) {
 
                     selection = !selection;
-                    start = OSGetTime() / (e_OSBusClock / 4 / 1000);
+                    start = OSTicksToMilliseconds(OSGetTime());
                     bDone = true;
                 }
 
@@ -4325,7 +4325,7 @@ int eProgressiveScan_EURGB60DialogBox(int mode) {
 
                     bDone = true;
                     selection = !selection;
-                    start = OSGetTime() / (e_OSBusClock / 4 / 1000);
+                    start = OSTicksToMilliseconds(OSGetTime());
                 }
 
                 if (eProgressiveScanButtonReleased(g_InitPad[channel].button & PAD_BUTTON_A, g_LastInitPad[channel].button & PAD_BUTTON_A) != 0) {
@@ -4341,7 +4341,7 @@ int eProgressiveScan_EURGB60DialogBox(int mode) {
             }
         }
 
-        if (OSGetTime() / (e_OSBusClock / 4 / 1000) > start + 10000) {
+        if (OSTicksToMilliseconds(OSGetTime()) > start + 10000) {
 
             bRunning = 0;
         }

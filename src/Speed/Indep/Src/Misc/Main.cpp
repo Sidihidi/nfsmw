@@ -371,7 +371,8 @@ void MiniMainLoop() {
     recursion_checker--;
 }
 
-extern bool Tweak_FullSpeedMode; // TODO
+bool Tweak_FullSpeedMode = false; // Decl: 2585
+bool twkDumpProfileMarks = false; // Decl: 2586
 
 void MainLoop(float hardware_ms) {
     int ticks;

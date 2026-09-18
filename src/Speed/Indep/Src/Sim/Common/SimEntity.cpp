@@ -12,13 +12,7 @@ namespace Sim {
 
 Entity::Entity()
     : Object(4),         //
-#ifdef EA_PLATFORM_GAMECUBE
-      // Expresion-sentencia de GNU: da el reparto de registros de GameCube
-      // (con `this` o con un static_cast el .text cambia). MSVC no la acepta.
-      IEntity(({ UTL::COM::Object *owner = this; owner; })), //
-#else
       IEntity(this), //
-#endif
       IAttachable(this), //
       mSimable(nullptr), //
       mAttachments(new Attachments(this)) {

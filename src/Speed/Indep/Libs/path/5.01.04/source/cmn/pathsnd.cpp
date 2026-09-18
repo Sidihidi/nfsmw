@@ -4,8 +4,6 @@
 
 #include <string.h>
 
-#define PATH_AGG(x) ((*(__typeof__(x) (*)[1]) &(x))[0])
-
 // The two entry points path uses that snd's public headers do not export; they
 // live in snd's private sndcmn.h.
 extern "C" {
@@ -85,7 +83,7 @@ Path::PathTrackSnd::PathTrackSnd() {
     this->mPath[0] = 0;
     this->mSndPlayOpts = static_cast<SNDPLAYOPTS *>(PATHI_memalloc(sizeof(SNDPLAYOPTS)));
     this->mPlayOpts = this->mSndPlayOpts;
-    PATH_AGG(Path::IPathToSnd::sndimp)->GetDefaultPlayOpts(this->mSndPlayOpts);
+    Path::IPathToSnd::sndimp->GetDefaultPlayOpts(this->mSndPlayOpts);
     this->mPitchMult = this->mSndPlayOpts->pitchmult;
     this->mHandle = -1;
 }
@@ -787,10 +785,10 @@ void Path::PathTrackSndStream::CheckStatus() {
         this->mStatus.nodeduration = this->mRequests[0].duration;
         this->mVolume = SNDSTRM_getprogvol(this->mHandle);
         this->mUpdateStatus = 0;
-        if (PATH_AGG(Path::timercallsinarow) > 0 && this->mStatus.timeremaining > 0) {
+        if (Path::timercallsinarow > 0 && this->mStatus.timeremaining > 0) {
             int correction;
 
-            correction = PATH_AGG(Path::timercallsinarow) * Path::pfstate->timerinterval;
+            correction = Path::timercallsinarow * Path::pfstate->timerinterval;
             this->mStatus.timebuffered -= correction;
             this->mStatus.timeremaining -= correction;
             this->mStatus.timeleftinnode -= correction;
