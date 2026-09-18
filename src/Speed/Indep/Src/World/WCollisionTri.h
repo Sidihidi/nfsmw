@@ -41,11 +41,14 @@ struct WCollisionTri {
         }
     }
 
-    UMath::Vector3 fPt0;                  // offset 0x0, size 0xC
+    // Los tres vertices van alineados a 16 en PS2 y X360, y con ellos WCollisionTri y WWorldPos: en la A124 todo
+    // miembro WWorldPos cae en un multiplo de 16 (CameraMover::mWPos en 0x30 y CarRenderInfo::mWorldPos en 0x50,
+    // con 8 bytes vacios delante), y X360 construye el de CameraMover en 0x30; GameCube en 0x28.
+    ALIGNVEC UMath::Vector3 fPt0;         // offset 0x0, size 0xC
     const struct SimSurface *fSurfaceRef; // offset 0xC, size 0x4
-    UMath::Vector3 fPt1;                  // offset 0x10, size 0xC
+    ALIGNVEC UMath::Vector3 fPt1;         // offset 0x10, size 0xC
     unsigned int fFlags;                  // offset 0x1C, size 0x4
-    UMath::Vector3 fPt2;                  // offset 0x20, size 0xC
+    ALIGNVEC UMath::Vector3 fPt2;         // offset 0x20, size 0xC
     WSurface fSurface;                    // offset 0x2C, size 0x2
     unsigned short PAD;                   // offset 0x2E, size 0x2
 };

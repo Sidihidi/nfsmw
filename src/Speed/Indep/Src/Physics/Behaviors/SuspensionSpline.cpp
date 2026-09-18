@@ -25,6 +25,12 @@ static const bool Tweak_UseDefaultConstraint = false; // TODO use
 
 #define MAKEATTRIB const
 
+// El original llama a OrthoInverse desde un inline de UMath.h (el mapa de lineas
+// atribuye el `addi r3,r1,0x98`+`bl` a UMath.h:680, no a este .cpp).
+static inline void UMathOrthoInverse(UMath::Matrix4 &m) {
+    OrthoInverse(m);
+}
+
 // total size: 0x198
 class SuspensionSpline : public Chassis, public INISCarControl {
   public:
@@ -293,7 +299,7 @@ class SuspensionSpline : public Chassis, public INISCarControl {
     bool mBrakeLockFront;                                        // offset 0x104, size 0x1
     bool mBrakeLockRear;                                         // offset 0x108, size 0x1
     Degrees mConstraint;                                         // offset 0x10C, size 0x4
-    UMath::Matrix4 mNISPosition;                                 // offset 0x110, size 0x40
+    PS2ALIGN16 UMath::Matrix4 mNISPosition;                      // offset 0x110, size 0x40
     float mAnimatedPitchLength;                                  // offset 0x150, size 0x4
     float mAnimatedPitch;                                        // offset 0x154, size 0x4
     float mAnimatedPitchDelta;                                   // offset 0x158, size 0x4
@@ -338,6 +344,19 @@ void SuspensionSpline::Tire::UpdateFree(float dT) {
     if (this->mLocked) {
         this->mAV = 0.0f;
     }
+}
+
+void SuspensionSpline::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float load, float dT) {
+    this->mLoad = load;
+    this->mRoadSpeed = fwd_vel;
+    this->mLateralSpeed = lat_vel;
+    this->mSlipAngle = UMath::Atan2a(lat_vel, UMath::Abs(fwd_vel));
+    if (this->mLocked) {
+        this->mAV = 0.0f;
+    } else {
+        this->mAV = (fwd_vel + this->mBurnout) / this->mRadius;
+    }
+    this->mSlip = this->mAV * this->mRadius - fwd_vel;
 }
 
 Behavior *SuspensionSpline::Construct(const BehaviorParams &params) {
@@ -417,19 +436,6 @@ SuspensionSpline::~SuspensionSpline() {
     for (int i = 0; i < 4; ++i) {
         delete this->mTires[i];
     }
-}
-
-void SuspensionSpline::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float load, float dT) {
-    this->mLoad = load;
-    this->mRoadSpeed = fwd_vel;
-    this->mLateralSpeed = lat_vel;
-    this->mSlipAngle = UMath::Atan2a(lat_vel, UMath::Abs(fwd_vel));
-    if (this->mLocked) {
-        this->mAV = 0.0f;
-    } else {
-        this->mAV = (fwd_vel + this->mBurnout) / this->mRadius;
-    }
-    this->mSlip = this->mAV * this->mRadius - fwd_vel;
 }
 
 void SuspensionSpline::OnBehaviorChange(const UCrc32 &mechanic) {
@@ -686,10 +692,9 @@ bool SuspensionSpline::SetNISPosition(const UMath::Matrix4 &position, bool initi
             UMath::MultXRot(matrix, pitch - newpitch, matrix);
         }
 
-        UMath::Matrix4 invorient;
+        UMath::Matrix4 invorient = matrix;
         UMath::Matrix4 localmatrix;
-        invorient = matrix;
-        OrthoInverse(invorient);
+        UMathOrthoInverse(invorient);
         UMath::Mult(invorient, this->mNISPosition, localmatrix);
 
         float newdelta = UMath::Atan2a(localmatrix.v2.x, localmatrix.v2.z);

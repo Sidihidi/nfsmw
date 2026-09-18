@@ -165,7 +165,7 @@ class RigidBody : public Behavior,
         }
 
       private:
-        const UMath::Vector4 mOrientation;                 // offset 0x8, size 0x10
+        ALIGNVEC const UMath::Vector4 mOrientation;        // offset 0x8, size 0x10
         ALIGNVEC const UMath::Vector3 mDimension;          // offset 0x18, size 0xC
         const Dynamics::Collision::Geometry::Shape mShape; // offset 0x24, size 0x4
         ALIGNVEC const UMath::Vector3 mOffset;             // offset 0x28, size 0xC
@@ -599,7 +599,7 @@ class RigidBody : public Behavior,
 
     ScratchPtr<Volatile> mData;                           // offset 0x88, size 0x4
     BehaviorSpecsPtr<Attrib::Gen::rigidbodyspecs> mSpecs; // offset 0x8C, size 0x14
-    UMath::Matrix4 mInvWorldTensor;                       // offset 0xA0, size 0x40
+    PS2ALIGN16 UMath::Matrix4 mInvWorldTensor;            // offset 0xA0, size 0x40
     UMath::Vector4 mGroundNormal;                         // offset 0xE0, size 0x10
     ALIGNVEC UMath::Vector3 mDimension;                   // offset 0xF0, size 0xC
     WCollider *mWCollider;                                // offset 0xFC, size 0x4

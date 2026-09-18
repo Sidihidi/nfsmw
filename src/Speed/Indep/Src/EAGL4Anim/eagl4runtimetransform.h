@@ -12,8 +12,15 @@
 
 namespace EAGL4 {
 
+void MultMatrix(const UMath::Matrix4 *a, const UMath::Matrix4 *b, UMath::Matrix4 *result);
+
 // total size: 0x40
+// GameCube la alinea a 32; la A124 a 16: FnPoseBlender::mAlignMatrix va en 0x30, con 4 bytes vacios delante.
+#ifdef EA_PLATFORM_PLAYSTATION2
+struct ALIGN_16 Transform {
+#else
 struct ATTRIBUTE_ALIGN(32) Transform {
+#endif
     enum Axis {
         X_AXIS = 0,
         Y_AXIS = 4,

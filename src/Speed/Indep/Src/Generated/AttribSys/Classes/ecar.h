@@ -24,13 +24,17 @@ struct ecar : Instance {
         EA::Reflection::Float TireSkidWidth[4];       // offset 0xdc, size 0x10
         EA::Reflection::Text CollectionName;          // offset 0xec, size 0x4
         EA::Reflection::Float CamberFront;            // offset 0xf0, size 0x4
+#ifndef EA_BUILD_A124
         EA::Reflection::Float ReflectionOffset;       // offset 0xf4, size 0x4
+#endif
         EA::Reflection::Float CamberRear;             // offset 0xf8, size 0x4
         EA::Reflection::Float RideHeight;             // offset 0xfc, size 0x4
+#ifndef EA_BUILD_A124
         Private _Array_KitWheelOffsetRear;            // offset 0x100, size 0x8
         EA::Reflection::UInt8 KitWheelOffsetRear[6];  // offset 0x108, size 0x6
         Private _Array_KitWheelOffsetFront;           // offset 0x10e, size 0x8
         EA::Reflection::UInt8 KitWheelOffsetFront[6]; // offset 0x116, size 0x6
+#endif
         EA::Reflection::Int8 WheelSpokeCount;         // offset 0x11c, size 0x1
     };
 
@@ -85,7 +89,7 @@ struct ecar : Instance {
     typedef EA::Reflection::Float TypeOf_WheelWell;
 
     static Key ClassKey();
-    USE_ATTRIB_ALLOC("ecar");
+    USE_ATTRIB_ALLOC("Attrib::Gen::ecar");
     ecar(Key collectionKey, unsigned int msgPort, UTL::COM::IUnknown *owner) : Instance(FindCollection(ClassKey(), collectionKey), msgPort, owner) {
         SetDefaultLayout(sizeof(_LayoutStruct));
     }
@@ -112,10 +116,10 @@ struct ecar : Instance {
         return 0xa5b543b7;
     }
     void Modify(Key dynamicCollectionKey, unsigned int spaceForAdditionalAttributes) {
-        ModifyInternal(0xa5b543b7, dynamicCollectionKey, spaceForAdditionalAttributes);
+        ModifyInternal(ClassKey(), dynamicCollectionKey, LocalAttribCount() + spaceForAdditionalAttributes);
     }
     Key GenerateUniqueKey(const char *name, bool registerName) const {
-        return GenerateUniqueKey(name, registerName);
+        return GUKeyInternal(ClassKey(), name, registerName);
     }
     void Change(const Collection *c) {
         Instance::Change(c);
@@ -832,32 +836,64 @@ inline bool Gen::ecar::KitWheelOffsetFront(TAttrib<EA::Reflection::UInt8> &resul
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::UInt8, 0xfd3077e8);
 }
 inline const EA::Reflection::UInt8 &Gen::ecar::KitWheelOffsetFront(unsigned int index) const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::UInt8, 0xfd3077e8, index);
+#else
     ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::UInt8, KitWheelOffsetFront, index);
+#endif
 }
 inline bool Gen::ecar::KitWheelOffsetFront(EA::Reflection::UInt8 &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::UInt8, 0xfd3077e8, result, index);
+#else
     ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(KitWheelOffsetFront, result, index);
+#endif
 }
 inline unsigned int Gen::ecar::Num_KitWheelOffsetFront() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETLENGTH(0xfd3077e8);
+#else
     ATTRIB_CODEGEN_GETLAYOUTLENGTH(KitWheelOffsetFront);
+#endif
 }
 inline bool Gen::ecar::SET_KitWheelOffsetFront(const EA::Reflection::UInt8 &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::UInt8, 0xfd3077e8, input, index);
+#else
     ATTRIB_CODEGEN_SETLAYOUTINDEXED(KitWheelOffsetFront, input, index);
+#endif
 }
 
 inline bool Gen::ecar::KitWheelOffsetRear(TAttrib<EA::Reflection::UInt8> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::UInt8, 0xccc484dc);
 }
 inline const EA::Reflection::UInt8 &Gen::ecar::KitWheelOffsetRear(unsigned int index) const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::UInt8, 0xccc484dc, index);
+#else
     ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::UInt8, KitWheelOffsetRear, index);
+#endif
 }
 inline bool Gen::ecar::KitWheelOffsetRear(EA::Reflection::UInt8 &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::UInt8, 0xccc484dc, result, index);
+#else
     ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(KitWheelOffsetRear, result, index);
+#endif
 }
 inline unsigned int Gen::ecar::Num_KitWheelOffsetRear() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETLENGTH(0xccc484dc);
+#else
     ATTRIB_CODEGEN_GETLAYOUTLENGTH(KitWheelOffsetRear);
+#endif
 }
 inline bool Gen::ecar::SET_KitWheelOffsetRear(const EA::Reflection::UInt8 &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::UInt8, 0xccc484dc, input, index);
+#else
     ATTRIB_CODEGEN_SETLAYOUTINDEXED(KitWheelOffsetRear, input, index);
+#endif
 }
 
 inline bool Gen::ecar::LIGHT_COPBLUE(TAttrib<RefSpec> &result) const {
@@ -942,14 +978,22 @@ inline bool Gen::ecar::ReflectionOffset(TAttrib<EA::Reflection::Float> &result) 
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xae298718);
 }
 inline const EA::Reflection::Float &Gen::ecar::ReflectionOffset() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUE(EA::Reflection::Float, 0xae298718);
+#else
     ATTRIB_CODEGEN_GETLAYOUT(ReflectionOffset);
+#endif
 }
 inline bool Gen::ecar::ReflectionOffset(EA::Reflection::Float &result) const {
     result = ReflectionOffset();
     return true;
 }
 inline bool Gen::ecar::SET_ReflectionOffset(const EA::Reflection::Float &input) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUE(EA::Reflection::Float, 0xae298718, input);
+#else
     ATTRIB_CODEGEN_SETLAYOUT(ReflectionOffset, input);
+#endif
 }
 
 inline bool Gen::ecar::RideHeight(TAttrib<EA::Reflection::Float> &result) const {

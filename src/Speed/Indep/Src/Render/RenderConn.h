@@ -42,7 +42,10 @@ enum eTireIdx {
     TIRE_MAX,
 };
 
-class Pkt_Car_Open : public Sim::Packet {
+// Todos los paquetes van alineados a 16 en PS2 y X360, no Sim::Packet (que mide 4): en la A124 miden
+// multiplos de 16 aunque sus campos acaben antes (Pkt_Effect_Open, campos hasta 0x18, mide 0x20) y en X360
+// Pkt_Effect_Open::Size() devuelve 0x20. En GameCube, 0x18.
+class ALIGNVEC Pkt_Car_Open : public Sim::Packet {
   public:
     DECLARE_RENDERPACKET(Pkt_Car_Open, CarRenderConn);
 
@@ -62,7 +65,7 @@ class Pkt_Car_Open : public Sim::Packet {
     bool mSpoolLoad;                              // offset 0x18, size 0x1
 };
 
-class Pkt_Car_Service : public Sim::Packet {
+class ALIGNVEC Pkt_Car_Service : public Sim::Packet {
   public:
     typedef UTL::Std::list<UCrc32, _type_list> PartList;
 
@@ -239,7 +242,7 @@ class Pkt_Car_Service : public Sim::Packet {
     float mAnimatedCarShake;      // offset 0xA4, size 0x4
 };
 
-class Pkt_Heli_Open : public Sim::Packet {
+class ALIGNVEC Pkt_Heli_Open : public Sim::Packet {
   public:
     DECLARE_RENDERPACKET(Pkt_Heli_Open, HeliRenderConn);
 
@@ -255,7 +258,7 @@ class Pkt_Heli_Open : public Sim::Packet {
     bool mSpoolLoad;   // offset 0xC, size 0x1
 };
 
-class Pkt_Heli_Service : public Sim::Packet {
+class ALIGNVEC Pkt_Heli_Service : public Sim::Packet {
   public:
     ~Pkt_Heli_Service() override {}
 
@@ -288,7 +291,7 @@ class Pkt_Heli_Service : public Sim::Packet {
     float mDustStorm;      // offset 0x10, size 0x4
 };
 
-class Pkt_VehicleFragment_Open : public Sim::Packet {
+class ALIGNVEC Pkt_VehicleFragment_Open : public Sim::Packet {
   public:
     Pkt_VehicleFragment_Open(unsigned int worldid_part, unsigned int worldid_vehicle, UCrc32 partname, UCrc32 collision_node)
         : mVehicleWorldID(worldid_vehicle), //
@@ -306,7 +309,7 @@ class Pkt_VehicleFragment_Open : public Sim::Packet {
     UCrc32 mColName;      // offset 0x10, size 0x4
 };
 
-class Pkt_VehicleFragment_Service : public Sim::Packet {
+class ALIGNVEC Pkt_VehicleFragment_Service : public Sim::Packet {
   public:
     Pkt_VehicleFragment_Service(bool inview, float disttoview)
         : mInView(inview), //
@@ -330,9 +333,17 @@ class Pkt_VehicleFragment_Service : public Sim::Packet {
 };
 
 // total size: 0x18
-class Pkt_Smackable_Open : public Sim::Packet {
+class ALIGNVEC Pkt_Smackable_Open : public Sim::Packet {
   public:
     DECLARE_RENDERPACKET(Pkt_Smackable_Open, SmackableRenderConn);
+
+    Pkt_Smackable_Open(bHash32 rendermesh, WUID objectworldid, const CollisionGeometry::Bounds *collisionNode, const ModelHeirarchy *heirarchy,
+                       unsigned int rendernode)
+        : mModelHash(rendermesh),        //
+          mObjectWUID(objectworldid),    //
+          mCollisionNode(collisionNode), //
+          mHeirarchy(heirarchy),         //
+          mRenderNode(rendernode) {}
 
   private:
     bHash32 mModelHash;                              // offset 0x4, size 0x4
@@ -343,7 +354,7 @@ class Pkt_Smackable_Open : public Sim::Packet {
 };
 
 // total size: 0x10
-class Pkt_Smackable_Service : public Sim::Packet {
+class ALIGNVEC Pkt_Smackable_Service : public Sim::Packet {
   public:
     Pkt_Smackable_Service(bool visible, float distancetoview) {
         this->mVisible = visible;
@@ -352,6 +363,18 @@ class Pkt_Smackable_Service : public Sim::Packet {
     }
 
     DECLARE_RENDERPACKET(Pkt_Smackable_Service, SmackableRenderConn);
+
+    void SetChildVisibility(unsigned int visibility) {
+        mChildVisibility = visibility;
+    }
+
+    bool IsVisible() const {
+        return mVisible;
+    }
+
+    float GetDistanceToView() const {
+        return mDistanceToView;
+    }
 
   private:
     bool mVisible;           // offset 0x4, size 0x1

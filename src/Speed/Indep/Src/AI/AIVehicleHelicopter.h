@@ -114,8 +114,8 @@ class AIVehicleHelicopter : public AIVehiclePursuit, public IAIHelicopter {
 
   private:
     UMath::Vector3 mDestinationVelocity;          // offset 0x7D8, size 0xC
-    UMath::Vector3 mLookAtPosition;               // offset 0x7E4, size 0xC
-    UMath::Vector3 mLastPlaceHeliSawPerp;         // offset 0x7F0, size 0xC
+    ALIGNVEC UMath::Vector3 mLookAtPosition;               // offset 0x7E4, size 0xC
+    ALIGNVEC UMath::Vector3 mLastPlaceHeliSawPerp;         // offset 0x7F0, size 0xC
     float mHeight;                                // offset 0x7FC, size 0x4
     bool mStrafeToDest;                           // offset 0x800, size 0x1
     bool mPerpHiddenFromMe;                       // offset 0x804, size 0x1

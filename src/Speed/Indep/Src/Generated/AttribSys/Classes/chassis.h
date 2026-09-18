@@ -22,7 +22,9 @@ struct chassis : Instance {
         EA::Reflection::Float WHEEL_BASE;        // offset 0x54, size 0x4
         EA::Reflection::Float SHOCK_BLOWOUT;     // offset 0x58, size 0x4
         EA::Reflection::Float AERO_CG;           // offset 0x5c, size 0x4
+#ifndef EA_BUILD_A124
         EA::Reflection::Float RENDER_MOTION;     // offset 0x60, size 0x4
+#endif
         EA::Reflection::Float FRONT_AXLE;        // offset 0x64, size 0x4
         EA::Reflection::Float AERO_COEFFICIENT;  // offset 0x68, size 0x4
         EA::Reflection::Float FRONT_WEIGHT_BIAS; // offset 0x6c, size 0x4
@@ -50,7 +52,7 @@ struct chassis : Instance {
     typedef EA::Reflection::Float TypeOf_WHEEL_BASE;
 
     static Key ClassKey();
-    USE_ATTRIB_ALLOC("chassis");
+    USE_ATTRIB_ALLOC("Attrib::Gen::chassis");
     chassis(Key collectionKey, unsigned int msgPort, UTL::COM::IUnknown *owner)
         : Instance(FindCollection(ClassKey(), collectionKey), msgPort, owner) {
         SetDefaultLayout(sizeof(_LayoutStruct));
@@ -78,10 +80,10 @@ struct chassis : Instance {
         return 0xafa210f0;
     }
     void Modify(Key dynamicCollectionKey, unsigned int spaceForAdditionalAttributes) {
-        ModifyInternal(0xafa210f0, dynamicCollectionKey, spaceForAdditionalAttributes);
+        ModifyInternal(ClassKey(), dynamicCollectionKey, LocalAttribCount() + spaceForAdditionalAttributes);
     }
     Key GenerateUniqueKey(const char *name, bool registerName) const {
-        return GenerateUniqueKey(name, registerName);
+        return GUKeyInternal(ClassKey(), name, registerName);
     }
     void Change(const Collection *c) {
         Instance::Change(c);
@@ -320,14 +322,22 @@ inline bool Gen::chassis::RENDER_MOTION(TAttrib<EA::Reflection::Float> &result) 
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xb3d3e7d5);
 }
 inline const EA::Reflection::Float &Gen::chassis::RENDER_MOTION() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUE(EA::Reflection::Float, 0xb3d3e7d5);
+#else
     ATTRIB_CODEGEN_GETLAYOUT(RENDER_MOTION);
+#endif
 }
 inline bool Gen::chassis::RENDER_MOTION(EA::Reflection::Float &result) const {
     result = RENDER_MOTION();
     return true;
 }
 inline bool Gen::chassis::SET_RENDER_MOTION(const EA::Reflection::Float &input) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUE(EA::Reflection::Float, 0xb3d3e7d5, input);
+#else
     ATTRIB_CODEGEN_SETLAYOUT(RENDER_MOTION, input);
+#endif
 }
 
 inline bool Gen::chassis::RIDE_HEIGHT(TAttrib<AxlePair> &result) const {

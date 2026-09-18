@@ -103,8 +103,11 @@ class Server {
     BodyMap mBodies; // offset 0x0, size 0x10
 };
 
+// Todos los paquetes van alineados a 16 en PS2 y X360, no Sim::Packet (que mide 4): en la A124 miden
+// multiplos de 16 aunque sus campos acaben antes (Pkt_Effect_Open, campos hasta 0x18, mide 0x20) y en X360
+// Pkt_Effect_Open::Size() devuelve 0x20. En GameCube, 0x18.
 // total size: 0x48
-class Pkt_Body_Open : public Sim::Packet {
+class ALIGNVEC Pkt_Body_Open : public Sim::Packet {
   public:
     Pkt_Body_Open(unsigned int id, const UMath::Matrix4 &matrix)
         : mMatrix(matrix), //
@@ -114,12 +117,12 @@ class Pkt_Body_Open : public Sim::Packet {
 
     ~Pkt_Body_Open() override {}
 
-    UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
+    PS2ALIGN16 UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
     WUID mID;               // offset 0x44, size 0x4
 };
 
 // total size: 0x50
-class Pkt_Body_Service : public Sim::Packet {
+class ALIGNVEC Pkt_Body_Service : public Sim::Packet {
   public:
     DECLARE_WORLDPACKET(Pkt_Body_Service, WorldBodyConn);
 
@@ -133,14 +136,14 @@ class Pkt_Body_Service : public Sim::Packet {
         mVelocity = velocity;
     }
 
-    UMath::Matrix4 mMatrix;   // offset 0x4, size 0x40
+    PS2ALIGN16 UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
     UMath::Vector3 mVelocity; // offset 0x44, size 0xC
 };
 
 // total size: 0x48
-class Pkt_Body_Send : public Sim::Packet {
+class ALIGNVEC Pkt_Body_Send : public Sim::Packet {
   public:
-    DECLARE_WORLDPACKET(Pkt_Body_Send, WorldBodyConn);
+    DECLARE_WORLDPACKET(Pkt_Body_Send, World_UpdateBody);
 
     Pkt_Body_Send(unsigned int id, const UMath::Matrix4 &matrix)
         : mMatrix(matrix), //
@@ -148,14 +151,14 @@ class Pkt_Body_Send : public Sim::Packet {
 
     ~Pkt_Body_Send() override {}
 
-    UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
+    PS2ALIGN16 UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
     WUID mID;               // offset 0x44, size 0x4
 };
 
 // total size: 0x30
-class Pkt_Effect_Send : public Sim::Packet {
+class ALIGNVEC Pkt_Effect_Send : public Sim::Packet {
   public:
-    DECLARE_WORLDPACKET(Pkt_Effect_Send, WorldBodyConn);
+    DECLARE_WORLDPACKET(Pkt_Effect_Send, World_OneShotEffect);
 
     Pkt_Effect_Send(const Attrib::Collection *effect_group, const UMath::Vector3 &pos, const UMath::Vector3 &mag, WUID owner,
                     const Attrib::Collection *owner_attrib, const Attrib::Collection *context, WUID actee)
@@ -179,9 +182,9 @@ class Pkt_Effect_Send : public Sim::Packet {
 };
 
 // total size: 0x18
-class Pkt_Effect_Open : public Sim::Packet {
+class ALIGNVEC Pkt_Effect_Open : public Sim::Packet {
   public:
-    DECLARE_WORLDPACKET(Pkt_Effect_Open, WorldBodyConn);
+    DECLARE_WORLDPACKET(Pkt_Effect_Open, WorldEffectConn);
 
     Pkt_Effect_Open(const Attrib::Collection *effect_group, unsigned int owner, const Attrib::Collection *owner_attrib,
                     const Attrib::Collection *context,
@@ -202,9 +205,9 @@ class Pkt_Effect_Open : public Sim::Packet {
 };
 
 // total size: 0x20
-class Pkt_Effect_Service : public Sim::Packet {
+class ALIGNVEC Pkt_Effect_Service : public Sim::Packet {
   public:
-    DECLARE_WORLDPACKET(Pkt_Effect_Service, WorldBodyConn);
+    DECLARE_WORLDPACKET(Pkt_Effect_Service, WorldEffectConn);
 
     ~Pkt_Effect_Service() override {}
 

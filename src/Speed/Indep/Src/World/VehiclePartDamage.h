@@ -172,9 +172,9 @@ class VehiclePartDamageBehaviour : public IVehiclePartDamageBehaviour {
     unsigned int mDamageZoneNum;                                // offset 0x8, size 0x4
     VehiclePartDamageZone *mDamageZoneList[kPartDamageZoneNum]; // offset 0xC, size 0x28
     VehicleDamagePart *mDamagePartList[kMaxDamagePartNum];      // offset 0x34, size 0x5C
-    bVector3 linearAcc_ch;                                      // offset 0x90, size 0x10
-    bVector3 linearVel_ch;                                      // offset 0xA0, size 0x10
-    bVector3 angularVel_ch;                                     // offset 0xB0, size 0x10
+    ALIGNVEC bVector3 linearAcc_ch;                                      // offset 0x90, size 0x10
+    ALIGNVEC bVector3 linearVel_ch;                                      // offset 0xA0, size 0x10
+    ALIGNVEC bVector3 angularVel_ch;                                     // offset 0xB0, size 0x10
     float mTrunkVel;                                            // offset 0xC0, size 0x4
     float mTrunkAngle;                                          // offset 0xC4, size 0x4
 };

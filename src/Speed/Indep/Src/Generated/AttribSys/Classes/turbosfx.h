@@ -10,7 +10,9 @@ struct turbosfx : Instance {
     struct _LayoutStruct {
         Attrib::StringKey BankName;          // offset 0x0, size 0x10
         EA::Reflection::UInt32 Vol_Spool;    // offset 0x10, size 0x4
+#ifndef EA_BUILD_A124
         EA::Reflection::Float ChargeTime;    // offset 0x14, size 0x4
+#endif
         EA::Reflection::UInt32 Vol_Blowoff1; // offset 0x18, size 0x4
         EA::Reflection::UInt32 Vol_Blowoff2; // offset 0x1c, size 0x4
     };
@@ -23,7 +25,7 @@ struct turbosfx : Instance {
     typedef EA::Reflection::UInt32 TypeOf_Vol_Spool;
 
     static Key ClassKey();
-    USE_ATTRIB_ALLOC("turbosfx");
+    USE_ATTRIB_ALLOC("Attrib::Gen::turbosfx");
     turbosfx(Key collectionKey, unsigned int msgPort, UTL::COM::IUnknown *owner)
         : Instance(FindCollection(ClassKey(), collectionKey), msgPort, owner) {
         SetDefaultLayout(sizeof(_LayoutStruct));
@@ -51,10 +53,10 @@ struct turbosfx : Instance {
         return 0x55624a85;
     }
     void Modify(Key dynamicCollectionKey, unsigned int spaceForAdditionalAttributes) {
-        ModifyInternal(0x55624a85, dynamicCollectionKey, spaceForAdditionalAttributes);
+        ModifyInternal(ClassKey(), dynamicCollectionKey, LocalAttribCount() + spaceForAdditionalAttributes);
     }
     Key GenerateUniqueKey(const char *name, bool registerName) const {
-        return GenerateUniqueKey(name, registerName);
+        return GUKeyInternal(ClassKey(), name, registerName);
     }
     void Change(const Collection *c) {
         Instance::Change(c);
@@ -159,14 +161,22 @@ inline bool Gen::turbosfx::ChargeTime(TAttrib<EA::Reflection::Float> &result) co
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x4a985286);
 }
 inline const EA::Reflection::Float &Gen::turbosfx::ChargeTime() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUE(EA::Reflection::Float, 0x4a985286);
+#else
     ATTRIB_CODEGEN_GETLAYOUT(ChargeTime);
+#endif
 }
 inline bool Gen::turbosfx::ChargeTime(EA::Reflection::Float &result) const {
     result = ChargeTime();
     return true;
 }
 inline bool Gen::turbosfx::SET_ChargeTime(const EA::Reflection::Float &input) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUE(EA::Reflection::Float, 0x4a985286, input);
+#else
     ATTRIB_CODEGEN_SETLAYOUT(ChargeTime, input);
+#endif
 }
 
 inline bool Gen::turbosfx::Leak_Rate(TAttrib<EA::Reflection::Float> &result) const {

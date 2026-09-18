@@ -177,7 +177,9 @@ void SoundCar::OnService(SoundConn::Pkt_Car_Service &svc) {
             svc.SetUndersteer(this->mSuspension->CalculateUndersteerFactor());
             svc.SetWheelSlip(idx, slip, -this->mSuspension->GetWheelSkid(i));
             svc.SetWheelLoad(idx, this->mSuspension->GetWheelLoad(i));
+#ifndef EA_BUILD_A124
             svc.SetWheelZForce(idx, this->mSuspension->GetCompression(i));
+#endif
 
             this->OnServiceTire(svc, i, idx);
         }

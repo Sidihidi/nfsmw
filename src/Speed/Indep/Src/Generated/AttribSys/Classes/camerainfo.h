@@ -8,6 +8,7 @@ namespace Gen {
 
 struct camerainfo : Instance {
     struct _LayoutStruct {
+#ifndef EA_BUILD_A124
         Private _Array_STIFFNESS;            // offset 0x0, size 0x8
         EA::Reflection::Float STIFFNESS[2];  // offset 0x8, size 0x8
         Private _Array_LATOFFSET;            // offset 0x10, size 0x8
@@ -20,11 +21,14 @@ struct camerainfo : Instance {
         EA::Reflection::Float HEIGHT[2];     // offset 0x48, size 0x8
         Private _Array_ANGLE;                // offset 0x50, size 0x8
         EA::Reflection::Float ANGLE[2];      // offset 0x58, size 0x8
+#endif
         EA::Reflection::Text CollectionName; // offset 0x60, size 0x4
+#ifndef EA_BUILD_A124
         Private _Array_TILTING;              // offset 0x64, size 0x8
         EA::Reflection::Bool TILTING[2];     // offset 0x6c, size 0x2
-        Private _Array_SELECTABLE;           // offset 0x6e, size 0x8
-        EA::Reflection::Bool SELECTABLE[2];  // offset 0x76, size 0x2
+        Private _Array_SELECTABLE;           // offset 0x74, size 0x8
+        EA::Reflection::Bool SELECTABLE[2];  // offset 0x7c, size 0x2
+#endif
     };
 
     typedef EA::Reflection::Float TypeOf_ANGLE;
@@ -38,7 +42,7 @@ struct camerainfo : Instance {
     typedef EA::Reflection::Bool TypeOf_TILTING;
 
     static Key ClassKey();
-    USE_ATTRIB_ALLOC("camerainfo");
+    USE_ATTRIB_ALLOC("Attrib::Gen::camerainfo");
     camerainfo(Key collectionKey, unsigned int msgPort, UTL::COM::IUnknown *owner)
         : Instance(FindCollection(ClassKey(), collectionKey), msgPort, owner) {
         SetDefaultLayout(sizeof(_LayoutStruct));
@@ -66,10 +70,10 @@ struct camerainfo : Instance {
         return 0x93c171e4;
     }
     void Modify(Key dynamicCollectionKey, unsigned int spaceForAdditionalAttributes) {
-        ModifyInternal(0x93c171e4, dynamicCollectionKey, spaceForAdditionalAttributes);
+        ModifyInternal(ClassKey(), dynamicCollectionKey, LocalAttribCount() + spaceForAdditionalAttributes);
     }
     Key GenerateUniqueKey(const char *name, bool registerName) const {
-        return GenerateUniqueKey(name, registerName);
+        return GUKeyInternal(ClassKey(), name, registerName);
     }
     void Change(const Collection *c) {
         Instance::Change(c);
@@ -94,58 +98,266 @@ struct camerainfo : Instance {
         Instance::operator=(rhs);
         return *this;
     }
-    bool ANGLE(TAttrib<EA::Reflection::Float> &result) const;
-    bool ANGLE(EA::Reflection::Float &result, unsigned int index) const;
-    const EA::Reflection::Float &ANGLE(unsigned int index) const;
-    unsigned int Num_ANGLE() const;
-    bool SET_ANGLE(const EA::Reflection::Float &input, unsigned int index);
-
-    bool CollectionName(TAttrib<EA::Reflection::Text> &result) const;
-    bool CollectionName(EA::Reflection::Text &result) const;
-    const EA::Reflection::Text &CollectionName() const;
-    bool SET_CollectionName(const EA::Reflection::Text &input);
-
-    bool FOV(TAttrib<EA::Reflection::Float> &result) const;
-    bool FOV(EA::Reflection::Float &result, unsigned int index) const;
-    const EA::Reflection::Float &FOV(unsigned int index) const;
-    unsigned int Num_FOV() const;
-    bool SET_FOV(const EA::Reflection::Float &input, unsigned int index);
-
-    bool HEIGHT(TAttrib<EA::Reflection::Float> &result) const;
-    bool HEIGHT(EA::Reflection::Float &result, unsigned int index) const;
-    const EA::Reflection::Float &HEIGHT(unsigned int index) const;
-    unsigned int Num_HEIGHT() const;
-    bool SET_HEIGHT(const EA::Reflection::Float &input, unsigned int index);
-
-    bool LAG(TAttrib<EA::Reflection::Float> &result) const;
-    bool LAG(EA::Reflection::Float &result, unsigned int index) const;
-    const EA::Reflection::Float &LAG(unsigned int index) const;
-    unsigned int Num_LAG() const;
-    bool SET_LAG(const EA::Reflection::Float &input, unsigned int index);
-
-    bool LATOFFSET(TAttrib<EA::Reflection::Float> &result) const;
-    bool LATOFFSET(EA::Reflection::Float &result, unsigned int index) const;
-    const EA::Reflection::Float &LATOFFSET(unsigned int index) const;
-    unsigned int Num_LATOFFSET() const;
-    bool SET_LATOFFSET(const EA::Reflection::Float &input, unsigned int index);
-
-    bool SELECTABLE(TAttrib<EA::Reflection::Bool> &result) const;
-    bool SELECTABLE(EA::Reflection::Bool &result, unsigned int index) const;
-    const EA::Reflection::Bool &SELECTABLE(unsigned int index) const;
-    unsigned int Num_SELECTABLE() const;
-    bool SET_SELECTABLE(const EA::Reflection::Bool &input, unsigned int index);
-
-    bool STIFFNESS(TAttrib<EA::Reflection::Float> &result) const;
-    bool STIFFNESS(EA::Reflection::Float &result, unsigned int index) const;
-    const EA::Reflection::Float &STIFFNESS(unsigned int index) const;
-    unsigned int Num_STIFFNESS() const;
-    bool SET_STIFFNESS(const EA::Reflection::Float &input, unsigned int index);
-
-    bool TILTING(TAttrib<EA::Reflection::Bool> &result) const;
-    bool TILTING(EA::Reflection::Bool &result, unsigned int index) const;
-    const EA::Reflection::Bool &TILTING(unsigned int index) const;
-    unsigned int Num_TILTING() const;
-    bool SET_TILTING(const EA::Reflection::Bool &input, unsigned int index);
+    bool ANGLE(TAttrib<EA::Reflection::Float> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x7d1e620e);
+    }
+    bool ANGLE(EA::Reflection::Float &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Float, 0x7d1e620e, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(ANGLE, result, index);
+#endif
+    }
+    const EA::Reflection::Float &ANGLE(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Float, 0x7d1e620e, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, ANGLE, index);
+#endif
+    }
+    unsigned int Num_ANGLE() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x7d1e620e);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(ANGLE);
+#endif
+    }
+    bool SET_ANGLE(const EA::Reflection::Float &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Float, 0x7d1e620e, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(ANGLE, input, index);
+#endif
+    }
+    bool CollectionName(TAttrib<EA::Reflection::Text> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Text, 0x9ca1c8f9);
+    }
+    bool CollectionName(EA::Reflection::Text &result) const {
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUT(CollectionName, result);
+    }
+    const EA::Reflection::Text &CollectionName() const {
+        ATTRIB_CODEGEN_GETLAYOUT(CollectionName);
+    }
+    bool SET_CollectionName(const EA::Reflection::Text &input) {
+        ATTRIB_CODEGEN_SETLAYOUT(CollectionName, input);
+    }
+    bool FOV(TAttrib<EA::Reflection::Float> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x263e9452);
+    }
+    bool FOV(EA::Reflection::Float &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Float, 0x263e9452, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(FOV, result, index);
+#endif
+    }
+    const EA::Reflection::Float &FOV(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Float, 0x263e9452, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, FOV, index);
+#endif
+    }
+    unsigned int Num_FOV() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x263e9452);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(FOV);
+#endif
+    }
+    bool SET_FOV(const EA::Reflection::Float &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Float, 0x263e9452, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(FOV, input, index);
+#endif
+    }
+    bool HEIGHT(TAttrib<EA::Reflection::Float> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x762b7718);
+    }
+    bool HEIGHT(EA::Reflection::Float &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Float, 0x762b7718, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(HEIGHT, result, index);
+#endif
+    }
+    const EA::Reflection::Float &HEIGHT(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Float, 0x762b7718, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, HEIGHT, index);
+#endif
+    }
+    unsigned int Num_HEIGHT() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x762b7718);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(HEIGHT);
+#endif
+    }
+    bool SET_HEIGHT(const EA::Reflection::Float &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Float, 0x762b7718, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(HEIGHT, input, index);
+#endif
+    }
+    bool LAG(TAttrib<EA::Reflection::Float> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xde0857e3);
+    }
+    bool LAG(EA::Reflection::Float &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Float, 0xde0857e3, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(LAG, result, index);
+#endif
+    }
+    const EA::Reflection::Float &LAG(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Float, 0xde0857e3, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, LAG, index);
+#endif
+    }
+    unsigned int Num_LAG() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0xde0857e3);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(LAG);
+#endif
+    }
+    bool SET_LAG(const EA::Reflection::Float &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Float, 0xde0857e3, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(LAG, input, index);
+#endif
+    }
+    bool LATOFFSET(TAttrib<EA::Reflection::Float> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x2fc5f041);
+    }
+    bool LATOFFSET(EA::Reflection::Float &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Float, 0x2fc5f041, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(LATOFFSET, result, index);
+#endif
+    }
+    const EA::Reflection::Float &LATOFFSET(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Float, 0x2fc5f041, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, LATOFFSET, index);
+#endif
+    }
+    unsigned int Num_LATOFFSET() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x2fc5f041);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(LATOFFSET);
+#endif
+    }
+    bool SET_LATOFFSET(const EA::Reflection::Float &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Float, 0x2fc5f041, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(LATOFFSET, input, index);
+#endif
+    }
+    bool SELECTABLE(TAttrib<EA::Reflection::Bool> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Bool, 0x40e94f86);
+    }
+    bool SELECTABLE(EA::Reflection::Bool &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Bool, 0x40e94f86, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(SELECTABLE, result, index);
+#endif
+    }
+    const EA::Reflection::Bool &SELECTABLE(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Bool, 0x40e94f86, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Bool, SELECTABLE, index);
+#endif
+    }
+    unsigned int Num_SELECTABLE() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x40e94f86);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(SELECTABLE);
+#endif
+    }
+    bool SET_SELECTABLE(const EA::Reflection::Bool &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Bool, 0x40e94f86, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(SELECTABLE, input, index);
+#endif
+    }
+    bool STIFFNESS(TAttrib<EA::Reflection::Float> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x7f8eea1a);
+    }
+    bool STIFFNESS(EA::Reflection::Float &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Float, 0x7f8eea1a, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(STIFFNESS, result, index);
+#endif
+    }
+    const EA::Reflection::Float &STIFFNESS(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Float, 0x7f8eea1a, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, STIFFNESS, index);
+#endif
+    }
+    unsigned int Num_STIFFNESS() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x7f8eea1a);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(STIFFNESS);
+#endif
+    }
+    bool SET_STIFFNESS(const EA::Reflection::Float &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Float, 0x7f8eea1a, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(STIFFNESS, input, index);
+#endif
+    }
+    bool TILTING(TAttrib<EA::Reflection::Bool> &result) const {
+        ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Bool, 0x665f4d74);
+    }
+    bool TILTING(EA::Reflection::Bool &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(EA::Reflection::Bool, 0x665f4d74, result, index);
+#else
+        ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(TILTING, result, index);
+#endif
+    }
+    const EA::Reflection::Bool &TILTING(unsigned int index) const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETVALUEINDEXED(EA::Reflection::Bool, 0x665f4d74, index);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Bool, TILTING, index);
+#endif
+    }
+    unsigned int Num_TILTING() const {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_GETLENGTH(0x665f4d74);
+#else
+        ATTRIB_CODEGEN_GETLAYOUTLENGTH(TILTING);
+#endif
+    }
+    bool SET_TILTING(const EA::Reflection::Bool &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+        ATTRIB_CODEGEN_SETVALUEINDEXED(EA::Reflection::Bool, 0x665f4d74, input, index);
+#else
+        ATTRIB_CODEGEN_SETLAYOUTINDEXED(TILTING, input, index);
+#endif
+    }
 
   private:
     unsigned int GetLayoutSize() {
@@ -180,148 +392,6 @@ static const Key TILTING = 0x665f4d74;
 
 inline Key Gen::camerainfo::ClassKey() {
     return ClassName::camerainfo;
-}
-
-inline bool Gen::camerainfo::ANGLE(TAttrib<EA::Reflection::Float> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x7d1e620e);
-}
-inline const EA::Reflection::Float &Gen::camerainfo::ANGLE(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, ANGLE, index);
-}
-inline bool Gen::camerainfo::ANGLE(EA::Reflection::Float &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(ANGLE, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_ANGLE() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(ANGLE);
-}
-inline bool Gen::camerainfo::SET_ANGLE(const EA::Reflection::Float &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(ANGLE, input, index);
-}
-
-inline bool Gen::camerainfo::CollectionName(TAttrib<EA::Reflection::Text> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Text, 0x9ca1c8f9);
-}
-inline const EA::Reflection::Text &Gen::camerainfo::CollectionName() const {
-    ATTRIB_CODEGEN_GETLAYOUT(CollectionName);
-}
-inline bool Gen::camerainfo::CollectionName(EA::Reflection::Text &result) const {
-    result = CollectionName();
-    return true;
-}
-inline bool Gen::camerainfo::SET_CollectionName(const EA::Reflection::Text &input) {
-    ATTRIB_CODEGEN_SETLAYOUT(CollectionName, input);
-}
-
-inline bool Gen::camerainfo::FOV(TAttrib<EA::Reflection::Float> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x263e9452);
-}
-inline const EA::Reflection::Float &Gen::camerainfo::FOV(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, FOV, index);
-}
-inline bool Gen::camerainfo::FOV(EA::Reflection::Float &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(FOV, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_FOV() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(FOV);
-}
-inline bool Gen::camerainfo::SET_FOV(const EA::Reflection::Float &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(FOV, input, index);
-}
-
-inline bool Gen::camerainfo::HEIGHT(TAttrib<EA::Reflection::Float> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x762b7718);
-}
-inline const EA::Reflection::Float &Gen::camerainfo::HEIGHT(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, HEIGHT, index);
-}
-inline bool Gen::camerainfo::HEIGHT(EA::Reflection::Float &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(HEIGHT, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_HEIGHT() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(HEIGHT);
-}
-inline bool Gen::camerainfo::SET_HEIGHT(const EA::Reflection::Float &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(HEIGHT, input, index);
-}
-
-inline bool Gen::camerainfo::LAG(TAttrib<EA::Reflection::Float> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xde0857e3);
-}
-inline const EA::Reflection::Float &Gen::camerainfo::LAG(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, LAG, index);
-}
-inline bool Gen::camerainfo::LAG(EA::Reflection::Float &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(LAG, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_LAG() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(LAG);
-}
-inline bool Gen::camerainfo::SET_LAG(const EA::Reflection::Float &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(LAG, input, index);
-}
-
-inline bool Gen::camerainfo::LATOFFSET(TAttrib<EA::Reflection::Float> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x2fc5f041);
-}
-inline const EA::Reflection::Float &Gen::camerainfo::LATOFFSET(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, LATOFFSET, index);
-}
-inline bool Gen::camerainfo::LATOFFSET(EA::Reflection::Float &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(LATOFFSET, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_LATOFFSET() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(LATOFFSET);
-}
-inline bool Gen::camerainfo::SET_LATOFFSET(const EA::Reflection::Float &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(LATOFFSET, input, index);
-}
-
-inline bool Gen::camerainfo::SELECTABLE(TAttrib<EA::Reflection::Bool> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Bool, 0x40e94f86);
-}
-inline const EA::Reflection::Bool &Gen::camerainfo::SELECTABLE(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Bool, SELECTABLE, index);
-}
-inline bool Gen::camerainfo::SELECTABLE(EA::Reflection::Bool &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(SELECTABLE, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_SELECTABLE() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(SELECTABLE);
-}
-inline bool Gen::camerainfo::SET_SELECTABLE(const EA::Reflection::Bool &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(SELECTABLE, input, index);
-}
-
-inline bool Gen::camerainfo::STIFFNESS(TAttrib<EA::Reflection::Float> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x7f8eea1a);
-}
-inline const EA::Reflection::Float &Gen::camerainfo::STIFFNESS(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Float, STIFFNESS, index);
-}
-inline bool Gen::camerainfo::STIFFNESS(EA::Reflection::Float &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(STIFFNESS, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_STIFFNESS() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(STIFFNESS);
-}
-inline bool Gen::camerainfo::SET_STIFFNESS(const EA::Reflection::Float &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(STIFFNESS, input, index);
-}
-
-inline bool Gen::camerainfo::TILTING(TAttrib<EA::Reflection::Bool> &result) const {
-    ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Bool, 0x665f4d74);
-}
-inline const EA::Reflection::Bool &Gen::camerainfo::TILTING(unsigned int index) const {
-    ATTRIB_CODEGEN_GETLAYOUTINDEXED(EA::Reflection::Bool, TILTING, index);
-}
-inline bool Gen::camerainfo::TILTING(EA::Reflection::Bool &result, unsigned int index) const {
-    ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(TILTING, result, index);
-}
-inline unsigned int Gen::camerainfo::Num_TILTING() const {
-    ATTRIB_CODEGEN_GETLAYOUTLENGTH(TILTING);
-}
-inline bool Gen::camerainfo::SET_TILTING(const EA::Reflection::Bool &input, unsigned int index) {
-    ATTRIB_CODEGEN_SETLAYOUTINDEXED(TILTING, input, index);
 }
 
 }; // namespace Attrib

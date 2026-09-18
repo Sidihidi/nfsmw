@@ -187,7 +187,7 @@ class AIVehiclePursuit : public AIVehiclePid, public IPursuitAI {
     bool mInPosition;                 // offset 0x7A0, size 0x1
     bool mWithinEngagementRadius;     // offset 0x7A4, size 0x1
     UMath::Vector3 mPursuitOffset;    // offset 0x7A8, size 0xC
-    UMath::Vector3 mInPositionOffset; // offset 0x7B4, size 0xC
+    ALIGNVEC UMath::Vector3 mInPositionOffset; // offset 0x7B4, size 0xC
     UCrc32 mInPositionGoal;           // offset 0x7C0, size 0x4
     float mTimeSinceTargetSeen;       // offset 0x7C4, size 0x4
     float mVisibiltyTestTimer;        // offset 0x7C8, size 0x4

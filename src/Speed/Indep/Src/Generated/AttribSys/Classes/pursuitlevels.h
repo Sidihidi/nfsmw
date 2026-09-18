@@ -8,8 +8,11 @@ namespace Gen {
 
 struct pursuitlevels : Instance {
     struct _LayoutStruct {
+        // En la A124 cops no esta en el layout: se lee por clave (GetAttributePointer(0xA9811B93, i)).
+#ifndef EA_BUILD_A124
         Private _Array_cops;                               // offset 0x0, size 0x8
         CopCountRecord cops[3];                            // offset 0x8, size 0x48
+#endif
         EA::Reflection::Float heliLOSdistance;             // offset 0x50, size 0x4
         EA::Reflection::Float roadblockhelichance;         // offset 0x54, size 0x4
         EA::Reflection::Float SirenMaxYelpTime;            // offset 0x58, size 0x4
@@ -100,7 +103,7 @@ struct pursuitlevels : Instance {
     typedef EA::Reflection::Float TypeOf_roadblockspikechance;
 
     static Key ClassKey();
-    USE_ATTRIB_ALLOC("pursuitlevels");
+    USE_ATTRIB_ALLOC("Attrib::Gen::pursuitlevels");
     pursuitlevels(Key collectionKey, unsigned int msgPort, UTL::COM::IUnknown *owner)
         : Instance(FindCollection(ClassKey(), collectionKey), msgPort, owner) {
         SetDefaultLayout(sizeof(_LayoutStruct));
@@ -128,10 +131,10 @@ struct pursuitlevels : Instance {
         return 0x551e22b3;
     }
     void Modify(Key dynamicCollectionKey, unsigned int spaceForAdditionalAttributes) {
-        ModifyInternal(0x551e22b3, dynamicCollectionKey, spaceForAdditionalAttributes);
+        ModifyInternal(ClassKey(), dynamicCollectionKey, LocalAttribCount() + spaceForAdditionalAttributes);
     }
     Key GenerateUniqueKey(const char *name, bool registerName) const {
-        return GenerateUniqueKey(name, registerName);
+        return GUKeyInternal(ClassKey(), name, registerName);
     }
     void Change(const Collection *c) {
         Instance::Change(c);
@@ -1185,16 +1188,32 @@ inline bool Gen::pursuitlevels::cops(TAttrib<CopCountRecord> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(CopCountRecord, 0xa9811b93);
 }
 inline const CopCountRecord &Gen::pursuitlevels::cops(unsigned int index) const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUEINDEXED(CopCountRecord, 0xa9811b93, index);
+#else
     ATTRIB_CODEGEN_GETLAYOUTINDEXED(CopCountRecord, cops, index);
+#endif
 }
 inline bool Gen::pursuitlevels::cops(CopCountRecord &result, unsigned int index) const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_CHECKEDGETVALUEINDEXED(CopCountRecord, 0xa9811b93, result, index);
+#else
     ATTRIB_CODEGEN_CHECKEDGETLAYOUTINDEXED(cops, result, index);
+#endif
 }
 inline unsigned int Gen::pursuitlevels::Num_cops() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETLENGTH(0xa9811b93);
+#else
     ATTRIB_CODEGEN_GETLAYOUTLENGTH(cops);
+#endif
 }
 inline bool Gen::pursuitlevels::SET_cops(const CopCountRecord &input, unsigned int index) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUEINDEXED(CopCountRecord, 0xa9811b93, input, index);
+#else
     ATTRIB_CODEGEN_SETLAYOUTINDEXED(cops, input, index);
+#endif
 }
 
 inline bool Gen::pursuitlevels::evadetimeout(TAttrib<EA::Reflection::Float> &result) const {
