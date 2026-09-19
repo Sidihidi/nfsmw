@@ -276,7 +276,12 @@ class SceneryModel : public HeirarchyModel, public ISceneryModel {
         return mSpawner ? mSpawner->GetUniqueID() : -1;
     }
 
-    SceneryModel(SmokeableSpawner *spawner, const CollisionGeometry::Bounds *geometry, const Attrib::Collection *attribs, bool hidden);
+    SceneryModel(SmokeableSpawner *spawner, const CollisionGeometry::Bounds *geometry, const Attrib::Collection *attribs
+#ifndef EA_BUILD_A124
+                 ,
+                 bool hidden
+#endif
+    );
 
     ~SceneryModel() override;
 
@@ -289,7 +294,12 @@ class SceneryModel : public HeirarchyModel, public ISceneryModel {
     void InitScene();
     bool GetSceneryTransform(UMath::Matrix4 &matrix) const override;
     void OnEndSimulation() override;
-    static SceneryModel *Construct(SmokeableSpawner *data, const Attrib::Collection *attributes, bool hidden);
+    static SceneryModel *Construct(SmokeableSpawner *data, const Attrib::Collection *attributes
+#ifndef EA_BUILD_A124
+                                   ,
+                                   bool hidden
+#endif
+    );
     void WakeUp() override;
     void RestoreScene() override;
     void ReleaseModel() override;

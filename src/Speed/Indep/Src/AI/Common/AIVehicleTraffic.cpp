@@ -21,7 +21,11 @@ class AIVehicleTraffic : public AIVehicle, public ITrafficAI {
     void Update(float dT) override;
 
     // Overrides: ITrafficAI
-    void StartDriving(float speed) override;
+    void StartDriving(
+#ifndef EA_BUILD_A124
+        float speed
+#endif
+        ) override;
 
   private:
     static float mStagger; // size: 0x4
@@ -56,10 +60,17 @@ void AIVehicleTraffic::Update(float dT) {
     }
 }
 
-void AIVehicleTraffic::StartDriving(float speed) {
+void AIVehicleTraffic::StartDriving(
+#ifndef EA_BUILD_A124
+    float speed
+#endif
+) {
+#ifndef EA_BUILD_A124
     ClearGoal();
+#endif
     SetGoal("AIGoalTraffic");
 
+#ifndef EA_BUILD_A124
     IDamageable *idamage;
     if (GetOwner()->QueryInterface(&idamage)) {
         idamage->ResetDamage();
@@ -94,4 +105,5 @@ void AIVehicleTraffic::StartDriving(float speed) {
     }
 
     DoDriving(3);
+#endif
 }

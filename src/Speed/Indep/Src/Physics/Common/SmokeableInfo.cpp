@@ -436,14 +436,26 @@ bool SmackableAvoidable::OnUpdateAvoidable(UMath::Vector3 &pos, float &sweep) {
     return mModel->OnUpdateAvoidable(pos, sweep);
 }
 
-SceneryModel::SceneryModel(SmokeableSpawner *spawner, const CollisionGeometry::Bounds *geometry, const Attrib::Collection *attribs, bool hidden)
+SceneryModel::SceneryModel(SmokeableSpawner *spawner, const CollisionGeometry::Bounds *geometry, const Attrib::Collection *attribs
+#ifndef EA_BUILD_A124
+                           ,
+                           bool hidden
+#endif
+                           )
     : HeirarchyModel(spawner->GetRenderMesh(), geometry, UCrc32(0x9756DF79u), NULL, attribs, spawner->GetRenderHeirarchy(), 0, false),
       ISceneryModel(this), mInstanceVisible(true), mSpawner(spawner) {
-    if (!hidden) {
+    // La A124 no crea modelos ocultos: siempre InitScene.
+#ifndef EA_BUILD_A124
+    if (!hidden)
+#endif
+    {
         InitScene();
-    } else {
+    }
+#ifndef EA_BUILD_A124
+    else {
         StartOverride();
     }
+#endif
 
     mSceneryCount++;
 }
@@ -561,7 +573,12 @@ void SceneryModel::OnEndSimulation() {
     HeirarchyModel::OnEndSimulation();
 }
 
-SceneryModel *SceneryModel::Construct(SmokeableSpawner *data, const Attrib::Collection *attributes, bool hidden) {
+SceneryModel *SceneryModel::Construct(SmokeableSpawner *data, const Attrib::Collection *attributes
+#ifndef EA_BUILD_A124
+                                      ,
+                                      bool hidden
+#endif
+) {
     if (mSceneryCount > 255u) {
         return NULL;
     }
@@ -587,7 +604,12 @@ SceneryModel *SceneryModel::Construct(SmokeableSpawner *data, const Attrib::Coll
         return NULL;
     }
 
-    return new SceneryModel(data, bounds, attributes, hidden);
+    return new SceneryModel(data, bounds, attributes
+#ifndef EA_BUILD_A124
+                            ,
+                            hidden
+#endif
+    );
 }
 
 void SceneryModel::WakeUp() {
@@ -785,12 +807,23 @@ void SmokeableSpawner::OnMoved() {
 }
 
 void SmokeableSpawner::OnLoad(unsigned int exclude_flags, bool ignore) {
-    if (!(exclude_flags & mExcludeFlags)) {
+    if (!(exclude_flags & mExcludeFlags)
+#ifdef EA_BUILD_A124
+        // La A124 no crea el modelo de un spawner ignorado (la final lo crea oculto).
+        && !ignore
+#endif
+    ) {
         ShowInstance();
 
         const Attrib::Collection *collection = FindAttributes(mAttributes);
 
-        mSimModel = collection ? SceneryModel::Construct(this, collection, ignore) : NULL;
+        mSimModel = collection ? SceneryModel::Construct(this, collection
+#ifndef EA_BUILD_A124
+                                                         ,
+                                                         ignore
+#endif
+                                                         )
+                               : NULL;
     }
 
     if (mSimModel == NULL) {

@@ -414,7 +414,11 @@ void SFXObj_PFEATrax::Destroy() {
     SNDSYS_service();
 }
 
-void InitializeEATrax(bool breset) {
+void InitializeEATrax(
+#ifndef EA_BUILD_A124
+    bool breset
+#endif
+) {
     SFXObj_PFEATrax::m_EATrax[0].PBMode = FEDatabase->GetUserProfile(0)->GetOptions()->TheAudioSettings.PlayState;
     SFXObj_PFEATrax::m_EATrax[1].PBMode = FEDatabase->GetUserProfile(0)->GetOptions()->TheAudioSettings.PlayState;
     SFXObj_PFEATrax::m_EATrax[0].TraxMask = 0;
@@ -447,19 +451,31 @@ void InitializeEATrax(bool breset) {
     }
     SFXObj_PFEATrax::m_EATrax[0].PlayBits = SFXObj_PFEATrax::m_EATrax[0].TraxMask;
     SFXObj_PFEATrax::m_EATrax[1].PlayBits = SFXObj_PFEATrax::m_EATrax[1].TraxMask;
+#ifndef EA_BUILD_A124
     if (breset) {
+#endif
         SFXObj_PFEATrax::m_EATrax[0].LastPlaylistSong = -1;
         SFXObj_PFEATrax::m_EATrax[1].LastPlaylistSong = -1;
+#ifndef EA_BUILD_A124
     }
+#endif
 }
 
 void SFXObj_PFEATrax::MessageInitSongsList(const MControlPathfinder &message) {
     unsigned int utype = message.GetPathEvent();
     if (utype == static_cast<unsigned int>(-1)) {
         PATH_stop(this->m_PFParms[m_ActiveProject].PATH_TRACK);
-        InitializeEATrax(true);
+        InitializeEATrax(
+#ifndef EA_BUILD_A124
+            true
+#endif
+        );
     } else {
-        InitializeEATrax(false);
+        InitializeEATrax(
+#ifndef EA_BUILD_A124
+            false
+#endif
+        );
     }
 }
 

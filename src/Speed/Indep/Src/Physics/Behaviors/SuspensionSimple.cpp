@@ -112,7 +112,12 @@ class SuspensionSimple : public Chassis, public Sim::Collision::IListener, publi
             return this->mWheelIndex < 2; // TODO correct?
         }
 
-        float UpdateLoaded(float lat_vel, float fwd_vel, float body_speed, float load, float dT, float drag_reduction);
+        float UpdateLoaded(float lat_vel, float fwd_vel, float body_speed, float load, float dT
+#ifndef EA_BUILD_A124
+                           ,
+                           float drag_reduction
+#endif
+        );
         void UpdateFree(float dT);
 
         Nm GetTorque() const {
@@ -390,7 +395,12 @@ static const float Tweak_AITurningDragReductionMin = 0.23f;
 static const float Tweak_AITurningDragReductionMax = 0.3f;
 
 // UNSOLVED, float math
-float SuspensionSimple::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float body_speed, float load, float dT, float drag_reduction) {
+float SuspensionSimple::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float body_speed, float load, float dT
+#ifndef EA_BUILD_A124
+                                           ,
+                                           float drag_reduction
+#endif
+) {
     if (this->mLoad <= 0.0f && !this->mBrakeLocked) {
         this->mAV = fwd_vel / this->mRadius;
     }
@@ -485,7 +495,14 @@ float SuspensionSimple::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float b
     }
 
     if (UMath::Abs(fwd_vel) > 1.0f) {
-        this->mLongitudeForce = this->mLongitudeForce - (UMath::Sina(this->mSlipAngle) * this->mLateralForce * drag_reduction) /
+        // La A124 no recibe drag_reduction: multiplica por 0.5 fijo, el valor por defecto que pasa DoWheelForces.
+        this->mLongitudeForce = this->mLongitudeForce - (UMath::Sina(this->mSlipAngle) * this->mLateralForce *
+#ifdef EA_BUILD_A124
+                                                         0.5f
+#else
+                                                         drag_reduction
+#endif
+                                                         ) /
                                                             this->mSpecs->GRIP_SCALE().At(this->mAxleIndex);
     } else {
         this->mLateralForce = this->mLateralForce * UMath::Min(UMath::Abs(lat_vel), 1.0f);
@@ -556,7 +573,12 @@ SuspensionSimple::SuspensionSimple(const BehaviorParams &bp, const SuspensionPar
     this->GetOwner()->QueryInterface(&this->mInput);
     this->GetOwner()->QueryInterface(&this->mTrany);
     this->GetOwner()->QueryInterface(&this->mCheater);
-    Sim::Collision::AddListener(this, this->GetOwner(), "SuspensionSimple");
+    Sim::Collision::AddListener(this, this->GetOwner()
+#ifndef EA_BUILD_A124
+        ,
+        "SuspensionSimple"
+#endif
+    );
 
     for (int i = 0; i < 4; ++i) {
         this->mTires[i] = nullptr;
@@ -891,7 +913,9 @@ void SuspensionSimple::DoWheelForces(State &state) {
         }
     }
 
+#ifndef EA_BUILD_A124
     float steerdrag_reduction = 0.5f;
+#endif
 // TODO PS2
 #ifndef EA_PLATFORM_PLAYSTATION2
     if (state.driver_class == 3 && state.driver_style != 1) {
@@ -1008,7 +1032,12 @@ void SuspensionSimple::DoWheelForces(State &state) {
             float xspeed = UMath::Dot(pointVelocity, lateralNormal);
             float zspeed = UMath::Dot(pointVelocity, forwardNormal);
             float traction_force =
-                wheel.UpdateLoaded(xspeed, state.local_vel.z, state.local_vel.z, load, state.time, steerdrag_reduction);
+                wheel.UpdateLoaded(xspeed, state.local_vel.z, state.local_vel.z, load, state.time
+#ifndef EA_BUILD_A124
+                                   ,
+                                   steerdrag_reduction
+#endif
+                );
 
             float max_traction = UMath::Abs(xspeed / dT * (0.25f * mass));
 

@@ -24,10 +24,21 @@ class MNotifyOnlineRaceOver : public Hermes::Message {
 
     static void HandleMessage_LuaBinding(const MNotifyOnlineRaceOver &message);
 
-    MNotifyOnlineRaceOver(bool _ShowPostRace) : Hermes::Message(_GetKind(), _GetSize(), 0), fShowPostRace(_ShowPostRace) {}
+    MNotifyOnlineRaceOver(
+#ifndef EA_BUILD_A124
+        bool _ShowPostRace
+#endif
+        )
+        : Hermes::Message(_GetKind(), _GetSize(), 0)
+#ifndef EA_BUILD_A124
+          ,
+          fShowPostRace(_ShowPostRace)
+#endif
+    {}
 
     ~MNotifyOnlineRaceOver() {}
 
+#ifndef EA_BUILD_A124
     bool GetShowPostRace() const {
         return fShowPostRace;
     }
@@ -35,9 +46,12 @@ class MNotifyOnlineRaceOver : public Hermes::Message {
     void SetShowPostRace(bool _ShowPostRace) {
         fShowPostRace = _ShowPostRace;
     }
+#endif
 
+#ifndef EA_BUILD_A124
   private:
     bool fShowPostRace; // offset 0x10, size 0x1
+#endif
 };
 
 
@@ -55,9 +69,11 @@ inline void MNotifyOnlineRaceOver::BuildMessageTable(lua_State *luaState, const 
 
     lua_newtable(luaState);
 
+#ifndef EA_BUILD_A124
     lua_pushstring(luaState, "ShowPostRace");
     lua_pushboolean(luaState, message->fShowPostRace);
     lua_settable(luaState, -3);
+#endif
 }
 
 #endif

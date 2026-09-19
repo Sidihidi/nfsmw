@@ -88,7 +88,12 @@ AIActionTraffic::AIActionTraffic(AIActionParams *params, float score)
     MakeDebugable(DBG_AI);
 
     mIsTractor = VehicleClass::TRACTOR == GetVehicle()->GetVehicleClass();
-    AddListener(this, GetOwner(), "AIActionTraffic");
+    AddListener(this, GetOwner()
+#ifndef EA_BUILD_A124
+        ,
+        "AIActionTraffic"
+#endif
+    );
 
     mRigidBody = params->mOwner->GetRigidBody();
     params->mOwner->QueryInterface(&mInput);

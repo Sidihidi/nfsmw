@@ -46,15 +46,19 @@ SillyTextureStreamerManager::SillyTextureStreamerManager(const char *stream_pack
 
     mCurrentLoadingIndex = -1;
     mCurrentlyLoading = 1;
+#ifndef EA_BUILD_A124
     mMakeSpaceInPoolComplete = 0;
+#endif
     TheTrackStreamer.DisableZoneSwitching();
     TheTrackStreamer.MakeSpaceInPool(0x60000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<intptr_t>(this));
 }
 
 SillyTextureStreamerManager::~SillyTextureStreamerManager() {
+#ifndef EA_BUILD_A124
     if (!mMakeSpaceInPoolComplete) {
         TheTrackStreamer.WaitForCurrentLoadingToComplete();
     }
+#endif
     eWaitForStreamingTexturePackLoading(nullptr);
     for (int i = 0; i <= 3; i++) {
         if (LoadInfos[i].LoadingTexture != 0) {
@@ -67,7 +71,9 @@ SillyTextureStreamerManager::~SillyTextureStreamerManager() {
 }
 
 void SillyTextureStreamerManager::MakeSpaceInPoolCallback() {
+#ifndef EA_BUILD_A124
     mMakeSpaceInPoolComplete = 1;
+#endif
     eLoadStreamingTexturePack(BundleFileName, reinterpret_cast<void (*)(void *)>(LoadCallbackBridge), this, 0);
 }
 
@@ -197,7 +203,11 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                         }
                     }
 
-                    new EFadeScreenOn(false);
+                    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+                        false
+#endif
+                    );
 
                     if (currentBin != 1 && numUnfinished == 0) {
                         new EQuitToFE(GARAGETYPE_CAREER_SAFEHOUSE, "SafeHouseRivalChallenge.fng");
@@ -235,7 +245,12 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                 cFEng::Get()->QueuePackagePush("InGameBackground.fng", 0, 0, false);
             }
 
-            new EShowResults(fResultType, false);
+            new EShowResults(fResultType
+#ifndef EA_BUILD_A124
+                ,
+                false
+#endif
+            );
             return;
         }
         case 0xC519BFC4: {

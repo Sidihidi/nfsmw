@@ -14,12 +14,19 @@ class EShowResults : public Event {
     // total size: 0xc
     struct StaticData : public Event::StaticData {
         FERESULTTYPE fResultType; // offset: 0x4, size 0x4
+#ifndef EA_BUILD_A124
         bool fCalledWhileDriving; // offset: 0x8, size 0x1
+#endif
     };
 
     // enum { kEventID = 0 };
 
-    EShowResults(FERESULTTYPE pResultType, bool pCalledWhileDriving);
+    EShowResults(FERESULTTYPE pResultType
+#ifndef EA_BUILD_A124
+                 ,
+                 bool pCalledWhileDriving
+#endif
+    );
 
     ~EShowResults() override;
 
@@ -27,7 +34,9 @@ class EShowResults : public Event {
 
   private:
     FERESULTTYPE fResultType; // offset: 0x8, size 0x4
+#ifndef EA_BUILD_A124
     bool fCalledWhileDriving; // offset: 0xc, size 0x1
+#endif
 };
 
 void EShowResults_MakeEvent_Callback(const void *staticData);

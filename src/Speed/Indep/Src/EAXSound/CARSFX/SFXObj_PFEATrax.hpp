@@ -61,7 +61,11 @@ class SFXObj_PFEATrax : public SFXObj_Pathfinder {
   public:
     static TypeInfo s_TypeInfo;
     static stEATraxParms m_EATrax[2];
-    friend void InitializeEATrax(bool breset);
+    friend void InitializeEATrax(
+#ifndef EA_BUILD_A124
+        bool breset
+#endif
+    );
 
   public:
     // total size: 0x19C

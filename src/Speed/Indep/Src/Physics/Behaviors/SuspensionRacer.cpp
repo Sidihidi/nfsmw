@@ -840,7 +840,12 @@ SuspensionRacer::SuspensionRacer(const BehaviorParams &bp, const SuspensionParam
     this->GetOwner()->QueryInterface(&mCollisionBody);
     this->GetOwner()->QueryInterface(&mTransmission);
     this->GetOwner()->QueryInterface(&mHumanAI);
-    Sim::Collision::AddListener(this, this->GetOwner(), "SuspensionRacer");
+    Sim::Collision::AddListener(this, this->GetOwner()
+#ifndef EA_BUILD_A124
+        ,
+        "SuspensionRacer"
+#endif
+    );
     // IAttributeable::Register(this, 0);
     // IAttributeable::Register(this, 0);
     // IAttributeable::Register(this, 0);

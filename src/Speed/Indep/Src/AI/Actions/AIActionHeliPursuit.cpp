@@ -99,7 +99,12 @@ AIActionHeliPursuit::AIActionHeliPursuit(AIActionParams *params, float score)
     params->mOwner->QueryInterface(&mIVehicle);
     params->mOwner->QueryInterface(&mIAIHelicopter);
     mIRigidBody = params->mOwner->GetRigidBody();
-    Sim::Collision::AddListener(this, mIRigidBody, "AIActionHeliPursuit");
+    Sim::Collision::AddListener(this, mIRigidBody
+#ifndef EA_BUILD_A124
+        ,
+        "AIActionHeliPursuit"
+#endif
+    );
 }
 
 void AIActionHeliPursuit::OnCollision(const COLLISION_INFO &cinfo) {

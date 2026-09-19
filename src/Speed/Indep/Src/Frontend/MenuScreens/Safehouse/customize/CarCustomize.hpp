@@ -302,7 +302,12 @@ class CustomizationScreenHelper {
     void SetPlayerCarStatusIcon(eCustomizePartState state);
     void SetCashVisibility(bool visible);
     void SetUnlockOverlayState(bool show, uint32 blurb_hash);
-    void SetCareerStuff(SelectablePart *part, uint32 cat, uint32 tradeInValue);
+    void SetCareerStuff(SelectablePart *part, uint32 cat
+#ifndef EA_BUILD_A124
+                        ,
+                        uint32 tradeInValue
+#endif
+    );
     void SetPartStatus(SelectablePart *part, uint32 unlock_blurb, int part_num, int max_parts);
     void FlashStatusIcon(eCustomizePartState state, bool play_sound);
     void PlayLocked() {

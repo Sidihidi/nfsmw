@@ -37,7 +37,11 @@ class AudioMemoryManager {
     friend bool IsWorldDataStreaming(unsigned int);
     friend void AssignAudioStreamHandle(unsigned int);
 
-    void InitMemoryPool(eAUDMEMPOOLTYPE etype, int size);
+    void InitMemoryPool(
+#ifndef EA_BUILD_A124 // la alpha 124 solo tiene la pool principal
+        eAUDMEMPOOLTYPE etype,
+#endif
+        int size);
     void *AllocateMemory(int size, const char *debug_name, bool FromTop);
     char *AllocateMemoryChar(int size, const char *debug_name, bool FromTop);
     void FreeMemory(void *mem);

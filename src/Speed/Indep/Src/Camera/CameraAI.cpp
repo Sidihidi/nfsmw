@@ -573,12 +573,14 @@ void CameraAI::MaybeDoJumpCam(ISimable *isimable) {
         MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0xa3447e3f).Send("MomentStrm");
     }
 
+#ifndef EA_BUILD_A124
     if (avg > 1.0f) {
         SoundAI *sound = UTL::Collections::Singleton<SoundAI>::Get();
         if (sound && sound->GetObserver()) {
             sound->GetObserver()->NotifyAirborne(highest, longest);
         }
     }
+#endif
 }
 
 void CameraAI::Init() {

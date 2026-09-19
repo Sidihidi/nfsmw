@@ -151,7 +151,9 @@ class LoadingTips : public MenuScreen {
     uint32 TipTextureHash;         // offset 0x2C
     Timer DisplayTime;             // offset 0x30
     GameTipInfo *CurrentTip;       // offset 0x34
+#ifndef EA_BUILD_A124
     bool mPressAcceptHasBeenShown; // offset 0x38
+#endif
 };
 
 extern GameTipInfo GameTipInfoTable[];

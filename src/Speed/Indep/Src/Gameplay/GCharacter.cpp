@@ -23,7 +23,9 @@ GCharacter::GCharacter(const Attrib::Key &triggerKey)
       mSpawnPos(UMath::Vector3::kZero),                                                                 //
       mState(kCharState_Unspawned),                                                                     //
       mFlags(0),                                                                                        //
+#ifndef EA_BUILD_A124
       mCreateAttemptsMade(0),                                                                           //
+#endif
       mSpawnDir(UMath::Vector3::kZero),                                                                 //
       mSpawnSpeed(0.0f),                                                                                //
       mTargetPos(UMath::Vector3::kZero),                                                                //
@@ -64,7 +66,11 @@ void GCharacter::OnDetached(IAttachable *pOther) {
 
     if (IsFlagSet(kCharFlag_UsingStockCar)) {
         mVehicle->Deactivate();
-        GManager::Get().ReleaseStockCar(simable);
+        GManager::Get().ReleaseStockCar(
+#ifdef EA_BUILD_A124
+            CarType(),
+#endif
+            simable);
         ClearFlag(kCharFlag_UsingStockCar);
     }
 
@@ -80,7 +86,9 @@ void GCharacter::Spawn(const UMath::Vector3 &pos, const UMath::Vector3 &dir, GMa
     mSpawnSpeed = MPH2MPS(initialSpeed);
     mTargetPos = targetPoint->GetPosition();
     mTargetDir = targetPoint->GetDirection();
+#ifndef EA_BUILD_A124
     mCreateAttemptsMade = 0;
+#endif
     AttemptSpawn();
     GManager::Get().AttachCharacter(this);
     SetFlag(kCharFlag_AttachedToManager);
@@ -263,7 +271,11 @@ next_state:
 
         ITrafficAI *trafficAI = nullptr;
         if (simable->QueryInterface(&trafficAI)) {
-            trafficAI->StartDriving(mSpawnSpeed);
+            trafficAI->StartDriving(
+#ifndef EA_BUILD_A124
+                mSpawnSpeed
+#endif
+            );
         }
 
         mState = kCharState_Spawned;

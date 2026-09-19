@@ -14,12 +14,19 @@ class EPause : public Event {
     struct StaticData : public Event::StaticData {
         int fPlayerIndex;        // offset: 0x4, size 0x4
         int fCalledFromPostRace; // offset: 0x8, size 0x4
+#ifndef EA_BUILD_A124
         int fShowFlatPause;      // offset: 0xc, size 0x4
+#endif
     };
 
     // enum { kEventID = 0 };
 
-    EPause(int pPlayerIndex, int pCalledFromPostRace, int pShowFlatPause);
+    EPause(int pPlayerIndex, int pCalledFromPostRace
+#ifndef EA_BUILD_A124
+           ,
+           int pShowFlatPause
+#endif
+    );
 
     ~EPause() override;
 
@@ -28,7 +35,9 @@ class EPause : public Event {
   private:
     int fPlayerIndex;        // offset: 0x8, size 0x4
     int fCalledFromPostRace; // offset: 0xc, size 0x4
+#ifndef EA_BUILD_A124
     int fShowFlatPause;      // offset: 0x10, size 0x4
+#endif
 };
 
 void EPause_MakeEvent_Callback(const void *staticData);

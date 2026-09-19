@@ -139,7 +139,12 @@ Effects::Effects(const struct BehaviorParams &bp)
       mIRBComplex(nullptr), //
       mScrapeTimeOut(0.0f), //
       mScrape(static_cast<ISimable *>(bp.fowner)->GetWorldID(), static_cast<ISimable *>(bp.fowner)->GetAttributes().GetConstCollection()) {
-    Sim::Collision::AddListener(this, GetOwner(), "Effects");
+    Sim::Collision::AddListener(this, GetOwner()
+#ifndef EA_BUILD_A124
+        ,
+        "Effects"
+#endif
+    );
 }
 
 Effects::~Effects() {

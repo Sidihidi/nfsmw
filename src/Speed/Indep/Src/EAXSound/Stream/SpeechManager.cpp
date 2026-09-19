@@ -613,7 +613,12 @@ found:
     return 0;
 }
 
-int Manager::AddHeaders(char **dest, SPEECH_BANK *banks, int numBanks, Module *module) {
+int Manager::AddHeaders(char **dest, SPEECH_BANK *banks, int numBanks
+#ifndef EA_BUILD_A124
+                        ,
+                        Module *module
+#endif
+) {
     int size = 0;
     char *mem;
     SPEECH_BANK *sb = banks;
@@ -1655,7 +1660,12 @@ void GameSpeech::LoadBanks() {
         Manager::LoadSpeechBank(m_clumpIdx, type, i, &m_speechBanks[i]);
         i++;
     }
-    Manager::AddHeaders(&m_bankHeaders, m_speechBanks, m_numBanks, this);
+    Manager::AddHeaders(&m_bankHeaders, m_speechBanks, m_numBanks
+#ifndef EA_BUILD_A124
+                        ,
+                        this
+#endif
+    );
     bFree(m_clumpIdx);
     m_clumpIdx = 0;
 }
@@ -2249,7 +2259,12 @@ void SED_NISSFX::LoadBanks() {
             Manager::LoadSpeechBank(m_clumpIdx, type, i, &m_speechBanks[i]);
             i++;
         }
-        Manager::AddHeaders(&m_bankHeaders, m_speechBanks, m_numBanks, this);
+        Manager::AddHeaders(&m_bankHeaders, m_speechBanks, m_numBanks
+#ifndef EA_BUILD_A124
+                            ,
+                            this
+#endif
+        );
         bFree(m_clumpIdx);
         m_clumpIdx = 0;
     }

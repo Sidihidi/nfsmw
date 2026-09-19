@@ -19,8 +19,18 @@ void ControllerUnplugged::NotificationMessage(u32 msg, FEObject *obj, u32 param1
         } else {
             int joyPort = FEngMapJoyParamToJoyport(param1);
             cFEng::Get()->PopErrorPackage(joyPort);
-            if (FEManager::IsOkayToRequestPauseSimulation(GetPortsPlayer(joyPort), false, false)) {
-                new EPause(GetPortsPlayer(joyPort), 0, 0);
+            if (FEManager::IsOkayToRequestPauseSimulation(GetPortsPlayer(joyPort), false
+#ifndef EA_BUILD_A124
+                                                          ,
+                                                          false
+#endif
+                                                          )) {
+                new EPause(GetPortsPlayer(joyPort), 0
+#ifndef EA_BUILD_A124
+                    ,
+                    0
+#endif
+                );
             }
         }
     }

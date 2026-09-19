@@ -43,7 +43,9 @@ SFXCTL_HybridMotor::SFXCTL_HybridMotor()
     this->CrossFadesPoints[4] = bVector2(0.0f, 0.0f);
     this->CrossFadesPoints[5] = bVector2(0.0f, 0.0f);
     this->SteadyFrameCnt = 0;
+#ifndef EA_BUILD_A124
     this->mPrevDeltaRPM = 0;
+#endif
 }
 
 SFXCTL_HybridMotor::~SFXCTL_HybridMotor() {}
@@ -102,7 +104,9 @@ void SFXCTL_HybridMotor::AttachController(SFXCTL *psfxctl) {
 }
 
 void SFXCTL_HybridMotor::UpdateDeltaRPM() {
+#ifndef EA_BUILD_A124
     this->mPrevPhyDeltaRPM = this->m_CurPhyDeltaRPMVal;
+#endif
 
     float PhyDeltaRPM = this->GetPhysRPM() - this->PrevRPM;
     this->m_CurPhyDeltaRPMVal = PhyDeltaRPM;
@@ -417,10 +421,13 @@ void SFXCTL_HybridMotor::UpdateMixerOutputs() {
     PercentOfThreshold = bClamp(PercentOfThreshold, 0.0f, 1.0f);
     output = smooth(this->GetDMIX_InputValue(1), static_cast<int>(PercentOfThreshold * 32767.0f), 3000);
 
+    // La A124 no lee m_pEngineCtl despues del smooth (0x1BEC40 va directo a m_pShiftingCtl): sin redline.
+#ifndef EA_BUILD_A124
     if (!this->m_pEngineCtl->bWasRedlining &&
         this->m_pEngineCtl->bIsRedlining) {
         this->mPrevDeltaRPM = output / 2;
     }
+#endif
 
     {
         int shiftActive = 1;
@@ -445,7 +452,9 @@ void SFXCTL_HybridMotor::UpdateMixerOutputs() {
         }
     }
 
+#ifndef EA_BUILD_A124
     if (this->m_pEngineCtl->bIsRedlining) {
         this->SetDMIX_Input(1, this->mPrevDeltaRPM);
     }
+#endif
 }

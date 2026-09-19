@@ -79,8 +79,10 @@ QueuedFile::QueuedFile(void *buf, const char *filename, int file_pos, int num_by
     this->pBuf = buf;
     this->FilePos = file_pos;
     this->NumBytes = num_bytes;
+#ifndef EA_BUILD_A124
     this->Params.Compressed = false;
     this->Params.UncompressedSize = 0;
+#endif
     this->NumRead = 0;
 
     if (params) {
@@ -147,11 +149,14 @@ void QueuedFile::BeginRead() {
 }
 
 void QueuedFile::ReadDoneCallback() {
+#ifndef EA_BUILD_A124
     if (Params.Compressed) {
         int table_pos = DecompressionTableTop % 32;
         DecompressionTable[table_pos] = this;
         DecompressionTableTop++;
-    } else {
+    } else
+#endif
+    {
         Status = QDONE;
     }
 }
@@ -166,9 +171,11 @@ bool QueuedFileBundle::TestAddQueuedFile(QueuedFile *q) {
     if (q->GetNumRead() != 0) {
         return false;
     }
+#ifndef EA_BUILD_A124
     if (q->Params.Compressed != 0) {
         return false;
     }
+#endif
     if (NumQueuedFiles >= 1) {
         if (bStrCmp(q->GetFilename(), QueuedFiles[0]->GetFilename()) != 0) {
             return false;
@@ -368,7 +375,7 @@ void BlockWhileQueuedFileBusy() {
 }
 
 void InitQueuedFiles() {
-    QueuedFileSlotPool = bNewSlotPool(0x48, 200, "QueuedFileSlotPool", 0);
+    QueuedFileSlotPool = bNewSlotPool(sizeof(QueuedFile), 200, "QueuedFileSlotPool", 0);
 }
 
 int GetQueuedFileSize(const char *filename) {

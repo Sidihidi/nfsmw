@@ -33,6 +33,9 @@ struct GameSpeech : public Module {
     std::deque<int> mLoadState;            // offset 0x58, size 0x30
     int m_currentIntensity;                // offset 0x88, size 0x4
     int m_speechCycle;                     // offset 0x8C, size 0x4
+    // La A124 tiene `SpeechSampleList *m_pendingList` (stabs: 4 bytes en 0x88; tamano de la clase 0xB0): una
+    // lista que el constructor crea con new (0x3EA41C) y que Update y ClearCompletedRequests recorren nodo a
+    // nodo. Es otra logica en cada uso, asi que no lleva variante.
     SpeechSampleVec m_pendingList;         // offset 0x90, size 0x14
     ScheduledSpeechEvent *m_currEvent;     // offset 0xA4, size 0x4
     unsigned int m_currEventTime;          // offset 0xA8, size 0x4

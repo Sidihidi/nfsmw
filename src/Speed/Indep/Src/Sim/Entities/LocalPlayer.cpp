@@ -122,7 +122,12 @@ void LocalPlayer::OnAttached(IAttachable *pOther) {
         if (mSpeech) {
             mSpeech->Attach(ivehicle);
         }
-        Sim::Collision::AddListener(this, ivehicle, "LocalPlayer");
+        Sim::Collision::AddListener(this, ivehicle
+#ifndef EA_BUILD_A124
+            ,
+            "LocalPlayer"
+#endif
+        );
     }
     Sim::Entity::OnAttached(pOther);
 }
@@ -423,7 +428,12 @@ void LocalPlayer::UpdateHud(float dT) {
                 ipursuitboard->SetNumCopsDamaged(ipursuit->GetNumCopsDamaged());
                 ipursuitboard->SetTotalNumCopsInvolved(ipursuit->GetTotalNumCopsInvolved());
                 ipursuitboard->SetHeliInvolvedInPursuit(ipursuit->IsHeliInPursuit());
-                ipursuitboard->SetTimeUntilBusted(ipursuit->TimeUntilBusted(), ipursuit->IsPerpBusted());
+                ipursuitboard->SetTimeUntilBusted(ipursuit->TimeUntilBusted()
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      ipursuit->IsPerpBusted()
+#endif
+                );
                 ipursuitboard->SetTimeUntilBackup(ipursuit->GetTimeToBackupSpawned());
 
                 if (iperpvehicle) {

@@ -17,7 +17,9 @@ struct SMSMessage;
 // total size: 0xE8
 struct uiSMSMessage : public MenuScreen {
     CTextScroller m_TextScroller; // offset 0x2C, size 0x54
+#ifndef EA_BUILD_A124
     FEScrollBar ScrollBar;        // offset 0x80, size 0x64
+#endif
     SMSMessage* the_msg;          // offset 0xE4, size 0x4
 
     uiSMSMessage(ScreenConstructorData* sd);

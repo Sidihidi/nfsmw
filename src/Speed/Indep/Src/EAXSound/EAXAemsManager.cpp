@@ -157,7 +157,9 @@ EAXAemsManager::EAXAemsManager() : m_pAsyncBuff(nullptr) {
     this->m_pCurLoadSDLP = nullptr;
     this->m_pAsyncLoadSDLP = nullptr;
     this->m_ItemsPendingAsyncResolve = 0;
+#ifndef EA_BUILD_A124
     this->m_bBulkLoad = false;
+#endif
     m_ExternalLoadCallback = nullptr;
     this->m_pEvtSystems.clear();
     this->mWaitForResolve.clear();
@@ -570,9 +572,12 @@ ReprocessQueue:
         i++;
     }
 
+    // La A124 pasa del bucle a `m_pCurLoadSDLP != 0` (0x1AC508) sin carga en bloque.
+#ifndef EA_BUILD_A124
     if (this->m_ItemsPendingAsyncResolve != 0 && this->m_bBulkLoad) {
         this->ResolvePendingAsyncLoads();
     }
+#endif
 
     if (this->m_pCurLoadSDLP != nullptr) {
         if (!this->m_pCurLoadSDLP->bResolvedAsync) {
@@ -652,7 +657,9 @@ ReprocessQueue:
                 m_ExternalLoadCallback(this->m_ExternalLoadCallbackParam);
                 m_ExternalLoadCallback = nullptr;
                 this->m_ExternalLoadCallbackParam = 0;
+#ifndef EA_BUILD_A124
                 this->m_bBulkLoad = false;
+#endif
             }
         }
     }
@@ -728,11 +735,14 @@ void EAXAemsManager::DataLoadCB(int param, int error_status) {
         break;
     case SDT_AEMS_ASYNCSPUMEM:
         gAEMSMgr.m_IsWaitingForFileCB = false;
+        // La A124 va de aqui directa a mBankSlot (0x1ACB58-0x1ACB5C).
+#ifndef EA_BUILD_A124
         if (gAEMSMgr.m_bBulkLoad) {
             gAEMSMgr.m_pCurLoadSDLP = nullptr;
             gAEMSMgr.m_ItemsPendingAsyncResolve++;
             break;
         }
+#endif
 
         {
             int Result;

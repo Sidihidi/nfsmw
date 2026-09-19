@@ -462,7 +462,13 @@ int FogControlOverRide = 0;
 static const bool grabFogInfo = false;
 
 // STRIPPED
-int FogQuery::CalculateFogInfo(struct View *view, int InFE) {}
+int FogQuery::CalculateFogInfo(
+#ifdef EA_BUILD_A124
+    eView *view,
+#else
+    struct View *view,
+#endif
+    int InFE) {}
 
 int AmIinATunnel(eView *view, int CheckOverPass) {
     if (view->Precipitation == nullptr) {

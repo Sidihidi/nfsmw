@@ -1,24 +1,24 @@
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/file/driver.h"
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/std/list.h"
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system.h"
-
 #include <string.h>
-
 #define ALIGN8(x) ((char *)(((unsigned int)(x) + 7) & ~7))
-
 void MEM_clear(void *ptr, int size);
 void MEM_copy(void *dst, const void *src, int size);
-
-// total size: 0x28
-struct SIGNAL {
+struct SIGNAL { // opaco y de plataforma, como MUTEX (system.h): 0xC en PS2 (stabs de la A124)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int reserved[3]; // offset 0x0, size 0xC
+#else
     int reserved[10]; // offset 0x0, size 0x28
+#endif
 };
-
-// total size: 0x318
-struct THREAD {
+struct THREAD { // 0x8 en PS2: THREAD_create(dev + 0x54) y pThreadStack en 0x5C (SLES 0x4FEE84, SLUS 0x48C564)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int reserved[2]; // offset 0x0, size 0x8
+#else
     int reserved[198]; // offset 0x0, size 0x318
+#endif
 };
-
 bool SIGNAL_create(SIGNAL *s);
 bool THREAD_create(THREAD *t, int (*func)(void *), void *param, void *stack, int stacksize,
                    int priority);

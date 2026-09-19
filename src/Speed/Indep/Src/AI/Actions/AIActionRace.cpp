@@ -30,7 +30,12 @@ class AIActionRace : public AIAction, public Debugable {
 
     AIActionRace(AIActionParams *params, float score);
     void ComputePotentials();
-    float GetPotentialSpeed(const float curvature, const float skill, bool is_drag) const;
+    float GetPotentialSpeed(const float curvature, const float skill
+#ifndef EA_BUILD_A124
+                            ,
+                            bool is_drag
+#endif
+    ) const;
     float GetPotentialAcceleration(const float speed, const float skill, bool using_nos, bool is_drag) const;
     float GetPotentialNOS(float speed, bool was_on, float skill) const;
     void CheckOffPath(float dT);
@@ -405,8 +410,11 @@ Table AiNosScaleTable(aNosScaleData, 2, 0.0f, 1.0f);
 float aSpeedScaleData[2] = {0.85f, 1.0f};
 Table AiSpeedScaleTable(aSpeedScaleData, 2, 0.0f, 1.0f);
 
+// La A124 no tiene tabla de velocidad para arrancadas: GetPotentialSpeed no recibe is_drag.
+#ifndef EA_BUILD_A124
 float aSpeedScaleDataDrag[2] = {0.85f, 1.0f};
 Table AiSpeedScaleTableDrag(aSpeedScaleDataDrag, 2, 0.0f, 1.0f);
+#endif
 
 float aAccelScaleData[2] = {0.65f, 1.0f};
 Table AiAccelScaleTable(aAccelScaleData, 2, 0.0f, 1.0f);
@@ -422,13 +430,25 @@ Table AICorneringScaleTable(aCorneringScaleData, 2, 0.0f, 1.0f);
 
 // UNSOLVED nightmare
 // https://decomp.me/scratch/jAGQL
-float AIActionRace::GetPotentialSpeed(const float curvature, const float skill, bool is_drag) const {
+float AIActionRace::GetPotentialSpeed(const float curvature, const float skill
+#ifndef EA_BUILD_A124
+                                      ,
+                                      bool is_drag
+#endif
+) const {
     float result = mTopSpeed;
     float maxdesired = -1.0f;
 
     if (mTopSpeed <= 0.0f) {
         result = 0.0f;
-    } else if (!is_drag) {
+    } else if (
+#ifdef EA_BUILD_A124
+        // La A124 no recibe is_drag: pregunta el estilo al vehiculo (vtable+0x68, STYLE_DRAG = 1).
+        GetVehicle()->GetDriverStyle() != STYLE_DRAG
+#else
+        !is_drag
+#endif
+    ) {
         if (!bIsPursuitMode || bIsFleeMode) {
             if (GetAI()->GetDriveToNav()->HitDeadEnd()) {
                 return 0.0f;
@@ -516,7 +536,11 @@ float AIActionRace::GetPotentialSpeed(const float curvature, const float skill, 
         }
     }
 
-    float skill_scale = is_drag ? AiSpeedScaleTableDrag.GetValue(skill) : AiSpeedScaleTable.GetValue(skill);
+    float skill_scale =
+#ifndef EA_BUILD_A124
+        is_drag ? AiSpeedScaleTableDrag.GetValue(skill) :
+#endif
+                AiSpeedScaleTable.GetValue(skill);
 
     result *= attrib_scale * skill_scale;
     if (maxdesired > 0.0f) {
@@ -866,7 +890,12 @@ void AIActionRace::Update(float dT) {
     float curvature = nav->CookieTrailCurvature(car_position, mIRigidBody->GetLinearVelocity());
 
     const float skill = GetAI()->GetSkill();
-    fPotentialSpeed = GetPotentialSpeed(curvature, skill, drag_racing);
+    fPotentialSpeed = GetPotentialSpeed(curvature, skill
+#ifndef EA_BUILD_A124
+                                        ,
+                                        drag_racing
+#endif
+    );
 
     const float actual_speed = GetVehicle()->GetSpeed();
     const float nos_capacity = mIEngine->GetNOSCapacity();

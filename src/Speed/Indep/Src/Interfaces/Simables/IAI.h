@@ -123,7 +123,11 @@ class ITrafficAI : public UTL::COM::IUnknown {
   public:
     DECL_INTERFACE(ITrafficAI);
 
-    virtual void StartDriving(float speed) = 0;
+    virtual void StartDriving(
+#ifndef EA_BUILD_A124
+        float speed
+#endif
+        ) = 0;
 };
 
 class IHumanAI : public UTL::COM::IUnknown {
@@ -338,7 +342,8 @@ class IPerpetrator : public UTL::COM::IUnknown {
 };
 
 // TODO these two were moved in carbon to IRacer.h
-struct RacePreparationInfo {
+// ALIGNVEC: same offsets, but 0x30 in the A124 stabs (bMemSet of 0x30 in RestoreStartPosition) and on Xbox 360.
+struct ALIGNVEC RacePreparationInfo {
     enum eFlags {
         RESET_DAMAGE = 1,
     };

@@ -222,7 +222,7 @@ bool FEPlayerCarDB::CanCreateNewCarRecord() {
 }
 
 bool FEPlayerCarDB::CanCreateNewCustomizationRecord() {
-    for (int i = 0; i < 75; i++) {
+    for (int i = 0; i < MAX_CUSTOMIZE_BLOCKS; i++) {
         if (Customizations[i].Handle == 0xFF) {
             return true;
         }
@@ -231,7 +231,7 @@ bool FEPlayerCarDB::CanCreateNewCustomizationRecord() {
 }
 
 FECustomizationRecord *FEPlayerCarDB::CreateNewCustomizationRecord() {
-    for (int i = 0; i < 75; i++) {
+    for (int i = 0; i < MAX_CUSTOMIZE_BLOCKS; i++) {
         if (Customizations[i].Handle == 0xFF) {
             FECustomizationRecord *record = &Customizations[i];
 
@@ -244,7 +244,7 @@ FECustomizationRecord *FEPlayerCarDB::CreateNewCustomizationRecord() {
 }
 
 FECareerRecord *FEPlayerCarDB::CreateNewCareerRecord() {
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < MAX_CAREER_TOTAL_CARS; i++) {
         if (CareerRecords[i].Handle == 0xFF) {
             CareerRecords[i].Default();
             CareerRecords[i].Handle = i;
@@ -643,13 +643,13 @@ void FEPlayerCarDB::DeleteAllCars() {
 }
 
 void FEPlayerCarDB::DeleteAllCustomizations() {
-    for (int i = 0; i < 75; i++) {
+    for (int i = 0; i < MAX_CUSTOMIZE_BLOCKS; i++) {
         Customizations[i].Handle = 0xFF;
     }
 }
 
 void FEPlayerCarDB::DeleteAllCareerRecords() {
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < MAX_CAREER_TOTAL_CARS; i++) {
         CareerRecords[i].Handle = 0xFF;
     }
 }
@@ -789,14 +789,14 @@ void FEPlayerCarDB::BuildRideForPlayer(uint32 car, int player, RideInfo *ride) {
 }
 
 FECustomizationRecord *FEPlayerCarDB::GetCustomizationRecordByHandle(uint8 handle) {
-    if (handle > 75) {
+    if (handle > MAX_CUSTOMIZE_BLOCKS) {
         return nullptr;
     }
     return &Customizations[handle];
 }
 
 FECareerRecord *FEPlayerCarDB::GetCareerRecordByHandle(unsigned char handle) {
-    if (handle > 25 || this->CareerRecords[handle].Handle == 0xFF) {
+    if (handle > MAX_CAREER_TOTAL_CARS || this->CareerRecords[handle].Handle == 0xFF) {
         return nullptr;
     }
     return &this->CareerRecords[handle];

@@ -11,10 +11,11 @@ struct FloatVector {
     float z; // offset 0x8, size 0x4
 };
 
+// `int` como en el DWARF de GameCube y los stabs de la A124 (0xC): un `long` es de 64 bits en EE-GCC.
 struct LongVector {
-    long x; // offset 0x0, size 0x4
-    long y; // offset 0x4, size 0x4
-    long z; // offset 0x8, size 0x4
+    int x; // offset 0x0, size 0x4
+    int y; // offset 0x4, size 0x4
+    int z; // offset 0x8, size 0x4
 };
 
 // TODO from debug build

@@ -8,6 +8,46 @@ namespace Gen {
 
 struct speechtune : Instance {
     struct _LayoutStruct {
+#ifdef EA_BUILD_A124
+        // The prototype's layout (A124 stabs: 36 attributes, 0xa4): the attribute generator orders the
+        // members differently when the set of attributes changes.
+        Private _Array_PlayerSmashSpeedRange;                // offset 0x0, size 0x8
+        EA::Reflection::Float PlayerSmashSpeedRange[2];      // offset 0x8, size 0x8
+        Private _Array_PursuitInactivityTimer;               // offset 0x10, size 0x8
+        EA::Reflection::Float PursuitInactivityTimer[3];     // offset 0x18, size 0xc
+        UMath::Vector2 SpeechDropoffRamp;                    // offset 0x24, size 0x8
+        EA::Reflection::Float OutcomeFailSpeed;              // offset 0x2c, size 0x4
+        EA::Reflection::Float MinIntensitySideswipe;         // offset 0x30, size 0x4
+        EA::Reflection::Float BlowbyInterval;                // offset 0x34, size 0x4
+        EA::Reflection::Float HangTimeForCommentary;         // offset 0x38, size 0x4
+        EA::Reflection::Float BURemindTime;                  // offset 0x3c, size 0x4
+        EA::Reflection::Float AIRacerProximity;              // offset 0x40, size 0x4
+        EA::Reflection::Float TimeWaitForSpotterReply;       // offset 0x44, size 0x4
+        EA::Reflection::Float MaxRangeForPrimaryBranch;      // offset 0x48, size 0x4
+        EA::Reflection::Float OutcomeTrackTime;              // offset 0x4c, size 0x4
+        EA::Reflection::Float MinIntensityCopSmash;          // offset 0x50, size 0x4
+        EA::Reflection::Float MinIntensityTrafficSmash;      // offset 0x54, size 0x4
+        EA::Reflection::Float PriorityWeight;                // offset 0x58, size 0x4
+        EA::Reflection::Float SpeedDiffForBlowby;            // offset 0x5c, size 0x4
+        EA::Reflection::Float RangeForSpotterBranch;         // offset 0x60, size 0x4
+        EA::Reflection::Int32 MinHavocForSuspectBehavior;    // offset 0x64, size 0x4
+        EA::Reflection::Float PursuitInitDelay;              // offset 0x68, size 0x4
+        EA::Reflection::Float TimeConsideredLostNoLOS;       // offset 0x6c, size 0x4
+        EA::Reflection::Float RBPostOutcomeResetTime;        // offset 0x70, size 0x4
+        EA::Reflection::Float RBOutcomeTimer;                // offset 0x74, size 0x4
+        EA::Reflection::Float MinPursuitDurationForBailouts; // offset 0x78, size 0x4
+        EA::Reflection::Float MinSpeedConsideredStopped;     // offset 0x7c, size 0x4
+        EA::Reflection::Float MinTimeConsideredStopped;      // offset 0x80, size 0x4
+        EA::Reflection::Float PursuitDurationHighIntensity;  // offset 0x84, size 0x4
+        EA::Reflection::Float CrashSlowdownPct;              // offset 0x88, size 0x4
+        EA::Reflection::Float MinHealthForCommentary;        // offset 0x8c, size 0x4
+        EA::Reflection::Float CollisionMinClosingVelSq;      // offset 0x90, size 0x4
+        EA::Reflection::Float MaxTimeFor180;                 // offset 0x94, size 0x4
+        EA::Reflection::Float SuspectOutrunRange;            // offset 0x98, size 0x4
+        EA::Reflection::Float NoLOSCommentaryTime;           // offset 0x9c, size 0x4
+        EA::Reflection::Int8 HighIntensityMark;              // offset 0xa0, size 0x1
+        EA::Reflection::Int8 MinContigFramesFor180;          // offset 0xa1, size 0x1
+#else
         Private _Array_PlayerSmashSpeedRange;                // offset 0x0, size 0x8
         EA::Reflection::Float PlayerSmashSpeedRange[2];      // offset 0x8, size 0x8
         Private _Array_PursuitInactivityTimer;               // offset 0x10, size 0x8
@@ -48,6 +88,7 @@ struct speechtune : Instance {
         EA::Reflection::Float NoLOSCommentaryTime;           // offset 0xac, size 0x4
         EA::Reflection::Int8 HighIntensityMark;              // offset 0xb0, size 0x1
         EA::Reflection::Int8 MinContigFramesFor180;          // offset 0xb1, size 0x1
+#endif
     };
 
     typedef EA::Reflection::Float TypeOf_AIRacerProximity;
@@ -56,16 +97,22 @@ struct speechtune : Instance {
     typedef UMath::Vector2 TypeOf_CacheDisplayCoords;
     typedef EA::Reflection::Float TypeOf_CollisionMinClosingVelSq;
     typedef EA::Reflection::Float TypeOf_CrashSlowdownPct;
+#ifndef EA_BUILD_A124
     typedef EA::Reflection::Float TypeOf_FlipTimeForCommentary;
+#endif
     typedef EA::Reflection::Float TypeOf_HangTimeForCommentary;
     typedef EA::Reflection::Int8 TypeOf_HighIntensityMark;
+#ifndef EA_BUILD_A124
     typedef EA::Reflection::Float TypeOf_MaxRangeFor180;
+#endif
     typedef EA::Reflection::Float TypeOf_MaxRangeForPrimaryBranch;
     typedef EA::Reflection::Float TypeOf_MaxTimeFor180;
     typedef EA::Reflection::Int8 TypeOf_MinContigFramesFor180;
     typedef EA::Reflection::Int32 TypeOf_MinHavocForSuspectBehavior;
     typedef EA::Reflection::Float TypeOf_MinHealthForCommentary;
+#ifndef EA_BUILD_A124
     typedef EA::Reflection::Float TypeOf_MinHeightAirborne;
+#endif
     typedef EA::Reflection::Float TypeOf_MinIntensityCopSmash;
     typedef EA::Reflection::Float TypeOf_MinIntensitySideswipe;
     typedef EA::Reflection::Float TypeOf_MinIntensityTrafficSmash;
@@ -85,7 +132,9 @@ struct speechtune : Instance {
     typedef EA::Reflection::Float TypeOf_RangeForSpotterBranch;
     typedef UMath::Vector2 TypeOf_SpeechDropoffRamp;
     typedef EA::Reflection::Float TypeOf_SpeedDiffForBlowby;
+#ifndef EA_BUILD_A124
     typedef EA::Reflection::Float TypeOf_SpeedThreshFlyFlipIntensity;
+#endif
     typedef EA::Reflection::Float TypeOf_SuspectOutrunRange;
     typedef EA::Reflection::Float TypeOf_TimeConsideredLostNoLOS;
     typedef EA::Reflection::Float TypeOf_TimeWaitForSpotterReply;
@@ -177,10 +226,12 @@ struct speechtune : Instance {
     const EA::Reflection::Float &CrashSlowdownPct() const;
     bool SET_CrashSlowdownPct(const EA::Reflection::Float &input);
 
+#ifndef EA_BUILD_A124
     bool FlipTimeForCommentary(TAttrib<EA::Reflection::Float> &result) const;
     bool FlipTimeForCommentary(EA::Reflection::Float &result) const;
     const EA::Reflection::Float &FlipTimeForCommentary() const;
     bool SET_FlipTimeForCommentary(const EA::Reflection::Float &input);
+#endif
 
     bool HangTimeForCommentary(TAttrib<EA::Reflection::Float> &result) const;
     bool HangTimeForCommentary(EA::Reflection::Float &result) const;
@@ -192,10 +243,12 @@ struct speechtune : Instance {
     const EA::Reflection::Int8 &HighIntensityMark() const;
     bool SET_HighIntensityMark(const EA::Reflection::Int8 &input);
 
+#ifndef EA_BUILD_A124
     bool MaxRangeFor180(TAttrib<EA::Reflection::Float> &result) const;
     bool MaxRangeFor180(EA::Reflection::Float &result) const;
     const EA::Reflection::Float &MaxRangeFor180() const;
     bool SET_MaxRangeFor180(const EA::Reflection::Float &input);
+#endif
 
     bool MaxRangeForPrimaryBranch(TAttrib<EA::Reflection::Float> &result) const;
     bool MaxRangeForPrimaryBranch(EA::Reflection::Float &result) const;
@@ -222,10 +275,12 @@ struct speechtune : Instance {
     const EA::Reflection::Float &MinHealthForCommentary() const;
     bool SET_MinHealthForCommentary(const EA::Reflection::Float &input);
 
+#ifndef EA_BUILD_A124
     bool MinHeightAirborne(TAttrib<EA::Reflection::Float> &result) const;
     bool MinHeightAirborne(EA::Reflection::Float &result) const;
     const EA::Reflection::Float &MinHeightAirborne() const;
     bool SET_MinHeightAirborne(const EA::Reflection::Float &input);
+#endif
 
     bool MinIntensityCopSmash(TAttrib<EA::Reflection::Float> &result) const;
     bool MinIntensityCopSmash(EA::Reflection::Float &result) const;
@@ -324,10 +379,12 @@ struct speechtune : Instance {
     const EA::Reflection::Float &SpeedDiffForBlowby() const;
     bool SET_SpeedDiffForBlowby(const EA::Reflection::Float &input);
 
+#ifndef EA_BUILD_A124
     bool SpeedThreshFlyFlipIntensity(TAttrib<EA::Reflection::Float> &result) const;
     bool SpeedThreshFlyFlipIntensity(EA::Reflection::Float &result) const;
     const EA::Reflection::Float &SpeedThreshFlyFlipIntensity() const;
     bool SET_SpeedThreshFlyFlipIntensity(const EA::Reflection::Float &input);
+#endif
 
     bool SuspectOutrunRange(TAttrib<EA::Reflection::Float> &result) const;
     bool SuspectOutrunRange(EA::Reflection::Float &result) const;
@@ -492,6 +549,7 @@ inline bool Gen::speechtune::SET_CrashSlowdownPct(const EA::Reflection::Float &i
     ATTRIB_CODEGEN_SETLAYOUT(CrashSlowdownPct, input);
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::speechtune::FlipTimeForCommentary(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x9fa7ac96);
 }
@@ -505,6 +563,7 @@ inline bool Gen::speechtune::FlipTimeForCommentary(EA::Reflection::Float &result
 inline bool Gen::speechtune::SET_FlipTimeForCommentary(const EA::Reflection::Float &input) {
     ATTRIB_CODEGEN_SETLAYOUT(FlipTimeForCommentary, input);
 }
+#endif
 
 inline bool Gen::speechtune::HangTimeForCommentary(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x1b847cb0);
@@ -534,6 +593,7 @@ inline bool Gen::speechtune::SET_HighIntensityMark(const EA::Reflection::Int8 &i
     ATTRIB_CODEGEN_SETLAYOUT(HighIntensityMark, input);
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::speechtune::MaxRangeFor180(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x76afc83c);
 }
@@ -547,6 +607,7 @@ inline bool Gen::speechtune::MaxRangeFor180(EA::Reflection::Float &result) const
 inline bool Gen::speechtune::SET_MaxRangeFor180(const EA::Reflection::Float &input) {
     ATTRIB_CODEGEN_SETLAYOUT(MaxRangeFor180, input);
 }
+#endif
 
 inline bool Gen::speechtune::MaxRangeForPrimaryBranch(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xabd1b31a);
@@ -618,6 +679,7 @@ inline bool Gen::speechtune::SET_MinHealthForCommentary(const EA::Reflection::Fl
     ATTRIB_CODEGEN_SETLAYOUT(MinHealthForCommentary, input);
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::speechtune::MinHeightAirborne(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x71a53db4);
 }
@@ -631,6 +693,7 @@ inline bool Gen::speechtune::MinHeightAirborne(EA::Reflection::Float &result) co
 inline bool Gen::speechtune::SET_MinHeightAirborne(const EA::Reflection::Float &input) {
     ATTRIB_CODEGEN_SETLAYOUT(MinHeightAirborne, input);
 }
+#endif
 
 inline bool Gen::speechtune::MinIntensityCopSmash(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xe06bbf89);
@@ -902,6 +965,7 @@ inline bool Gen::speechtune::SET_SpeedDiffForBlowby(const EA::Reflection::Float 
     ATTRIB_CODEGEN_SETLAYOUT(SpeedDiffForBlowby, input);
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::speechtune::SpeedThreshFlyFlipIntensity(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xc81f3736);
 }
@@ -915,6 +979,7 @@ inline bool Gen::speechtune::SpeedThreshFlyFlipIntensity(EA::Reflection::Float &
 inline bool Gen::speechtune::SET_SpeedThreshFlyFlipIntensity(const EA::Reflection::Float &input) {
     ATTRIB_CODEGEN_SETLAYOUT(SpeedThreshFlyFlipIntensity, input);
 }
+#endif
 
 inline bool Gen::speechtune::SuspectOutrunRange(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x220a24f8);

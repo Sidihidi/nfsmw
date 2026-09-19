@@ -41,6 +41,9 @@ bool IsAShittyEffect(uint32 group_key) {
     return false;
 }
 
+// La A124 no comprime las velocidades de las particulas (smVector3 lleva un bVector3 entero): no tiene ni
+// ExpandVector ni CompressVector, y UpdateParticles y SpawnParticles copian el vector tal cual.
+#ifndef EA_BUILD_A124
 void ExpandVector(const smVector3 *sv, bVector3 *bv) {
     bv->x = sv->magnitude * (1.0f / 127 * sv->x);
     bv->y = sv->magnitude * (1.0f / 127 * sv->y);
@@ -58,6 +61,7 @@ void CompressVector(const bVector3 *bv, smVector3 *sv) {
     sv->z = static_cast<char>(norm.z);
     sv->magnitude = magn;
 }
+#endif
 
 void NotifyLibOfDeletion(void *lib, EmitterGroup *grp) {
     EmitterLibrary *emlib = reinterpret_cast<EmitterLibrary *>(lib);
@@ -1052,8 +1056,14 @@ void EmitterSystem::UpdateParticles(float dt) {
                         ppos.x = particle->mPosX;
                         ppos.y = particle->mPosY;
                         ppos.z = particle->mPosZ;
+#ifdef EA_BUILD_A124
+                        // lqc2 de 0x10 y 0x30 de la particula (0x220148 y 0x220150)
+                        pvel = particle->mVel.v;
+                        pacc = particle->mAcc.v;
+#else
                         ExpandVector(&particle->mVel, &pvel);
                         ExpandVector(&particle->mAcc, &pacc);
+#endif
                         if (ed_drag > 0.0f) {
                             float vLen = bLength(&pvel);
                             float testDrag = -dt * ed_drag * vLen;
@@ -1069,8 +1079,14 @@ void EmitterSystem::UpdateParticles(float dt) {
                         particle->mPosX = ppos.x;
                         particle->mPosY = ppos.y;
                         particle->mPosZ = ppos.z;
+#ifdef EA_BUILD_A124
+                        // sqc2 a 0x10 y 0x30 de la particula (0x220240 y 0x220248)
+                        particle->mVel.v = pvel;
+                        particle->mAcc.v = pacc;
+#else
                         CompressVector(&pvel, &particle->mVel);
                         CompressVector(&pacc, &particle->mAcc);
+#endif
                         particle->mLife -= time_step;
                         tlife = static_cast<int>(particle->mLife);
                         t.w = 1.0f;
@@ -2006,8 +2022,14 @@ void Emitter::SpawnParticles(float dt, float intensity) {
                 particle->mPosY = ppos.y;
                 particle->mPosZ = ppos.z;
 
+#ifdef EA_BUILD_A124
+                // sqc2 a 0x10 y 0x30 de la particula (0x222AD8 y 0x222AE0)
+                particle->mVel.v = pvel;
+                particle->mAcc.v = paccel;
+#else
                 CompressVector(&pvel, &particle->mVel);
                 CompressVector(&paccel, &particle->mAcc);
+#endif
 
                 particle->mLife = plife * 1024.0f;
                 particle->mInitialAngle = sm_angle;

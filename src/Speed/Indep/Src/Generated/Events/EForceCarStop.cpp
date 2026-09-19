@@ -5,7 +5,23 @@
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
 #include "Speed/Indep/Src/Main/EventDynamicData.h"
 
-EForceCarStop::EForceCarStop(int pStopInstantly, unsigned int phSimable) : Event(0x10), fStopInstantly(pStopInstantly), fhSimable(phSimable) {
+EForceCarStop::EForceCarStop(int pStopInstantly,
+#ifdef EA_BUILD_A124
+                             int pStopInNeutral,
+#endif
+                             unsigned int phSimable)
+    : Event(
+#ifdef EA_BUILD_A124
+          0x20
+#else
+          0x10
+#endif
+          ),
+      fStopInstantly(pStopInstantly),
+#ifdef EA_BUILD_A124
+      fStopInNeutral(pStopInNeutral),
+#endif
+      fhSimable(phSimable) {
 }
 
 EForceCarStop::~EForceCarStop() {
@@ -16,6 +32,11 @@ EForceCarStop::~EForceCarStop() {
 
         if (isimable->QueryInterface(&ivehicle)) {
             char bits = fStopInstantly ? 3 : 1;
+#ifdef EA_BUILD_A124
+            if (fStopInNeutral) {
+                bits |= 8;
+            }
+#endif
 
             if (ivehicle) {
                 ivehicle->ForceStopOn(bits);
@@ -29,12 +50,26 @@ const char *EForceCarStop::GetEventName() const {
 }
 
 void EForceCarStop_MakeEvent_Callback(const void *staticData) {
-    new EForceCarStop(((EForceCarStop::StaticData *) staticData)->fStopInstantly, gEventDynamicData.fhSimable);
+    new EForceCarStop(((EForceCarStop::StaticData *) staticData)->fStopInstantly,
+#ifdef EA_BUILD_A124
+                      ((EForceCarStop::StaticData *) staticData)->fStopInNeutral,
+#endif
+                      gEventDynamicData.fhSimable);
 }
 
 int EForceCarStop_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EForceCarStop((int) lua_tonumber(L, 1), gEventDynamicData.fhSimable);
+    if (lua_gettop(L) ==
+#ifdef EA_BUILD_A124
+        2
+#else
+        1
+#endif
+    ) {
+        new EForceCarStop((int) lua_tonumber(L, 1),
+#ifdef EA_BUILD_A124
+                          (int) lua_tonumber(L, 2),
+#endif
+                          gEventDynamicData.fhSimable);
     }
     return 0;
 }

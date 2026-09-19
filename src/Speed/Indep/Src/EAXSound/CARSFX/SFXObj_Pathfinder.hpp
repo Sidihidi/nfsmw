@@ -9,7 +9,11 @@
 #include "Speed/Indep/Src/Generated/Messages/MControlPathfinder.h"
 #include "Speed/Indep/Src/Generated/Messages/MPerpBusted.h"
 
-void InitializeEATrax(bool breset);
+void InitializeEATrax(
+#ifndef EA_BUILD_A124
+    bool breset
+#endif
+);
 
 // Decl: 26
 enum ePATHFINDER_PROJ {

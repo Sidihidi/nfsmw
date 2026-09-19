@@ -33,7 +33,11 @@ ERestartRace::ERestartRace() : Event(0x10) {
 
     MRestartRace().Send(UCrc32(0x20d60dbf));
 
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 }
 
 ERestartRace::~ERestartRace() {

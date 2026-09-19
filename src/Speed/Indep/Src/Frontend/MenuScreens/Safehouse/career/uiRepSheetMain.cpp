@@ -206,6 +206,7 @@ void uiRepSheetMain::Setup() {
     UpdateInfo();
 }
 
+#ifndef EA_BUILD_A124
 void uiRepSheetMain::NotifyTextureLoaded() {
     FEngSetVisible(FEngFindObject(GetPackageName(), 0x7FE4020F));
 }
@@ -243,6 +244,7 @@ unsigned int uiRepSheetMain::GetDefeatedTexture() {
             return 0x87b7d0a;
     }
 }
+#endif
 
 void uiRepSheetMain::UpdateInfo() {
     GRaceBin *bin = GRaceDatabase::Get().GetBinNumber(iCurrentViewBin);

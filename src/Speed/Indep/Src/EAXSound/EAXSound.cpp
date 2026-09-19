@@ -1472,7 +1472,11 @@ void InitializeSoundDriver() {
         poolSize = 0x11F000;
     }
 
-    gAudioMemoryManager.InitMemoryPool(AUD_MAIN_MEM_POOL, poolSize);
+    gAudioMemoryManager.InitMemoryPool(
+#ifndef EA_BUILD_A124
+        AUD_MAIN_MEM_POOL,
+#endif
+        poolSize);
     void *mem = gAudioMemoryManager.AllocateMemory(0xBC, "AUD:EAXSound", false);
     g_pEAXSound = new (mem) EAXSound();
     g_pEAXSound->InitializeDriver();

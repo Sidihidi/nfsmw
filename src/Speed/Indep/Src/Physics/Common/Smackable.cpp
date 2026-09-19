@@ -314,7 +314,12 @@ Smackable::Smackable(const UMath::Matrix4 &matrix, const Attrib::Gen::smackable 
     CalcSimplificationWeight();
 
     if (mAttributes.EventSequencer().IsNotEmpty()) {
-        Sim::Collision::AddListener(this, GetInstanceHandle(), "Smackable");
+        Sim::Collision::AddListener(this, GetInstanceHandle()
+#ifndef EA_BUILD_A124
+            ,
+            "Smackable"
+#endif
+        );
     }
 }
 

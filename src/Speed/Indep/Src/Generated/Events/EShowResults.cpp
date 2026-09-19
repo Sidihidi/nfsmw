@@ -14,12 +14,28 @@
 #include "Speed/Indep/Src/Generated/Messages/MEnterFreeRoam.h"
 #include "Speed/Indep/Src/Generated/Messages/MFlowReadyForOutro.h"
 
-EShowResults::EShowResults(FERESULTTYPE pResultType, bool pCalledWhileDriving) : Event(0x10), fResultType(pResultType), fCalledWhileDriving(pCalledWhileDriving) {
-    if (FEManager::IsOkayToRequestPauseSimulation(0, true, false) || !fCalledWhileDriving) {
+EShowResults::EShowResults(FERESULTTYPE pResultType
+#ifndef EA_BUILD_A124
+                           ,
+                           bool pCalledWhileDriving
+#endif
+                           )
+    : Event(0x10), fResultType(pResultType)
+#ifndef EA_BUILD_A124
+      ,
+      fCalledWhileDriving(pCalledWhileDriving)
+#endif
+{
+#ifndef EA_BUILD_A124
+    if (FEManager::IsOkayToRequestPauseSimulation(0, true, false) || !fCalledWhileDriving)
+#endif
+    {
         const char *screen = NULL;
         int port;
 
+#ifndef EA_BUILD_A124
         GPS_Disengage();
+#endif
 
         if (fResultType == FERESULTTYPE_RACE) {
             screen = "PostRace_Results.fng";
@@ -59,9 +75,11 @@ EShowResults::EShowResults(FERESULTTYPE pResultType, bool pCalledWhileDriving) :
                 port |= FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(1));
             }
 
+#ifndef EA_BUILD_A124
             if (cFEng::Get()->IsPackageInControl("ControllerUnplugged.fng")) {
                 cFEng::Get()->PopErrorPackage();
             }
+#endif
 
             cFEng::Get()->QueuePackagePush(screen, 0, port, false);
         }
@@ -76,5 +94,10 @@ const char *EShowResults::GetEventName() const {
 }
 
 void EShowResults_MakeEvent_Callback(const void *staticData) {
-    new EShowResults(((EShowResults::StaticData *) staticData)->fResultType, ((EShowResults::StaticData *) staticData)->fCalledWhileDriving);
+    new EShowResults(((EShowResults::StaticData *) staticData)->fResultType
+#ifndef EA_BUILD_A124
+                     ,
+                     ((EShowResults::StaticData *) staticData)->fCalledWhileDriving
+#endif
+    );
 }

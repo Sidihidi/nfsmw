@@ -347,7 +347,12 @@ void SoundAI::MessageTireBlown(const MGamePlayMoment &) {
 }
 
 void SoundAI::OnVehicleAdded(IVehicle *ivehicle) {
-    Sim::Collision::AddListener(this, ivehicle, "SoundAI");
+    Sim::Collision::AddListener(this, ivehicle
+#ifndef EA_BUILD_A124
+        ,
+        "SoundAI"
+#endif
+    );
 }
 
 void SoundAI::OnVehicleRemoved(IVehicle *ivehicle) {

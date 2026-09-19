@@ -35,7 +35,9 @@ class SillyTextureStreamerManager {
     char BundleFileName[256];
     load_info LoadInfos[4];
     int mCurrentlyLoading;
+#ifndef EA_BUILD_A124
     int mMakeSpaceInPoolComplete;
+#endif
     int mCurrentLoadingIndex;
 };
 

@@ -669,6 +669,9 @@ namespace Internal {
 struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
     // total size: 0x10
     struct Node {
+#ifndef EA_BUILD_A124
+        // La A124 no tiene mTiming: sus stabs dan un Node de 0x8 (Participant, Listener), y
+        // Sim::Collision::AddListener (0x3CFA70) arma el par en dos palabras y avanza el vector de 8 en 8.
         // total size: 0x8
         struct Timing {
             Timing(const char *who) : ID(who), HWM(0.0f) {}
@@ -676,11 +679,20 @@ struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
             const char *ID; // offset 0x0, size 0x4
             float HWM;      // offset 0x4, size 0x4
         };
+#endif
 
-        Node(HSIMABLE participant, Collision::IListener *listener, const char *who)
+        Node(HSIMABLE participant, Collision::IListener *listener
+#ifndef EA_BUILD_A124
+             ,
+             const char *who
+#endif
+        )
             : Participant(participant), //
-              Listener(listener),       //
-              mTiming(who) {}
+              Listener(listener)        //
+#ifndef EA_BUILD_A124
+              , mTiming(who)
+#endif
+        {}
 
         bool operator<(const Node &rhs) const {
             return Participant < rhs.Participant;
@@ -692,7 +704,9 @@ struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
 
         HSIMABLE Participant;           // offset 0x0, size 0x4
         Collision::IListener *Listener; // offset 0x4, size 0x4
+#ifndef EA_BUILD_A124
         Timing mTiming;                 // offset 0x8, size 0x8
+#endif
     };
     // total size: 0x8
     struct Finder {
@@ -728,7 +742,12 @@ struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
     void Profile() {}
 
     void Respond(HSIMABLE participant, const COLLISION_INFO &cinfo) {
-        Node pair(participant, nullptr, nullptr);
+        Node pair(participant, nullptr
+#ifndef EA_BUILD_A124
+                  ,
+                  nullptr
+#endif
+        );
         List::iterator iter = std::lower_bound(mList.begin(), mList.end(), pair);
         for (; iter != mList.end(); ++iter) {
             Node &node = *iter;
@@ -744,10 +763,20 @@ struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
         return iter != mList.end();
     }
 
-    void AddListener(Collision::IListener *listener, HSIMABLE participant, const char *who) {
+    void AddListener(Collision::IListener *listener, HSIMABLE participant
+#ifndef EA_BUILD_A124
+                     ,
+                     const char *who
+#endif
+    ) {
         Participants::iterator piter = std::lower_bound(mParticpants.begin(), mParticpants.end(), participant);
         if (!FindListener(listener, participant)) {
-            Node pair(participant, listener, who);
+            Node pair(participant, listener
+#ifndef EA_BUILD_A124
+                      ,
+                      who
+#endif
+            );
             mList.insert(std::upper_bound(mList.begin(), mList.end(), pair), pair);
         }
     }
@@ -787,14 +816,34 @@ namespace Sim {
 namespace Collision {
 
 // UNSOLVED I think the diff is in UTLAllocator.h Allocator::allocate
-void AddListener(IListener *listener, HSIMABLE participant, const char *who) {
-    Internal::CDispatcher::Get()->AddListener(listener, participant, who);
+void AddListener(IListener *listener, HSIMABLE participant
+#ifndef EA_BUILD_A124
+                 ,
+                 const char *who
+#endif
+) {
+    Internal::CDispatcher::Get()->AddListener(listener, participant
+#ifndef EA_BUILD_A124
+                                              ,
+                                              who
+#endif
+    );
 }
 
-void AddListener(IListener *listener, const UTL::COM::IUnknown *participant, const char *who) {
+void AddListener(IListener *listener, const UTL::COM::IUnknown *participant
+#ifndef EA_BUILD_A124
+                 ,
+                 const char *who
+#endif
+) {
     const ISimable *isimable;
     participant->QueryInterface(&isimable);
-    Internal::CDispatcher::Get()->AddListener(listener, isimable->GetInstanceHandle(), who);
+    Internal::CDispatcher::Get()->AddListener(listener, isimable->GetInstanceHandle()
+#ifndef EA_BUILD_A124
+                                              ,
+                                              who
+#endif
+    );
 }
 
 void RemoveListener(IListener *listener, const UTL::COM::IUnknown *participant) {

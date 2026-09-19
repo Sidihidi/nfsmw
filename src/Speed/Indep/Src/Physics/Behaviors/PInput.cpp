@@ -132,15 +132,23 @@ void InputPlayer::FetchInput() {
         return;
     }
 
+#ifndef EA_BUILD_A124
     bool wheel_connected = false;
     if ((player->GetSteeringDevice() != nullptr) && player->GetSteeringDevice()->IsConnected()) {
         wheel_connected = true;
     }
+#endif
 
     PlayerSettings *settings = player->GetSettings();
     bool player_in_control = true;
     this->mActionQ.SetPort(player->GetControllerPort());
-    this->mActionQ.SetConfig(settings->GetControllerAttribs(CA_DRIVING, wheel_connected), "InputPlayer");
+    this->mActionQ.SetConfig(settings->GetControllerAttribs(CA_DRIVING
+#ifndef EA_BUILD_A124
+                                                            ,
+                                                            wheel_connected
+#endif
+                                                            ),
+                             "InputPlayer");
     if (this->mHumanAI != nullptr) {
         player_in_control = this->mHumanAI->GetAiControl() == false;
     }

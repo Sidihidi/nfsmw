@@ -11,7 +11,12 @@ class InGameAnyTutorialScreen : public MenuScreen {
   public:
     InGameAnyTutorialScreen(ScreenConstructorData *sd);
     ~InGameAnyTutorialScreen() override;
-    static void LaunchMovie(const char *filename, const char *packageName);
+    static void LaunchMovie(const char *filename
+#ifndef EA_BUILD_A124
+                            ,
+                            const char *packageName
+#endif
+    );
     static void DismissMovie();
     static void SetMovieName(const char *filename);
     static void SetPackageName(const char *packageName);
@@ -22,7 +27,9 @@ class InGameAnyTutorialScreen : public MenuScreen {
     static char MovieFilename[64];
     static char PackageFilename[64];
     static bool PackageSet;
+#ifndef EA_BUILD_A124
     SubTitler mSubtitler; // offset 0x2C
+#endif
 };
 
 #endif

@@ -717,9 +717,16 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
         }
         case GRace::kRaceType_Circuit:
         case GRace::kRaceType_Knockout: {
+#ifndef EA_BUILD_A124
             bool bCumulativeTime = false;
+#endif
             for (int lapIndex = 0; lapIndex < GRaceStatus::Get().GetRaceParameters()->GetNumLaps(); ++lapIndex) {
-                int lapPosition = GRaceStatus::Get().GetLapPosition(lapIndex, racerIndex, true);
+                int lapPosition = GRaceStatus::Get().GetLapPosition(lapIndex, racerIndex
+#ifndef EA_BUILD_A124
+                                                                    ,
+                                                                    true
+#endif
+                );
 
                 if (racer_info->GetIsKnockedOut() && lapPosition < 2) {
                     lapPosition = -1;
@@ -727,7 +734,13 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
 
                 LapStat *stat = new ("", 0) LapStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
                                                         RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), lapIndex + 1,
-                                                    GRaceStatus::Get().GetLapTime(lapIndex, racerIndex, bCumulativeTime), lapPosition);
+                                                    GRaceStatus::Get().GetLapTime(lapIndex, racerIndex
+#ifndef EA_BUILD_A124
+                                                                                  ,
+                                                                                  bCumulativeTime
+#endif
+                                                                                  ),
+                                                    lapPosition);
                 RacerStats[racerIndex].AddStat(stat);
             }
             break;
@@ -1008,7 +1021,12 @@ void PursuitData::ClearData() {
 }
 
 PursuitResultsDatum::PursuitResultsDatum(PursuitResultsDatumType type, uint32 itemName, float itemNumber, float itemGoal,
-                                         PursuitResultsDatumCheckType itemChecked)
+#ifdef EA_BUILD_A124
+                                         bool itemChecked
+#else
+                                         PursuitResultsDatumCheckType itemChecked
+#endif
+                                         )
     : ArrayDatum(0, 0) {
     mType = type;
     mName = itemName;
@@ -1019,13 +1037,22 @@ PursuitResultsDatum::PursuitResultsDatum(PursuitResultsDatumType type, uint32 it
 
 void PursuitResultsDatum::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {}
 
-PursuitResultsArraySlot::PursuitResultsArraySlot(FEObject *obj, FEString *itemName, FEString *itemNumber, FEImage *itemChecked, FEImage *itemEmpty)
+PursuitResultsArraySlot::PursuitResultsArraySlot(FEObject *obj, FEString *itemName, FEString *itemNumber, FEImage *itemChecked
+#ifndef EA_BUILD_A124
+                                                 ,
+                                                 FEImage *itemEmpty
+#endif
+                                                 )
     : ArraySlot(obj) {
+#ifndef EA_BUILD_A124
     mLine = obj;
+#endif
     mItemName = itemName;
     mItemNumber = itemNumber;
     mItemChecked = itemChecked;
+#ifndef EA_BUILD_A124
     mItemEmpty = itemEmpty;
+#endif
 }
 
 void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
@@ -1034,8 +1061,10 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
         PursuitResultsDatum *result = static_cast<PursuitResultsDatum *>(datum);
 
         FEngSetScript(mItemChecked, 0x16A259, true);
+#ifndef EA_BUILD_A124
         FEngSetScript(mItemEmpty, 0x16A259, true);
         FEngSetScript(mLine, 0x1744B3, true);
+#endif
 
         if (mItemName) {
             FEngSetScript(mItemName, 0x1744B3, true);
@@ -1047,8 +1076,10 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
             FEngSetScript(mItemNumber, 0x1744B3, true);
             if (result->GetChecked()) {
                 FEngSetScript(mItemChecked, 0x1CA7C0, true);
+#ifndef EA_BUILD_A124
             } else if (result->GetGreyed()) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
+#endif
             } else {
                 FEngSetScript(mItemChecked, 0x16A259, true);
             }
@@ -1060,67 +1091,97 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
             FEngSetScript(mItemNumber, 0x1744B3, true);
             if (result->GetChecked()) {
                 FEngSetScript(mItemChecked, 0x1CA7C0, true);
+#ifndef EA_BUILD_A124
             } else if (result->GetGreyed()) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
+#endif
             } else {
                 FEngSetScript(mItemChecked, 0x16A259, true);
             }
         } else if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Number) {
+#ifndef EA_BUILD_A124
             bool showCurrVal = true;
+#endif
             char outputStr[32];
+#ifndef EA_BUILD_A124
             if (result->GetChecked()) {
                 showCurrVal = false;
             } else if (result->GetGreyed()) {
                 showCurrVal = false;
             }
-            FEDatabase->SetMilestoneDescriptionString(outputStr, 0x850A64BC, result->GetNumber(), result->GetGoal(), showCurrVal);
+#endif
+            FEDatabase->SetMilestoneDescriptionString(outputStr, 0x850A64BC, result->GetNumber(), result->GetGoal()
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      showCurrVal
+#endif
+            );
             FEPrintf(mItemNumber, "%s", outputStr);
             FEngSetScript(mItemNumber, 0x1744B3, true);
+#ifndef EA_BUILD_A124
             if (result->GetGreyed()) {
                 FEngSetScript(mLine, 0x163C76, true);
             }
+#endif
             if (result->GetChecked()) {
                 FEngSetScript(mItemChecked, 0x1CA7C0, true);
+#ifndef EA_BUILD_A124
             } else if (result->GetGreyed()) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
             } else {
                 FEngSetScript(mItemEmpty, 0x1CA7C0, true);
+#endif
             }
         } else if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time ||
                    result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time_PursuitRemaining) {
+#ifndef EA_BUILD_A124
             bool showCurrVal = true;
+#endif
             int milestoneType;
             char outputStr[32];
+#ifndef EA_BUILD_A124
             if (result->GetChecked()) {
                 showCurrVal = false;
             } else if (result->GetGreyed()) {
                 showCurrVal = false;
             }
+#endif
             milestoneType = 0x033FA23A;
             if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time_PursuitRemaining) {
                 milestoneType = 0x5392E4FD;
             }
-            FEDatabase->SetMilestoneDescriptionString(outputStr, milestoneType, result->GetNumber(), result->GetGoal(), showCurrVal);
+            FEDatabase->SetMilestoneDescriptionString(outputStr, milestoneType, result->GetNumber(), result->GetGoal()
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      showCurrVal
+#endif
+            );
             FEPrintf(mItemNumber, "%s", outputStr);
             FEngSetScript(mItemNumber, 0x1744B3, true);
+#ifndef EA_BUILD_A124
             if (result->GetGreyed()) {
                 FEngSetScript(mLine, 0x163C76, true);
             }
+#endif
             if (result->GetChecked()) {
                 FEngSetScript(mItemChecked, 0x1CA7C0, true);
+#ifndef EA_BUILD_A124
             } else if (result->GetGreyed()) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
             } else {
                 FEngSetScript(mItemEmpty, 0x1CA7C0, true);
+#endif
             }
         } else if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Check) {
             FEngSetScript(mItemNumber, 0x16A259, true);
             if (result->GetChecked()) {
                 FEngSetScript(mItemChecked, 0x1CA7C0, true);
+#ifndef EA_BUILD_A124
             } else if (result->GetGreyed()) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
             } else {
                 FEngSetScript(mItemEmpty, 0x1CA7C0, true);
+#endif
             }
         }    }
 }
@@ -1142,9 +1203,16 @@ PostRacePursuitScreen::PostRacePursuitScreen(ScreenConstructorData *sd)
             FEString *itemValue = FEngFindString(GetPackageName(), FEHashUpper(sztemp));
             FEngSNPrintf(sztemp, 0x20, "CHECK%d", i + 1);
             FEImage *checkMark = FEngFindImage(GetPackageName(), FEHashUpper(sztemp));
+#ifndef EA_BUILD_A124
             FEngSNPrintf(sztemp, 0x20, "EMPTY%d", i + 1);
             FEImage *emptyMark = FEngFindImage(GetPackageName(), FEHashUpper(sztemp));
-            AddSlot(new ("", 0) PursuitResultsArraySlot(wrapperGroup, itemName, itemValue, checkMark, emptyMark));
+#endif
+            AddSlot(new ("", 0) PursuitResultsArraySlot(wrapperGroup, itemName, itemValue, checkMark
+#ifndef EA_BUILD_A124
+                                                        ,
+                                                        emptyMark
+#endif
+                                                        ));
         }
     }
     Initialize();
@@ -1419,7 +1487,12 @@ void PostRaceMilestonesScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 
             break;
         case 0x406415e3:
             cFEng::Get()->QueuePackagePop(1);
-            new EShowResults(FERESULTTYPE_PURSUIT, false);
+            new EShowResults(FERESULTTYPE_PURSUIT
+#ifndef EA_BUILD_A124
+                ,
+                false
+#endif
+            );
             break;
     }
 }
@@ -1430,8 +1503,12 @@ bool PostRaceMilestonesScreen::StartMilestoneAnimations() {
     if (milestone) {
         char descStr[32];
         char outputStr[64];
-        FEDatabase->SetMilestoneDescriptionString(descStr, milestone->GetTypeKey(), milestone->GetCurrentValue(), milestone->GetRequiredValue(),
-                                                  false);
+        FEDatabase->SetMilestoneDescriptionString(descStr, milestone->GetTypeKey(), milestone->GetCurrentValue(), milestone->GetRequiredValue()
+#ifndef EA_BUILD_A124
+                                                  ,
+                                                  false
+#endif
+        );
         bSNPrintf(outputStr, 64, "%s: %s", GetTranslatedString(FEDatabase->GetMilestoneHeaderHash(milestone->GetLocalizationTag())), descStr);
         StartAnimations(true, milestone->GetTypeKey(), milestone->GetBounty(), outputStr);
         return true;
@@ -1450,7 +1527,12 @@ bool PostRaceMilestonesScreen::StartChallengeAnimations() {
             float goalVal = raceParams->GetChallengeGoal();
             char descStr[32];
             char outputStr[64];
-            FEDatabase->SetMilestoneDescriptionString(descStr, raceParams->GetChallengeType(), currVal, goalVal, false);
+            FEDatabase->SetMilestoneDescriptionString(descStr, raceParams->GetChallengeType(), currVal, goalVal
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      false
+#endif
+            );
             bSNPrintf(outputStr, 64, "%s: %s", GetTranslatedString(FEDatabase->GetChallengeHeaderHash(raceParams->GetLocalizationTag())), descStr);
             StartAnimations(true, raceParams->GetChallengeType(), static_cast<float>(raceParams->GetReputation()), outputStr);
             return true;

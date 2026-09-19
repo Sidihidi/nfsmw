@@ -198,7 +198,9 @@ IVisualTreatment::IVisualTreatment()
     this->DesaturationTarget = -1.0f;
     this->State = HEAT_LOOK;
     this->HeatMeter = 0.0f;
+#ifndef EA_BUILD_A124
     this->IsBeingPursued = -1;
+#endif
 }
 
 IVisualTreatment::~IVisualTreatment() {
@@ -218,7 +220,9 @@ void IVisualTreatment::Reset() {
     this->CurrentTarget = -1.0f;
     this->DesaturationTarget = -1.0f;
     this->State = HEAT_LOOK;
+#ifndef EA_BUILD_A124
     this->IsBeingPursued = -1;
+#endif
 
     PursuitBreaker->Reset();
     UvesPulse->Reset();
@@ -360,21 +364,34 @@ void IVisualTreatment::TriggerUves() {
     UvesPulse->Trigger(0.0f, false, true, false);
 }
 
-void IVisualTreatment::UpdateHeat(eView *view, float targetHeat, bool isBeingPursued) {
+void IVisualTreatment::UpdateHeat(eView *view, float targetHeat
+#ifndef EA_BUILD_A124
+                                  ,
+                                  bool isBeingPursued
+#endif
+) {
     targetHeat = static_cast<float>(static_cast<int>(targetHeat));
 
     if (UTL::Collections::Singleton<INIS>::Exists()) {
+#ifndef EA_BUILD_A124
         IsBeingPursued = -1;
+#endif
         CurrentTarget = -1.0f;
         UvesPulse->Reset();
         UvesTransition->Reset();
     }
 
-    if ((targetHeat > CurrentTarget && CurrentTarget != -1.0f) || (!IsBeingPursued && isBeingPursued)) {
+    if ((targetHeat > CurrentTarget && CurrentTarget != -1.0f)
+#ifndef EA_BUILD_A124
+        || (!IsBeingPursued && isBeingPursued)
+#endif
+    ) {
         this->TriggerUves();
     }
 
+#ifndef EA_BUILD_A124
     IsBeingPursued = static_cast<int>(isBeingPursued);
+#endif
     CurrentTarget = targetHeat;
 
     float uves = UvesTransition->Update(targetHeat);
@@ -463,14 +480,23 @@ void IVisualTreatment::Update(eView *view) {
 
     if (State == HEAT_LOOK) {
         float heatMeter = 0.0f;
+#ifndef EA_BUILD_A124
         bool isBeingPursed = false;
+#endif
 
         if (iperp != nullptr) {
             heatMeter = iperp->GetHeat();
+#ifndef EA_BUILD_A124
             isBeingPursed = iperp->IsBeingPursued();
+#endif
         }
 
-        UpdateHeat(view, heatMeter, isBeingPursed);
+        UpdateHeat(view, heatMeter
+#ifndef EA_BUILD_A124
+                   ,
+                   isBeingPursed
+#endif
+        );
         HeatMeter = heatMeter;
     } else {
         UpdateVisualLook();

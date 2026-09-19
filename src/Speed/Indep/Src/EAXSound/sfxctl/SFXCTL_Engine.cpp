@@ -58,9 +58,12 @@ SFXCTL_Engine::SFXCTL_Engine()
       m_fSmoothedEng_RPM(0.0f), //
       m_fSmoothedEng_Trq(0.0f), //
       mmsgMVehicleDestroyed(Hermes::Handler::Create<MNotifyVehicleDestroyed, SFXCTL_Engine, SFXCTL_Engine>(
-          this, &SFXCTL_Engine::MessageVehicleDestroyed, UCrc32(0x20D60DBF), 0)), //
-      mmsgMCoundown(Hermes::Handler::Create<MCountdownDone, SFXCTL_Engine, SFXCTL_Engine>(
-          this, &SFXCTL_Engine::MsgCountdownDone, UCrc32(0x20D60DBF), 0)) {
+          this, &SFXCTL_Engine::MessageVehicleDestroyed, UCrc32(0x20D60DBF), 0)) //
+#ifndef EA_BUILD_A124
+      , mmsgMCoundown(Hermes::Handler::Create<MCountdownDone, SFXCTL_Engine, SFXCTL_Engine>(
+          this, &SFXCTL_Engine::MsgCountdownDone, UCrc32(0x20D60DBF), 0)) //
+#endif
+{
     this->m_pAccelTransitionCtl = nullptr;
     this->m_pShiftCtl = nullptr;
     this->m_pPhysicsCtl = nullptr;
@@ -73,16 +76,20 @@ SFXCTL_Engine::SFXCTL_Engine()
     bVector3 v3CarPos(0.0f, 0.0f, 0.0f);
 
     this->vCarPos = v3CarPos;
+#ifndef EA_BUILD_A124
     this->bWasRedlining = false;
+#endif
 }
 
 SFXCTL_Engine::~SFXCTL_Engine() {
     if (this->mmsgMVehicleDestroyed) {
         Hermes::Handler::Destroy(this->mmsgMVehicleDestroyed);
     }
+#ifndef EA_BUILD_A124
     if (this->mmsgMCoundown) {
         Hermes::Handler::Destroy(this->mmsgMCoundown);
     }
+#endif
 }
 
 void SFXCTL_Engine::MessageVehicleDestroyed(const MNotifyVehicleDestroyed &message) {
@@ -102,10 +109,12 @@ void SFXCTL_Engine::MessageVehicleDestroyed(const MNotifyVehicleDestroyed &messa
     }
 }
 
+#ifndef EA_BUILD_A124
 void SFXCTL_Engine::MsgCountdownDone(const MCountdownDone &message) {
     this->tMergeWithPhysicsOffStart = TimeToMergeWithPhysicsOffStart;
     this->bPreRace = false;
 }
+#endif
 
 void SFXCTL_Engine::SetupSFX(CSTATE_Base *_StateBase) {
     SndBase::SetupSFX(_StateBase);
@@ -113,7 +122,9 @@ void SFXCTL_Engine::SetupSFX(CSTATE_Base *_StateBase) {
 }
 
 void SFXCTL_Engine::InitSFX() {
+#ifndef EA_BUILD_A124
     GRaceParameters *race;
+#endif
 
     SFXCTL::InitSFX();
     this->m_bIsEngineBlown = false;
@@ -150,6 +161,8 @@ void SFXCTL_Engine::InitSFX() {
         break;
     }
 
+    // La A124 acaba en el switch (0x1BB290: epilogo, sin GRaceStatus ni escritura en 0xC0/0xC4).
+#ifndef EA_BUILD_A124
     this->tMergeWithPhysicsOffStart = 0.0f;
     if (GRaceStatus::Exists()) {
         race = GRaceStatus::Get().GetRaceParameters();
@@ -164,6 +177,7 @@ void SFXCTL_Engine::InitSFX() {
     } else {
         this->bPreRace = true;
     }
+#endif
 }
 
 int SFXCTL_Engine::GetController(int Index) {
@@ -286,7 +300,9 @@ void SFXCTL_Engine::UpdateCompression(float t) {
 }
 
 void SFXCTL_Engine::UpdateRedlining(float t) {
+#ifndef EA_BUILD_A124
     this->bWasRedlining = this->bIsRedlining;
+#endif
     if (this->m_pStateBase->m_eStateType == eMM_AIRACECAR) {
         return;
     }
@@ -384,6 +400,8 @@ void SFXCTL_Engine::UpdateRPM(float t) {
     this->VisRpmAvg.Recalculate();
 
     PhysicsNewAudioRPM = (this->VisRpmAvg.GetValue() - 1000.0f) * 0.00011111111f;
+    // La A124 pasa directamente a SetFinalAudioRPM (0x1BBD88: `swc1 $f0, 0x74($v0)`), sin la mezcla de salida.
+#ifndef EA_BUILD_A124
     if (this->GetPhysCar()->IsLocalPlayerCar()) {
         if (this->bPreRace != 0) {
             PhysicsNewAudioRPM = this->GetPhysCar()->GetRPMPct();
@@ -397,6 +415,7 @@ void SFXCTL_Engine::UpdateRPM(float t) {
                                  this->GetPhysCar()->GetRPMPct();
         }
     }
+#endif
 
     this->m_pEAXCar->SetFinalAudioRPM(PhysicsNewAudioRPM);
 }

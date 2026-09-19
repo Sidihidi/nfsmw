@@ -308,10 +308,15 @@ class DisculatorDriver : public RealFile::DeviceDriver {
 
     bFileDirectoryEntry *pDirectoryEntryTable; // offset 0x14, size 0x4
     int NumDirectoryEntries;                   // offset 0x18, size 0x4
-    char GiantDataFileName[30][64];            // offset 0x1C, size 0x780
-    int GiantDataFileHandle[30];               // offset 0x79C, size 0x78
-    int CurrentSector;                         // offset 0x814, size 0x4
-    int TotalDeltaSector;                      // offset 0x818, size 0x4
+#ifdef EA_BUILD_A124
+    char GiantDataFileName[16][64]; // offset 0x1C, size 0x400
+    int GiantDataFileHandle[16];    // offset 0x41C, size 0x40
+#else
+    char GiantDataFileName[30][64]; // offset 0x1C, size 0x780
+    int GiantDataFileHandle[30];    // offset 0x79C, size 0x78
+#endif
+    int CurrentSector;    // offset 0x814, size 0x4
+    int TotalDeltaSector; // offset 0x818, size 0x4
 };
 
 SlotPool *OpenDisculatorFileSlotPool = nullptr;
@@ -465,12 +470,12 @@ bool DisculatorDriver::LoadGiantFiles(const char *giant_dir_filename, const char
         }
 
         int file_number;
-        for (file_number = 0; file_number < 30; file_number++) {
+        for (file_number = 0; file_number < NUM_ELEMENTS(this->GiantDataFileHandle); file_number++) {
             bSPrintf(this->GiantDataFileName[file_number], "%s%d.BIN", giant_data_filename_base, file_number);
             *(this->GiantDataFileHandle + file_number) = -1;
         }
 
-        for (file_number = 0; file_number < 30; file_number++) {
+        for (file_number = 0; file_number < NUM_ELEMENTS(this->GiantDataFileHandle); file_number++) {
             if (FILESYS_existssync(this->GiantDataFileName[file_number], 100)) {
                 this->GiantDataFileHandle[file_number] = FILESYS_opensync(this->GiantDataFileName[file_number], 1, 100);
             } else {

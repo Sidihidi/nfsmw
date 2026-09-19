@@ -374,7 +374,17 @@ void MiniMainLoop() {
 bool Tweak_FullSpeedMode = false; // Decl: 2585
 bool twkDumpProfileMarks = false; // Decl: 2586
 
-void MainLoop(float hardware_ms) {
+void MainLoop(
+#ifdef EA_BUILD_A124
+    bFix hardware_ms_fix
+#else
+    float hardware_ms
+#endif
+) {
+#ifdef EA_BUILD_A124
+    // La A124 recibe los milisegundos en coma fija 16.16 (MainLoop__Fi) y los pasa a float aqui.
+    float hardware_ms = hardware_ms_fix / 65536.0f;
+#endif
     int ticks;
     ProfileNode profile_node_entire_mainloop("MainLoop()", 0);
     ProfileNode profile_node;
@@ -487,7 +497,13 @@ int MainThreadFunction(int argc, char **argv)
 
             milliseconds_fix = (bFix)(milliseconds * 65536.0f); // this is used on other platforms
 
-            MainLoop(milliseconds);
+            MainLoop(
+#ifdef EA_BUILD_A124
+                milliseconds_fix
+#else
+                milliseconds
+#endif
+            );
 
             if (twkDumpProfileMarks)
                 twkDumpProfileMarks = false;

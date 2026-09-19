@@ -117,7 +117,12 @@ class PlayerSettings {
     void DefaultFromOptionsScreen();
     bool operator==(const PlayerSettings &rhs) const;
     void ScrollDriveCam(int dir);
-    Attrib::Key GetControllerAttribs(eControllerAttribs type, bool wheel_connected) const;
+    Attrib::Key GetControllerAttribs(eControllerAttribs type
+#ifndef EA_BUILD_A124
+                                     ,
+                                     bool wheel_connected
+#endif
+    ) const;
 
     bool GaugesOn;                 // offset 0x0, size 0x1
     bool PositionOn;               // offset 0x4, size 0x1
@@ -224,9 +229,17 @@ typedef enum { SMS_FLAG_UNREAD = 1, SMS_FLAG_READ = 2 } SMSMessageFlags;
 class SMSMessage {
   public:
     SMSMessage() {
-        Handle = 0xFF;
+        Handle =
+#ifdef EA_BUILD_A124
+            0xFFFF
+#else
+            0xFF
+#endif
+            ;
         Flags = 0;
+#ifndef EA_BUILD_A124
         SortOrder = 0;
+#endif
     }
     ~SMSMessage() {}
     void SetHandle(FESMSHandle handle) {
@@ -244,12 +257,14 @@ class SMSMessage {
     uint32 GetFlags() {
         return Flags;
     }
+#ifndef EA_BUILD_A124
     void SetSortOrder(uint16 order) {
         SortOrder = order;
     }
     uint16 GetSortOrder() {
         return SortOrder;
     }
+#endif
     uint32 GetMsgHash() {
         return FEngHashString("SMS_MESSAGE_%d", GetHandle());
     }
@@ -269,13 +284,23 @@ class SMSMessage {
         return (Flags & 4) != 0;
     }
     bool IsValid() {
-        return Handle != 0xFF;
+        return Handle !=
+#ifdef EA_BUILD_A124
+               0xFFFF
+#else
+               0xFF
+#endif
+            ;
     }
     bool IsVoice();
 
     FESMSHandle Handle; // offset 0x0, size 0x1
     uint8 Flags;        // offset 0x1, size 0x1
+#ifdef EA_BUILD_A124
+    uint8 Pad;
+#else
     uint16 SortOrder;   // offset 0x2, size 0x2
+#endif
 };
 
 enum CS_SpecialFlags {
@@ -318,7 +343,9 @@ class CareerSettings {
         return CurrentCash;
     }
     SMSMessage *GetSMSMessage(uint32 index);
+#ifndef EA_BUILD_A124
     uint16 GetSMSSortOrder();
+#endif
     char *SaveToBuffer(void *buffer, void *maxbuf);
     char *LoadFromBuffer(void *buffer, void *maxbuf);
     int32 GetSaveBufferSize(bool bExcludeGameplay);
@@ -470,8 +497,14 @@ class CareerSettings {
     uint8 CurrentBin;            // offset 0x8, size 0x1
     uint32 CurrentCash;          // offset 0xC, size 0x4
     int16 AdaptiveDifficulty;    // offset 0x10, size 0x2
+#ifdef EA_BUILD_A124
+    SMSMessage SMSMessages[125];
+#else
     SMSMessage SMSMessages[150]; // offset 0x12, size 0x258
+#endif
+#ifndef EA_BUILD_A124
     uint16 SMSSortOrder;         // offset 0x26A, size 0x2
+#endif
     char CaseFileName[16];       // offset 0x26C, size 0x10
 };
 
@@ -502,7 +535,12 @@ class UserProfile {
     const char *GetProfileName();
     void Default(int player_number, bool commit_default);
     void SaveToBuffer(void *buffer, int size);
-    bool LoadFromBuffer(void *buffer, int size, bool commit_changes, int player_id);
+    bool LoadFromBuffer(void *buffer, int size, bool commit_changes
+#ifndef EA_BUILD_A124
+                        ,
+                        int player_id
+#endif
+    );
     int32 GetSaveBufferSize(bool bExcludeGameplay);
     void CommitHighScoresPreRace(eHighScoresRaceTypes race_type, int is_split_screen);
     void CommitHighScoresPostRace(eHighScoresRaceTypes race_type, int track, int direction, int laps, int is_split_screen,
@@ -518,7 +556,11 @@ class UserProfile {
     OptionsSettings TheOptionsSettings; // offset 0x24, size 0xC0
     CareerSettings TheCareerSettings;   // offset 0xE4, size 0x27C
   public:
+#ifdef EA_BUILD_A124
+    JukeboxEntry *Playlist;
+#else
     JukeboxEntry Playlist[30];                  // offset 0x360, size 0xF0
+#endif
     FEPlayerCarDB PlayersCarStable;             // offset 0x450, size 0x8CC8
     bool CareerModeHasBeenCompletedAtLeastOnce; // offset 0x9118, size 0x1
     HighScoresDatabase HighScores;              // offset 0x911C, size 0xBD8
@@ -608,8 +650,12 @@ class cFrontendDatabase {
     uint32 GetMilestoneDescHash(uint32 hal_id);
     uint32 GetMilestoneHeaderHash(uint32 hal_id);
     uint32 GetMilestoneIconHash(uint32 type, bool isMilestone);
-    void SetMilestoneDescriptionString(char *const outputStr, const int milestoneType, float currVal, const float goalVal,
-                                       const bool showCurrVal) const;
+    void SetMilestoneDescriptionString(char *const outputStr, const int milestoneType, float currVal, const float goalVal
+#ifndef EA_BUILD_A124
+                                       ,
+                                       const bool showCurrVal
+#endif
+    ) const;
     bool IsMilestoneTimeFormat(const int milestoneType) const;
     uint32 GetRaceNameHash(GRace::Type raceType);
     uint32 GetRaceIconHash(GRace::Type raceType);

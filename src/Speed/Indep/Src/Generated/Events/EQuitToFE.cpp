@@ -15,7 +15,11 @@
 
 EQuitToFE::EQuitToFE(eGarageType pGarageType, const char *pFirstScreenName)
     : Event(0x10), fGarageType(pGarageType), fFirstScreenName(pFirstScreenName) {
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 }
 
 EQuitToFE::~EQuitToFE() {

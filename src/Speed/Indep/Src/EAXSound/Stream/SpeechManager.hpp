@@ -200,7 +200,12 @@ class Manager {
     static void SpchLibAbort(const char *format, ...);
     static int SampleRequestCallback(SPCHType_SampleRequestData *data);
     static int LoadSpeechBank(CLUMP_IDX_FILEtag *index, int &type, int &number, SPEECH_BANK *sb);
-    static int AddHeaders(char **dest, SPEECH_BANK *banks, int numBanks, Module *module);
+    static int AddHeaders(char **dest, SPEECH_BANK *banks, int numBanks
+#ifndef EA_BUILD_A124
+                          ,
+                          Module *module
+#endif
+    );
     static int GetTicker();
     static void PopulateHashMap();
     static bool IsCacheable(SPCHType_1_EventID event_id);

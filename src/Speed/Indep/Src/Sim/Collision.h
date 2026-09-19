@@ -12,8 +12,18 @@ namespace Collision {
 void Respond(const Info &cinfo);
 void AddParticipant(HSIMABLE participant);
 void RemoveParticipant(HSIMABLE participant);
-void AddListener(IListener *listener, HSIMABLE participant, const char *who);
-void AddListener(IListener *listener, const UTL::COM::IUnknown *participant, const char *who);
+void AddListener(IListener *listener, HSIMABLE participant
+#ifndef EA_BUILD_A124
+                 ,
+                 const char *who
+#endif
+);
+void AddListener(IListener *listener, const UTL::COM::IUnknown *participant
+#ifndef EA_BUILD_A124
+                 ,
+                 const char *who
+#endif
+);
 void RemoveListener(IListener *listener, const UTL::COM::IUnknown *participant);
 void RemoveListener(IListener *listener);
 

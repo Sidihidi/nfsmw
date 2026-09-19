@@ -8,6 +8,9 @@
 #include <types.h>
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feArrayScrollerMenu.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/quickrace/uiTrackMapStreamer.hpp"
+#endif
 
 struct GMilestone;
 struct GSpeedTrap;
@@ -53,12 +56,20 @@ struct SpeedTrapDatum : public MilestoneDatum {
 // total size: 0xF4
 struct uiRepSheetMilestones : public ArrayScrollerMenu {
     bool bIsInGame;                    // offset 0xE8, size 0x1
+    // La A124 lo lleva POR VALOR: sus stabs lo ponen en 0xE8 con 1728 bits y TrackMap en 0x1C0; el constructor
+    // (0x23AB50) llama a __18UITrackMapStreamer con this+0xE8 y el destructor (0x282150) a _$_18UITrackMapStreamer.
+#ifdef EA_BUILD_A124
+    UITrackMapStreamer TrackMapStreamer;
+#else
     UITrackMapStreamer* TrackMapStreamer; // offset 0xEC, size 0x4
+#endif
     FEMultiImage* TrackMap;            // offset 0xF0, size 0x4
 
     uiRepSheetMilestones(ScreenConstructorData* sd);
     ~uiRepSheetMilestones() override {
+#ifndef EA_BUILD_A124
         delete TrackMapStreamer;
+#endif
     }
 
     eMenuSoundTriggers NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) override;

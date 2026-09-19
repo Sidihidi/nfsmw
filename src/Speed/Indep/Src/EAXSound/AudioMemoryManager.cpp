@@ -22,8 +22,15 @@ AudioMemoryManager::AudioMemoryManager()
 #endif
       m_numMemoryAllocations(0) {}
 
-void AudioMemoryManager::InitMemoryPool(eAUDMEMPOOLTYPE etype, int size) {
-    if (etype == AUD_MAIN_MEM_POOL) {
+void AudioMemoryManager::InitMemoryPool(
+#ifndef EA_BUILD_A124
+    eAUDMEMPOOLTYPE etype,
+#endif
+    int size) {
+#ifndef EA_BUILD_A124
+    if (etype == AUD_MAIN_MEM_POOL)
+#endif
+    {
         m_memoryPoolSize = size;
         m_pMemoryPoolMem = bMalloc(size, "Audio Memory Pool", 0, 0x2000);
         AudioMemoryPool = bGetFreeMemoryPoolNum();

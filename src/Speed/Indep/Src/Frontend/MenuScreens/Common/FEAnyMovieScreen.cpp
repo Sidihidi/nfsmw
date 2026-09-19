@@ -23,13 +23,17 @@ char FEAnyMovieScreen::ReturnToPackageName[64];
 FEAnyMovieScreen::FEAnyMovieScreen(ScreenConstructorData *sd) : MenuScreen(sd), mSubtitler(), bHidGarage(false) {
     const u32 FEObj_movie = 0x348FF9F;
 
+#ifndef EA_BUILD_A124
     bAllowingControllerErrors = FEManager::Get()->IsAllowingControllerError();
     FEManager::Get()->AllowControllerError(false);
+#endif
 
     FEngSetMovieName(GetPackageName(), FEObj_movie, MovieFilename);
 
     mSubtitler.BeginningMovie(MovieFilename, GetPackageName());
+#ifndef EA_BUILD_A124
     DismissChyron();
+#endif
 
     new EFadeScreenOff(FEHASH_15_IN);
 
@@ -47,8 +51,10 @@ FEAnyMovieScreen::~FEAnyMovieScreen() {
             garage->NotificationMessage(0x18883F75, 0, 0, 0);
         }
     }
+#ifndef EA_BUILD_A124
     FEManager::Get()->SetEATraxSecondButton();
     FEManager::Get()->AllowControllerError(bAllowingControllerErrors);
+#endif
 }
 
 MenuScreen *FEAnyMovieScreen::Create(ScreenConstructorData *sd) {
@@ -64,10 +70,12 @@ void FEAnyMovieScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u
             break;
         case __PAD_ACCEPT__:
         case __PAD_START__:
+#ifndef EA_BUILD_A124
             if (FEDatabase->IsDDay()) {
                 if (!MoviePlayer_Bypass())
                     break;
             }
+#endif
             mSubtitler.Update(0xC3960EB9);
             DismissMovie();
             break;

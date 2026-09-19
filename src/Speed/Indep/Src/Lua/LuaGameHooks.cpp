@@ -702,7 +702,11 @@ void Game_WarpPlayerToTrigger(GRuntimeInstance *startMarker) {
     Sim::SetStream(markerPos, false);
 
     if (TheTrackStreamer.IsLoadingInProgress()) {
-        new EFadeScreenOn(false);
+        new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+            false
+#endif
+        );
 
         while (TheTrackStreamer.IsLoadingInProgress()) {
             MiniMainLoop();
@@ -1173,7 +1177,12 @@ void Game_NotifySpeedTrapTriggered(GRuntimeInstance *trapActivity, GRuntimeInsta
 
     if (GRaceStatus::Exists()) {
         if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
-            FE_ShowSpeedTrapScreen(speedKmh, speedTrap->GetBounty());
+            FE_ShowSpeedTrapScreen(speedKmh
+#ifndef EA_BUILD_A124
+                                   ,
+                                   speedTrap->GetBounty()
+#endif
+            );
 
             Game_ChallengeCompleted();
         } else {
@@ -1497,7 +1506,12 @@ void Game_SetTrafficSpeed(GRuntimeInstance *triggerInstance, float speedMultipli
 }
 
 void Game_ShowPauseMenu() {
-    new EPause(0, 0, 0);
+    new EPause(0, 0
+#ifndef EA_BUILD_A124
+        ,
+        0
+#endif
+    );
 }
 
 void Game_AwardCash(ISimable *simable, float amount) {
@@ -1823,8 +1837,12 @@ void Game_ShowGPS(bool show) {
     }
 }
 
-void Game_NavigatePlayerTo(GRuntimeInstance *destinationInstance, GRuntimeInstance *routeInstance, float maxDeviation,
-                           bool useGPS) {
+void Game_NavigatePlayerTo(GRuntimeInstance *destinationInstance, GRuntimeInstance *routeInstance, float maxDeviation
+#ifndef EA_BUILD_A124
+                           ,
+                           bool useGPS
+#endif
+) {
     if (destinationInstance != NULL) {
         destinationInstance->GetPosition(gGPSDestination);
 
@@ -1832,7 +1850,10 @@ void Game_NavigatePlayerTo(GRuntimeInstance *destinationInstance, GRuntimeInstan
             WorldMap::SetGPSing(static_cast<GTrigger *>(static_cast<void *>(routeInstance))->GetIcon());
         }
 
-        if (useGPS) {
+#ifndef EA_BUILD_A124
+        if (useGPS)
+#endif
+        {
             GPS_Engage(gGPSDestination, maxDeviation);
         }
     }
@@ -1911,7 +1932,11 @@ void Game_SetChanceOfRain(float chance) {
 }
 
 void Game_DoFade() {
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 }
 
 void Game_IntroduceRival() {
@@ -2068,7 +2093,12 @@ void FE_ShowPostRaceScreen(bool playerWon) {
                 MControlPathfinder(false, 15, 0, 0).Send(UCrc32("Event"));
             }
 
-            new EPause(0, 1, 0);
+            new EPause(0, 1
+#ifndef EA_BUILD_A124
+                ,
+                0
+#endif
+            );
         }
     } else if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
         if (playerWon && !Sim::IsSplitScreen()) {
@@ -2080,7 +2110,12 @@ void FE_ShowPostRaceScreen(bool playerWon) {
 
             cFEng::Get()->QueuePackagePush(screen, 0, port, true);
         } else {
-            new EShowResults(static_cast<FERESULTTYPE>(0), false);
+            new EShowResults(static_cast<FERESULTTYPE>(0)
+#ifndef EA_BUILD_A124
+                ,
+                false
+#endif
+            );
         }
     }
 }
@@ -2089,10 +2124,17 @@ bool FE_ShowOnlinePostRaceScreen() {
     return false;
 }
 
-void FE_ShowSpeedTrapScreen(float speed, float record) {
+void FE_ShowSpeedTrapScreen(float speed
+#ifndef EA_BUILD_A124
+                            ,
+                            float record
+#endif
+) {
     PhotoFinishScreen::SetTrapSpeed(speed * 0.27778f);
+#ifndef EA_BUILD_A124
     PhotoFinishScreen::SetTrapBounty(record);
     PhotoFinishScreen::SetActive();
+#endif
 
     const char *packageName = "InGamePhotoMaster.fng";
     int joyParam = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));

@@ -138,7 +138,12 @@ const char *FEManager::GetGaragePrefixFromType(eGarageType pGarageType) {
     }
 }
 
-bool FEManager::IsOkayToRequestPauseSimulation(int playerIndex, bool useControllerErrors, bool okIfAutoSaveActive) {
+bool FEManager::IsOkayToRequestPauseSimulation(int playerIndex, bool useControllerErrors
+#ifndef EA_BUILD_A124
+                                               ,
+                                               bool okIfAutoSaveActive
+#endif
+) {
     if (TheGameFlowManager.GetState() != GAMEFLOW_STATE_RACING) {
         return false;
     }
@@ -147,7 +152,11 @@ bool FEManager::IsOkayToRequestPauseSimulation(int playerIndex, bool useControll
         return false;
     }
 
-    if (MemoryCard::GetInstance()->IsAutoSaving() && !okIfAutoSaveActive) {
+    if (MemoryCard::GetInstance()->IsAutoSaving()
+#ifndef EA_BUILD_A124
+        && !okIfAutoSaveActive
+#endif
+    ) {
         return false;
     }
 

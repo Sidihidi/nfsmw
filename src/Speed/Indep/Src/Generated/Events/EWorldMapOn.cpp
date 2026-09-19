@@ -8,7 +8,12 @@
 #include "Speed/Indep/Src/Main/EventDynamicData.h"
 
 EWorldMapOn::EWorldMapOn() : Event(0x10) {
-    if (FEManager::IsOkayToRequestPauseSimulation(0, true, false)) {
+    if (FEManager::IsOkayToRequestPauseSimulation(0, true
+#ifndef EA_BUILD_A124
+                                                  ,
+                                                  false
+#endif
+                                                  )) {
         unsigned long joyParam = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));
         cFEng::Get()->QueuePackageSwitch("WorldMapMain.fng", 0, joyParam, false);
     }

@@ -16,7 +16,13 @@
 // realcore: la parte de la API de hilos que MyThread envuelve y que
 // system/threads.h no declara.
 struct THREAD {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Opaco y de plataforma, como MUTEX: 0x8 en PS2 (stabs de la A124). MyThread::SetPriority guarda mPriority en
+    // 0x1C y pasa this + 0x14 a THREAD_setpriority en las dos builds (SLES 0x27EE80, SLUS 0x24E3D0).
+    int reserved[2]; // total size: 0x8
+#else
     int reserved[198]; // total size: 0x318
+#endif
 };
 
 bool THREAD_create(THREAD *t, int (*func)(void *), void *param, void *stack, int stacksize, int priority);

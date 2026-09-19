@@ -8,7 +8,12 @@
 #include "Speed/Indep/Src/Lua/source/lua.h"
 
 EShowSMS::EShowSMS(int pShowMsg) : Event(0x10), fShowMsg(pShowMsg) {
-    if (FEManager::IsOkayToRequestPauseSimulation(0, true, false)) {
+    if (FEManager::IsOkayToRequestPauseSimulation(0, true
+#ifndef EA_BUILD_A124
+                                                  ,
+                                                  false
+#endif
+                                                  )) {
         new ESndGameState(8, true);
 
         int port = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));

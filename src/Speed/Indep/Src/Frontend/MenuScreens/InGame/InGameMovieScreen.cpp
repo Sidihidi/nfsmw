@@ -23,19 +23,23 @@ static bool gInGameMoviePlaying = false;
 char InGameAnyMovieScreen::MovieFilename[64] = "unknown";
 
 InGameAnyMovieScreen::InGameAnyMovieScreen(ScreenConstructorData *sd) : MenuScreen(sd) {
+#ifndef EA_BUILD_A124
     bAllowingControllerErrors = FEManager::Get()->IsAllowingControllerError();
     FEManager::Get()->AllowControllerError(false);
     while (TheCarLoader.IsLoadingInProgress() || TheTrackStreamer.IsLoadingInProgress() || g_pEAXSound->AreResourceLoadsPending()) {
         MiniMainLoop();
     }
     DismissChyron();
+#endif
     FEngSetMovieName(GetPackageName(), 0x348ff9f, MovieFilename);
     mSubtitler.BeginningMovie(MovieFilename, GetPackageName());
     new EFadeScreenOff(0x14035fb);
 }
 
 InGameAnyMovieScreen::~InGameAnyMovieScreen() {
+#ifndef EA_BUILD_A124
     FEManager::Get()->AllowControllerError(bAllowingControllerErrors);
+#endif
     gInGameMoviePlaying = false;
 }
 
@@ -51,7 +55,10 @@ void InGameAnyMovieScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param
             break;
         case 0xb5af2461:
         case 0x406415e3:
-            if (FEDatabase->GetCareerSettings()->GetCurrentBin() < 0x10 || SkipMovies || MoviePlayer_Bypass()) {
+#ifndef EA_BUILD_A124
+            if (FEDatabase->GetCareerSettings()->GetCurrentBin() < 0x10 || SkipMovies || MoviePlayer_Bypass())
+#endif
+            {
                 mSubtitler.Update(0xc3960eb9);
                 DismissMovie();
             }
@@ -77,7 +84,11 @@ void InGameAnyMovieScreen::DismissMovie() {
     gInGameMoviePlaying = false;
     MNotifyMovieFinished().Post(UCrc32(0x20d60dbf));
     cFEng::Get()->QueuePackagePop(0);
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 }
 
 void InGameAnyMovieScreen::SetMovieName(const char *filename) {

@@ -79,7 +79,12 @@ class FEManager {
 
     void SetEATraxSecondButton();
 
-    static bool IsOkayToRequestPauseSimulation(int playerIndex, bool useControllerErrors, bool okIfAutoSaveActive);
+    static bool IsOkayToRequestPauseSimulation(int playerIndex, bool useControllerErrors
+#ifndef EA_BUILD_A124
+                                               ,
+                                               bool okIfAutoSaveActive
+#endif
+    );
 
     static void RequestPauseSimulation(const char *reason);
 

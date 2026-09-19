@@ -130,9 +130,12 @@ class RegionLoader {
     ResourceFile *pResourceInGameB;           // offset 0x8, size 0x4
     ResourceFile *pResourceInGameSplitScreen; // offset 0xC, size 0x4
     ResourceFile *pResourceRegion;            // offset 0x10, size 0x4
-    VMFile *pResourceGlobalB_VM;              // offset 0x14, size 0x4
-    VMFile *pResourceInGameB_VM;              // offset 0x18, size 0x4
-    VMFile *pResourceRegion_VM;               // offset 0x1C, size 0x4
+#ifndef EA_BUILD_A124
+    // The A124 prototype loads nothing into virtual memory here: its RegionLoader is 0x14 bytes.
+    VMFile *pResourceGlobalB_VM; // offset 0x14, size 0x4
+    VMFile *pResourceInGameB_VM; // offset 0x18, size 0x4
+    VMFile *pResourceRegion_VM;  // offset 0x1C, size 0x4
+#endif
 };
 
 // total size: 0x4

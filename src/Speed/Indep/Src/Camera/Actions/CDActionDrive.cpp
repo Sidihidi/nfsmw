@@ -319,7 +319,12 @@ void CDActionDrive::AquireCar() {
     }
 
     Attach(mVehicle);
-    Sim::Collision::AddListener(this, mVehicle, "CDActionDrive");
+    Sim::Collision::AddListener(this, mVehicle
+#ifndef EA_BUILD_A124
+        ,
+        "CDActionDrive"
+#endif
+    );
 
     mAnchor->SetModel(bStringHash(mVehicle->GetVehicleAttributes().MODEL().GetString()));
     mAnchor->SetWorldID(mTarget.GetWorldID());

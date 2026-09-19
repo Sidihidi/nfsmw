@@ -135,11 +135,18 @@ void PlayerSettings::DefaultFromOptionsScreen() {
     Rumble = savedRumble;
 }
 
-Attrib::Key PlayerSettings::GetControllerAttribs(eControllerAttribs type, bool wheel_connected) const {
+Attrib::Key PlayerSettings::GetControllerAttribs(eControllerAttribs type
+#ifndef EA_BUILD_A124
+                                                 ,
+                                                 bool wheel_connected
+#endif
+) const {
     int analog = 0;
     if (DriveWithAnalog) {
         analog = 1;
     }
+#ifndef EA_BUILD_A124
+    // the local config only exists for the wheel override: the prototype indexes by Config directly
     int config = Config;
 
     if (wheel_connected) {
@@ -147,13 +154,26 @@ Attrib::Key PlayerSettings::GetControllerAttribs(eControllerAttribs type, bool w
         config = 0;
         analog = 1;
     }
+#endif
 
     switch (type) {
         case CA_DRIVING:
-            return DriveConfigs[config][analog];
+            return DriveConfigs[
+#ifndef EA_BUILD_A124
+                config
+#else
+                Config
+#endif
+            ][analog];
 
         case CA_HUD:
-            return HudConfigs[config][analog];
+            return HudConfigs[
+#ifndef EA_BUILD_A124
+                config
+#else
+                Config
+#endif
+            ][analog];
     }
 
     return 0;
@@ -303,27 +323,50 @@ void CareerSettings::Default() {
     SpecialFlags = 0;
     AdaptiveDifficulty = 0;
     CurrentCash = 0;
-    for (int i = 0; i < 150; i++) {
+    for (int i = 0; i <
+#ifdef EA_BUILD_A124
+                    125
+#else
+                    150
+#endif
+         ;
+         i++) {
         SMSMessages[i].SetHandle(static_cast<FESMSHandle>(i));
         if (!DoesStringExist(SMSMessages[i].GetMsgHash())) {
-            SMSMessages[i].SetHandle(0xFF);
+            SMSMessages[i].SetHandle(
+#ifdef EA_BUILD_A124
+                0xFFFF
+#else
+                0xFF
+#endif
+            );
         }
         SMSMessages[i].ClearFlags();
     }
+#ifndef EA_BUILD_A124
     SMSSortOrder = 0;
+#endif
 }
 
 SMSMessage *CareerSettings::GetSMSMessage(uint32 index) {
-    if (index >= 0x96) {
+    if (index >=
+#ifdef EA_BUILD_A124
+        0x7D
+#else
+        0x96
+#endif
+    ) {
         return nullptr;
     }
     return &SMSMessages[index];
 }
 
+#ifndef EA_BUILD_A124
 unsigned short CareerSettings::GetSMSSortOrder() {
     SMSSortOrder = SMSSortOrder + 1;
     return SMSSortOrder;
 }
+#endif
 
 bool SMSMessage::IsVoice() {
     switch (Handle) {
@@ -495,8 +538,16 @@ char *CareerSettings::SaveToBuffer(void *buffer, void *maxbuf) {
     buf = SaveSomeData(buf, &CurrentCash, 4, maxbuf);
     buf = SaveSomeData(buf, &AdaptiveDifficulty, 2, maxbuf);
     buf = SaveSomeData(buf, &SpecialFlags, 4, maxbuf);
-    buf = SaveSomeData(buf, SMSMessages, 600, maxbuf);
+    buf = SaveSomeData(buf, SMSMessages,
+#ifdef EA_BUILD_A124
+                       500,
+#else
+                       600,
+#endif
+                       maxbuf);
+#ifndef EA_BUILD_A124
     buf = SaveSomeData(buf, &SMSSortOrder, 2, maxbuf);
+#endif
     buf = SaveSomeData(buf, CaseFileName, 16, maxbuf);
     buf = SaveRaceData(buf, maxbuf);
     buf = SaveUnlockData(buf, maxbuf);
@@ -510,8 +561,16 @@ char *CareerSettings::LoadFromBuffer(void *buffer, void *maxbuf) {
     buf = LoadSomeData(&CurrentCash, buf, 4, maxbuf);
     buf = LoadSomeData(&AdaptiveDifficulty, buf, 2, maxbuf);
     buf = LoadSomeData(&SpecialFlags, buf, 4, maxbuf);
-    buf = LoadSomeData(SMSMessages, buf, 600, maxbuf);
+    buf = LoadSomeData(SMSMessages, buf,
+#ifdef EA_BUILD_A124
+                       500,
+#else
+                       600,
+#endif
+                       maxbuf);
+#ifndef EA_BUILD_A124
     buf = LoadSomeData(&SMSSortOrder, buf, 2, maxbuf);
+#endif
     buf = LoadSomeData(CaseFileName, buf, 16, maxbuf);
     buf = LoadRaceData(buf, maxbuf);
     buf = LoadUnlockData(buf, maxbuf);
@@ -609,9 +668,19 @@ char *CareerSettings::LoadGameplayData(void *load_from_here, void *maxptr) {
     return buf + 0x4000;
 }
 
-UserProfile::UserProfile() : TheOptionsSettings(), TheCareerSettings(), HighScores() {}
+UserProfile::UserProfile()
+    : TheOptionsSettings(), TheCareerSettings(),
+#ifdef EA_BUILD_A124
+      Playlist(nullptr),
+#endif
+      HighScores() {}
 
-UserProfile::~UserProfile() {}
+UserProfile::~UserProfile() {
+#ifdef EA_BUILD_A124
+    delete[] Playlist;
+    Playlist = nullptr;
+#endif
+}
 
 void UserProfile::SetProfileName(const char *pName, bool isP1) {
     bool named = false;
@@ -716,7 +785,11 @@ void UserProfile::Default(int player_number, bool commit_default) {
             Playlist[i].PlayabilityField = playability;
         }
 
-        InitializeEATrax(true);
+        InitializeEATrax(
+#ifndef EA_BUILD_A124
+            true
+#endif
+        );
     }
 
     PlayersCarStable.AwardBonusCars();
@@ -772,29 +845,42 @@ void UserProfile::SaveToBuffer(void *buffer, int size) {
     WriteProfileHash(static_cast<char *>(buffer) + 0x10, buf, size - 0x20, maxbuf);
 }
 
-bool UserProfile::LoadFromBuffer(void *buffer, int size, bool commit_changes, int player_id) {
+bool UserProfile::LoadFromBuffer(void *buffer, int size, bool commit_changes
+#ifndef EA_BUILD_A124
+                                 ,
+                                 int player_id
+#endif
+) {
     char *buf = static_cast<char *>(buffer);
     char *maxbuf = buf + size;
     char aVersion[16];
     buf = LoadSomeData(aVersion, buf, 0x10, maxbuf);
+#ifndef EA_BUILD_A124
     if (!player_id) {
+#endif
         buf = TheCareerSettings.LoadFromBuffer(buf, maxbuf);
         TheCareerSettings.TryAwardDemoMarker();
+#ifndef EA_BUILD_A124
     } else {
         int careerSize = TheCareerSettings.GetSaveBufferSize(false);
         buf = buf + careerSize;
     }
+#endif
     unsigned int version;
     buf = LoadSomeData(&version, buf, 4, maxbuf);
     if (version != FEDatabase->iDefaultStableHash) {
         return false;
     }
     buf = LoadSomeData(m_aProfileName, buf, 0x20, maxbuf);
+#ifndef EA_BUILD_A124
     if (!player_id) {
+#endif
         buf = LoadSomeData(Playlist, buf, 0xF0, maxbuf);
+#ifndef EA_BUILD_A124
     } else {
         buf = buf + 0xF0;
     }
+#endif
     buf = LoadSomeData(&TheOptionsSettings, buf, 0xC0, maxbuf);
     int stableSize = PlayersCarStable.GetSaveBufferSize();
     buf = PlayersCarStable.LoadFromBuffer(buf, stableSize);
@@ -805,7 +891,13 @@ bool UserProfile::LoadFromBuffer(void *buffer, int size, bool commit_changes, in
         unsigned int h;
         buf = LoadSomeData(&h, buf, 4, maxbuf);
         RaceSettings *settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(i));
-        settings->SelectedCar[player_id] = h;
+        settings->SelectedCar[
+#ifndef EA_BUILD_A124
+            player_id
+#else
+            0 // the prototype loads the car of the first player only
+#endif
+        ] = h;
     }
     if (!VerifyProfileHash(static_cast<char *>(buffer) + 0x10, buf, size - 0x20)) {
         return false;
@@ -1125,9 +1217,19 @@ void cFrontendDatabase::SaveUserProfileToBuffer(void *buffer, int32 bufsize) {
 
 bool cFrontendDatabase::LoadUserProfileFromBuffer(void *buffer, int bufsize, int player) {
     if (player == 0) {
-        return CurrentUserProfiles[0]->LoadFromBuffer(buffer, bufsize, true, 0);
+        return CurrentUserProfiles[0]->LoadFromBuffer(buffer, bufsize, true
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      0
+#endif
+        );
     } else {
-        bool result = CurrentUserProfiles[player]->LoadFromBuffer(buffer, bufsize, false, player);
+        bool result = CurrentUserProfiles[player]->LoadFromBuffer(buffer, bufsize, false
+#ifndef EA_BUILD_A124
+                                                                  ,
+                                                                  player
+#endif
+        );
         bMemCpy(&CurrentUserProfiles[0]->GetOptions()->ThePlayerSettings[1], &CurrentUserProfiles[1]->GetOptions()->ThePlayerSettings[0],
                 sizeof(PlayerSettings));
         return result;
@@ -1236,9 +1338,17 @@ unsigned int cFrontendDatabase::GetMilestoneIconHash(unsigned int type, bool bMi
     return hash;
 }
 
-void cFrontendDatabase::SetMilestoneDescriptionString(char *const outputStr, const int milestoneType, float currVal, const float goalVal,
-                                                      const bool showCurrVal) const {
-    if (showCurrVal && currVal > goalVal) {
+void cFrontendDatabase::SetMilestoneDescriptionString(char *const outputStr, const int milestoneType, float currVal, const float goalVal
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      const bool showCurrVal
+#endif
+) const {
+    if (
+#ifndef EA_BUILD_A124
+        showCurrVal &&
+#endif
+        currVal > goalVal) {
         currVal = goalVal;
     }
     switch (milestoneType) {
@@ -1249,11 +1359,15 @@ void cFrontendDatabase::SetMilestoneDescriptionString(char *const outputStr, con
             currValTimer.PrintToString(currValTimeToPrint, 4);
             Timer goalValTimer(goalVal);
             goalValTimer.PrintToString(goalValTimeToPrint, 4);
+#ifndef EA_BUILD_A124
             if (showCurrVal) {
+#endif
                 bSPrintf(outputStr, "%s/%s", currValTimeToPrint, goalValTimeToPrint);
+#ifndef EA_BUILD_A124
             } else {
                 bSPrintf(outputStr, "%s", goalValTimeToPrint);
             }
+#endif
             break;
         }
         case 0x5392e4fd: {
@@ -1284,19 +1398,27 @@ void cFrontendDatabase::SetMilestoneDescriptionString(char *const outputStr, con
             currValTimer.PrintToString(currValTimeToPrint, 4);
             Timer goalValTimer(goalVal);
             goalValTimer.PrintToString(goalValTimeToPrint, 4);
+#ifndef EA_BUILD_A124
             if (showCurrVal) {
+#endif
                 bSPrintf(outputStr, "%s/%s", currValTimeToPrint, goalValTimeToPrint);
+#ifndef EA_BUILD_A124
             } else {
                 bSPrintf(outputStr, "%s", goalValTimeToPrint);
             }
+#endif
             break;
         }
         default:
+#ifndef EA_BUILD_A124
             if (showCurrVal) {
+#endif
                 bSPrintf(outputStr, "%$0.0f/%$0.0f", currVal, goalVal);
+#ifndef EA_BUILD_A124
             } else {
                 bSPrintf(outputStr, "%$0.0f", goalVal);
             }
+#endif
             break;
     }
 }

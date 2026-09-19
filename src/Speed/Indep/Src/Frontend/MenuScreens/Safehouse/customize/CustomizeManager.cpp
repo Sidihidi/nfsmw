@@ -429,8 +429,15 @@ void CarCustomizeManager::MaxOutPerformance() {
 
         for (int j = 0; j < num_packages; j++) {
             SelectablePart sp(nullptr, 0, j + 1, type, true, CPS_AVAILABLE, 0, false);
+#ifndef EA_BUILD_A124
             int level_param = GetMaxPackages(type) - GetNumPackages(type) + j + 1;
-            if (!IsPartLocked(&sp, level_param)) {
+#endif
+            if (!IsPartLocked(&sp
+#ifndef EA_BUILD_A124
+                              ,
+                              level_param
+#endif
+                              )) {
                 best_level = j + 1;
             }
         }
@@ -444,10 +451,22 @@ void CarCustomizeManager::MaxOutPerformance() {
             SelectablePart *sp = new ("SelectablePart 13", 0) SelectablePart(nullptr, 0, best_level, type, true, CPS_AVAILABLE, 0, false);
 
             eCustomizePartState status = CPS_AVAILABLE;
+#ifndef EA_BUILD_A124
             int level_param = GetMaxPackages(type) - GetNumPackages(type) + best_level + 1;
-            if (IsPartLocked(sp, level_param)) {
+#endif
+            if (IsPartLocked(sp
+#ifndef EA_BUILD_A124
+                             ,
+                             level_param
+#endif
+                             )) {
                 status = CPS_LOCKED;
-            } else if (IsPartNew(sp, level_param)) {
+            } else if (IsPartNew(sp
+#ifndef EA_BUILD_A124
+                                 ,
+                                 level_param
+#endif
+                                 )) {
                 status = CPS_NEW;
             }
 
@@ -679,9 +698,20 @@ bool CarCustomizeManager::IsPartInstalled(SelectablePart *part) {
     return false;
 }
 
-bool CarCustomizeManager::IsPartLocked(SelectablePart *part, int perf_unlock_level) {
+bool CarCustomizeManager::IsPartLocked(SelectablePart *part
+#ifndef EA_BUILD_A124
+                                       ,
+                                       int perf_unlock_level
+#endif
+) {
     if (part->IsPerformancePkg()) {
-        return !UnlockSystem::IsPerfPackageUnlocked(GetUnlockFilter(), part->GetPhysicsType(), perf_unlock_level, 0, IsInBackRoom());
+        return !UnlockSystem::IsPerfPackageUnlocked(GetUnlockFilter(), part->GetPhysicsType(),
+#ifndef EA_BUILD_A124
+                                                    perf_unlock_level,
+#else
+                                                    part->GetUpgradeLevel(), // the prototype unlocks by the level of the package itself
+#endif
+                                                    0, IsInBackRoom());
     } else {
         int slot = part->GetSlotID();
         switch (slot) {
@@ -719,11 +749,22 @@ bool CarCustomizeManager::IsPartLocked(SelectablePart *part, int perf_unlock_lev
     }
 }
 
-bool CarCustomizeManager::IsPartNew(SelectablePart *part, int perf_unlock_level) {
+bool CarCustomizeManager::IsPartNew(SelectablePart *part
+#ifndef EA_BUILD_A124
+                                    ,
+                                    int perf_unlock_level
+#endif
+) {
     eUnlockableEntity ent;
     if (part->IsPerformancePkg()) {
         ent = MapPerfPkgToUnlockable(part->GetPhysicsType());
-        return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent, perf_unlock_level);
+        return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent,
+#ifndef EA_BUILD_A124
+                                             perf_unlock_level
+#else
+                                             part->GetUpgradeLevel() // the prototype unlocks by the level of the package itself
+#endif
+        );
     } else {
         ent = MapCarPartToUnlockable(part->GetSlotID(), part->GetPart());
         return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent, part->GetUpgradeLevel());
@@ -1102,11 +1143,21 @@ bool CarCustomizeManager::IsRimCategoryLocked(unsigned int cat, bool backroom) {
             break;
     }
     bTList<SelectablePart> list;
-    GetCarPartList(0x42, list, brand_name);
+    GetCarPartList(0x42, list
+#ifndef EA_BUILD_A124
+                   ,
+                   brand_name
+#endif
+    );
     bool locked = true;
     SelectablePart *part = list.GetHead();
     while (part != list.EndOfList()) {
-        if (part->GetPart()->GetBrandNameHash() == brand_name && !IsPartLocked(part, 0)) {
+        if (part->GetPart()->GetBrandNameHash() == brand_name && !IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                                               ,
+                                                                               0
+#endif
+                                                                               )) {
             locked = false;
             break;
         }
@@ -1150,11 +1201,21 @@ bool CarCustomizeManager::IsVinylCategoryLocked(unsigned int cat, bool backroom)
             break;
     }
     bTList<SelectablePart> list;
-    GetCarPartList(0x4d, list, group);
+    GetCarPartList(0x4d, list
+#ifndef EA_BUILD_A124
+                   ,
+                   group
+#endif
+    );
     bool locked = true;
     SelectablePart *part = list.GetHead();
     while (part != list.EndOfList()) {
-        if (part->GetPart()->GetGroupNumber() == group && !IsPartLocked(part, 0)) {
+        if (part->GetPart()->GetGroupNumber() == group && !IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                                        ,
+                                                                        0
+#endif
+                                                                        )) {
             locked = false;
             break;
         }
@@ -1188,7 +1249,12 @@ int CarCustomizeManager::GetMaxInnerRadius() {
     return 0;
 }
 
-void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &the_list, unsigned int param) {
+void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &the_list
+#ifndef EA_BUILD_A124
+                                         ,
+                                         unsigned int param
+#endif
+) {
     CarType car_type;
     if (gCarCustomizeManager.TuningCar) {
         car_type = gCarCustomizeManager.TuningCar->GetType();
@@ -1214,6 +1280,7 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                 }
                 break;
             }
+#ifndef EA_BUILD_A124
             case 0x42:
                 if (param != 0) {
                     if (part->GetBrandNameHash() != param) {
@@ -1222,6 +1289,7 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                     }
                 }
                 break;
+#endif
             case 0x4d: {
                 bool exists = true;
                 bool is_collectors;
@@ -1232,9 +1300,11 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                 if (!exists) {
                     goto skip_vinyl;
                 }
+#ifndef EA_BUILD_A124
                 if ((part->GetGroupNumber() & 0x1f) != param) {
                     goto skip_vinyl;
                 }
+#endif
                 if (!is_collectors || GetIsCollectorsEdition()) {
                     break;
                 }
@@ -1282,9 +1352,19 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
         }
 
         status = CPS_AVAILABLE;
-        if (IsPartLocked(sel_part, 0)) {
+        if (IsPartLocked(sel_part
+#ifndef EA_BUILD_A124
+                         ,
+                         0
+#endif
+                         )) {
             status = CPS_LOCKED;
-        } else if (IsPartNew(sel_part, 0)) {
+        } else if (IsPartNew(sel_part
+#ifndef EA_BUILD_A124
+                             ,
+                             0
+#endif
+                             )) {
             status = CPS_NEW;
         }
         if (IsPartInstalled(sel_part)) {
@@ -1303,11 +1383,23 @@ void CarCustomizeManager::GetPerformancePartsList(Physics::Upgrades::Type type, 
     int num_pkgs = Physics::Upgrades::GetMaxLevel(ThePVehicle, type);
     for (int i = 0; i < num_pkgs; i++) {
         SelectablePart *pkg = new ("SelectablePart 12", 0) SelectablePart(nullptr, 0, i + 1, type, true, CPS_AVAILABLE, 0, false);
+#ifndef EA_BUILD_A124
         int unlock_level = GetMaxPackages(type) - GetNumPackages(type) + i + 1;
+#endif
         unsigned int status = CPS_AVAILABLE;
-        if (IsPartLocked(pkg, unlock_level)) {
+        if (IsPartLocked(pkg
+#ifndef EA_BUILD_A124
+                         ,
+                         unlock_level
+#endif
+                         )) {
             status = CPS_LOCKED;
-        } else if (IsPartNew(pkg, unlock_level)) {
+        } else if (IsPartNew(pkg
+#ifndef EA_BUILD_A124
+                             ,
+                             unlock_level
+#endif
+                             )) {
             status = CPS_NEW;
         }
         if (IsPartInstalled(pkg)) {

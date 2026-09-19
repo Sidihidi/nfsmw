@@ -1114,7 +1114,11 @@ void GManager::Update(float dT) {
     ServicePendingCharacters();
     UpdatePursuit();
     UpdateTimers(dT);
-    UpdatePendingSMS();
+    UpdatePendingSMS(
+#ifdef EA_BUILD_A124
+        dT
+#endif
+    );
     UpdateTriggerAvailability();
     UpdateIconVisibility();
 }
@@ -1883,7 +1887,11 @@ bool GManager::WarpToMarker(unsigned int markerKey, bool startPursuit) {
     const UMath::Vector3 &markerPos = marker->GetPosition();
     const UMath::Vector3 &markerDir = marker->GetDirection();
 
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 
     TheTrackStreamer.EnableZoneSwitching();
 
@@ -2696,9 +2704,17 @@ ISimable *GManager::GetRandomEmergencyStockCar() {
     return NULL;
 }
 
-void GManager::ReleaseStockCar(ISimable *stockCar) {
+void GManager::ReleaseStockCar(
+#ifdef EA_BUILD_A124
+    const char *carName,
+#endif
+    ISimable *stockCar) {
+#ifdef EA_BUILD_A124
+    unsigned int carKey = Attrib::StringHash32(carName);
+#else
     const Attrib::Instance &attributes = stockCar->GetAttributes();
     unsigned int carKey = attributes.GetCollection();
+#endif
 
     StockCarMap::iterator it = mStockCars.find(carKey);
 
@@ -2799,7 +2815,11 @@ void GManager::LoadSMSInfo(int *loadInfo, unsigned int count) {
     }
 }
 
-bool GManager::GetHasPendingSMS() const {
+bool GManager::GetHasPendingSMS()
+#ifndef EA_BUILD_A124
+    const
+#endif
+{
     if (mPendingSMS.size() == 0) {
         return false;
     }
@@ -2807,32 +2827,42 @@ bool GManager::GetHasPendingSMS() const {
     return CanPlaySMS();
 }
 
-bool GManager::CanPlaySMS() const {
+bool GManager::CanPlaySMS()
+#ifndef EA_BUILD_A124
+    const
+#endif
+{
     IPlayer *player;
 
     if (Speech::Manager::m_speechDisable) {
         return false;
     }
 
+#ifndef EA_BUILD_A124
     if (TheGameFlowManager.GetState() != GAMEFLOW_STATE_RACING) {
         return false;
     }
+#endif
 
     if (INIS::Get()) {
         return false;
     }
 
+#ifndef EA_BUILD_A124
     if (PhotoFinishScreen::GetActive()) {
         return false;
     }
+#endif
 
     if (!GRaceStatus::Exists() || GRaceStatus::Get().GetPlayMode() != GRaceStatus::kPlayMode_Roaming) {
         return false;
     }
 
+#ifndef EA_BUILD_A124
     if (!FEManager::IsOkayToRequestPauseSimulation(0, true, true)) {
         return false;
     }
+#endif
 
     if (Speech::Manager::IsCopSpeechPlaying(kSPCH1_EventID_CellCall)) {
         return false;
@@ -2901,13 +2931,19 @@ void GManager::DispatchSMSMessage(int smsID) {
     if (message && message->GetFlags() == 0) {
         message->Flags = SMS_FLAG_READ;
 
+#ifndef EA_BUILD_A124
         message->SetSortOrder(FEDatabase->GetCareerSettings()->GetSMSSortOrder());
+#endif
 
         new ECellCall(smsID);
     }
 }
 
-void GManager::UpdatePendingSMS() {
+void GManager::UpdatePendingSMS(
+#ifdef EA_BUILD_A124
+    float dT
+#endif
+) {
     if (mPendingSMS.size() != 0 && CanPlaySMS()) {
         int smsToShow = PushSMSToInbox();
 
@@ -2948,7 +2984,9 @@ int GManager::PushSMSToInbox() {
 
             msg->ClearFlags();
             msg->SetFlag(2);
+#ifndef EA_BUILD_A124
             msg->SetSortOrder(FEDatabase->GetCareerSettings()->GetSMSSortOrder());
+#endif
         }
     }
 

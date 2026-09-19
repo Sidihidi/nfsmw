@@ -16,7 +16,12 @@ class PursuitBoard : public HudElement, public IPursuitBoard {
     void SetInPursuit(bool inPursuit) override;
     void SetIsHiding(bool isHiding) override;
     void SetTimeUntilHidden(float time) override;
-    void SetTimeUntilBusted(float time, bool bIsBusted) override;
+    void SetTimeUntilBusted(float time
+#ifndef EA_BUILD_A124
+                            ,
+                            bool bIsBusted
+#endif
+                            ) override;
     void SetTimeUntilBackup(float time) override;
     void SetIsInView(bool isInView) override;
     void SetPursuitDuration(float time) override;

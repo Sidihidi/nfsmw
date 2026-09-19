@@ -10,7 +10,11 @@ ELoadingScreenOff::ELoadingScreenOff() : Event(0x10) {
         cFEng::Get()->QueuePackagePop(0);
 
         if (TheGameFlowManager.IsInGame()) {
-            new EFadeScreenOn(false);
+            new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+                false
+#endif
+            );
         }
     }
 }

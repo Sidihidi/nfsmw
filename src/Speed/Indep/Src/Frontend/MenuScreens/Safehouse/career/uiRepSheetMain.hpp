@@ -27,9 +27,13 @@ struct uiRepSheetMain : public IconScrollerMenu {
 #endif
     uiRepSheetRivalStreamer RivalStreamer;  // offset 0x184, size 0x3C
 
+    // Ni TextureLoadedCallback, ni NotifyTextureLoaded, ni GetDefeatedTexture existen en la A124 (ni simbolo
+    // ni metodo en su volcado de tipos): son la carga de la textura de derrotado, como DefeatedTextureHash.
+#ifndef EA_BUILD_A124
     static void TextureLoadedCallback(unsigned int arg) {
         reinterpret_cast<uiRepSheetMain*>(arg)->NotifyTextureLoaded();
     }
+#endif
 
     uiRepSheetMain(ScreenConstructorData* sd);
     ~uiRepSheetMain() override;
@@ -37,8 +41,10 @@ struct uiRepSheetMain : public IconScrollerMenu {
     void NotificationMessage(u32 msg, FEObject* pobj, u32 param1, u32 param2) override;
     void Setup() override;
 
+#ifndef EA_BUILD_A124
     void NotifyTextureLoaded();
     unsigned int GetDefeatedTexture();
+#endif
     void UpdateInfo();
     void ScrollRival(eScrollDir dir);
 };

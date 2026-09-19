@@ -8,7 +8,7 @@
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 
-HudElement::HudElement(const char *pkg_name, unsigned long long mask)
+HudElement::HudElement(const char *pkg_name, HudFeaturesType mask)
     : pPackageName(pkg_name), //
       Mask(mask),             //
       CurrentHudFeatures(0),  //
@@ -70,8 +70,8 @@ FEGroup *HudElement::RegisterGroup(unsigned int hash) {
     return group;
 }
 
-void HudElement::Toggle(unsigned long long hud_features) {
-    unsigned long long mask = Mask;
+void HudElement::Toggle(HudFeaturesType hud_features) {
+    HudFeaturesType mask = Mask;
     int is_visible = 0;
 
     CurrentHudFeatures = hud_features;

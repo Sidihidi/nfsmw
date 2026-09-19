@@ -699,7 +699,12 @@ void IconScrollerMenu::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, 
                 const u32 FEObj_HIDE = 0x16A259;
                 FEngSetScript(GetPackageName(), FEObj_MASTERBLASTER, FEObj_HIDE, true);
                 g_pEAXSound->PlayUISoundFX(UISND_COMMON_SELECT);
-                FEAnyTutorialScreen::LaunchMovie(cur_option->GetTutorialMovieName(), GetPackageName());
+                FEAnyTutorialScreen::LaunchMovie(cur_option->GetTutorialMovieName()
+#ifndef EA_BUILD_A124
+                                                     ,
+                                                     GetPackageName()
+#endif
+                );
                 UserProfile *prof = FEDatabase->GetMultiplayerProfile(0);
                 CareerSettings *career = prof->GetCareer();
                 switch (cur_option->GetName()) {

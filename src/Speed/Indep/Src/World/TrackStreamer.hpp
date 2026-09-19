@@ -218,8 +218,12 @@ class TrackStreamer {
 
     void UnJettisonSections();
 
-    int BuildHoleMovements(HoleMovement *hole_movements, int max_movements, int filler_method, int largest_free, int *pamount_moved,
-                           int max_amount_to_move);
+    int BuildHoleMovements(HoleMovement *hole_movements, int max_movements, int filler_method, int largest_free, int *pamount_moved
+#ifndef EA_BUILD_A124
+                           ,
+                           int max_amount_to_move
+#endif
+    );
 
     int DoHoleFilling(int largest_free);
 
@@ -227,8 +231,12 @@ class TrackStreamer {
 
     void SetStreamingPosition(int position_number, const bVector2 *position);
 
-    void PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction,
-                                  bool following_car);
+    void PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction
+#ifndef EA_BUILD_A124
+                                  ,
+                                  bool following_car
+#endif
+    );
 
     short GetPredictedZone(StreamingPositionEntry *position_entry);
 

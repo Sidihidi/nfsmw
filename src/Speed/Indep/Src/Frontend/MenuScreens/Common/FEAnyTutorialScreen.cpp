@@ -23,8 +23,12 @@ bool FEAnyTutorialScreen::PackageSet = false;
 static const char *FEAnyTutorialScreenName = "FEAnyTutorial.fng";
 
 FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
-    : MenuScreen(sd), //
-      mTimer(0) {
+    : MenuScreen(sd)
+#ifndef EA_BUILD_A124
+      ,
+      mTimer(0)
+#endif
+{
     unsigned int str_hash = 0;
     bool mSkipable = true;
 
@@ -80,7 +84,9 @@ FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
     FEngSetLanguageHash(GetPackageName(), 0x5A0EE0D8, label_hash);
     FEngSetLanguageHash(GetPackageName(), 0x07D2EA5D, label_hash);
 
+#ifndef EA_BUILD_A124
     mSubtitler.BeginningMovie(MovieFilename, GetPackageName());
+#endif
 
     new EFadeScreenOff(0x14035FB);
 }
@@ -90,38 +96,67 @@ MenuScreen *FEAnyTutorialScreen::Create(ScreenConstructorData *sd) {
 }
 
 FEAnyTutorialScreen::~FEAnyTutorialScreen() {
+#ifndef EA_BUILD_A124
     FEManager::Get()->SetEATraxSecondButton();
+#endif
 }
 
 void FEAnyTutorialScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
+#ifndef EA_BUILD_A124
     mSubtitler.Update(msg);
+#endif
 
     switch (msg) {
         case 0xC3960EB9:
-            DismissMovie(false);
+            DismissMovie(
+#ifndef EA_BUILD_A124
+                false
+#endif
+            );
             break;
         case 0xB5AF2461:
         case 0x406415E3:
-            DismissMovie(true);
+            DismissMovie(
+#ifndef EA_BUILD_A124
+                true
+#endif
+            );
+#ifndef EA_BUILD_A124
             mSubtitler.Update(0xC3960EB9);
+#endif
             break;
     }
 }
 
-void FEAnyTutorialScreen::LaunchMovie(const char *filename, const char *packageName) {
+void FEAnyTutorialScreen::LaunchMovie(const char *filename
+#ifndef EA_BUILD_A124
+                                      ,
+                                      const char *packageName
+#endif
+) {
+#ifndef EA_BUILD_A124
     PackageSet = false;
+#endif
     SetMovieName(filename);
+#ifndef EA_BUILD_A124
     if (packageName != nullptr) {
         SetPackageName(packageName);
     }
+#endif
     cFEng::Get()->QueuePackagePush(FEAnyTutorialScreenName, 0, 0, false);
 }
 
-void FEAnyTutorialScreen::DismissMovie(bool send_message) {
+void FEAnyTutorialScreen::DismissMovie(
+#ifndef EA_BUILD_A124
+    bool send_message
+#endif
+) {
     cFEng::Get()->QueuePackagePop(1);
+#ifndef EA_BUILD_A124
     if (send_message) {
         cFEng::Get()->QueueGameMessage(0xC3960EB9, PackageFilename, 0xFF);
     }
+#endif
 }
 
 void FEAnyTutorialScreen::SetMovieName(const char *filename) {

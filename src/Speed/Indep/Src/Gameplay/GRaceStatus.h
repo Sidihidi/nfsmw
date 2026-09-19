@@ -460,11 +460,22 @@ struct GRaceIndexData {
     };
 
     unsigned int mKey;         // offset 0x0, size 0x4
+#ifdef EA_BUILD_A124
+    // Stabs de la A124: otro orden, mFlags de 16 bits y mChallengeGoal float. GenerateIndex (0x2EB068) hace `sh`
+    // de mFlags en 0x4, `sw` de GetEventHash en 0x10 y de GetChallengeType en 0x14, y `swc1` de GetChallengeGoal
+    // en 0x18; GetChallengeGoal (0x2E9E78) lee `lwc1 0x18`.
+    unsigned short mFlags;
+    char mEventID[10];
+    unsigned int mRaceHash;
+    unsigned int mChallengeType;
+    float mChallengeGoal;
+#else
     char mEventID[10];         // offset 0x4, size 0xA
     PackedDecimal mChallengeGoal; // offset 0xE, size 0x2
     unsigned int mChallengeType; // offset 0x10, size 0x4
     unsigned int mRaceHash;    // offset 0x14, size 0x4
     unsigned int mFlags;       // offset 0x18, size 0x4
+#endif
     float mLength;             // offset 0x1C, size 0x4
     short mLocalizationTag;    // offset 0x20, size 0x2
     PackedDecimal mCash;       // offset 0x22, size 0x2
@@ -901,7 +912,12 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
 
     void UpdateAdaptiveDifficulty(eAdaptiveGainReason reason, ISimable *who);
 
-    bool ComputeCatchUpSkill(GRacerInfo *racer_info, PidError *pid, float *output, float *skill, bool off_world);
+    bool ComputeCatchUpSkill(GRacerInfo *racer_info, PidError *pid, float *output, float *skill
+#ifndef EA_BUILD_A124
+                             ,
+                             bool off_world
+#endif
+    );
 
     void MakeDefaultCatchUpData();
 
@@ -917,13 +933,23 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
 
     void SetLapTime(int lapIndex, int racerIndex, float time);
 
-    float GetLapTime(int lapIndex, int racerIndex, bool bCumulativeTimeAtLap);
+    float GetLapTime(int lapIndex, int racerIndex
+#ifndef EA_BUILD_A124
+                     ,
+                     bool bCumulativeTimeAtLap
+#endif
+    );
 
     void SetCheckpointTime(int lapIndex, int checkIndex, int racerIndex, float time);
 
     float GetCheckpointTime(int lapIndex, int checkIndex, int racerIndex, bool bCumulative);
 
-    int GetLapPosition(int lapIndex, int racerIndex, bool bOverallPosition);
+    int GetLapPosition(int lapIndex, int racerIndex
+#ifndef EA_BUILD_A124
+                       ,
+                       bool bOverallPosition
+#endif
+    );
 
     int GetCheckpointPosition(int lapIndex, int checkIndex, int racerIndex);
 

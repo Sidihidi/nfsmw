@@ -10,8 +10,25 @@
 #include "Speed/Indep/Src/Generated/Events/EFadeScreenOff.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 
-EPause::EPause(int pPlayerIndex, int pCalledFromPostRace, int pShowFlatPause)
-    : Event(0x20), fPlayerIndex(pPlayerIndex), fCalledFromPostRace(pCalledFromPostRace), fShowFlatPause(pShowFlatPause) {
+EPause::EPause(int pPlayerIndex, int pCalledFromPostRace
+#ifndef EA_BUILD_A124
+               ,
+               int pShowFlatPause
+#endif
+               )
+    : Event(
+#ifdef EA_BUILD_A124
+          0x10
+#else
+          0x20
+#endif
+          ),
+      fPlayerIndex(pPlayerIndex), fCalledFromPostRace(pCalledFromPostRace)
+#ifndef EA_BUILD_A124
+      ,
+      fShowFlatPause(pShowFlatPause)
+#endif
+{
 }
 
 EPause::~EPause() {
@@ -23,7 +40,12 @@ EPause::~EPause() {
 
     char *packageName = "Pause_Main.fng";
 
-    if (fCalledFromPostRace == 1 || FEManager::IsOkayToRequestPauseSimulation(fPlayerIndex, useControllerErrors, false)) {
+    if (fCalledFromPostRace == 1 || FEManager::IsOkayToRequestPauseSimulation(fPlayerIndex, useControllerErrors
+#ifndef EA_BUILD_A124
+                                                                              ,
+                                                                              false
+#endif
+                                                                              )) {
         if (!cFEng::Get()->IsPackagePushed(packageName)) {
             if (FadeScreen::IsFadeScreenOn()) {
                 new EFadeScreenOff(FEHASH_15_IN);
@@ -53,5 +75,10 @@ const char *EPause::GetEventName() const {
 }
 
 void EPause_MakeEvent_Callback(const void *staticData) {
-    new EPause(((EPause::StaticData *) staticData)->fPlayerIndex, ((EPause::StaticData *) staticData)->fCalledFromPostRace, ((EPause::StaticData *) staticData)->fShowFlatPause);
+    new EPause(((EPause::StaticData *) staticData)->fPlayerIndex, ((EPause::StaticData *) staticData)->fCalledFromPostRace
+#ifndef EA_BUILD_A124
+               ,
+               ((EPause::StaticData *) staticData)->fShowFlatPause
+#endif
+    );
 }

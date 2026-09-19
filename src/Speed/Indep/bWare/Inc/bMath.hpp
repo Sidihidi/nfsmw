@@ -125,8 +125,8 @@ inline float bMin(float a, float b) {
     float d;
     asm("fsel %0, %1, %2, %3" : "=f"(d) : "f"(c), "f"(b), "f"(a));
     return d;
-#elif defined(EA_PLATFORM_PLAYSTATION2)
 #else
+    // PS2: with -ffast-math EE-GCC turns this into `min.s d, a, b`, operands in the original's order.
     return a > b ? b : a;
 #endif
 }
@@ -146,6 +146,8 @@ inline float bMax(float a, float b) {
     asm("fsel %0, %1, %2, %3" : "=f"(d) : "f"(c), "f"(a), "f"(b));
     return d;
 #elif defined(EA_PLATFORM_PLAYSTATION2)
+    // `a > b ? a : b` would come out as `max.s d, b, a`; the original has `max.s d, a, b`.
+    return a < b ? b : a;
 #else
     return a > b ? a : b;
 #endif

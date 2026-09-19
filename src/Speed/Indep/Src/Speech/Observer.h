@@ -86,8 +86,10 @@ class Observer : public SpeechFlow {
     void GasStationAftermath();
     void AssessArrest();
     void AssessLOS();
+#ifndef EA_BUILD_A124
     void NotifyAirborne(float alt, float t);
     void AssessFlippage();
+#endif
     void Assess180();
     void AssessOutcome();
     void AssessBraking();

@@ -36,11 +36,18 @@ struct SFXCTL_Engine : public SFXCTL {
     Average Trq;                                 // offset 0x48, size 0x28
     Average Rpm;                                 // offset 0x70, size 0x28
     Average VisRpmAvg;                           // offset 0x98, size 0x28
+    // La A124 no tiene tMergeWithPhysicsOffStart, bPreRace, bWasRedlining ni mmsgMCoundown: sus stabs pasan
+    // de VisRpmAvg (0xA0) a m_iEngineVol (0xC8), de bIsRedlining (0xCC) a RedLineSampFactor (0xD0) y acaban
+    // en mmsgMVehicleDestroyed (0x1D8, tamano 0x1E0). Tampoco existe MsgCountdownDone.
+#ifndef EA_BUILD_A124
     float tMergeWithPhysicsOffStart;             // offset 0xC0, size 0x4
     bool bPreRace;                               // offset 0xC4, size 0x1
+#endif
     int m_iEngineVol;                            // offset 0xC8, size 0x4
     bool bIsRedlining;                           // offset 0xCC, size 0x1
+#ifndef EA_BUILD_A124
     bool bWasRedlining;                          // offset 0xD0, size 0x1
+#endif
     cInterpLine RedLineSampFactor;               // offset 0xD4, size 0x1C
     cInterpLine RedLineEngFactor;                // offset 0xF0, size 0x1C
     bool bRedliningBounce;                       // offset 0x10C, size 0x1
@@ -63,7 +70,9 @@ struct SFXCTL_Engine : public SFXCTL {
     bool bPlayCompression;                       // offset 0x14C, size 0x1
     cPathLine m_ComppressionRPM;                 // offset 0x150, size 0x8C
     HHANDLER mmsgMVehicleDestroyed;              // offset 0x1DC, size 0x4
+#ifndef EA_BUILD_A124
     HHANDLER mmsgMCoundown;                      // offset 0x1E0, size 0x4
+#endif
 
     SFXCTL_Engine();
     ~SFXCTL_Engine() override;
@@ -96,7 +105,9 @@ struct SFXCTL_Engine : public SFXCTL {
         this->m_fSmoothedEng_RPM = this->m_fSmoothedEng_RPM * 0.95f + _RPM * 0.05f;
     }
 
+#ifndef EA_BUILD_A124
     void MsgCountdownDone(const MCountdownDone &message);
+#endif
     void UpdateClutchState();
     bool ShouldTurnOnClutch();
     void SetupSFX(CSTATE_Base *_StateBase) override;

@@ -446,7 +446,11 @@ void UIMemcardBase::ExitComplete() {
 
 
 
-    InitializeEATrax(true);
+    InitializeEATrax(
+#ifndef EA_BUILD_A124
+        true
+#endif
+    );
 
 
 

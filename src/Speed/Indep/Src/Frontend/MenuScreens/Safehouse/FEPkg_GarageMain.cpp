@@ -462,7 +462,11 @@ void GarageMainScreen::RefreshBackground() {
     char *dot = bStrIStr(name, ".");
     bStrCpy(dot, ".BIN");
     if (!bg || bStrCmp(name, garageName) != 0) {
-        new EFadeScreenOn(false);
+        new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+            false
+#endif
+        );
         eRemoveFEEnvMapPlat();
         eInitFEEnvMapPlat();
         UnloadResourceFile(bg);

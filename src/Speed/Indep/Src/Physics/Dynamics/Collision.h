@@ -85,7 +85,8 @@ class Geometry {
 };
 
 // total size: 0x8
-struct Friction {
+// ALIGNVEC: 0x10 in the A124 stabs with only mUk/mUs in it, and Xbox 360 copies it as 16 bytes too.
+struct ALIGNVEC Friction {
     enum State {
         None = 0,
         Static = 1,

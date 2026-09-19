@@ -12,11 +12,20 @@
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 
 EPlayRaceMovie::EPlayRaceMovie(const char *pMovieName) : Event(0x10), fMovieName(EventManager::EmbedField(this, pMovieName)) {
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 
     if (!bStrICmp("drag_tutorial", fMovieName) || !bStrICmp("speedtrap_tutorial", fMovieName) || !bStrICmp("tollbooth_tutorial", fMovieName) || !bStrICmp("pursuit_tutorial", fMovieName) ||
         !bStrICmp("bounty_tutorial", fMovieName)) {
-        InGameAnyTutorialScreen::LaunchMovie(fMovieName, NULL);
+        InGameAnyTutorialScreen::LaunchMovie(fMovieName
+#ifndef EA_BUILD_A124
+                                             ,
+                                             NULL
+#endif
+        );
     } else {
         InGameAnyMovieScreen::LaunchMovie(fMovieName);
     }

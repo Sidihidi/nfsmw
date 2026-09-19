@@ -12,19 +12,27 @@ class EFadeScreenOn : public Event {
   public:
     // total size: 0x8
     struct StaticData : public Event::StaticData {
+#ifndef EA_BUILD_A124
         bool fLoadingBarOnly; // offset: 0x4, size 0x1
+#endif
     };
 
     // enum { kEventID = 0 };
 
-    EFadeScreenOn(bool pLoadingBarOnly);
+    EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        bool pLoadingBarOnly
+#endif
+    );
 
     ~EFadeScreenOn() override;
 
     const char *GetEventName() const override;
 
+#ifndef EA_BUILD_A124
   private:
     bool fLoadingBarOnly; // offset: 0x8, size 0x1
+#endif
 };
 
 void EFadeScreenOn_MakeEvent_Callback(const void *staticData);

@@ -441,7 +441,13 @@ class PursuitResultsDatum : public ArrayDatum {
         PursuitResultsDatumCheckType_Greyed = 2,
     } PursuitResultsDatumCheckType;
 
-    PursuitResultsDatum(PursuitResultsDatumType type, uint32 itemName, float itemNumber, float itemGoal, PursuitResultsDatumCheckType itemChecked);
+    PursuitResultsDatum(PursuitResultsDatumType type, uint32 itemName, float itemNumber, float itemGoal,
+#ifdef EA_BUILD_A124
+                        bool itemChecked
+#else
+                        PursuitResultsDatumCheckType itemChecked
+#endif
+    );
     void NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) override;
 
     PursuitResultsDatumType GetType() {
@@ -457,32 +463,51 @@ class PursuitResultsDatum : public ArrayDatum {
         return mGoal;
     }
     bool GetChecked() {
+#ifdef EA_BUILD_A124
+        return mChecked;
+#else
         return mChecked == PursuitResultsDatumCheckType_On;
+#endif
     }
+#ifndef EA_BUILD_A124
     bool GetGreyed() {
         return mChecked == PursuitResultsDatumCheckType_Greyed;
     }
+#endif
 
   public:
     PursuitResultsDatumType mType;         // offset 0x24, size 0x4
     uint32 mName;                          // offset 0x28, size 0x4
     float mNumber;                         // offset 0x2C, size 0x4
     float mGoal;                           // offset 0x30, size 0x4
+#ifdef EA_BUILD_A124
+    bool mChecked; // offset 0x34, size 0x4
+#else
     PursuitResultsDatumCheckType mChecked; // offset 0x34, size 0x4
+#endif
 };
 
 class PursuitResultsArraySlot : public ArraySlot {
   public:
-    PursuitResultsArraySlot(FEObject *obj, FEString *itemName, FEString *itemNumber, FEImage *itemChecked, FEImage *itemEmpty);
+    PursuitResultsArraySlot(FEObject *obj, FEString *itemName, FEString *itemNumber, FEImage *itemChecked
+#ifndef EA_BUILD_A124
+                            ,
+                            FEImage *itemEmpty
+#endif
+    );
     ~PursuitResultsArraySlot() override {}
     void Update(ArrayDatum *datum, bool isSelected) override;
 
   public:
+#ifndef EA_BUILD_A124
     FEObject *mLine;       // offset 0x14, size 0x4
+#endif
     FEString *mItemName;   // offset 0x18, size 0x4
     FEString *mItemNumber; // offset 0x1C, size 0x4
     FEImage *mItemChecked; // offset 0x20, size 0x4
+#ifndef EA_BUILD_A124
     FEImage *mItemEmpty;   // offset 0x24, size 0x4
+#endif
 };
 
 class PostRacePursuitScreen : public ArrayScrollerMenu {

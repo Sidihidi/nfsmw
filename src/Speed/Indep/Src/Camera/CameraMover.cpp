@@ -849,15 +849,22 @@ void UpdateCameraMovers(float dT) {
                 direction = velocity;
             }
 
+#ifndef EA_BUILD_A124
             bool freezePrediction = false;
             CameraMoverTypes type = view->GetCameraMover()->GetType();
             if (type == CM_DRIVE_CUBIC) {
                 freezePrediction = true;
             }
+#endif
 
             int streaming_pos = view_id == 2;
 
-            TheTrackStreamer.PredictStreamingPosition(streaming_pos, &position, &velocity, &direction, freezePrediction);
+            TheTrackStreamer.PredictStreamingPosition(streaming_pos, &position, &velocity, &direction
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      freezePrediction
+#endif
+            );
         }
     }
 

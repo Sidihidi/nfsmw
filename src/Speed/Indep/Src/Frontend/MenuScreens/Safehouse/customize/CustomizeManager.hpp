@@ -114,9 +114,19 @@ class CarCustomizeManager {
 
     bool IsPartInstalled(SelectablePart *part); // Decl: speed/indep/src/frontend/menuscreens/customize/CustomizeManager.hpp:292
 
-    bool IsPartLocked(SelectablePart *part, int perf_unlock_level);
+    bool IsPartLocked(SelectablePart *part
+#ifndef EA_BUILD_A124
+                      ,
+                      int perf_unlock_level
+#endif
+    );
 
-    bool IsPartNew(SelectablePart *part, int perf_unlock_level);
+    bool IsPartNew(SelectablePart *part
+#ifndef EA_BUILD_A124
+                   ,
+                   int perf_unlock_level
+#endif
+    );
 
     bool IsCategoryNew(uint32 cat);
 
@@ -132,7 +142,12 @@ class CarCustomizeManager {
 
     int GetMaxInnerRadius();
 
-    void GetCarPartList(int car_slot, bTList<SelectablePart> &the_list, unsigned int param);
+    void GetCarPartList(int car_slot, bTList<SelectablePart> &the_list
+#ifndef EA_BUILD_A124
+                        ,
+                        unsigned int param
+#endif
+    );
 
     void GetPerformancePartsList(Physics::Upgrades::Type type, bTList<SelectablePart> &the_list);
 

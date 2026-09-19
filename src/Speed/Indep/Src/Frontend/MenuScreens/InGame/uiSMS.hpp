@@ -32,9 +32,11 @@ struct uiSMS : public ArrayScrollerMenu {
     unsigned char last_msg[2];     // offset 0xE8, size 0x2
     int button_pressed;            // offset 0xEC, size 0x4
     bool bVoiceMsg;                // offset 0xF0, size 0x1
+#ifndef EA_BUILD_A124
     bool bAutoPlay;                // offset 0xF4, size 0x1
     bool bWaitingForMemcard;       // offset 0xF8, size 0x1
     bool bInitCompleted;           // offset 0xFC, size 0x1
+#endif
 
     uiSMS(ScreenConstructorData* sd);
     ~uiSMS() override {}

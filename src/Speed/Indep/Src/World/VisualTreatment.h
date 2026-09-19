@@ -60,7 +60,12 @@ class IVisualTreatment {
     void BlendVisualLookAttribute(float &result, float defaultUves, float uves, const float &(Attrib::Gen::visuallook::*funcPtr)() const);
     void BlendVisualLookAttribute(bVector4 &result, float defaultUves, float uves, const UMath::Vector4 &(Attrib::Gen::visuallook::*funcPtr)() const);
     void TriggerUves();
-    void UpdateHeat(eView *view, float targetHeat, bool isBeingPursued);
+    void UpdateHeat(eView *view, float targetHeat
+#ifndef EA_BUILD_A124
+                    ,
+                    bool isBeingPursued
+#endif
+    );
 
     eVisualLookState State;                   // offset 0x0, size 0x4
     bMatrix4 BlackBloomCurve;                 // offset 0x4, size 0x40
@@ -98,7 +103,10 @@ class IVisualTreatment {
     float DesaturationTarget;                 // offset 0x1E4, size 0x4
     float ColourBloomIntensityTarget;         // offset 0x1E8, size 0x4
     float HeatMeter;                          // offset 0x1EC, size 0x4
+    // La A124 no lo tiene (sus stabs acaban en HeatMeter): UpdateHeat no recibe isBeingPursued.
+#ifndef EA_BUILD_A124
     int IsBeingPursued;                       // offset 0x1F0, size 0x4
+#endif
 };
 
 void OpenVisualTreatment();

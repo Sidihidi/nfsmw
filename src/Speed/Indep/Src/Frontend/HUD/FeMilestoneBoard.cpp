@@ -135,7 +135,12 @@ void MilestoneBoard::Update(IPlayer *player) {
             if (mMilestoneSetVisible >= 0) {
                 char outputStr[32];
                 int idx = mMilestoneSetVisible;
-                FEDatabase->SetMilestoneDescriptionString(outputStr, mMilestones[idx].mType, mMilestones[idx].mCurrVal, mMilestones[idx].mGoal, true);
+                FEDatabase->SetMilestoneDescriptionString(outputStr, mMilestones[idx].mType, mMilestones[idx].mCurrVal, mMilestones[idx].mGoal
+#ifndef EA_BUILD_A124
+                                                          ,
+                                                          true
+#endif
+                );
                 FEPrintf(mpDataMilestoneGoal, "%s", outputStr);
             }
             return;

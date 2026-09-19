@@ -256,8 +256,14 @@ bool AITrafficManager::SpawnTraffic() {
 
     ITrafficAI *itv;
     if (availableVehicle->QueryInterface(&itv)) {
+#ifndef EA_BUILD_A124
         float start_speed = UMath::Min(mPattern.SpeedStreet(), mPattern.SpeedHighway());
-        itv->StartDriving(MPH2MPS(start_speed) * 0.75f);
+#endif
+        itv->StartDriving(
+#ifndef EA_BUILD_A124
+            MPH2MPS(start_speed) * 0.75f
+#endif
+        );
     }
 
     MSetTrafficSpeed ai_msg(mPattern.SpeedStreet(), mPattern.SpeedHighway(), false);

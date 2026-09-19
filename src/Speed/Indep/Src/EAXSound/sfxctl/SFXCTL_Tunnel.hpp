@@ -57,21 +57,72 @@ struct SFXCTL_Tunnel : public SFXCTL {
     bool bFadingIn;                             // offset 0x9C, size 0x1
     bool bIsReadyForSwitch;                     // offset 0xA0, size 0x1
     bool m_IsLeadCar;                           // offset 0xA4, size 0x1
+    // En la A124 el estado de reverberacion es ESTATICO, uno para todos los coches (solo lo mueve el que tiene
+    // m_IsLeadCar): sus stabs declaran `static` estos 16 detras de m_IsLeadCar (tamano 0xC0) y el codigo
+    // escribe _13SFXCTL_Tunnel$m_ReverbType y companeros.
+#ifdef EA_BUILD_A124
+    static
+#endif
     eREVERBFX m_ReverbType;                     // offset 0xA8, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_ReverbOffset;                       // offset 0xAC, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     eREVERBFX m_TargetType;                     // offset 0xB0, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurWetGinsu;                        // offset 0xB4, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurDryGinsu;                        // offset 0xB8, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurWetAems;                         // offset 0xBC, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurDryAems;                         // offset 0xC0, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurWetGinsuTarget;                  // offset 0xC4, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurWetAemsTarget;                   // offset 0xC8, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurDryGinsuTarget;                  // offset 0xCC, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     float m_CurDryAemsTarget;                   // offset 0xD0, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     int m_GinsuWetVol;                          // offset 0xD4, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     int m_GinsuDryVol;                          // offset 0xD8, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     int m_AEMSWetVol;                           // offset 0xDC, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     int m_AEMSDryVol;                           // offset 0xE0, size 0x4
+#ifdef EA_BUILD_A124
+    static
+#endif
     bool bToggleOffset;                         // offset 0xE4, size 0x1
 
     ~SFXCTL_Tunnel() override;

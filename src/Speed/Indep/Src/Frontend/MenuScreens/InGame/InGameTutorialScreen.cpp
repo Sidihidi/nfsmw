@@ -74,7 +74,9 @@ InGameAnyTutorialScreen::InGameAnyTutorialScreen(ScreenConstructorData *sd) : Me
     FEngSetLanguageHash(GetPackageName(), 0x5a0ee0d8, label_hash);
     FEngSetLanguageHash(GetPackageName(), 0x07d2ea5d, label_hash);
 
+#ifndef EA_BUILD_A124
     mSubtitler.BeginningMovie(MovieFilename, GetPackageName());
+#endif
     new EFadeScreenOff(0x14035fb);
 }
 
@@ -83,7 +85,9 @@ MenuScreen *InGameAnyTutorialScreen::Create(ScreenConstructorData *sd) {
 }
 
 void InGameAnyTutorialScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
+#ifndef EA_BUILD_A124
     mSubtitler.Update(msg);
+#endif
     switch (msg) {
         case 0xc3960eb9:
             DismissMovie();
@@ -91,7 +95,9 @@ void InGameAnyTutorialScreen::NotificationMessage(u32 msg, FEObject *obj, u32 pa
         case 0xb5af2461:
         case 0x406415e3:
             DismissMovie();
+#ifndef EA_BUILD_A124
             mSubtitler.Update(0xc3960eb9);
+#endif
             break;
     }
 }
@@ -100,13 +106,22 @@ InGameAnyTutorialScreen::~InGameAnyTutorialScreen() {
     gInGameMoviePlaying = false;
 }
 
-void InGameAnyTutorialScreen::LaunchMovie(const char *filename, const char *packageName) {
+void InGameAnyTutorialScreen::LaunchMovie(const char *filename
+#ifndef EA_BUILD_A124
+                                          ,
+                                          const char *packageName
+#endif
+) {
     gInGameMoviePlaying = true;
+#ifndef EA_BUILD_A124
     PackageSet = false;
+#endif
     SetMovieName(filename);
+#ifndef EA_BUILD_A124
     if (packageName) {
         SetPackageName(packageName);
     }
+#endif
     if (cFEng::Get()->IsPackageInControl(GetLoadingScreenPackageName())) {
         cFEng::Get()->QueuePackageSwitch(InGameTutorialScreenName, 0, 0, false);
     } else {
@@ -119,7 +134,11 @@ void InGameAnyTutorialScreen::DismissMovie() {
     MNotifyMovieFinished().Post(UCrc32(0x20d60dbf));
     cFEng::Get()->QueuePackagePop(0);
     cFEng::Get()->QueueGameMessage(0xc3960eb9, PackageFilename, 0xff);
-    new EFadeScreenOn(false);
+    new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+        false
+#endif
+    );
 }
 
 void InGameAnyTutorialScreen::SetMovieName(const char *filename) {

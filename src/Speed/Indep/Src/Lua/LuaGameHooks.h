@@ -131,8 +131,12 @@ void Game_ClearAIControl(int racerIndex);
 void Game_SetTimer(const char *timerName, float seconds);
 void Game_KillTimer(const char *timerName);
 void Game_ShowGPS(bool show);
-void Game_NavigatePlayerTo(GRuntimeInstance *destinationInstance, GRuntimeInstance *routeInstance, float speed,
-                           bool useGPS);
+void Game_NavigatePlayerTo(GRuntimeInstance *destinationInstance, GRuntimeInstance *routeInstance, float speed
+#ifndef EA_BUILD_A124
+                           ,
+                           bool useGPS
+#endif
+);
 float Game_SimableDistance(ISimable *simable, GRuntimeInstance *targetInstance);
 float Game_SimableAngle(ISimable *simable, GRuntimeInstance *targetInstance);
 void Game_NotifyFinished(GRuntimeInstance *activityInstance);
@@ -163,6 +167,11 @@ void FE_ShowLosingPostRaceScreen();
 void FE_ShowWinningPostRaceScreen();
 void FE_ShowPostRaceScreen(bool playerWon);
 bool FE_ShowOnlinePostRaceScreen();
-void FE_ShowSpeedTrapScreen(float speed, float record);
+void FE_ShowSpeedTrapScreen(float speed
+#ifndef EA_BUILD_A124
+                            ,
+                            float record
+#endif
+);
 
 #endif

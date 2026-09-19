@@ -73,10 +73,14 @@ class TSMemoryNode : public bTNode<TSMemoryNode> {
         return Address + Size - size;
     }
 
-    intptr_t Address;   // offset 0x8, size 0x4
-    int32 Size;         // offset 0xC, size 0x4
-    bool Allocated;     // offset 0x10, size 0x1
+    intptr_t Address; // offset 0x8, size 0x4
+    int32 Size;       // offset 0xC, size 0x4
+    bool Allocated;   // offset 0x10, size 0x1
+#ifdef EA_BUILD_A124
+    char DebugName[16]; // offset 0x14, size 0x10
+#else
     char DebugName[32]; // offset 0x14, size 0x20
+#endif
 };
 
 // total size: 0x2754
@@ -1100,8 +1104,12 @@ struct HoleMovement {
 };
 
 // UNSOLVED, TODO this is pretty wrong
-int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_movements, int filler_method, int largest_free, int *pamount_moved,
-                                      int max_amount_to_move) {
+int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_movements, int filler_method, int largest_free, int *pamount_moved
+#ifndef EA_BUILD_A124
+                                      ,
+                                      int max_amount_to_move
+#endif
+) {
     ProfileNode profile_node;
     int ticks = bGetTicker();
     unsigned int checksum = pMemoryPool->GetPoolChecksum();
@@ -1333,10 +1341,12 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
         pMemoryPool->Malloc(movement->Size, "HoleMovement", false, false, movement->NewAddress);
         amount_moved += movement->Size;
         num_movements++;
+#ifndef EA_BUILD_A124
         if (amount_moved > max_amount_to_move) {
             failed = true;
             break;
         }
+#endif
     }
 
     for (int n = num_movements - 1; n >= 0; n--) {
@@ -1377,7 +1387,12 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
     int best_method = -1;
     if (ForceHoleFillerMethod >= 0) {
         int filler_method = ForceHoleFillerMethod;
-        int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, filler_method, largest_free, 0, 0x7FFFFFFF);
+        int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, filler_method, largest_free, 0
+#ifndef EA_BUILD_A124
+                                                    ,
+                                                    0x7FFFFFFF
+#endif
+        );
         if (num_hole_movements > 0) {
             best_method = filler_method;
         }
@@ -1385,7 +1400,12 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
         int best_amount_moved = 0x7FFFFFFF;
         for (int filler_method = 1; filler_method < 6; filler_method++) {
             int amount_moved;
-            int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, filler_method, largest_free, &amount_moved, best_amount_moved);
+            int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, filler_method, largest_free, &amount_moved
+#ifndef EA_BUILD_A124
+                                                        ,
+                                                        best_amount_moved
+#endif
+            );
             if (num_hole_movements > 0 && amount_moved < best_amount_moved) {
                 best_method = filler_method;
                 best_amount_moved = amount_moved;
@@ -1397,7 +1417,12 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
         return 0;
     }
 
-    int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, best_method, largest_free, 0, 0x7FFFFFFF);
+    int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, best_method, largest_free, 0
+#ifndef EA_BUILD_A124
+                                                ,
+                                                0x7FFFFFFF
+#endif
+    );
     for (int n = 0; n < num_hole_movements; n++) {
         ProfileNode profile_node;
         HoleMovement *movement = &hole_movement_table[n];
@@ -1463,8 +1488,12 @@ void TrackStreamer::SetStreamingPosition(int position_number, const bVector3 *po
     }
 }
 
-void TrackStreamer::PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction,
-                                             bool following_car) {
+void TrackStreamer::PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction
+#ifndef EA_BUILD_A124
+                                             ,
+                                             bool following_car
+#endif
+) {
     StreamingPositionEntry *position_entry = &StreamingPositionEntries[position_number];
     position_entry->Position.x = position->x;
     position_entry->Position.y = position->y;

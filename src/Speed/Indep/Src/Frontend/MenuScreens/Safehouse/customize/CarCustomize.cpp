@@ -2284,7 +2284,12 @@ void CustomizationScreenHelper::SetUnlockOverlayState(bool show, unsigned int bl
     FEngSetScript(pPackageName, 0xebc3e6b7, script, true);
 }
 
-void CustomizationScreenHelper::SetCareerStuff(SelectablePart *part, unsigned int cat, unsigned int tradeInValue) {
+void CustomizationScreenHelper::SetCareerStuff(SelectablePart *part, unsigned int cat
+#ifndef EA_BUILD_A124
+                                               ,
+                                               unsigned int tradeInValue
+#endif
+) {
     if (gCarCustomizeManager.IsCareerMode()) {
         if (CustomizeIsInBackRoom()) {
             FEngSetLanguageHash(GetPackageName(), 0x63ca8308, GetMarkerNameFromCategory(static_cast<eCustomizeCategory>(cat)));
@@ -2303,7 +2308,9 @@ void CustomizationScreenHelper::SetCareerStuff(SelectablePart *part, unsigned in
             }
             FEPrintf(GetPackageName(), 0xc60adcfd, "%$d", FEDatabase->GetCareerSettings()->GetCash());
             FEPrintf(GetPackageName(), 0x7a6d2f71, "%$d", gCarCustomizeManager.GetCartTotal(static_cast<eCustomizeCartTotals>(2)));
+#ifndef EA_BUILD_A124
             FEPrintf(GetPackageName(), 0xa91eda8a, "%$d", tradeInValue);
+#endif
         }
         SetHeatValue(gCarCustomizeManager.GetActualHeat());
         SetHeatPreview(gCarCustomizeManager.GetPreviewHeat(part));
@@ -2492,6 +2499,7 @@ void CustomizationScreen::RefreshHeader() {
     IconScrollerMenu::RefreshHeader();
     DisplayHelper.DrawTitle();
     if (!Options.IsEmpty()) {
+#ifndef EA_BUILD_A124
         int tradeInValue = 0;
         if (gCarCustomizeManager.IsCareerMode()) {
             if (!CustomizeIsInBackRoom()) {
@@ -2507,7 +2515,13 @@ void CustomizationScreen::RefreshHeader() {
                 }
             }
         }
-        DisplayHelper.SetCareerStuff(GetSelectedPart(), Category, tradeInValue);
+#endif
+        DisplayHelper.SetCareerStuff(GetSelectedPart(), Category
+#ifndef EA_BUILD_A124
+                                     ,
+                                     tradeInValue
+#endif
+        );
 
         DisplayHelper.SetPartStatus(GetSelectedPart(), static_cast<CustomizePartOption *>(Options.GetCurrentOption())->GetUnlockBlurb(),
                                     Options.GetCurrentIndex(), Options.CountElements() - Options.iNumBookEnds);
@@ -2858,11 +2872,20 @@ void CustomizeParts::Setup() {
     }
 
     bTList<SelectablePart> part_list;
+#ifndef EA_BUILD_A124
     if (is_vinyl) {
         gCarCustomizeManager.GetCarPartList(car_slot_id, part_list, vinyl_group_number);
     } else {
-        gCarCustomizeManager.GetCarPartList(car_slot_id, part_list, 0);
+#endif
+        gCarCustomizeManager.GetCarPartList(car_slot_id, part_list
+#ifndef EA_BUILD_A124
+                                            ,
+                                            0
+#endif
+        );
+#ifndef EA_BUILD_A124
     }
+#endif
 
     installed_index = 0;
     current_part_index = 1;
@@ -2877,7 +2900,12 @@ void CustomizeParts::Setup() {
             if ((part->GetPart()->GetGroupNumber()) == vinyl_group_number) {
                 if (UnlockSystem::IsUnlockableAvailable(part->GetPart()->GetPartNameHash())) {
                     AddPartOption(part, icon_hash, part->GetPart()->GetUpgradeLevel(), 0, unlock_hash,
-                                  gCarCustomizeManager.IsPartLocked(part, 0));
+                                  gCarCustomizeManager.IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                                    ,
+                                                                    0
+#endif
+                                                                    ));
                 } else {
                     delete part;
                     part = nullptr;
@@ -2907,7 +2935,12 @@ void CustomizeParts::Setup() {
                 icon_hash = original_icon_hash;
             }
             AddPartOption(part, icon_hash, part->GetPart()->GetUpgradeLevel(), 0, unlock_hash,
-                          gCarCustomizeManager.IsPartLocked(part, 0));
+                          gCarCustomizeManager.IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                            ,
+                                                            0
+#endif
+                                                            ));
         }
         if (part) {
             if (installed_part && part->GetPart() == installed_part) {
@@ -3125,7 +3158,12 @@ void CustomizeSpoiler::BuildPartOptionListFromFilter(CarPart *installed) {
     current_part_index = 1;
     Options.AddInitialBookEnds();
     bTList<SelectablePart> part_list;
-    gCarCustomizeManager.GetCarPartList(0x2c, part_list, 0);
+    gCarCustomizeManager.GetCarPartList(0x2c, part_list
+#ifndef EA_BUILD_A124
+                                        ,
+                                        0
+#endif
+    );
     part = part_list.GetHead();
     while (!part_list.IsEmpty()) {
         part = part_list.RemoveHead();
@@ -3141,7 +3179,12 @@ void CustomizeSpoiler::BuildPartOptionListFromFilter(CarPart *installed) {
                     icon = 0x611d142a;
                 }
             }
-            AddPartOption(part, icon, part->GetPart()->GetUpgradeLevel(), 0, unlock_hash, gCarCustomizeManager.IsPartLocked(part, 0));
+            AddPartOption(part, icon, part->GetPart()->GetUpgradeLevel(), 0, unlock_hash, gCarCustomizeManager.IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                                                                                              ,
+                                                                                                                              0
+#endif
+                                                                                                                              ));
             if (SelectedIndex[TheFilter] == 1) {
                 if (installed && part->GetPart() == installed) {
                     SelectedIndex[TheFilter] = current_part_index;
@@ -3227,7 +3270,12 @@ HUDLayerOption::HUDLayerOption(uint32 layer, uint32 icon_hash, uint32 name_hash)
     : CustomizePartOption(nullptr, icon_hash, name_hash, 0, 0), //
       HUDLayer(layer),                                          //
       SelectedPart(nullptr) {
-    gCarCustomizeManager.GetCarPartList(layer, TheColors, 0);
+    gCarCustomizeManager.GetCarPartList(layer, TheColors
+#ifndef EA_BUILD_A124
+                                        ,
+                                        0
+#endif
+    );
 }
 
 CustomizeHUDColor::CustomizeHUDColor(ScreenConstructorData *sd)
@@ -3556,7 +3604,12 @@ void CustomizeRims::BuildRimsList(int selected_index) {
     current_part_index = 1;
     installed_part = nullptr;
     bTList<SelectablePart> part_list;
-    gCarCustomizeManager.GetCarPartList(0x42, part_list, GetCategoryBrandHash());
+    gCarCustomizeManager.GetCarPartList(0x42, part_list
+#ifndef EA_BUILD_A124
+                                        ,
+                                        GetCategoryBrandHash()
+#endif
+    );
     if (selected_index == -1) {
         installed_part = gCarCustomizeManager.GetActivePartFromSlot(0x42);
     }
@@ -3566,7 +3619,12 @@ void CustomizeRims::BuildRimsList(int selected_index) {
         CarPart *carpet = part->GetPart();
         if (carpet->GetInnerRadius() == InnerRadius) {
             unsigned int unlock_hash = gCarCustomizeManager.GetUnlockHash(static_cast<eCustomizeCategory>(Category), part->GetUpgradeLevel());
-            AddPartOption(part, 0x294d2a3, part->GetPart()->GetUpgradeLevel(), 0, unlock_hash, gCarCustomizeManager.IsPartLocked(part, 0));
+            AddPartOption(part, 0x294d2a3, part->GetPart()->GetUpgradeLevel(), 0, unlock_hash, gCarCustomizeManager.IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                                                                                                  ,
+                                                                                                                                  0
+#endif
+                                                                                                                                  ));
             if (installed_part && part->GetPart() == installed_part) {
                 installed_index = current_part_index;
             }
@@ -4027,7 +4085,12 @@ skip_color:
         }
     }
     bTList<SelectablePart> the_list;
-    gCarCustomizeManager.GetCarPartList(slot_id, the_list, 0);
+    gCarCustomizeManager.GetCarPartList(slot_id, the_list
+#ifndef EA_BUILD_A124
+                                        ,
+                                        0
+#endif
+    );
     int selected_index = 0;
     while (!the_list.IsEmpty()) {
         if (the_list.GetHead()->GetPart()->GetBrandNameHash() == brand_hash) {
@@ -4122,7 +4185,12 @@ void CustomizePaint::RefreshHeader() {
             break;
         }
     }
-    DisplayHelper.SetCareerStuff(GetSelectedPart(), GetCategory(), 0);
+    DisplayHelper.SetCareerStuff(GetSelectedPart(), GetCategory()
+#ifndef EA_BUILD_A124
+                                 ,
+                                 0
+#endif
+    );
     DisplayHelper.SetPartStatus(GetSelectedPart(), GetUnlockBlurb(), ThePaints.GetCurrentDatumNum(), ThePaints.GetNumDatum());
 }
 
@@ -4255,7 +4323,12 @@ void CustomizeDecals::BuildDecalList(uint32 selected_name_hash) {
     AddPartOption(stockPart, 0x697b4ad4, 0x60a662f5, 0, 0, false);
 
     bTList<SelectablePart> tempList;
-    gCarCustomizeManager.GetCarPartList(slotID, tempList, 0);
+    gCarCustomizeManager.GetCarPartList(slotID, tempList
+#ifndef EA_BUILD_A124
+                                        ,
+                                        0
+#endif
+    );
 
     int unlockLevel = MapCarPartToUnlockable(slotID, nullptr);
     switch (unlockLevel) {
@@ -4282,7 +4355,12 @@ void CustomizeDecals::BuildDecalList(uint32 selected_name_hash) {
             unsigned int unlockHash = gCarCustomizeManager.GetUnlockHash(static_cast<eCustomizeCategory>(Category), unlockLevel);
             SelectablePart *node = tempList.GetHead();
             node->Remove();
-            AddPartOption(node, 0x697b4ad4, nameHash, 0, unlockHash, gCarCustomizeManager.IsPartLocked(node, 0));
+            AddPartOption(node, 0x697b4ad4, nameHash, 0, unlockHash, gCarCustomizeManager.IsPartLocked(node
+#ifndef EA_BUILD_A124
+                                                                                                       ,
+                                                                                                       0
+#endif
+                                                                                                       ));
             if (node->GetPart()->GetBrandNameHash() == selected_name_hash) {
                 matchIdx = curIdx;
             }
@@ -4591,7 +4669,12 @@ void CustomizeNumbers::ScrollNumbers(eScrollDir dir) {
 
 void CustomizeNumbers::RefreshHeader() {
     DisplayHelper.DrawTitle();
-    DisplayHelper.SetCareerStuff(TheLeftNumber, Category, 0);
+    DisplayHelper.SetCareerStuff(TheLeftNumber, Category
+#ifndef EA_BUILD_A124
+                                 ,
+                                 0
+#endif
+    );
     if (LeftDisplayValue != -1 && RightDisplayValue != -1) {
         FEObject *numGroup = FEngFindObject(GetPackageName(), 0x7a8355d9);
         FEngSetVisible(numGroup);
@@ -4635,8 +4718,18 @@ void CustomizeNumbers::RefreshHeader() {
 
 void CustomizeNumbers::Setup() {
     DisplayHelper.SetTitleHash(0x6857e5ac);
-    gCarCustomizeManager.GetCarPartList(0x71, LeftNumberList, 0);
-    gCarCustomizeManager.GetCarPartList(0x72, RightNumberList, 0);
+    gCarCustomizeManager.GetCarPartList(0x71, LeftNumberList
+#ifndef EA_BUILD_A124
+                                        ,
+                                        0
+#endif
+    );
+    gCarCustomizeManager.GetCarPartList(0x72, RightNumberList
+#ifndef EA_BUILD_A124
+                                        ,
+                                        0
+#endif
+    );
     CarPart *installed_part = gCarCustomizeManager.GetActivePartFromSlot(0x71);
     int i = 0;
     SelectablePart *test_part = LeftNumberList.GetHead();
@@ -5152,7 +5245,12 @@ after_initial_part_list:
         part = part_list.RemoveHead();
         int true_unlock_level = gCarCustomizeManager.GetMaxPackages(type) - gCarCustomizeManager.GetNumPackages(type) + part->GetUpgradeLevel();
         unsigned int unlock_hash = gCarCustomizeManager.GetUnlockHash(static_cast<eCustomizeCategory>(Category), true_unlock_level);
-        is_locked = gCarCustomizeManager.IsPartLocked(part, 0);
+        is_locked = gCarCustomizeManager.IsPartLocked(part
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      0
+#endif
+        );
         AddPartOption(part, icon_hash, j, desc_hash, unlock_hash, is_locked);
     }
 

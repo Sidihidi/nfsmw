@@ -184,7 +184,9 @@ void Observer::Process() {
         AssessArrest();
         if ((mTracking & Arrest) == 0) {
             AssessLOS();
+#ifndef EA_BUILD_A124
             AssessFlippage();
+#endif
             Assess180();
             AssessOutcome();
             AssessBraking();
@@ -324,6 +326,7 @@ void Observer::AssessLOS() {
     }
 }
 
+#ifndef EA_BUILD_A124
 void Observer::NotifyAirborne(float alt, float t) {
     SoundAI *ai = SoundAI::Get();
 
@@ -364,6 +367,7 @@ void Observer::AssessFlippage() {
         }
     }
 }
+#endif
 
 void Observer::Assess180() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
@@ -374,7 +378,9 @@ void Observer::Assess180() {
         }
 
         static UMath::Vector3 fw0 = UMath::Vector3::kZero;
+#ifndef EA_BUILD_A124
         static UMath::Vector3 startpos = UMath::Vector3::kZero;
+#endif
         static char datapts = 0;
 
         if (fwDot < 0.7f) {
@@ -384,7 +390,9 @@ void Observer::Assess180() {
                     fw0 = mFwRoad;
                     mTracking |= UTurn;
                     datapts = 0;
+#ifndef EA_BUILD_A124
                     startpos = ai->GetPlayerPos();
+#endif
                 }
             }
         }
@@ -398,7 +406,9 @@ void Observer::Assess180() {
                         mTracking = mTracking & ~UTurn;
                         mT_unstable = WorldTimer;
                         datapts = 0;
+#ifndef EA_BUILD_A124
                         startpos = UMath::Vector3::kZero;
+#endif
                     } else {
                         mDotTrack = fwDot;
                         datapts++;
@@ -409,6 +419,7 @@ void Observer::Assess180() {
             if (fwDot <= -0.7f) {
                 if (datapts >= ai->GetTune().MinContigFramesFor180()) {
                     if ((mTracking & UTurnResult) == 0) {
+#ifndef EA_BUILD_A124
                         UMath::Vector3 endpos = ai->GetPlayerPos();
                         float dist_from_start = UMath::Distance(startpos, endpos);
                         if (dist_from_start > ai->GetTune().MaxRangeFor180()) {
@@ -416,7 +427,9 @@ void Observer::Assess180() {
                             mT_unstable = WorldTimer;
                             datapts = 0;
                             startpos = UMath::Vector3::kZero;
-                        } else {
+                        } else
+#endif
+                        {
                             mTracking |= UTurnResult;
                             mT_unstable = WorldTimer;
                         }

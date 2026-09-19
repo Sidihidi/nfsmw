@@ -253,7 +253,12 @@ void NISListenerActivity::MessageBusted(const MPerpBusted &message) {
         if (!parms) {
             new EQuitToFE(GARAGETYPE_CAREER_SAFEHOUSE, "Infractions.fng");
         } else {
-            new EPause(0, 1, 0);
+            new EPause(0, 1
+#ifndef EA_BUILD_A124
+                ,
+                0
+#endif
+            );
         }
 #endif
     }

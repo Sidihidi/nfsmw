@@ -251,7 +251,11 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
     void ClearStockCars();
     struct ISimable *GetStockCar(const char *carName);
     struct ISimable *GetRandomEmergencyStockCar();
-    void ReleaseStockCar(struct ISimable *stockCar);
+    void ReleaseStockCar(
+#ifdef EA_BUILD_A124
+        const char *carName,
+#endif
+        struct ISimable *stockCar);
 
     bool SetTimer(const char *name, float interval);
     void KillTimer(const char *name);
@@ -266,11 +270,24 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
 
     unsigned int SaveSMSInfo(int *saveInfo);
     void LoadSMSInfo(int *loadInfo, unsigned int count);
-    bool GetHasPendingSMS() const;
-    bool CanPlaySMS() const;
+    // In the prototype CanPlaySMS is not const, and GetHasPendingSMS, which calls it, cannot be either.
+    bool GetHasPendingSMS()
+#ifndef EA_BUILD_A124
+        const
+#endif
+        ;
+    bool CanPlaySMS()
+#ifndef EA_BUILD_A124
+        const
+#endif
+        ;
     void AddSMS(int smsID);
     void DispatchSMSMessage(int smsID);
-    void UpdatePendingSMS();
+    void UpdatePendingSMS(
+#ifdef EA_BUILD_A124
+        float dT
+#endif
+    );
     int PushSMSToInbox();
 
     static GManager &Get() {

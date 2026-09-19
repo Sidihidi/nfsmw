@@ -64,8 +64,18 @@ class MemoryPool {
     void Close();
     void AddMemory(void *p, int size);
     void RemoveMemory(void *p, int size);
-    void FreeMemory(void *p, int size, const char *debug_name);
-    void AddFreeMemory(void *p, int size, const char *debug_name);
+    void FreeMemory(void *p, int size
+#ifndef EA_BUILD_A124 // la alpha 124 no pasa el nombre de depuracion
+                    ,
+                    const char *debug_name
+#endif
+    );
+    void AddFreeMemory(void *p, int size
+#ifndef EA_BUILD_A124
+                       ,
+                       const char *debug_name
+#endif
+    );
     void *AllocateMemory(int size, int alignment, int alignment_offset, int start_from_top, int use_best_fit, int *new_size);
     int GetAmountFree();
     int GetLargestFreeBlock();
@@ -201,22 +211,42 @@ void MemoryPool::Close() {
 
 void MemoryPool::AddMemory(void *p, int size) {
     this->PoolSize += size;
-    this->AddFreeMemory(p, size, this->GetName());
+    this->AddFreeMemory(p, size
+#ifndef EA_BUILD_A124
+                        ,
+                        this->GetName()
+#endif
+    );
 }
 
 // STRIPPED
 void MemoryPool::RemoveMemory(void *p, int size) {}
 
-void MemoryPool::FreeMemory(void *p, int size, const char *debug_name) {
+void MemoryPool::FreeMemory(void *p, int size
+#ifndef EA_BUILD_A124
+                            ,
+                            const char *debug_name
+#endif
+) {
     this->Mutex.Lock();
-    this->AddFreeMemory(p, size, debug_name);
+    this->AddFreeMemory(p, size
+#ifndef EA_BUILD_A124
+                        ,
+                        debug_name
+#endif
+    );
     this->AmountAllocated -= size;
     this->NumAllocations--;
     this->AmountFree = this->PoolSize - this->AmountAllocated;
     this->Mutex.Unlock();
 }
 
-void MemoryPool::AddFreeMemory(void *p, int size, const char *debug_name) {
+void MemoryPool::AddFreeMemory(void *p, int size
+#ifndef EA_BUILD_A124
+                               ,
+                               const char *debug_name
+#endif
+) {
     if (size != 0) {
         this->Mutex.Lock();
 
@@ -762,13 +792,16 @@ void bMemoryInit() {
 // STRIPPED
 void bMemoryUpdateTraceInformation() {}
 
+// La alpha 124 es milestone y aun asi define las dos, primero la de dos argumentos.
+#if !defined(MILESTONE_BUILD) || defined(EA_BUILD_A124)
+void *bMalloc(int size, int allocation_params) {
+    return bWareMalloc(size, nullptr, 0, allocation_params);
+}
+#endif
+
 #ifdef MILESTONE_BUILD
 void *bMalloc(int size, const char *debug_text, int debug_line, int allocation_params) {
     return bWareMalloc(size, debug_text, debug_line, allocation_params);
-}
-#else
-void *bMalloc(int size, int allocation_params) {
-    return bWareMalloc(size, nullptr, 0, allocation_params);
 }
 #endif
 
@@ -879,7 +912,9 @@ void bFree(void *ptr) {
     AllocationHeader *header = &static_cast<AllocationHeader *>(ptr)[-1];
     int pool_num = header->PoolNum;
     MemoryPool *pool = MemoryPools[pool_num];
+#ifndef EA_BUILD_A124
     char debug_name[32] = {};
+#endif
     if (bMemoryAutomaticVerifyPoolIntegrity && (bMemoryAllocationNumber % bMemoryAutomaticVerifyPoolIntegrity == 0)) {
         bVerifyPoolIntegrity(pool_num);
     }
@@ -889,7 +924,12 @@ void bFree(void *ptr) {
         void *allocated_pointer = header->GetBottomAddress();
         header->MagicNumber = 0;
         pool->RemoveAllocationHeader(header);
-        pool->FreeMemory(allocated_pointer, header->Size, debug_name);
+        pool->FreeMemory(allocated_pointer, header->Size
+#ifndef EA_BUILD_A124
+                         ,
+                         debug_name
+#endif
+        );
     }
 }
 

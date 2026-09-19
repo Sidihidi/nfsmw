@@ -247,7 +247,13 @@ void PursuitBoard::SetTimeUntilHidden(float time) {
     }
 }
 
-void PursuitBoard::SetTimeUntilBusted(float time, bool bIsBusted) {
+void PursuitBoard::SetTimeUntilBusted(float time
+#ifndef EA_BUILD_A124
+                                      ,
+                                      bool bIsBusted
+#endif
+) {
+#ifndef EA_BUILD_A124
     if (bIsBusted) {
         time = 1.0f;
     } else {
@@ -255,6 +261,7 @@ void PursuitBoard::SetTimeUntilBusted(float time, bool bIsBusted) {
             time = 0.99f;
         }
     }
+#endif
     if (mTimeUntilBusted != time) {
         mTimeUntilBusted = time;
         if (time >= 1.0f) {

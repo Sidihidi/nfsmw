@@ -234,7 +234,10 @@ class EAXAemsManager : public AudioMemBase {
     int m_SPUMainAllocsEnd;                // offset 0xB4, size 0x4, Decl: 213
     int m_SPU_UpperAddress;                // offset 0xB8, size 0x4, Decl: 214
     SndAssetQueue mWaitForResolve;         // offset 0xBC, size 0x8, Decl: 221
+    // La A124 no tiene bLoadingHalted: sus stabs dan mWaitList en 0xC4.
+#ifndef EA_BUILD_A124
     bool bLoadingHalted;                   // offset 0xC4, size 0x1, Decl: 222
+#endif
     AsyncQueue mWaitList;                  // offset 0xC8, size 0x30, Decl: 224
     EvtSystems m_pEvtSystems;              // offset 0xF8, size 0x10, Decl: 225
     int m_NumEvtSysLoaded;                 // offset 0x108, size 0x4, Decl: 226
@@ -243,9 +246,14 @@ class EAXAemsManager : public AudioMemBase {
     intptr_t m_nCallbackEvtSys;            // offset 0x114, size 0x4, Decl: 229
     stSndDataLoadParams *m_pCurLoadSDLP;   // offset 0x118, size 0x4, Decl: 230
     stSndDataLoadParams *m_pCurUNLOADSDLP; // offset 0x11C, size 0x4, Decl: 231
+    // La A124 tampoco tiene estos tres (m_IsWaitingForFileCB en 0x118, tamano 0x11C), pero m_pAsyncLoadSDLP y
+    // m_ItemsPendingAsyncResolve se quedan: AreResourceLoadsPending, CompleteAsyncLoad y AsyncResidentAllocCB
+    // son otras funciones en la A124.
     stSndDataLoadParams *m_pAsyncLoadSDLP; // offset 0x120, size 0x4, Decl: 235
     int m_ItemsPendingAsyncResolve;        // offset 0x124, size 0x4, Decl: 236
+#ifndef EA_BUILD_A124
     bool m_bBulkLoad;                      // offset 0x128, size 0x1, Decl: 237
+#endif
     bool m_IsWaitingForFileCB;             // offset 0x12C, size 0x1, Decl: 239
 
   private:

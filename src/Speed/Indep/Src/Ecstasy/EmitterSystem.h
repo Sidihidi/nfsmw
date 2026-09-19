@@ -18,14 +18,25 @@
 class smVector3 {
     // total size: 0x8
   public:
+#ifdef EA_BUILD_A124
+    // La A124 guarda el vector sin comprimir (stabs: `v` bVector3 en 0x0 y magnitude en 0x10, 0x20 en total).
+    // Su constructor, expandido en GetNewParticle (0x21F8F4..0x21F90C), arma un bVector3(0, 0, 0) en la pila, lo
+    // copia con lqc2/sqc2 y pone magnitude a 0.
+    bVector3 v;
+#else
     char x;            // offset 0x0, size 0x1
     char y;            // offset 0x1, size 0x1
     char z;            // offset 0x2, size 0x1
     unsigned char pad; // offset 0x3, size 0x1
+#endif
     float magnitude;   // offset 0x4, size 0x4
 
     smVector3() {
+#ifdef EA_BUILD_A124
+        this->v = bVector3(0.0f, 0.0f, 0.0f);
+#else
         this->x = this->y = this->z = this->pad = 0;
+#endif
         this->magnitude = 0.0f;
     }
 };

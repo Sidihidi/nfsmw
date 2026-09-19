@@ -18,7 +18,12 @@ ECellCall::~ECellCall() {
 
     if (currentLanguage == eLANGUAGE_DUTCH || currentLanguage == eLANGUAGE_DANISH || currentLanguage == eLANGUAGE_FINNISH ||
         currentLanguage == eLANGUAGE_POLISH || currentLanguage == eLANGUAGE_SWEDISH) {
-        if (FEManager::IsOkayToRequestPauseSimulation(0, true, false)) {
+        if (FEManager::IsOkayToRequestPauseSimulation(0, true
+#ifndef EA_BUILD_A124
+                                                      ,
+                                                      false
+#endif
+                                                      )) {
             SMSMessage *msg = FEDatabase->GetCareerSettings()->GetSMSMessage(fID);
             int port;
 

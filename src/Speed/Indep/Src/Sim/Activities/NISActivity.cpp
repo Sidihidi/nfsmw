@@ -717,7 +717,11 @@ void NISActivity::Load(CAnimChooser::eType nisType, const char *scene, int camer
             new ESndGameState(11, true);
         }
 
-        new EFadeScreenOn(false);
+        new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+            false
+#endif
+        );
 
         mSequencerID = UCrc32(scene);
         mCameraTrackNumber = cameratrack;
@@ -1228,7 +1232,11 @@ void NISActivity::Release() {
     } else if (mNISType == CAnimChooser::Moment) {
         new EBecomePlayerCar();
     } else if (mNISType == CAnimChooser::Ending && !mRunningThroughICE) {
-        new EFadeScreenOn(false);
+        new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+            false
+#endif
+        );
     }
 
     FacePixelation::Disable();
@@ -1276,18 +1284,31 @@ void NISActivity::Release() {
         if (GRaceStatus::Get().GetRaceParameters() == nullptr) {
             new EQuitToFE(GARAGETYPE_CAREER_SAFEHOUSE, "Infractions.fng");
         } else {
-            new EPause(0, 1, 0);
+            new EPause(0, 1
+#ifndef EA_BUILD_A124
+                ,
+                0
+#endif
+            );
         }
     }
 }
 
 void NISActivity::JoyHandle(IPlayer *player) {
+#ifndef EA_BUILD_A124
     bool wheel_connected = false;
     if (player->GetSteeringDevice() && player->GetSteeringDevice()->IsConnected()) {
         wheel_connected = true;
     }
+#endif
     mActionQ.SetPort(player->GetControllerPort());
-    mActionQ.SetConfig(player->GetSettings()->GetControllerAttribs(CA_HUD, wheel_connected), "FEngHud");
+    mActionQ.SetConfig(player->GetSettings()->GetControllerAttribs(CA_HUD
+#ifndef EA_BUILD_A124
+                                                                   ,
+                                                                   wheel_connected
+#endif
+                                                                   ),
+                       "FEngHud");
 
     while (!mActionQ.IsEmpty()) {
         ActionRef aRef = mActionQ.GetAction();
@@ -1366,7 +1387,11 @@ bool NISActivity::SkipOverNIS() {
             if (mAnimScene) {
                 mAnimScene->JumpToEnd();
             }
-            new EFadeScreenOn(false);
+            new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+                false
+#endif
+            );
             return true;
         }
     }

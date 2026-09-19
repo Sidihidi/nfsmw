@@ -392,7 +392,12 @@ class IPursuitBoard : public UTL::COM::IUnknown {
     virtual void SetInPursuit(bool inPursuit) = 0;
     virtual void SetIsHiding(bool isHiding) = 0;
     virtual void SetTimeUntilHidden(float time) = 0;
-    virtual void SetTimeUntilBusted(float time, bool bIsBusted) = 0;
+    virtual void SetTimeUntilBusted(float time
+#ifndef EA_BUILD_A124
+                                    ,
+                                    bool bIsBusted
+#endif
+                                    ) = 0;
     virtual void SetTimeUntilBackup(float time) = 0;
     virtual void SetIsInView(bool inView) = 0;
     virtual void SetPursuitDuration(float duration) = 0;

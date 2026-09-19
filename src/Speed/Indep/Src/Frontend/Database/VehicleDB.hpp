@@ -318,10 +318,21 @@ class FECarRecord {
 // TODO: values
 static const int MAX_CAREER_PURCHASED_CARS_IN_STABLE = 0; // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:478
 static const int MAX_CAREER_AWARDED_CARS_IN_STABLE = 0;   // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:479
-static const int MAX_CAREER_TOTAL_CARS = 0;               // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:480
+// Dimensionan CareerRecords y Customizations de FEPlayerCarDB: el prototipo A124 tiene 10 y 60 (stabs:
+// CareerRecords[10], Customizations[60]; GetCareerRecordByHandle compara con 0xB y
+// GetCustomizationRecordByHandle con 0x3D), el juego final 25 y 75.
+#ifdef EA_BUILD_A124
+static const int MAX_CAREER_TOTAL_CARS = 10; // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:480
+#else
+static const int MAX_CAREER_TOTAL_CARS = 25; // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:480
+#endif
 
 static const int MAX_CARS_IN_STABLE = 200;         // size: 0x4
-static const int MAX_CUSTOMIZE_BLOCKS = 0; // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:485
+#ifdef EA_BUILD_A124
+static const int MAX_CUSTOMIZE_BLOCKS = 60; // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:485
+#else
+static const int MAX_CUSTOMIZE_BLOCKS = 75; // size: 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:485
+#endif
 
 typedef enum {
     FE_CAR_FILTER_LIST_STOCK = 1,
@@ -436,8 +447,8 @@ class FEPlayerCarDB {
     void BackupSoldCarHistory(uint8 sold_car);                 // Decl: speed/indep/src/database/VehicleDB.hpp:664
 
     FECarRecord CarTable[200];                        // offset 0x0, size 0xFA0, Decl: speed/indep/src/database/VehicleDB.hpp:666
-    FECustomizationRecord Customizations[75];         // offset 0xFA0, size 0x7788, Decl: speed/indep/src/database/VehicleDB.hpp:667
-    FECareerRecord CareerRecords[25];                 // offset 0x8728, size 0x578, Decl: speed/indep/src/database/VehicleDB.hpp:668
+    FECustomizationRecord Customizations[MAX_CUSTOMIZE_BLOCKS]; // offset 0xFA0, size 0x7788, Decl: speed/indep/src/database/VehicleDB.hpp:667
+    FECareerRecord CareerRecords[MAX_CAREER_TOTAL_CARS];        // offset 0x8728, size 0x578, Decl: speed/indep/src/database/VehicleDB.hpp:668
     uint32 SoldHistoryBounty;                         // offset 0x8CA0, size 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:689
     uint16 SoldHistoryNumEvadedPursuits;              // offset 0x8CA4, size 0x2, Decl: speed/indep/src/database/VehicleDB.hpp:690
     uint16 SoldHistoryNumBustedPursuits;              // offset 0x8CA6, size 0x2, Decl: speed/indep/src/database/VehicleDB.hpp:691

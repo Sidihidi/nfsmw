@@ -773,13 +773,21 @@ void FEngHud::JoyHandle(IPlayer *player) {
         return;
     }
 
+#ifndef EA_BUILD_A124
     bool wheel_connected = false;
     if (player->GetSteeringDevice() != nullptr && player->GetSteeringDevice()->IsConnected()) {
         wheel_connected = true;
     }
+#endif
 
     mActionQ.SetPort(player->GetControllerPort());
-    mActionQ.SetConfig(player->GetSettings()->GetControllerAttribs(CA_HUD, wheel_connected), "FEngHud");
+    mActionQ.SetConfig(player->GetSettings()->GetControllerAttribs(CA_HUD
+#ifndef EA_BUILD_A124
+                                                                   ,
+                                                                   wheel_connected
+#endif
+                                                                   ),
+                       "FEngHud");
 
     if (!mActionQ.IsEmpty() && !MemoryCard::GetInstance()->IsAutoSaving() && !MemoryCard::GetInstance()->AutoSaveRequested()) {
         ActionRef action = mActionQ.GetAction();
@@ -787,7 +795,12 @@ void FEngHud::JoyHandle(IPlayer *player) {
         if (CurrentHudFeatures != 0) {
             switch (action.ID()) {
                 case 0x2D: {
-                    new EPause(player->GetSettingsIndex(), 0, 0);
+                    new EPause(player->GetSettingsIndex(), 0
+#ifndef EA_BUILD_A124
+                        ,
+                        0
+#endif
+                    );
                     break;
                 }
                 case 0x2E: {
@@ -812,9 +825,19 @@ void FEngHud::JoyHandle(IPlayer *player) {
 
                         if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing &&
                             !GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace()) {
-                            new EShowResults(FERESULTTYPE_RACE, true);
+                            new EShowResults(FERESULTTYPE_RACE
+#ifndef EA_BUILD_A124
+                                ,
+                                true
+#endif
+                            );
                         } else if (mInPursuit) {
-                            new EShowResults(FERESULTTYPE_PURSUIT, true);
+                            new EShowResults(FERESULTTYPE_PURSUIT
+#ifndef EA_BUILD_A124
+                                ,
+                                true
+#endif
+                            );
                         } else {
                             IMenuZoneTrigger *mzt;
                             if (QueryInterface(&mzt)) {

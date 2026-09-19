@@ -9,7 +9,12 @@
 
 ERaceSheetOn::ERaceSheetOn(int pRivalFlow) : Event(0x10), fRivalFlow(pRivalFlow) {
     if (fRivalFlow != 2) {
-        if (!FEManager::IsOkayToRequestPauseSimulation(0, true, false)) {
+        if (!FEManager::IsOkayToRequestPauseSimulation(0, true
+#ifndef EA_BUILD_A124
+                                                       ,
+                                                       false
+#endif
+                                                       )) {
             return;
         }
 

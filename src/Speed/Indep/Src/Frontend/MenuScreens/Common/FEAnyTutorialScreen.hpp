@@ -11,18 +11,29 @@
 
 // total size: 0x60
 struct FEAnyTutorialScreen : public MenuScreen {
+#ifndef EA_BUILD_A124
     unsigned int LastTime;    // offset 0x2C
     float TimeElapsed;        // offset 0x30
     float TextToggleTiming;   // offset 0x34
     Timer mTimer;             // offset 0x38
     SubTitler mSubtitler;     // offset 0x3C
+#endif
 
     FEAnyTutorialScreen(ScreenConstructorData* sd);
     ~FEAnyTutorialScreen() override;
     static MenuScreen* Create(ScreenConstructorData* sd);
     void NotificationMessage(u32, FEObject*, u32, u32) override;
-    static void LaunchMovie(const char*, const char*);
-    static void DismissMovie(bool);
+    static void LaunchMovie(const char*
+#ifndef EA_BUILD_A124
+                            ,
+                            const char*
+#endif
+    );
+    static void DismissMovie(
+#ifndef EA_BUILD_A124
+        bool
+#endif
+    );
     static void SetMovieName(const char*);
     static void SetPackageName(const char*);
     static char MovieFilename[64];

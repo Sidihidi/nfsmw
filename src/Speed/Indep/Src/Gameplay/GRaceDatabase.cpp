@@ -977,7 +977,12 @@ void GRaceParameters::GenerateIndex(GRaceIndexData *index) {
     index->mReputation = PackedDecimal(GetReputation());
     index->mCash = PackedDecimal(GetCashValue());
     index->mChallengeType = GetChallengeType();
+#ifdef EA_BUILD_A124
+    // mChallengeGoal es float en la A124: `swc1 $f0, 0x18` justo detras de la llamada (0x2EB2DC).
+    index->mChallengeGoal = GetChallengeGoal();
+#else
     index->mChallengeGoal = PackedDecimal(GetChallengeGoal());
+#endif
     index->mNumLaps = GetNumLaps();
     index->mCopDensity = GetCopDensity();
     index->mRaceType = GetRaceType();
@@ -985,7 +990,9 @@ void GRaceParameters::GenerateIndex(GRaceIndexData *index) {
 
     index->mFlags = 0;
 
+#ifndef EA_BUILD_A124
     unsigned int *pflags = &index->mFlags;
+#endif
     unsigned int flags = 0;
     if (GetInitiallyUnlockedQuickRace()) {
         flags |= GRaceIndexData::kRaceFlag_AvailableQR;
@@ -1028,7 +1035,12 @@ void GRaceParameters::GenerateIndex(GRaceIndexData *index) {
     if (rank) {
         f |= GRaceIndexData::kRaceFlag_RankPlayersByPoints;
     }
+#ifdef EA_BUILD_A124
+    // En la A124 este paso es como los demas: `sh` a 0x4 sin puntero aparte (0x2EB3FC).
+    index->mFlags = f;
+#else
     *pflags = f;
+#endif
     flags = index->mFlags;
     if (GetRankPlayersByDistance()) {
         flags |= GRaceIndexData::kRaceFlag_RankPlayersByDistance;
@@ -1054,6 +1066,9 @@ void GRaceParameters::GenerateIndex(GRaceIndexData *index) {
         flags |= GRaceIndexData::kRaceFlag_ChallengeSeriesRace;
     }
     index->mFlags = flags;
+    // La A124 no tiene ni la carrera de la Collector's Edition ni el bloque de la hora del dia: tras el `sh` de
+    // ChallengeSeries (0x2EB4A4) va directa a bMemSet.
+#ifndef EA_BUILD_A124
     if (GetIsCollectorsEditionRace()) {
         flags |= GRaceIndexData::kRaceFlag_CollectorsEditionRace;
     }
@@ -1064,6 +1079,7 @@ void GRaceParameters::GenerateIndex(GRaceIndexData *index) {
     } else if (GetTimeOfDay() >= 0.0f) {
         index->mFlags |= 0x20000;
     }
+#endif
 
     bMemSet(index->mEventID, 0, sizeof(index->mEventID));
     bSafeStrCpy(index->mEventID, GetEventID(), sizeof(index->mEventID));

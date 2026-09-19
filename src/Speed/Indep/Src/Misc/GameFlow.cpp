@@ -424,7 +424,9 @@ void RegionLoader::LoadHandler() {
         pResourceInGameA = CreateResourceFile("Global\\InGameA.bun", RESOURCE_FILE_INGAME, 0, 0, 0);
         pResourceInGameA->SetAllocationParams(ingamea_allocation_params, "Global\\InGameA.bun");
         pResourceInGameA->BeginLoading();
+#ifndef EA_BUILD_A124
         pResourceInGameB_VM = LoadFileIntoVirtualMemory("GLOBAL\\INGAMEB_VM_NGC.BUN", false, false);
+#endif
         pResourceInGameSplitScreen = nullptr;
 
         load_frontend = FEDatabase->IsSplitScreenMode();
@@ -441,11 +443,13 @@ void RegionLoader::LoadHandler() {
         GetTODFilename(GetCurrentTimeOfDay(), basefilename, filename, sizeof(filename));
         pResourceRegion = LoadResourceFile(filename, RESOURCE_FILE_TRACK, 1, &RegionLoader::LoadHandler, reinterpret_cast<intptr_t>(this), 0, 0);
 
+#ifndef EA_BUILD_A124
         char vm_basefilename[48];
         char vm_filename[48];
         bSPrintf(vm_basefilename, "TRACKS\\%s_VM_NGC.BUN", TrackInfo::GetLoadedTrackInfo()->RegionName);
         GetTODFilename(GetCurrentTimeOfDay(), vm_basefilename, vm_filename, sizeof(vm_filename));
         pResourceRegion_VM = LoadFileIntoVirtualMemory(vm_filename, false, true);
+#endif
     } else if (Phase == 3) {
         LoadPrecullerBooBooScripts();
         LoadAemsInGame(&RegionLoader::LoadHandler, reinterpret_cast<intptr_t>(this));
@@ -501,10 +505,12 @@ void RegionLoader::Unload() {
     pResourceInGameB = nullptr;
     pResourceInGameSplitScreen = nullptr;
     pResourceInGameA = nullptr;
+#ifndef EA_BUILD_A124
     UnloadFileFromVirtualMemory(pResourceRegion_VM);
     UnloadFileFromVirtualMemory(pResourceInGameB_VM);
     pResourceRegion_VM = nullptr;
     pResourceInGameB_VM = nullptr;
+#endif
     TheTrackStreamer.MakeSpaceInPool(1, true);
 
     bool load_global = true;
@@ -1092,7 +1098,11 @@ void BeginGameFlowUnloadingFrontEnd() {
 #ifndef EA_BUILD_A124
     // la alpha 124 no tiene esta funcion: su declaracion ya va bajo la misma guarda.
     if (TheTrackStreamer.IsPermFileLoading()) {
-        new EFadeScreenOn(true);
+        new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+            true
+#endif
+        );
         while (TheTrackStreamer.IsPermFileLoading()) {
             MiniMainLoop();
         }
@@ -1138,7 +1148,11 @@ void HandleTrackStreamerLoadingBar() {
         if (Sim::GetState() == Sim::STATE_ACTIVE && TheTrackStreamer.CheckLoadingBar()) {
             TrackStreamerLoadingBarUp = true;
             FEManager::RequestPauseSimulation("TrackStreamerLoadingBar");
-            new EFadeScreenOn(true);
+            new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+                true
+#endif
+            );
         }
     } else {
         if (TheTrackStreamer.CheckLoadingBar() == 0) {

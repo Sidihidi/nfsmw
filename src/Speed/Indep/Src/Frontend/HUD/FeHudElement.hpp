@@ -12,7 +12,7 @@ class FEString;
 class FEMultiImage;
 class FEGroup;
 
-typedef unsigned long long HudFeaturesType; // :13
+typedef uint64 HudFeaturesType; // :13
 
 // File: speed/indep/src/frontend/hud/FeHudElement.hpp
 // total size: 0x28

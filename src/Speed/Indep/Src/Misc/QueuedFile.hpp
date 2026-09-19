@@ -16,14 +16,21 @@ extern int QueuedFileDefaultPriority;
 struct QueuedFileParams {
     QueuedFileParams()
         : Priority(QueuedFileDefaultPriority), //
-          BlockSize(0x7ffffff),                //
-          Compressed(false),                   //
-          UncompressedSize(0) {}
+          BlockSize(0x7ffffff)
+#ifndef EA_BUILD_A124
+          ,
+          Compressed(false), //
+          UncompressedSize(0)
+#endif
+    {}
 
-    int Priority;         // offset 0x0, size 0x4
-    int BlockSize;        // offset 0x4, size 0x4
+    int Priority;  // offset 0x0, size 0x4
+    int BlockSize; // offset 0x4, size 0x4
+#ifndef EA_BUILD_A124
+    // The A124 prototype has no compressed reads (no DecompressionTable either): 0x8 bytes, Priority and BlockSize.
     bool Compressed;      // offset 0x8, size 0x1
     int UncompressedSize; // offset 0xC, size 0x4
+#endif
 };
 
 enum QueuedFileStatus {

@@ -34,7 +34,16 @@ DamageVehicle::DamageVehicle(const BehaviorParams &bp, const DamageParams &sp)
     this->GetOwner()->QueryInterface(&mIRBComplex);
     this->GetOwner()->QueryInterface(&mRB);
     this->GetOwner()->QueryInterface(&mRenderable);
-    Sim::Collision::AddListener(this, this->GetOwner(), "DamageVehicle");
+    Sim::Collision::AddListener(this, this->GetOwner()
+#ifndef EA_BUILD_A124
+        ,
+        "DamageVehicle"
+#endif
+    );
+#ifdef EA_BUILD_A124
+    // The prototype registers the listener twice: two identical calls end its constructor.
+    Sim::Collision::AddListener(this, this->GetOwner());
+#endif
 }
 
 void DamageVehicle::ResetParts() {

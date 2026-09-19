@@ -232,7 +232,14 @@ class FogQuery {
     float DistFogPower;         // offset 0x10, size 0x4
     unsigned int DistFogColour; // offset 0x14, size 0x4
 
-    int CalculateFogInfo(struct View *view, int InFE);
+    // La A124 lo declara sobre eView (CalculateFogInfo__8FogQueryP5eViewi); View viene de Xbox 360.
+    int CalculateFogInfo(
+#ifdef EA_BUILD_A124
+        eView *view,
+#else
+        struct View *view,
+#endif
+        int InFE);
 };
 
 int AmIinATunnel(eView *view, int CheckOverPass);

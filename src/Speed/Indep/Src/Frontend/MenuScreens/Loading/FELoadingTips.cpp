@@ -63,7 +63,9 @@ LoadingTips::LoadingTips(ScreenConstructorData *sd) : MenuScreen(sd) {
         mDoneShowingLoadingTips = true;
     }
     mDoneLoading = false;
+#ifndef EA_BUILD_A124
     mPressAcceptHasBeenShown = false;
+#endif
     StartLoadingTipImage();
 }
 
@@ -248,10 +250,12 @@ bool LoadingTips::TipTestFirstTimeIntoSafeHouse(LoadingScreen::LoadingScreenType
 }
 
 void LoadingTips::AllowInput() {
+#ifndef EA_BUILD_A124
     if (mPressAcceptHasBeenShown) {
         return;
     }
     mPressAcceptHasBeenShown = true;
+#endif
     cFEng::Get()->QueuePackageMessage(0x9938A38F, nullptr, nullptr);
     FEManager::Get()->AllowControllerError(true);
 }

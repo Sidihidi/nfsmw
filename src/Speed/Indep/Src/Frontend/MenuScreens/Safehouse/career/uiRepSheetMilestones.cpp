@@ -49,11 +49,14 @@ void MilestoneDatum::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u3
     }
 }
 
-uiRepSheetMilestones::uiRepSheetMilestones(ScreenConstructorData *sd) : ArrayScrollerMenu(sd, 3, 3, true) {
-    bIsInGame = sd->Arg != 0;
+uiRepSheetMilestones::uiRepSheetMilestones(ScreenConstructorData *sd) : ArrayScrollerMenu(sd, 3, 3, true), bIsInGame(sd->Arg != 0) {
+#ifndef EA_BUILD_A124
     TrackMapStreamer = nullptr;
+#endif
     theMilestone = nullptr;
+#ifndef EA_BUILD_A124
     TrackMapStreamer = new ("UITrackMapStreamer", 0) UITrackMapStreamer();
+#endif
     for (int i = 0; i < GetWidth() * GetHeight(); i++) {
         FEImage *img = FEngFindImage(GetPackageName(), FEngHashString("EVENT_ICON_%d", i + 1));
         if (img) {
@@ -154,7 +157,12 @@ handleTutorial: {
         return;
     }
     FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
-    FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT, GetPackageName());
+    FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
+#ifndef EA_BUILD_A124
+                                     ,
+                                     GetPackageName()
+#endif
+    );
     return;
 }
 
@@ -191,8 +199,16 @@ handleWarp: {
 }
 
 handleUpdateAnimation:
-    if (TrackMapStreamer != nullptr) {
+    // La A124 salta a UpdateAnimation con this+0xE8 sin mirar nada: miembro por valor, sin comprobacion.
+#ifndef EA_BUILD_A124
+    if (TrackMapStreamer != nullptr)
+#endif
+    {
+#ifdef EA_BUILD_A124
+        TrackMapStreamer.UpdateAnimation();
+#else
         TrackMapStreamer->UpdateAnimation();
+#endif
     }
     return;
 
@@ -208,14 +224,26 @@ handleTutorialAccept: {
     CareerSettings *career = FEDatabase->GetCareerSettings();
     if (((career->SpecialFlags >> 9) & 1) == 0) {
         if (bIsInGame) {
+#ifndef EA_BUILD_A124
             if (TrackMapStreamer != nullptr) {
                 delete TrackMapStreamer;
             }
             TrackMapStreamer = nullptr;
-            InGameAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT, GetPackageName());
+#endif
+            InGameAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
+#ifndef EA_BUILD_A124
+                                                 ,
+                                                 GetPackageName()
+#endif
+            );
             FEngSetInvisible(FEngFindObject("InGameBackground.fng", 0x2716cdbf));
         } else {
-            FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT, GetPackageName());
+            FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
+#ifndef EA_BUILD_A124
+                                             ,
+                                             GetPackageName()
+#endif
+            );
         }
         FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
         FEngSetInvisible(FEngFindObject(GetPackageName(), FEngHashString("TRACK_MAP")));
@@ -269,9 +297,21 @@ void uiRepSheetMilestones::RefreshTrack() {
     if (GetCurrentDatum() != nullptr) {
         bVector2 position;
         float rotation = 0.0f;
-        if (TrackMapStreamer != nullptr) {
+        // La A124 (0x23B310) llama a Init, ResetZoom, PanTo y ZoomTo con this+0xE8 y sin comprobar nada.
+#ifndef EA_BUILD_A124
+        if (TrackMapStreamer != nullptr)
+#endif
+        {
+#ifdef EA_BUILD_A124
+            TrackMapStreamer.Init(nullptr, TrackMap, 0, 0);
+#else
             TrackMapStreamer->Init(nullptr, TrackMap, 0, 0);
+#endif
+#ifdef EA_BUILD_A124
+            TrackMapStreamer.ResetZoom(false);
+#else
             TrackMapStreamer->ResetZoom(false);
+#endif
         }
         unsigned int key;
         if (static_cast<MilestoneDatum *>(GetCurrentDatum())->GetType() == 0) {
@@ -283,10 +323,20 @@ void uiRepSheetMilestones::RefreshTrack() {
             key = pSpeedTrap->GetJumpMarkerKey();
         }
         GManager::Get().CalcMapCoordsForMarker(key, position, rotation);
-        if (TrackMapStreamer != nullptr) {
+#ifndef EA_BUILD_A124
+        if (TrackMapStreamer != nullptr)
+#endif
+        {
+#ifdef EA_BUILD_A124
+            TrackMapStreamer.PanTo(position);
+#else
             TrackMapStreamer->PanTo(position);
-            bVector2 zoom(0.27f, 0.27f);
-            TrackMapStreamer->ZoomTo(zoom);
+#endif
+#ifdef EA_BUILD_A124
+            TrackMapStreamer.ZoomTo(bVector2(0.27f, 0.27f));
+#else
+            TrackMapStreamer->ZoomTo(bVector2(0.27f, 0.27f));
+#endif
         }
         FEngSetRotationZ(FEngFindObject(GetPackageName(), 0xaf51dd73), rotation);
     }

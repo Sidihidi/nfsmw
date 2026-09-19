@@ -995,10 +995,15 @@ void RideInfo::SetStockParts() {
     }
 }
 
-// TODO it uses enums in A124
 struct MissingCarPart {
+#ifdef EA_BUILD_A124
+    // The A124 prototype stores both as enums (its stabs: 0xc bytes, Slot at 0x4).
+    CarType Type;
+    CAR_SLOT_ID Slot;
+#else
     int16 Type;
     int16 Slot;
+#endif
     uint32 PartNameHash;
 };
 

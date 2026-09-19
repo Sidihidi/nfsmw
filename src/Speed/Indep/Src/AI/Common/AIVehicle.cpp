@@ -1873,8 +1873,15 @@ void AIPerpVehicle::Update(float dT) {
             fGlueTimer -= 1.0f;
         }
 
+#ifndef EA_BUILD_A124
         bool off_world = IsSimplePhysicsActive();
-        if (GRaceStatus::Get().ComputeCatchUpSkill(racer_info, pGlueError, &fGlueOutput, &fGlueSkill, off_world)) {
+#endif
+        if (GRaceStatus::Get().ComputeCatchUpSkill(racer_info, pGlueError, &fGlueOutput, &fGlueSkill
+#ifndef EA_BUILD_A124
+                                                   ,
+                                                   off_world
+#endif
+                                                   )) {
 
             // NO hay `return` aqui: el `bne` del objetivo salta al MISMO destino
             // que el `beq` de `if (catchup...)` -- la salida del bloque --, no al
@@ -1883,7 +1890,10 @@ void AIPerpVehicle::Update(float dT) {
             // &myPos, &pos2, el temporal de GetDimension, this+0x50 ni
             // TheTrackPathManager@ha, y GCC salva CUATRO registros menos
             // (`stmw r18` contra `stmw r14`, marco 0xd8 contra 0xe8): 94,11%.
-            if (!off_world) {
+#ifndef EA_BUILD_A124
+            if (!off_world)
+#endif
+            {
                 if (fGlueSkill > 0.0f) {
 
                     if (GRaceStatus::IsSpeedTrapRace()) {

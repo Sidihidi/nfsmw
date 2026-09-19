@@ -61,11 +61,16 @@ class MiscSpeech {
 
 uiSMSMessage::uiSMSMessage(ScreenConstructorData* sd)
     : MenuScreen(sd) //
-    , ScrollBar(sd->PackageFilename, "scrollbar", true, true, false) {
+#ifndef EA_BUILD_A124
+    , ScrollBar(sd->PackageFilename, "scrollbar", true, true, false)
+#endif
+{
     the_msg = reinterpret_cast< SMSMessage* >(sd->Arg);
     new ESndGameState(0xd, true);
     SoundPause(true, static_cast< eSNDPAUSE_REASON >(0xb));
+#ifndef EA_BUILD_A124
     SetSoundControlState(false, static_cast< eSNDCTLSTATE >(4), "SMSMesUnPause");
+#endif
     SetSoundControlState(true, static_cast< eSNDCTLSTATE >(5), "SMSMes");
     Setup();
 }
@@ -73,7 +78,9 @@ uiSMSMessage::uiSMSMessage(ScreenConstructorData* sd)
 uiSMSMessage::~uiSMSMessage() {
     new ESndGameState(0xd, false);
     SoundPause(false, static_cast< eSNDPAUSE_REASON >(0xb));
+#ifndef EA_BUILD_A124
     SetSoundControlState(true, static_cast< eSNDCTLSTATE >(4), "SMSMesPause");
+#endif
     SetSoundControlState(false, static_cast< eSNDCTLSTATE >(5), "SMSMes");
 }
 
@@ -81,7 +88,9 @@ void uiSMSMessage::Setup() {
     FEString* pString = FEngFindString(GetPackageName(), FEHashUpper("MESSAGE_TEXT_1"));
     m_TextScroller.Initialise(this, static_cast< int >(pString->MaxWidth), 10,
                               "MESSAGE_TEXT_%d", FindFont(pString->Handle));
+#ifndef EA_BUILD_A124
     m_TextScroller.UseScrollBar(&ScrollBar);
+#endif
     m_TextScroller.SetTextHash(FEngHashString("SMS_MESSAGE_%d", the_msg->GetHandle()));
     if (!the_msg->IsVoice()) {
         FEngSetInvisible(FEngFindObject(GetPackageName(), 0x2a631207));

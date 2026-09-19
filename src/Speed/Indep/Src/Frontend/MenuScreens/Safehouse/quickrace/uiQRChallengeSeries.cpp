@@ -74,7 +74,12 @@ void UIQRChallengeSeries::NotificationMessage(u32 msg, FEObject *obj, u32 param1
                 return;
             }
             FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
-            FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_TOLLBOOTH, GetPackageName());
+            FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_TOLLBOOTH
+#ifndef EA_BUILD_A124
+                                             ,
+                                             GetPackageName()
+#endif
+            );
             break;
         case 0x1a2826e1: {
             FEDatabase->GetPlayerSettings(0)->Transmission = 0;

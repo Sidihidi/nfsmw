@@ -9,7 +9,8 @@
 // total size: 0x58
 class WCollisionMgr {
   public:
-    struct WorldCollisionInfo {
+    // ALIGNVEC: 0x60 in the A124 stabs (last field ends at 0x58), and Xbox 360 copies 0x60 bytes in ClosestCollisionInfo.
+    struct ALIGNVEC WorldCollisionInfo {
         UMath::Vector4 fCollidePt;        // offset 0x0, size 0x10
         UMath::Vector4 fNormal;           // offset 0x10, size 0x10
         WCollisionBarrierListEntry fBle;  // offset 0x20, size 0x28

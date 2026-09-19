@@ -15,10 +15,13 @@ import splat.scripts.split as split
 
 
 def generate_config_json(config_yml: Path, build_folder: Path) -> str:
+    # No cache: splat's cache keys each segment on its config and bytes, not on symbols.txt, so a renamed symbol
+    # kept the old name in every cached .s. The depfile below already limits splits to when an input changes.
     split.main(
         [config_yml],
         modes="all",
         verbose=True,
+        use_cache=False,
     )
 
     linker_entries = split.linker_writer.entries
@@ -82,8 +85,26 @@ def main() -> None:
 
     output = generate_config_json(Path(args.yml_file), Path(args.build_folder))
 
-    with open(Path(args.build_folder) / "config.json", "w", encoding="UTF-8") as f:
+    config_json_path = Path(args.build_folder) / "config.json"
+    with open(config_json_path, "w", encoding="UTF-8") as f:
         f.write(output)
+
+    # The ninja rule declares `depfile = $out_dir/dep`: without it the ELF was only split again when config.yml
+    # changed, and edits to symbols.txt never reached the generated assembly.
+    options = split.options.opts
+    inputs = [Path(args.yml_file)]
+    for extra in (options.symbol_addrs_paths, [options.target_path]):
+        inputs.extend(Path(p) for p in (extra or []) if p)
+    base = Path.cwd()
+    deps = []
+    for p in inputs:
+        try:
+            p = p.resolve().relative_to(base)
+        except ValueError:
+            pass
+        deps.append(str(p).replace(" ", "\\ "))
+    with open(Path(args.build_folder) / "dep", "w", encoding="UTF-8") as f:
+        f.write("%s: %s\n" % (config_json_path, " ".join(deps)))
 
 
 if __name__ == "__main__":

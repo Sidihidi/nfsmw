@@ -51,9 +51,12 @@ uiRepSheetRival::uiRepSheetRival(ScreenConstructorData *sd)
 }
 
 uiRepSheetRival::~uiRepSheetRival() {
+    // La A124 no carga la textura de derrotado: su destructor (0x2825B0) solo destruye RivalStreamer y la base.
+#ifndef EA_BUILD_A124
     eWaitForStreamingTexturePackLoading(nullptr);
     unsigned int tex = GetDefeatedTexture();
     eUnloadStreamingTexture(&tex, 1);
+#endif
 }
 
 eMenuSoundTriggers uiRepSheetRival::NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) {
@@ -102,11 +105,15 @@ void uiRepSheetRival::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u3
 
 void uiRepSheetRival::Setup() {
     pRivalImg = FEngFindImage(GetPackageName(), 0xc1f62308);
+    // La A124 no tiene la imagen de derrotado: ni 0x7FE4020F ni 0x26869897 salen en su Setup (0x23A1A0).
+#ifndef EA_BUILD_A124
     pDefeatedImg = FEngFindImage(GetPackageName(), 0x7fe4020f);
     pDefeatedImgBG = FEngFindImage(GetPackageName(), 0x26869897);
+#endif
     pTagImg = FEngFindImage(GetPackageName(), 0xf5a2a087);
     pBGImg = FEngFindImage(GetPackageName(), 0x2cbe1dd0);
     RivalStreamer.Init(iCurrentViewBin, pRivalImg, pTagImg, pBGImg);
+#ifndef EA_BUILD_A124
     FEngSetInvisible(reinterpret_cast<FEObject *>(pDefeatedImg));
     FEngSetInvisible(reinterpret_cast<FEObject *>(pDefeatedImgBG));
     unsigned int defeatedTexture = GetDefeatedTexture();
@@ -114,6 +121,7 @@ void uiRepSheetRival::Setup() {
     FEngSetTextureHash(pDefeatedImgBG, defeatedTexture);
     unsigned int texList = defeatedTexture;
     eLoadStreamingTexture(&texList, 1, TextureLoadedCallback, reinterpret_cast<uintptr_t>(this), 0);
+#endif
     if (bIsInGame && bMidRivalFlow) {
         cFEng::Get()->QueuePackageMessage(0x34297cb0, GetPackageName(), nullptr);
     } else {
@@ -129,6 +137,7 @@ void uiRepSheetRival::Setup() {
     RefreshHeader();
 }
 
+#ifndef EA_BUILD_A124
 void uiRepSheetRival::NotifyTextureLoaded() {
     FEngSetVisible(reinterpret_cast<FEObject *>(pDefeatedImg));
     FEngSetVisible(reinterpret_cast<FEObject *>(pDefeatedImgBG));
@@ -163,6 +172,7 @@ unsigned int uiRepSheetRival::GetDefeatedTexture() {
             return 0x87b7d0a;
     }
 }
+#endif
 
 void uiRepSheetRival::RefreshHeader() {
     GRaceBin *bin = GRaceDatabase::Get().GetBinNumber(iCurrentViewBin);

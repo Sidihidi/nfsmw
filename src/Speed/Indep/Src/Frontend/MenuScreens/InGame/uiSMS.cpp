@@ -74,9 +74,11 @@ uiSMS::uiSMS(ScreenConstructorData* sd)
     : ArrayScrollerMenu(sd, 1, 6, true) {
     button_pressed = 0;
     bVoiceMsg = true;
+#ifndef EA_BUILD_A124
     bAutoPlay = false;
     bWaitingForMemcard = true;
     bInitCompleted = false;
+#endif
     SetClickToSelectMode(true);
     for (int i = 0; i < 2; i++) {
         last_msg[i] = 0xFF;
@@ -94,7 +96,9 @@ uiSMS::uiSMS(ScreenConstructorData* sd)
         }
         FEngSetScript(GetPackageName(), 0x2CF801C2, FEHASH_APPEAR, true);
     } else {
+#ifndef EA_BUILD_A124
         bAutoPlay = true;
+#endif
     }
     if (the_msg != nullptr) {
         bVoiceMsg = the_msg->IsVoice();
@@ -112,23 +116,34 @@ uiSMS::uiSMS(ScreenConstructorData* sd)
 
 
 
+#ifndef EA_BUILD_A124
 int SortSMS(SMSSortNode* before, SMSSortNode* after) {
     return after->the_msg->GetSortOrder() < before->the_msg->GetSortOrder();
 }
+#endif
 
 void uiSMS::Setup() {
     bool new_voice = false;
     bool new_text = false;
     ClearData();
     bTList<SMSSortNode> msgs;
-    for (int i = 0x95; i >= 0; i--) {
+    for (int i =
+#ifdef EA_BUILD_A124
+             0x7C
+#else
+             0x95
+#endif
+         ;
+         i >= 0; i--) {
         SMSMessage* msg = FEDatabase->GetCareerSettings()->GetSMSMessage(i);
         if (msg->IsValid() && (msg->IsRead() || msg->IsUnRead())) {
             SMSSortNode* node = new ("SMSSortNode", 0) SMSSortNode(msg);
             msgs.AddTail(node);
         }
     }
+#ifndef EA_BUILD_A124
     msgs.Sort(SortSMS);
+#endif
     for (int i = 0; i < msgs.CountElements(); i++) {
         SMSMessage* msg = msgs.GetNode(i)->the_msg;
         if (msg->IsUnRead()) {
@@ -240,6 +255,7 @@ void uiSMS::RefreshHeader() {
 void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) {
     ArrayScrollerMenu::NotificationMessage(msg, obj, param1, param2);
     switch (msg) {
+#ifndef EA_BUILD_A124
     case 0xc98356ba:
         if (cFEng::Get()->IsPackagePushed("InGame_MC_Main_GC.fng")) {
             bWaitingForMemcard = true;
@@ -258,8 +274,11 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
         }
         bInitCompleted = false;
         break;
+#endif
     case 0x35f8620b:
+#ifndef EA_BUILD_A124
         bInitCompleted = true;
+#endif
         break;
     case 0x775ce5df:
         if (!the_msg->IsValid()) {

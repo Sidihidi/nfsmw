@@ -22,7 +22,9 @@ class InGameAnyMovieScreen : public MenuScreen {
   private:
     static char MovieFilename[64];
     SubTitler mSubtitler;           // offset 0x2C
+#ifndef EA_BUILD_A124
     bool bAllowingControllerErrors; // offset 0x50
+#endif
 };
 
 #endif

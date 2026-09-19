@@ -646,7 +646,11 @@ void GRaceStatus::NotifyScriptWhenLoaded() {
     }
 
     if (racersLoading || trackLoading || copsSpawning) {
-        new EFadeScreenOn(false);
+        new EFadeScreenOn(
+#ifndef EA_BUILD_A124
+            false
+#endif
+        );
     }
 
     mScriptWaitingForLoad = true;
@@ -1283,13 +1287,21 @@ void GRaceStatus::UpdateAdaptiveDifficulty(eAdaptiveGainReason reason, ISimable 
     }
 }
 
-bool GRaceStatus::ComputeCatchUpSkill(GRacerInfo *racer_info, PidError *pid, float *output, float *skill, bool off_world) {
+bool GRaceStatus::ComputeCatchUpSkill(GRacerInfo *racer_info, PidError *pid, float *output, float *skill
+#ifndef EA_BUILD_A124
+                                      ,
+                                      bool off_world
+#endif
+) {
     float glue_level = 0.5f;
     bool is_boss = false;
     bool use_race_override = false;
+#ifndef EA_BUILD_A124
     if (off_world) {
         glue_level = 1.0f;
-    } else {
+    } else
+#endif
+    {
         switch (GetRaceContext()) {
         case GRace::kRaceContext_Career: {
             float base_level = glue_level;
@@ -1392,7 +1404,13 @@ void GRaceStatus::SetLapTime(int lapIndex, int racerIndex, float time) {
     mLapTimes[lapIndex][racerIndex] = time;
 }
 
-float GRaceStatus::GetLapTime(int lapIndex, int racerIndex, bool bCumulativeTimeAtLap) {
+float GRaceStatus::GetLapTime(int lapIndex, int racerIndex
+#ifndef EA_BUILD_A124
+                              ,
+                              bool bCumulativeTimeAtLap
+#endif
+) {
+#ifndef EA_BUILD_A124
     if (bCumulativeTimeAtLap) {
 
         float totalTime = 0.0f;
@@ -1410,6 +1428,7 @@ float GRaceStatus::GetLapTime(int lapIndex, int racerIndex, bool bCumulativeTime
         }
         return totalTime;
     }
+#endif
 
     return mLapTimes[lapIndex][racerIndex];
 }
@@ -1418,8 +1437,18 @@ void GRaceStatus::SetCheckpointTime(int lapIndex, int checkIndex, int racerIndex
     mCheckTimes[lapIndex][checkIndex][racerIndex] = time;
 }
 
-int GRaceStatus::GetLapPosition(int lapIndex, int racerIndex, bool bOverallPosition) {
-    float lapTime = GetLapTime(lapIndex, racerIndex, bOverallPosition);
+int GRaceStatus::GetLapPosition(int lapIndex, int racerIndex
+#ifndef EA_BUILD_A124
+                                ,
+                                bool bOverallPosition
+#endif
+) {
+    float lapTime = GetLapTime(lapIndex, racerIndex
+#ifndef EA_BUILD_A124
+                               ,
+                               bOverallPosition
+#endif
+    );
     int numFaster = 0;
 
     for (int onRacer = 0; onRacer < mRacerCount; onRacer++) {
@@ -1427,7 +1456,12 @@ int GRaceStatus::GetLapPosition(int lapIndex, int racerIndex, bool bOverallPosit
         if (onRacer == racerIndex) {
             continue;
         }
-        float onRacerLapTime = GetLapTime(lapIndex, onRacer, bOverallPosition);
+        float onRacerLapTime = GetLapTime(lapIndex, onRacer
+#ifndef EA_BUILD_A124
+                                          ,
+                                          bOverallPosition
+#endif
+        );
 
         if (onRacerLapTime < lapTime && onRacerLapTime > 0.0f) {
             numFaster++;
@@ -1438,11 +1472,21 @@ int GRaceStatus::GetLapPosition(int lapIndex, int racerIndex, bool bOverallPosit
 }
 
 float GRaceStatus::GetBestLapTime(int racerIndex) {
-    float bestLapTime = GetLapTime(0, racerIndex, false);
+    float bestLapTime = GetLapTime(0, racerIndex
+#ifndef EA_BUILD_A124
+                                   ,
+                                   false
+#endif
+    );
 
     for (int onLap = 1; onLap < mRaceParms->GetNumLaps(); onLap++) {
 
-        float lapTime = GetLapTime(onLap, racerIndex, false);
+        float lapTime = GetLapTime(onLap, racerIndex
+#ifndef EA_BUILD_A124
+                                   ,
+                                   false
+#endif
+        );
 
         if (lapTime > 0.0f && lapTime < bestLapTime) {
             bestLapTime = lapTime;
@@ -1453,11 +1497,21 @@ float GRaceStatus::GetBestLapTime(int racerIndex) {
 }
 
 float GRaceStatus::GetWorstLapTime(int racerIndex) {
-    float worstLapTime = GetLapTime(0, racerIndex, false);
+    float worstLapTime = GetLapTime(0, racerIndex
+#ifndef EA_BUILD_A124
+                                    ,
+                                    false
+#endif
+    );
 
     for (int onLap = 1; onLap < mRaceParms->GetNumLaps(); onLap++) {
 
-        float lapTime = GetLapTime(onLap, racerIndex, false);
+        float lapTime = GetLapTime(onLap, racerIndex
+#ifndef EA_BUILD_A124
+                                   ,
+                                   false
+#endif
+        );
 
         if (lapTime > 0.0f && lapTime > worstLapTime) {
             worstLapTime = lapTime;
@@ -2149,7 +2203,12 @@ void GRacerInfo::FinalizeRaceStats() {
             int lapIndex = mLapsCompleted;
             int i = 0;
             while (i < numLaps) {
-                float t = GRaceStatus::Get().GetLapTime(i, mIndex, false);
+                float t = GRaceStatus::Get().GetLapTime(i, mIndex
+#ifndef EA_BUILD_A124
+                                                        ,
+                                                        false
+#endif
+                );
                 if (t == 0.0f) {
                     lapIndex = i;
                     break;

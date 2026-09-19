@@ -13,11 +13,18 @@ class EForceCarStop : public Event {
     // total size: 0x8
     struct StaticData : public Event::StaticData {
         int fStopInstantly; // offset: 0x4, size 0x4
+#ifdef EA_BUILD_A124
+        int fStopInNeutral; // offset: 0x8, size 0x4
+#endif
     };
 
     // enum { kEventID = 0 };
 
-    EForceCarStop(int pStopInstantly, unsigned int phSimable);
+    EForceCarStop(int pStopInstantly,
+#ifdef EA_BUILD_A124
+                  int pStopInNeutral,
+#endif
+                  unsigned int phSimable);
 
     ~EForceCarStop() override;
 
@@ -25,6 +32,9 @@ class EForceCarStop : public Event {
 
   private:
     int fStopInstantly; // offset: 0x8, size 0x4
+#ifdef EA_BUILD_A124
+    int fStopInNeutral; // offset: 0xc, size 0x4
+#endif
 
     unsigned int fhSimable; // offset: 0x10, size 0x4
 };

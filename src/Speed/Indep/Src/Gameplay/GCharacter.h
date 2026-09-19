@@ -81,9 +81,16 @@ class GCharacter : public GRuntimeInstance, public UTL::COM::Object, public IAtt
     };
 
     UMath::Vector3 mSpawnPos;           // offset 0x40, size 0xC
+#ifdef EA_BUILD_A124
+    // La A124 guarda los dos en 16 bits (stabs: 0x5C y 0x5E; el constructor hace `sh` a los dos) y no tiene
+    // mCreateAttemptsMade: Spawn pasa de guardar mTargetDir a llamar a AttemptSpawn sin escribir nada mas.
+    unsigned short mState;
+    unsigned short mFlags;
+#else
     unsigned char mState;               // offset 0x4C, size 0x1
     unsigned char mFlags;               // offset 0x4D, size 0x1
     unsigned short mCreateAttemptsMade; // offset 0x4E, size 0x2
+#endif
     UMath::Vector3 mSpawnDir;           // offset 0x50, size 0xC
     float mSpawnSpeed;                  // offset 0x5C, size 0x4
     UMath::Vector3 mTargetPos;          // offset 0x60, size 0xC

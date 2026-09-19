@@ -29,6 +29,25 @@ eTrackPathZoneType SFXCTL_Tunnel::m_PlayerZoneType = TRACK_PATH_ZONE_RESET;
 
 SndBase::TypeInfo SFXCTL_Tunnel::s_TypeInfo = {(int)0x00020060, "SFXCTL_Tunnel", &SFXCTL::s_TypeInfo, SFXCTL_Tunnel::CreateObject};
 
+#ifdef EA_BUILD_A124
+eREVERBFX SFXCTL_Tunnel::m_ReverbType;
+float SFXCTL_Tunnel::m_ReverbOffset;
+eREVERBFX SFXCTL_Tunnel::m_TargetType;
+float SFXCTL_Tunnel::m_CurWetGinsu;
+float SFXCTL_Tunnel::m_CurDryGinsu;
+float SFXCTL_Tunnel::m_CurWetAems;
+float SFXCTL_Tunnel::m_CurDryAems;
+float SFXCTL_Tunnel::m_CurWetGinsuTarget;
+float SFXCTL_Tunnel::m_CurWetAemsTarget;
+float SFXCTL_Tunnel::m_CurDryGinsuTarget;
+float SFXCTL_Tunnel::m_CurDryAemsTarget;
+int SFXCTL_Tunnel::m_GinsuWetVol;
+int SFXCTL_Tunnel::m_GinsuDryVol;
+int SFXCTL_Tunnel::m_AEMSWetVol;
+int SFXCTL_Tunnel::m_AEMSDryVol;
+bool SFXCTL_Tunnel::bToggleOffset;
+#endif
+
 SndBase::TypeInfo *SFXCTL_Tunnel::GetTypeInfo() const { return &s_TypeInfo; }
 
 const char *SFXCTL_Tunnel::GetTypeName() const { return s_TypeInfo.typeName; }
@@ -416,6 +435,13 @@ void SFXCTL_Tunnel::UpdateCityVerb(float t) {
     int isValid = 1;
     this->m_PrevReverbZone = this->m_CurReverbZone;
 
+    // La reverberacion de la A124 es una sola: solo la mueve el coche de cabeza (0x1C11E4: `lw $v0, 0xB0($s0)`).
+#ifdef EA_BUILD_A124
+    if (!this->m_IsLeadCar) {
+        return;
+    }
+#endif
+
     if (!ReverbAccessor.Layer) {
         isValid = 0;
     }
@@ -457,6 +483,11 @@ void SFXCTL_Tunnel::UpdateCityVerb(float t) {
 void SFXCTL_Tunnel::Destroy() {}
 
 void SFXCTL_Tunnel::EndTunnelVerb() {
+#ifdef EA_BUILD_A124
+    if (!this->m_IsLeadCar) {
+        return;
+    }
+#endif
     eREVERBFX currentverb = static_cast<eREVERBFX>(ReverbZoneCrossMap[this->m_CurReverbZone]);
     if (currentverb >= RVRB_MAX_TYPES) {
         currentverb = RVRB_CITYOPEN;
@@ -477,6 +508,11 @@ void SFXCTL_Tunnel::AdjustReverbOffset(int reverboffset) {
 }
 
 void SFXCTL_Tunnel::SetCurrentReverbType(eREVERBFX ereverbtype, int reverboffset) {
+#ifdef EA_BUILD_A124
+    if (!this->m_IsLeadCar) {
+        return;
+    }
+#endif
     this->bFadingOut = true;
     this->m_ReverbOffset = static_cast<float>(reverboffset);
     this->m_TargetType = ereverbtype;
@@ -494,7 +530,11 @@ void SFXCTL_Tunnel::UpdateReflectionParams(float t) {
     if (this->bFadingOut) {
         if (this->ReflRamp.IsFinished() &&
             this->bIsTunnelRamping == 0) {
-            if (this->m_IsLeadCar != 0) {
+            // La A124 lo pone siempre (0x1C1560: `sw $v1, 0xAC($s4)` sin mirar 0xB0).
+#ifndef EA_BUILD_A124
+            if (this->m_IsLeadCar != 0)
+#endif
+            {
                 this->bIsReadyForSwitch = true;
             }
             this->bFadingIn = true;

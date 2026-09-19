@@ -22,9 +22,9 @@ Five builds are compiled and measured, each against its own original binary:
 | build | platform / compiler | upstream `fd0c355` (2026-09-16) | this fork (2026-09-18) |
 |---|---|---|---|
 | `GOWE69` | GameCube, SN ProDG GCC 2.95.3 | 55.55 % code, 11,074 functions | **97.07 %** code, 18,292 / 18,432 functions |
-| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **29.94 %**, 12,534 / 25,361 |
-| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **33.01 %**, 9,922 / 21,549 |
-| `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **1.95 %**, 2,212 / 57,575 |
+| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **31.17 %**, 12,770 / 25,361 |
+| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **33.31 %**, 9,958 / 21,549 |
+| `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **1.96 %**, 2,213 / 57,575 |
 | `SPEED_EXE_1_3` | PC 1.3, MSVC 7.1 | 6.54 % | **9.99 %**, 5,788 / 46,134 |
 
 How the numbers are taken, so that they are comparable:
@@ -308,7 +308,7 @@ The rule: nothing the binary can tell you is guessed.
 - Struct layouts: every class with offset and size of each field in bits, and its qualified name in
   the signature of the implicit `operator=` (`RCQ29ESimulate10StaticData`); type numbers are per unit.
   `scripts/sondastabs.py` probes every class from the SourceList that compiles it, with the version's
-  real flags (2,472 match, 53 do not); `scripts/cotejo.py <Class>` sets A124 fields beside ours.
+  real flags (2,520 match, 13 do not); `scripts/cotejo.py <Class>` sets A124 fields beside ours.
 - Transfer rule: GameCube is `-O1`, PS2 `-O2`. Locals, inlines, order and layout transfer; codegen does
   not. Where both agree, the source form is confirmed by two compilers.
 - Caveats: an alpha, so late members and statements are missing (the `EA_BUILD_A124` guards); covers
@@ -647,6 +647,30 @@ Target unless stated: SN ProDG 3.9.3 (`ngccc`, GCC 2.95.3 PowerPC), `-O1` with s
     has no `_STL`): `-D_STL=` for PS2. Overlay units need the `.text=.over` rename in every platform
     branch of the build (+217/+197 PS2 functions, no source change). The retail build is not a
     milestone build: giving it the prototype's defines cost 268 functions.
+55. **Same function, another signature.** objdiff pairs by mangled name, so a parameter added after the
+    prototype leaves a function at 0 % whatever its body: the listener name of
+    `Sim::Collision::AddListener`, a `bool` in half the frontend, `unsigned long` against
+    `unsigned long long`. `scripts/firmas.py` lists functions both sides define under the same
+    `Class::method` with different signatures (24.7 kB in the A124). Guard the parameter in the
+    declaration, the definition and every argument, as with a member; a `const` method takes
+    `#ifndef EA_BUILD_A124 const #endif`; a 64-bit typedef becomes `uint64` (`unsigned long long` on
+    GameCube, `unsigned long` on the EE, which is what DWARF and stabs say). Where the parameter carries
+    logic the prototype does differently, leave it: a hybrid of two versions is worse than a 0.
+56. **Retail PS2 names come from the prototype.** `config/SLUS-21351/symbols.txt` carries the A124's
+    mangled names, so a SLUS signature proves nothing: SLUS's `AddListener` reads the listener name
+    (`daddu $s2, $a2`) and stores it in a 16-byte node, although its name says otherwise.
+    `scripts/argsusados.py` lists the argument registers a PS2 function reads before writing them;
+    where SLUS reads one the A124 does not, the parameter exists and the name is wrong (21 corrected,
+    12 of them now at 100 %). An unused parameter leaves no trace: without a register difference, keep
+    the name. Guards for the prototype stay `EA_BUILD_A124`, never all of PS2, unless SLUS's code proves
+    it.
+57. **An empty platform branch returns garbage.** `bMin`/`bMax(float)` had an empty PS2 branch: GameCube
+    used its `fsel`, and both PS2 builds returned whatever was in `$f0`, so GCC dropped every computation
+    that depended on them (the A124 has 1,193 `min.s`/`max.s`). With `-ffast-math`, EE-GCC turns a plain
+    conditional into `min.s`/`max.s`; `a > b ? b : a` and `a < b ? b : a` give the original's operand
+    order. `scripts/sinreturn.py` compiles the PS2 units with `-Wreturn-type` and lists such sites; most
+    are empty accessors the original never expands, the ones that matter are header inlines with a body
+    on another platform.
 
 ## Traps: where tools lie
 
@@ -686,6 +710,10 @@ control that has to change.
   failed build leaves the old DOL and report in place. Relink before believing "DOL OK".
 - Ninja graph holes: `splits.txt`, `symbols.txt` and `keep.lst` were not dependencies (fixed), and
   `-MMD` missed `<...>` headers (now `-MD`). Symptom: a short DOL with no error; compare timestamps.
+- The PS2 split did not rerun when `symbols.txt` changed: its wrapper never wrote the depfile the rule
+  declares, and splat's cache keys each segment on its config and bytes, not on symbols ("0 split, 305
+  cached", old names in every `.s`). `tools/splat_to_config_json.py` now writes the depfile and splits
+  without the cache (under two minutes). To force a split, delete `build/<V>/config.json`.
 - `configure.py --version V` can finish OK and emit no rules (missing `build/<V>/config.json`), and a
   failed split keeps the previous version's `objdiff.json`: a 0 % that is "nothing compiled", or one
   version measured as another.
@@ -1157,6 +1185,9 @@ The most important tools have a second sentence.
 - `desplazamientos.py`: groups loads and stores that differ only in displacement. A misplaced member breaks every function that touches the class.
 - `alinvec.py`: finds vector members that are aligned to 16 in the PS2 original but not in our source, from the type dump. `sondastabs.py` and `cotejo.py` now also cover non-vector members.
 - `attrfuera.py`: for the A124 only, moves the given attributes out of a generated AttribSys class's `_LayoutStruct` and makes their accessors read by key, as that build does. It was worth +31 SLES functions.
+- `firmas.py [--version V]`: functions the original defines under a mangled name our object lacks, while ours defines the same `Class::method` with another signature. objdiff pairs by name, so these read 0 % until the signature matches.
+- `argsusados.py <version> <unit> <symbol>`: the argument registers a PS2 function reads before writing them. It decides whether SLUS has a parameter its inherited A124 name lacks.
+- `sinreturn.py [--slus]`: compiles the PS2 units with `-Wreturn-type` and lists non-void functions that can end without a `return`, most reached first.
 
 ### Readers of the original's debug data
 
@@ -3430,48 +3461,36 @@ It is listed so that nobody has to rediscover it.
 ## PS2 prototype (A124): classes whose layout still differs
 
 The full-layout probe (`scripts/sondastabs.py`, see the tool catalogue) compares
-every class described in the A124 stabs with ours. After the fixes described in
-this document, **2,472 classes match field by field and 53 do not**. Most of the
-53 are classes whose A124 version is simply older — members added after the
-prototype, or features it does not have yet — so the fix is a version guard plus
-checking every use against the prototype's code. The largest ones:
+every class described in the A124 stabs with ours: **2,520 classes match field
+by field and 13 do not**. The generated events with one parameter fewer
+(`EPause`, `EShowResults`, `EFadeScreenOn`, `MNotifyOnlineRaceOver`), the
+`speechtune` attribute layout, the sound controllers and some thirty frontend,
+world and gameplay classes are fixed with version guards (lesson 51). The 13
+left are older versions of their class, where guarding members one by one would
+produce a hybrid of two versions:
 
-- **`GManager` and the gameplay icons.** The A124 has 15 icon types, not 17:
-  there is no `GIcon::kType_SpeedTrapInRace` or `kType_AreaUnlock`, and
-  `kType_Checkpoint` is 14. `GManager::mSpeedTrapRaceIconsShown` and
-  `mRestartEventHash` do not exist; `UpdateIconVisibility` loops over 15 types
-  and sets indices 1–13 only. The `GTrigger` constructor always allocates a
-  speed-trap icon as `kType_SpeedTrap` (no `OpenWorldSpeedTrap()` check) and
-  has no area-unlock branch; `FeMinimap` and `uiWorldMap` use the two extra
-  types too.
-- **`AIActionRace`.** Besides `mPerpetrator` and `CheckSpeedTraps` (both
-  guarded for the A124 in this fork), `mBottleTime` does not exist either. The A124's `GetPotentialNOS` is a
-  different function — `bool GetPotentialNOS(float speed, bool was_on)`, which
-  returns `mIEngine->GetNOSCapacity() * mUsableNOS > (was_on ? 0.0f : 0.3f)`
-  after three early exits — and the NOS block of `Update` is an older version.
-  Guarding only the member would produce a hybrid of the two versions, so it is
-  left for a proper rewrite of the A124 functions.
-- **Sound controllers.** `SFXCTL_Tunnel` lacks the whole reverb state of the
-  retail game (16 members), `SFXCTL_Engine` has four members fewer and one
-  different (`m_pShiftCtl`), `SFXCTL_HybridMotor` lacks the redline logic
-  (`mPrevDeltaRPM`, `mPrevPhyDeltaRPM`, together with `bWasRedlining` in the
-  engine), and `EAXAemsManager` differs in its loading state.
-- **Generated events with one parameter fewer.** `EPause` (no
-  `fShowFlatPause`), `EShowResults` (no `fCalledWhileDriving`), `EFadeScreenOn`
-  (no `fLoadingBarOnly`) and `MNotifyOnlineRaceOver` (no `fShowPostRace`); their
-  `StaticData` differ accordingly. About 24 call sites in the frontend.
-- **`Attrib::Gen::speechtune::_LayoutStruct`.** Four attributes fewer and a
-  different field order: the attribute generator sorts differently when the set
-  changes, so it needs a second, complete layout for the A124.
+- **`GManager`.** The A124 has 15 icon types, not 17: there is no
+  `GIcon::kType_SpeedTrapInRace` or `kType_AreaUnlock`, and `kType_Checkpoint`
+  is 14. `mSpeedTrapRaceIconsShown` and `mRestartEventHash` do not exist, and
+  it has members the final game dropped (`mBinVaultInSlot`, `mRaceVaultInSlot`,
+  `mKeyToInstanceMap`, `mIcons`). `UpdateIconVisibility`, the `GTrigger`
+  constructor, `FeMinimap` and `uiWorldMap` follow the 15 types.
+- **`AIActionRace`.** No `mBottleTime`. The A124's `GetPotentialNOS` is a
+  different function, `bool GetPotentialNOS(float speed, bool was_on)`, and so
+  is `GetPotentialAcceleration` (a lerp between two scale tables, no drag case).
+- **The rival texture streamer.** `uiRepSheetRivalStreamer` is 0x44 bytes with
+  another design (texture-pack flags and three hashes instead of bins). The five
+  screens that embed it (`uiRepSheetRivalBio`, `uiSafehouseRegionUnlock`,
+  `uiRepSheetMain`, `uiRepSheetRival`, `Showcase`) are 8 bytes off because of
+  it; `uiRepSheetMain` and `uiRepSheetRival` also lack the "defeated" images.
 - **`MemoryCard`.** Three different layouts: GameCube, the A124 and the retail
   PS2 (e.g. `m_MemOp` at 0x94 and `m_pIMemcard` at 0x15c in `SLUS-21351`).
-- **Frontend screens.** The A124 frontend is an older version: many screens
-  (`uiRepSheet*`, `FEKeyboard`, `InGameAny*Screen`, `CareerSettings`,
-  `UserProfile`, `FEPlayerCarDB`…) have fewer or different members.
-
-A batch covering about twenty of the small cases (one or two extra members
-each, in the frontend, sound and gameplay code) is already in the tree; the
-sections above describe them.
+- **`Speech::GameSpeech`.** Its pending list is a heap-allocated list walked
+  node by node, not a vector.
+- **`FEKeyboard`, `FEMarkerSelection`, `LoadingTips`, `EAXAemsManager`.** Older
+  versions with other members and logic (`LoadingTips` picks the tip screen
+  from the race database, with none of the final game's test screens;
+  `EAXAemsManager` differs in its loading state).
 
 ## Leftovers that break the ground rules: removed
 
