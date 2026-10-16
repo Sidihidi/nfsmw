@@ -225,7 +225,7 @@ static int iSPCH_MatchSample(VoxSentence *sentence, VoxPhrase *phrase, unsigned 
                     EventSpec eventSpec;
                     unsigned char *globalMatchParmArray;
 
-                    *(int *)&eventSpec = parms[0];
+                    eventSpec = *(EventSpec *)&parms[0];
 
                     if (iSPCH_GetGlobalMatchParmsArray(&eventSpec, &globalMatchParmArray)) {
                         if (sampleParmValue == globalMatchParmArray[matchParmIndex]) {
@@ -300,7 +300,10 @@ static int iSPCH_GetPhraseBank(VoxPhrase *phrase, unsigned int *parms, PhrasePic
         break;
     }
 
-    success = (phrasePick->bankHandle >= 0);
+    success = 1;
+    if (phrasePick->bankHandle < 0) {
+        success = 0;
+    }
 
     return success;
 }
@@ -435,7 +438,6 @@ static int iSPCH_ChooseSamples(SentencePickInfo *sentenceInfo, VoxSentence *sent
     int postMatchParms;
     int sampleSize;
     unsigned char *sampleData;
-    unsigned char *sampleTable;
     int numParms;
 
     numMatches = 0;
@@ -449,50 +451,58 @@ static int iSPCH_ChooseSamples(SentencePickInfo *sentenceInfo, VoxSentence *sent
     bank = gVoxBanks[bankIndex].voxHdr;
     numSamples = bank->numSamples;
 
-    if (iSPCH_BankHasValidSamples(phrase, bank, parms)) {
-        numParms = bank->parmFlags & 0x7F;
+    if (!iSPCH_BankHasValidSamples(phrase, bank, parms)) {
+        goto abort;
+    }
 
-        sampleData = (unsigned char *)bank + 0xE;
-        sampleSize = numParms + 2;
+    numParms = bank->parmFlags & 0x7F;
 
-        for (i = 0; i < numSamples; i++) {
-            if (iSPCH_MatchSample(sentence, phrase, parms, sampleData)) {
-                if (iSPCH_SampleExists(phraseInfo, bank, i)) {
-                    sampleAge = iSPCHBank_GetSampleTimeInQueue(bank, i);
-                    if (sampleAge > 0) {
-                        if (sampleAge > secondChoiceAge) {
-                            secondChoiceAge = sampleAge;
-                            secondChoice = i;
-                        }
-                    } else {
-                        if (iSPCH_AddSampleToValidPicks(sentenceInfo, i)) {
-                            numMatches++;
-                        }
+    sampleSize = numParms + 2;
 
-                        if (postMatchParms) {
-                            iSPCH_PostMatchParmValue(sentence, phrase, sampleData);
-                        }
+    sampleData = (unsigned char *)bank + 0xE;
+
+    for (i = 0; i < numSamples; i++) {
+        if (iSPCH_MatchSample(sentence, phrase, parms, sampleData)) {
+            if (iSPCH_SampleExists(phraseInfo, bank, i)) {
+                sampleAge = iSPCHBank_GetSampleTimeInQueue(bank, i);
+                if (sampleAge > 0) {
+                    if (sampleAge > secondChoiceAge) {
+                        secondChoiceAge = sampleAge;
+                        secondChoice = i;
+                    }
+                } else {
+                    if (iSPCH_AddSampleToValidPicks(sentenceInfo, i)) {
+                        numMatches++;
+                    }
+
+                    if (postMatchParms) {
+                        iSPCH_PostMatchParmValue(sentence, phrase, sampleData);
                     }
                 }
             }
-
-            sampleData += sampleSize;
         }
 
-        if (numMatches == 0 && secondChoice != -1) {
-            if (iSPCH_AddSampleToValidPicks(sentenceInfo, secondChoice)) {
-                numMatches = 1;
-            }
+        sampleData += sampleSize;
+    }
 
-            if (postMatchParms) {
-                sampleTable = (unsigned char *)bank + 0xC;
-                sampleData = sampleTable + secondChoice * sampleSize;
+    /* Incondicional: la PRE (LCM) de gcse sube `bank + 0xC` al final del bloque de la prueba
+       copiada del for (linea 640, detras del cmpw) y la copia de aqui muere; es el r17 del
+       original. Con la tabla calculada solo dentro del if, se pliega a bank + x + 0xE. */
+    bank++;
 
-                iSPCH_PostMatchParmValue(sentence, phrase, sampleData + 2);
-            }
+    if (numMatches == 0 && secondChoice != -1) {
+        if (iSPCH_AddSampleToValidPicks(sentenceInfo, secondChoice)) {
+            numMatches = 1;
+        }
+
+        if (postMatchParms) {
+            sampleData = (unsigned char *)bank + secondChoice * sampleSize;
+
+            iSPCH_PostMatchParmValue(sentence, phrase, sampleData + 2);
         }
     }
 
+abort:
     return numMatches;
 }
 
@@ -520,9 +530,16 @@ static int iSPCH_SentenceLength(VoxSentence *sentence, SentencePickInfo *sentenc
     dataBytes = 0;
 
     numPhrases = VoxSentence_GetNumPhrases(sentence);
+    // PS2 es un for (su EE-GCC cuenta hacia atras: srl + bnez de numPhrases) y GameCube un do-while tras el if
+    // (su spch lleva -fno-strength-reduce; con el for baja a 90,5 %). El cuerpo es el mismo.
+#ifdef EA_PLATFORM_PLAYSTATION2
+    for (i = 0; i < numPhrases; i++) {
+        {
+#else
     i = 0;
     if (numPhrases != 0) {
         do {
+#endif
             unsigned int sampleOffset;
             unsigned int sampleBytes;
 
@@ -533,8 +550,12 @@ static int iSPCH_SentenceLength(VoxSentence *sentence, SentencePickInfo *sentenc
             if (iSPCH_GetSampleSizeData(bank, sampleIndex, &sampleOffset, &sampleBytes)) {
                 dataBytes += sampleBytes;
             }
+#ifdef EA_PLATFORM_PLAYSTATION2
+        }
+#else
             i++;
         } while (i < numPhrases);
+#endif
     }
 
     centiSecs = iSPCH_ConvertTime(dataBytes);
@@ -611,7 +632,9 @@ static int iSPCH_RepeatEvent(VoxEvent *event, unsigned int channel) {
 
         numInARow = VoxEvent_GetNumInARow(event);
         if (numInARow > 0) {
-            result = (gVoxInGame[channel].numEventTimes < numInARow);
+            if (gVoxInGame[channel].numEventTimes >= numInARow) {
+                result = 0;
+            }
         }
     }
 
@@ -791,8 +814,10 @@ static int iSPCH_SentenceGetChoices(SentencePickInfo *sentenceInfo, VoxSentence 
         goto abort;
     }
 
-    if (!iSPCH_ShortRuleStatus(sentence, filterSetting)) {
-        goto abort;
+    if (iSPCH_ShortRuleStatus(sentence, filterSetting)) {
+    } else {
+        validSentence = 0;
+        goto done;
     }
 
     iSPCH_InitMatchParmIO(sentence);
@@ -835,20 +860,19 @@ static int iSPCH_SentenceGetChoices(SentencePickInfo *sentenceInfo, VoxSentence 
         }
     } while (doneChecking == 0 && escapeHatch > 0);
 
-    if (escapeHatch != 0) {
-        goto done;
+    if (escapeHatch == 0) {
+        validSentence = 0;
     }
-
-abort:
-    validSentence = 0;
-
 done:
     return validSentence;
+abort:
+    validSentence = 0;
+    goto done;
 }
 
 static void iSPCH_RandomizeSentencePicks(VoxSentence *sentence, SentencePickInfo *sentenceInfo) {
     unsigned char *picks;
-    unsigned char temp;
+    char temp;
     int randPickIndex;
     int i;
     int numPhrases;
@@ -939,7 +963,9 @@ static int iSPCH_ChooseSentenceIteratively(VoxSentence *sentence, SentencePickIn
 
         if (filterLength != 0) {
             length = iSPCH_SentenceLength(sentence, sentenceInfo);
-            validSentence = (length <= filterLength);
+            if (length > filterLength) {
+                validSentence = 0;
+            }
         }
 
         if (validSentence != 0 && sentence->numMatchParms != 0) {
@@ -1113,32 +1139,10 @@ static void iSPCH_ConstantRuleSet(EventSpec *eventSpec, VoxEvent *event, VoxSent
     }
 }
 
-/* HISTORICO hasta r36f: 524 B al 98,3206%. spchpick tenia DOS sin cerrar
-   (esta y iSPCH_ChooseSamples, 412 B al 95,5340), sin faltar datos.
-   r38 cierra ambas: 7.836 B de codigo y DOL identico en enlace aislado.
-
-   Las 132 instrucciones son las mismas. Las 8 filas que quedan estan todas en
-   el bucle de bancos de aqui abajo, y son DOS cosas: el objetivo hace
-   `lwzx r3` (leer bankHandle) ANTES de `add r30` (materializar phraseChoice),
-   y usa r9/r11 donde nosotros r11/r10.
-
-   CUATRO formas de orden medidas, ninguna gana:
-     - sin la local `bankIndex` (indexar con phraseChoice->bankIndex): IDENTICA.
-     - operandos de la comparacion al reves: 98,2443.
-     - `bankHandle` a una local antes del if: 96,5649.
-     - `bankHandle` leido antes de tomar el puntero: 95,1603.
-   Ojo: este fichero es CRLF ENTERO; un parche con 
- casa 0 de N sin avisar.
-
-   r36f, NUEVE formas mas y ninguna gana (todas a 524 B salvo donde se dice):
-   barrera `"+r"` sobre phraseChoice delante del if 19 filas, sobre bankIndex 6
-   (objeto identico), el eje "a quien" en los dos sentidos 21 y 19, la local de
-   desplazamiento explicito del brief (`int off = i * sizeof(PhraseChoice)` y el
-   cast) objeto IDENTICO, barrera de ranura delante del if 7 filas y detras de la
-   toma del puntero 5 filas (97,9389 %, el mejor y aun asi no cierra), y
-   `bankHandle` a local con y sin barrera 28 y 30 filas con 528 B.
-   Ojo: `asm("" ::: "r0")` no compila aqui --GCC 2.9 en C++ lee `::` como el
-   operador de ambito--; hay que escribir `__asm__("" : : : "r0")`. */
+/* `bankIndex` tambien en el segundo bucle (linea 1946 del mapa: el `lha r9` es la local del
+   DWARF). Usada en dos bloques deja de ser un pseudo local; local-alloc, que alarga un paso las
+   vidas para no crear dependencias falsas, ya no la ata con el desplazamiento del primer bucle,
+   y sale r9/r11 como el original. */
 static int iSPCH_MakeSampleRequests(VoxEvent *event, VoxSentence *sentence, EventSpec *eventSpec) {
     VOXBANKHDR *bank;
     SPCHType_SampleRequestData sampleRequestData;
@@ -1178,7 +1182,7 @@ static int iSPCH_MakeSampleRequests(VoxEvent *event, VoxSentence *sentence, Even
         if (gVoxBanks[bankIndex].bankHandle != phraseChoice->bankHandle) {
             phraseChoice->bankIndex = iSPCH_FindBankIndexFromHandle(phraseChoice->bankHandle);
 
-            if (phraseChoice->bankIndex & 0x8000) {
+            if (phraseChoice->bankIndex < 0) {
                 goto abort;
             }
         }
@@ -1191,9 +1195,9 @@ static int iSPCH_MakeSampleRequests(VoxEvent *event, VoxSentence *sentence, Even
         phraseChoice = &gEventChoice[channel].phrases[i];
 
         sampleIndex = phraseChoice->sampleIndex;
-
+        bankIndex = phraseChoice->bankIndex;
         bankHandle = phraseChoice->bankHandle;
-        bank = gVoxBanks[phraseChoice->bankIndex].voxHdr;
+        bank = gVoxBanks[bankIndex].voxHdr;
 
         if ((bank->parmFlags & 0x80) && gClearCycle != 0) {
             iSPCH_ClearCycleBit(bank, sampleIndex);
@@ -1220,7 +1224,7 @@ static int iSPCH_MakeSampleRequests(VoxEvent *event, VoxSentence *sentence, Even
             sampleRequestData.subID = bank->subID;
 
             if (i == 0) {
-                sampleRequestData.interruptFlag = VoxEvent_GetInterruptFlag(event) >> 5;
+                sampleRequestData.interruptFlag = VoxEvent_GetInterruptFlag(event);
             } else {
                 sampleRequestData.interruptFlag = 0;
             }
@@ -1360,7 +1364,7 @@ int iSPCH_PlayChosen(unsigned int inChannel) {
         goto abort;
     }
 
-    *(int *)&eventSpec = gEventChoice[inChannel].memParms[0];
+    eventSpec = *(EventSpec *)gEventChoice[inChannel].memParms;
 
     iSPCH_RuleSet(&eventSpec, gEventChoice[inChannel].event,
                   gEventChoice[inChannel].sentenceNum, gEventChoice[inChannel].memParms);
@@ -1376,7 +1380,7 @@ int iSPCH_PlayChosen(unsigned int inChannel) {
     if (eventSpec.eventID == gVoxInGame[inChannel].lastEventSpec.eventID) {
         gVoxInGame[inChannel].numEventTimes = gVoxInGame[inChannel].numEventTimes + 1;
     } else {
-        *(int *)&gVoxInGame[inChannel].lastEventSpec = *(int *)&eventSpec;
+        gVoxInGame[inChannel].lastEventSpec = eventSpec;
         gVoxInGame[inChannel].numEventTimes = 1;
     }
 
@@ -1506,7 +1510,7 @@ int iSPCH_ChooseSentence(unsigned int *parms) {
 
     filterLength = 0;
 
-    *(int *)&eventSpec = parms[0];
+    eventSpec = *(EventSpec *)parms;
     event = iSPCH_FindEvent(&eventSpec);
     if (event == 0) {
         goto abort;
@@ -1566,7 +1570,11 @@ int iSPCH_ChooseSentence(unsigned int *parms) {
                 if (iSPCH_CheckSentenceRules(event, sentenceNum, eventSettings, userSettingsMask)) {
                     if (tryExactMatch) {
                         sentenceParmsMask = VoxEvent_GetSentenceParmMask(event, sentenceNum);
-                        getChoices = (sentenceParmsMask == validParmsMask);
+                        if (sentenceParmsMask == validParmsMask) {
+                            getChoices = 1;
+                        } else {
+                            getChoices = 0;
+                        }
                     }
 
                     if (getChoices) {

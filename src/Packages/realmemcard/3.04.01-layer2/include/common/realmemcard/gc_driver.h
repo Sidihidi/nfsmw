@@ -11,6 +11,9 @@
 
 namespace Realmc {
 
+// Lo define gc_interface.cpp (.sdata2 0x80500A14 de GOWE69, segun el DWARF de las dos unidades).
+extern const int MAX_COMMENT_LENGTH;
+
 enum ICardResult {
     CR_SUCCESS = 0,
     CR_BUSY = 1,
@@ -63,6 +66,19 @@ inline int GetUserDataOffset(GcFileDescriptor *fd) {
 }
 
 struct GCDriver : public DeviceDriver {
+    // el cuarteto propio (igual cuerpo que DeviceDriver): el original lo declara
+    // AQUI y su DWARF lo muestra como GCDriver::operator new en cada new GCDriver
+    static inline void *operator new(unsigned int size) {
+        return AllocateMemSize(0, size, 0, 0, 0);
+    }
+    static inline void operator delete(void *ptr, unsigned int size) {
+        FreeMemSize(ptr, static_cast<int>(size));
+    }
+    static inline void *operator new(unsigned int, void *ptr) {
+        return ptr;
+    }
+    static inline void operator delete(void *, void *) {}
+
     GCDriver(const SystemInterface *iSystem);
     virtual ~GCDriver() override;
 

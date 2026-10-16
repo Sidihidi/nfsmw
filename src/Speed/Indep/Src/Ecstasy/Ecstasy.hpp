@@ -88,6 +88,12 @@ class eModel : public bTNode<eModel> {
     int HasSolid() {
         return Solid != nullptr;
     }
+#ifdef EA_PLATFORM_WIN32
+    // PC: Render(eModel) solo aplica la tabla de texturas de recambio si la hay (0x6DAA96).
+    eReplacementTextureTable *GetReplacementTextureTable() {
+        return pReplacementTextureTable;
+    }
+#endif
 };
 
 // total size: 0x200
@@ -106,7 +112,14 @@ class eSolidPlatInterface {
     int LoaderPlatChunks(bChunk *chunk);
     int UnloaderPlatChunks(bChunk *chunk);
     int FixPlatInfo();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC y X360: en linea (InternalUnloaderSolidChunks no la llama).
+    int UnFixPlatInfo() {
+        return 1;
+    }
+#else
     int UnFixPlatInfo();
+#endif
 
     eSolidPlatInfo *GetPlatInfo() {
         return this->PlatInfo;
@@ -234,6 +247,8 @@ class eView : public eViewPlatInterface {
     void BiasMatrixForZSorting(bMatrix4 *pL2W, float zBias);
     void AttachCameraMover(CameraMover *camera_mover);
     void UnattachCameraMover(CameraMover *camera_mover);
+    int GetPlayerNumFromViewID();
+    void SetupWorldLightContext();
 
     int32 GetID() {
         return this->ID;
@@ -297,7 +312,7 @@ class eView : public eViewPlatInterface {
     }
 };
 
-extern eView eViews[22];
+extern eView eViews[NUM_EVIEWS]; // 26 en las dos PS2 (las seis del mapa de entorno), 24 en PC, 22 en GameCube
 
 inline eView *eGetView(int32 view_id, bool doAssert) {
     // if (doAssert) {
@@ -329,14 +344,14 @@ class ePoly {
     // total size: 0x94
   public:
     bVector3 Vertices[4]; // offset 0x0, size 0x40
-    float UVs[2][4];      // offset 0x40, size 0x20
-#ifdef EA_BUILD_A124
-    uint16 UVsMask[2][4];
+    float UVs[4][2];      // offset 0x40, size 0x20 ([vertice][u/v]; el volcado DWARF de GC da las dimensiones al reves)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    short UVsMask[4][2]; // offset 0x60, size 0x10
 #else
-    float UVsMask[2][4]; // offset 0x60, size 0x20
+    float UVsMask[4][2]; // offset 0x60, size 0x20
 #endif
     uint8 Colours[4][4]; // offset 0x80, size 0x10
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     uint8 flags;   // offset 0x90, size 0x1
     uint8 Flailer; // offset 0x91, size 0x1
 #endif
@@ -348,28 +363,34 @@ class ePoly {
     void operator delete(void *ptr) {}
 
     void SetFlags(uint8 i) {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
         flags = i;
+#else
+        Vertices[0].pad = i;
 #endif
     }
 
     void SetFlailer(uint8 i) {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
         Flailer = i;
+#else
+        Vertices[1].pad = i;
 #endif
     }
 
     uint8 GetFlags() {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
         return flags;
 #else
-        return 0;
+        return Vertices[0].pad;
 #endif
     }
 
     uint8 GetFlailer() {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
         return Flailer;
+#else
+        return Vertices[1].pad;
 #endif
     }
 };
@@ -386,7 +407,8 @@ class LoadedTable {
     }
 
     int IsLoaded(uint32 hash) {
-        return static_cast<int>(*this->GetPtr(hash) == 0);
+        uint8 *p = this->GetPtr(hash);
+        return *p;
     }
 
     void SetLoaded(uint32 hash) {
@@ -489,10 +511,21 @@ float GetSunIntensity(eView *view);
 int eInitEngine();
 void eFixUpTables();
 bool eIsWidescreen();
+// La A124 solo tiene la API con uint32 (eLoadStreamingSolid__FPUiiPFUi_vUii, eLoadStreamingSolidPack__FPCcPFUi_vUii y
+// eUnloadStreamingSolidPack__FPCcPFUi_vUi, que ademas avisa al terminar); GameCube y las de venta, la de void *.
+#ifdef EA_BUILD_A124
+void eLoadStreamingSolid(uint32 *name_hash_table, int num_hashes, void (*callback)(uint32), uint32 param0, int memory_pool_num);
+int eLoadStreamingSolidPack(const char *filename, void (*callback_function)(uint32), uint32 callback_param, int memory_pool_num);
+#else
 void eLoadStreamingSolid(uint32 *name_hash_table, int num_hashes, void (*callback)(void *), void *param0, int memory_pool_num);
 int eLoadStreamingSolidPack(const char *filename, void (*callback_function)(void *), void *callback_param, int memory_pool_num);
+#endif
 void eUnloadStreamingSolid(uint32 *name_hash_table, int num_hashes);
+#ifdef EA_BUILD_A124
+int eUnloadStreamingSolidPack(const char *filename, void (*callback_function)(uint32) = nullptr, uint32 callback_param = 0);
+#else
 int eUnloadStreamingSolidPack(const char *filename);
+#endif
 void eWaitForStreamingSolidPackLoading(const char *filename);
 
 void eInitSolids();
@@ -501,6 +534,10 @@ eSolid *eFindSolid(uint32 name_hash);
 eSolid *eFindSolid(uint32 name_hash, eSolidListHeader *solid_list_header);
 void NotifySolidLoader(eSolidListHeader *solid_list_header);
 void NotifySolidUnloader(eSolid *solid);
+#ifdef EA_PLATFORM_PLAYSTATION2
+void eSolidPlatNotifyTextureLoading(eSolid *solid);
+void AutoKit(eSolid *solid);
+#endif
 int eSmoothNormals(eSolid **solid_table, int num_solids);
 
 void SetDuplicateTextureWarning(int enabled);
@@ -513,17 +550,21 @@ inline uint32 eGetFrameCounter() {
     return eFrameCounter;
 }
 
+#ifndef EA_BUILD_A124
 inline void eLoadStreamingSolid(unsigned int *name_hash_table, int num_hashes, void (*callback)(uintptr_t), uintptr_t param0, int memory_pool_num) {
     eLoadStreamingSolid(name_hash_table, num_hashes, reinterpret_cast<void (*)(void *)>(callback), reinterpret_cast<void *>(param0), memory_pool_num);
 }
+#endif
 
 inline int eLoadStreamingSolidPack(const char *filename) {
     return eLoadStreamingSolidPack(filename, nullptr, nullptr, 0);
 }
 
+#ifndef EA_BUILD_A124
 inline void eLoadStreamingSolidPack(const char *filename, void (*callback_func)(uintptr_t), uintptr_t callback_param, int memory_pool_num) {
     eLoadStreamingSolidPack(filename, reinterpret_cast<void (*)(void *)>(callback_func), reinterpret_cast<void *>(callback_param), memory_pool_num);
 }
+#endif
 
 inline void DisableWaitUntilRenderingDone() {
     WaitUntilRenderingDoneDisabled = true;
@@ -533,10 +574,41 @@ inline void EnableWaitUntilRenderingDone() {
     WaitUntilRenderingDoneDisabled = false;
 }
 
+inline bool IsWaitUntilRenderingDoneDisabled() {
+    return WaitUntilRenderingDoneDisabled;
+}
+
 extern uint32 FrameMallocFailed;
 extern uint32 FrameMallocFailAmount;
 
 #define roundup(x, a) (((x) + (a) - 1) & (~((a) - 1)))
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Los accesores del frame malloc que lista el DWARF de GameCube (eFrameMallocGetEnd, GetStart, GetPos y SetPos) y
+// que PS2 expande (lineas 93-127 del Ecstasy.hpp de la A124): los paquetes de DMA se escriben directamente en el
+// buffer y despues se cierra con SetPos, que apunta el desborde en vez de impedirlo.
+inline void *eFrameMallocGetEnd() {
+    return CurrentBufferEnd;
+}
+
+inline void *eFrameMallocGetStart() {
+    return CurrentBufferStart;
+}
+
+inline void *eFrameMallocGetPos() {
+    return CurrentBufferPos;
+}
+
+inline void eFrameMallocSetPos(void *address) {
+    if (address > CurrentBufferEnd) {
+        unsigned int size = CurrentBufferEnd - static_cast<uint8 *>(address);
+
+        FrameMallocFailed = 1;
+        FrameMallocFailAmount += size;
+    }
+    CurrentBufferPos = static_cast<uint8 *>(address);
+}
+#endif
 
 inline void *eFrameMalloc(unsigned int size) {
     unsigned char *address = CurrentBufferPos;
@@ -554,13 +626,12 @@ inline void *eFrameMalloc(unsigned int size) {
 static inline bMatrix4 *eFrameMallocMatrix(int num_matrices) {
     uint32 size = num_matrices * sizeof(bMatrix4);
     uint8 *address = CurrentBufferPos; // TODO dwarf regalloc
-    if (address + size < CurrentBufferEnd) {
-        CurrentBufferPos += size;
-    } else {
+    if (address + size >= CurrentBufferEnd) {
         FrameMallocFailed = 1;
         FrameMallocFailAmount += size;
         return nullptr;
     }
+    CurrentBufferPos += size;
     return reinterpret_cast<bMatrix4 *>(address);
 }
 
@@ -572,6 +643,10 @@ inline void DisableWaitForFrameBufferSwap() {
 
 inline void EnableWaitForFrameBufferSwap() {
     WaitForFrameBufferSwapDisabled = false;
+}
+
+inline bool IsWaitForFrameBufferSwapDisabled() {
+    return WaitForFrameBufferSwapDisabled;
 }
 
 extern int AllowDuplicateSolids;
@@ -587,7 +662,7 @@ inline void eAllowDuplicateSolids(bool enable) {
 }
 
 inline bool eIsGameViewID(int id) {
-    return id >= EVIEW_FIRST_PLAYER && id <= EVIEW_LAST_PLAYER;
+    return id == EVIEW_PLAYER1 || id == EVIEW_PLAYER2 || id == EVIEW_PLAYER1_RVM;
 }
 
 

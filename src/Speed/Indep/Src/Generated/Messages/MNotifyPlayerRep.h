@@ -27,8 +27,6 @@ class MNotifyPlayerRep : public Hermes::Message {
 
     MNotifyPlayerRep(HSIMABLE _Racer, int _RepPoints) : Hermes::Message(_GetKind(), _GetSize(), 0), fRacer(_Racer), fRepPoints(_RepPoints) {}
 
-    ~MNotifyPlayerRep() {}
-
     HSIMABLE GetRacer() const {
         return fRacer;
     }
@@ -55,9 +53,9 @@ class MNotifyPlayerRep : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyPlayerRep::HandleMessage_LuaBinding(const MNotifyPlayerRep &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyPlayerRep::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -1,0 +1,24 @@
+keating-alias.patch -- the GCC change of 2000-06-23 (Geoffrey Keating), ChangeLog:
+    * alias.c (fixed_scalar_and_varying_struct_p): Don't examine struct vs. scalar-ness when
+    -fno-strict-aliasing.
+It went into GCC 3.0, not into the 2.95 branch.  SN's GPL source of v1.79 still applies the rule; the `path`
+library of the game was built with SN BUILD v1.83 (GameCube DWARF), and this is the one code-generation change
+that separates v1.83 from the compilers we have.  scripts/replica_v183.py writes the same change into copies of
+the official binaries (the function returns NULL at once: with -fno-strict-aliasing, the only setting this
+project uses, that is what the change amounts to).  Measured: v1.79 + this patch gives the same assembly as
+that three-byte replica on the 27 units of `path` and `rcmp`.
+
+--- a/gcc/alias.c	2026-09-30 19:40:34.733561869 +0200
++++ b/gcc/alias.c	2026-09-30 19:40:34.790339296 +0200
+@@ -1215,6 +1215,11 @@
+   rtx mem1_addr = XEXP (mem1, 0);
+   rtx mem2_addr = XEXP (mem2, 0);
+   
++  /* GCC 2000-06-23 (Geoffrey Keating): Don't examine struct vs. scalar-ness when
++     -fno-strict-aliasing.  */
++  if (! flag_strict_aliasing)
++    return NULL_RTX;
++
+   if (MEM_SCALAR_P (mem1) && MEM_IN_STRUCT_P (mem2) 
+       && !varies_p (mem1_addr) && varies_p (mem2_addr))
+     /* MEM1 is a scalar at a fixed address; MEM2 is a struct at a

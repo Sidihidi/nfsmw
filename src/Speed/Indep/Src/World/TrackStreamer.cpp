@@ -17,6 +17,13 @@
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bFunk.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
+// Los stabs de la A124 parsean aqui (entre TrackPath.cpp y la primera funcion de este fichero) ecar, camerainfo,
+// CameraMover, pvehicle, engine, engineaudio y EAX_CarState: la cadena "Attrib::Gen::engine" de zTrack.
+#include "Speed/Indep/Src/Camera/CameraMover.hpp"
+#include "Speed/Indep/Src/EAXSound/EAXCarState.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 #include <algorithm>
 
@@ -137,7 +144,7 @@ class TSMemoryPool {
     }
 
     static void OverrideFree(void *pool, void *ptr) {
-        static_cast<TSMemoryPool *>(pool)->Free(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(ptr) & ~static_cast<uintptr_t>(0x7F)));
+        static_cast<TSMemoryPool *>(pool)->Free(reinterpret_cast<void *>(reinterpret_cast<intptr_t>(ptr) & ~0x7F));
     }
 
     static int OverrideGetAmountFree(void *pool) {
@@ -196,7 +203,7 @@ TSMemoryPool::TSMemoryPool(intptr_t address, int size, const char *debug_name, i
     if (TracingEnabled && bMemoryTracing) {
         bMemoryTraceFreePacket packet = {};
         packet.PoolID = reinterpret_cast<intptr_t>(this);
-        packet.MemoryAddress = static_cast<intptr_t>(address);
+        packet.MemoryAddress = address;
         packet.Size = size;
         bFunkCallASync("CODEINE", 0x1b, &packet, sizeof(packet));
     }
@@ -412,26 +419,25 @@ TSMemoryNode *TSMemoryPool::GetNextNode(bool start_from_top, TSMemoryNode *node)
 
 TSMemoryNode *TSMemoryPool::GetNextFreeNode(bool start_from_top, TSMemoryNode *node) {
     TSMemoryNode *next_node = node;
-    while (next_node = GetNextNode(start_from_top, next_node), next_node) {
-        if (next_node->IsFree()) {
-            return next_node;
-        }
-    }
-    // return nullptr; // TODO put behind SANE_CODE macro
+    do {
+        next_node = GetNextNode(start_from_top, next_node);
+    } while (next_node != nullptr && !next_node->IsFree());
+    return next_node;
 }
 
 TSMemoryNode *TSMemoryPool::GetNextAllocatedNode(bool start_from_top, TSMemoryNode *node) {
     TSMemoryNode *next_node = node;
-    while (next_node = GetNextNode(start_from_top, next_node), next_node) {
-        if (next_node->IsAllocated()) {
-            return next_node;
-        }
-    }
-    // return nullptr; // TODO put behind SANE_CODE macro
+    do {
+        next_node = GetNextNode(start_from_top, next_node);
+    } while (next_node != nullptr && !next_node->IsAllocated());
+    return next_node;
 }
 
 unsigned int TSMemoryPool::GetPoolChecksum() {
-    return 0;
+    unsigned int checksum = 0;
+    for (TSMemoryNode *node = NodeList.GetHead(); node != NodeList.EndOfList() && false; node = node->GetNext()) {
+    }
+    return checksum;
 }
 
 void TSMemoryPool::DebugPrint() {
@@ -490,7 +496,6 @@ TrackStreamer::TrackStreamer() {
     pMemoryPool = nullptr;
 
     CurrentVisibleSectionTable.Init(CurrentVisibleSectionTableMem, 0xAF0);
-    CurrentVisibleSectionTable.ClearTable();
     bMemSet(KeepSectionTable, 0, sizeof(KeepSectionTable));
     pCallback = nullptr;
     CallbackParam = 0;
@@ -623,8 +628,8 @@ void TrackStreamer::ClearCurrentZones() {
 #ifndef EA_BUILD_A124
     CurrentZoneFarLoad = true;
 #endif
-    StartLoadingTime = 0.0f;
     CurrentZoneName[0] = 0;
+    StartLoadingTime = 0.0f;
     MemorySafetyMargin = 0;
     AmountJettisoned = 0;
     NumJettisonedSections = 0;
@@ -634,8 +639,11 @@ void TrackStreamer::ClearCurrentZones() {
 
 void TrackStreamer::InitMemoryPool(int size) {
     MemoryPoolSize = size;
-    pMemoryPoolMem = bMalloc(size, "Track Streaming Buffer", 0, 0x2000);
+    pMemoryPoolMem = bMalloc(size, "Track Streaming Buffer", 0, BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
     pMemoryPool = new ("TSMemoryPool", 0) TSMemoryPool(reinterpret_cast<intptr_t>(pMemoryPoolMem), MemoryPoolSize, "Track Streaming", 7);
+#ifdef EA_BUILD_A124
+    EmptyCaffeineLayers();
+#endif
 }
 
 int TrackStreamer::GetMemoryPoolSize() {
@@ -791,7 +799,7 @@ void TrackStreamer::FlushHibernatingSections() {
 }
 
 void *TrackStreamer::AllocateMemory(TrackStreamingSection *section, int allocation_params) {
-    void *buf = bMalloc(section->Size, section->SectionName, 0, allocation_params | 0x2007);
+    void *buf = bMalloc(section->Size, section->SectionName, 0, allocation_params | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 7);
     if (buf == nullptr) {
         bBreak();
     }
@@ -839,7 +847,9 @@ void TrackStreamer::LoadSection(TrackStreamingSection *section) {
     if (section->CompressedSize == section->Size) {
         AddQueuedFile(section->pMemory, StreamFilenames[section->FileType], section->FileOffset, section->CompressedSize, SectionLoadedCallback,
                       reinterpret_cast<intptr_t>(section), nullptr);
-    } else {
+    }
+#ifndef EA_PLATFORM_PLAYSTATION2 // SLUS no carga secciones comprimidas
+    else {
         QueuedFileParams params;
         params.Compressed = true;
         params.UncompressedSize = section->Size;
@@ -847,11 +857,12 @@ void TrackStreamer::LoadSection(TrackStreamingSection *section) {
                       reinterpret_cast<intptr_t>(section), &params);
     }
 #endif
+#endif
 }
 
 void TrackStreamer::ActivateSection(TrackStreamingSection *section) {
     ProfileNode profile_node;
-    int allocation_params = 0x2087;
+    int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x87;
     NumSectionsActivated++;
     eAllowDuplicateSolids(true);
     SetDuplicateTextureWarning(false);
@@ -881,7 +892,7 @@ void TrackStreamer::UnactivateSection(TrackStreamingSection *section) {
 
 bool TrackStreamer::WillUnloadBlock(TrackStreamingSection *section) {
     if ((section->UnactivatedFrameCount != 0) && (section->UnactivatedFrameCount == eGetFrameCounter())) {
-        if (LastWaitUntilRenderingDoneFrameCount != section->UnactivatedFrameCount) {
+        if (LastWaitUntilRenderingDoneFrameCount != eGetFrameCounter()) {
             return true;
         }
     }
@@ -889,34 +900,41 @@ bool TrackStreamer::WillUnloadBlock(TrackStreamingSection *section) {
 }
 
 void TrackStreamer::UnloadSection(TrackStreamingSection *section) {
-    ProfileNode profile_node;
     if (section->Status == TrackStreamingSection::ACTIVATED) {
         UnactivateSection(section);
     }
 
-    if (section->Status == TrackStreamingSection::LOADED) {
-        if (WillUnloadBlock(section)) {
-            DisableWaitForFrameBufferSwap();
-            eWaitUntilRenderingDone();
-            EnableWaitForFrameBufferSwap();
-            LastWaitUntilRenderingDoneFrameCount = eGetFrameCounter();
-        }
-
-        section->UnactivatedFrameCount = 0;
-        bFree(section->pMemory);
-        section->pMemory = nullptr;
-        section->Status = TrackStreamingSection::UNLOADED;
-        section->LoadedTime = 0;
-        NumSectionsLoaded--;
+    if (section->Status != TrackStreamingSection::LOADED) {
+        return;
     }
+
+    ProfileNode profile_node;
+    if (WillUnloadBlock(section)) {
+        DisableWaitForFrameBufferSwap();
+        eWaitUntilRenderingDone();
+        EnableWaitForFrameBufferSwap();
+        LastWaitUntilRenderingDoneFrameCount = eGetFrameCounter();
+    }
+
+    section->UnactivatedFrameCount = 0;
+    bFree(section->pMemory);
+    section->pMemory = nullptr;
+    section->Status = TrackStreamingSection::UNLOADED;
+    section->LoadedTime = 0;
+    NumSectionsLoaded--;
 }
 
 bool TrackStreamer::NeedsGameStateActivation(TrackStreamingSection *section) {
+#ifndef EA_BUILD_A124
     return false;
 
+#endif
     if (IsRegularScenerySection(section->SectionNumber) && IsLODScenerySectionNumber(section->SectionNumber)) {
         return true;
     }
+#ifdef EA_BUILD_A124
+    return false;
+#endif
 }
 
 void TrackStreamer::SectionLoadedCallback(intptr_t param, int error_status) {
@@ -968,6 +986,7 @@ void TrackStreamer::EmptyCaffeineLayers() {
         return;
     }
     if (RemoteCaffeinating && TrackStreamerRemoteCaffeinating) {
+        extern int ShowSectionBoarder; // bloque vacio en el DWARF de GameCube y en los stabs de la A124
         ShowSectionBoarder = 1;
     }
 }
@@ -1071,8 +1090,7 @@ TrackStreamingSection *TrackStreamer::ChooseSectionToJettison() {
         }
 
         if (discard_priority != 0) {
-            // TODO weird
-            if (static_cast<unsigned int>(section->Status - TrackStreamingSection::LOADED) > 1) {
+            if (section->Status != TrackStreamingSection::LOADED && section->Status != TrackStreamingSection::ACTIVATED) {
                 discard_priority++;
             }
         }
@@ -1097,10 +1115,10 @@ void TrackStreamer::UnJettisonSections() {
 
 // total size: 0x10
 struct HoleMovement {
-    intptr_t Address;    // offset 0x0, size 0x4
-    intptr_t NewAddress; // offset 0x4, size 0x4
-    int32 Size;          // offset 0x8, size 0x4
-    uint32 Checksum;     // offset 0xC, size 0x4
+    intptr_t SourceAddress; // offset 0x0, size 0x4
+    intptr_t DestAddress;   // offset 0x4, size 0x4
+    int32 Size;             // offset 0x8, size 0x4
+    uint32 Checksum;        // offset 0xC, size 0x4
 };
 
 // UNSOLVED, TODO this is pretty wrong
@@ -1111,7 +1129,9 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
 #endif
 ) {
     ProfileNode profile_node;
+#ifndef EA_BUILD_A124
     int ticks = bGetTicker();
+#endif
     unsigned int checksum = pMemoryPool->GetPoolChecksum();
     bool failed;
     int num_movements;
@@ -1122,7 +1142,9 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
     failed = false;
     num_movements = 0;
     amount_moved = 0;
+#ifndef EA_BUILD_A124
     total_needing_allocation = -1;
+#endif
     while (true) {
         if (largest_free != 0) {
             if (pMemoryPool->GetLargestFreeBlock() >= largest_free) {
@@ -1148,7 +1170,7 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
         }
 
         HoleMovement *movement = &hole_movements[num_movements];
-        movement->Address = 0;
+        movement->SourceAddress = 0;
 
         if (filler_method == HOLE_FILLER_METHOD_LINEAR_BOTTOM || filler_method == HOLE_FILLER_METHOD_LINEAR_BOTTOM_ALL_THE_WAY ||
             filler_method == HOLE_FILLER_METHOD_LINEAR_TOP) {
@@ -1161,9 +1183,9 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
 
             if (node != nullptr) {
                 movement->Size = node->Size;
-                movement->Address = node->Address;
-                movement->NewAddress = free_node->GetAddress(start_from_top, movement->Size);
-                if (filler_method == HOLE_FILLER_METHOD_LINEAR_BOTTOM_ALL_THE_WAY && !FindSectionByAddress(movement->Address)) {
+                movement->SourceAddress = node->Address;
+                movement->DestAddress = free_node->GetAddress(start_from_top, movement->Size);
+                if (filler_method == HOLE_FILLER_METHOD_LINEAR_BOTTOM_ALL_THE_WAY && !FindSectionByAddress(movement->SourceAddress)) {
                     break;
                 }
             }
@@ -1192,12 +1214,14 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
                     if (hole_size > best_hole_size) {
                         best_hole_size = hole_size;
                         movement->Size = next_node->Size;
-                        movement->Address = next_node->Address;
-                        movement->NewAddress = free_node->GetAddress(start_from_top, movement->Size);
+                        movement->SourceAddress = next_node->Address;
+                        movement->DestAddress = free_node->GetAddress(start_from_top, movement->Size);
                     }
                 }
             }
-        } else if (filler_method == HOLE_FILLER_METHOD_SUPER_SCOOPER) {
+        }
+#ifndef EA_BUILD_A124
+        else if (filler_method == HOLE_FILLER_METHOD_SUPER_SCOOPER) {
             bool start_from_top = true;
             bool done;
             bool found_one;
@@ -1325,20 +1349,21 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
                 TrackStreamingSection *section = FindSectionByAddress(evaluated_largest_allocated->Address);
                 if (section) {
                     movement->Size = evaluated_largest_allocated->Size;
-                    movement->Address = evaluated_largest_allocated->Address;
-                    movement->NewAddress = evaluated_largest_moves_here;
+                    movement->SourceAddress = evaluated_largest_allocated->Address;
+                    movement->DestAddress = evaluated_largest_moves_here;
                 }
             }
         }
+#endif
 
-        if (movement->Address == 0) {
+        if (movement->SourceAddress == 0) {
             failed = true;
             break;
         }
 
         movement->Checksum = pMemoryPool->GetPoolChecksum();
-        pMemoryPool->Free(reinterpret_cast<void *>(movement->Address));
-        pMemoryPool->Malloc(movement->Size, "HoleMovement", false, false, movement->NewAddress);
+        pMemoryPool->Free(reinterpret_cast<void *>(movement->SourceAddress));
+        pMemoryPool->Malloc(movement->Size, "HoleMovement", false, false, movement->DestAddress);
         amount_moved += movement->Size;
         num_movements++;
 #ifndef EA_BUILD_A124
@@ -1351,13 +1376,13 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
 
     for (int n = num_movements - 1; n >= 0; n--) {
         HoleMovement *movement = &hole_movements[n];
-        pMemoryPool->Free(reinterpret_cast<void *>(movement->NewAddress));
+        pMemoryPool->Free(reinterpret_cast<void *>(movement->DestAddress));
         char *debug_name = "UndoHoleMovement";
-        TrackStreamingSection *section = FindSectionByAddress(movement->Address);
+        TrackStreamingSection *section = FindSectionByAddress(movement->SourceAddress);
         if (section != nullptr) {
             debug_name = section->SectionName;
         }
-        pMemoryPool->Malloc(movement->Size, debug_name, false, false, movement->Address);
+        pMemoryPool->Malloc(movement->Size, debug_name, false, false, movement->SourceAddress);
     }
 
     pMemoryPool->EnableTracing(true);
@@ -1379,7 +1404,7 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
     if (fragmented_user_allocation) {
         pMemoryPool->DebugPrint();
 #ifdef MILESTONE_BUILD
-        bReleasePrintf("WARNING:  TrackStreamer::DoHoleFilling() is aborting due to fragmented user alloc ation %s\n");
+        bReleasePrintf("WARNING:  TrackStreamer::DoHoleFilling() is aborting due to fragmented user alloc ation %s\n", fragmented_user_allocation);
 #endif
         return 0;
     }
@@ -1398,7 +1423,7 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
         }
     } else {
         int best_amount_moved = 0x7FFFFFFF;
-        for (int filler_method = 1; filler_method < 6; filler_method++) {
+        for (int filler_method = 1; filler_method < NUM_HOLE_FILLER_METHODS; filler_method++) {
             int amount_moved;
             int num_hole_movements = BuildHoleMovements(hole_movement_table, 0x80, filler_method, largest_free, &amount_moved
 #ifndef EA_BUILD_A124
@@ -1426,7 +1451,7 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
     for (int n = 0; n < num_hole_movements; n++) {
         ProfileNode profile_node;
         HoleMovement *movement = &hole_movement_table[n];
-        TrackStreamingSection *section = FindSectionByAddress(movement->Address);
+        TrackStreamingSection *section = FindSectionByAddress(movement->SourceAddress);
         if (LastWaitUntilRenderingDoneFrameCount != eGetFrameCounter()) {
             int start_ticks = bGetTicker();
             DisableWaitForFrameBufferSwap();
@@ -1437,9 +1462,9 @@ int TrackStreamer::DoHoleFilling(int largest_free) {
         }
 
         int start_ticks = bGetTicker();
-        void *new_memory = reinterpret_cast<void *>(movement->NewAddress);
-        pMemoryPool->Free(reinterpret_cast<void *>(movement->Address));
-        pMemoryPool->Malloc(movement->Size, section->SectionName, false, false, movement->NewAddress);
+        void *new_memory = reinterpret_cast<void *>(movement->DestAddress);
+        pMemoryPool->Free(reinterpret_cast<void *>(movement->SourceAddress));
+        pMemoryPool->Malloc(movement->Size, section->SectionName, false, false, movement->DestAddress);
         if (section->Status == TrackStreamingSection::ACTIVATED) {
             eAllowDuplicateSolids(true);
             SetDuplicateTextureWarning(false);
@@ -1474,18 +1499,13 @@ void TrackStreamer::SetStreamingPosition(int position_number, const bVector3 *po
     position_entry->Velocity.y = 0.0f;
     position_entry->Direction.x = 0.0f;
     position_entry->Direction.y = 0.0f;
-    position_entry->PredictedZoneValidTime = -1;
     position_entry->PositionSet = true;
 #ifndef EA_BUILD_A124
     position_entry->FollowingCar = false;
 #endif
+    position_entry->PredictedZoneValidTime = -1;
     position_entry->PredictedZone = 0;
     CurrentZoneNeedsRefreshing = true;
-
-    {
-        // TODO
-        float dist = bDistBetween(&position_entry->Position, &position_entry->Position);
-    }
 }
 
 void TrackStreamer::PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction
@@ -1506,13 +1526,10 @@ void TrackStreamer::PredictStreamingPosition(int position_number, const bVector3
 #ifndef EA_BUILD_A124
     position_entry->FollowingCar = following_car;
 #endif
-
-    {
-        // TODO
-        float dist = bDistBetween(&position_entry->Position, &position_entry->Position);
-    }
 }
 
+// Un solo return: la 2612 del mapa de lineas de GameCube es `if (!predict_position_used)` y la 2613 su llave; con el
+// return dentro, predict_zone_number tenia una referencia mas y global_alloc le daba r28 en vez de r27.
 short TrackStreamer::GetPredictedZone(StreamingPositionEntry *position_entry) {
     int predict_zone_number = 0;
     bVector2 predict_position;
@@ -1564,13 +1581,9 @@ short TrackStreamer::GetPredictedZone(StreamingPositionEntry *position_entry) {
                 }
             }
         }
-
-        if (predict_position_used) {
-            return predict_zone_number;
-        }
     }
 
-    {
+    if (!predict_position_used) {
         DrivableScenerySection *scenery_section = TheVisibleSectionManager.FindDrivableSection(&position_entry->Position);
         if (scenery_section) {
             predict_zone_number = scenery_section->SectionNumber;
@@ -1622,13 +1635,11 @@ void TrackStreamer::AddCurrentStreamingSections(short *sections_to_load, int num
     for (int i = 0; i < num_sections_to_load; i++) {
         CurrentVisibleSectionTable.Set(sections_to_load[i]);
 
-        // TODO this variable is fake
-        short &section_number = sections_to_load[i];
         if (SplitScreen) {
-            section_number = static_cast<short>(Get2PlayerSectionNumber(section_number));
+            sections_to_load[i] = static_cast<short>(Get2PlayerSectionNumber(sections_to_load[i]));
         }
 
-        TrackStreamingSection *section = FindSection(section_number);
+        TrackStreamingSection *section = FindSection(sections_to_load[i]);
         if (section == nullptr) {
             continue;
         }
@@ -1642,9 +1653,9 @@ void TrackStreamer::AddCurrentStreamingSections(short *sections_to_load, int num
         if (((section->CurrentlyVisible >> position_number) ^ 1U) & 1) {
             section->CurrentlyVisible |= static_cast<unsigned char>(1 << position_number);
             if (section->Status < TrackStreamingSection::LOADED) {
-                StreamingPositionEntry *streaming_position = &StreamingPositionEntries[position_number];
-                streaming_position->NumSectionsToLoad++;
-                streaming_position->AmountToLoad += section->Size;
+                StreamingPositionEntry *position_entry = &StreamingPositionEntries[position_number];
+                position_entry->NumSectionsToLoad++;
+                position_entry->AmountToLoad += section->Size;
             }
         }
     }
@@ -1885,10 +1896,10 @@ bool TrackStreamer::HandleMemoryAllocation() {
 
 void *TrackStreamer::AllocateUserMemory(int size, const char *debug_name, int offset) {
     if (size > bLargestMalloc(7)) {
-        void *mem = bMalloc(size, debug_name, 0, (offset & 0x1FFC) << 17 | 0x2000);
+        void *mem = bMalloc(size, debug_name, 0, BMEMORY_ALIGNMENT_OFFSET(offset) + BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
         return mem;
     } else {
-        void *mem = bMalloc(size, debug_name, 0, (offset & 0x1FFC) << 17 | 0x2047);
+        void *mem = bMalloc(size, debug_name, 0, BMEMORY_ALIGNMENT_OFFSET(offset) + BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) + BMEMORY_ALLOCATE_FROM_TOP + BMEMORY_POOL(7));
         return mem;
     }
 }
@@ -1896,7 +1907,7 @@ void *TrackStreamer::AllocateUserMemory(int size, const char *debug_name, int of
 void TrackStreamer::FreeUserMemory(void *mem) {
     int free_before = pMemoryPool->GetAmountFree();
     bFree(mem);
-    int size = pMemoryPool->GetAmountFree();
+    int size = pMemoryPool->GetAmountFree() - free_before;
 }
 
 bool TrackStreamer::IsUserMemory(void *mem) {
@@ -1919,9 +1930,11 @@ bool TrackStreamer::MakeSpaceInPool(int size, bool force_unloading) {
 }
 
 void TrackStreamer::MakeSpaceInPool(int size, void (*callback)(intptr_t), intptr_t param) {
+#ifndef EA_BUILD_A124
     if (LoadingPhase == LOADING_IDLE) {
         IsLoadingInProgress();
     }
+#endif
 
     if (!IsLoadingInProgress()) {
         MakeSpaceInPool(size, true);
@@ -1937,6 +1950,9 @@ void TrackStreamer::MakeSpaceInPool(int size, void (*callback)(intptr_t), intptr
 
 void TrackStreamer::ReadyToMakeSpaceInPool() {
     MakeSpaceInPool(MakeSpaceInPoolSize, true);
+#ifdef EA_BUILD_A124
+    MakeSpaceInPoolCallback(MakeSpaceInPoolCallbackParam);
+#else
 
     void (*callback)(intptr_t) = MakeSpaceInPoolCallback;
     intptr_t param = MakeSpaceInPoolCallbackParam;
@@ -1944,6 +1960,7 @@ void TrackStreamer::ReadyToMakeSpaceInPool() {
     MakeSpaceInPoolCallbackParam = 0;
     MakeSpaceInPoolSize = 0;
     callback(param);
+#endif
 }
 
 bool TrackStreamer::DetermineCurrentZones(short *current_zones) {
@@ -2002,6 +2019,9 @@ void TrackStreamer::ServiceNonGameState() {
     ProfileNode profile_node;
     float start_time = GetDebugRealTime();
     HandleLoading();
+#ifdef EA_BUILD_A124
+    CheckLoadingBar();
+#endif
     float time = GetDebugRealTime();
 }
 
@@ -2101,6 +2121,9 @@ void TrackStreamer::SwitchZones(short *current_zones) {
             bSPrintf(CurrentZoneName, "%s - %s", CurrentZoneName, GetScenerySectionName(zone_number));
         }
     }
+#ifdef EA_BUILD_A124
+    Juice::GameHook::Instance()->AssetHit("DRIVEN_SECTIONS", CurrentZoneName);
+#endif
 
     int num_sections_unactivated = 0;
     DetermineStreamingSections();
@@ -2160,7 +2183,7 @@ void TrackStreamer::HandleLoading() {
 
     if ((LoadingPhase == ALLOCATING_TEXTURE_SECTIONS || LoadingPhase == ALLOCATING_GEOMETRY_SECTIONS ||
          LoadingPhase == ALLOCATING_REGULAR_SECTIONS) &&
-        NumSectionsLoading < 1) {
+        NumSectionsLoading <= 0) {
         int num_sections_unactivated = 0;
         for (int n = 0; n < NumTrackStreamingSections; n++) {
             TrackStreamingSection *section = &pTrackStreamingSections[n];
@@ -2195,14 +2218,19 @@ void TrackStreamer::HandleLoading() {
     }
 }
 
-// UNSOLVED because of debug stuff
+// La cuenta final va en cuatro sentencias, como en el mapa de lineas de GameCube (3938, 3940, 3942 y 3945) y en el de
+// la A124 (3610, 3612, 3614 y 3617); en una sola expresion el 1.0f de bMin se quedaba el registro del resultado.
+// La A124 no tiene pBoundary: mira el Radius y busca la frontera por su numero (lineas 3556, 3580 y 3582 de su mapa).
 int TrackStreamer::GetLoadingPriority(TrackStreamingSection *section, StreamingPositionEntry *position_entry, bool calculating_jettison) {
 #ifdef EA_BUILD_A124
-    return 0; // this entire function is different in A124
+    if (section->Radius == 0.0f) {
+        return 0;
+    }
 #else
     if (!section->pBoundary) {
         return 0;
     }
+#endif
 
     float speed = bLength(position_entry->Velocity);
     if (calculating_jettison) {
@@ -2214,7 +2242,15 @@ int TrackStreamer::GetLoadingPriority(TrackStreamingSection *section, StreamingP
     }
 
     bVector2 predict_pos = position_entry->Position + position_entry->Velocity * 1.0f;
+#ifdef EA_BUILD_A124
+    int boundary_section_number = GetBoundarySectionNumber(section->SectionNumber, bGetPlatformName());
+    VisibleSectionBoundary *boundary = TheVisibleSectionManager.FindBoundary(boundary_section_number);
+    if (!boundary) {
+        return 0;
+    }
+#else
     VisibleSectionBoundary *boundary = section->pBoundary;
+#endif
     float distance = boundary->GetDistanceOutside(&predict_pos, 999.0f);
 
     bVector2 direction;
@@ -2230,7 +2266,9 @@ int TrackStreamer::GetLoadingPriority(TrackStreamingSection *section, StreamingP
     float speed_factor = bMin(speed * 0.016666668f, 1.0f);
     float angle = bAngToDeg(bACos(dot));
     float angle_factor = (90.0f - bClamp(angle, 20.0f, 90.0f)) * 0.014285714f;
-    float adjusted_distance = distance * (1.0f - angle_factor * speed_factor * 0.66999996f);
+    angle_factor *= speed_factor;
+    angle_factor = 1.0f - angle_factor * 0.66999996f;
+    float adjusted_distance = distance * angle_factor;
     int priority = bClamp(static_cast<int>(adjusted_distance * 0.013333334f), 0, 2);
 
     // TODO
@@ -2292,7 +2330,6 @@ int TrackStreamer::GetLoadingPriority(TrackStreamingSection *section, StreamingP
     }
 
     return priority;
-#endif
 }
 
 // TODO move?
@@ -2329,24 +2366,23 @@ void TrackStreamer::AssignLoadingPriority() {
 
 void TrackStreamer::CalculateLoadingBacklog() {
     float loading_backlog = 0.0f;
-    for (int i = 0; i < NumCurrentStreamingSections; i++) {
-        TrackStreamingSection *section = CurrentStreamingSections[i];
-        // TODO
-        if (section->CurrentlyVisible && (section->Status - TrackStreamingSection::LOADED > 1U)) {
-            // TODO get rid of temp
-            int rounded_size = section->Size;
-            if (rounded_size < 0) {
-                rounded_size += 0x3ff;
+    for (int n = 0; n < NumCurrentStreamingSections; n++) {
+        TrackStreamingSection *section = CurrentStreamingSections[n];
+        if (section->CurrentlyVisible) {
+            if (section->Status != TrackStreamingSection::LOADED && section->Status != TrackStreamingSection::ACTIVATED) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+                float time = static_cast<float>(section->Size / 1024) * 0.0004f + 0.2f;
+#else
+                float time = static_cast<float>(section->Size / 1024) * 0.0004f + 0.15f;
+#endif
+                if (section->BaseLoadingPriority == 1) {
+                    time *= 0.4f;
+                }
+                if (section->BaseLoadingPriority == 2) {
+                    time *= 0.2f;
+                }
+                loading_backlog += time;
             }
-
-            float time = static_cast<float>(rounded_size >> 10) * 0.0004f + 0.15f;
-            if (section->BaseLoadingPriority == 1) {
-                time *= 0.4f;
-            }
-            if (section->BaseLoadingPriority == 2) {
-                time *= 0.2f;
-            }
-            loading_backlog += time;
         }
     }
 
@@ -2355,7 +2391,12 @@ void TrackStreamer::CalculateLoadingBacklog() {
 
 void TrackStreamer::StartLoadingSections() {
     bool something_to_load = true;
+#ifdef EA_PLATFORM_XENON
+    // X360 carga hasta 4 secciones a la vez, no 2 (probado al 100 %).
+    while (NumSectionsLoading < 4 && something_to_load) {
+#else
     while (NumSectionsLoading < 2 && something_to_load) {
+#endif
         int best_priority = 0x7FFFFFFF;
         TrackStreamingSection *best_section = nullptr;
         for (int i = 0; i < NumCurrentStreamingSections; i++) {
@@ -2416,16 +2457,16 @@ void TrackStreamer::FinishedLoading() {
     }
 }
 
-void TrackStreamer::PlotLoadingMarker(StreamingPositionEntry *streaming_position) {
-    if (RemoteCaffeinating && TrackStreamerRemoteCaffeinating && streaming_position->CurrentZone > 0 &&
-        streaming_position->BeginLoadingTime != 0.0f) {
+void TrackStreamer::PlotLoadingMarker(StreamingPositionEntry *position_entry) {
+    if (RemoteCaffeinating && TrackStreamerRemoteCaffeinating && position_entry->CurrentZone > 0 &&
+        position_entry->BeginLoadingTime != 0.0f) {
         float load_time = GetDebugRealTime();
         unsigned int obj =
-            ::PlotLoadingMarker("TrackStreamingLoadedZone", &streaming_position->BeginLoadingPosition, &streaming_position->Position, load_time);
+            ::PlotLoadingMarker("TrackStreamingLoadedZone", &position_entry->BeginLoadingPosition, &position_entry->Position, load_time);
         char text[32];
-        bSPrintf(text, "%d/%d", streaming_position->NumSectionsLoaded, streaming_position->NumSectionsToLoad);
+        bSPrintf(text, "%d/%d", position_entry->NumSectionsLoaded, position_entry->NumSectionsToLoad);
         espSetAttributeString(obj, "NumSectionsLoaded", text);
-        bSPrintf(text, "%d/%d", streaming_position->AmountLoaded / 1024, streaming_position->AmountToLoad / 1024);
+        bSPrintf(text, "%d/%d", position_entry->AmountLoaded / 1024, position_entry->AmountToLoad / 1024);
         espSetAttributeString(obj, "AmountLoaded", text);
     }
 }

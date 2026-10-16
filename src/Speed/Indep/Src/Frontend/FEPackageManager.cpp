@@ -23,6 +23,15 @@ FEPackageManager *FEPackageManager::Get() {
 inline FEPackageManager::~FEPackageManager() {
 }
 
+bool FEPackageManager::SetUseIdleList(const char *pPackageName, bool pUseIdleList) {
+    FEPackage *package = FindPackage(pPackageName);
+    if (package) {
+        package->SetUseIdleList(pUseIdleList);
+        return true;
+    }
+    return false;
+}
+
 void FEPackageManager::BroadcastMessage(u32 msg) {
     FEPackageData *screens[32];
     int count = 0;
@@ -90,9 +99,9 @@ const char *FEPackageManager::GetBasePkgName(const char *pkg_name) {
 }
 
 FEPackage *FEPackageManager::FindPackage(const char *pkg_name) {
-    FEPackageData *data = FindFEPackageData(pkg_name);
-    if (data != 0) {
-        return data->GetPackage();
+    FEPackageData *d = FindFEPackageData(pkg_name);
+    if (d != 0) {
+        return d->GetPackage();
     }
     return 0;
 }
@@ -114,6 +123,13 @@ void FEPackageManager::CloseAllPackages(int close_permanent) {
                 HackClearCache(data->GetPackage());
             }
         }
+    }
+}
+
+void FEPackageManager::SetPermanent(const char *pkg_name, int flag) {
+    FEPackageData *pkg_data = FindFEPackageData(pkg_name);
+    if (pkg_data) {
+        pkg_data->SetPermanent(flag);
     }
 }
 

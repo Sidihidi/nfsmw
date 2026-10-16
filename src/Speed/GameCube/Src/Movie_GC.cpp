@@ -84,8 +84,8 @@ void PlatFinishMovie() {
 GCHW_VD::GCHW_VD(RealShape::Shape *shape, bool isVP6Movie) {
     this->mIsVP6Movie = isVP6Movie;
 
-    int w = *(int *)(shape->GetTexture() + 0x18 / 4);
-    int h = *(int *)(shape->GetTexture() + 0x1C / 4);
+    int w = shape->GetWidth();
+    int h = shape->GetHeight();
     if (this->mIsVP6Movie != 0) {
         w += 0x60;
         h += 0x60;
@@ -130,8 +130,8 @@ void GCHW_VD::iDraw() {
 
     y = (unsigned char *)GetShapeData(this->mShape, *(int *)((char *)this->mShape + 8));
 
-    w = *(int *)(this->mShape->GetTexture() + 0x18 / 4);
-    h = *(int *)(this->mShape->GetTexture() + 0x1C / 4);
+    w = this->mShape->GetWidth();
+    h = this->mShape->GetHeight();
 
     if (this->mIsVP6Movie != 0) {
         const int vp6Border = 0x30;

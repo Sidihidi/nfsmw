@@ -305,7 +305,7 @@ int8 LobbyGameSessions::GetSecsBeforeHostCanStart() {
         diff = hurryDiff;
     }
 
-    int8 result = static_cast<int8>(static_cast<int>(diff));
+    int8 result = static_cast<int8>(bFloatToInt(diff));
     if (static_cast<int>(diff) == 0) {
         hostInactiveTimer.UnSet();
         hostStartSessionTimer.UnSet();
@@ -425,10 +425,10 @@ GameSession *LobbyGameSessions::GetMySession() const {
     return session;
 }
 
-char *LobbyGameSessions::GetSessionDisplayName(const GameSession *session) {
+const char *LobbyGameSessions::GetSessionDisplayName(const GameSession *session) {
     static char realName[36];
     const GameSession *theSession = session ? session : &myCurrentSession;
-    char *tmp;
+    const char *tmp;
     if (theSession->iIdent == -1 || !(tmp = bStrChr(theSession->strName, '.'))) {
         return nullptr;
     }
@@ -468,11 +468,11 @@ ExtraSessionData *LobbyGameSessions::GetExtraSessionDataByIdent(int32 ident) {
 
 OnlineRaceModeE LobbyGameSessions::GetRaceMode(const GameSession *session) {
     lobbyMutex.Lock("LobbyGameSessions::GetRaceMode");
-    const GameSession *theSession = session ? session : &myCurrentSession;
     if (myCurrentSession.iIdent < 0 && !session) {
         lobbyMutex.Unlock("LobbyGameSessions::GetRaceMode");
         return OL_RACE_MODE_INVALID;
     }
+    const GameSession *theSession = session ? session : &myCurrentSession;
 
     OnlineRaceModeE theMode = OL_RACE_MODE_INVALID;
     if (theSession->uCustFlags & 0x80000000) {
@@ -653,10 +653,10 @@ int32 LobbyGameSessions::UpdateSessionInfo(bool forceUpdate) {
 
 void LobbyGameSessions::ExtractSessionInfo() {
     cOnlineSettings *settings = &FEDatabase->OnlineSettings;
-    settings->RankedGame = (myCurrentSession.uCustFlags >> 9) & 1;
-    settings->CollisionDetection = (myCurrentSession.uCustFlags >> 10) & 1;
-    settings->UseNOS = (myCurrentSession.uCustFlags >> 11) & 1;
-    settings->PerformanceMatching = (myCurrentSession.uCustFlags >> 13) & 1;
+    settings->RankedGame = (myCurrentSession.uCustFlags & 0x200) != 0;
+    settings->CollisionDetection = (myCurrentSession.uCustFlags & 0x400) != 0;
+    settings->UseNOS = (myCurrentSession.uCustFlags & 0x800) != 0;
+    settings->PerformanceMatching = (myCurrentSession.uCustFlags & 0x2000) != 0;
 
     if (myCurrentSession.uCustFlags & 0x80000000) {
         settings->RaceMode = GRace::kRaceType_Circuit;
@@ -670,7 +670,7 @@ void LobbyGameSessions::ExtractSessionInfo() {
         TagFieldGetNumber(TagFieldFind(myCurrentSession.strParams, "E"), 0);
     settings->GetRaceSettings()->NumLaps =
         TagFieldGetNumber(TagFieldFind(myCurrentSession.strParams, "L"), 0);
-    settings->GetRaceSettings()->TrackDirection = (myCurrentSession.uCustFlags >> 12) & 1;
+    settings->GetRaceSettings()->TrackDirection = (myCurrentSession.uCustFlags & 0x1000) != 0;
     settings->MinOnlinePlayers = TagFieldGetNumber(TagFieldFind(myCurrentSession.strParams, "M"), 0);
 
     if (myCurrentSession.uCustFlags & 0x100000) {
@@ -966,7 +966,7 @@ int LobbyGameSessions::FilterFunc(void *filtref, int filtcon, void *recptr) {
         ExtraSessionData newesd;
         newesd.pingToHostInMsec = -1;
         std::pair<ExtraSessionDataMap::iterator, bool> rc =
-            lgs.extraSessionDataMap.insert(ExtraSessionDataMap::value_type(userset->iIdent, newesd));
+            lgs.extraSessionDataMap.insert(std::make_pair(userset->iIdent, newesd));
         if (!rc.second) {
             return 0;
         }

@@ -154,8 +154,8 @@ VehiclePartDamageBehaviour::VehiclePartDamageBehaviour(CarRenderInfo *carRenderI
       mTrunkAngle(0.0f) {
     int partIndex = 0;
     for (unsigned int slotIx = 0; slotIx < NUM_ELEMENTS(this->mDamagePartList); slotIx++) {
-        this->mDamagePartList[partIndex] = new VehicleDamagePart(carRenderInfo, slotIx);
-        partIndex++;
+        this->mDamagePartList[partIndex++] = new VehicleDamagePart(carRenderInfo, slotIx);
+
     }
 
     for (int zoneId = 0; zoneId < NUM_ELEMENTS(this->mDamageZoneList); zoneId++) {
@@ -312,9 +312,11 @@ void VehiclePartDamageBehaviour::HidePart(unsigned int slotId) {
 }
 
 void VehiclePartDamageBehaviour::Pose(bMatrix4 *worldMatrix) {
+#ifndef EA_PLATFORM_XENON // NFS.exe 0x8253B0A8, entre Init y Reset: en X360 Pose es un blr (4 B)
     for (unsigned int partIx = 0; partIx < NUM_ELEMENTS(this->mDamagePartList); partIx++) {
         this->mDamagePartList[partIx]->SetMatrix(worldMatrix);
     }
+#endif
 }
 
 void VehiclePartDamageBehaviour::Update(bMatrix4 *worldMatrix) {
@@ -371,7 +373,8 @@ float VehiclePartDamageBehaviour::CalcPartRotation(bMatrix4 *worldMatrix, float 
         static float tCs = spring;
         static float tCd = damper;
         static float tI = inertia;
-        float acc = tCs * (desttheta - this->mTrunkAngle) + tCd * -this->mTrunkVel;
+        float acc = tCs * (desttheta - this->mTrunkAngle);
+        acc += tCd * -this->mTrunkVel;
 
         if (UMath::Abs(this->linearAcc_ch.x) > 0.1f) {
             acc -= this->linearAcc_ch.x / tI;
@@ -385,8 +388,8 @@ float VehiclePartDamageBehaviour::CalcPartRotation(bMatrix4 *worldMatrix, float 
             acc += -this->angularVel_ch.y * 36.0f;
         }
 
-        this->mTrunkVel = acc * dT + this->mTrunkVel;
-        this->mTrunkAngle = this->mTrunkVel * dT + this->mTrunkAngle;
+        this->mTrunkVel = this->mTrunkVel + acc * dT;
+        this->mTrunkAngle = this->mTrunkAngle + this->mTrunkVel * dT;
 
         if (this->mTrunkAngle < 0.0f) {
             this->mTrunkAngle = 0.0f;
@@ -548,8 +551,13 @@ void VehicleDamagePart::Reset() {
 }
 
 void InitVehicleDamage() {
+#ifdef EA_BUILD_A124
+    VehicleDamagePartSlotPool = bNewSlotPool(sizeof(VehicleDamagePart), 180, "VehicleDamagePartSlotPool", 0);
+    VehiclePartDamageZoneSlotPool = bNewSlotPool(sizeof(VehiclePartDamageZone), 80, "VehiclePartDamageZoneSlotPool", 0);
+#else
     VehicleDamagePartSlotPool = bNewSlotPool(sizeof(VehicleDamagePart), 240, "VehicleDamagePartSlotPool", 0);
     VehiclePartDamageZoneSlotPool = bNewSlotPool(sizeof(VehiclePartDamageZone), 100, "VehiclePartDamageZoneSlotPool", 0);
+#endif
 }
 
 void CloseVehicleDamage() {}

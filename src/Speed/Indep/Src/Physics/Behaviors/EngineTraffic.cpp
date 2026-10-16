@@ -61,7 +61,7 @@ class EngineTraffic : protected VehicleBehavior, protected ITransmission, protec
     Lbs GetNOSFlowRate() const override {
         return 0.0f;
     }
-    void ChargeNOS(float charge) override {}
+    void ChargeNOS(float amount) override {}
     float GetNOSBoost() const override {
         return 1.0f;
     }
@@ -108,6 +108,9 @@ class EngineTraffic : protected VehicleBehavior, protected ITransmission, protec
     float GetSpeedometer() const override;
     float GetMaxSpeedometer() const override;
     Rpm GetShiftPoint(GearID from_gear, GearID to_gear) const override;
+#ifdef EA_BUILD_A124
+    Rpm GetOptimalShiftRange(GearID to_gear) const override;
+#endif
 
     ShiftStatus GetShiftStatus() const override {
         return SHIFT_STATUS_NORMAL;
@@ -324,7 +327,7 @@ float EngineTraffic::GetBrakingTorque(float engine_torque, float rpm) const {
         float base = this->mEngineInfo.ENGINE_BRAKING(index);
         unsigned int secondIndex = index + 1;
         float step = this->mEngineInfo.ENGINE_BRAKING(UMath::Min(numpts - 1, secondIndex));
-        float load_pct = (step - base) * ratio + base;
+        float load_pct = base + (step - base) * ratio;
         return -engine_torque * UMath::Clamp(load_pct, 0.f, 1.f);
     } else {
         return -engine_torque * this->mEngineInfo.ENGINE_BRAKING(0);
@@ -413,9 +416,23 @@ float EngineTraffic::GetSpeedometer() const {
 }
 
 void EngineTraffic::DoShifting(float dT) {
-    if (this->mGear > G_REVERSE) {
+#ifdef EA_BUILD_A124
+    if (this->GetVehicle()->GetForceStop() & 8) {
+        this->mGear = G_NEUTRAL;
+        this->mGearShiftTimer = 0.0f;
+    } else if (this->mGear > G_REVERSE) {
         this->AutoShift();
     }
+#else
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+    // X360 compara `>= 1`, no `> G_REVERSE` (probado al 100 %).
+    if (this->mGear >= 1) {
+#else
+    if (this->mGear > G_REVERSE) {
+#endif
+        this->AutoShift();
+    }
+#endif
 
     if (this->mGearShiftTimer > 0.0f) {
         this->mGearShiftTimer -= dT;
@@ -488,26 +505,27 @@ void EngineTraffic::OnTaskSimulate(float dT) {
         float drive_torque = engine_torque;
         float breaking_torque = this->GetBrakingTorque(drive_torque, rpm); // yes it's misspelled here despite being correct above
         if (differential_w * total_gear_ratio < 0.0f) {
-            breaking_torque = -breaking_torque;
+            breaking_torque *= -1.0f;
         }
         if (differential_w == 0.0f) {
             breaking_torque = 0.0;
         }
 
-        float power_range = (max_w - min_w) / max_w;
-        float transmission_velocity = differential_w * total_gear_ratio * power_range + min_w;
-        mClutchVelocity = transmission_velocity;
         torque_total += drive_torque * this->mThrottle + breaking_torque * (1.0f - this->mThrottle);
 
+        float power_range = (max_w - min_w) / max_w;
+        float transmission_velocity = min_w + differential_w * total_gear_ratio * power_range;
+        mClutchVelocity = transmission_velocity;
+
         if (transmission_velocity > max_w) {
-            torque_total = breaking_torque * (transmission_velocity / max_w - 1.0f) + breaking_torque * (1.0f - this->mThrottle);
+            torque_total = breaking_torque * (1.0f - this->mThrottle) + breaking_torque * (transmission_velocity / max_w - 1.0f);
         }
 
         if (transmission_velocity > target_w) {
-            float d = transmission_velocity - this->mAngularVelocity;
             // debug info says UMath::Abs got inlined but it was optimized away
             // A124 has fewer optmizations enabled and gives us this
             float dW = UMath::Abs(0.0f) / engine_inertia * dT;
+            float d = transmission_velocity - this->mAngularVelocity;
             this->mAngularVelocity += UMath::Min(dW, d);
             this->mEngineBraking = true;
         } else if (transmission_velocity == target_w) {
@@ -549,3 +567,9 @@ float EngineTraffic::GetShiftPoint(GearID from_gear, GearID to_gear) const {
 
     return 0.0f;
 }
+
+#ifdef EA_BUILD_A124
+Rpm EngineTraffic::GetOptimalShiftRange(GearID to_gear) const {
+    return this->GetGearRatio(to_gear) * this->mTranyInfo->OPTIMAL_SHIFT();
+}
+#endif

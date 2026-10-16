@@ -77,17 +77,25 @@ class Observer : public SpeechFlow {
     Observer();
     ~Observer() override;
     void Update() override;
+  private:
     virtual void CullCheck();
+  public:
     bool IsTransitionable() override;
     void Reset() override;
     void Observe(int currobsrvation, int speaker, float score);
     void Process();
+  private:
     float CalcFWVec_Road_Car();
     void GasStationAftermath();
     void AssessArrest();
     void AssessLOS();
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+    // La A124 mira el vuelo y el vuelco en una sola funcion; la version final los separa.
+    void AssessAirborne();
+#else
+  public:
     void NotifyAirborne(float alt, float t);
+  private:
     void AssessFlippage();
 #endif
     void Assess180();
@@ -99,6 +107,7 @@ class Observer : public SpeechFlow {
     void MessageBlewPastCop(const MGamePlayMoment &message);
     void MessageTunnelUpdate(const MMiscSound &message);
     void MessageGamePlayMoment(const MGamePlayMoment &message);
+  public:
     void DetachRamCop() {
         mRamCop = 0;
     }
@@ -141,8 +150,10 @@ class Observer : public SpeechFlow {
     bool mTunnel;                               // offset 0x58, size 0x1
     Csis::Type_intensity mOutcomeIntensity;     // offset 0x5C, size 0x4
     EAXCop *mRamCop;                            // offset 0x60, size 0x4
+#ifndef EA_BUILD_A124 // los stabs de la A124 pasan de mRamCop a mGasStationPos
     float mAirborneHeight;                      // offset 0x64, size 0x4
     float mAirborneLength;                      // offset 0x68, size 0x4
+#endif
     ALIGNVEC UMath::Vector3 mGasStationPos;     // offset 0x6C, size 0xC
     ALIGNVEC UMath::Vector3 mFwPlayer;          // offset 0x78, size 0xC
     ALIGNVEC UMath::Vector3 mFwRoad;            // offset 0x84, size 0xC

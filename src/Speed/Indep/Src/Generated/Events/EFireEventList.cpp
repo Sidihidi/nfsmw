@@ -28,9 +28,9 @@ void EFireEventList_MakeEvent_Callback(const void *staticData) {
     new EFireEventList(((EFireEventList::StaticData *) staticData)->fEventList, ((EFireEventList::StaticData *) staticData)->fDelayed, ((EFireEventList::StaticData *) staticData)->fVerbose);
 }
 
-int EFireEventList_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 3) {
-        new EFireEventList((CARP::EventList *) lua_tostring(L, 1), (int) lua_tonumber(L, 2), (int) lua_tonumber(L, 3));
+int EFireEventList_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 3) {
+        new EFireEventList((CARP::EventList *) lua_tostring(luaState, 1), (int) lua_tonumber(luaState, 2), (int) lua_tonumber(luaState, 3));
     }
     return 0;
 }

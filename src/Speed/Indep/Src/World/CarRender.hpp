@@ -22,10 +22,14 @@ enum CarRenderDoorID {
     CRD_Max = 4,
 };
 
+class eView;
+
 void InitCarRender();
 void InitCarEffects();
 void CloseCarEffects();
 void InitStandardModels();
+void RenderVehicleFlares(eView *view, int reflection, int renderFlareFlags);
+void DrawTestCars(eView *view, int reflection);
 
 extern bMatrix4 CarScaleMatrix;
 

@@ -11,7 +11,10 @@
 #include "Speed/Indep/Src/Main/AttribSupport.h"
 #include "Speed/Indep/Src/Misc/Joylog.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 static const int PrintActionQueue = 0;
 
@@ -101,8 +104,8 @@ void ActionQueue::Init(int port, unsigned int config) {
     if (port == this->mPort && config == this->mConfig) {
         return;
     }
-    this->mConfig = config;
     this->mPort = port;
+    this->mConfig = config;
 
     if (this->mMappings != nullptr) {
         delete this->mMappings;
@@ -251,69 +254,70 @@ void ActionQueue::IO_UpdateFromDevice() {
 
         InputMapEntry &entry = *iter;
 
-        if (entry.CurrentValue >= 0.0f && entry.HasChanged()) {
+        if (entry.CurrentValue < 0.0f || !entry.HasChanged()) {
+            continue;
+        }
 
-            bool ignore_device = false;
+        bool ignore_device = false;
 
-            if (entry.UpdateType == kUpdate) {
+        if (entry.UpdateType == kUpdate) {
 
-                for (UTL::Std::list<InputMapEntry, _type_list>::iterator dupe = iaction; dupe != e.end(); dupe++) {
+            for (UTL::Std::list<InputMapEntry, _type_list>::iterator dupe = iaction; dupe != e.end(); dupe++) {
 
-                    if (dupe == iter) {
-                        continue;
-                    }
+                if (dupe == iter) {
+                    continue;
+                }
 
-                    const InputMapEntry &entry2 = *dupe;
+                const InputMapEntry &entry2 = *dupe;
 
-                    if (entry2.Action != entry.Action) {
-                        break;
-                    }
+                if (entry2.Action != entry.Action) {
+                    break;
+                }
 
-                    if (entry2.UpdateType == kUpdate && entry2.CurrentValue > entry.CurrentValue) {
-                        ignore_device = true;
-                        break;
-                    }
+                if (entry2.UpdateType == kUpdate && entry2.CurrentValue > entry.CurrentValue) {
+                    ignore_device = true;
+                    break;
                 }
             }
+        }
 
-            if (!ignore_device) {
+        if (!ignore_device) {
 
-                ad.SetID(0);
+            ad.SetID(0);
 
-                switch (entry.UpdateType) {
+            switch (entry.UpdateType) {
 
-                case kPress:
-                case kAnalogPress:
-                    if (entry.CurrentValue >= 0.5f && entry.PreviousValue < 0.5f && entry.PreviousValue >= 0.0f) {
-                        ad.SetID(entry.Action);
-                        ad.SetData(entry.CurrentValue);
-                        ad.SetSlot(device->GetDeviceIndex());
-                    }
-                    break;
-
-                case kRelease:
-                case kAnalogRelease:
-                    if (entry.CurrentValue < 0.5f && entry.PreviousValue >= 0.5f) {
-                        ad.SetID(entry.Action);
-                        ad.SetData(entry.CurrentValue);
-                        ad.SetSlot(device->GetDeviceIndex());
-                    }
-                    break;
-
-                case kUpdate:
+            case kPress:
+            case kAnalogPress:
+                if (entry.CurrentValue >= 0.5f && entry.PreviousValue < 0.5f && entry.PreviousValue >= 0.0f) {
                     ad.SetID(entry.Action);
                     ad.SetData(entry.CurrentValue);
                     ad.SetSlot(device->GetDeviceIndex());
-                    break;
                 }
+                break;
 
-                if (ad.ID() != 0) {
-                    this->ReceiveAction(ad);
+            case kRelease:
+            case kAnalogRelease:
+                if (entry.CurrentValue < 0.5f && entry.PreviousValue >= 0.5f) {
+                    ad.SetID(entry.Action);
+                    ad.SetData(entry.CurrentValue);
+                    ad.SetSlot(device->GetDeviceIndex());
                 }
+                break;
+
+            case kUpdate:
+                ad.SetID(entry.Action);
+                ad.SetData(entry.CurrentValue);
+                ad.SetSlot(device->GetDeviceIndex());
+                break;
             }
 
-            entry.PreviousValue = entry.CurrentValue;
+            if (ad.ID() != 0) {
+                this->ReceiveAction(ad);
+            }
         }
+
+        entry.PreviousValue = entry.CurrentValue;
     }
 }
 
@@ -348,9 +352,24 @@ bool ActionQueue::ReceiveAction(ActionData &action) {
     if (action.ID() != ACTION_UNPLUGGED) {
         this->mLastAnyActionTime = RealTimer;
     }
-    Joylog::AddData(this->mUniqueID, 8, JOYLOG_CHANNEL_JOYEVENTS);
-    Joylog::AddData(action.ID(), 8, JOYLOG_CHANNEL_JOYEVENTS);
-    Joylog::AddData(action.Data(), JOYLOG_CHANNEL_JOYEVENTS);
+#ifdef EA_BUILD_A124
+    // La A124 graba la accion en la repeticion de Juice cuando Juice esta activo (locales de sus stabs).
+    if (gJuiceEnabled) {
+        if (Juice::GameHook::Instance()->Replay_IsCapturing() && !Juice::GameHook::Instance()->Replay_IsReplaying()) {
+            int queue_id = this->mUniqueID;
+            int id = action.ID();
+            float data = action.Data();
+            Juice::GameHook::Instance()->ReplayData(queue_id, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+            Juice::GameHook::Instance()->ReplayData(id, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+            Juice::GameHook::Instance()->ReplayData(data, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+        }
+    } else
+#endif
+    {
+        Joylog::AddData(this->mUniqueID, 8, JOYLOG_CHANNEL_JOYEVENTS);
+        Joylog::AddData(action.ID(), 8, JOYLOG_CHANNEL_JOYEVENTS);
+        Joylog::AddData(action.Data(), JOYLOG_CHANNEL_JOYEVENTS);
+    }
 
     if (action.ID() == ACTION_UNPLUGGED) {
         this->Flush();
@@ -402,10 +421,37 @@ const ActionRef ActionQueue::GetAction() {
 
 void ActionQueue::BeginJoylogFrame() {
     sInJoylogFrame = true;
+#ifdef EA_BUILD_A124
+    // La A124 lee las acciones de la repeticion de Juice cuando Juice esta activo (locales de sus stabs).
+    if (gJuiceEnabled) {
+        if (Juice::GameHook::Instance()->Replay_IsReplaying()) {
+            while (true) {
+                int queue_id;
+                Juice::GameHook::Instance()->ReplayData(queue_id, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+                if (queue_id == -1) {
+                    if (!Juice::GameHook::Instance()->Replay_IsReplaying()) {
+                        MWJuicePad::Instance()->SetIsLastFrame(true);
+                    }
+                    break;
+                }
+                ActionQueue *q = ActionQueue::FindActionQueue(queue_id);
+                int action_id;
+                float data;
+                Juice::GameHook::Instance()->ReplayData(action_id, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+                Juice::GameHook::Instance()->ReplayData(data, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+                if (q != nullptr) {
+                    ActionData a = ActionData(action_id, data, q->mPort);
+                    q->ReceiveAction(a);
+                    MWJuicePad::Instance()->TrackButtonPress(action_id, data, q->mPort);
+                }
+            }
+        }
+    } else
+#endif
     if (Joylog::IsReplaying()) {
         while (true) {
             int queue_id = Joylog::GetSignedData(0x8, JOYLOG_CHANNEL_JOYEVENTS);
-            if (queue_id == -1) return;
+            if (queue_id == -1) break;
 
             ActionQueue *q = ActionQueue::FindActionQueue(queue_id);
             int action_id = Joylog::GetData(0x8, JOYLOG_CHANNEL_JOYEVENTS);
@@ -417,6 +463,18 @@ void ActionQueue::BeginJoylogFrame() {
 }
 
 void ActionQueue::EndJoylogFrame() {
+#ifdef EA_BUILD_A124
+    // La A124 cierra el cuadro de la repeticion de Juice con un -1 (local `i` de sus stabs).
+    if (gJuiceEnabled) {
+        if (Juice::GameHook::Instance()->Replay_IsCapturing() && !Juice::GameHook::Instance()->Replay_IsReplaying() &&
+            !MWJuicePad::Instance()->IsLastJoyFrame()) {
+            int i = -1;
+            Juice::GameHook::Instance()->ReplayData(i, JOYLOG_CHANNEL_JOYEVENTS, "", 0);
+        } else if (MWJuicePad::Instance()->IsLastJoyFrame()) {
+            MWJuicePad::Instance()->SetIsLastFrame(false);
+        }
+    } else
+#endif
     if (!Joylog::IsReplaying()) {
         Joylog::AddData(-1, 0x8, JOYLOG_CHANNEL_JOYEVENTS);
     }

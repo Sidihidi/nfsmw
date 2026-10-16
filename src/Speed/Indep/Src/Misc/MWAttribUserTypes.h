@@ -2,7 +2,7 @@
 #define _mwattribusertypes_h_
 
 #include "Speed/Indep/Src/Main/AttribSupport.h"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 
 #include "Speed/Indep/Src/AI/aireflectedtypes.h"
 #include "Speed/Indep/Src/Ecstasy/GenTypes/EffectParticleAnimation.h"
@@ -154,7 +154,16 @@ struct FFBWaveRecord {
     float Threshold_B; // offset 0x1C, size 0x4, Decl: 62
 
     // Decl: 64
-    bool Sample(float x, float &frequency, float &amplitude, float &offset) const {}
+    bool Sample(float x, float &frequency, float &amplitude, float &offset) const {
+        if (x >= Threshold_A && Threshold_A < Threshold_B) {
+            float t = UMath::Min((x - Threshold_A) / (Threshold_B - Threshold_A), 1.0f);
+            frequency = Frequency_A + (Frequency_B - Frequency_A) * t;
+            amplitude = Amplitude_A + (Amplitude_B - Amplitude_A) * t;
+            offset = Offset_A + (Offset_B - Offset_A) * t;
+            return true;
+        }
+        return false;
+    }
 };
 
 // total size: 0xC

@@ -7,6 +7,8 @@ extern volatile float PreviousCpuFrameRate;
 extern volatile float PreviousGpuFrameRate;
 void ScreenPrintf(int x, int y, const char *format, ...);
 
+DiagnosticLevelEnum CSCommon::m_diagnosticLevel = DIAGNOSTICLEVEL_MEDIUM;
+
 void CSCommon::DumpBytes(const char *raw_data, int num_bytes) {
     for (int i = 0; i < num_bytes; i++) {
     }

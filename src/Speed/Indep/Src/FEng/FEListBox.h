@@ -36,7 +36,7 @@ struct ListBoxResource {
     u32 UserParam;     // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEListBox.h:64
     u32 ResourceIndex; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEListBox.h:65
 
-    ListBoxResource() {} // Decl: speed/indep/src/feng/FEListBox.h:67
+    ListBoxResource() : Handle(0), UserParam(0), ResourceIndex(0) {} // Decl: speed/indep/src/feng/FEListBox.h:67
 
     void Set(u32 ulHandle, u32 ulUserParam, u32 ulResourceIndex) {
         this->Handle = ulHandle;
@@ -69,9 +69,6 @@ struct FEListBoxCell {
     _u u; // offset 0x20, size 0x10, Decl: speed/indep/src/feng/FEListBox.h:101
 
     FEListBoxCell() : ulColor(0), stScale(1.0f, 1.0f) { // Decl: speed/indep/src/feng/FEListBox.h:103
-        stResource.Handle = 0;
-        stResource.UserParam = 0;
-        stResource.ResourceIndex = 0;
         ulType = 0;
         u.string.pStr = nullptr;
         u.string.Label = 0xFFFFFFFF;

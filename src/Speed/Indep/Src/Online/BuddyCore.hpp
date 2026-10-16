@@ -10,55 +10,19 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/Src/Online/LobbyChat.hpp"
 #include "Speed/Indep/Src/Online/NetworkCore.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Common/feDialogBox.hpp"
 
 struct HLBApiRefT;
 struct HLBBudT;
 struct LobbyChalRefT;
 struct LobbyApiMsgT;
 struct BuddyCore;
-struct feDialogScreen;
 
 char *GetLocalizedString(uint32 hash);
 int FEngSNPrintf(char *buffer, int32 bufferSize, const char *format, ...);
 
-enum eDialogTitle {
-    dialog_none = 0,
-    dialog_alert = 1,
-    dialog_info = 2,
-    dialog_confirmation = 3
-};
-
-enum eDialogFirstButtons {
-    first_dialog_button1 = 0,
-    first_dialog_button2 = 1,
-    first_dialog_button3 = 2
-};
-
-struct DialogInterface {
-    static void DismissDialog(int handle);
-    static int ShowMessage(const char *fromPackage, const char *dialogPackage, eDialogTitle title,
-                           const char *message);
-    static int ShowOneButton(const char *fromPackage, const char *dialogPackage, eDialogTitle title,
-                             uint32 buttonTextHash, uint32 buttonPressedMessage,
-                             const char *format);
-    static int ShowOneButton(const char *fromPackage, const char *dialogPackage, eDialogTitle title,
-                             uint32 buttonTextHash, uint32 buttonPressedMessage, uint32 cancelMessage,
-                             const char *format, ...);
-    static int ShowTwoButtons(const char *fromPackage, const char *dialogPackage, eDialogTitle title,
-                              uint32 button1TextHash, uint32 button2TextHash,
-                              uint32 button1PressedMessage, uint32 button2PressedMessage,
-                              uint32 cancelMessage, eDialogFirstButtons firstButton,
-                              const char *format);
-    static int ShowThreeButtons(const char *fromPackage, const char *dialogPackage,
-                                eDialogTitle title, uint32 button1TextHash,
-                                uint32 button2TextHash, uint32 button3TextHash,
-                                uint32 button1PressedMessage, uint32 button2PressedMessage,
-                                uint32 button3PressedMessage, uint32 cancelMessage,
-                                eDialogFirstButtons firstButton, const char *format);
-    static void SetBlurbIsUTF8();
-    static feDialogScreen *FindDialogBox(int handle);
-    static bool SetButtonText(int ButtonNum, const char *pText, bool bTextIsUTF8);
-};
+// A124 (tipos 22301 y 22307, antes de BuddyApiMsgT): tablas de utf8 de DirtySock (UIOnlineChatDialog).
+#include "Speed/Indep/Libs/dirtysock/include/lobbyutf8.h"
 
 struct BuddyApiMsgT {
     int iType;
@@ -67,6 +31,13 @@ struct BuddyApiMsgT {
     unsigned int uTimeStamp;
     unsigned int uUserFlags;
     char *pData;
+};
+
+// A124 (tipo 22328, 39 B): lo devuelve HLBApiUserFound (UIOnlineEA_Messenger::SearchForUserCB).
+struct BuddyApiUserT {
+    char name[17];
+    char domain[5];
+    char product[17];
 };
 
 template <void (BuddyCore::*Callback)(int, int)> struct buddy_op_callback;
@@ -86,6 +57,29 @@ struct InvitedPlayers {
     char name[16];
 
     InvitedPlayers() { bMemSet(&hasAccepted, 0, sizeof(bool)); }
+};
+
+// A124 (tipo 22359, 0x110, nace justo antes de VOIP_ChallengeInfo; ctor en L41@BuddyCore.hpp): la usan
+// uiOnlineChallengeInvite (miembro m_challengeInfo) y el reto propio gSelfChallengeInfo.
+struct ChallengeInfo {
+    bool isActive;
+    int gameIdent;
+    int gameMode;
+    int ranked;
+    int numPlayers;
+    int collisionDetection;
+    int performanceMatchingLevel;
+    int gameBreaker;
+    int numLaps;
+    uint32 eventHash;
+    int trackDirection;
+    char hostName[32];
+    char challengeName[32];
+    char gameRoomName[128];
+    char password[32];
+    int privateSession;
+
+    ChallengeInfo() { bMemSet(&isActive, 0, sizeof(bool)); }
 };
 
 struct VOIP_ChallengeInfo {
@@ -134,6 +128,18 @@ enum HLBStatE {
     HLB_STAT_XA = 3,
     HLB_STAT_DND = 4,
     HLB_STAT_PASSIVE = 5
+};
+
+// A124 (tipo 22344): banderas de HLBBudTempBuddyIs / HLBListFlagTempBuddy.
+enum HLBTempBuddyTypeE {
+    HLB_TEMPBUDDYTYPE_MESG = 1,
+    HLB_TEMPBUDDYTYPE_CHAL = 2,
+    HLB_TEMPBUDDYTYPE_TOUR = 4,
+    HLB_TEMPBUDDYTYPE_VOIP = 8,
+    HLB_TEMPBUDDYTYPE_CUST1 = 16,
+    HLB_TEMPBUDDYTYPE_CUST2 = 32,
+    HLB_TEMPBUDDYTYPE_SESSION = 64,
+    HLB_TEMPBUDDYTYPE_MAX = 128
 };
 
 struct RichPresenceMsg {
@@ -212,6 +218,18 @@ struct BuddyCore {
     static BuddyCore *instance();
     int startconnect(const char *name, const char *passwd, BuddyConnectCallback callback, void *context);
     HLBApiRefT *getApiRef() { return HLBud; }
+    // A124: inline (L160@BuddyCore.hpp; lw 264(v0) en DisplayHLBerrorType y ~UIOnlineEA_Messenger).
+    state_type GetConnectedState() { return state; }
+    // A124: inlines de L133/L134/L151@BuddyCore.hpp (UIOnlineEAM_Options: lw/sw 2436(v0) y lw 280(v0)).
+    // El nombre del parametro de SetVoiceChatState no sale en el .mdebug (solo se expande con constante).
+    bool InVoiceChat() { return m_InVoiceChat; }
+    void SetVoiceChatState(bool inVoiceChat) { m_InVoiceChat = inVoiceChat; }
+    int getLastVOIPState() { return m_lastVOIPstate; }
+    // A124: inlines de L139/L140@BuddyCore.hpp (uiOnlineVoiceInvite: sw 2440(v0), sw 2444(v0), lw 2444(v0)). El
+    // setter del canal del amigo se llama GetBuddyChatChannel(int) en los stabs; los parametros no salen.
+    int GetBuddyChatChannel() { return m_buddyVoiceChatChannel; }
+    void SetMyChatChannel(int channel) { m_myVoiceChatChannel = channel; }
+    void GetBuddyChatChannel(int channel) { m_buddyVoiceChatChannel = channel; }
     void disconnect();
     void handledisconnect();
     void doprocessing();
@@ -272,5 +290,78 @@ template <void (BuddyCore::*Callback)(const char *)> struct buddy_print_callback
         (static_cast<BuddyCore *>(context)->*Callback)(str);
     }
 };
+
+extern "C" {
+// Devuelve el codigo HLB (UIOnlineEA_Messenger::ShowBuddyOptions lo pasa a DisplayHLBerrorType).
+int HLBListFlagTempBuddy(HLBApiRefT *api, const char *name, int flags);
+// A124: devuelve el codigo HLB y los dos ultimos son callback y contexto (UIOnlineEAM_Options::EvaluateGameInviteStatus
+// pasa options_hlb_op_callback<CancelInviteCB>::call y this, y usa el resultado); los demas pasan 0, 0.
+int HLBListAnswerGameInvite(HLBApiRefT *api, const char *name, int answer, void (*)(HLBApiRefT *, int, int, void *), void *);
+void HLBListCancelGameInvite(HLBApiRefT *, int, int);
+int HLBBudGetVOIPState(HLBBudT *);
+void LobbyChalDeclineChallenge(LobbyChalRefT *challenge, int reason);
+// Los tres llamantes de zFe (EAM_Options y uiOnlineVoiceInvite) pasan li a1,1: dos argumentos.
+void LobbyChalCancelChallenge(LobbyChalRefT *, int);
+void LobbyChalAcceptChallenge(LobbyChalRefT *);
+void LobbyChalInitiateChallenge(LobbyChalRefT *, const char *, int, const char *, int);
+// EA Messenger (EAMessenger.cpp, UIOnlineEA_Messenger.cpp): tipos segun el uso en la A124.
+const char *HLBBudGetName(HLBBudT *);
+unsigned int HLBBudGetGameInviteFlags(HLBBudT *);
+int HLBBudCanVoiceChat(HLBBudT *);
+int HLBBudIsTemporary(HLBBudT *);
+int HLBBudIsWannaBeMyBuddy(HLBBudT *);
+int HLBBudIsIWannaBeHisBuddy(HLBBudT *);
+int HLBBudTempBuddyIs(HLBBudT *, int);
+int HLBBudIsBlocked(HLBBudT *);
+int HLBBudIsRealBuddy(HLBBudT *);
+char *HLBBudGetTitle(HLBBudT *);
+int HLBBudIsInGroup(HLBBudT *);
+int HLBBudGetState(HLBBudT *);
+int HLBBudIsPassive(HLBBudT *);
+int HLBBudIsAvailableForChat(HLBBudT *);
+int HLBBudIsSameProduct(HLBBudT *);
+int HLBBudIsJoinable(HLBBudT *);
+int HLBBudIsNoReplyBud(HLBBudT *);
+void HLBBudGetPresence(HLBBudT *, char *);
+void HLBBudGetPresenceExtra(HLBBudT *, char *, int);
+int HLBMsgListGetUnreadCount(HLBBudT *);
+int HLBMsgListGetTotalCount(HLBBudT *);
+void HLBListClearGroup(HLBApiRefT *);
+void HLBListSort(HLBApiRefT *);
+int HLBListAddToGroup(HLBApiRefT *, const char *);
+int HLBListRemoveFromGroup(HLBApiRefT *, const char *);
+int HLBApiFindUsers(HLBApiRefT *, const char *, void (*)(HLBApiRefT *, int, int, void *), void *);
+BuddyApiUserT *HLBApiUserFound(HLBApiRefT *, int);
+// UIOnlineChatDialog: tipos segun el uso en la A124.
+BuddyApiMsgT *HLBMsgListGetFirstUnreadMsg(HLBBudT *, int, int);
+void HLBMsgListDeleteAll(HLBBudT *, int);
+void HLBApiCancelOp(HLBApiRefT *);
+int HLBListSendChatMsg(HLBApiRefT *, const char *, const char *, void (*)(HLBApiRefT *, int, int, void *), void *);
+int HLBListSendMsgToGroup(HLBApiRefT *, int, const char *, int, void (*)(HLBApiRefT *, int, int, void *), void *);
+// uiOnlineChallengeInvite (y UIOnlineEAM_Options, que pasa un callback).
+int HLBListBlockBuddy(HLBApiRefT *, const char *, void (*)(HLBApiRefT *, int, int, void *), void *);
+// UIOnlineEAM_Options: tipos segun el uso en la A124.
+int HLBListAnswerInvite(HLBApiRefT *, const char *, int, void (*)(HLBApiRefT *, int, int, void *), void *);
+int HLBListUnBlockBuddy(HLBApiRefT *, const char *, void (*)(HLBApiRefT *, int, int, void *), void *);
+int HLBListInviteBuddy(HLBApiRefT *, const char *, void (*)(HLBApiRefT *, int, int, void *), void *);
+int HLBListUnMakeBuddy(HLBApiRefT *, const char *, void (*)(HLBApiRefT *, int, int, void *), void *);
+void HLBListDeleteTempBuddy(HLBApiRefT *, const char *);
+void HLBListUnFlagTempBuddy(HLBApiRefT *, const char *, int);
+}
+
+// Definido en la unidad zOnline (0x64a5b8); BuddyCore.cpp lo declara a mano. Lo limpia uiOnlineChallengeInvite.
+extern int gChallengeRecieved;
+
+// EA Messenger (frontend): los usan BuddyCore.cpp y LobbyChat.cpp con declaraciones locales.
+extern BuddySettings gBuddySettings;
+// La A124 los declara juntos antes de g_inviteList (orden de salida de los globales diferidos).
+extern const char *gNewBuddyName;
+extern int gVOIP_InviteState;
+extern int gPrivateRoomFlag;
+extern int gBuddyListHasChanged;
+extern char PCSearchName[16];
+BuddySettings EA_Messenger_GetBuddySettings(HLBBudT *pBuddy);
+BuddySettings EA_Messenger_GetBuddySettingsByName(const char *name);
+void DisplayHLBerrorType(const char *pkgName, int errorNum);
 
 #endif

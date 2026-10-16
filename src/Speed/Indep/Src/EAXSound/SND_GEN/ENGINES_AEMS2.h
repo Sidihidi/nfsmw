@@ -245,7 +245,7 @@ class CAR {
     }
 
     void SetFX_DRY(int x) {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
         if (x < -0x7FFF) {
             x = -0x7FFF;
         } else if (x > 0) {
@@ -450,8 +450,8 @@ class CAR_SWTN {
     void SetId(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0xF) {
-            x = 0xF;
+        } else if (x > 10) {
+            x = 10;
         }
         this->mData.id = x;
     }
@@ -597,8 +597,8 @@ class CAR_WHINE {
     void SetCar_class(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 100) {
-            x = 100;
+        } else if (x > 60) {
+            x = 60;
         }
         this->mData.car_class = x;
     }

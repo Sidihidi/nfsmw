@@ -43,7 +43,7 @@ SFXCTL_HybridMotor::SFXCTL_HybridMotor()
     this->CrossFadesPoints[4] = bVector2(0.0f, 0.0f);
     this->CrossFadesPoints[5] = bVector2(0.0f, 0.0f);
     this->SteadyFrameCnt = 0;
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     this->mPrevDeltaRPM = 0;
 #endif
 }
@@ -104,7 +104,7 @@ void SFXCTL_HybridMotor::AttachController(SFXCTL *psfxctl) {
 }
 
 void SFXCTL_HybridMotor::UpdateDeltaRPM() {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     this->mPrevPhyDeltaRPM = this->m_CurPhyDeltaRPMVal;
 #endif
 
@@ -126,19 +126,20 @@ void SFXCTL_HybridMotor::UpdateDeltaRPM() {
     } else if (this->m_pShiftingCtl->IsActive()) {
         SHIFT_STAGE ShiftState = this->m_pShiftingCtl->eShiftState;
 
+        // Aqui el original relee los miembros (lwc1 0xAC/0xB0 en la A124) en vez de usar las locales.
         if (ShiftState == SHFT_DOWN_ENGAGING_RISE) {
-            this->m_AvgDeltaRPM.Flush(AudDeltaRPM);
+            this->m_AvgDeltaRPM.Flush(this->m_CurAudDeltaRPMVal);
         } else if (this->m_pShiftingCtl->eShiftStageChanged == SHFT_UP_ENGAGING) {
-            this->m_AvgDeltaRPM.Flush(bAbs(PhyDeltaRPM));
+            this->m_AvgDeltaRPM.Flush(bAbs(this->m_CurPhyDeltaRPMVal));
         } else {
             if (static_cast<unsigned int>(ShiftState - SHFT_UP_ENGAGING) < 2u) {
-                this->m_AvgDeltaRPM.Record(bAbs(AudDeltaRPM));
+                this->m_AvgDeltaRPM.Record(bAbs(this->m_CurAudDeltaRPMVal));
             } else {
-                this->m_AvgDeltaRPM.Record(AudDeltaRPM);
+                this->m_AvgDeltaRPM.Record(this->m_CurAudDeltaRPMVal);
             }
         }
     } else {
-        this->m_AvgDeltaRPM.Record(PhyDeltaRPM);
+        this->m_AvgDeltaRPM.Record(this->m_CurPhyDeltaRPMVal);
     }
 
     this->m_AvgDeltaRPM.Recalculate();
@@ -170,13 +171,13 @@ void SFXCTL_HybridMotor::UpdateSingleMixEng(float t) {
     float DeltaRPM;
     float adt;
 
-    DeltaRPM = this->m_AvgDeltaRPM.GetValue();
+    DeltaRPM = this->m_AvgDeltaRPM.GetValue() + 10.0f;
     adt = this->m_pEAXCar->GetAttributes().AccelDeltaRPMThreshold();
 
-    this->PercentOfAccelThreshold = 1.0f - (adt - bAbs(DeltaRPM + 10.0f)) / adt;
+    this->PercentOfAccelThreshold = 1.0f - (adt - bAbs(DeltaRPM)) / adt;
     this->PercentOfAccelThreshold = bClamp(this->PercentOfAccelThreshold, 0.0f, 1.0f);
     this->PercentOfDecelThreshold =
-        1.0f - (this->m_pEAXCar->GetAttributes().DecelDeltaRPMThreshold() - bAbs(DeltaRPM + 10.0f)) /
+        1.0f - (this->m_pEAXCar->GetAttributes().DecelDeltaRPMThreshold() - bAbs(DeltaRPM)) /
                    this->m_pEAXCar->GetAttributes().DecelDeltaRPMThreshold();
     this->PercentOfDecelThreshold = bClamp(this->PercentOfDecelThreshold, 0.0f, 1.0f);
 
@@ -245,7 +246,7 @@ void SFXCTL_HybridMotor::UpdateSingleMixEng(float t) {
 
     this->m_GinsuLPFVal = static_cast<float>(
         25000 - NFSMixShape::GetCurveOutput(SHAPE_UP_ONE_MIN_EQPWR_SQ,
-                                            static_cast<int>(static_cast<float>(this->m_EngineMix.Cutoff) * 1.3106799f),
+                                            static_cast<int>((static_cast<float>(this->m_EngineMix.Cutoff) / 25000.0f) * 32767.0f),
                                             true));
 
     EngineCtlVolFactor = static_cast<float>(this->m_pEngineCtl->m_iEngineVol) * 3.051851e-05f;
@@ -280,12 +281,12 @@ void SFXCTL_HybridMotor::UpdateDualMixEng(float t) {
     float adt;
     bool UseAccelMix;
 
-    DeltaRPM = this->m_AvgDeltaRPM.GetValue();
+    DeltaRPM = this->m_AvgDeltaRPM.GetValue() + 10.0f;
     adt = this->m_pEAXCar->GetAttributes().AccelDeltaRPMThreshold();
-    this->PercentOfAccelThreshold = 1.0f - (adt - bAbs(DeltaRPM + 10.0f)) / adt;
+    this->PercentOfAccelThreshold = 1.0f - (adt - bAbs(DeltaRPM)) / adt;
     this->PercentOfAccelThreshold = bClamp(this->PercentOfAccelThreshold, 0.0f, 1.0f);
     this->PercentOfDecelThreshold =
-        1.0f - (this->m_pEAXCar->GetAttributes().DecelDeltaRPMThreshold() - bAbs(DeltaRPM + 10.0f)) /
+        1.0f - (this->m_pEAXCar->GetAttributes().DecelDeltaRPMThreshold() - bAbs(DeltaRPM)) /
                    this->m_pEAXCar->GetAttributes().DecelDeltaRPMThreshold();
     this->PercentOfDecelThreshold = bClamp(this->PercentOfDecelThreshold, 0.0f, 1.0f);
 
@@ -421,8 +422,9 @@ void SFXCTL_HybridMotor::UpdateMixerOutputs() {
     PercentOfThreshold = bClamp(PercentOfThreshold, 0.0f, 1.0f);
     output = smooth(this->GetDMIX_InputValue(1), static_cast<int>(PercentOfThreshold * 32767.0f), 3000);
 
-    // La A124 no lee m_pEngineCtl despues del smooth (0x1BEC40 va directo a m_pShiftingCtl): sin redline.
-#ifndef EA_BUILD_A124
+    // La A124 no lee m_pEngineCtl despues del smooth (0x1BEC40 va directo a m_pShiftingCtl): sin redline, y
+    // SLUS tampoco tiene mPrevDeltaRPM.
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (!this->m_pEngineCtl->bWasRedlining &&
         this->m_pEngineCtl->bIsRedlining) {
         this->mPrevDeltaRPM = output / 2;
@@ -452,7 +454,7 @@ void SFXCTL_HybridMotor::UpdateMixerOutputs() {
         }
     }
 
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (this->m_pEngineCtl->bIsRedlining) {
         this->SetDMIX_Input(1, this->mPrevDeltaRPM);
     }

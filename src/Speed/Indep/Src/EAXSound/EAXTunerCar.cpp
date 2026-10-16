@@ -5,9 +5,9 @@ STATETYPE_IMPLEMENT(0x00020000, EAXTunerCar, EAXCar)
 
 EAXTunerCar::EAXTunerCar() {
     this->bFirstUpdate = true;
-    this->TrunkBounceInstensity = 0.0f;
     this->BottomOutPlay = false;
     this->TrunkBouncePlay = false;
+    this->TrunkBounceInstensity = 0.0f;
     this->PlayBackFire = false;
 }
 
@@ -64,11 +64,7 @@ void EAXTunerCar::UpdatePov() {
         CameraAnchor *anchor = cm->GetAnchor();
         this->m_IsDriveCamera = cm->IsDriveCamera();
 
-        if (anchor != nullptr) {
-            this->m_PovType = anchor->GetPOVType();
-        } else {
-            this->m_PovType = 7;
-        }
+        this->m_PovType = anchor != nullptr ? anchor->GetPOVType() : 7;
     } else {
         this->m_IsDriveCamera = 0;
     }

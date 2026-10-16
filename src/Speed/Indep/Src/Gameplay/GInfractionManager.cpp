@@ -58,5 +58,5 @@ unsigned int GInfractionManager::GetNumInfractions() {
 }
 
 bool GInfractionManager::DidInfractionOccur(InfractionType infraction) {
-    return (mInfractions & infraction) != 0;
+    return (mInfractions & infraction) != 0 ? true : false;
 }

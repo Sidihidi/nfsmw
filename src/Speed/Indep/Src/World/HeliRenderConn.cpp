@@ -100,18 +100,28 @@ void HeliRenderConn::OnRender(eView *view, int reflection) {
     }
 
     EVIEWMODE view_mode = eGetCurrentViewMode();
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (reflection == 0 || (view->GetID() == EVIEW_PLAYER1_REFLECTION && view_mode < EVIEWMODE_TWOH)) {
+#else
     if (reflection == 0) {
+#endif
         bMatrix4 cbm(this->mGeomMatrix);
         int render_flags = 0;
+        if (reflection != 0) {
+            render_flags = 0x401;
+            cbm.v2.x = -cbm.v2.x;
+            cbm.v2.y = -cbm.v2.y;
+            cbm.v2.z = -cbm.v2.z;
+        }
         bVector3 Position(cbm.v3.x, cbm.v3.y, cbm.v3.z);
 
         cbm.v3.x = 0.0f;
         cbm.v3.y = 0.0f;
         cbm.v3.z = 0.0f;
 
-        if (car_render_info->Render(view, &Position, &cbm, this->mMatrices, this->mMatrices, this->mMatrices, render_flags, reflection, reflection,
+        if (car_render_info->Render(view, &Position, &cbm, this->mMatrices, this->mMatrices, this->mMatrices, render_flags, 0, reflection,
                                     this->mShadowScale, car_render_info->GetMinLodLevel(), car_render_info->GetMinLodLevel()) &&
-            view->GetID() < 4) {
+            view->GetID() <= 3) {
             this->mLastVisibleFrame = eGetFrameCounter();
         }
     }

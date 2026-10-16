@@ -10,7 +10,9 @@
 EShowMilestones::EShowMilestones(int pEnterSafehouseOnExit) : Event(0x10), fEnterSafehouseOnExit(pEnterSafehouseOnExit) {
     const char *screen = "PostRace_MilestoneRewards.fng";
 
-    GPS_Disengage();
+#ifndef EA_BUILD_A124
+    GPS_Disengage(); // la A124 no desengancha el GPS aqui (su zMain no tiene la llamada)
+#endif
 
     ISimable *isimable = IPlayer::First(PLAYER_LOCAL)->GetSimable();
 

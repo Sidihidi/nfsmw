@@ -147,7 +147,7 @@ class AttributeBlock {
     bool GetAttribute(AttributeId id, char &result) const {
         void *r;
         if (GetAttribute(id, r)) {
-            result = static_cast<char>((reinterpret_cast<uintptr_t>(r) & 0xFF000000) >> 24);
+            result = *reinterpret_cast<char *>(&r);
             return true;
         } else {
             return false;
@@ -157,7 +157,7 @@ class AttributeBlock {
     bool GetAttribute(AttributeId id, unsigned char &result) const {
         void *r;
         if (GetAttribute(id, r)) {
-            result = static_cast<unsigned char>((reinterpret_cast<uintptr_t>(r) & 0xFF000000) >> 24);
+            result = *reinterpret_cast<unsigned char *>(&r);
             return true;
         } else {
             return false;

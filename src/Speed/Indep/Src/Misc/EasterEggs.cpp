@@ -13,23 +13,42 @@ Timer tRenderEggTimer;
 EasterEggs gEasterEggs;
 
 EasterEggs::EasterEggs() {
+    // La tabla es distinta en cada build (.data de los tres originales): 6 entradas en la A124, 3 en la PS2 de venta
+    // y 2 en GameCube.
+#if defined(EA_BUILD_A124)
+    static EasterEggsData StaticEasterEggsTable[6] = {
+        {{L1, R1, L1, R1, LT, RT, LT, RT}, 0, 0, 0, 0, false, true, true},
+        {{L1, R1, L1, R1, UP, DN, UP, DN}, 1, 0, 0, 0, false, true, true},
+        {{L1, R1, R1, L1, R1, R1, L1, R1}, 2, 0, 0, 0, false, true, true},
+        {{UP, DN, UP, DN, LT, RT, LT, RT}, 3, 0, 0, 0, false, true, true},
+        {{LT, RT, LT, RT, UP, DN, UP, DN}, 4, 0, 0, 0, false, true, true},
+        {{L1, L1, L1, R1, LT, LT, RT, UP}, 2, 1, 0, 0, false, true, true},
+    };
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    static EasterEggsData StaticEasterEggsTable[3] = {
+        {{UP, DN, UP, DN, LT, RT, LT, RT}, 3, 0, 0, 0, false, true, true},
+        {{LT, RT, LT, RT, UP, DN, UP, DN}, 4, 0, 0, 0, false, true, true},
+        {{UP, UP, DN, DN, LT, RT, UP, DN}, 5, 0, 0, 0, false, true, true},
+    };
+#else
     static EasterEggsData StaticEasterEggsTable[2] = {
         {{UP, DN, UP, DN, LT, RT, LT, RT}, 3, 0, 0, 0, false, true, true},
         {{LT, RT, LT, RT, UP, DN, UP, DN}, 4, 0, 0, 0, false, true, true},
     };
+#endif
     ButtonsEnabled = false;
     HaveUnlockMessage = false;
     UnlockMessage = 0;
     NumberOfCurrentButtons = 0;
     CurrentStartButton = 0;
     EasterEggsTable = StaticEasterEggsTable;
-    NumberOfEasterEggs = 2;
+    NumberOfEasterEggs = sizeof(StaticEasterEggsTable) / sizeof(StaticEasterEggsTable[0]);
 }
 
 EasterEggs::~EasterEggs() {}
 
 void EasterEggs::Activate() {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
         EasterEggActionQ[i] = new ((const char *)nullptr) ActionQueue(i, 0x82d21520, "movie q", false);
         EasterEggActionQ[i]->Enable(true);
     }
@@ -40,7 +59,7 @@ void EasterEggs::Activate() {
 }
 
 void EasterEggs::UnActivate() {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
         if (EasterEggActionQ[i]) {
             delete EasterEggActionQ[i];
         }
@@ -64,7 +83,9 @@ void EasterEggs::ActivateEasterEgg(int egg) {
         return;
     }
     ClearGroup(EasterEggsTable[egg].group);
+#ifndef EA_BUILD_A124
     bool was_unlocked = EasterEggsTable[egg].unlocked;
+#endif
     EasterEggsTable[egg].unlocked = true;
     if (EasterEggsTable[egg].type == EASTER_EGG_SPECIAL) {
         TriggerSpecial(EasterEggsTable[egg].item);
@@ -73,7 +94,12 @@ void EasterEggs::ActivateEasterEgg(int egg) {
     UnlockMessage = EasterEggsTable[egg].unlock_message;
     ClearButtons();
     g_pEAXSound->PlayUISoundFX(UISND_COMMON_SELECT);
+#ifdef EA_BUILD_A124
+    // La A124 no recuerda si ya estaba desbloqueado y no tiene el truco de la demo.
+    {
+#else
     if (!was_unlocked) {
+#endif
         if (EasterEggsTable[egg].type == EASTER_EGG_UNLOCK_ALL_THINGS) {
             UnlockAllThings = 1;
         } else if (EasterEggsTable[egg].type == EASTER_EGG_SKIP_DDAY) {
@@ -89,10 +115,12 @@ void EasterEggs::ActivateEasterEgg(int egg) {
             cFEng::Get()->QueueGameMessage(FEHASH_CASTROL_UNLOCK, nullptr, 0xff);
             FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
             stable->AwardBonusCars();
+#ifndef EA_BUILD_A124
         } else if (EasterEggsTable[egg].type == EASTER_EGG_DEMO_CHEAT) {
             // TODO magic
             cFEng::Get()->QueueGameMessage(FEHASH_DEMO_CHEAT, nullptr, 0xff);
             FEDatabase->GetCareerSettings()->TryAwardDemoMarker();
+#endif
         }
     }
 }
@@ -101,7 +129,7 @@ void EasterEggs::HandleJoy() {
     if (!ButtonsEnabled) {
         return;
     }
-    for (int port = 0; port < 2; port++) {
+    for (int port = 0; port < NUM_JOYSTICK_PORTS; port++) {
         if (!EasterEggActionQ[port]) {
             continue;
         }

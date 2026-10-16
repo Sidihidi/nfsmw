@@ -349,7 +349,7 @@ void PhysicsObject::ReleaseBehaviors() {
             UCrc32 mechanic = (*i).first;
 
             mBehaviors.Remove(beh);
-            Destroy(beh);
+            DestroyElement(*beh);
             (*i).second = NULL;
             OnBehaviorChange(mechanic);
         }
@@ -367,7 +367,7 @@ void PhysicsObject::ReleaseBehavior(const UCrc32 &mechanic) {
 
     if (beh) {
         mBehaviors.Remove(beh);
-        Destroy(beh);
+        DestroyElement(*beh);
 
         mMechanics[key] = NULL;
         OnBehaviorChange(mechanic);
@@ -407,7 +407,7 @@ Behavior *PhysicsObject::LoadBehavior(const UCrc32 &mechanic, const UCrc32 &beha
     }
 
     unsigned int key = mechanic.GetValue();
-    Behavior *beh = Create(behavior, BehaviorParams(params, this, behavior, mechanic));
+    Behavior *beh = BuildElement(behavior, BehaviorParams(params, this, behavior, mechanic));
 
     if (beh) {
         mMechanics[key] = beh;

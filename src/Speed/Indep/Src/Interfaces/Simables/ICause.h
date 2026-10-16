@@ -8,7 +8,11 @@
 
 struct ISimable;
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class ICause : public UTL::COM::IUnknown, public UTL::Collections::Instanceable<HCAUSE, ICause, 20> {
+#else
 class ICause : public UTL::COM::IUnknown, public UTL::Collections::Instanceable<HCAUSE, ICause, 10> {
+#endif
   public:
     DECL_INTERFACE(ICause);
 

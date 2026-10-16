@@ -7,6 +7,7 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/Src/Online/LobbyCore.hpp"
 #include "Speed/Indep/Src/Online/NetworkCore.hpp"
+#include "Speed/Indep/Src/Online/NetworkMutex.hpp"
 #include "Speed/Indep/Src/Online/VoiceCore.hpp"
 
 extern "C" {
@@ -34,18 +35,16 @@ int HLBApiRegisterNewMsgCallback(HLBApiRefT *api, void (*callback)(HLBApiRefT *,
 void LobbyChalDeclineChallenge(LobbyChalRefT *challenge, int reason);
 void LobbyChalDestroy(LobbyChalRefT *challenge);
 void LobbyChalBlockChallenge(LobbyChalRefT *challenge);
-void HLBApiSuspend(HLBApiRefT *api);
+int HLBApiSuspend(HLBApiRefT *api);
 void HLBApiResume(HLBApiRefT *api);
 LobbyChalRefT *LobbyChalCreate(LobbyApiRefT *api, const char *persona,
                                void (*callback)(LobbyChalRefT *, LobbyApiMsgT *, void *), void *context, int timeout);
-void HLBListFlagTempBuddy(HLBApiRefT *api, const char *name, int flags);
-void HLBListAnswerGameInvite(HLBApiRefT *api, const char *name, int answer, int gameId, int flags);
 HLBBudT *HLBListGetBuddyByIndex(HLBApiRefT *api, int index);
 HLBBudT *HLBListGetBuddyByName(HLBApiRefT *api, const char *name);
 int HLBListGetBuddyCount(HLBApiRefT *api);
 void HLBApiDisconnect(HLBApiRefT *api);
 void HLBApiDestroy(HLBApiRefT *api);
-void HLBApiPresenceVOIPSend(HLBApiRefT *api, int status);
+int HLBApiPresenceVOIPSend(HLBApiRefT *api, int status);
 void HLBApiPresenceDiff(HLBApiRefT *api, const char *domain, const char *language);
 void HLBApiUpdate(HLBApiRefT *api);
 void *LobbyApiInfoPtr(LobbyApiRefT *api, int selector);
@@ -54,7 +53,7 @@ int TagFieldGetNumber(const char *field, int defaultValue);
 int TagFieldGetString(const char *field, char *buffer, int bufferSize, const char *defaultValue);
 void TagFieldSetNumber(char *buffer, int bufferSize, const char *name, int value);
 void TagFieldSetString(char *buffer, int bufferSize, const char *name, const char *value);
-void HLBApiPresenceSend(HLBApiRefT *api, HLBStatE state, bool voipState, const char *presence, int waitForCompletion);
+void HLBApiPresenceSend(HLBApiRefT *api, HLBStatE state, int voipState, const char *presence, int waitForCompletion);
 }
 
 MenuScreen *FEngFindScreen(const char *packageName);
@@ -68,6 +67,7 @@ extern char *g_GameRoomName;
 static char BuddyProductString[9] = "NFS-2006";
 char productString[32];
 static char BuddyContextString[6] = "/CSO/";
+static NetworkMutex buddyMutex;
 
 BuddyCore::BuddyCore()
     : HLBud(nullptr) //
@@ -221,6 +221,7 @@ void BuddyCore::disconnect() {
         }
         m_lobbyChalRefT = nullptr;
         bMemSet(savedNames, 0, sizeof(savedNames));
+        buddyMutex.Destroy();
     }
 }
 
@@ -246,7 +247,9 @@ void BuddyCore::doprocessing() {
                 gBuddyListHasChanged = 1;
             }
         }
+        buddyMutex.Lock();
         HLBApiUpdate(HLBud);
+        buddyMutex.Unlock();
     }
 }
 
@@ -336,7 +339,7 @@ void BuddyCore::buddyListChangedCallback(int op, int opStatus) {
         if (!thisInvite) {
             break;
         }
-        thisBuddy = getBuddyByName(thisInvite->player);
+        thisBuddy = HLBListGetBuddyByName(HLBud, thisInvite->player);
         if (thisBuddy && HLBBudGetState(thisBuddy) == 0) {
             DisplayDeclinedInvite(thisInvite->player);
             LobbyChat::Instance().CancelInvite(thisInvite->player);
@@ -681,7 +684,7 @@ void BuddyCore::SetPresence(RichPresenceMsg richPresenceMsg, HLBStatE buddyState
     TagFieldSetString(parms, sizeof(parms), "W", richPresenceMsg.password);
     TagFieldSetNumber(parms, sizeof(parms), "V", richPresenceMsg.isSessionPrivate);
     TagFieldSetNumber(parms, sizeof(parms), "R", richPresenceMsg.isRacing);
-    HLBApiPresenceSend(HLBud, buddyState, VoiceCore::mInstance->IsHeadsetConnected(), parms, 0);
+    HLBApiPresenceSend(HLBud, buddyState, VoiceCore::mInstance->IsHeadsetConnected() ? 1 : 0, parms, 0);
 }
 
 RichPresenceMsg BuddyCore::GetRichPresence(BuddySettings *buddySettings) {

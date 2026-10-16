@@ -26,17 +26,22 @@ struct ManagedCollisionInstance {
     WGridNodeElemTag mTriggerInd;
 };
 
-WCollisionAssets::WCollisionAssets()
-    : fStaticCollisionInstances(nullptr),                                                //
-      fStaticCollisionInstancesCount(0),                                                 //
-      fManagedCollisionInstances(new ("CollisionInstanceList", 0) CollisionInstanceMap), //
-      fManagedCollisionInstancesInd(0x8000),                                             //
-      fStaticCollisionObjects(nullptr),                                                  //
-      fStaticCollisionObjectsCount(0),                                                   //
-      fManagedCollisionObjects(new ("CollisionObjectList", 0) CollisionObjectMap),       //
-      fManagedCollisionObjectsInd(0x8000),                                               //
-      fNumPackLoadCallbacks(0) {
+// Asignaciones en el cuerpo y no lista de inicializacion: GameCube da una linea a cada una (57-68) y las PS2
+// reutilizan el hueco del temporal del asignador de los dos mapas (una sentencia cada uno).
+WCollisionAssets::WCollisionAssets() {
+    this->fStaticCollisionInstances = nullptr;
+    this->fStaticCollisionInstancesCount = 0;
+    this->fManagedCollisionInstances = new ("CollisionInstanceList", 0) CollisionInstanceMap;
+    this->fManagedCollisionInstancesInd = 0x8000;
+
+    this->fStaticCollisionObjects = nullptr;
+    this->fStaticCollisionObjectsCount = 0;
+    this->fManagedCollisionObjects = new ("CollisionObjectList", 0) CollisionObjectMap;
+    this->fManagedCollisionObjectsInd = 0x8000;
+
+    this->fNumPackLoadCallbacks = 0;
     for (unsigned int onCallback = 0; onCallback < 4; ++onCallback) {
+
         this->fPackLoadCallback[onCallback] = nullptr;
     }
 
@@ -91,6 +96,7 @@ void WCollisionAssets::Init(const UGroup *mapGroup, const UData *triggerUData) {
     WTriggerManager::Init();
     WGrid::Init(mapGroup);
 
+#ifndef EA_BUILD_A124
     for (unsigned int num = GetNumTrackOBBs() - 1; num != -1; --num) {
         TrackOBB *tobb = GetTrackOBB(num);
         UMath::Matrix4 mat = *reinterpret_cast<const UMath::Matrix4 *>(&tobb->Matrix);
@@ -103,6 +109,7 @@ void WCollisionAssets::Init(const UGroup *mapGroup, const UData *triggerUData) {
         dim.z = bAbs(dim.z);
         WCollisionObject *obj = Get().CreateObject(dim, mat, false);
     }
+#endif
 }
 
 void WCollisionAssets::Shutdown() {
@@ -156,7 +163,7 @@ void WCollisionAssets::SetExclusionFlags() {
 }
 
 void WCollisionAssets::AddPackLoadCallback(void (*callback)(int, bool)) {
-    if (this->fNumPackLoadCallbacks > 3) {
+    if (this->fNumPackLoadCallbacks >= 4) {
         return;
     }
 
@@ -290,12 +297,11 @@ void WCollisionAssets::AddTrigger(WTrigger *trig) {
     trig->UpdatePos(UMath::Vector4To3(trig->fPosRadius), reinterpret_cast<uintptr_t>(trig));
 }
 
-// UNSOLVED gotta use trigger->fFlags
 void WCollisionAssets::RemoveTrigger(WTrigger *trigger) {
     UMath::Vector4 oldPosRad = trigger->fPosRadius;
 
     WGridManagedDynamicElem::AddElem(&oldPosRad, nullptr, WGrid_kTrigger, reinterpret_cast<uintptr_t>(trigger));
-    if (trigger && ((static_cast<unsigned int>(reinterpret_cast<unsigned char *>(trigger)[0x12]) << 8) & 0x100) == 0) {
+    if (trigger && (trigger->fFlags & 0x100) == 0) {
         delete trigger;
     }
 }

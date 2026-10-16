@@ -202,10 +202,10 @@ class FX_ROADNOISE {
     }
 
     void SetType(FXROADNOISETypeType x) {
-        if (x < FXROADNOISETYPETYPE_LOOP) {
+        if (x < 0) {
             x = FXROADNOISETYPETYPE_LOOP;
-        } else if (x > FXROADNOISETYPETYPE_TRANSITION_) {
-            x = FXROADNOISETYPETYPE_TRANSITION_;
+        } else if (x > 2) {
+            x = static_cast<FXROADNOISETypeType>(2);
         }
         this->mData.type = x;
     }
@@ -217,8 +217,8 @@ class FX_ROADNOISE {
     void SetSecondaryNoise(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 127) {
+            x = 127;
         }
         this->mData.secondaryNoise = x;
     }
@@ -230,8 +230,8 @@ class FX_ROADNOISE {
     void SetSpeed(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x410) {
-            x = 0x410;
+        } else if (x > 0x400) {
+            x = 0x400;
         }
         this->mData.speed = x;
     }
@@ -403,10 +403,10 @@ class FX_ROADNOISE_TRANS {
     }
 
     void SetType(FXROADNOISETRANSTypeType x) {
-        if (x < FXROADNOISETRANSTYPETYPE_LOOP) {
+        if (x < 0) {
             x = FXROADNOISETRANSTYPETYPE_LOOP;
-        } else if (x > FXROADNOISETRANSTYPETYPE_TRANSITION_) {
-            x = FXROADNOISETRANSTYPETYPE_TRANSITION_;
+        } else if (x > 2) {
+            x = static_cast<FXROADNOISETRANSTypeType>(2);
         }
         this->mData.type = x;
     }
@@ -418,8 +418,8 @@ class FX_ROADNOISE_TRANS {
     void SetSecondaryNoise(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 127) {
+            x = 127;
         }
         this->mData.secondaryNoise = x;
     }
@@ -431,8 +431,8 @@ class FX_ROADNOISE_TRANS {
     void SetSpeed(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x410) {
-            x = 0x410;
+        } else if (x > 0x400) {
+            x = 0x400;
         }
         this->mData.speed = x;
     }
@@ -607,10 +607,10 @@ class ENV_STATIC {
     }
 
     void SetTYPE(ENVSTATICTYPEType x) {
-        if (x < ENVSTATICTYPETYPE_ENV_COMMON) {
+        if (x < 0) {
             x = ENVSTATICTYPETYPE_ENV_COMMON;
-        } else if (x > ENVSTATICTYPETYPE_ENV_LVLSPECIFIC_) {
-            x = ENVSTATICTYPETYPE_ENV_LVLSPECIFIC_;
+        } else if (x > 2) {
+            x = static_cast<ENVSTATICTYPEType>(2);
         }
         this->mData.tYPE = x;
     }
@@ -807,6 +807,11 @@ class FX_WIND {
     }
 
     void SetCamera(int x) {
+        if (x < 0) {
+            x = 0;
+        } else if (x > 0x3FF) {
+            x = 0x3FF;
+        }
         this->mData.camera = x;
     }
 
@@ -815,6 +820,11 @@ class FX_WIND {
     }
 
     void SetOverride_Trigger(int x) {
+        if (x < 0) {
+            x = 0;
+        } else if (x > 1) {
+            x = 1;
+        }
         this->mData.override_Trigger = x;
     }
 
@@ -890,8 +900,8 @@ class FX_WIND {
     void SetPanning_Depth(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 60) {
+            x = 60;
         }
         this->mData.panning_Depth = x;
     }

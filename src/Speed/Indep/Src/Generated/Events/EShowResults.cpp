@@ -71,7 +71,7 @@ EShowResults::EShowResults(FERESULTTYPE pResultType
 
             bool splitscreen = FEDatabase->IsSplitScreenMode();
 
-            if (Sim::IsSplitScreen() || splitscreen) {
+            if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN || splitscreen) {
                 port |= FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(1));
             }
 

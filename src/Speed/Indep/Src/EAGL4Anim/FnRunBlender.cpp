@@ -360,7 +360,7 @@ bool FnRunBlender::FindMatchTime(const MatchPhaseInput &input, float &time) cons
         a = na;
     }
 
-    time = minIdx;
+    time = minIdx * s;
 
     return true;
 }
@@ -411,18 +411,18 @@ void FnRunBlender::AlignCycleBeginEnd(int cIdx) {
             q.y = -q.y;
         }
 
-        QuatMult(q, mAlignQ, resultQ);
+        QuatMult(mAlignQ, q, resultQ);
         mAlignQ = resultQ;
         mCycleIdx = cIdx;
     }
 }
 
 void FnRunBlender::AlignRootQ(float *sqt) const {
-    UMath::Vector4 q;
+    UMath::Vector4 result;
 
-    QuatMult(mAlignQ, *reinterpret_cast<const UMath::Vector4 *>(&sqt[4]), q);
+    QuatMult(*reinterpret_cast<const UMath::Vector4 *>(&sqt[4]), mAlignQ, result);
 
-    *reinterpret_cast<UMath::Vector4 *>(&sqt[4]) = q;
+    *reinterpret_cast<UMath::Vector4 *>(&sqt[4]) = result;
 }
 
 void FnRunBlender::AlignVel(float *vel) const {
@@ -432,7 +432,7 @@ void FnRunBlender::AlignVel(float *vel) const {
     v.y = 0.0f;
     v.z = vel[1];
     v.w = 1.0f;
-    QuatRotate(mAlignQ, v, r);
+    QuatTransformPoint(mAlignQ, v, r);
     vel[0] = r.x;
     vel[1] = r.z;
 }

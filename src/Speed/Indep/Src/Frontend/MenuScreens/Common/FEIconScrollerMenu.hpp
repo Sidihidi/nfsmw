@@ -113,7 +113,6 @@ class IconOption : public bTNode<IconOption> {
 class FEScrollyBookEnd : public IconOption {
   public:
     FEScrollyBookEnd(uint32 tex_hash) : IconOption(tex_hash, 0, 0) {}
-    ~FEScrollyBookEnd() override {} // Decl: speed/indep/src/frontend/menuscreens/common/FEIconScrollerMenu.hpp:258
 
     void React(const char *pkg_name, uint32 data, FEObject *obj, uint32 param1, uint32 param2) override;
 };
@@ -244,7 +243,6 @@ class IconPanel {
 class IconScroller : public IconPanel {
   public:
     IconScroller(const char *pkg_name, const char *master, const char *fe_button, const char *scroll_region, float width);
-    ~IconScroller() override {}
 
     void Update() override;
     virtual void AddInitialBookEnds();

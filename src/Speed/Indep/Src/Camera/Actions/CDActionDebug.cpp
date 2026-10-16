@@ -29,7 +29,7 @@ class CDActionDebug : public CameraAI::Action, public ITrafficCenter {
     CameraMover *GetMover() override {
         return mMover;
     }
-    void SetSpecial(float scale) override {}
+    void SetSpecial(float val) override {}
 
     void Reset() override;
     void Update(float dT) override;

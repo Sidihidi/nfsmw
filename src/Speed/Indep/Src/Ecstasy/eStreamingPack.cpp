@@ -1,3 +1,6 @@
+// clang-format off
+// Maquetado: LoadStreamingEntry va a las lineas del original de la A124 (solo lineas en blanco de relleno delante y dentro):
+// la A124 es una build milestone y su bMalloc pasa __LINE__.
 #include "./eStreamingPack.hpp"
 #include "./EcstasyE.hpp"
 #include "Speed/Indep/Src/Misc/LZCompress.hpp"
@@ -258,7 +261,13 @@ eStreamingPackLoadTable *eStreamPackLoader::GetStreamPackLoadingTable() {
     return nullptr;
 }
 
-void eStreamPackLoader::InternalLoadedStreamingEntryCallback(void *callback_param, int error_status, void *callback_param2) {
+void eStreamPackLoader::InternalLoadedStreamingEntryCallback(
+#ifdef EA_BUILD_A124
+    int callback_param, int error_status, int callback_param2
+#else
+    void *callback_param, int error_status, void *callback_param2
+#endif
+) {
     eStreamingPackLoadTable *loading_table = (eStreamingPackLoadTable *)callback_param2;
     eStreamingEntry *streaming_entry = (eStreamingEntry *)callback_param;
     eStreamPackLoader *stream_pack_loader = loading_table->StreamPackLoader;
@@ -289,7 +298,7 @@ void eStreamPackLoader::InternalLoadedStreamingEntryCallback(void *callback_para
                 int uncompressed_size = streaming_entry->UncompressedSize;
                 int malloc_size = uncompressed_size + stream_pack_loader->RequiredChunkAlignment;
                 int memory_pool_num = loading_table->MemoryPoolNum;
-                int allocation_params = 0x2000;
+                int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
                 if (memory_pool_num != 0) {
                     if (bLargestMalloc(memory_pool_num) > malloc_size) {
                         allocation_params |= (memory_pool_num & 0xF);
@@ -297,7 +306,7 @@ void eStreamPackLoader::InternalLoadedStreamingEntryCallback(void *callback_para
                         PrintStreamingPackMemoryWarning(malloc_name, malloc_size, memory_pool_num);
                     }
                 }
-                uint8 *uncompressed_data = (uint8 *)bMalloc(malloc_size, malloc_name, __LINE__, allocation_params);
+                uint8 *uncompressed_data = (uint8 *)bMalloc(malloc_size, malloc_name, 0, allocation_params);
                 uint8 *compressed_data = (uint8 *)loaded_chunks;
                 uint8 *base_loaded_data = streaming_entry->ChunkData;
                 streaming_entry->ChunkData = uncompressed_data;
@@ -352,11 +361,11 @@ void eStreamPackLoader::InternalLoadStreamingEntry(eStreamingPackLoadTable *load
         bSPrintf(malloc_name, "%s%s", streaming_pack->Filename, (streaming_entry->Flags & 0x1) ? " - Compressed" : "");
 
         int malloc_size = streaming_entry->ChunkByteSize + this->RequiredChunkAlignment;
-        int allocation_params = 0x2000;
+        int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
         int memory_pool_num = loading_table->MemoryPoolNum;
 
         if (streaming_entry->Flags & 0x1) {
-            allocation_params = 0x2040;
+            allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x40;
             if (memory_pool_num != AllowCompressedStreamingTexturesInThisPoolNum) {
                 memory_pool_num = 0;
             }
@@ -369,7 +378,7 @@ void eStreamPackLoader::InternalLoadStreamingEntry(eStreamingPackLoadTable *load
             }
         }
 
-        streaming_entry->ChunkData = (unsigned char *)bMalloc(malloc_size, malloc_name, __LINE__, allocation_params);
+        streaming_entry->ChunkData = (unsigned char *)bMalloc(malloc_size, malloc_name, 0, allocation_params);
         streaming_entry->RefCount++;
         streaming_pack->NumLoadsPending++;
         if (loading_table) {
@@ -377,8 +386,13 @@ void eStreamPackLoader::InternalLoadStreamingEntry(eStreamingPackLoadTable *load
         }
         streaming_entry->Flags |= 0x10;
         bChunk *aligned_chunk_data = this->GetAlignedChunkDataPtr(streaming_entry->ChunkData);
+#ifdef EA_BUILD_A124
+        AddQueuedFile2(aligned_chunk_data, streaming_pack->Filename, streaming_entry->ChunkByteOffset, streaming_entry->ChunkByteSize,
+                       eStreamPackLoader::InternalLoadedStreamingEntryCallback, (int)streaming_entry, (int)loading_table, nullptr);
+#else
         AddQueuedFile2(aligned_chunk_data, streaming_pack->Filename, streaming_entry->ChunkByteOffset, streaming_entry->ChunkByteSize,
                        eStreamPackLoader::InternalLoadedStreamingEntryCallback, streaming_entry, loading_table, nullptr);
+#endif
         streaming_pack->RegisterLoadStreamingEntry(streaming_entry);
     }
 }
@@ -398,17 +412,354 @@ int eStreamPackLoaderSortLoadEntries(eStreamPackLoadEntryInfo *a, eStreamPackLoa
     return 1;
 }
 
-extern void SetDelayedResourceCallback(void (*)(void *), void *);
+// r75: fuera extern SetDelayedResourceCallback duplicado; ResourceLoader.hpp (include propio) ya lo declara.
 
-// FIXME
-//  name_hash_table /* r20 */
-//  num_hashes      /* r22 */
-//  callback        /* r21 */
-//  param0          /* r19 */
-//  memory_pool_num /* r31 */
-void eStreamPackLoader::LoadStreamingEntry(unsigned int *name_hash_table, int num_hashes, void (*callback)(void *), void *param0,
-                                           int memory_pool_num) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Las lineas de esta funcion son las del original de la A124 (en GameCube, dos mas): su bMalloc pasa __LINE__.
+#ifdef EA_BUILD_A124
+void eStreamPackLoader::LoadStreamingEntry(unsigned int *name_hash_table, int num_hashes, void (*callback)(uint32), uint32 param0, int memory_pool_num) {
+#else
+void eStreamPackLoader::LoadStreamingEntry(unsigned int *name_hash_table, int num_hashes, void (*callback)(void *), void *param0, int memory_pool_num) {
+#endif
     ProfileNode profile_node;
+
     eStreamingPackLoadTable *loading_table = this->GetStreamPackLoadingTable();
 
     if (!loading_table)
@@ -418,65 +769,114 @@ void eStreamPackLoader::LoadStreamingEntry(unsigned int *name_hash_table, int nu
     int num_load_entries;
     unsigned int smallest_file_offset;
     int mem_required;
-
-    smallest_file_offset = 0x7FFF0000;
-
     loading_table->MemoryPoolNum = memory_pool_num;
     loading_table->Callback = callback;
     loading_table->Param = param0;
 
-    bTList<eStreamPackLoadEntryInfo> load_info_list;                            // r1+0x8
 
+
+    bTList<eStreamPackLoadEntryInfo> load_info_list;
     load_info_table = (eStreamPackLoadEntryInfo *)bMalloc(num_hashes * sizeof(eStreamPackLoadEntryInfo), "eStreamPackLoadEntryInfo", __LINE__, 0x40);
     num_load_entries = 0;
-    smallest_file_offset |= 0xFFFF;
+    smallest_file_offset = 0x7FFFFFFF;
+
+
 
     for (int i = 0; i < num_hashes; i++) {
+
+
         uint32 name_hash = name_hash_table[i];
         eStreamingPack *streaming_pack = this->GetLoadedStreamingPack(name_hash);
         eStreamingEntry *streaming_entry = nullptr;
 
         if (streaming_pack) {
+
+
             streaming_entry = this->GetStreamingEntry(name_hash, streaming_pack);
         }
+
+
+
+
+
+
+
+
+
+
+
         if (streaming_entry) {
+
             eStreamPackLoadEntryInfo *load_info = &load_info_table[num_load_entries];
             unsigned int entry_file_offset = streaming_entry->ChunkByteOffset;
+
+            load_info->FileOffset = entry_file_offset;
             load_info->StreamingPack = streaming_pack;
             load_info->StreamingEntry = streaming_entry;
-            load_info->FileOffset = entry_file_offset;
+
             if (entry_file_offset < smallest_file_offset) {
+
                 smallest_file_offset = entry_file_offset;
             }
-            num_load_entries++;
 
             load_info_list.AddTail(load_info);
+
+
+
+            num_load_entries++;
         }
     }
 
-    if (memory_pool_num == 0) {
-        bLargestMalloc(0);
-    }
+    if (memory_pool_num == 0) bLargestMalloc(0);
+
+
+
+
+
 
     load_info_list.Sort(eStreamPackLoaderSortLoadEntries);
-    eStreamPackLoadEntryInfo *load_info = load_info_list.GetHead();
-    while (load_info != load_info_list.EndOfList()) {
+
+
+    for (eStreamPackLoadEntryInfo *load_info = load_info_list.GetHead(); load_info != load_info_list.EndOfList(); load_info = load_info->GetNext()) {
+
         this->InternalLoadStreamingEntry(loading_table, load_info->StreamingPack, load_info->StreamingEntry);
-        load_info = load_info->GetNext();
     }
+
+
 
     load_info_list.InitList();
     bFree(load_info_table);
 
+
     if (!loading_table->NumLoadsPending && callback) {
+
+
         loading_table->Locked = 0;
+
+
+
+
+
+
+
+
+#ifdef EA_BUILD_A124
+        SetDelayedResourceCallback(reinterpret_cast<void (*)(int)>(callback), param0);
+#else
         SetDelayedResourceCallback(callback, param0);
+#endif
     }
+
+
 }
 
-// STRIPPED
-void eStreamPackLoader::LoadStreamingEntry(uint32 name_hash /* r1+0x8 */, void (*callback)(void *) /* r5 */, void *param0 /* r0 */,
-                                           int memory_pool_num /* r8 */) {}
+#ifdef EA_BUILD_A124
+void eStreamPackLoader::LoadStreamingEntry(uint32 name_hash, void (*callback)(uint32), uint32 param0, int memory_pool_num) {
+#else
+void eStreamPackLoader::LoadStreamingEntry(uint32 name_hash, void (*callback)(void *), void *param0, int memory_pool_num) {
+#endif
+    LoadStreamingEntry(&name_hash, 1, callback, param0, memory_pool_num);
+}
 
 void eStreamPackLoader::InternalUnloadStreamingEntry(eStreamingPack *streaming_pack, eStreamingEntry *streaming_entry) {
     if ((streaming_entry->Flags & 0x20) == 0) {
@@ -507,17 +907,15 @@ void eStreamPackLoader::UnloadStreamingEntry(uint32 name_hash, eStreamingPack *s
     if (streaming_entry == nullptr)
         return;
 
-    if (--streaming_entry->RefCount != 0)
-        return;
-
-    eWaitUntilRenderingDone();
-
-    if ((streaming_entry->Flags & 0x10) != 0) {
-        streaming_entry->Flags |= 0x20;
-        return;
+    streaming_entry->RefCount--;
+    if (streaming_entry->RefCount == 0) {
+        eWaitUntilRenderingDone();
+        if ((streaming_entry->Flags & 0x10) != 0) {
+            streaming_entry->Flags |= 0x20;
+        } else {
+            this->InternalUnloadStreamingEntry(streaming_pack, streaming_entry);
+        }
     }
-
-    this->InternalUnloadStreamingEntry(streaming_pack, streaming_entry);
 }
 
 void eStreamPackLoader::UnloadStreamingEntry(unsigned int *name_hash_table, int num_hashes) {
@@ -566,7 +964,7 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
     int amount_not_alloc_main_mem = 0;
     bTList<eStreamPackLoadEntryInfo> load_info_list;
     eStreamPackLoadEntryInfo *load_info_table =
-        (eStreamPackLoadEntryInfo *)bMalloc(num_hashes * sizeof(eStreamPackLoadEntryInfo), "eStreamPackLoadEntryInfo", __LINE__, 0x40);
+        (eStreamPackLoadEntryInfo *)bMalloc(num_hashes * sizeof(eStreamPackLoadEntryInfo), "eStreamPackLoadEntryInfo", 0, 0x40);
     int num_load_entries = 0;
 
     for (int i = 0; i < num_hashes; i++) {
@@ -586,14 +984,18 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
 
     load_info_list.Sort(eStreamPackLoaderSortLoadEntries);
 
-    for (int pass = 0; pass <= 2; pass++) {
+    for (int pass = 0; pass < 3; pass++) {
         unsigned int prev_name_hash = 0;
         for (eStreamPackLoadEntryInfo *load_info = load_info_list.GetHead(); load_info != load_info_list.EndOfList();
              load_info = load_info->GetNext()) {
             eStreamingEntry *streaming_entry = load_info->StreamingEntry;
             uint32 name_hash = streaming_entry->NameHash;
 
+#ifdef EA_PLATFORM_WIN32 // speed.exe comprueba antes el RefCount que el bit 0x10 de Flags; GameCube casa al reves
+            if (streaming_entry && streaming_entry->RefCount == 0 && (streaming_entry->Flags & 0x10) == 0) {
+#else
             if (streaming_entry && (streaming_entry->Flags & 0x10) == 0 && streaming_entry->RefCount == 0) {
+#endif
                 eStreamingPack *streaming_pack = load_info->StreamingPack;
 
                 if (name_hash != prev_name_hash) {
@@ -606,17 +1008,17 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
 
                         bSPrintf(malloc_name, "%s%s", streaming_pack->Filename, (streaming_entry->Flags & 1) ? " - Compressed" : "");
 
-                        allocation_params = 0x2000;
+                        allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
                         malloc_size = streaming_entry->ChunkByteSize + this->RequiredChunkAlignment;
 
                         if (streaming_entry->Flags & 1) {
-                            allocation_params = 0x2040;
+                            allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x40;
                         } else if (memory_pool_num != 0) {
-                            allocation_params = (memory_pool_num & 0xF) | 0x2000;
+                            allocation_params = (memory_pool_num & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
                         }
 
                         if (bLargestMalloc(allocation_params) > malloc_size) {
-                            streaming_entry->ChunkData = (unsigned char *)bMalloc(malloc_size, malloc_name, __LINE__, allocation_params);
+                            streaming_entry->ChunkData = (unsigned char *)bMalloc(malloc_size, malloc_name, 0, allocation_params);
                         } else {
                             if ((allocation_params & 0xF) == 0) {
                                 amount_not_alloc_main_mem += malloc_size;
@@ -632,18 +1034,18 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
                         if (streaming_entry->Flags & 1) {
                             bSPrintf(malloc_name, "%s", streaming_pack->Filename);
 
-                            allocation_params = 0x2000;
+                            allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
                             malloc_size = streaming_entry->UncompressedSize + this->RequiredChunkAlignment;
 
                             if (memory_pool_num != 0) {
-                                allocation_params = (memory_pool_num & 0xF) | 0x2000;
+                                allocation_params = (memory_pool_num & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
                             }
 
                             compressed_data = streaming_entry->ChunkData;
                             streaming_entry->ChunkData = nullptr;
 
                             if (bLargestMalloc(allocation_params) > malloc_size) {
-                                streaming_entry->ChunkData = (unsigned char *)bMalloc(malloc_size, malloc_name, __LINE__, allocation_params);
+                                streaming_entry->ChunkData = (unsigned char *)bMalloc(malloc_size, malloc_name, 0, allocation_params);
                             } else {
                                 amount_not_alloc += malloc_size;
                                 if ((allocation_params & 0xF) == 0) {
@@ -702,14 +1104,21 @@ bool eStreamPackLoader::DefragmentAllocation(void *allocation) {
 
 void eStreamPackLoader::WaitForLoadingToFinish(const char *filename) {
     while (this->IsLoading(filename)) {
+#ifdef EA_PLATFORM_GAMECUBE
         DVDErrorTask(nullptr, 0);
+#endif
         bThreadYield(8);
         ServiceResourceLoading();
     }
 }
 
+#ifdef EA_BUILD_A124
+eStreamingPack *eStreamPackLoader::CreateStreamingPack(const char *filename, void (*callback_function)(uint32), uint32 callback_param,
+                                                       int memory_pool_num) {
+#else
 eStreamingPack *eStreamPackLoader::CreateStreamingPack(const char *filename, void (*callback_function)(void *), void *callback_param,
                                                        int memory_pool_num) {
+#endif
     eStreamingPack *streaming_pack = this->GetLoadedStreamingPack(filename);
 
     if (streaming_pack) {
@@ -727,13 +1136,14 @@ eStreamingPack *eStreamPackLoader::CreateStreamingPack(const char *filename, voi
         return nullptr;
 
     eStreamingPackHeaderLoadingInfo *loading_info =
-        (eStreamingPackHeaderLoadingInfo *)bMalloc(sizeof(eStreamingPackHeaderLoadingInfo), "eStreamingPackLoadingInfo", __LINE__, 0x40);
+        (eStreamingPackHeaderLoadingInfo *)bMalloc(sizeof(eStreamingPackHeaderLoadingInfo), "eStreamingPackLoadingInfo", 0, 0x40);
     bMemSet(loading_info, 0x0, sizeof(eStreamingPackHeaderLoadingInfo));
 
     loading_info->LoadingDoneCallback = callback_function;
     loading_info->LoadingDoneCallbackParam = callback_param;
 
     streaming_pack = new eStreamingPack();
+    bMemSet(streaming_pack, 0, sizeof(eStreamingPack));
     streaming_pack->Filename = bAllocateSharedString(filename);
     streaming_pack->HeaderMemoryPoolNum = memory_pool_num;
     streaming_pack->HeaderSize = 0;
@@ -743,18 +1153,34 @@ eStreamingPack *eStreamPackLoader::CreateStreamingPack(const char *filename, voi
     this->NumLoadedStreamingPacks++;
 
     int amount_to_load = file_size;
+#ifdef EA_PLATFORM_WIN32 // speed.exe salta con jl (forma >=, idempotente en el borde: con 0x8000 asigna 0x8000);
+                         // GameCube casa con >
+    if (file_size >= 0x8000) {
+#else
     if (file_size > 0x8000) {
+#endif
         amount_to_load = 0x8000;
     }
-    streaming_pack->HeaderChunks = (bChunk *)bMalloc(amount_to_load, "eStreamingPack_TempMem", __LINE__, 0x2040);
+    streaming_pack->HeaderChunks = (bChunk *)bMalloc(amount_to_load, "eStreamingPack_TempMem", 0, BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x40);
     loading_info->HeaderChunksSize = amount_to_load;
+#ifdef EA_BUILD_A124
+    AddQueuedFile2(streaming_pack->HeaderChunks, streaming_pack->Filename, 0, amount_to_load,
+                   eStreamPackLoader::InternalLoadingHeaderPhase1Callback, (int)this, (int)streaming_pack, nullptr);
+#else
     AddQueuedFile2(streaming_pack->HeaderChunks, streaming_pack->Filename, 0, amount_to_load,
                    eStreamPackLoader::InternalLoadingHeaderPhase1Callback, (void *)this, (void *)streaming_pack, nullptr);
+#endif
 
     return streaming_pack;
 }
 
-void eStreamPackLoader::InternalLoadingHeaderPhase1Callback(void *callback_param, int error_status, void *callback_param2) {
+void eStreamPackLoader::InternalLoadingHeaderPhase1Callback(
+#ifdef EA_BUILD_A124
+    int callback_param, int error_status, int callback_param2
+#else
+    void *callback_param, int error_status, void *callback_param2
+#endif
+) {
     eStreamPackLoader *stream_pack_loader = (eStreamPackLoader *)callback_param;
     eStreamingPack *streaming_pack = (eStreamingPack *)callback_param2;
     eStreamingPackHeaderLoadingInfo *loading_info = streaming_pack->LoadingInfo;
@@ -773,12 +1199,12 @@ void eStreamPackLoader::InternalLoadingHeaderPhase1Callback(void *callback_param
     int next_load_amount = user_load_info.NextLoadAmount;
     streaming_pack->HeaderSize = next_load_amount;
 
-    int allocation_params = 0x2000;
+    int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
     if (streaming_pack->HeaderMemoryPoolNum != 0 && bLargestMalloc(streaming_pack->HeaderMemoryPoolNum) > next_load_amount) {
-        allocation_params = (streaming_pack->HeaderMemoryPoolNum & 0xF) | 0x2040;
+        allocation_params = (streaming_pack->HeaderMemoryPoolNum & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x40;
     }
 
-    bChunk *perm_header_chunks = (bChunk *)bMalloc(next_load_amount, malloc_name, __LINE__, allocation_params);
+    bChunk *perm_header_chunks = (bChunk *)bMalloc(next_load_amount, malloc_name, 0, allocation_params);
     bChunk *temp_header_chunks = streaming_pack->HeaderChunks;
 
     if (next_load_position + next_load_amount <= loading_info->HeaderChunksSize) {
@@ -789,17 +1215,32 @@ void eStreamPackLoader::InternalLoadingHeaderPhase1Callback(void *callback_param
 
     streaming_pack->HeaderChunks = perm_header_chunks;
     if (loading_info->HeaderChunksMemCopied == 0) {
+#ifdef EA_BUILD_A124
+        AddQueuedFile2(perm_header_chunks, streaming_pack->Filename, next_load_position, next_load_amount, InternalLoadingHeaderPhase2Callback,
+                       (int)stream_pack_loader, (int)streaming_pack, nullptr);
+#else
         AddQueuedFile2(perm_header_chunks, streaming_pack->Filename, next_load_position, next_load_amount, InternalLoadingHeaderPhase2Callback,
                        stream_pack_loader, streaming_pack, nullptr);
+#endif
     }
 
     if (loading_info->HeaderChunksMemCopied != 0) {
+#ifdef EA_BUILD_A124
+        InternalLoadingHeaderPhase2Callback((int)stream_pack_loader, 0, (int)streaming_pack);
+#else
         InternalLoadingHeaderPhase2Callback(stream_pack_loader, 0, streaming_pack);
+#endif
     }
 }
 
 // FIXME
-void eStreamPackLoader::InternalLoadingHeaderPhase2Callback(void *callback_param, int error_status, void *callback_param2) {
+void eStreamPackLoader::InternalLoadingHeaderPhase2Callback(
+#ifdef EA_BUILD_A124
+    int callback_param, int error_status, int callback_param2
+#else
+    void *callback_param, int error_status, void *callback_param2
+#endif
+) {
     eStreamPackLoader *stream_pack_loader = (eStreamPackLoader *)callback_param;
     eStreamingPack *streaming_pack = (eStreamingPack *)callback_param2;
     eStreamingPackHeaderLoadingInfo *loading_info = streaming_pack->LoadingInfo;
@@ -818,6 +1259,8 @@ void eStreamPackLoader::InternalLoadingHeaderPhase2Callback(void *callback_param
     // un bucle de traza cero. Emite cero instrucciones pero reordena el reparto
     // de registros de las cuatro asignaciones de abajo (r0/r9/r11/r10 en vez de
     // r11/r10/r0/r9) y la colocacion del mtlr. Con el, 0 diffs.
+    // La A124 no tiene este bloque (sus stabs no traen n, entry ni other_pack) y sin el casa.
+#ifndef EA_BUILD_A124
     {
         int n;
         for (n = 0; n < 0; n++) {
@@ -825,6 +1268,7 @@ void eStreamPackLoader::InternalLoadingHeaderPhase2Callback(void *callback_param
             eStreamingPack *other_pack = streaming_pack;
         }
     }
+#endif
 
     streaming_pack->StreamingEntryTable = user_load_info.StreamingEntryTable;
     streaming_pack->StreamingEntryNumEntries = user_load_info.StreamingEntryNumEntries;
@@ -838,25 +1282,44 @@ void eStreamPackLoader::InternalLoadingHeaderPhase2Callback(void *callback_param
         char malloc_name[1024];
         bSPrintf(malloc_name, "%s: StrmHdrRes", streaming_pack->Filename);
 
-        int allocation_params = 0x2000;
+        int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
         if (streaming_pack->HeaderMemoryPoolNum != 0 && bLargestMalloc(streaming_pack->HeaderMemoryPoolNum) > user_load_info.LoadResourceFileAmount) {
-            allocation_params = (streaming_pack->HeaderMemoryPoolNum & 0xF) | 0x2040;
+            allocation_params = (streaming_pack->HeaderMemoryPoolNum & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x40;
         }
 
         streaming_pack->pResourceFile->SetAllocationParams(allocation_params, malloc_name);
+#ifdef EA_BUILD_A124
+        streaming_pack->pResourceFile->BeginLoading(InternalLoadingHeaderPhase3Callback, (int)streaming_pack);
+#else
         streaming_pack->pResourceFile->BeginLoading(InternalLoadingHeaderPhase3Callback, streaming_pack);
+#endif
     }
 
     if (streaming_pack->pResourceFile == nullptr) {
+#ifdef EA_BUILD_A124
+        InternalLoadingHeaderPhase3Callback((int)streaming_pack);
+#else
         InternalLoadingHeaderPhase3Callback(streaming_pack);
+#endif
     }
 }
 
-void eStreamPackLoader::InternalLoadingHeaderPhase3Callback(void *callback_param) {
+void eStreamPackLoader::InternalLoadingHeaderPhase3Callback(
+#ifdef EA_BUILD_A124
+    int callback_param
+#else
+    void *callback_param
+#endif
+) {
     eStreamingPack *streaming_pack = (eStreamingPack *)callback_param;
     eStreamingPackHeaderLoadingInfo *loading_info = streaming_pack->LoadingInfo;
+#ifdef EA_BUILD_A124
+    void (*user_callback_function)(uint32) = loading_info->LoadingDoneCallback;
+    uint32 user_callback_param = loading_info->LoadingDoneCallbackParam;
+#else
     void (*user_callback_function)(void *) = loading_info->LoadingDoneCallback;
     void *user_callback_param = loading_info->LoadingDoneCallbackParam;
+#endif
 
     streaming_pack->HeaderLoaded = 1;
     bFree(loading_info);
@@ -867,7 +1330,11 @@ void eStreamPackLoader::InternalLoadingHeaderPhase3Callback(void *callback_param
     }
 }
 
+#ifdef EA_BUILD_A124
+int eStreamPackLoader::DeleteStreamingPack(const char *filename, void (*callback_function)(uint32), uint32 callback_param) {
+#else
 int eStreamPackLoader::DeleteStreamingPack(const char *filename) {
+#endif
     eStreamingPack *streaming_pack = GetLoadedStreamingPack(filename);
 
     if (!streaming_pack)
@@ -893,6 +1360,11 @@ int eStreamPackLoader::DeleteStreamingPack(const char *filename) {
     delete streaming_pack;
 
     this->NumLoadedStreamingPacks--;
+#ifdef EA_BUILD_A124
+    if (callback_function) {
+        callback_function(callback_param);
+    }
+#endif
 
     return 1;
 }

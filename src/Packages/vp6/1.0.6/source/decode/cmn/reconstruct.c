@@ -1,57 +1,43 @@
-#define SAT(j)                                                        \
-    {                                                                 \
-        int value = NextSrc[j];                                       \
-        if (value >= 0) {                                             \
-            if (value > 255) {                                        \
-                value = 255;                                          \
-            } else {                                                  \
-                value = ((unsigned char *)NextSrc)[2 * (j) + 1];      \
-            }                                                         \
-        } else {                                                      \
-            value = 0;                                                \
-        }                                                             \
-        NextDest[j] = value;                                          \
-    }
+#include "codec_common.h"
 
-void SatUnsigned8(unsigned char *DestPtr, short *SourcePtr, int DestStep, int SourceStep) {
-    unsigned int i;
-    unsigned char *NextDest = DestPtr;
-    short *NextSrc = SourcePtr;
+void SatUnsigned8(UINT8 *ResultPtr, INT16 *DataBlock, UINT32 ResultLineStep, UINT32 DataLineStep) {
+    INT32 i;
 
     for (i = 0; i < 8; i++) {
-        SAT(0)
-        SAT(1)
-        SAT(2)
-        SAT(3)
-        SAT(4)
-        SAT(5)
-        SAT(6)
-        SAT(7)
-        NextDest += DestStep;
-        NextSrc += SourceStep;
+        ResultPtr[0] = (DataBlock[0] < 0) ? 0 : ((DataBlock[0] > 255) ? 255 : (UINT8)DataBlock[0]);
+        ResultPtr[1] = (DataBlock[1] < 0) ? 0 : ((DataBlock[1] > 255) ? 255 : (UINT8)DataBlock[1]);
+        ResultPtr[2] = (DataBlock[2] < 0) ? 0 : ((DataBlock[2] > 255) ? 255 : (UINT8)DataBlock[2]);
+        ResultPtr[3] = (DataBlock[3] < 0) ? 0 : ((DataBlock[3] > 255) ? 255 : (UINT8)DataBlock[3]);
+        ResultPtr[4] = (DataBlock[4] < 0) ? 0 : ((DataBlock[4] > 255) ? 255 : (UINT8)DataBlock[4]);
+        ResultPtr[5] = (DataBlock[5] < 0) ? 0 : ((DataBlock[5] > 255) ? 255 : (UINT8)DataBlock[5]);
+        ResultPtr[6] = (DataBlock[6] < 0) ? 0 : ((DataBlock[6] > 255) ? 255 : (UINT8)DataBlock[6]);
+        ResultPtr[7] = (DataBlock[7] < 0) ? 0 : ((DataBlock[7] > 255) ? 255 : (UINT8)DataBlock[7]);
+
+        ResultPtr += ResultLineStep;
+        DataBlock += DataLineStep;
     }
 }
 
-void ScalarReconInterHalfPixel2(short *TmpBuffer, unsigned char *Output,
-                                unsigned char *Src1, unsigned char *Src2,
-                                unsigned short *ChangePtr, int Stride) {
-    unsigned int i;
-    short *tmp = TmpBuffer;
+void ScalarReconInterHalfPixel2(INT16 *TmpDataBuffer, UINT8 *ReconPtr, UINT8 *RefPtr1, UINT8 *RefPtr2,
+                                INT16 *ChangePtr, UINT32 LineStep) {
+    UINT32 i;
+    INT16 *TmpDataPtr = TmpDataBuffer;
 
     for (i = 0; i < 8; i++) {
-        tmp[0] = ChangePtr[0] + ((Src1[0] + Src2[0]) >> 1);
-        tmp[1] = ChangePtr[1] + ((Src1[1] + Src2[1]) >> 1);
-        tmp[2] = ChangePtr[2] + ((Src1[2] + Src2[2]) >> 1);
-        tmp[3] = ChangePtr[3] + ((Src1[3] + Src2[3]) >> 1);
-        tmp[4] = ChangePtr[4] + ((Src1[4] + Src2[4]) >> 1);
-        tmp[5] = ChangePtr[5] + ((Src1[5] + Src2[5]) >> 1);
-        tmp[6] = ChangePtr[6] + ((Src1[6] + Src2[6]) >> 1);
-        tmp[7] = ChangePtr[7] + ((Src1[7] + Src2[7]) >> 1);
-        Src1 += Stride;
-        Src2 += Stride;
+        TmpDataPtr[0] = (INT16)(ChangePtr[0] + ((RefPtr1[0] + RefPtr2[0]) >> 1));
+        TmpDataPtr[1] = (INT16)(ChangePtr[1] + ((RefPtr1[1] + RefPtr2[1]) >> 1));
+        TmpDataPtr[2] = (INT16)(ChangePtr[2] + ((RefPtr1[2] + RefPtr2[2]) >> 1));
+        TmpDataPtr[3] = (INT16)(ChangePtr[3] + ((RefPtr1[3] + RefPtr2[3]) >> 1));
+        TmpDataPtr[4] = (INT16)(ChangePtr[4] + ((RefPtr1[4] + RefPtr2[4]) >> 1));
+        TmpDataPtr[5] = (INT16)(ChangePtr[5] + ((RefPtr1[5] + RefPtr2[5]) >> 1));
+        TmpDataPtr[6] = (INT16)(ChangePtr[6] + ((RefPtr1[6] + RefPtr2[6]) >> 1));
+        TmpDataPtr[7] = (INT16)(ChangePtr[7] + ((RefPtr1[7] + RefPtr2[7]) >> 1));
+
         ChangePtr += 8;
-        tmp += 8;
+        TmpDataPtr += 8;
+        RefPtr1 += LineStep;
+        RefPtr2 += LineStep;
     }
 
-    SatUnsigned8(Output, TmpBuffer, Stride, 8);
+    SatUnsigned8(ReconPtr, TmpDataBuffer, LineStep, 8);
 }

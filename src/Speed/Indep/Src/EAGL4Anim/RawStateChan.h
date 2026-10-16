@@ -79,23 +79,19 @@ class RawStateChan : public AnimMemoryMap {
     }
 
     const unsigned char *GetKeyData(int keyIdx) const {
-        const unsigned char *keyData;
         if (mNumFields & 1) {
-            keyData = reinterpret_cast<const unsigned char *>(&mDecodeData[mNumFields]);
+            return reinterpret_cast<const unsigned char *>(&mDecodeData[mNumFields]) + keyIdx * mKeySize;
         } else {
-            keyData = reinterpret_cast<const unsigned char *>(&mDecodeData[mNumFields] + 1);
+            return reinterpret_cast<const unsigned char *>(&mDecodeData[mNumFields] + 1) + keyIdx * mKeySize;
         }
-        return keyData + keyIdx * GetKeySize();
     }
 
     unsigned char *GetKeyData(int keyIdx) {
-        unsigned char *keyData;
         if (mNumFields & 1) {
-            keyData = reinterpret_cast<unsigned char *>(&mDecodeData[mNumFields]);
+            return reinterpret_cast<unsigned char *>(&mDecodeData[mNumFields]) + keyIdx * mKeySize;
         } else {
-            keyData = reinterpret_cast<unsigned char *>(&mDecodeData[mNumFields] + 1);
+            return reinterpret_cast<unsigned char *>(&mDecodeData[mNumFields] + 1) + keyIdx * mKeySize;
         }
-        return keyData + keyIdx * GetKeySize();
     }
 
     void GetDecodeData(int idx, unsigned char &storedNumBitsInPowersOf2, unsigned char &destNumBytes, unsigned char &destByteOffset) const {

@@ -32,14 +32,23 @@ void TaskManager::BootupCheck(const BootupCheckParams *params, unsigned int nEnt
         this->mTaskList[1].mTask = TASK_FINDENTRIES;
         this->mTaskList[1].InitFindEntries(allEntries, nullptr);
         this->mTaskList[2].mTask = TASK_LOAD;
+#if REALMEMCARD_VERSION < 30401
+        this->mTaskList[2].InitLoad(nEntries, entryNames, content, nullptr);
+#else
         this->mTaskList[2].InitLoad(nEntries, entryNames, content, nullptr, nullptr);
+#endif
     }
 
+#if REALMEMCARD_VERSION < 30401
+    this->mMemcardImpl->SetBootFlow(true);
+#endif
     this->_StartTask();
 }
 
-void TaskManager::Load(const char *entryName, char *header, char *body,
-                       const wchar_t *contentName, const wchar_t *typeName,
+void TaskManager::Load(const char *entryName, char *header, char *body, const wchar_t *contentName,
+#if REALMEMCARD_VERSION >= 30401
+                       const wchar_t *typeName,
+#endif
                        const TitleInfo *titleInfo) {
     if (this->mMainTask == TASK_NONE) {
         const char **names = &entryName;
@@ -47,7 +56,11 @@ void TaskManager::Load(const char *entryName, char *header, char *body,
         this->_ClearTaskList();
         this->mMainTask = TASK_LOAD;
         this->mTaskList[0].mTask = TASK_LOAD;
+#if REALMEMCARD_VERSION < 30401
+        this->mTaskList[0].InitLoad(1, names, contentName, titleInfo);
+#else
         this->mTaskList[0].InitLoad(1, names, contentName, typeName, titleInfo);
+#endif
         this->mTaskList[0].mDetails.mLoad.mLoadInfos[0].mHeader = header;
         this->mTaskList[0].mDetails.mLoad.mLoadInfos[0].mBody = body;
         this->mTaskList[0].mDetails.mLoad.mLoadInfos[0].mTryLoad = true;
@@ -56,7 +69,11 @@ void TaskManager::Load(const char *entryName, char *header, char *body,
         const char **names = &entryName;
 
         this->mTaskList[1].mTask = TASK_LOAD;
+#if REALMEMCARD_VERSION < 30401
+        this->mTaskList[1].InitLoad(1, names, contentName, titleInfo);
+#else
         this->mTaskList[1].InitLoad(1, names, contentName, typeName, titleInfo);
+#endif
         this->mTaskList[1].mDetails.mLoad.mLoadInfos[0].mHeader = header;
         this->mTaskList[1].mDetails.mLoad.mLoadInfos[0].mBody = body;
         this->mTaskList[1].mDetails.mLoad.mLoadInfos[0].mTryLoad = true;
@@ -175,7 +192,11 @@ void TaskManager::FoundEntry(EntryInfo *entryInfo) {
 
         for (iEntry = 0; iEntry < this->mTaskList[2].mDetails.mLoad.mNumEntries; iEntry++) {
             LoadInfo *loadInfo = &this->mTaskList[2].mDetails.mLoad.mLoadInfos[iEntry];
+#if REALMEMCARD_VERSION < 30401
+            if (strncasecmp(entryInfo->mName, loadInfo->mEntryName, 7) == 0) {
+#else
             if (strncasecmp(entryInfo->mName, loadInfo->mEntryName, 31) == 0) {
+#endif
                 loadInfo->mTryLoad = true;
             }
         }
@@ -208,6 +229,17 @@ void TaskManager::_StartTask() {
         info = &curTask->mDetails.mLoad.mLoadInfos[curTask->mDetails.mLoad.mCurEntry];
         curTask->mDetails.mLoad.mCurEntry++;
         if (info->mTryLoad) {
+#if REALMEMCARD_VERSION < 30401
+            if (info->mTitleInfo.mDataFormat == FORMAT_RAW) {
+                this->mMemcardImpl->LoadAlternate(info->mEntryName, info->mHeader, info->mBody,
+                                                  info->mContentName, &info->mTitleInfo);
+            } else if (info->mTitleInfo.mTitleType == TITLE_DEFAULT) {
+                this->mMemcardImpl->Load(info->mEntryName, info->mHeader, info->mBody, info->mContentName);
+            } else {
+                this->mMemcardImpl->LoadAlternate(info->mEntryName, info->mHeader, info->mBody,
+                                                  info->mContentName, &info->mTitleInfo);
+            }
+#else
             if (info->mTitleInfo.mDataFormat == FORMAT_RAW) {
                 this->mMemcardImpl->LoadAlternate(info->mEntryName, info->mHeader, info->mBody,
                                                   info->mContentName, info->mTypeName, &info->mTitleInfo);
@@ -218,6 +250,7 @@ void TaskManager::_StartTask() {
                 this->mMemcardImpl->LoadAlternate(info->mEntryName, info->mHeader, info->mBody,
                                                   info->mContentName, info->mTypeName, &info->mTitleInfo);
             }
+#endif
         } else {
             this->CompleteTask(RESULT_FAILED, STATUS_ENTRY_NOT_FOUND, nullptr);
         }
@@ -236,6 +269,12 @@ void TaskManager::_StartTask() {
             curTask->mDetails.mSaveCheck.mTitleInfo->mDataFormat == FORMAT_LAYER2) {
             this->mMemcardImpl->SaveCheck(curTask->mDetails.mSaveCheck.mEntryName, 1, &saveReqs);
         }
+#if REALMEMCARD_VERSION < 30401
+        else {
+            this->mMemcardImpl->SaveCheckAlternate(curTask->mDetails.mSaveCheck.mEntryName, 1, &saveReqs,
+                                                   curTask->mDetails.mSaveCheck.mTitleInfo);
+        }
+#endif
         break;
     }
     case TASK_SAVE:
@@ -247,6 +286,15 @@ void TaskManager::_StartTask() {
                                      curTask->mDetails.mSave.mBody,
                                      curTask->mDetails.mSave.mSaveInfo);
         }
+#if REALMEMCARD_VERSION < 30401
+        else {
+            this->mMemcardImpl->SaveAlternate(curTask->mDetails.mSave.mEntryName,
+                                              curTask->mDetails.mSave.mHeader,
+                                              curTask->mDetails.mSave.mBody,
+                                              curTask->mDetails.mSave.mSaveInfo,
+                                              curTask->mDetails.mSave.mTitleInfo);
+        }
+#endif
         break;
     case TASK_DELETE:
         this->_ClearOldMsgs();
@@ -332,6 +380,10 @@ void TaskManager::CompleteTask(TaskResult result, CardStatus status, void *other
             this->mIGame->LoadDone(reinterpret_cast<const char *>(other));
         } else if (result == RESULT_RETRY) {
             if (this->mMainTask == TASK_BOOTUPCHECK) {
+#if REALMEMCARD_VERSION < 30401
+                curTask->mDetails.mLoad.mLastEntryFound = 0;
+                this->mCurTask--;
+#else
                 unsigned int iEntry;
 
                 curTask->mDetails.mLoad.mLastEntryFound = 0;
@@ -339,6 +391,7 @@ void TaskManager::CompleteTask(TaskResult result, CardStatus status, void *other
                 for (iEntry = 0; iEntry < curTask->mDetails.mLoad.mNumEntries; iEntry++) {
                     curTask->mDetails.mLoad.mLoadInfos[iEntry].mTryLoad = false;
                 }
+#endif
             }
             curTask->mDetails.mLoad.mCurEntry = 0;
             this->mIGame->Retry(status);
@@ -347,13 +400,16 @@ void TaskManager::CompleteTask(TaskResult result, CardStatus status, void *other
             if (this->mMainTask == TASK_BOOTUPCHECK) {
                 if (status != STATUS_NO_CARD && status != STATUS_CARD_REMOVED &&
                     status != STATUS_CARD_UNFORMATTED && status != STATUS_WRONG_DEVICE) {
+#if REALMEMCARD_VERSION >= 30401
                     if (result == RESULT_CANCELLED && status == STATUS_CARD_CHANGED) {
                         if (curTask->mDetails.mLoad.mLoadInfos != nullptr) {
                             delete[] curTask->mDetails.mLoad.mLoadInfos;
                         }
                         curTask->mDetails.mLoad.mLoadInfos = nullptr;
                         this->mCurTask++;
-                    } else if (status == STATUS_CARD_CHANGED) {
+                    } else
+#endif
+                    if (status == STATUS_CARD_CHANGED) {
                         this->_ClearOldMsgs();
                         this->mCurTask--;
                         curTask->mDetails.mLoad.mLastEntryFound = 0;
@@ -499,9 +555,11 @@ void TaskManager::CompleteTask(TaskResult result, CardStatus status, void *other
                 this->mIGame->FindEntriesDone(status);
             }
         } else if (result == RESULT_RETRY) {
+#if REALMEMCARD_VERSION >= 30401
             if (this->mCurTask != 0 && this->mMainTask == TASK_BOOTUPCHECK) {
                 this->mCurTask = 0;
             }
+#endif
             this->mIGame->Retry(status);
             this->_ClearOldMsgs();
         } else {
@@ -549,7 +607,11 @@ void TaskManager::CompleteTask(TaskResult result, CardStatus status, void *other
                     this->mCancelledCardChangedCalled = true;
                 }
 
+#if REALMEMCARD_VERSION < 30401
+                if (status != STATUS_NO_CARD) {
+#else
                 if (result != RESULT_CANCELLED) {
+#endif
                     this->mWarningMsgShown = false;
                     this->mLastMessageId = 0;
                 }
@@ -619,6 +681,9 @@ void TaskManager::CompleteTask(TaskResult result, CardStatus status, void *other
     }
 
     if (this->mMainTask == TASK_BOOTUPCHECK) {
+#if REALMEMCARD_VERSION < 30401
+        this->mMemcardImpl->SetBootFlow(false);
+#endif
         this->mMainTask = TASK_NONE;
         this->mIGame->BootupCheckDone(this->mTaskList[0].mDetails.mBootupCheck.mCardStatus,
                                       this->mTaskList[0].mDetails.mBootupCheck.mBootupResults);

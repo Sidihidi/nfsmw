@@ -29,8 +29,8 @@ class USpline {
     void BuildSplineEx(const UMath::Vector3 &start, const UMath::Vector3 &startControl, const UMath::Vector3 &end, const UMath::Vector3 &endControl);
     void EvaluateSpline(float t, UMath::Vector4 &result);
     void EvaluateTangent(float t, UMath::Vector4 &tangent);
-    void EvaluateDerivative(float t, UMath::Vector4 &derivative);
-    void Evaluate2ndDerivative(float t, UMath::Vector4 &derivative);
+    void EvaluateDerivative(float t, UMath::Vector4 &tangent);
+    void Evaluate2ndDerivative(float t, UMath::Vector4 &tangent);
     float EvaluateCurvatureXZ(float t);
 
     SplineType GetSplineType() const { return fSplineType; }
@@ -47,7 +47,7 @@ class USpline {
 
     USE_FASTALLOC(USpline)
 
-    PS2ALIGN16 UMath::Matrix4 fSplineMat; // offset 0x0, size 0x40
+    ALIGNVEC UMath::Matrix4 fSplineMat;   // offset 0x0, size 0x40 (alineada tambien en X360: WRoadNav::fRoadSpline en 0x1D0)
     UMath::Vector4 fLookAt[2];     // offset 0x40, size 0x20
     SplineType fSplineType;        // offset 0x60, size 0x4
     SplinePointList fSplinePtList; // offset 0x64, size 0x8

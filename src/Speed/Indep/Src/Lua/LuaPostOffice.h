@@ -7,11 +7,11 @@
 
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
-#include "Speed/Indep/Src/Gameplay/GActivity.h"
 #include "Speed/Indep/Src/Lua/LuaRuntime.h"
 #include "Speed/Indep/Src/Lua/source/lua.h"
 #include "Speed/Indep/Src/Misc/Hermes.h"
 
+class GActivity;
 class GHandler;
 
 DECLARE_CONTAINER_TYPE(ID_LuaActivityList);

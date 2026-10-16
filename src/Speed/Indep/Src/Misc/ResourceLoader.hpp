@@ -50,7 +50,13 @@ class ResourceFile : public bTNode<ResourceFile> {
     bool IsFreeMemoryEnabled();
     void SetFreeMemoryEnabled(bool enable);
     void FreeMemory();
+    // La A124 recibe la llamada de vuelta y su parametro como int (BeginLoading__12ResourceFilePFi_vi; Callback y
+    // CallbackParam son int32 en sus stabs), como el resto de su API de colas; GameCube y las de venta, como void *.
+#ifdef EA_BUILD_A124
+    void BeginLoading(void (*callback)(int), int callback_param);
+#else
     void BeginLoading(void (*callback)(void *), void *callback_param);
+#endif
     void ManualUnload();
     void ManualReload(bChunk *new_chunks);
     void LoadResourceIfFileTransferFinished();
@@ -67,9 +73,15 @@ class ResourceFile : public bTNode<ResourceFile> {
 
     // int GetAddress() {}
 
+#ifdef EA_BUILD_A124
+    void BeginLoading(void (*callback)(void *), void *callback_param) {
+        BeginLoading(reinterpret_cast<void (*)(int)>(callback), reinterpret_cast<int>(callback_param));
+    }
+#else
     void BeginLoading(ASYNCFILE_CALLBACK *callback, intptr_t callback_param) {
         BeginLoading(reinterpret_cast<void (*)(void *)>(callback), reinterpret_cast<void *>(callback_param));
     }
+#endif
 
     void BeginLoading() {
         BeginLoading(nullptr, 0);
@@ -121,7 +133,12 @@ class ResourceFile : public bTNode<ResourceFile> {
     }
 
   private:
+    // La A124 recibe el parametro como int (FileTransferCallback__12ResourceFileii), como toda su API de colas.
+#ifdef EA_BUILD_A124
+    static void FileTransferCallback(int param, int error_status);
+#else
     static void FileTransferCallback(void *param, int error_status);
+#endif
 
     bool mEnableFreeMemory;                    // offset 0x8, size 0x1
     ResourceFileType Type;                     // offset 0xC, size 0x4
@@ -134,8 +151,13 @@ class ResourceFile : public bTNode<ResourceFile> {
     int AllocationParams;                      // offset 0x28, size 0x4
     int FileTransfersInProgress;               // offset 0x2C, size 0x4
     int LoadingFinishedFlag;                   // offset 0x30, size 0x4
+#ifdef EA_BUILD_A124
+    void (*Callback)(int);                     // offset 0x34, size 0x4
+    int CallbackParam;                         // offset 0x38, size 0x4
+#else
     void (*Callback)(void *);                  // offset 0x34, size 0x4
     void *CallbackParam;                       // offset 0x38, size 0x4
+#endif
     bChunk *pFirstChunk;                       // offset 0x3C, size 0x4
     int SizeofChunks;                          // offset 0x40, size 0x4
     LoadedHotFileEntry *pLoadedHotFileEntries; // offset 0x44, size 0x4
@@ -163,8 +185,13 @@ void WaitForResourceLoadingComplete();
 int ServiceResourceLoading();
 
 ResourceFile *FindResourceFile(ResourceFileType type);
+#ifdef EA_BUILD_A124
+ResourceFile *LoadResourceFile(const char *filename, ResourceFileType type, int flags, void (*callback)(int), int callback_param,
+                               int file_offset, int file_size);
+#else
 ResourceFile *LoadResourceFile(const char *filename, ResourceFileType type, int flags, void (*callback)(void *), void *callback_param,
                                int file_offset, int file_size);
+#endif
 ResourceFile *CreateResourceFile(const char *filename, ResourceFileType type, int flags, int flag_offset, int file_size);
 void UnloadResourceFile(ResourceFile *resource_file);
 VMFile *LoadFileIntoVirtualMemory(const char *filename, bool compressed, bool use_trackstreampool_as_temp);
@@ -177,7 +204,11 @@ void EndianSwapChunkHeadersRecursive(bChunk *first_chunk, bChunk *last_chunk);
 int ServiceResourceLoading();
 ResourceFile *CreateResourceFile(const char *filename, ResourceFileType type, int flags, int flag_offset, int file_size);
 void UnloadResourceFile(ResourceFile *resource_file);
+#ifdef EA_BUILD_A124
+void SetDelayedResourceCallback(void (*callback)(int), int param);
+#else
 void SetDelayedResourceCallback(void (*callback)(void *), void *param);
+#endif
 
 bool LoadTempPermChunks(bChunk **ppchunks, int *psizeof_chunks, int allocation_params, const char *debug_name);
 void MoveChunks(bChunk *dest_chunks, bChunk *source_chunks, int32 sizeof_chunks, const char *debug_name);
@@ -192,11 +223,19 @@ inline ResourceFile *LoadResourceFile(const char *filename, ResourceFileType typ
     return LoadResourceFile(filename, type, flags, nullptr, nullptr, 0, 0);
 }
 
+#ifdef EA_BUILD_A124
+inline ResourceFile *LoadResourceFile(const char *filename, ResourceFileType type, int flags, void (*callback)(void *), void *callback_param,
+                                      int file_offset, int file_size) {
+    return LoadResourceFile(filename, type, flags, reinterpret_cast<void (*)(int)>(callback), reinterpret_cast<int>(callback_param),
+                            file_offset, file_size);
+}
+#else
 inline ResourceFile *LoadResourceFile(const char *filename, ResourceFileType type, int flags, void (*callback)(intptr_t), intptr_t callback_param,
                                       int file_offset, int file_size) {
     return LoadResourceFile(filename, type, flags, reinterpret_cast<void (*)(void *)>(callback), reinterpret_cast<void *>(callback_param),
                             file_offset, file_size);
 }
+#endif
 
 inline bool AreChunksBeingMoved() {
     return ChunkMovementOffset != 0;
@@ -206,8 +245,14 @@ inline int GetChunkMovementOffset() {
     return ChunkMovementOffset;
 }
 
+#ifdef EA_BUILD_A124
+inline void SetDelayedResourceCallback(void (*callback)(void *), void *param) {
+    SetDelayedResourceCallback(reinterpret_cast<void (*)(int)>(callback), reinterpret_cast<int>(param));
+}
+#else
 inline void SetDelayedResourceCallback(void (*callback)(intptr_t), intptr_t param) {
     SetDelayedResourceCallback(reinterpret_cast<void (*)(void *)>(callback), reinterpret_cast<void *>(param));
 }
+#endif
 
 #endif

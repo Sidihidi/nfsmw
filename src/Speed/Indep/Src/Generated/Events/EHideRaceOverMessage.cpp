@@ -24,9 +24,9 @@ void EHideRaceOverMessage_MakeEvent_Callback(const void *staticData) {
     new EHideRaceOverMessage(((EHideRaceOverMessage::StaticData *) staticData)->fPlayer);
 }
 
-int EHideRaceOverMessage_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EHideRaceOverMessage((IPlayer *) lua_tostring(L, 1));
+int EHideRaceOverMessage_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EHideRaceOverMessage((IPlayer *) lua_tostring(luaState, 1));
     }
     return 0;
 }

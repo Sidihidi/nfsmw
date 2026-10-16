@@ -126,9 +126,9 @@ static int GRuntimeInstanceMeta__index(lua_State *luaState) {
     LuaAttribAccessInfo accessInfo;
 
     accessInfo.mLuaState = luaState;
+    accessInfo.mAttribute = &attrib;
     accessInfo.mAttribIndex = 0;
     accessInfo.mRuntimeInstance = instance;
-    accessInfo.mAttribute = &attrib;
     LuaAttributes::Get().PushAttributeValue(accessInfo, false);
     return 1;
 }
@@ -147,10 +147,10 @@ static int GRuntimeInstanceMeta__newindex(lua_State *luaState) {
     LuaAttribAccessInfo accessInfo;
 
     accessInfo.mLuaState = luaState;
+    accessInfo.mAttribute = &attrib;
     accessInfo.mAttribIndex = 0;
     accessInfo.mRuntimeInstance = instance;
     accessInfo.mSrcStackIndex = 3;
-    accessInfo.mAttribute = &attrib;
     LuaAttributes::Get().SetAttributeValue(accessInfo);
     return 0;
 }
@@ -292,9 +292,9 @@ void LuaAttributes::BuildAttributeTypeTable() {
         accessors.mPushAttrib = NULL;
         accessors.mSetAttrib = NULL;
 
-        for (int i = 0; i < tableSize; i++) {
-            if (bStrCmp(accessorTable[i].mName, typeDesc.GetName()) == 0) {
-                accessors = accessorTable[i].mAccessors;
+        for (int onEntry = 0; onEntry < tableSize; onEntry++) {
+            if (bStrCmp(accessorTable[onEntry].mName, typeDesc.GetName()) == 0) {
+                accessors = accessorTable[onEntry].mAccessors;
                 break;
             }
         }

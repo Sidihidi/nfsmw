@@ -58,11 +58,12 @@ struct UITrackMapStreamer {
     void ResetPan(bool use_track);
     void SetMapPackLoaded();
     void SetMapLoaded(unsigned int texture);
-
+  protected:
     static void MapLoadCallback(unsigned int texture);
     static void MapPackLoadCallback(unsigned int screenPtr);
     void UpdateMap();
     void CalcBoundsForRace(bVector2 &top_left, bVector2 &bottom_right);
+  private:
     unsigned int CalcMapTextureHash();
 };
 

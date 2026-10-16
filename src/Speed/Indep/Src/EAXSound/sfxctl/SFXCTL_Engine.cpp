@@ -22,6 +22,7 @@ static const float CLUTCH_MODEL_RPM_DELTA = 60.0f;
 static const float CLUTCH_MODEL_RPM_THRESHOLD = 2500.0f;
 static const int MIN_EXHVIEW_ROTATION = 150;
 static const float LP_CUTOFF_FREQ_AT_MAX_DIST = 725.0f;
+static const float MaxLPF = 24000.0f;
 static const float TimeToMergeWithPhysicsOffStart = 0.7f;
 static const float MIN_COMPRESSION_RPM = 25.0f;
 static const float MAX_COMPRESSION_RPM = 100.0f;
@@ -32,7 +33,6 @@ static const float REDLINING_RPM = 9800.0f;
 static const float REDLINE_SCALE_PER_GEAR = 5.0f;
 
 extern Slope RedLineDelayPerGear;
-extern "C" int GetQ15FromHundredthsdB__11NFSMixShapei(int ndB);
 
 static const float REDLINE_ENG_FADE[2] = {450.0f, 50.0f};
 static const float REDLINE_REDSAMP_FADE[2] = {50.0f, 120.0f};
@@ -76,7 +76,7 @@ SFXCTL_Engine::SFXCTL_Engine()
     bVector3 v3CarPos(0.0f, 0.0f, 0.0f);
 
     this->vCarPos = v3CarPos;
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     this->bWasRedlining = false;
 #endif
 }
@@ -93,12 +93,16 @@ SFXCTL_Engine::~SFXCTL_Engine() {
 }
 
 void SFXCTL_Engine::MessageVehicleDestroyed(const MNotifyVehicleDestroyed &message) {
+#ifdef EA_BUILD_A124 // la A124 avisa sin posicion, solo desde el coche del jugador
+    if (this->GetGroupID() == eMM_PLAYERCAR) {
+        MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0xC565AC30)
+            .Send(UCrc32("MomentStrm"));
+    }
+#else
     UMath::Vector4 vpos;
 
     if (this->GetPhysCar()
-#ifndef EA_BUILD_A124
         && this->GetPhysCar()->mHandle == message.GetRacer()
-#endif
         && this->GetPhysCar()->IsLocalPlayerCar()) {
         vpos.z = this->GetPhysCar()->GetPosition()->x;
         vpos.x = -this->GetPhysCar()->GetPosition()->y;
@@ -107,6 +111,7 @@ void SFXCTL_Engine::MessageVehicleDestroyed(const MNotifyVehicleDestroyed &messa
         MGamePlayMoment(vpos, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0xC565AC30)
             .Send(UCrc32("MomentStrm"));
     }
+#endif
 }
 
 #ifndef EA_BUILD_A124
@@ -127,20 +132,20 @@ void SFXCTL_Engine::InitSFX() {
 #endif
 
     SFXCTL::InitSFX();
-    this->m_bIsEngineBlown = false;
     this->m_Rotation = MIN_EXHVIEW_ROTATION;
+    this->m_bIsEngineBlown = false;
     this->Trq.Flush(0.0f);
     this->VisRpmAvg.Flush(0.0f);
     this->Rpm.Flush(0.0f);
-    this->m_DistanceFltr = 24000;
     this->m_fPrevRPM = 0.0f;
+    this->bClutchStateOn = false;
     this->m_VOL_LFO = 0.0f;
     this->m_RPM_LFO = 0.0f;
     this->m_TRQ_LFO = 0.0f;
-    this->bClutchStateOn = false;
     this->m_aglRPM_LFO = 0;
     this->m_aglTRQ_LFO = 0;
     this->m_aglVOL_LFO = 0;
+    this->m_DistanceFltr = 24000;
     this->m_p3DCarPosCtl->AssignPositionVector(&this->vCarPos);
     this->m_p3DCarPosCtl->AssignVelocityVector(this->GetPhysCar()->GetVelocity());
     this->m_p3DCarPosCtl->AssignDirectionVector(this->GetPhysCar()->GetForwardVector());
@@ -231,11 +236,15 @@ void SFXCTL_Engine::UpdateParams(float t) {
         vOffset = bNormalize(vOffset);
     }
 
+#ifdef EA_BUILD_A124
+    vOffset = bScale(vOffset, 0.2f);
+#else
     if (this->m_pEAXCar->GetPOV() != 1) {
         vOffset = bScale(vOffset, 0.2f);
     } else {
         vOffset = bScale(vOffset, 2.0f);
     }
+#endif
     this->vCarPos = bAdd(this->vCarPos, vOffset);
 
     this->UpdateClutchState();
@@ -249,6 +258,12 @@ void SFXCTL_Engine::UpdateParams(float t) {
 
     this->GetPhysCar()->SetVisualRPM(this->m_pEAXCar->GetFinalAudioRPM());
 
+#ifdef EA_BUILD_A124 // la A124 solo conoce el motor reventado
+    if (this->GetPhysCar()->IsEngineBlown() && !this->m_bIsEngineBlown) {
+        this->m_bIsEngineBlown = true;
+        MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0xbc2dfa2f).Send(UCrc32("MomentStrm"));
+    }
+#else
     if ((this->GetPhysCar()->IsEngineBlown() || this->GetPhysCar()->IsEngineSabotaged()) && !this->m_bIsEngineBlown) {
         this->m_bIsEngineBlown = true;
         unsigned int key;
@@ -260,6 +275,7 @@ void SFXCTL_Engine::UpdateParams(float t) {
         }
         MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, key).Send(UCrc32("MomentStrm"));
     }
+#endif
 }
 
 void SFXCTL_Engine::UpdateFilterFX() {
@@ -276,8 +292,8 @@ void SFXCTL_Engine::UpdateFilterFX() {
     DistanceToUse = bClamp(DistanceRolloffFilterFActor, 0.0f, 1.0f);
     DBResult = NFSMixShape::GetCurveOutput(
         static_cast<eMIXTABLEID>(6), static_cast<int>(DistanceToUse * 32766.0f), true);
-    Q15Result = GetQ15FromHundredthsdB__11NFSMixShapei(DBResult);
-    this->m_DistanceFltr = static_cast<int>(static_cast<float>(Q15Result) * 0.7103183f + LP_CUTOFF_FREQ_AT_MAX_DIST);
+    Q15Result = NFSMixShape::GetQ15FromHundredthsdB(DBResult);
+    this->m_DistanceFltr = static_cast<int>((MaxLPF - LP_CUTOFF_FREQ_AT_MAX_DIST) * (static_cast<float>(Q15Result) / 32767.0f) + LP_CUTOFF_FREQ_AT_MAX_DIST);
 
     DistanceFilter = bClamp(this->m_DistanceFltr, 0, 0x7FFF);
     this->m_DistanceFltr = DistanceFilter;
@@ -300,15 +316,15 @@ void SFXCTL_Engine::UpdateCompression(float t) {
 }
 
 void SFXCTL_Engine::UpdateRedlining(float t) {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     this->bWasRedlining = this->bIsRedlining;
 #endif
     if (this->m_pStateBase->m_eStateType == eMM_AIRACECAR) {
         return;
     }
 
-    if (!this->bIsRedlining) {
-        if (!this->m_pShiftCtl->IsActive() && this->GetEngRPM() > REDLINING_RPM) {
+    if (!this->bIsRedlining && !this->m_pShiftCtl->IsActive()) {
+        if (this->GetEngRPM() > REDLINING_RPM) {
             this->bIsRedlining = true;
             float TimeScaleValue = RedLineDelayPerGear.GetValue(static_cast<float>(this->m_pEAXCar->GetCurGear()));
             this->RedLineEngFactor.Initialize(
@@ -324,18 +340,20 @@ void SFXCTL_Engine::UpdateRedlining(float t) {
             this->bRedliningBounce = true;
             this->RedlineingVisualOffset = 0.0f;
         }
-    } else if ((this->GetEngRPM() < REDLINING_RPM || this->m_pShiftCtl->IsActive()) && this->bIsRedlining) {
-        this->bIsRedlining = false;
-        this->RedLineEngFactor.Initialize(
-            this->RedLineEngFactor.GetValue(),
-            1.0f,
-            static_cast<int>(REDLINE_ENG_FADE[1] * (1.0f - this->RedLineEngFactor.GetValue())),
-            LINEAR);
-        this->RedLineSampFactor.Initialize(
-            this->RedLineSampFactor.GetValue(),
-            0.0f,
-            static_cast<int>(REDLINE_REDSAMP_FADE[0] * this->RedLineSampFactor.GetValue()),
-            LINEAR);
+    } else if (this->bIsRedlining) {
+        if ((this->GetEngRPM() < REDLINING_RPM || this->m_pShiftCtl->IsActive()) && this->bIsRedlining) {
+            this->bIsRedlining = false;
+            this->RedLineEngFactor.Initialize(
+                this->RedLineEngFactor.GetValue(),
+                1.0f,
+                static_cast<int>(REDLINE_ENG_FADE[1] * (1.0f - this->RedLineEngFactor.GetValue())),
+                LINEAR);
+            this->RedLineSampFactor.Initialize(
+                this->RedLineSampFactor.GetValue(),
+                0.0f,
+                static_cast<int>(REDLINE_REDSAMP_FADE[0] * this->RedLineSampFactor.GetValue()),
+                LINEAR);
+        }
     }
 
     this->RedLineEngFactor.Update(t);
@@ -380,15 +398,13 @@ void SFXCTL_Engine::UpdateRPM(float t) {
         if (this->bIsRedlining) {
             float Target = 200.0f;
             if (this->bRedliningBounce) {
-                Cur_RPM = smooth(this->RedlineingVisualOffset, Target, 50.0f);
-                this->RedlineingVisualOffset = Cur_RPM;
-                if (Cur_RPM == Target) {
+                this->RedlineingVisualOffset = smooth(this->RedlineingVisualOffset, Target, 50.0f);
+                if (this->RedlineingVisualOffset == Target) {
                     this->bRedliningBounce = false;
                 }
             } else {
-                Cur_RPM = smooth(this->RedlineingVisualOffset, 0.0f, 50.0f);
-                this->RedlineingVisualOffset = Cur_RPM;
-                if (Cur_RPM == 0.0f) {
+                this->RedlineingVisualOffset = smooth(this->RedlineingVisualOffset, 0.0f, 50.0f);
+                if (this->RedlineingVisualOffset == 0.0f) {
                     this->bRedliningBounce = true;
                 }
             }
@@ -411,8 +427,8 @@ void SFXCTL_Engine::UpdateRPM(float t) {
                 this->tMergeWithPhysicsOffStart = 0.0f;
             }
             float PercentInterp = (TimeToMergeWithPhysicsOffStart - this->tMergeWithPhysicsOffStart) * 1.4285715f;
-            PhysicsNewAudioRPM = (PhysicsNewAudioRPM - this->GetPhysCar()->GetRPMPct()) * PercentInterp +
-                                 this->GetPhysCar()->GetRPMPct();
+            PhysicsNewAudioRPM = this->GetPhysCar()->GetRPMPct() +
+                                 (PhysicsNewAudioRPM - this->GetPhysCar()->GetRPMPct()) * PercentInterp;
         }
     }
 #endif

@@ -19,9 +19,9 @@ void ENISRoadNoise_MakeEvent_Callback(const void *staticData) {
     new ENISRoadNoise(((ENISRoadNoise::StaticData *)staticData)->fDisableRoadNoise);
 }
 
-int ENISRoadNoise_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ENISRoadNoise((int)lua_tonumber(L, 1));
+int ENISRoadNoise_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ENISRoadNoise((int)lua_tonumber(luaState, 1));
     }
     return 0;
 }

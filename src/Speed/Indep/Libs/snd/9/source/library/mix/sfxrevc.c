@@ -116,12 +116,19 @@ struct LPFRC {
     float inverse;     // offset 0x8
 };
 
-// total size: 0x3C
+// total size: 0x3C; en PS2 (snd 9.06.00-ps2) 0x100, con los coeficientes para la VU0 delante (ver sfir8.c)
 struct SNDFIRSTATE {
-    float history[8]; // offset 0x0
-    float coef[5];    // offset 0x20
-    float cutLow;     // offset 0x34
-    float cutHigh;    // offset 0x38
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float VU0coef[12][4] __attribute__((aligned(16))); // offset 0x0
+#endif
+    float history[8]; // offset 0x0 (PS2: 0xC0)
+    float coef[5];    // offset 0x20 (PS2: 0xE0)
+    float cutLow;     // offset 0x34 (PS2: 0xF4)
+    float cutHigh;    // offset 0x38 (PS2: 0xF8)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    signed char resetVU0coef; // offset 0xFC
+    char pad[3];              // offset 0xFD
+#endif
 };
 
 // total size: 0x20
@@ -181,15 +188,19 @@ struct MIXERSTATE {
     int tempbufframes; // offset 0x20
 };
 
-// total size: 0x34
+// total size: 0x34; en PS2 (snd 9.06.00-ps2) 0x40: fblevels alineado a 16, en 0x30
 struct ECHOSTATE {
     SFILTERNODE sfn;           // offset 0x0
     float *pdelaybuf;          // offset 0x1C
     float *punaligneddelaybuf; // offset 0x20
     int sampleindex;           // offset 0x24
     int bufsamples;            // offset 0x28
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float fblevels __attribute__((aligned(16))); // offset 0x30
+#else
     float fblevels;            // offset 0x2C
-    float fbneglevels;         // offset 0x30
+#endif
+    float fbneglevels;         // offset 0x30 (PS2: 0x34)
 };
 
 // total size: 0x28
@@ -201,10 +212,17 @@ struct SPLITSTATE {
     short isempty;   // offset 0x26
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// total size: 0x1C
+struct FT16STATE {
+    SFILTERNODE sfn; // offset 0x0
+};
+#else
 // total size: 0x1C
 struct FT24_32STATE {
     SFILTERNODE sfn; // offset 0x0
 };
+#endif
 
 // total size: 0xC
 struct MIXCONFIG {
@@ -217,40 +235,53 @@ struct MIXCONFIG {
 
 typedef void UNPACKINITFN(void *, void *);
 
-// total size: 0x1E8
+// total size: 0x1E8; en PS2 0x1EC (ver smixer.c)
 struct SNDMIXSTATE {
     MIXCONFIG mc;                            // offset 0x0
     unsigned short outputframeincr;          // offset 0xC
     unsigned char resamplequality;           // offset 0xE
     char pad[1];                             // offset 0xF
     void (*fxadd)(int);                      // offset 0x10
-    int *wetbusactive;                       // offset 0x14
-    UNPACKINITFN *filterunpackinit[6][3];    // offset 0x18
-    int filterunpacksize[6][3];              // offset 0x60
-    float *punalignedtempbuf[2];             // offset 0xA8
-    float *ptempbuf[2];                      // offset 0xB0
-    float *punalignedmixbuf[6];              // offset 0xB8
-    float *pmixbuf[6];                       // offset 0xD0
-    float stoppedvoiceaccdry[6];             // offset 0xE8
-    float *stoppedvoiceaccwet;               // offset 0x100
-    SFILTERNODE *outputfilterhead[6];        // offset 0x104
-    LPFRCSTATE *plps[6];                     // offset 0x11C
+#ifdef EA_PLATFORM_PLAYSTATION2
+    void *pfxwetmix;                         // offset 0x14
+    void (*fxaddiop)(int);                   // offset 0x18
+#endif
+    int *wetbusactive;                       // offset 0x14 (PS2: 0x1C)
+    UNPACKINITFN *filterunpackinit[6][3];    // offset 0x18 (PS2: 0x20)
+    int filterunpacksize[6][3];              // offset 0x60 (PS2: 0x68)
+    float *punalignedtempbuf[2];             // offset 0xA8 (PS2: 0xB0)
+    float *ptempbuf[2];                      // offset 0xB0 (PS2: 0xB8)
+    float *punalignedmixbuf[6];              // offset 0xB8 (PS2: 0xC0)
+    float *pmixbuf[6];                       // offset 0xD0 (PS2: 0xD8)
+    float stoppedvoiceaccdry[6];             // offset 0xE8 (PS2: 0xF0)
+    float *stoppedvoiceaccwet;               // offset 0x100 (PS2: 0x108)
+    SFILTERNODE *outputfilterhead[6];        // offset 0x104 (PS2: 0x10C)
+    LPFRCSTATE *plps[6];                     // offset 0x11C (PS2: 0x124)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    FT16STATE ft16s[6];                      // offset 0x13C
+#else
     FT24_32STATE ft24s[6];                   // offset 0x134
-    void *smv;                               // offset 0x1DC
-    void (*mix)(int, float, void *, void *); // offset 0x1E0
+#endif
+    void *smv;                               // offset 0x1DC (PS2: 0x1E4)
+    void (*mix)(int, float, void *, void *); // offset 0x1E0 (PS2: 0x1E8)
+#ifndef EA_PLATFORM_PLAYSTATION2
     void (*decode16)(int, short *, float *); // offset 0x1E4
+#endif
 };
 
-// total size: 0x8
+// total size: 0x8; en PS2 0xC, con los buferes sin alinear delante
 struct SNDMIXFXSTATE {
-    float **inbuf; // offset 0x0
-    int timeout;   // offset 0x4
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float **inbufUnaligned; // offset 0x0
+#endif
+    float **inbuf; // offset 0x0 (PS2: 0x4)
+    int timeout;   // offset 0x4 (PS2: 0x8)
 };
 
 extern SNDMIXSTATE sndmix;
 
 extern "C" {
-void MIXI_interpolatemix(void *pdst, float volcur, void *psrc, float volnew);
+void MIXI_interpolatemix(float gain, float gaintarget, float *psrc, float *pdst);
 void SFILTER_connect(SFILTERNODE *pnode1, SFILTERNODE *pnode2, int node1output, int node2input);
 }
 
@@ -635,7 +666,10 @@ unsigned char mapchannel[6][6][6] = {
     },
 };
 
-int filtersizetable[10] = { 0x20, 0x28, 0x58, 0x58, 0x58, 0x40, 0x20, 0x34, 0x24, 0x28 };
+// Los tamanos de los estados de filtro: en PS2 LPF/HPF/BPF miden 0x120 y ECHO 0x40 (el .data de la A124)
+int filtersizetable[10] = { sizeof(SRCSTATE),  sizeof(LPFRCSTATE), sizeof(LPFSTATE),   sizeof(HPFSTATE),
+                            sizeof(BPFSTATE),  sizeof(RESONSTATE), sizeof(AMPLFSTATE), sizeof(ECHOSTATE),
+                            sizeof(MIXERSTATE), sizeof(SPLITSTATE) };
 
 int filtermodsizetable[10] = { 4, 8, 4, 4, 8, 8, 4, 8, 4, 4 };
 
@@ -645,6 +679,12 @@ MIXFXFILTERMOD *modlist;
 MIXFXCONNECTION *conlist;
 
 static int fxGlobalsCreated = 0;
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" void MIX_setwetbuffer(void *pbuf) {
+    sndmix.pfxwetmix = pbuf;
+}
+#endif
 
 extern "C" void *MIX_getwetbuffer(int fxBusIndex) {
     return sndfx.inbuf[fxBusIndex];
@@ -674,6 +714,11 @@ extern "C" void SNDMIXI_modlapifxadd(int frames) {
     sndfx.timeout++;
     psrc = sndmix.ptempbuf[0];
     pdst = sndmix.ptempbuf[1];
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndfx.timeout >= 3000) {
+        return;
+    }
+#endif
 
     for (k = 0; k < Snd::gMaxFxBuses; k++) {
         if (!fxBusesLinkList[k].IsEmpty()) {
@@ -695,8 +740,8 @@ extern "C" void SNDMIXI_modlapifxadd(int frames) {
                                 ->filterfn(pBusNodeInstance->phead[i + 1], frames, psrc, pdst, i + 1);
                             if (pBusNodeInstance->outputLevelChanged == 1) {
                                 MIXI_interpolatemix(
-                                    pdst, pBusNodeInstance->outputLevelcur[i], sndmix.pmixbuf[i],
-                                    pBusNodeInstance->outputLevelnew[i]
+                                    pBusNodeInstance->outputLevelcur[i], pBusNodeInstance->outputLevelnew[i], pdst,
+                                    sndmix.pmixbuf[i]
                                 );
                                 sndmix.mix(
                                     frames - 16, pBusNodeInstance->outputLevelnew[i], pdst + 16,
@@ -712,8 +757,8 @@ extern "C" void SNDMIXI_modlapifxadd(int frames) {
                                 if (*copyindex >= 0) {
                                     if (pBusNodeInstance->outputLevelChanged == 1) {
                                         MIXI_interpolatemix(
-                                            pdst, pBusNodeInstance->outputLevelcur[i],
-                                            sndmix.pmixbuf[*copyindex], pBusNodeInstance->outputLevelnew[i]
+                                            pBusNodeInstance->outputLevelcur[i], pBusNodeInstance->outputLevelnew[i],
+                                            pdst, sndmix.pmixbuf[*copyindex]
                                         );
                                         sndmix.mix(
                                             frames - 16, pBusNodeInstance->outputLevelnew[i], pdst + 16,
@@ -778,7 +823,11 @@ void SNDMIXI_restorefx2(int fxBusIndex, BUSNODE_INSTANCE *pBusNodeInstance) {
             SNDMEMI_free(pBusNodeInstance->phead);
             pBusNodeInstance->phead = NULL;
         }
+#ifdef EA_PLATFORM_PLAYSTATION2
+        memset(sndfx.inbuf[fxBusIndex], 0, 0x800);
+#else
         memset(sndfx.inbuf[fxBusIndex], 0, 0x280);
+#endif
     }
 }
 
@@ -906,9 +955,9 @@ void SNDMIXI_initfx(int samplerate, void *pFxFile, int fxBusIndex, BUSNODE_INSTA
             break;
         }
 
-        tempHeadVal = ((MIXFXMODSOURCE *)pcurModule)->head;
-        if (tempHeadVal != 0) {
+        if (((MIXFXMODSOURCE *)pcurModule)->head != 0) {
             if (((MIXFXMODSOURCE *)pcurModule)->type == 9) {
+                tempHeadVal = ((MIXFXMODSOURCE *)pcurModule)->head;
                 pBusNodeInstance->phead[remap(
                     pBusNodeInstance->validstructoutputs, sndmix.mc.outputchannels, tempHeadVal & 0xF
                 )] = pBusNodeInstance->pfilterlist[i];
@@ -917,7 +966,7 @@ void SNDMIXI_initfx(int samplerate, void *pFxFile, int fxBusIndex, BUSNODE_INSTA
                 )] = pBusNodeInstance->pfilterlist[i];
             } else {
                 pBusNodeInstance->phead[remap(
-                    pBusNodeInstance->validstructoutputs, sndmix.mc.outputchannels, tempHeadVal
+                    pBusNodeInstance->validstructoutputs, sndmix.mc.outputchannels, ((MIXFXMODSOURCE *)pcurModule)->head
                 )] = pBusNodeInstance->pfilterlist[i];
             }
         }
@@ -936,7 +985,11 @@ void SNDMIXI_initfx(int samplerate, void *pFxFile, int fxBusIndex, BUSNODE_INSTA
     }
 
     sndfx.timeout = 3000;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    memset(sndfx.inbuf[fxBusIndex], 0, 0x800);
+#else
     memset(sndfx.inbuf[fxBusIndex], 0, 0x280);
+#endif
 
     pcurModule = (char *)modlist;
     pBusNodeInstance->indexToSrcModule = 0;
@@ -955,15 +1008,23 @@ void SNDMIXI_initfx(int samplerate, void *pFxFile, int fxBusIndex, BUSNODE_INSTA
 extern "C" void MIX_createFxglobals() {
     int memAllocSize;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    memAllocSize = Snd::gMaxFxBuses * sizeof(float *) + Snd::gMaxFxBuses * sizeof(int) +
+                   Snd::gMaxFxBuses * sizeof(float) + Snd::gMaxFxBuses * sizeof(float *);
+#else
     memAllocSize = Snd::gMaxFxBuses * sizeof(float *) + Snd::gMaxFxBuses * sizeof(int) +
                    Snd::gMaxFxBuses * sizeof(float);
+#endif
     sndfx.inbuf = (float **)SNDMEMI_allocz(memAllocSize);
     sndmix.wetbusactive = (int *)(sndfx.inbuf + Snd::gMaxFxBuses);
     sndmix.stoppedvoiceaccwet = (float *)(sndmix.wetbusactive + Snd::gMaxFxBuses);
-    memset(sndfx.inbuf, 0, memAllocSize);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    sndfx.inbufUnaligned = (float **)(sndmix.stoppedvoiceaccwet + Snd::gMaxFxBuses);
+#endif
+    SNDI_memclear(sndfx.inbuf, memAllocSize);
 
     fxBusesLinkList = (CListStack *)SNDMEMI_allocz(Snd::gMaxFxBuses * sizeof(CListStack));
-    memset(fxBusesLinkList, 0, Snd::gMaxFxBuses * sizeof(CListStack));
+    SNDI_memclear(fxBusesLinkList, Snd::gMaxFxBuses * sizeof(CListStack));
 
     fxGlobalsCreated = 1;
 }
@@ -990,6 +1051,22 @@ extern "C" void MIX_destroyFxglobals() {
     }
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" void MIX_inbufInit(int fxBusIndex) {
+    sndfx.inbufUnaligned[fxBusIndex] = (float *)SNDMEMI_allocz(0x840);
+    sndfx.inbuf[fxBusIndex] = (float *)(((sndptruint)sndfx.inbufUnaligned[fxBusIndex] + 0x3F) >> 6 << 6);
+}
+
+extern "C" void MIX_inbufRestore(int fxBusIndex) {
+    sndmix.wetbusactive[fxBusIndex] = 0;
+    if (sndfx.inbuf[fxBusIndex] != NULL) {
+        SNDMEMI_free(sndfx.inbufUnaligned[fxBusIndex]);
+        sndfx.inbufUnaligned[fxBusIndex] = NULL;
+        sndfx.inbuf[fxBusIndex] = NULL;
+    }
+}
+#endif
+
 extern "C" unsigned int MIX_initreverb(int outputrate, int fxBusIndex, void *pFxFile) {
     char *pcur;
     int i;
@@ -1000,7 +1077,12 @@ extern "C" unsigned int MIX_initreverb(int outputrate, int fxBusIndex, void *pFx
     BUSNODE_INSTANCE *pBusNodeInstance;
 
     if (fxBusesLinkList[fxBusIndex].IsEmpty()) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        sndfx.inbufUnaligned[fxBusIndex] = (float *)SNDMEMI_allocz(0x840);
+        sndfx.inbuf[fxBusIndex] = (float *)(((sndptruint)sndfx.inbufUnaligned[fxBusIndex] + 0x3F) >> 6 << 6);
+#else
         sndfx.inbuf[fxBusIndex] = (float *)SNDMEMI_allocz(0x280);
+#endif
     }
 
     pBusNodeInstance = (BUSNODE_INSTANCE *)SNDMEMI_allocz(sizeof(BUSNODE_INSTANCE));
@@ -1087,10 +1169,61 @@ extern "C" unsigned int MIX_restorereverb(int fxBusIndex, unsigned int instanceH
     if (fxBusesLinkList[fxBusIndex].IsEmpty()) {
         sndmix.wetbusactive[fxBusIndex] = 0;
         if (sndfx.inbuf[fxBusIndex] != NULL) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+            SNDMEMI_free(sndfx.inbufUnaligned[fxBusIndex]);
+            sndfx.inbufUnaligned[fxBusIndex] = NULL;
+#else
             SNDMEMI_free(sndfx.inbuf[fxBusIndex]);
+#endif
             sndfx.inbuf[fxBusIndex] = NULL;
         }
     }
 
     return 0;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Pasa el bus de efectos al bufer de la IOP (pfxwetmix): escala por 127, a entero y deja el de entrada a cero. El
+// asm de la VU0 es el del original (vf1-vf5 y los registros de trabajo del binario de la A124).
+extern "C" void SNDMIXI_fxadd(int frames) {
+    if (sndmix.pfxwetmix != NULL) {
+        asm __volatile__(".set noreorder\n"
+                         "move $4, %0\n"
+                         "move $5, %1\n"
+                         "move $6, %2\n"
+                         "li $8, 0x7f\n"
+                         "sll $4, $4, 2\n"
+                         "qmtc2.ni $8, vf1\n"
+                         "add $4, $4, $5\n"
+                         "vitof0.xyzw vf1, vf1\n"
+                         "1:\n"
+                         "lqc2 vf2, 0x0($5)\n"
+                         "lqc2 vf3, 0x10($5)\n"
+                         "lqc2 vf4, 0x20($5)\n"
+                         "lqc2 vf5, 0x30($5)\n"
+                         "vmulx.xyzw vf2, vf2, vf1x\n"
+                         "sq $0, 0x0($5)\n"
+                         "vmulx.xyzw vf3, vf3, vf1x\n"
+                         "sq $0, 0x10($5)\n"
+                         "vmulx.xyzw vf4, vf4, vf1x\n"
+                         "sq $0, 0x20($5)\n"
+                         "vmulx.xyzw vf5, vf5, vf1x\n"
+                         "sq $0, 0x30($5)\n"
+                         "addi $5, $5, 0x40\n"
+                         "addi $6, $6, 0x40\n"
+                         "vftoi0.xyzw vf2, vf2\n"
+                         "vftoi0.xyzw vf3, vf3\n"
+                         "vftoi0.xyzw vf4, vf4\n"
+                         "vftoi0.xyzw vf5, vf5\n"
+                         "sqc2 vf2, -0x40($6)\n"
+                         "sqc2 vf3, -0x30($6)\n"
+                         "sqc2 vf4, -0x20($6)\n"
+                         "bne $4, $5, 1b\n"
+                         "sqc2 vf5, -0x10($6)\n"
+                         ".set reorder"
+                         :
+                         : "r"(frames), "r"(sndfx.inbuf[0]), "r"(sndmix.pfxwetmix)
+                         : "$4", "$5", "$6", "$8", "memory");
+    }
+}
+#endif

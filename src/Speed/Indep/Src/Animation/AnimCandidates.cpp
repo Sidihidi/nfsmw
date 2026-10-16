@@ -5,37 +5,37 @@
 
 
 
-int SpecialCarList1[] = {0x9537ACB7, 0x5D6E3E54, 0x5D6E3E54, 0xE6D4BEE9, 0xA3A1D182, 0x3E8EA090, 0x43CE4BC3, 0xD601789E};
+unsigned int SpecialCarList1[] = {0x9537ACB7, 0x5D6E3E54, 0x5D6E3E54, 0xE6D4BEE9, 0xA3A1D182, 0x3E8EA090, 0x43CE4BC3, 0xD601789E};
 
-int SpecialCarList2[] = {
+unsigned int SpecialCarList2[] = {
     0x5D6E3E54, 0x5D6E3E54, 0x531A3488, 0xEBAF2926, 0xE6D4BEE9, 0x43CE4BC3, 0x3E8EA090, 0xD601789E,
 };
 
-int SpecialCarList3[] = {
+unsigned int SpecialCarList3[] = {
     0x5D6E3E54, 0x5D6E3E54, 0x5D6E3E54, 0x38B38226, 0x5D6E3E54, 0x38B38226, 0x9537ACB7, 0x0A92CC67,
 };
 
-int SpecialCarList4[] = {
+unsigned int SpecialCarList4[] = {
     0xA2D70BBD, 0x5F3B560D, 0x531A3488, 0x531A3488, 0xEBAF2926, 0xE6D4BEE9, 0xA9B509C4, 0xEBAF2926,
 };
 
-int SpecialCarList5[] = {
+unsigned int SpecialCarList5[] = {
     0xA2D70BBD, 0xA2D70BBD, 0x0A92CC67, 0x531A3488, 0x5EC98756, 0xE6D4BEE9, 0x9537ACB7, 0x43CE4BC3,
 };
 
-int SpecialCarList6[] = {
+unsigned int SpecialCarList6[] = {
     0xA4EB6688, 0xA4EB6688, 0xA4EB6688, 0xA4EB6688, 0xA4EB6688, 0xA4EB6688, 0xA4EB6688, 0xD37C806D,
 };
 
-int SpecialCarList7[] = {
+unsigned int SpecialCarList7[] = {
     0x5D6E3E54, 0x5D6E3E54, 0x5D6E3E54, 0x43CE4BC3, 0x531A3488, 0x5EC98756, 0xE6D4BEE9, 0xEBAF2926,
 };
 
-int SpecialCarList8[] = {
+unsigned int SpecialCarList8[] = {
     0x6F67F7F5, 0x43CE4BC3, 0xEBAF2926, 0xE6D4BEE9, 0x531A3488, 0x5EC98756, 0x43CE4BC3, 0xEBAF2926,
 };
 
-int SpecialCarList9[] = {
+unsigned int SpecialCarList9[] = {
     0x5D6E3E54, 0x5D6E3E54, 0x5D6E3E54, 0xE6D4BEE9, 0x531A3488, 0x5EC98756, 0x43CE4BC3, 0xEBAF2926,
 };
 
@@ -60,7 +60,7 @@ static const char MarkerNameList[21][28] = {
 };
 
 const char *CAnimCandidateData::GetMomentMarkerName(int markerType) {
-    if ((uint32)markerType < NumMomentMarkerTypes) {
+    if (markerType >= 0 && markerType < NumMomentMarkerTypes) {
         return MarkerNameList[markerType];
     } else {
         return "";
@@ -82,10 +82,10 @@ TrackPositionMarker *CAnimCandidateData::GetClosestMarker(uint32 sceneHash, bVec
             for (TrackPositionMarker *p = TrackPositionMarkerList.GetHead(); p != TrackPositionMarkerList.EndOfList(); p = p->GetNext()) {
                 if (p->NameHash == markerHash) {
                     bAngle angleBetween = p->Angle - angle;
-                    if (angleBetween > 32768) {
-                        angleBetween = angle - p->Angle;
+                    const float bAngle360 = 360.0f;
+                    if (angleBetween > bDegToAng(180.0f)) {
+                        angleBetween = bDegToAng(bAngle360) + angle - p->Angle;
                     }
-                    const float bAngle360 = bDegToAng(angle) - bDegToAng(p->Angle);
                     float angleBonus = angleBetween * 1.5258789e-05f * AngleBonusValue;
                     float dist = bDistBetween(p->Position, position) + angleBonus;
                     if (!closestMarker || (dist < closestMarkerDist)) {

@@ -79,12 +79,22 @@ class Collection {
     }
 
     void Release() const {
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+        // X360 vuelca primero la rama de borrado (cmplwi 1 + ble); PC compara con 1 (cmp 1 + jbe).
+        if (mRefCount > 1) {
+            mRefCount--;
+        } else {
+            mRefCount = 0;
+            Database::Get().Delete(this);
+        }
+#else
         if (mRefCount >= 2) {
             mRefCount--;
         } else {
             mRefCount = 0;
             Database::Get().Delete(this);
         }
+#endif
     }
 
     const Collection *Parent() const {
@@ -142,18 +152,6 @@ class Collection {
     Key mKey;                       // offset 0x20, size 0x4
     Vault *mSource;                 // offset 0x24, size 0x4
     const char *mNamePtr;           // offset 0x28, size 0x4
-};
-
-class Private {
-  public:
-    unsigned int GetLength() const;
-
-    const Array *ToArray() const {
-        return reinterpret_cast<const Array *>(mData);
-    }
-
-  private:
-    unsigned char mData[8];
 };
 
 // total size: 0x1C

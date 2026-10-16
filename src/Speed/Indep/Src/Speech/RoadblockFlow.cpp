@@ -12,6 +12,10 @@
 #include "Speed/Indep/Src/Interfaces/Simables/IRenderable.h"
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 
+#ifdef MILESTONE_BUILD
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
+
 extern const int SPEECHFLOW_DISPLAY;
 
 namespace Speech {
@@ -48,7 +52,11 @@ RoadblockFlow::~RoadblockFlow() {
 }
 
 void RoadblockFlow::NailedSomethingInRB(unsigned int what) {
+#ifdef EA_PLATFORM_WIN32
+    if (!(mFlags & OUTCOMETIMERSET) && !(mFlags & (AVERTED | ENGAGED))) {
+#else
     if ((mFlags & (OUTCOMETIMERSET | AVERTED | ENGAGED)) == 0) {
+#endif
         mT_engaged = WorldTimer;
         mFlags |= OUTCOMETIMERSET;
     }
@@ -82,15 +90,16 @@ void RoadblockFlow::SyncRoadblock() {
             if ((mFlags & SETUP) != 0) {
                 mFlags |= REQ_SERVICE;
             }
-            mFlags &= ~(SETUP |
-                        LOS |
-                        HELIJOINED |
-                        AVERTED |
-                        NAILED_SPIKES |
-                        NAILED_OTHEROBJ |
-                        NAILED_VEHICLE |
-                        ENGAGED |
-                        POSITIONED);
+            // Una sentencia por bandera: PS2 hace un and por cada una, en este orden.
+            mFlags &= ~SETUP;
+            mFlags &= ~LOS;
+            mFlags &= ~NAILED_SPIKES;
+            mFlags &= ~NAILED_OTHEROBJ;
+            mFlags &= ~NAILED_VEHICLE;
+            mFlags &= ~HELIJOINED;
+            mFlags &= ~POSITIONED;
+            mFlags &= ~AVERTED;
+            mFlags &= ~ENGAGED;
 
             ++mNumBlocks;
         }
@@ -130,8 +139,7 @@ void RoadblockFlow::SyncRoadblock() {
         if (visual && (mFlags & LOS) == 0) {
             mFlags |= LOS;
             mFlags |= REQ_SERVICE;
-            MMiscSound message(1);
-            message.Send(UCrc32("RBLOS"));
+            MMiscSound(1).Send(UCrc32("RBLOS"));
         } else {
             mFlags &= ~LOS;
         }
@@ -148,6 +156,24 @@ void RoadblockFlow::Update() {
 
     SyncRoadblock();
 
+#ifdef MILESTONE_BUILD
+    // Pantalla de depuracion de la A124 (cadenas de su .rodata).
+    if (SPEECHFLOW_DISPLAY) {
+        unsigned int color = 0x5fff3f3f;
+        if ((mFlags & (SETUP | LOS)) == SETUP) {
+            color = 0xffffff00;
+        } else if ((mFlags & (SETUP | LOS)) == (SETUP | LOS)) {
+            color = 0xffff3f3f;
+        }
+        x = -200;
+        y = -200;
+        ScreenPrintf(x, y, 1.0f, color, "ROADBLOCK %s%s%s%s%s%s %s%s%s %s%s %.1f", (mFlags & SETUP) ? "S" : "-",
+                     (mFlags & LOS) ? "L" : "-", (mFlags & HELIJOINED) ? "H" : "-", (mFlags & POSITIONED) ? "+" : "-",
+                     (mFlags & ENGAGED) ? "E" : "-", (mFlags & AVERTED) ? "A" : "-", (mFlags & RB_ENABLED) ? "R" : "-",
+                     (mFlags & SPIKES_ENABLED) ? "S" : "-", (mFlags & HELIRB_ENABLED) ? "H" : "-",
+                     (mFlags & RESET_PENDING) ? "rp" : "-", (mFlags & OUTCOMETIMERSET) ? "ot" : "-", mLoDist2RB);
+    }
+#else
     // El bloque de depuracion no emite codigo (todo muerto), pero SI parte la
     // funcion en dos bloques basicos: por eso `this` lo reparte global_alloc y
     // cae en r31 (local_alloc nunca asigna r31 y daria r30 + stmw).
@@ -157,6 +183,7 @@ void RoadblockFlow::Update() {
         y = 0;
         x = 0;
     }
+#endif
 
     Service();
 }
@@ -229,11 +256,11 @@ void RoadblockFlow::Request() {
 
 void RoadblockFlow::Setup() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (((mFlags ^ SETUP) & SETUP) != 0) {
+    if (!(mFlags & SETUP)) {
         EAXCop *primary = ai->GetRandomCop(1);
         EAXCop *secondary = ai->GetRandomCop(2);
 
-        if (mNumBlocks >= 2 && secondary != 0) {
+        if (mNumBlocks > 1 && secondary != 0) {
             if (bRandom(1.0f) > 0.5f) {
                 secondary->CallForSubRB();
             } else {
@@ -245,11 +272,18 @@ void RoadblockFlow::Setup() {
                 primary->NegRBReply();
             }
         }
+        mFlags &= ~REQ_SERVICE;
     } else {
         if ((mFlags & POSITIONED) != 0) {
+#ifdef EA_BUILD_A124
+            // La A124 no mira las bandas de clavos del control.
+            MiscSpeech::RBPosition(mSpikeOffset);
+#else
             bool pos_comment = true;
             if (ai->GetRoadblock() != 0) {
-                pos_comment = ai->GetRoadblock()->GetNumSpikeStrips() <= 1;
+                if (ai->GetRoadblock()->GetNumSpikeStrips() > 1) {
+                    pos_comment = false;
+                }
             }
 
             if (pos_comment) {
@@ -265,6 +299,8 @@ void RoadblockFlow::Setup() {
                     MiscSpeech::RBWarning();
                 }
             }
+#endif
+            mFlags &= ~REQ_SERVICE;
         } else {
             bool should_interrupt_dispatch = false;
             if (Manager::IsCopSpeechPlaying(static_cast<SPCHType_1_EventID>(0x4d)) ||
@@ -279,16 +315,12 @@ void RoadblockFlow::Setup() {
                 ai->GetDispatch()->RBUpdate(primary, 1);
                 primary->PursuitApproaching();
                 mFlags &= ~REQ_SERVICE;
-                return;
             } else {
                 MiscSpeech::RBWarning();
                 mFlags &= ~REQ_SERVICE;
-                return;
             }
         }
     }
-
-    mFlags &= ~REQ_SERVICE;
 }
 
 void RoadblockFlow::Approach() {
@@ -407,9 +439,11 @@ void RoadblockFlow::Service() {
 void RoadblockFlow::Terminal() {
     mBusy = 0;
     mFlags = 0;
-    mSpikeOffset = 0;
-    mPertinentRB = nullptr;
     mLoDist2RB = 32767.0f;
+    mSpikeOffset = 0;
+#ifndef EA_BUILD_A124 // la A124 no suelta el bloqueo pertinente (lineas 582-585: cuatro stores)
+    mPertinentRB = nullptr;
+#endif
 }
 
 void RoadblockFlow::Reset() {

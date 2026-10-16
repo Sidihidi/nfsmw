@@ -47,8 +47,9 @@ class AdaptivePIDControllerBase {
     AdaptivePIDControllerBase(eAdaptationRule adaptation_rule, float coefficient_derivative_window);
     virtual ~AdaptivePIDControllerBase();
     virtual float GetTerm(ePIDTerm term) = 0;
-
+  protected:
     void UpdateBase(float model_error, float timestep, float desired_process_value);
+  public:
     float GetOutput();
 
     void ForceCoefficient(ePIDTerm term, float new_coefficient) {
@@ -89,7 +90,7 @@ class AdaptivePIDControllerBase {
         Alpha = alpha;
     }
 
-  protected:
+  private:
     float GetNewCoefficientDerivative(ePIDTerm term, float model_error, float desired_process_value);
 
     float GetSensitivityDerivative(ePIDTerm term) {
@@ -99,7 +100,7 @@ class AdaptivePIDControllerBase {
     float GetSensitivityDerivative(float coefficient_derivative);
 
     float Sign(float v);
-
+  protected:
     float TermClamp[NUM_PID_TERMS][2]; // offset 0x0, size 0x18
   private:
     eAdaptationRule AdaptationRule;                       // offset 0x18, size 0x4

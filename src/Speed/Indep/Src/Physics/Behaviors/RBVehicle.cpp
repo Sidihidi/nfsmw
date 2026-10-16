@@ -61,7 +61,18 @@ bool RBVehicle::IsInGroundContact() const {
 bool RBVehicle_DisableVehicleVsVehicleCollisions = false;
 
 bool RBVehicle::CanCollideWith(const RigidBody &other) const {
-    return this->mObjectCollisionsEnabled ? RigidBody::CanCollideWith(other) : false;
+    if (!this->mObjectCollisionsEnabled) {
+        return false;
+    }
+#ifdef MILESTONE_BUILD
+    // Solo en la A124 (prototipo): el interruptor del menu de depuracion.
+    if (other.GetSimableType() == SIMABLE_VEHICLE) {
+        if (RBVehicle_DisableVehicleVsVehicleCollisions) {
+            return false;
+        }
+    }
+#endif
+    return RigidBody::CanCollideWith(other);
 }
 
 void RBVehicle::OnBeginFrame(const float dT) {
@@ -91,10 +102,12 @@ void RBVehicle::OnBeginFrame(const float dT) {
 void RBVehicle::OnTaskSimulate(float dT) {
     RigidBody::OnTaskSimulate(dT);
     this->mFrame++;
-    if ((this->mInvulnerableState != INVULNERABLE_NONE) && (Sim::GetTime() > this->mLastPenetration + 1.0f) &&
-        (this->mInvulnerableTimer -= dT) <= 0.0f) {
-        this->mInvulnerableTimer = 0.0f;
-        this->mInvulnerableState = INVULNERABLE_NONE;
+    if (this->mInvulnerableState && Sim::GetTime() > this->mLastPenetration + 1.0f) {
+        this->mInvulnerableTimer -= dT;
+        if (this->mInvulnerableTimer <= 0.0f) {
+            this->mInvulnerableTimer = 0.0f;
+            this->mInvulnerableState = INVULNERABLE_NONE;
+        }
     }
     if ((this->mSuspension != nullptr) && GetVehicle()->IsDestroyed() && !this->GetOwner()->IsPlayer() &&
         (this->mSuspension->GetNumWheelsOnGround() > this->mSuspension->GetNumWheels() / 2)) {

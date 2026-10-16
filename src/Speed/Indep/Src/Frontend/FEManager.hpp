@@ -70,7 +70,9 @@ class FEManager {
 #ifdef EA_BUILD_A124
     void SetEATraxDelay();
 
-    int GetEATraxDelay();
+    int GetEATraxDelay() {
+        return mEATraxDelay;
+    }
 #endif
 
     void SetEATraxFirstButton(bool onOff) { // Decl: speed/indep/src/frontend/FeManager.hpp:148
@@ -104,9 +106,18 @@ class FEManager {
         return mPauseReason[idx];
     }
 
+#ifdef EA_BUILD_A124 // en la A124 es en linea (no hay FEManager::WantControllerError en el binario)
+    void WantControllerError(int port) {
+        bWantControllerError[port] = true;
+    }
+#else
     void WantControllerError(int port);
+#endif
 
     void ClearControllerError(int port) {
+#ifdef EA_BUILD_A124 // la A124 solo borra el puerto que le pasan
+        bWantControllerError[port] = 0;
+#else
         if (port == -1) {
             return;
         }
@@ -117,6 +128,7 @@ class FEManager {
         } else {
             bWantControllerError[port] = 0;
         }
+#endif
     }
 
     bool WaitingForControllerError();

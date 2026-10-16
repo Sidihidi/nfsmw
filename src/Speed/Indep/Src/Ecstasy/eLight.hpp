@@ -93,6 +93,7 @@ struct LightFlareParameters {
 
 extern LightFlareParameters SingleLightFlareParameters[22];
 extern int LightFlareParametersNeedUpdating;
+extern int32 DrawLightFlares;
 
 // total size: 0x30
 class eLightFlare : public bTNode<eLightFlare> {
@@ -434,6 +435,7 @@ int elCloneLightContext(eDynamicLightContext *light_context, bMatrix4 *local_wor
 void UpdateLightFlareParameters();
 void eResestLightFlarePool();
 void eRenderWorldLightFlares(eView *view, flareType type);
+void eRenderLightFlarePool(eView *view);
 eLightFlare *eGetNextLightFlareInPool(uint32 XcludeViewIDs);
 int eRenderLightFlare(eView *view, eLightFlare *light_flare, bMatrix4 *local_world, float intensity_scale, enum eLightReflexionType ReflexionAction,
                       flareType destinationType, float RefelectionOverride, uint32 ColourOverRide, float sizescale);

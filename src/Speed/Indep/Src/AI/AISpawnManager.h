@@ -9,7 +9,7 @@
 
 // total size: 0xC
 class AISpawnManager {
-  public:
+  protected:
     AISpawnManager(float minSpawnDist, float maxSpawnDist);
 
     void GetBasePosition(UMath::Vector3 &basePos);
@@ -17,18 +17,18 @@ class AISpawnManager {
     void GetBaseForwardVector(UMath::Vector3 &baseForwardVec);
 
     bool RespawnAvailable(const UMath::Vector3 &position, float radius);
-
+  private:
     bool GetSpawnPointOnSegment(short &segInd, char &laneInd, float &timeStep);
-
+  protected:
     bool GetSpawnLocation(short &segInd, char &laneInd, float &timeStep);
 
     bool CheckSpawnPosition(const UMath::Vector3 &checkPos, bool checkLane, int laneInd, int nodeInd, bool bCheckDist);
-
+  private:
     void RefreshSpawnData();
-
+  public:
     // Virtual methods
     virtual ~AISpawnManager();
-
+  private:
     // Static members
     static const int kMaxSpawnSegments = 50; // size: 0x4, address: 0xFFFFFFFF
     static float mMaxGatherDist;        // size: 0x4, address: 0x8041547C

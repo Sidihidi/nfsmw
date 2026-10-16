@@ -37,25 +37,18 @@ void CSTATEMGR_TrafficCar::UpdateParams(float t) {
 void CSTATEMGR_TrafficCar::DebugDisplayTrafficConnections() {
 #ifdef EA_BUILD_A124
     int y = -0xAA;
-    int x = 0xFA;
     EAXTrafficCar *car = static_cast<EAXTrafficCar *>(this->m_pHeadStateObj);
 
-    if (car != nullptr) {
-        EAX_CarState *physCar = car->GetPhysCar();
-        do {
-        if (physCar != nullptr && physCar->GetAttributes()->IsValid()) {
-            Attrib::Gen::pvehicle vehicle(*physCar->GetAttributes());
-            ScreenPrintf(x, y, 1.0f, 0xFFFF3F3F, "%s", vehicle.CollectionName());
+    while (car != nullptr) {
+        if (car->GetPhysCar() != nullptr && car->GetPhysCar()->GetAttributes()->IsValid()) {
+            Attrib::Gen::pvehicle vehicle(*car->GetPhysCar()->GetAttributes());
+            ScreenPrintf(0xFA, y, 1.0f, 0xFFFF3F3F, "%s", vehicle.CollectionName());
+            y += 0xF;
         } else {
-            ScreenPrintf(x, y, 1.0f, 0x5FFF3F3F, "unattached");
+            ScreenPrintf(0xFA, y, 1.0f, 0x5FFF3F3F, "unattached");
+            y += 0xF;
         }
-
-        y += 0xF;
         car = static_cast<EAXTrafficCar *>(car->m_pNextState);
-            if (car != nullptr) {
-                physCar = car->GetPhysCar();
-            }
-        } while (car != nullptr);
     }
 #else
     int y = -0xAA;

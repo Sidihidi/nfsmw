@@ -144,7 +144,7 @@ void DeltaCompressedData::DecompressValuesIndexed(int startDof, int numDofs, int
                     dofInfo = dofInfoStart;
                     for (istride = 0; istride < numStrides; istride++) {
                         int index = indices[istride];
-                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, delta16++, dofInfo++) {
+                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, dofInfo++, delta16++) {
                             currValues[index + ioffset] += (*delta16 * dofInfo->mQuantRange + dofInfo->mQuantMin) * scale;
                         }
                     }
@@ -157,7 +157,7 @@ void DeltaCompressedData::DecompressValuesIndexed(int startDof, int numDofs, int
                     dofInfo = dofInfoStart;
                     for (istride = 0; istride < numStrides; istride++) {
                         int index = indices[istride];
-                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, delta8++, dofInfo++) {
+                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, dofInfo++, delta8++) {
                             currValues[index + ioffset] += (*delta8 * dofInfo->mQuantRange + dofInfo->mQuantMin) * scale;
                         }
                     }
@@ -166,7 +166,7 @@ void DeltaCompressedData::DecompressValuesIndexed(int startDof, int numDofs, int
             }
             case 4: {
                 const unsigned char *delta4 = reinterpret_cast<const unsigned char *>(&deltaBlock[prevFrame * ((mNumDofs + 1) >> 1)]);
-                bool dofEven = !(startDof & ~1);
+                bool dofEven = !(startDof & ~1u);
                 for (iframe = prevFrame; iframe < currFrame; iframe++) {
                     dofInfo = dofInfoStart;
                     for (istride = 0; istride < numStrides; istride++) {
@@ -240,7 +240,7 @@ void DeltaCompressedData::DecompressValues(int valuesPerIndex, int prevFrame, in
                         const unsigned short *delta16 = &reinterpret_cast<const unsigned short *>(&deltaBlock[iframe * mNumDofs * 2])[index];
                         dofInfo = &dofInfoStart[index];
 
-                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, delta16++, dofInfo++) {
+                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, dofInfo++, delta16++) {
                             currValues[index + ioffset] += *delta16 * dofInfo->mQuantRange + dofInfo->mQuantMin;
                         }
                     }
@@ -254,7 +254,7 @@ void DeltaCompressedData::DecompressValues(int valuesPerIndex, int prevFrame, in
                         const unsigned char *delta8 = &(&deltaBlock[iframe * mNumDofs])[index];
                         dofInfo = &dofInfoStart[index];
 
-                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, delta8++, dofInfo++) {
+                        for (ioffset = 0; ioffset < valuesPerIndex; ioffset++, dofInfo++, delta8++) {
                             currValues[index + ioffset] += *delta8 * dofInfo->mQuantRange + dofInfo->mQuantMin;
                         }
                     }

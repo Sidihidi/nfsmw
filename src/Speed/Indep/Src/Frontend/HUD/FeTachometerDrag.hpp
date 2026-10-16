@@ -14,9 +14,9 @@ class DragTachometer : public HudElement, public ITachometer, public ITachometer
     void SetRpm(float rpm) override {
         mRpm = rpm;
     }
-    void SetRevLimiter(float redline, float maxRpm) override {
+    void SetRevLimiter(float redline, float maxrpm) override {
         mRedline = redline;
-        mMaxRpm = maxRpm;
+        mMaxRpm = maxrpm;
     }
     void SetGear(GearID gear, ShiftPotential potential, bool hasGoodEnoughTraction) {
         if (gear != mGear) {

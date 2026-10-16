@@ -54,7 +54,12 @@ int CARSFX_WindNoise::GetController(int Index) {
 }
 
 void CARSFX_WindNoise::AttachController(SFXCTL *psfxctl) {
+#ifdef EA_PLATFORM_XENON
+    // X360 compara con signo (cmpwi): el indice era int, no unsigned.
+    int objIndex = psfxctl->GetObjectIndex();
+#else
     unsigned int objIndex = psfxctl->GetObjectIndex();
+#endif
     switch (objIndex) {
         case 0xE:
             this->m_p3DRightWindPos = static_cast<SFXCTL_3DRightWindPos *>(psfxctl);
@@ -97,7 +102,10 @@ void CARSFX_WindNoise::InitSFX() {
 }
 
 void CARSFX_WindNoise::ProcessUpdate() {
-    if (this->IsEnabled() && (this->m_pCsisWind != nullptr)) {
+    if (this->IsEnabled()) {
+        if (this->m_pCsisWind == nullptr) {
+            return;
+        }
         this->UpdateCSISParams();
     }
 }

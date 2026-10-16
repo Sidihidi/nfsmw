@@ -27,8 +27,8 @@ void SFXCTL_AccelTrans::SetupSFX(CSTATE_Base *_StateBase) {
 
 void SFXCTL_AccelTrans::InitSFX() {
     SFXCTL::InitSFX();
-    this->eAccelTransFxState = FX_ACCEL_STATE_NONE;
     this->t_LastAccelTrans = 0.0f;
+    this->eAccelTransFxState = FX_ACCEL_STATE_NONE;
     this->IsAccelerating = false;
     this->OldIsAccelerating = false;
     this->PlayEngOffSweet = false;
@@ -108,9 +108,11 @@ void SFXCTL_AccelTrans::UpdateRPM(float t) {
 
 // TODO switch
 void SFXCTL_AccelTrans::UpdateTRQ(float t) {
-    if (this->eAccelTransFxState != FX_ACCEL_STATE_NONE) {
-        if (this->eAccelTransFxState >= FX_ACCEL_STATE_NONE) {
-            if (this->eAccelTransFxState <= FX_ACCEL_STATE_INTERRUPT) {
+    // Contra literales: en las dos PS2 son beqz, bltz y slti 5, operadores del lenguaje; con las constantes del
+    // enum pasarian por las plantillas de stl_relops (ver scripts/relops.py).
+    if (this->eAccelTransFxState != 0) {
+        if (this->eAccelTransFxState >= 0) {
+            if (this->eAccelTransFxState <= 4) {
                 this->m_InterpEngTorque.Update(t, this->GetPhysTRQ());
 
                 if (this->m_InterpEngTorque.IsFinished()) {

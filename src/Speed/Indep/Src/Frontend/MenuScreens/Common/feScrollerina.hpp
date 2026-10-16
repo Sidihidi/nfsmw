@@ -25,9 +25,15 @@ class FEScrollBar {
 
     ~FEScrollBar() {}
 
-    void SetArrow1Visibility(bool visible) {}
+    // Cuerpo de la A124 (copias fuera de linea en L538/L539@feWidget.hpp). EE-GCC no expande un inline cuyo cuerpo
+    // acaba en llamada de cola: la A124 llama a SetArrow1Visibility__11FEScrollBarb. GC y SLUS no tienen llamantes.
+    void SetArrow1Visibility(bool visible) {
+        SetArrowVisibility(1, visible);
+    }
 
-    void SetArrow2Visibility(bool visible) {}
+    void SetArrow2Visibility(bool visible) {
+        SetArrowVisibility(2, visible);
+    }
 
     bool IsVisible() {
         return bVisible;
@@ -36,13 +42,13 @@ class FEScrollBar {
     void SetGroupVisible(bool visible);
 
     void Update(int num_view_items, int num_list_items, int view_head_index, int selected_item);
-
+  private:
     void SetPosResized(int num_view_items, int num_list_items, int view_head_index);
 
     void SetPosNonResized(int num_view_items, int num_list_items, int view_head_index);
 
     void SetArrowVisibility(int arrow_num, bool visible);
-
+  public:
     void SetBackingVisibility(bool visible);
 
     void SetVisible(FEObject *obj);
@@ -73,6 +79,9 @@ class FEScrollBar {
     FEObject *pSecondArrow;      // offset 0x58, size 0x4
     FEObject *pFirstBackingEnd;  // offset 0x5C, size 0x4
     FEObject *pSecondBackingEnd; // offset 0x60, size 0x4
+#if defined(EA_PLATFORM_WIN32)
+    int iMouseScroll;            // PC: offset 0x58 (nombre desconocido)
+#endif
 };
 
 class FEImage;
@@ -115,7 +124,12 @@ class ScrollerDatum : public bTNode<ScrollerDatum> {
     ScrollerDatum() {
         bEnabled = true;
     }
-    ScrollerDatum(const char *string, unsigned int hash);
+    // Cuerpo de la A124 (L39-40@feScrollerina.hpp): no existe __13ScrollerDatumPCcUi fuera de linea;
+    // CountryScrollerDatum (uiOnlineLogin.cpp) lo expande: bEnabled = 1 en el hueco del jal AddData.
+    ScrollerDatum(const char *string, unsigned int hash) {
+        bEnabled = true;
+        AddData(string, hash);
+    }
 
     virtual ~ScrollerDatum() {}
 
@@ -125,7 +139,10 @@ class ScrollerDatum : public bTNode<ScrollerDatum> {
     ScrollerDatumNode *Find(const char *to_find);
     ScrollerDatumNode *Find(unsigned int hash);
     void Printf();
-    char *GetTopDatumModeString();
+    // Inline en la A124 (no existe GetTopDatumModeString__13ScrollerDatum; OL_GameRoomCarSelect lo expande).
+    char *GetTopDatumModeString() {
+        return Strings.GetHead()->String;
+    }
     void Enable() {
         bEnabled = true;
     }
@@ -241,9 +258,15 @@ class Scrollerina {
     ScrollerDatum *GetTopDatum() {
         return TopDatum;
     }
-    ScrollerSlot *GetFirstSlot();
+    // Inline en la A124 (no existe GetFirstSlot__11Scrollerina; UIOLGameRoom::PopulatePlayerList lo expande).
+    ScrollerSlot *GetFirstSlot() {
+        return Slots.GetHead();
+    }
     ScrollerSlot *GetLastSlot();
-    ScrollerSlot *GetSlot(int ordinal_number);
+    // Inline en la A124 (no existe GetSlot__11Scrollerina; OL_GameRoomCarSelect lo expande: bList::GetNode).
+    ScrollerSlot *GetSlot(int ordinal_number) {
+        return Slots.GetNode(ordinal_number);
+    }
     FEScrollBar *GetScrollBarPointer() {
         return &ScrollBar;
     }
@@ -271,9 +294,17 @@ class Scrollerina {
     unsigned int GetSelectedSlotIndex() {
         return GetNodeIndex(GetSelectedSlot());
     }
+#ifdef EA_BUILD_A124
+    // Cuerpo de la A124: su copia fuera de linea SetSelectedDatum__11ScrollerinaP13ScrollerDatum (L168, 44 B) llama a
+    // GetNodeIndex y a SetSelectedDatum(unsigned int); UIOnlineEA_Messenger::PopulateFriendList la llama.
+    void SetSelectedDatum(ScrollerDatum *datum) {
+        SetSelectedDatum(GetNodeIndex(datum) - 1);
+    }
+#else
     void SetSelectedDatum(ScrollerDatum *datum) {
         SelectedDatum = datum;
     }
+#endif
 
     ScrollerSlot *AddSlot(const char *string_name, const char *backing);
     void AddSlot(ScrollerSlot *slot);
@@ -282,8 +313,10 @@ class Scrollerina {
     void AddData(ScrollerDatum *datum);
     ScrollerDatum *FindDatum(const char *to_find);
     ScrollerDatum *FindDatumInSlot(ScrollerSlot *to_find);
+  protected:
     ScrollerSlot *FindSlotWithDatum(ScrollerDatum *to_find);
     ScrollerSlot *FindSlot(FEObject *to_find);
+  public:
     void ScrollNext();
     void ScrollPrev();
     // Tampoco existen MoveNext__11Scrollerina ni MovePrev__11Scrollerina: el
@@ -295,6 +328,7 @@ class Scrollerina {
     void MovePrev() {
         MoveSelected(eSD_PREV, true);
     }
+  protected:
     bool Scroll(eScrollDir dir);
     bool ScrollWrapped(eScrollDir dir);
     bool MoveSelected(eScrollDir dir, bool bprint);
@@ -305,15 +339,18 @@ class Scrollerina {
     virtual void Print();
 
     void DrawScrollBar();
+  public:
     bool Reset(bool update);
     void Update(bool print);
     void Enable(ScrollerDatum *datum);
     void Disable(ScrollerDatum *datum);
+  protected:
     void UpdateSlotVisibility();
     void CountListIndices();
     void OrganizeForDataRemoval(ScrollerDatum *to_remove);
     unsigned int GetNodeIndex(ScrollerDatum *datum);
     unsigned int GetNodeIndex(ScrollerSlot *slot);
+  public:
     bool SetSelectedSlot(unsigned int index);
     void SetSelected(ScrollerSlot *slot);
     void PageUp();
@@ -333,7 +370,9 @@ class Scrollerina {
         }
     }
     const char *GetActiveSelection();
+  protected:
     void FindSize();
+  public:
     void SetWrapped(bool wrapped);
     void SetSelectedDatum(unsigned int index);
 };

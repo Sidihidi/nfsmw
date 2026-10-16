@@ -21,12 +21,20 @@ struct BehaviorParams {
 };
 
 // total size: 0x4C
+#ifdef EA_PLATFORM_XENON
+class ALIGNVEC Behavior : public Sim::Object, public UTL::COM::Factory<const BehaviorParams &, Behavior, UCrc32> {
+#else
 class Behavior : public Sim::Object, public UTL::COM::Factory<const BehaviorParams &, Behavior, UCrc32> {
+#endif
   public:
     USE_FASTALLOC(Behavior);
 
+    static void Destroy(Behavior *b) {
+        delete b;
+    }
+  protected:
     Behavior(const BehaviorParams &params, unsigned int num_interfaces);
-
+  public:
     void Pause(bool pause);
 
     void SimulateTask(float dT) {

@@ -26,8 +26,6 @@ class MPursuitBreaker : public Hermes::Message {
 
     MPursuitBreaker(bool _StartBreaker) : Hermes::Message(_GetKind(), _GetSize(), 0), fStartBreaker(_StartBreaker) {}
 
-    ~MPursuitBreaker() {}
-
     bool GetStartBreaker() const {
         return fStartBreaker;
     }
@@ -45,9 +43,9 @@ class MPursuitBreaker : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MPursuitBreaker::HandleMessage_LuaBinding(const MPursuitBreaker &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MPursuitBreaker::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

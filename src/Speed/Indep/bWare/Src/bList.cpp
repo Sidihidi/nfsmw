@@ -38,36 +38,34 @@ void bList::AddHead(bList *list) {}
 // STRIPPED
 bNode *bList::AddSorted(SortFunc check_flip, bNode *node) {}
 
-// UNSOLVED, it matches in ProStreet..
-// r76b: sin andamio. El DWARF-1 del original da this=r29, check_flip=r27,
-// node=r30, next_node=r31, did_swap=r28 y NO tiene la local `cmp` que
-// teniamos (era invencion nuestra; fuera). Lo que falta es el reparto:
-// global_alloc nos da check_flip=r28 / did_swap=r27, al reves, y sched1
-// adelanta el `lwz node,0(this)` por delante del `li did_swap,0`.
-// allocno_compare (global.c) = floor_log2(n_refs)*n_refs/live_length:
-// check_flip 4 refs/32 insns = 2500, did_swap 6/54 = 2222, y en el original
-// gana did_swap. Probadas y descartadas (todas dan lo mismo): did_swap
-// declarado antes/despues de node y next_node; if/else en vez de continue;
-// condicion invertida; for(;;) y do/while(1) con breaks; next_node calculado
-// solo dentro del bucle; `if (did_swap == 0) return;`; `if (did_swap)`.
+// La pasada va dentro de un while (true) que acaba en break, con if/else. Lo dicen tres
+// cosas del original: los stabs de la A124 (el bloque del bucle envuelve todo el cuerpo y el
+// if tiene bloque then y bloque else), la A124 llama a MergeSort con jal y no con j (una
+// llamada dentro de un bucle no puede ser de cola) y las dos notas de linea del epilogo de
+// GameCube (el break y el cierre del bucle). Locales en el orden del DWARF.
 void bList::Sort(SortFunc check_flip) {
+    bNode *node;
+    bNode *next_node;
     int did_swap = 0;
-    bNode *node = this->GetHead();
-    bNode *next_node = node->GetNext();
 
-    while (node != this->EndOfList() && next_node != this->EndOfList()) {
-        if (check_flip(node, next_node) == 0) {
-            next_node->Remove();
-            next_node->AddBefore(node);
-            did_swap++;
-            next_node = node->GetNext();
-            continue;
+    while (true) {
+        node = this->GetHead();
+        next_node = node->GetNext();
+        while (node != this->EndOfList() && next_node != this->EndOfList()) {
+            if (check_flip(node, next_node) == 0) {
+                next_node->Remove();
+                next_node->AddBefore(node);
+                did_swap++;
+                next_node = node->GetNext();
+            } else {
+                node = next_node;
+                next_node = next_node->GetNext();
+            }
         }
-        node = next_node;
-        next_node = next_node->GetNext();
-    }
-    if (did_swap != 0) {
-        this->MergeSort(check_flip);
+        if (did_swap != 0) {
+            this->MergeSort(check_flip);
+        }
+        break;
     }
 }
 

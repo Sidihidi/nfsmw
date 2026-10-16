@@ -128,8 +128,13 @@ def process_file(filename, outdirectory):
                         )
 
                         # one srcinfo entry can (implicitly) point to multiple line entries for that source file
-                        # so keep reading line entries until we're at the one the next srcinfo entry points to (or we've run out of entries)
-                        while True:
+                        # so keep reading line entries until we're at the one the next srcinfo entry points to
+                        # (the final entry offset for the last one)
+                        if idx == len(srcinfoChunk.entries) - 1:
+                            endOffset = srcinfoChunk.finalLineEntryOffset
+                        else:
+                            endOffset = srcinfoChunk.entries[idx + 1].lineEntryOffset
+                        while lineData.tell() < srcinfoChunk.cuLineOffset + endOffset:
                             lineEntry = LineEntry(0, 0, 0)
                             lineEntry.lineNum = formatted_read(lineData, ">I", 4)
                             lineEntry.statementPos = formatted_read(lineData, ">H", 2)
@@ -144,17 +149,8 @@ def process_file(filename, outdirectory):
                             else:
                                 lineNumString = f"(line {str(lineEntry.lineNum)})"
 
-                            outLine = f"{addrString}: {sourceFile} {lineNumString}"
+                            outLine = f"0x{addrString}: {sourceFile} {lineNumString}"
                             outfile.write(outLine + "\n")
-
-                            maxEntry = len(srcinfoChunk.entries) - 1
-                            if (
-                                idx == maxEntry
-                                or lineData.tell()
-                                >= srcinfoChunk.cuLineOffset
-                                + srcinfoChunk.entries[idx + 1].lineEntryOffset
-                            ):
-                                break
 
 
 if __name__ == "__main__":

@@ -89,6 +89,14 @@ static void FixWorldHeight(UMath::Vector3 *point, int type) {
         test.y += 4.0f;
 
         float ground_elevation = 0.0f;
+#ifdef EA_BUILD_A124
+        // La A124 solo sube el punto si la consulta encuentra suelo, y no fuerza la altura del tipo 3.
+        if (WCollisionMgr(0, 3).GetWorldHeightAtPointRigorous(test, ground_elevation, NULL)) {
+            if (ground_elevation > point->y) {
+                point->y = ground_elevation;
+            }
+        }
+#else
         if (WCollisionMgr(0, 3).GetWorldHeightAtPointRigorous(test, ground_elevation, NULL)) {
             if (type == 3) {
                 point->y = ground_elevation;
@@ -97,6 +105,7 @@ static void FixWorldHeight(UMath::Vector3 *point, int type) {
         if (ground_elevation > point->y) {
             point->y = ground_elevation;
         }
+#endif
 
         point->y += TrackCarEyeOffsetZ[type];
     }
@@ -309,7 +318,11 @@ void TrackCarCameraMover::Update(float dT) {
 
     fov = 2 * bATan(distance, TrackCarIsoZoomDistance[CameraType]);
     if (fov != 0) {
+#ifdef EA_BUILD_A124
+        pCamera->SetFieldOfView(bClamp(fov, 1600, 13100));
+#else
         pCamera->SetFieldOfView(bClamp(fov, 800, 13100));
+#endif
     }
 
     Look = *CarToFollow->GetGeometryPosition();
@@ -322,6 +335,10 @@ void TrackCarCameraMover::Update(float dT) {
     bVector3 hcomp;
     bCross(&hcomp, &displacement, &up);
     bScale(&hcomp, &hcomp, vert_comp);
+    // Las dos PS2 suman x e y de hcomp a Look (el producto de la VU0 no se pliega). En GameCube -ffast-math
+    // pliega hcomp a cero y la suma no deja codigo, pero sin ella cambia el orden de los stfs.
+    Look.x += hcomp.x;
+    Look.y += hcomp.y;
 
     bVector3 look_offset;
     look_offset.x = TrackCarLookOffsetX[CameraType];

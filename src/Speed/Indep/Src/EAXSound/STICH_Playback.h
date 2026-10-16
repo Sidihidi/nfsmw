@@ -39,8 +39,18 @@ class cStitchLoop {
 
 // total size: 0x20
 
+// Xbox 360 guarda mas muestras de STICH: NFS.exe tiene listas de 42 (cStichWrapper::Play `mulli 0xB8`, `subi 0x2A`)
+// y colas de 60 (cSTICH_PlayBack::Prune `mulli 0x1F0`); GC, PS2 y PC, 25 y 43.
+#ifdef EA_PLATFORM_XENON
+#define STICH_MAX_SAMPLES 42
+#define STICH_MAX_QUEUED_SAMPLES 60
+#else
+#define STICH_MAX_SAMPLES 25
+#define STICH_MAX_QUEUED_SAMPLES 43
+#endif
+
 class cSampleWarpper;
-typedef UTL::Collections::ListableSet<cSampleWarpper, 25, STICH_TYPE, MAX_NUM_STICH_TYPE> cSampleListSet;
+typedef UTL::Collections::ListableSet<cSampleWarpper, STICH_MAX_SAMPLES, STICH_TYPE, MAX_NUM_STICH_TYPE> cSampleListSet;
 
 class cSampleWarpper : public cSampleListSet {
     friend class cStichWrapper;
@@ -156,7 +166,7 @@ class cSTICH_PlayBack : public AudioMemBase {
 
     bPList<SND_Stich> &GetStichList(STICH_TYPE StichType);
 
-    static UTL::FixedVector<SampleQueueItem, 43> &GetQueueList(STICH_TYPE type) {
+    static UTL::FixedVector<SampleQueueItem, STICH_MAX_QUEUED_SAMPLES> &GetQueueList(STICH_TYPE type) {
         return mQueuedSampleList[type];
     }
 
@@ -173,7 +183,7 @@ class cSTICH_PlayBack : public AudioMemBase {
   private:
     friend class cStichWrapper;
     friend class cSampleWarpper;
-    static UTL::FixedVector<SampleQueueItem, 43> mQueuedSampleList[3];
+    static UTL::FixedVector<SampleQueueItem, STICH_MAX_QUEUED_SAMPLES> mQueuedSampleList[3];
     bPList<SND_Stich> StichList[3]; // offset 0x4, size 0x18
 };
 

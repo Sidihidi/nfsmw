@@ -36,8 +36,8 @@ GActivity::~GActivity() {
 
 void GActivity::GatherStatesAndHandlers() {
     mStateHandlers.clear();
-    for (GObjectIterator<GState> stateIterator(0xFFFFFFFF); stateIterator.IsValid(); stateIterator.Advance()) {
-        GState *state = stateIterator.GetInstance();
+    for (GObjectIterator<GState> iter(0xFFFFFFFF); iter.IsValid(); iter.Advance()) {
+        GState *state = iter.GetInstance();
         if (CollectionIsStateForActivity(state)) {
             mStateHandlers[state].clear();
         }
@@ -53,8 +53,8 @@ void GActivity::GatherStatesAndHandlers() {
 
 unsigned int GActivity::StoreHandlers(GState *state, UTL::Std::vector<GHandler *, _type_ID_GHandlerVector> *handlerVec) {
     unsigned int count = 0;
-    for (GObjectIterator<GHandler> handlerIterator(0xFFFFFFFF); handlerIterator.IsValid(); handlerIterator.Advance()) {
-        GHandler *handler = handlerIterator.GetInstance();
+    for (GObjectIterator<GHandler> iter(0xFFFFFFFF); iter.IsValid(); iter.Advance()) {
+        GHandler *handler = iter.GetInstance();
         if (CollectionIsHandlerForState(state, handler)) {
             if (handlerVec != NULL) {
                 handlerVec->push_back(handler);
@@ -374,8 +374,6 @@ void GActivity::DeserializeVars() {
         }
     }
     if (handlerListWasEmpty) {
-        if (mStateHandlers.empty() == false) {
-            mStateHandlers.clear();
-        }
+        mStateHandlers.clear();
     }
 }

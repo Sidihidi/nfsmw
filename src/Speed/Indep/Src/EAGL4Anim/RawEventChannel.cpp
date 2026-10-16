@@ -14,7 +14,10 @@ void RawEventChannel::Eval(float previousTime, float currentTime, int &currentId
 
         i = currentIdx;
 
-        while (i >= 0 && events[i].triggerTime > previousTime) {
+        while (i >= 0) {
+            if (events[i].triggerTime <= previousTime) {
+                break;
+            }
             i--;
         }
 
@@ -23,7 +26,10 @@ void RawEventChannel::Eval(float previousTime, float currentTime, int &currentId
 
     i = currentIdx;
 
-    while (i < numEvents && events[i].triggerTime <= previousTime) {
+    while (i < numEvents) {
+        if (events[i].triggerTime > previousTime) {
+            break;
+        }
         i++;
     }
 
@@ -37,7 +43,10 @@ void RawEventChannel::Eval(float previousTime, float currentTime, int &currentId
 
         i = currentIdx;
 
-        while (i >= 0 && events[i].triggerTime >= currentTime) {
+        while (i >= 0) {
+            if (events[i].triggerTime < currentTime) {
+                break;
+            }
             i--;
         }
 
@@ -63,17 +72,18 @@ void RawEventChannel::Eval(float previousTime, float currentTime, int &currentId
 
     while (i < numEvents) {
 
-        if (events[i].triggerTime > currentTime) {
+        if (events[i].triggerTime <= currentTime) {
+
+            EventHandler *eh = eventHandlers[events[i].eventId];
+
+            if (eh != nullptr) {
+                eh->HandleEvent(currentTime, events[i], extraData);
+            }
+
+            i++;
+        } else {
             break;
         }
-
-        EventHandler *eh = eventHandlers[events[i].eventId];
-
-        if (eh != nullptr) {
-            eh->HandleEvent(currentTime, events[i], extraData);
-        }
-
-        i++;
     }
 
     currentIdx = i;

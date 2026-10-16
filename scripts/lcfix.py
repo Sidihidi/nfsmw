@@ -33,12 +33,28 @@ al valor equivocado. Se declaran con una directiva al lado del `asm()`:
 que en nuestro objeto recien compilado ese `$LC` empieza por esos bytes. Aqui no
 hay correccion automatica posible --el nombre esta en un `asm()`--: si no cuadra,
 sale FALLO y hay que editar la fuente.
+
+Desde la ronda 37 resuelve tambien los statics locales de `.data` por su
+DESPLAZAMIENTO, con la directiva
+
+    # @data zOnline 0x18
+    zOnline.o:_name.2211
+
+Son los `_name` de `DECLARE_CONTAINER_TYPE` (UStandard.h): ocho punteros a cero
+al principio del `.data` de zMission y zOnline que el original retiene. Su
+contenido es cero, asi que no hay cadena por la que buscarlos, pero el sufijo
+`.N` lo numera cc1plus igual que un `$LC` y se desplaza con CUALQUIER
+declaracion nueva en una cabecera comun: en la ronda 37 un constructor inline
+de UTransform en UVectorMath.h los corrio +3 y el DOL salio 32 B corto. Y el
+fichero se lee por `\\n` linea a linea: con `\\r\\n` en unas pocas lineas (las de
+esos `_name`, desde la r29) se partia por `\\r\\n` y no veia NINGUNA directiva.
 """
 import io
 import os
 import re
 import struct
 import sys
+from escritura import entero
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEEP = os.path.join(ROOT, 'config', 'GOWE69', 'keep.lst')
@@ -65,6 +81,29 @@ def rodata_y_simbolos(obj):
         if shn == rod:
             sy.append((val, d[strt + nm:d.index(b'\0', strt + nm)].decode('latin1')))
     return blob, sorted(sy)
+
+
+def data_simbolos(obj):
+    """[(offset, nombre)] de los simbolos con nombre del `.data` del objeto."""
+    d = open(obj, 'rb').read()
+    shoff, = struct.unpack('>I', d[0x20:0x24])
+    se, n, sx = struct.unpack('>HHH', d[0x2E:0x34])
+    S = [struct.unpack('>10I', d[shoff + i * se:shoff + i * se + 40]) for i in range(n)]
+    stro = S[sx][4]
+    nom = lambda o: d[stro + o:d.index(b'\0', stro + o)].decode()
+    dat = [i for i, s in enumerate(S) if nom(s[0]) == '.data']
+    if not dat:
+        return []
+    dat = dat[0]
+    st = [s for s in S if s[1] == 2][0]
+    strt = S[st[6]][4]
+    sy = []
+    for o in range(st[4], st[4] + st[5], 16):
+        nm, val, sz, info, other, shn = struct.unpack('>IIIBBH', d[o:o + 16])
+        nombre = d[strt + nm:d.index(b'\0', strt + nm)].decode('latin1')
+        if shn == dat and nombre and (info & 0xF) == 1:   # STT_OBJECT
+            sy.append((val, nombre))
+    return sorted(sy)
 
 
 def revisa_fuente(cache, filtro):
@@ -118,11 +157,38 @@ def main():
     # otro y los perseguia. Ahora el argumento filtra de verdad.
     filtro = [a for a in sys.argv[1:] if not a.startswith('-')]
     s = io.open(KEEP, encoding='utf-8', newline='').read()
-    fin = '\r\n' if '\r\n' in s else '\n'
-    L = s.split(fin)
+    # Linea a linea por '\n', y el '\r' de cada linea se conserva tal cual: con
+    # finales MEZCLADOS partir por '\r\n' dejaba el fichero en trozos de cientos
+    # de lineas y ninguna directiva casaba ("todas al dia" sin mirar nada).
+    L = s.split('\n')
     cache = {}
+    cdata = {}
     cambios, fallos = [], []
+
+    def pon(k, bueno):
+        cr = '\r' if L[k].endswith('\r') else ''
+        if L[k].strip() != bueno:
+            cambios.append((k, L[k].strip(), bueno))
+            L[k] = bueno + cr
+
     for i, l in enumerate(L):
+        l = l.rstrip('\r')
+        md = re.match(r'#\s*@data\s+(\S+)\s+(0x[0-9A-Fa-f]+|\d+)\s*$', l)
+        if md and i + 1 < len(L):
+            unidad, off = md.group(1), int(md.group(2), 0)
+            if filtro and unidad not in filtro:
+                continue
+            obj = os.path.join(ROOT, 'build', 'GOWE69', 'src', 'Speed', 'Indep',
+                               'SourceLists', unidad + '.o')
+            if not os.path.exists(obj):
+                fallos.append('%s: no esta compilado (%s)' % (unidad, obj)); continue
+            if obj not in cdata:
+                cdata[obj] = data_simbolos(obj)
+            aqui = [nm for o, nm in cdata[obj] if o == off]
+            if len(aqui) != 1:
+                fallos.append('%s: en .data+%#x hay %r, no un simbolo unico' % (unidad, off, aqui)); continue
+            pon(i + 1, '%s.o:%s' % (unidad, aqui[0]))
+            continue
         m = re.match(r'#\s*@lc\s+(\S+)\s+"(.*)"\s*$', l)
         if not m or i + 1 >= len(L):
             continue
@@ -152,10 +218,7 @@ def main():
                 k = blob.find(pat, k + 1)
         if not aqui:
             fallos.append('%s: %r no tiene simbolo $LC propio' % (unidad, cadena)); continue
-        bueno = '%s.o:%s' % (unidad, aqui[0])
-        if L[i + 1].strip() != bueno:
-            cambios.append((i + 1, L[i + 1].strip(), bueno))
-            L[i + 1] = bueno
+        pon(i + 1, '%s.o:%s' % (unidad, aqui[0]))
     ffuente, nok = revisa_fuente(cache, filtro)
     fallos += ffuente
     for u in fallos:
@@ -163,10 +226,10 @@ def main():
     for n, viejo, bueno in cambios:
         print('  CORRIGE  linea %d: %s -> %s' % (n + 1, viejo, bueno))
     if cambios and not solo_check:
-        io.open(KEEP, 'w', encoding='utf-8', newline='').write(fin.join(L))
+        entero(KEEP, 'w', encoding='utf-8', newline='').write('\n'.join(L))
         print('keep.lst actualizado (%d)' % len(cambios))
     if not cambios and not fallos:
-        print('todas las entradas @lc estan al dia (y %d @lcsrc de fuente)' % nok)
+        print('todas las entradas @lc y @data estan al dia (y %d @lcsrc de fuente)' % nok)
     sys.exit(1 if (fallos or (cambios and solo_check)) else 0)
 
 

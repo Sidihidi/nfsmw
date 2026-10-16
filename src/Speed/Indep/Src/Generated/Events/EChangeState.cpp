@@ -2,6 +2,7 @@
 
 #include "Speed/Indep/Src/Gameplay/GActivity.h"
 #include "Speed/Indep/Src/Gameplay/GManager.h"
+#include "Speed/Indep/Src/Gameplay/GState.h"
 
 EChangeState::EChangeState(unsigned int pActivityKey, unsigned int pStateKey) : Event(0x10), fActivityKey(pActivityKey), fStateKey(pStateKey) {
 }

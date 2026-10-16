@@ -67,8 +67,8 @@ class WorldModel : public bTNode<WorldModel> {
         this->mEnabled = f;
     }
 
-    void SetAddLighting(bool f) {
-        this->mAddLighting = f;
+    void SetAddLighting(bool add_lighting) {
+        this->mAddLighting = add_lighting;
     }
 
 #ifndef EA_BUILD_A124

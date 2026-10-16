@@ -12,7 +12,11 @@ EAXAirSupport::~EAXAirSupport() {}
 void EAXAirSupport::Update() {
     EAXCop::Update();
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai != nullptr && ai->GetFocus() != SoundAI::kPursuitFlow && IsActive()) {
+    if (ai != nullptr && ai->GetFocus() != SoundAI::kPursuitFlow
+#ifndef EA_BUILD_A124 // la A124 no pregunta si el helicoptero esta activo
+        && IsActive()
+#endif
+    ) {
         ISimable *simable = ISimable::FindInstance(GetHandle());
         IAIHelicopter *heli;
         if (simable->QueryInterface(&heli) && heli->GetFuelTimeRemaining() < 8.0f) {
@@ -26,7 +30,11 @@ Csis::Type_heli_bailout_type EAXAirSupport::GetCauseOfBailout() {
     Csis::Type_heli_bailout_type rval = Csis::Type_heli_bailout_type_fuel_low;
     ISimable *simable = ISimable::FindInstance(GetHandle());
     IAIHelicopter *heli;
-    if (simable != nullptr && simable->QueryInterface(&heli) && heli->GetFuelTimeRemaining() < 8.0f) {
+    if (
+#ifndef EA_BUILD_A124 // la A124 no comprueba que el simable exista
+        simable != nullptr &&
+#endif
+        simable->QueryInterface(&heli) && heli->GetFuelTimeRemaining() < 8.0f) {
         rval = Csis::Type_heli_bailout_type_fuel_low;
     }
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();

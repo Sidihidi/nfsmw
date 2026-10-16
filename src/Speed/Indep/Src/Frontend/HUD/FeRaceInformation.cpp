@@ -57,7 +57,7 @@ void RaceInformation::Update(IPlayer *player) {
     case GRace::kRaceType_Tollbooth:
     case GRace::kRaceType_SpeedTrap:
         FEngSetLanguageHash(mDataCompleteText, LANGUAGE_HUD_COMPLETE);
-        FEPrintf(GetPackageName(), mpDataPercentComplete, "%d %%", static_cast<int>(mPlayerPercentComplete));
+        FEPrintf(GetPackageName(), mpDataPercentComplete, "%d %%", bFloatToInt(mPlayerPercentComplete));
         break;
     default:
         FEngSetLanguageHash(mDataCompleteText, 0xBF9C);

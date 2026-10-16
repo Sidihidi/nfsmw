@@ -23,84 +23,59 @@ ShiftUpdater::ShiftUpdater(UTL::COM::Object *pOutter, const char *pkg_name, int 
 }
 
 void ShiftUpdater::Update(IPlayer *player) {
-    ShiftPotential potential = static_cast<ShiftPotential>(mShiftPotential);
-    if (potential >= SHIFT_POTENTIAL_GOOD && !mIsEngineBlown) {
-        if (potential == SHIFT_POTENTIAL_GOOD) {
-            const char *scriptName = "PulseBlue";
-            FEObject *obj = reinterpret_cast<FEObject *>(pShiftIndicator);
-            u32 hash = FEHashUpper(scriptName);
-            if (!FEngIsScriptSet(obj, hash)) {
-                FEngSetScript(reinterpret_cast<FEObject *>(pShiftIndicator), FEHashUpper(scriptName), true);
+    if (mShiftPotential >= SHIFT_POTENTIAL_GOOD && !mIsEngineBlown) {
+        if (mShiftPotential == SHIFT_POTENTIAL_GOOD) {
+            if (!FEngIsScriptSet(pShiftIndicator, FEHashUpper("PulseBlue"))) {
+                FEngSetScript(pShiftIndicator, FEHashUpper("PulseBlue"), true);
             }
-            FEngSetVisible(reinterpret_cast<FEObject *>(pShiftIndicator));
-            FEngSetInvisible(reinterpret_cast<FEObject *>(pShiftIndicatorOverheatGroup));
-        } else if (potential == SHIFT_POTENTIAL_PERFECT) {
-            const char *scriptName = "PulseGreen";
-            FEObject *obj = reinterpret_cast<FEObject *>(pShiftIndicator);
-            u32 hash = FEHashUpper(scriptName);
-            if (!FEngIsScriptSet(obj, hash)) {
-                FEngSetScript(reinterpret_cast<FEObject *>(pShiftIndicator), FEHashUpper(scriptName), true);
-            }
-            FEngSetVisible(reinterpret_cast<FEObject *>(pShiftIndicator));
+            FEngSetVisible(pShiftIndicator);
             FEngSetInvisible(pShiftIndicatorOverheatGroup);
-        } else if (potential == SHIFT_POTENTIAL_MISS) {
+        } else if (mShiftPotential == SHIFT_POTENTIAL_PERFECT) {
+            if (!FEngIsScriptSet(pShiftIndicator, FEHashUpper("PulseGreen"))) {
+                FEngSetScript(pShiftIndicator, FEHashUpper("PulseGreen"), true);
+            }
+            FEngSetVisible(pShiftIndicator);
+            FEngSetInvisible(pShiftIndicatorOverheatGroup);
+        } else if (mShiftPotential == SHIFT_POTENTIAL_MISS) {
             if (mEngineTemp > warningPulseMinRpm) {
-                const char *scriptName = "OVERHEAT_PULSE";
-                FEObject *obj = pShiftIndicatorOverheatGroup;
-                u32 hash = FEHashUpper(scriptName);
-                if (!FEngIsScriptSet(obj, hash)) {
-                    FEngSetScript(pShiftIndicatorOverheatGroup, FEHashUpper(scriptName), true);
+                if (!FEngIsScriptSet(pShiftIndicatorOverheatGroup, FEHashUpper("OVERHEAT_PULSE"))) {
+                    FEngSetScript(pShiftIndicatorOverheatGroup, FEHashUpper("OVERHEAT_PULSE"), true);
                 }
-                FEngSetInvisible(reinterpret_cast<FEObject *>(pShiftIndicator));
+                FEngSetInvisible(pShiftIndicator);
                 FEngSetVisible(pShiftIndicatorOverheatGroup);
             } else {
-                const char *scriptName = "PulseRed";
-                FEObject *obj = reinterpret_cast<FEObject *>(pShiftIndicator);
-                u32 hash = FEHashUpper(scriptName);
-                if (!FEngIsScriptSet(obj, hash)) {
-                    FEngSetScript(reinterpret_cast<FEObject *>(pShiftIndicator), FEHashUpper(scriptName), true);
+                if (!FEngIsScriptSet(pShiftIndicator, FEHashUpper("PulseRed"))) {
+                    FEngSetScript(pShiftIndicator, FEHashUpper("PulseRed"), true);
                 }
-                FEngSetVisible(reinterpret_cast<FEObject *>(pShiftIndicator));
+                FEngSetVisible(pShiftIndicator);
                 FEngSetInvisible(pShiftIndicatorOverheatGroup);
             }
         }
     } else {
-        FEngSetInvisible(reinterpret_cast<FEObject *>(pShiftIndicator));
+        FEngSetInvisible(pShiftIndicator);
         FEngSetInvisible(pShiftIndicatorOverheatGroup);
     }
 
-    if (mGear < G_SECOND) {
-        return;
-    }
-    if (mGearChanged < 1) {
-        return;
-    }
-    ShiftStatus status = static_cast<ShiftStatus>(mLastShiftStatus);
-    if (status < SHIFT_STATUS_NORMAL) {
-        return;
-    }
-    if (mIsEngineBlown) {
-        return;
-    }
+    if (mGear > G_FIRST && mGearChanged > 0 && mLastShiftStatus >= SHIFT_STATUS_NORMAL && !mIsEngineBlown) {
+        if (mLastShiftStatus == SHIFT_STATUS_NORMAL) {
+            FEngSetLanguageHash(pShiftMsg, LANGUAGE_HUD_SHIFT_EARLY);
+            FEngSetLanguageHash(pShiftMsgShadow, LANGUAGE_HUD_SHIFT_EARLY);
+            FEngSetScript(pShiftMsgGroup, FEHashUpper("EARLY"), true);
+        } else if (mLastShiftStatus == SHIFT_STATUS_GOOD) {
+            FEngSetLanguageHash(pShiftMsg, LANGUAGE_HUD_SHIFT_GOOD);
+            FEngSetLanguageHash(pShiftMsgShadow, LANGUAGE_HUD_SHIFT_GOOD);
+            FEngSetScript(pShiftMsgGroup, FEHashUpper("GOOD"), true);
+        } else if (mLastShiftStatus == SHIFT_STATUS_PERFECT) {
+            FEngSetLanguageHash(pShiftMsg, 0x598b065);
+            FEngSetLanguageHash(pShiftMsgShadow, 0x598b065);
+            FEngSetScript(pShiftMsgGroup, FEHashUpper("PERFECT"), true);
+        } else if (mLastShiftStatus == SHIFT_STATUS_MISSED) {
+            FEngSetLanguageHash(pShiftMsg, LANGUAGE_HUD_SHIFT_OVERREV);
+            FEngSetLanguageHash(pShiftMsgShadow, LANGUAGE_HUD_SHIFT_OVERREV);
+            FEngSetScript(pShiftMsgGroup, FEHashUpper("OVERREV"), true);
+        }
 
-    if (status == SHIFT_STATUS_NORMAL) {
-        FEngSetLanguageHash(pShiftMsg, LANGUAGE_HUD_SHIFT_EARLY);
-        FEngSetLanguageHash(pShiftMsgShadow, LANGUAGE_HUD_SHIFT_EARLY);
-        FEngSetScript(pShiftMsgGroup, FEHashUpper("EARLY"), true);
-    } else if (status == SHIFT_STATUS_GOOD) {
-        FEngSetLanguageHash(pShiftMsg, LANGUAGE_HUD_SHIFT_GOOD);
-        FEngSetLanguageHash(pShiftMsgShadow, LANGUAGE_HUD_SHIFT_GOOD);
-        FEngSetScript(pShiftMsgGroup, FEHashUpper("GOOD"), true);
-    } else if (status == SHIFT_STATUS_PERFECT) {
-        FEngSetLanguageHash(pShiftMsg, 0x598b065);
-        FEngSetLanguageHash(pShiftMsgShadow, 0x598b065);
-        FEngSetScript(pShiftMsgGroup, FEHashUpper("PERFECT"), true);
-    } else if (status == SHIFT_STATUS_MISSED) {
-        FEngSetLanguageHash(pShiftMsg, LANGUAGE_HUD_SHIFT_OVERREV);
-        FEngSetLanguageHash(pShiftMsgShadow, LANGUAGE_HUD_SHIFT_OVERREV);
-        FEngSetScript(pShiftMsgGroup, FEHashUpper("OVERREV"), true);
+        FEngSetInvisible(pShiftIndicator);
+        mGearChanged = 0;
     }
-
-    FEngSetInvisible(reinterpret_cast<FEObject *>(pShiftIndicator));
-    mGearChanged = 0;
 }

@@ -16,6 +16,11 @@ namespace Speech {
 struct SpeechSampleData;
 }
 
+// in namespace Speech on PS2 (_$_Q26Speech15SyncAudioObject), global on PC and X360 (??0SyncAudioObject@@)
+#ifdef EA_PLATFORM_PLAYSTATION2
+namespace Speech {
+#endif
+
 // total size: 0x14
 struct SyncAudioObject {
     Speech::SpeechSampleData *qsObject; // offset 0x0, size 0x4
@@ -27,12 +32,17 @@ struct SyncAudioObject {
     SyncAudioObject() {
         callback = 0;
         qsObject = 0;
-        holdtime = 0;
         id = STRM_NONE;
         handle = -1;
+        holdtime = 0;
     }
-    ~SyncAudioObject() {}
+    // inline, defined in SpeechManager.cpp (needs the whole SpeechSampleData); PS2 emits it out of line there
+    ~SyncAudioObject();
 };
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+} // namespace Speech
+#endif
 
 namespace Speech {
 

@@ -193,6 +193,8 @@ class FEHashNodePtr : public FEMinNode {
 // total size: 0x18
 // Decl: speed/indep/src/feng/FEList.h:203
 class FEHashNode : public FEMinNode {
+    friend class FEHashList;
+
   private:
     char *Name; // offset 0xC, size 0x4, Decl: speed/indep/src/feng/FEList.h:205
 

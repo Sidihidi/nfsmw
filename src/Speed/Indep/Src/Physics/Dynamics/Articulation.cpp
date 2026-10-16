@@ -90,8 +90,8 @@ Joint::Joint(IEntity *female, const UMath::Vector3 &female_arm, IEntity *male, c
 void Joint::OnDebugDraw() {}
 
 Joint::~Joint() {
-    for (Constraint::List::iterator constraint = mConstraints.begin(); constraint != mConstraints.end(); constraint++) {
-        delete *constraint;
+    for (Constraint::List::iterator iter = mConstraints.begin(); iter != mConstraints.end(); iter++) {
+        delete *iter;
     }
 }
 
@@ -128,8 +128,8 @@ void Joint::Resolve() {
     m1 = 1.0f - m0;
     UVector3 fulcrum = pos0 * m0 + pos1 * m1;
 
-    mFemale.SetFulcrum(fulcrum, !mFemale.mImmoblie);
-    mMale.SetFulcrum(fulcrum, !mMale.mImmoblie);
+    mFemale.SetFulcrum(fulcrum, !mFemale.IsImmobile());
+    mMale.SetFulcrum(fulcrum, !mMale.IsImmobile());
 
     Collision::Joint joint;
     joint.p = fulcrum;
@@ -170,8 +170,8 @@ void Lever::SetFulcrum(const UVector3 &fulcrum, bool rotate) {
             if (arm2.Normalize() != 0.0f) {
                 Quaternion q(arm, arm2);
                 Quaternion q2;
-                UMath::Mult(*reinterpret_cast<UMath::Vector4 *>(&q), mEntity->GetOrientation(), *reinterpret_cast<UMath::Vector4 *>(&q2));
-                mEntity->SetOrientation(*reinterpret_cast<UMath::Vector4 *>(&q2));
+                UMath::Mult(q, mEntity->GetOrientation(), q2);
+                mEntity->SetOrientation(q2);
             }
         }
     }
@@ -220,10 +220,10 @@ void Constraint::Resolve(const UVector3 &joint_fulcrum) {
     UVector3 opp_point = (mPost + UVector3(mMale.GetArm())) * male->GetRotation() + UVector3(male->GetPosition());
     opp_point -= joint_fulcrum;
 
-    UMath::Vector4 joint_rotation;
-    UMath::Vector4 joint_rotationInv;
-    const UMath::Vector4 &female_orient = female->GetOrientation();
-    UMath::Mult(female_orient, mOrientation, joint_rotation);
+    Quaternion joint_rotation;
+    Quaternion joint_rotationInv;
+    const UMath::Vector4 &anchorOrient = female->GetOrientation();
+    UMath::Mult(anchorOrient, mOrientation, joint_rotation);
     UMath::Transpose(joint_rotation, joint_rotationInv);
 
     if (mType != PRISMATIC) {
@@ -235,44 +235,35 @@ void Constraint::Resolve(const UVector3 &joint_fulcrum) {
         if (mType == CONICAL) {
             float angle_roll = UMath::Atan2a(pt.y, pt.x);
             Quaternion roll(UVector3(0.0f, 0.0f, 1.0f), angle_roll);
-            UMath::Mult(*reinterpret_cast<UMath::Vector4 *>(&roll), *reinterpret_cast<UMath::Vector4 *>(&pitch), *reinterpret_cast<UMath::Vector4 *>(&pitch));
+            UMath::Mult(roll, pitch, pitch);
         }
 
         Quaternion m;
-        UMath::Mult(mOrientation, *reinterpret_cast<UMath::Vector4 *>(&pitch), *reinterpret_cast<UMath::Vector4 *>(&m));
-        UMath::Mult(female_orient, *reinterpret_cast<UMath::Vector4 *>(&m), joint_rotation);
+        UMath::Mult(mOrientation, pitch, m);
+        UMath::Mult(anchorOrient, m, joint_rotation);
         UMath::Transpose(joint_rotation, joint_rotationInv);
     }
 
     UMath::Rotate(opp_point, joint_rotationInv, opp_point);
-    float ang = VU0_Atan2(opp_point.x, opp_point.z);
-    if (ang > mInnerA) {
-        React(mInnerN, mInnerR, joint_fulcrum, mInnerA - ang, *reinterpret_cast<Quaternion *>(&joint_rotation),
-              *reinterpret_cast<Quaternion *>(&joint_rotationInv));
-    } else if (ang < -mOuterA) {
-        React(mOuterN, mOuterR, joint_fulcrum, -mOuterA - ang, *reinterpret_cast<Quaternion *>(&joint_rotation),
-              *reinterpret_cast<Quaternion *>(&joint_rotationInv));
+    float angle_yaw = UMath::Atan2a(opp_point.x, opp_point.z);
+    if (angle_yaw > mInnerA) {
+        React(mInnerN, mInnerR, joint_fulcrum, mInnerA - angle_yaw, joint_rotation, joint_rotationInv);
+    } else if (angle_yaw < -mOuterA) {
+        React(mOuterN, mOuterR, joint_fulcrum, -mOuterA - angle_yaw, joint_rotation, joint_rotationInv);
     }
 }
 
 void Constraint::Rotate(Lever &lever, const Quaternion &joint_rotation, const Quaternion &joint_rotationInv, const UVector3 &joint_fulcrum, float angle) {
-    UMath::Vector4 qy;
-    const UVector3 axis(0.0f, 1.0f, 0.0f);
-    const UMath::Vector3 &rotation_axis = axis;
-    float a = angle * 0.5f;
-    IEntity *entity = lever.mEntity;
-    float s = VU0_Sin(a * 6.28318548f);
-    qy.w = VU0_Cos(a * 6.28318548f);
-    UMath::Scale(rotation_axis, s, UMath::Vector4To3(qy));
+    IEntity *entity = lever.GetEntity();
+    Quaternion yaw(UVector3(0.0f, 1.0f, 0.0f), angle);
+    Quaternion tmp;
+    Quaternion result;
 
-    const UMath::Vector4 &orient = entity->GetOrientation();
-    UMath::Vector4 temp;
-    UMath::Vector4 dest;
-    UMath::Mult(*reinterpret_cast<const UMath::Vector4 *>(&joint_rotationInv), orient, dest);
-    UMath::Mult(qy, dest, temp);
-    UMath::Mult(*reinterpret_cast<const UMath::Vector4 *>(&joint_rotation), temp, dest);
-    UMath::Unit(dest, dest);
-    entity->SetOrientation(dest);
+    UMath::Mult(joint_rotationInv, entity->GetOrientation(), result);
+    UMath::Mult(yaw, result, tmp);
+    UMath::Mult(joint_rotation, tmp, result);
+    UMath::Unit(result, result);
+    entity->SetOrientation(result);
     lever.SetFulcrum(joint_fulcrum, false);
 }
 
@@ -286,19 +277,19 @@ bool Constraint::React(const UVector3 &joint_collision_normal, const UVector3 &j
     if (mFemale.mImmoblie) {
         Rotate(mMale, joint_rotation, joint_rotationInv, joint_fulcrum, deltaA);
         UVector3 av(male->GetAngularVelocity());
-        UMath::Rotate(av, *reinterpret_cast<const UMath::Vector4 *>(&joint_rotationInv), av);
+        UMath::Rotate(av, joint_rotationInv, av);
         if (av.y * deltaA < 0.0f) {
             av.y = 0.0f;
-            UMath::Rotate(av, *reinterpret_cast<const UMath::Vector4 *>(&joint_rotation), av);
+            UMath::Rotate(av, joint_rotation, av);
             male->SetAngularVelocity(av);
         }
     } else if (mMale.mImmoblie) {
         Rotate(mFemale, joint_rotation, joint_rotationInv, joint_fulcrum, -deltaA);
         UVector3 av(female->GetAngularVelocity());
-        UMath::Rotate(av, *reinterpret_cast<const UMath::Vector4 *>(&joint_rotationInv), av);
+        UMath::Rotate(av, joint_rotationInv, av);
         if (av.y * deltaA > 0.0f) {
             av.y = 0.0f;
-            UMath::Rotate(av, *reinterpret_cast<const UMath::Vector4 *>(&joint_rotation), av);
+            UMath::Rotate(av, joint_rotation, av);
             female->SetAngularVelocity(av);
         }
     } else {
@@ -309,8 +300,8 @@ bool Constraint::React(const UVector3 &joint_collision_normal, const UVector3 &j
 
         Collision::Plane plane;
         plane.normal = joint_collision_normal;
-        UMath::Rotate(plane.normal, *reinterpret_cast<const UMath::Vector4 *>(&joint_rotation), plane.normal);
-        VU0_v3quatrotate_xlate(*reinterpret_cast<const UMath::Vector4 *>(&joint_rotation), joint_collision_point, joint_fulcrum, plane.point);
+        UMath::Rotate(plane.normal, joint_rotation, plane.normal);
+        UMath::RotateTranslate(joint_collision_point, joint_rotation, joint_fulcrum, plane.point);
 
         Collision::Moment mo_female(female);
         mo_female.MakeImmobile(mFemale.mImmoblie, 0.0f);

@@ -1,3 +1,13 @@
+// Todas las unidades de juego del original empiezan con el mismo prefijo de cabeceras: en la A124 los 402 primeros
+// tipos de los stabs son identicos en 33 unidades (bWare, UMath, la STL, UStandard, UCOM, UCrc...), el DWARF de
+// GameCube trae la misma cadena en zFEng y la .rodata de las dos empieza por las cadenas de bWare.hpp. Con la STL
+// entran en PS2 los operadores globales de stl_relops.h, que el original expande en FEObject::SetPosition,
+// SetRotation y SetColor y en FEPackageReader::ReadObjectTags.
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/Support/Utility/UStandard.h"
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UCollections.h"
+
 #include "Speed/Indep/Src/FEng/FEButtonMap.cpp"
 
 #include "Speed/Indep/Src/FEng/FECodeListBox.cpp"
@@ -21,6 +31,8 @@
 #include "Speed/Indep/Src/FEng/FEList.cpp"
 
 #include "Speed/Indep/Src/FEng/FEListBox.cpp"
+
+#include "Speed/Indep/Src/FEng/FELocalizer.cpp"
 
 #include "Speed/Indep/Src/FEng/FEMath.cpp"
 

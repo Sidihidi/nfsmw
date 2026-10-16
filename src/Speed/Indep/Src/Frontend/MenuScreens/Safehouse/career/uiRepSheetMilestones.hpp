@@ -75,7 +75,7 @@ struct uiRepSheetMilestones : public ArrayScrollerMenu {
     eMenuSoundTriggers NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) override;
     void NotificationMessage(u32 msg, FEObject* obj, u32 param1,
                              u32 param2) override;
-
+  private:
     void Setup();
     void RefreshTrack();
     void AddMilestone(GMilestone* pMilestone);

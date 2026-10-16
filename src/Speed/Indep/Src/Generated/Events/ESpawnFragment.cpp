@@ -54,7 +54,6 @@ ESpawnFragment::~ESpawnFragment() {
 
     model->GetTransform(m_outer);
     bounds->GetTransform(m_inner);
-    m_inner[3][3] = 1.0f;
     UMath::Mult(m_inner, m_outer, m_final);
 
     if (!fNoPhysics) {
@@ -104,8 +103,8 @@ ESpawnFragment::~ESpawnFragment() {
 
     bool can_hinge = true;
 
-    if (iowner) {
-        can_hinge = (iowner->IsPlayer() == false);
+    if (iowner && iowner->IsPlayer()) {
+        can_hinge = false;
     }
 
     if (can_hinge && fJointName != UCrc32::kNull && iowner) {
@@ -134,12 +133,12 @@ void ESpawnFragment_MakeEvent_Callback(const void *staticData) {
                        gEventDynamicData.fAngularVelocity);
 }
 
-int ESpawnFragment_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 11) {
-        new ESpawnFragment(UCrc32(lua_tostring(L, 1)), UCrc32(lua_tostring(L, 2)), UCrc32(lua_tostring(L, 3)), UCrc32(lua_tostring(L, 4)),
-                           (unsigned int) lua_tonumber(L, 5), lua_tonumber(L, 6), (unsigned int) lua_tonumber(L, 7),
-                           (unsigned int) lua_tonumber(L, 8), (unsigned int) lua_tonumber(L, 9), (unsigned int) lua_tonumber(L, 10),
-                           (unsigned int) lua_tonumber(L, 11), gEventDynamicData.fhModel, gEventDynamicData.fVelocity,
+int ESpawnFragment_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 11) {
+        new ESpawnFragment(UCrc32(lua_tostring(luaState, 1)), UCrc32(lua_tostring(luaState, 2)), UCrc32(lua_tostring(luaState, 3)), UCrc32(lua_tostring(luaState, 4)),
+                           (unsigned int) lua_tonumber(luaState, 5), lua_tonumber(luaState, 6), (unsigned int) lua_tonumber(luaState, 7),
+                           (unsigned int) lua_tonumber(luaState, 8), (unsigned int) lua_tonumber(luaState, 9), (unsigned int) lua_tonumber(luaState, 10),
+                           (unsigned int) lua_tonumber(luaState, 11), gEventDynamicData.fhModel, gEventDynamicData.fVelocity,
                            gEventDynamicData.fAngularVelocity);
     }
     return 0;

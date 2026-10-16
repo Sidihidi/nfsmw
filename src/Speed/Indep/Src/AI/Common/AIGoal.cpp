@@ -219,7 +219,9 @@ UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalRam("AIGoalRam",
 AIGoalRam::AIGoalRam(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionRam");
     AddAction("AIActionPursuitOffRoad");
+#ifndef EA_BUILD_A124
     AddAction("AIActionRace");
+#endif
     AddAction("AIActionTooDamaged");
     AddAction("AIActionGetUnstuck");
     AddAction("AIActionAirborne");
@@ -243,7 +245,9 @@ UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPit("AIGoalPit",
 AIGoalPit::AIGoalPit(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionRam");
     AddAction("AIActionPursuitOffRoad");
+#ifndef EA_BUILD_A124
     AddAction("AIActionRace");
+#endif
     AddAction("AIActionTooDamaged");
     AddAction("AIActionGetUnstuck");
     AddAction("AIActionAirborne");
@@ -381,14 +385,13 @@ AIGoalHeliExit::AIGoalHeliExit(ISimable *isimable) : AIGoal(isimable) {
 
 void AIGoalHeliExit::Update(float dT) {
     AIGoal::Update(dT);
-    if (!IsCurrentAction("AIActionHeliExit")) {
-        return;
-    }
-    if (mCurrentAction->IsFinished()) {
-        IVehicleAI *iai;
-        // no if check
-        GetOwner()->QueryInterface(&iai);
-        iai->UnSpawn();
+    if (IsCurrentAction("AIActionHeliExit")) {
+        if (mCurrentAction->IsFinished()) {
+            IVehicleAI *iai;
+            // no if check
+            GetOwner()->QueryInterface(&iai);
+            iai->UnSpawn();
+        }
     }
 }
 

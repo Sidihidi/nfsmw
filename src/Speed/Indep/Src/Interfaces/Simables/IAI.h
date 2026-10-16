@@ -4,11 +4,11 @@
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
 #include "Speed/Indep/Src/AI/AIAvoidable.h"
 #include "Speed/Indep/Src/EAXSound/EAXSoundTypes.h"
-#include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/aivehicle.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/pursuitescalation.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/pursuitlevels.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/pursuitescalation.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/pursuitsupport.h"
+#include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Interfaces/SimModels/IPlaceableScenery.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
@@ -82,7 +82,7 @@ class IVehicleAI : public UTL::COM::IUnknown {
     virtual bool GetDrivableToDriveToNav() const = 0;
     virtual void ResetDriveToNav(eLaneSelection lane_selection) = 0;
 #ifdef EA_BUILD_A124
-    virtual void ResetDriveToNav(UMath::Vector3 &target) = 0;
+    virtual void ResetDriveToNav(const UMath::Vector3 &target) = 0;
 #endif
     virtual bool ResetVehicleToRoadNav(WRoadNav *other_nav) = 0;
     virtual bool ResetVehicleToRoadNav(short segInd, char laneInd, float timeStep) = 0;
@@ -265,7 +265,9 @@ class IPursuit : public UTL::COM::IUnknown, public UTL::Collections::Listable<IP
     virtual void EndPursuitEnteringSafehouse() = 0;
     virtual bool GetEnterSafehouseOnDone() = 0;
     virtual void LockInPursuitAttribs() = 0;
+#ifndef EA_BUILD_A124
     virtual void SetBustedTimerToZero() = 0;
+#endif
     virtual Attrib::Gen::pursuitlevels *GetPursuitLevelAttrib() const = 0;
 };
 

@@ -32,8 +32,8 @@ extern "C" int FILESYS_open(const char *name, unsigned int modeflags, int priori
     return _FILESYS_open(name, modeflags, priority, userdata);
 }
 
-extern "C" int FILESYS_close(int filehandle, int timeout, void *userdata) {
-    return _FILESYS_close(filehandle, timeout, userdata);
+extern "C" int FILESYS_close(int filehandle, int priority, void *userdata) {
+    return _FILESYS_close(filehandle, priority, userdata);
 }
 
 extern "C" int FILESYS_read(int filehandle, int offset, void *buffer, int bytes, int priority,

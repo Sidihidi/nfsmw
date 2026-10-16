@@ -19,6 +19,13 @@ struct OnlineCfg {
 // TODO right place for these?
 enum eOnlineGameDetails { eHOSTING = 0, eJOINING = 1, eVIEW_PLAYER = 2, eVIEW_GAME = 3 };
 
+enum eOnlineConnectingType {
+    eOnlineConnecting_ISP = 0,
+    eOnlineConnecting_GAMEROOM = 1,
+    eOnlineConnecting_QuickMatchSearch = 2,
+    eOnlineConnecting_LobbyMatchSearch = 3
+};
+
 enum eOnlineDisconnectPerc {
     OLS_DISCONNECT_PERC_5 = 0,
     OLS_DISCONNECT_PERC_10 = 1,
@@ -28,6 +35,9 @@ enum eOnlineDisconnectPerc {
     OLS_DISCONNECT_PERC_50 = 5,
     OLS_DISCONNECT_PERC_ANY = 6
 };
+
+// UIOnlineQuickJoin.cpp; la usan tambien las opciones de la carrera online (UIQRTrackOptions::Setup).
+eOnlineDisconnectPerc GetDiconnectPercentageThreshold(const int32 &nDisconnectPercentage);
 
 enum eOnlinePrevPage { ePrevPage_None = 0, ePrevPage_LobbyRoom = 1 };
 
@@ -48,24 +58,24 @@ struct OnlineRaceParameters { // 0x10
 };
 #endif
 
-// TODO
-namespace TODO {
-enum eOnlineState {
-    OLS_NETWORK_UNINITIALIZED = 0,
-    OLS_CONNECTED_TO_ISP = 1,
-    OLS_LOBBY_LOGGED_IN = 2,
-    OLS_LOBBY_IDLE = 2,
-    OLS_LOBBY_REQUEST_PENDING = 3,
-    OLS_LOBBY_SEND_RACE_RESULTS_WAIT = 4,
-    OLS_LOBBY_SENT_RACE_RESULTS = 5
-};
-};
-
 // total size: 0x114
 struct cOnlineSettings {
     friend struct OnlineCfg;
+
+    enum eOnlineState {
+        OLS_NETWORK_UNINITIALIZED = 0,
+        OLS_CONNECTED_TO_ISP = 1,
+        OLS_LOBBY_LOGGED_IN = 2,
+        OLS_LOBBY_IDLE = 2,
+        OLS_LOBBY_REQUEST_PENDING = 3,
+        OLS_LOBBY_SEND_RACE_RESULTS_WAIT = 4,
+        OLS_LOBBY_SENT_RACE_RESULTS = 5
+    };
+
     /* 0x000 */ int iNumPlayers;
-    static uint8 MaxOnlinePlayers;
+    // const en la A124: _15cOnlineSettings$MaxOnlinePlayers vive en .rodata (0x55c97a, vale 4) y EE-GCC adelanta su
+    // lectura por encima de los stores (EditGameDetails::ChangeSelectedItem).
+    static const uint8 MaxOnlinePlayers;
     /* 0x004 */ uint8 MinOnlinePlayers;
     /* 0x008 */ eOnlineGameDetails GameDetails;
     /* 0x00c */ bool AnyCarClassAllowed;
@@ -97,8 +107,8 @@ struct cOnlineSettings {
     friend struct BuddyCore;
 
     /* 0x080 */ OnlineRaceParameters TheOnlineRaceSettings;
-    /* 0x08c */ TODO::eOnlineState onlineState;
-    /* 0x090 */ TODO::eOnlineState lastState;
+    /* 0x08c */ eOnlineState onlineState;
+    /* 0x090 */ eOnlineState lastState;
     /* 0x094 */ bool inErrorState;
     /* 0x098 */ char NetworkUserName[20];
     /* 0x0ac */ char NetworkPersona[20];
@@ -111,14 +121,27 @@ struct cOnlineSettings {
     static uint16 LobbyServerPort;
 
   public:
+#ifdef EA_BUILD_A124
+    // Inline in the prototype: the constructor of cFrontendDatabase calls Default directly.
+    cOnlineSettings() {
+        Default();
+    }
+#else
     cOnlineSettings();
+#endif
     void Default();
     void RestoreDefaultSettings();
-    TODO::eOnlineState SetState();
-    TODO::eOnlineState GetState();
-    TODO::eOnlineState GetLastState();
+    bool operator==(const cOnlineSettings &rhs) const;
+    eOnlineState SetState(eOnlineState state);
+    eOnlineState GetState() {
+        return onlineState;
+    }
+    eOnlineState GetLastState();
     void SetErrorState();
-    bool IsInErrorState();
+    // Inline en la A124 (OnlineDB.hpp:125; UIOnlineLogin::BuddyConnectCB lo expande: lw 148(settings)).
+    bool IsInErrorState() {
+        return inErrorState;
+    }
     OnlineRaceParameters *GetRaceSettings() { return &TheOnlineRaceSettings; }
     char *GetLobbyAccountName();
     char *GetLobbyPersona();
@@ -129,14 +152,23 @@ struct cOnlineSettings {
     char *GetLobbyServerAddr();
     uint16 GetLobbyServerPort();
     char *SaveToBuffer(char *buf);
-    char *LoadFromBuffer(const char *buf);
+    char *LoadFromBuffer(char *buf);
     int32 GetSaveBufferSize();
     char *GetGamePassword();
     void SetGamePassword(const char *pwd);
     void SetGameVerifyPassword(const char *pwd);
-    void SetBuddyServerLoggedIn();
-    bool IsLoggedInToBuddyServer();
+    // Inline en la A124 (OnlineDB.hpp:192-193; UIOnlineLogin::BuddyConnectCB y DoLobbyLoginProcessing los expanden).
+    // La A124 lo declara SetBuddyServerLoggedIn(bool); el nombre del parametro no queda en los stabs.
+    void SetBuddyServerLoggedIn(bool bLoggedIn) {
+        bLoggedInToBuddyServer = bLoggedIn;
+    }
+    bool IsLoggedInToBuddyServer() {
+        return bLoggedInToBuddyServer;
+    }
 };
+
+void AllocOnlineMemoryPool();
+void FreeOnlineMemoryPool();
 
 enum OnlineGender { eMale = 0, eFemale = 1, eNum_Gender = 2 };
 
@@ -155,6 +187,9 @@ struct OnlineCreateUserSettings { // 0xe8
     /* 0xe0 */ bool TermsOfService;
     /* 0xe4 */ OnlineGender Gender;
 
+#ifdef EA_BUILD_A124
+    OnlineCreateUserSettings();
+#endif
     void Initialize();
 };
 

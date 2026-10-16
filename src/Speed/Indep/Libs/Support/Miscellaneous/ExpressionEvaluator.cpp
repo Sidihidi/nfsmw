@@ -5,157 +5,157 @@
 #include "Speed/Indep/Libs/Support/Miscellaneous/CARP.h"
 #include "Speed/Indep/Libs/Support/Miscellaneous/StringHash.h"
 
-static CARP::ExprValType sinf(CARP::ExprValType value) {
+static CARP::ExprValType sinf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = sinf(value.f);
+    result.f = sinf(v.f);
     return result;
 }
 
-static CARP::ExprValType cosf(CARP::ExprValType value) {
+static CARP::ExprValType cosf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = cosf(value.f);
+    result.f = cosf(v.f);
     return result;
 }
 
-static CARP::ExprValType tanf(CARP::ExprValType value) {
+static CARP::ExprValType tanf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = tanf(value.f);
+    result.f = tanf(v.f);
     return result;
 }
 
-static CARP::ExprValType asinf(CARP::ExprValType value) {
+static CARP::ExprValType asinf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = asinf(value.f);
+    result.f = asinf(v.f);
     return result;
 }
 
-static CARP::ExprValType acosf(CARP::ExprValType value) {
+static CARP::ExprValType acosf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = acosf(value.f);
+    result.f = acosf(v.f);
     return result;
 }
 
-static CARP::ExprValType atanf(CARP::ExprValType value) {
+static CARP::ExprValType atanf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = atanf(value.f);
+    result.f = atanf(v.f);
     return result;
 }
 
-static CARP::ExprValType atan2f(CARP::ExprValType value, CARP::ExprValType value2) {
+static CARP::ExprValType atan2f(CARP::ExprValType v1, CARP::ExprValType v2) {
     CARP::ExprValType result;
 
-    result.f = atan2f(value.f, value2.f);
+    result.f = atan2f(v1.f, v2.f);
     return result;
 }
 
-static CARP::ExprValType sinhf(CARP::ExprValType value) {
+static CARP::ExprValType sinhf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = sinhf(value.f);
+    result.f = sinhf(v.f);
     return result;
 }
 
-static CARP::ExprValType coshf(CARP::ExprValType value) {
+static CARP::ExprValType coshf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = coshf(value.f);
+    result.f = coshf(v.f);
     return result;
 }
 
-static CARP::ExprValType tanhf(CARP::ExprValType value) {
+static CARP::ExprValType tanhf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = tanhf(value.f);
+    result.f = tanhf(v.f);
     return result;
 }
 
-static CARP::ExprValType expf(CARP::ExprValType value) {
+static CARP::ExprValType expf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = expf(value.f);
+    result.f = expf(v.f);
     return result;
 }
 
-static CARP::ExprValType logf(CARP::ExprValType value) {
+static CARP::ExprValType logf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = logf(value.f);
+    result.f = logf(v.f);
     return result;
 }
 
-static CARP::ExprValType log10f(CARP::ExprValType value) {
+static CARP::ExprValType log10f(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = log10f(value.f);
+    result.f = log10f(v.f);
     return result;
 }
 
-static CARP::ExprValType fmodf(CARP::ExprValType value, CARP::ExprValType value2) {
+static CARP::ExprValType fmodf(CARP::ExprValType v1, CARP::ExprValType v2) {
     CARP::ExprValType result;
 
-    result.f = fmodf(value.f, value2.f);
+    result.f = fmodf(v1.f, v2.f);
     return result;
 }
 
-static CARP::ExprValType powf(CARP::ExprValType value, CARP::ExprValType value2) {
+static CARP::ExprValType powf(CARP::ExprValType v1, CARP::ExprValType v2) {
     CARP::ExprValType result;
 
-    result.f = powf(value.f, value2.f);
+    result.f = powf(v1.f, v2.f);
     return result;
 }
 
-static CARP::ExprValType sqrtf(CARP::ExprValType value) {
+static CARP::ExprValType sqrtf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = sqrtf(value.f);
+    result.f = sqrtf(v.f);
     return result;
 }
 
-static CARP::ExprValType ceilf(CARP::ExprValType value) {
+static CARP::ExprValType ceilf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = ceilf(value.f);
+    result.f = ceilf(v.f);
     return result;
 }
 
-static CARP::ExprValType fabsf(CARP::ExprValType value) {
+static CARP::ExprValType fabsf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = fabsf(value.f);
+    result.f = fabsf(v.f);
     return result;
 }
 
-static CARP::ExprValType floorf(CARP::ExprValType value) {
+static CARP::ExprValType floorf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = floorf(value.f);
+    result.f = floorf(v.f);
     return result;
 }
 
-static CARP::ExprValType roundf(CARP::ExprValType value) {
+static CARP::ExprValType roundf(CARP::ExprValType v) {
     CARP::ExprValType result;
 
-    result.f = floorf(value.f + ((value.f < 0.0f) ? -0.5f : 0.5f));
+    result.f = floorf(v.f + ((v.f < 0.0f) ? -0.5f : 0.5f));
     return result;
 }
 
-static CARP::ExprValType hypotf(CARP::ExprValType value, CARP::ExprValType value2) {
+static CARP::ExprValType hypotf(CARP::ExprValType x, CARP::ExprValType y) {
     CARP::ExprValType result;
 
-    result.f = sqrtf(value.f * value.f + value2.f * value2.f);
+    result.f = sqrtf(x.f * x.f + y.f * y.f);
     return result;
 }
 
-static CARP::ExprValType hypot3d(CARP::ExprValType value, CARP::ExprValType value2, CARP::ExprValType value3) {
+static CARP::ExprValType hypot3d(CARP::ExprValType x, CARP::ExprValType y, CARP::ExprValType z) {
     CARP::ExprValType result;
 
-    result.f = sqrtf(value.f * value.f + value2.f * value2.f + value3.f * value3.f);
+    result.f = sqrtf(x.f * x.f + y.f * y.f + z.f * z.f);
     return result;
 }
 

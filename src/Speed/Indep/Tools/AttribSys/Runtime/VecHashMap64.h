@@ -11,12 +11,10 @@
 template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t Unk3> class VecHashMap {
   public:
     // total size: 0xC or 0x10
+    // (sin operator new de clase: el original usa el placement new libre de <new>,
+    //  y asi lo refleja su DWARF en cada expansion inline)
     class Node {
       public:
-        void *operator new(std::size_t, void *place) {
-            return place;
-        }
-
         Node() : mKey(0), mPtr(reinterpret_cast<T *>(this)), mMax(0) {}
 
         Node(KeyType key, T *ptr) : mKey(key), mPtr(ptr) {}
@@ -39,10 +37,7 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
         }
 
         T *Get() const {
-            if (IsValid()) {
-                return mPtr;
-            }
-            return nullptr;
+            return IsValid() ? mPtr : nullptr;
         }
 
         KeyType Key() const {
@@ -69,7 +64,7 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
 
   public:
     VecHashMap(std::size_t reservationSize) : mTable(nullptr), mTableSize(0), mNumEntries(0), mFixedAlloc(0), mWorstCollision(0) {
-        if (reservationSize != 0) {
+        if (reservationSize > 0) {
             RebuildTable(reservationSize);
         }
     }
@@ -140,8 +135,8 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
         Node *table = mTable;
         std::size_t actualIndex = Policy::KeyIndex(key, mTableSize, 0);
         std::size_t searchLen = 0;
-        std::size_t maxSearchLen = table[actualIndex].MaxSearch();
-        while (searchLen < maxSearchLen && table[actualIndex].Key() != key) {
+        std::size_t maxSearchlen = table[actualIndex].MaxSearch();
+        while (searchLen < maxSearchlen && table[actualIndex].Key() != key) {
             // TODO why is there a Node::IsValid call somewhere here?
             if (table[actualIndex].IsValid()) {
             }
@@ -163,22 +158,17 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
         return index;
     }
 
+    // El DWARF de GameCube expande ValidIndex dentro y el codigo no tiene la rama a nullptr: la comprobacion
+    // queda sin efecto (un assert vacio), y quien llama ya sabe que el indice es valido.
     T *GetPtrAtIndex(std::size_t index) const {
-        if (ValidIndex(index)) {
-            return mTable[index].Get();
-        }
-        return nullptr;
-    }
-
-    T *GetPtrAtValidIndex(std::size_t index) const {
         (void)ValidIndex(index);
         return mTable[index].Get();
     }
 
     void DeleteIndex(std::size_t actualIndex) {
         T *obj = RemoveIndex(actualIndex);
-        if (obj) {
-            obj->~T();
+        if (Unk2) {
+            delete obj;
         }
     }
 
@@ -187,7 +177,10 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
             return nullptr;
         }
         unsigned int index = FindIndex(key);
-        return ValidIndex(index) ? mTable[index].Get() : nullptr;
+        if (ValidIndex(index)) {
+            return mTable[index].Get();
+        }
+        return nullptr;
     }
 
     void Reserve(std::size_t reservationSize) {
@@ -241,27 +234,22 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
         return true;
     }
 
-    // Tres piezas y las tres hacen falta: targetIndex es un LOCAL y no el
-    // parametro, para que el inliner no emita su copia al principio; la
-    // condicion va invertida con else explicito, que coloca el then en caida
-    // libre; y el inicializador targetIndex = startIndex deja los dos pseudos
-    // en el mismo bloque basico para que local-alloc los fusione.
-    std::size_t UpdateSearchLength(std::size_t startIndex, std::size_t freeIndex) {
-        std::size_t targetIndex = startIndex;
-
-        if (startIndex != freeIndex) {
-            targetIndex = startIndex;
-        } else if (mTable[freeIndex].MaxSearch() != 0) {
-            targetIndex = freeIndex;
-        } else {
-            targetIndex = Policy::WrapIndex(startIndex + mTableSize - mWorstCollision, mTableSize, 0);
-            std::size_t distance = mWorstCollision;
-            while (mTable[targetIndex].MaxSearch() < distance && distance > 0) {
-                targetIndex = Policy::WrapIndex(targetIndex + 1, mTableSize, 0);
-                distance--;
-            }
-            if (distance == 0) {
-                return static_cast<std::size_t>(-1);
+    // Sin locales de mas (el DWARF de GC solo tiene newMaxSearch, worstIndex y maxSearch, y distance en su bloque) y
+    // con la asignacion explicita targetIndex = freeIndex: GC la deja en caida libre y la A124 en la ranura del salto.
+    std::size_t UpdateSearchLength(std::size_t targetIndex, std::size_t freeIndex) {
+        if (targetIndex == freeIndex) {
+            if (mTable[freeIndex].MaxSearch() != 0) {
+                targetIndex = freeIndex;
+            } else {
+                targetIndex = Policy::WrapIndex(targetIndex + mTableSize - mWorstCollision, mTableSize, 0);
+                std::size_t distance = mWorstCollision;
+                while (mTable[targetIndex].MaxSearch() < distance && distance > 0) {
+                    targetIndex = Policy::WrapIndex(targetIndex + 1, mTableSize, 0);
+                    distance--;
+                }
+                if (distance == 0) {
+                    return static_cast<std::size_t>(-1);
+                }
             }
         }
 
@@ -364,7 +352,7 @@ template <void *(AllocFunc)(size_t), void(FreeFunc)(void *, size_t)> class Table
         return entries;
     }
 
-    static std::size_t GrowRequest(std::size_t currententries, bool collisionoverrun) {
+    static std::size_t GrowRequest(std::size_t currententries, bool collisionoverflow) {
         return currententries;
     }
 

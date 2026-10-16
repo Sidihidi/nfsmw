@@ -1,6 +1,7 @@
 #include "./sndcmn.h"
 
 int SNDSTRM_drylevel(int sndstreamhandle, int level) {
+    SNDI_CHECKINSTALLED();
     SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
     int rc;
 

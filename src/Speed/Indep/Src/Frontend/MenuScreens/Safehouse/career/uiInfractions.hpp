@@ -19,9 +19,10 @@ class PostPursuitInfractionsScreen : public MenuScreen {
 
     PostPursuitInfractionsScreen(ScreenConstructorData *sd);
     ~PostPursuitInfractionsScreen() override;
-
+  private:
     void NotifyBustedTextureLoaded();
     uint32 CalcBustedTexture();
+  public:
     void NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) override;
 
     FECareerRecord *WorkingCareerRecord; // offset 0x2C, size 0x4

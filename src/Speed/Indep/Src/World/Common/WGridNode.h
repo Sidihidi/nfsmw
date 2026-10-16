@@ -26,13 +26,7 @@ struct WGridNodeElem {
 };
 
 struct WGridNodeElemList : public UTL::Std::list<WGridNodeElem, _type_list> {
-    void *operator new(size_t size) {
-        return gFastMem.Alloc(size, nullptr);
-    }
-
-    void operator delete(void *mem, size_t size) {
-        gFastMem.Free(mem, size, nullptr);
-    }
+    USE_FASTALLOC(WGridNodeElemList);
 };
 
 // total size: 0x1C
@@ -112,9 +106,10 @@ struct WGridNode {
             }
             const uintptr_t *retInd = nullptr;
             if (!fDynamic && fNumEntriesRemaining > 0) {
-                fValid = true;
-                retInd = fElemInd++;
+                retInd = fElemInd;
+                fElemInd++;
                 fNumEntriesRemaining--;
+                fValid = true;
             } else if (fNode->fDynElems != nullptr) {
                 fDynamic = true;
                 while (fIter != fNode->fDynElems->end() && (*fIter).fType != fType) {

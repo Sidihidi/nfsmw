@@ -54,11 +54,28 @@
 #include "bFile.hpp"
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/bWare/Inc/bFunk.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Debug/Common/DebugDraw.h"
+#include "Speed/Indep/Src/Frontend/NFSDebugMenu.h"
+#include "Speed/Indep/Src/Misc/TestHooks/debugtrap.h"
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#include "Speed/Indep/Src/Misc/Timer.hpp"
+#include "Speed/Indep/Src/Online/BuddyCore.hpp"
+#include "Speed/Indep/Src/Online/ConditionSimulator.hpp"
+#include "Speed/Indep/Src/World/WDbgCollisionDraw.h"
+#include "Speed/Indep/Src/Online/NetworkCore.hpp"
+#include <sifdev.h>
+#endif
 
 int ExitTheGameFlag = false;
 int frames_elapsed;
 int loop_ticker;
 static int32 last_frame_count = 0;
+// Los escribe el manejador de errores de disco de GameCube (Platform_G.cpp los
+// declara extern) y los lee FEGameInterface; en el .data objetivo de zMisc van
+// aqui, entre last_frame_count y CurrentLoopCounter, a cero los dos.
+int g_discErrorNumber = 0;
+int g_discErrorOccured = 0;
 int32 CurrentLoopCounter = 0;
 uint32 TimeDifferenceInMicroseconds = 0;
 float TimeDifferenceInMiliseconds = 0.0f;
@@ -79,17 +96,45 @@ class RaceStarter {
     static void StartSkipFERace();
 };
 
+#ifdef EA_BUILD_A124
+// La memoria libre del IOP que MainLoop saca por pantalla o por la TTY; las activa el menu de depuracion.
+bool gbShowFreeIOPMem = false;
+bool gbLogFreeIOPMemToTTY = false;
+bool gbShowFreeIOPMemInKb = true;
+#endif
+
 FastMem gFastMem;
 
 extern bool twkDumpProfileMarks;
 ////
 
 void FastMemEmergencyInitialization(unsigned int &bytes, const char *&name, unsigned int &expansionsize, unsigned int &trackingsize) {
+    // speed.exe 0x64A56C y la de Xbox 360 (0x823DAF58) piden mas que GameCube y las dos PS2.
+#if defined(EA_PLATFORM_XENON)
+    bytes = 0x25f400;
+#elif defined(EA_PLATFORM_WIN32)
+    bytes = 0x21f400;
+#else
     bytes = 0x11f400;
+#endif
     name = "gFastMem";
     expansionsize = 0x2000;
     trackingsize = 0x200;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" int bGetStackPointer(); // bmiscasm.s
+
+int StackOnScratchPad = 1;
+int MainMemoryStackPos = 0;
+
+int DoWithMainMemoryStack(void *function, int arg1, int arg2) {
+    if ((unsigned int)(bGetStackPointer() - 0x70000000) >= 0x4000) {
+        return ((int (*)(int, int))function)(arg1, arg2);
+    }
+    return bDoWithStack(function, (void *)MainMemoryStackPos, arg1, arg2);
+}
+#endif
 
 void SeedRandomNumber() {
     int seed;
@@ -125,15 +170,37 @@ void InitializeEverything(int argc, char **argv) {
     bReserveMemoryPool(8);
     bMemoryCreatePersistentPool(0x1000);
     bInitTicker(6e+04f);
+#ifndef EA_BUILD_A124
     InitializeEverythingTicks = bGetTicker();
+#endif
     bInitSharedStringPool(0x8000);
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) // PC: InitPlatform(argc, argv) (speed.exe 0x6CB400)
+    InitPlatform(argc, argv);
+#else
     InitPlatform();
+#endif
     FirstBreakpoint();
     bMathTimingTest();
+#ifdef EA_BUILD_A124
+    // La A124 crea el procesador de ordenes de depuracion (debugtrap.h).
+    pCommandProc = new cCommandProcessor;
+#endif
     BuildRegion::IsAmerica();
+#ifdef EA_PLATFORM_PLAYSTATION2
+    InitBigFiles();
+#endif
     TheDemoDiscManager.Init(argc, argv);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    bPListInit(0x1400);
+#else
     bPListInit(0x1800);
+#endif
     InitConfig();
+#ifdef EA_BUILD_A124
+    // La A124 arranca Juice y, si queda activo, el joylog lo graba la repeticion de Juice.
+    InitJuice();
+    if (!gJuiceEnabled)
+#endif
     InitJoylog();
     SeedRandomNumber();
     InitQueuedFiles();
@@ -148,24 +215,27 @@ void InitializeEverything(int argc, char **argv) {
     LoadGlobalAChunks();
     FEManager::Init();
     BootLoadingScreen();
+#ifndef EA_PLATFORM_PLAYSTATION2
     InitBigFiles();
     InitMemoryCard();
+#endif
     LoadGlobalChunks();
     InitFrontendDatabase();
 
     TheOnlineManager.Initialize(argc, argv);
-#ifdef ONLINE_SUPPORT
-// TODO
-// /* inlined from
-//    d:/p4_apex1666_d1001856/mw/speed/indep/src/online/conditionsimulator.hpp */
-// if (ConditionSimulator::m_simCondition == SIMCONDITION_NTSCINEUROPE) {
-//     SetVideoMode(MODE_NTSC);
-// }
+#ifdef EA_BUILD_A124
+    // Solo la A124 (SLUS no lee m_simCondition): GetSimCondition es inline de conditionsimulator.hpp.
+    if (ConditionSimulator::GetSimCondition() == SIMCONDITION_NTSCINEUROPE) {
+        SetVideoMode(MODE_NTSC);
+    }
 #endif
 
     IOModule::GetIOModule().Initialize();
     FEManager::InitInput();
     IOModule::GetIOModule().EnableUpdating(true);
+#ifdef EA_BUILD_A124
+    DebugDraw::Get();
+#endif
     EventManager::Init();
     Hermes::System::Init();
     Scheduler::Init(0.016666668f); // scaf-data r71: bloque +0x7A4
@@ -187,12 +257,31 @@ void InitializeEverything(int argc, char **argv) {
     InitVehicleDamage();
     DebugVehicleSelection::Init();
     DebugWorld::Init();
+#ifdef EA_BUILD_A124
+    WDbgCollisionDraw::Get();
+#endif
     InitStomper();
     Physics::Info::Init();
     InitAnimCtrls();
     InitSpaceNodes();
     TheICEManager.Init();
     FastMem::Lock();
+
+#ifdef EA_BUILD_A124
+    // Sin servidor de Juice se avisa en pantalla y se apaga; con el, la salida de texto va a Juice.
+    if (!Juice::GameHook::Instance()->IsConnected()) {
+        int lastPrintfState = DoScreenPrintf;
+        DoScreenPrintf = 1;
+        ScreenPrintf(80, -200, 10.0f, 0xffaa2222, "Juice Disabled");
+        ScreenPrintf(80, -180, 10.0f, 0xffaa2222, "%s", Juice::MWExtension::GetJuiceBuildName());
+        DoScreenPrintf = lastPrintfState;
+        gJuiceEnabled = 0;
+    } else {
+        bSetUserPutStringFunction(JuicePutStringFunction);
+    }
+    Juice::MWCommands::Instance();
+    JuiceStatsDB::Instance();
+#endif
 
     PrintCapturedLoadingTime("InitializeEverything", "InitializeEverything");
 }
@@ -205,7 +294,7 @@ void VerifyJoylogChecksum() {
     if (!Joylog::IsCapturing() && !Joylog::IsReplaying()) {
         return;
     }
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (Joylog::IsCapturing()) {
         Joylog::AddData(bDefaultSeed, 32, JOYLOG_CHANNEL_RANDOM);
     } else if (Joylog::IsReplaying()) {
@@ -218,9 +307,9 @@ void VerifyJoylogChecksum() {
         for (IVehicle::List::const_iterator iter = vehicles.begin(); iter != vehicles.end(); iter++) {
             IVehicle *vehicle = *iter;
             const UMath::Vector3 &position = vehicle->GetPosition();
-            world_checksum += reinterpret_cast<const uint16 *>(&position)[1];
-            world_checksum += reinterpret_cast<const uint16 *>(&position)[3];
-            world_checksum += reinterpret_cast<const uint16 *>(&position)[5];
+            world_checksum += *reinterpret_cast<const uint32 *>(&position.x);
+            world_checksum += *reinterpret_cast<const uint32 *>(&position.y);
+            world_checksum += *reinterpret_cast<const uint32 *>(&position.z);
         }
     }
     uint16 menu_checksum = FEngGetActiveScreensChecksum();
@@ -253,8 +342,22 @@ void VerifyJoylogChecksum() {
         Joylog::AddData(real_loop_counter_checksum, 16, JOYLOG_CHANNEL_CHECKSUM);
     }
     if (checksum_error) {
-        bBreak();
-        Joylog::StopReplaying();
+#ifdef EA_BUILD_A124
+        // La A124 lleva los ganchos de Juice: con Juice activo el error se registra alli y para su gestor de
+        // repeticiones.
+        if (!gJuiceEnabled)
+#endif
+        {
+            bBreak();
+            Joylog::StopReplaying();
+        }
+#ifdef EA_BUILD_A124
+        else {
+            Juice::GameHook::Instance()->AssertLog(0, "", "Main.cpp", "checksum_error && StopOnJoylogChecksumError",
+                                                  "Joylog Checksum Error has occured");
+            Juice::ReplayManager::Instance()->StopReplaying();
+        }
+#endif
     }
 }
 
@@ -302,11 +405,13 @@ static float Main_AnimateFrame(float real_dT) {
     return game_dT;
 }
 
+#ifndef EA_BUILD_A124
 int gFramesToSkip = 0;
 
 void Main_SkipFrame(int numToSkip) {
     gFramesToSkip = bMax(numToSkip, gFramesToSkip);
 }
+#endif
 
 int RenderTimingStart = 0;
 int RenderTimingEnd = 0;
@@ -318,9 +423,12 @@ extern float HackTime;
 void Main_DisplayFrame() {
     ProfileNode profile_node;
     static float timeStep = 0.01666f;
-    if (gFramesToSkip >= 1) {
+#ifndef EA_BUILD_A124
+    if (gFramesToSkip > 0) {
         gFramesToSkip--;
-    } else {
+    } else
+#endif
+    {
         FrameTimingStartTime = FrameTimingEndTime;
         FrameTimingEndTime = bGetTicker();
         RenderTimingStart = bGetTicker();
@@ -333,16 +441,31 @@ void Main_DisplayFrame() {
     }
 }
 
-void CheckTweakerTriggers() {}
+void CheckTweakerTriggers() {
+#ifdef EA_BUILD_A124
+    // La A124 (una milestone) atiende aqui el volcado de memoria y los ajustes de coches; GameCube y SLUS la
+    // tienen vacia.
+    ServiceMemoryDump();
+    TheCarLoader.ServiceTweakables();
+#endif
+}
 
+#ifndef EA_BUILD_A124
 void MainLoopCheckForFatalDiscError() {}
+#endif
+
+#ifdef EA_BUILD_A124
+static void DoBuddyCoreProcessing() {
+    BuddyCore::instance()->doprocessing();
+}
+#endif
 
 void MiniMainLoop() {
     static int recursion_checker = 0;
     static int previous_ticks = 0;
 
     // TODO are these ifdefs right?
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     bMonitorService();
 #endif
     bThreadYield(8);
@@ -375,35 +498,50 @@ bool Tweak_FullSpeedMode = false; // Decl: 2585
 bool twkDumpProfileMarks = false; // Decl: 2586
 
 void MainLoop(
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     bFix hardware_ms_fix
 #else
     float hardware_ms
 #endif
 ) {
-#ifdef EA_BUILD_A124
-    // La A124 recibe los milisegundos en coma fija 16.16 (MainLoop__Fi) y los pasa a float aqui.
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2 (A124 y SLUS) recibe los milisegundos en coma fija 16.16 (MainLoop__Fi) y los pasa a float aqui.
     float hardware_ms = hardware_ms_fix / 65536.0f;
 #endif
-    int ticks;
+    int ret = bGetTicker();
     ProfileNode profile_node_entire_mainloop("MainLoop()", 0);
     ProfileNode profile_node;
-    bGetTicker();
     MainLoopBreakpoint();
     PrepareRealTimestep(hardware_ms * 0.001f);
     bSyncTaskRun();
     profile_node_entire_mainloop.Begin("IOModule::Update()", 0);
     IOModule::GetIOModule().Update();
+#ifdef EA_BUILD_A124
+    // La red de la A124 (SLUS no tiene online): con la red en marcha, o en los modos online y LAN del frontend, se
+    // atiende con la pila en la memoria principal; en carrera online la simulacion se sincroniza con StartSimFrame.
+    if (NetworkCore::Instance().IsInitialized() || FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+        if (TheOnlineManager.IsOnlineRace() && TheOnlineManager.GetState() == OLS_RACING) {
+            TheOnlineManager.StartSimFrame();
+        } else {
+            DoWithMainMemoryStack((void *)NetworkCore::DoNetworkProcessing, 0, 0);
+        }
+        DoWithMainMemoryStack((void *)DoBuddyCoreProcessing, 0, 0);
+    }
+#endif
     profile_node_entire_mainloop.Begin("Scheduler::Run()", 0);
-    float game_dT = Scheduler::Get().Run(Tweak_FullSpeedMode);
+    float scheduler_time_elapsed = Scheduler::Get().Run(Tweak_FullSpeedMode);
     if (TheOnlineManager.IsOnlineRace() && TheOnlineManager.GetState() == OLS_RACING) {
         TheOnlineManager.EndSimFrame();
     }
     Attrib::Database::Get().CollectGarbage();
     profile_node_entire_mainloop.Begin("Main_AnimateFrame()", 0);
-    game_dT = Main_AnimateFrame(game_dT);
+    float game_dT = Main_AnimateFrame(scheduler_time_elapsed);
     PrepareWorldTimestep(game_dT);
     last_frame_count = FrameCounter;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    bMonitorService();
+    bFunkService();
+#endif
     ServiceJoylog();
     CheckTweakerTriggers();
     profile_node_entire_mainloop.Begin("MainLoop - ServiceGameFlow", 0);
@@ -417,34 +555,79 @@ void MainLoop(
     ServicePlatform();
     ServicePreculler();
     FEManager::Get()->Update();
+#ifndef EA_BUILD_A124
     EventManager::RunEvents();
+#endif
+    // Los Begin van fuera de los if: los stabs de la A124 y el DWARF de GameCube los ponen en el bloque de antes.
+    profile_node_entire_mainloop.Begin("EAXSound::Update()", 0);
     if (g_pEAXSound) {
-        profile_node_entire_mainloop.Begin("EAXSound::Update()", 0);
         g_pEAXSound->Update(RealTimeElapsed);
     }
     profile_node_entire_mainloop.Begin("ServiceResourceLoading etc.", 0);
     ServiceResourceLoading();
+#ifndef EA_BUILD_A124
     MainLoopCheckForFatalDiscError();
+#endif
     RenderConn::UpdateLoading();
     TheTrackStreamer.ServiceNonGameState();
 #ifndef EA_BUILD_A124
     HandleTrackStreamerLoadingBar();
 #endif
     TickOverTimeOfday();
+    profile_node_entire_mainloop.Begin("Main_DisplayFrame()", 0);
     if (!Tweak_FullSpeedMode) {
-        profile_node_entire_mainloop.Begin("Main_DisplayFrame()", 0);
         Main_DisplayFrame();
     }
-    Sim::StartProfile();
     profile_node_entire_mainloop.Begin("MainLoop wind down", 0);
+    Sim::StartProfile();
     VerifyJoylogChecksum();
     AdvanceWorldTime();
     MaybePrintUnusedTextures();
     MaybeDoMemoryProfile();
+#ifdef EA_BUILD_A124
+    // La A124 (milestone) atiende aqui el menu de depuracion, la memoria libre del IOP y los ganchos de Juice.
+    if (gDebugMenuIOHandler) {
+        gDebugMenuIOHandler->PollInput();
+    }
+    if (gbLogFreeIOPMemToTTY && TheICEManager.IsEditorOff()) {
+        unsigned int IOPMaxFree = sceSifQueryMaxFreeMemSize();
+        unsigned int IOPFree = sceSifQueryTotalFreeMemSize();
+        unsigned int IOPMem = sceSifQueryMemSize();
+        unsigned int IOPUsed = IOPMem - IOPFree;
+        // Por la TTY el paso a K se hace sobre las propias variables (del if solo queda la lectura de
+        // gbShowFreeIOPMemInKb). Lo que se saca por la TTY no llega al binario (bPrintf no genera codigo en esta
+        // build) y su cadena no se conoce, asi que no se escribe.
+        if (gbShowFreeIOPMemInKb) {
+            IOPMaxFree /= 1024;
+            IOPFree /= 1024;
+            IOPMem /= 1024;
+            IOPUsed /= 1024;
+        }
+    }
+    if (gbShowFreeIOPMem && TheICEManager.IsEditorOff()) {
+        unsigned int IOPMaxFree = sceSifQueryMaxFreeMemSize();
+        unsigned int IOPFree = sceSifQueryTotalFreeMemSize();
+        unsigned int IOPMem = sceSifQueryMemSize();
+        unsigned int IOPUsed = IOPMem - IOPFree;
+        if (gbShowFreeIOPMemInKb) {
+            ScreenPrintf(180, 100, "--- IOP Free ---\n\nTotal: %dk\nUsed: %dk\nFree:  %dk\nBiggest: %dk", IOPMem / 1024,
+                         IOPUsed / 1024, IOPFree / 1024, IOPMaxFree / 1024);
+        } else {
+            ScreenPrintf(180, 100, "--- IOP Free ---\n\nTotal: %d\nUsed: %d\nFree:  %d\nBiggest: %d", IOPMem, IOPUsed,
+                         IOPFree, IOPMaxFree);
+        }
+    }
+    JuiceStatsDB::Instance()->UpdateTimers();
+    Juice::GameHook::Instance()->FrameUpdate();
+#endif
     AdvanceRealTime();
     profile_node_entire_mainloop.End();
     profile_node.End();
+#ifdef EA_BUILD_A124
+    pCommandProc->setTickCount();
+#endif
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     static int PrintFreeMem = 0;
     if (PrintFreeMem != 0) {
         int free_memory = bCountFreeMemory(0);
@@ -453,6 +636,7 @@ void MainLoop(
 #else
 #endif
     }
+#endif
 }
 
 #ifndef EA_PLATFORM_XENON
@@ -461,9 +645,9 @@ int main(int argc, char **argv)
 int MainThreadFunction(int argc, char **argv)
 #endif
 {
-#ifdef EA_PLATFORM_WINDOWS
-    // PC version wants there to only be one instance at a time
-    if (CheckProcessCount("speed.exe", 1)) // this function name is complete bs that I made up for now -Toru
+#ifdef EA_PLATFORM_WIN32
+    // PC version wants there to only be one instance at a time (speed.exe 0x666590)
+    if (IsTheGameAlreadyRunning("speed.exe", 1)) // Platform_PC.cpp
         _exit(0);
 #endif
 
@@ -490,24 +674,42 @@ int MainThreadFunction(int argc, char **argv)
 
         if (current_tick != loop_ticker && milliseconds <= 0.0f) {
             loop_ticker = current_tick;
-        } else if (milliseconds > minumum_time_step) {
-            loop_ticker = current_tick;
-            if (milliseconds > 3.2e+04f)
-                milliseconds = 3.2e+04f;
-
-            milliseconds_fix = (bFix)(milliseconds * 65536.0f); // this is used on other platforms
-
-            MainLoop(
-#ifdef EA_BUILD_A124
-                milliseconds_fix
-#else
-                milliseconds
-#endif
-            );
-
-            if (twkDumpProfileMarks)
-                twkDumpProfileMarks = false;
+            continue;
         }
+
+        if (milliseconds <= minumum_time_step)
+            continue;
+
+        loop_ticker = current_tick;
+        if (milliseconds > 3.2e+04f)
+            milliseconds = 3.2e+04f;
+
+        milliseconds_fix = bFloatToInt(milliseconds * 65536.0f); // this is used on other platforms
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Con StackOnScratchPad 1 o 2 el bucle corre con la pila en el scratchpad del EE (0x70000000-0x70004000); con
+        // 2 la simulacion vuelve a la pila de memoria principal y usa el scratchpad como espacio de trabajo, y con 0
+        // solo lo usa como espacio de trabajo.
+        if (StackOnScratchPad > 0) {
+            MainMemoryStackPos = bGetStackPointer();
+            if (StackOnScratchPad == 2) {
+                Sim::SetWorkspace((void *)0x70000000, (void *)MainMemoryStackPos);
+            } else {
+                Sim::SetWorkspace(nullptr, nullptr);
+            }
+            bDoWithStack((void *)MainLoop, (void *)0x70004000, milliseconds_fix, 0);
+        } else {
+            if (StackOnScratchPad == 0) {
+                Sim::SetWorkspace((void *)0x70000000, nullptr);
+            }
+            MainLoop(milliseconds_fix);
+        }
+#else
+        MainLoop(milliseconds);
+#endif
+
+        if (twkDumpProfileMarks)
+            twkDumpProfileMarks = false;
     }
 
     return 0;

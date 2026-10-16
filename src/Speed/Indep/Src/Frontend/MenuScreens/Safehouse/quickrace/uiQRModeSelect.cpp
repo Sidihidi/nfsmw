@@ -15,7 +15,16 @@ class MSOption : public IconOption {
 
     void React(const char *pkg_name, uint32 data, FEObject *obj, uint32 param1, uint32 param2) override {
         if (data == 0xc407210) {
+#ifdef EA_BUILD_A124 // la A124 tambien fija el modo de la partida online
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+                FEDatabase->GetOnlineSettings()->RaceMode = raceType;
+                FEDatabase->RaceMode = raceType;
+            } else {
+                FEDatabase->RaceMode = raceType;
+            }
+#else
             FEDatabase->RaceMode = raceType;
+#endif
         }
     };
 
@@ -63,11 +72,7 @@ void UIQRModeSelect::Setup() {
         opt = new ("MSOption", 0) MSOption(0xaaab31e9, 0x6f547e4c, GRace::kRaceType_Drag);
         AddOption(opt);
         if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
-            bool isSplitQR = false;
-            if (FEDatabase->IsQuickRaceMode()) {
-                isSplitQR = FEDatabase->iNumPlayers == 2;
-            }
-            if (!isSplitQR) {
+            if (!FEDatabase->IsSplitScreenMode()) {
                 opt = new ("MSOption", 0) MSOption(0x3a015595, 0x4930f5fc, GRace::kRaceType_Knockout);
                 AddOption(opt);
             }
@@ -84,7 +89,11 @@ void UIQRModeSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u3
     IconScrollerMenu::NotificationMessage(msg, pobj, param1, param2);
     switch (msg) {
         case 0x911ab364:
+#ifdef EA_BUILD_A124
+            if (FEDatabase->IsOnlineMode()) {
+#else
             if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+#endif
                 cFEng::Get()->QueuePackageMessage(0x587c018b, GetPackageName(), nullptr);
             }
             break;

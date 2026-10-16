@@ -15,9 +15,10 @@ namespace EAGL4 {
 void MultMatrix(const UMath::Matrix4 *a, const UMath::Matrix4 *b, UMath::Matrix4 *result);
 
 // total size: 0x40
-// GameCube la alinea a 32; la A124 a 16: FnPoseBlender::mAlignMatrix va en 0x30, con 4 bytes vacios delante.
+// GameCube la alinea a 32. En PS2 el tipo no va alineado (PostMult copia la temporal con ldl/sdl, sin lq/sq): la
+// alineacion a 16 es del miembro FnPoseBlender::mAlignMatrix (0x30 en la A124, con 4 bytes vacios delante).
 #ifdef EA_PLATFORM_PLAYSTATION2
-struct ALIGN_16 Transform {
+struct Transform {
 #else
 struct ATTRIBUTE_ALIGN(32) Transform {
 #endif

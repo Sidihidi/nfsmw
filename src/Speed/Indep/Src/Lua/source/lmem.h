@@ -43,6 +43,7 @@ typedef void (*LuaFreeFunc)(lua_State *, void *, unsigned int, LuaAllocType);
 void luaM_setallocator(LuaReallocFunc reallocFunc, LuaFreeFunc freeFunc);
 
 void *luaM_realloc(lua_State *L, void *oldblock, lu_mem oldsize, lu_mem size, LuaAllocType type);
+const char *luaM_gettypename(LuaAllocType type);
 
 void *luaM_growaux(lua_State *L, void *block, int *size, int size_elem, int limit, const char *errormsg);
 

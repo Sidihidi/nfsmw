@@ -137,7 +137,10 @@ unsigned int Instance::LocalAttribCount() const {
 }
 
 bool Instance::Add(Key attributeKey, unsigned int count) {
-    if (IsDynamic() && GetDynamicCollection()->AddAttribute(attributeKey, count)) {
+    if (!IsDynamic()) {
+        return false;
+    }
+    if (GetDynamicCollection()->AddAttribute(attributeKey, count)) {
         return true;
     }
     return false;
@@ -175,7 +178,7 @@ bool Instance::ModifyInternal(Key classKey, Key dynamicCollectionKey, unsigned i
 
 void Instance::Unmodify() {
     if (IsDynamic()) {
-        Collection *collection = const_cast<Collection *>(mCollection);
+        const Collection *collection = mCollection;
         mCollection = collection->Parent();
         if (mCollection) {
             mLayoutPtr = mCollection->GetLayout();

@@ -71,7 +71,7 @@ void SFX_Common::UpdateParams(float t) {}
 
 void SFX_Common::ProcessUpdate() {
     if (this->m_pcsisCameraShot != nullptr) {
-        if (this->m_pcsisCameraShot->GetRefCount() < 2) {
+        if (this->m_pcsisCameraShot->GetRefCount() <= 1) {
             delete this->m_pcsisCameraShot;
             this->m_pcsisCameraShot = nullptr;
         }
@@ -83,7 +83,7 @@ void SFX_Common::ProcessUpdate() {
     }
 
     if (this->m_pUves != nullptr) {
-        if (this->m_pUves->GetRefCount() < 2) {
+        if (this->m_pUves->GetRefCount() <= 1) {
             delete this->m_pUves;
             this->m_pUves = nullptr;
         }
@@ -96,7 +96,7 @@ void SFX_Common::ProcessUpdate() {
 
 #ifndef EA_BUILD_A124
     if (this->m_pPursuitBreakStart != nullptr) {
-        if (this->m_pPursuitBreakStart->GetRefCount() < 2) {
+        if (this->m_pPursuitBreakStart->GetRefCount() <= 1) {
             delete this->m_pPursuitBreakStart;
             this->m_pPursuitBreakStart = nullptr;
         }
@@ -108,7 +108,7 @@ void SFX_Common::ProcessUpdate() {
     }
 
     if (this->m_pPursuitBreakEnd != nullptr) {
-        if (this->m_pPursuitBreakEnd->GetRefCount() < 2) {
+        if (this->m_pPursuitBreakEnd->GetRefCount() <= 1) {
             delete this->m_pPursuitBreakEnd;
             this->m_pPursuitBreakEnd = nullptr;
         }

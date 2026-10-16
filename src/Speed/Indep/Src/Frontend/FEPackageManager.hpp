@@ -42,19 +42,19 @@ class FEPackageManager {
     void SetVisibility(const char *pkg_name, bool visible);
 
     struct MenuScreen *FindScreen(const char *pkg_name);
-
+  private:
     FEPackageData *FindFEPackageData(bChunk *chunk);
 
     FEPackageData *FindFEPackageData(const char *pkg_name);
 
     FEPackageData *FindFEPackageData(struct FEPackage *pkg);
-
+  public:
     bool SetPackageDataArg(const char *pPackageName, const int pArg);
-
+  private:
     void PackageWasLoaded(struct FEPackage *pkg);
 
     void PackageWillBeUnloaded(struct FEPackage *pkg);
-
+  public:
     void Loader(bChunk *chunk, bool hotchunk_flag);
 
     void UnLoader(bChunk *chunk, bool hotchunk_flag);

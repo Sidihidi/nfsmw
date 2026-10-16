@@ -355,15 +355,8 @@ struct CollisionObject {
     UMath::Matrix4 fMat;               // offset 0x30, size 0x40
 };
 
-// Empaquetado en GCC (bbccfcef, por el codigo de zGameplay). Los campos ya caen
-// alineados: mide 0x40 con o sin el atributo, y MSVC no lo conoce.
-#ifdef _MSC_VER
-#define CARP_PACKED
-#else
-#define CARP_PACKED __attribute__((packed))
-#endif
-
 // total size: 0x40
+#pragma pack(1)
 struct Trigger {
     bool ValidateMatrix() const;
     void MakeMatrix(UMath::Matrix4 &m, bool addXLate) const;
@@ -378,7 +371,8 @@ struct Trigger {
     unsigned short fFingerprint;   // offset 0x1E, size 0x2
     UMath::Vector4 fMatRow2Length; // offset 0x20, size 0x10
     UMath::Vector4 fPosRadius;     // offset 0x30, size 0x10
-} CARP_PACKED;
+};
+#pragma pack()
 
 union ExprValType { // 0x4
     /* 0x0 */ float f;

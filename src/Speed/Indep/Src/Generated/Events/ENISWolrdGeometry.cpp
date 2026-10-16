@@ -28,9 +28,9 @@ void ENISWolrdGeometry_MakeEvent_Callback(const void *staticData) {
     new ENISWolrdGeometry(((ENISWolrdGeometry::StaticData *) staticData)->fSceneryGroupName, ((ENISWolrdGeometry::StaticData *) staticData)->fEnable);
 }
 
-int ENISWolrdGeometry_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ENISWolrdGeometry(lua_tostring(L, 1), (int) lua_tonumber(L, 2));
+int ENISWolrdGeometry_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ENISWolrdGeometry(lua_tostring(luaState, 1), (int) lua_tonumber(luaState, 2));
     }
     return 0;
 }

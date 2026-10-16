@@ -108,10 +108,26 @@ enum HydraulicState {
 #endif
 
 // total size: 0x8
+// En MW Car ya es un resto sin datos (0x8, solo el nodo, en el DWARF de GameCube y los stabs de la A124): lo poco que
+// aun la usa (CopViewCameraMover) lee por puntero nulo, y las dos PS2 cargan de la direccion 0 (lqc2 0(zero)).
 class Car : public bTNode<Car> {
   public:
     bVector3 *GetGeometryPosition() {
         return nullptr; // TODO
+    }
+
+    bVector3 *GetPosition() {
+        return nullptr;
+    }
+
+    bVector3 *GetVelocity() {
+        return nullptr;
+    }
+
+    void MakeFlatMatrix(bMatrix4 *pMatrix) {}
+
+    bMatrix4 *GetBodyMatrix() {
+        return nullptr;
     }
 };
 

@@ -20,12 +20,11 @@ class Array {
   private:
     // Returns the base location of this array's data
     unsigned char *BasePointer() const {
-        return (unsigned char *)(&this[1]);
+        return (unsigned char *)(&this[1]) + GetPad();
     }
 
     void *Data(unsigned int byteindex) const {
-        unsigned char *base = BasePointer(); // unused
-        return (void *)((unsigned char *)(&this[1]) + GetPad() + byteindex);
+        return BasePointer() + byteindex;
     }
 
   public:
@@ -79,10 +78,18 @@ class Array {
     }
 
     std::size_t GetPad() const {
+#ifdef EA_PLATFORM_XENON
+        // X360 vuelca primero la rama alineada (li 8 + bne).
+        if (mEncodedTypePad & Flag_AlignedAt16) {
+            return sizeof(*this);
+        }
+        return 0;
+#else
         if (!(mEncodedTypePad & Flag_AlignedAt16)) {
             return 0;
         }
         return sizeof(*this);
+#endif
     }
 
     const TypeDesc &GetTypeDesc() const {
@@ -215,9 +222,7 @@ class Node {
         Flag_IsLocatable = 1 << 6,
     };
 
-    void *operator new(std::size_t, void *ptr) {
-        return ptr;
-    }
+    USE_ATTRIB_ALLOC("Attrib::Node");
 
     Node() : mKey(0), mTypeIndex(0), mMax(0), mFlags(0), mPtr(this) {}
 
@@ -349,8 +354,8 @@ class HashMap {
             return RotateNTo32(k, keyShift) % tableSize;
         }
 
-        static std::size_t WrapIndex(Key k, std::size_t tableSize, unsigned int keyShift) {
-            return k % tableSize;
+        static std::size_t WrapIndex(Key index, std::size_t tableSize, unsigned int keyShift) {
+            return index % tableSize;
         }
 
         static void *Alloc(std::size_t bytes) {
@@ -365,11 +370,14 @@ class HashMap {
             return AdjustHashTableSize(entries);
         }
 
+        // Misma mascara en las dos ramas, como la GrowRequest de AttribSys.h: el
+        // 0x1FFFFFFC era la salida de GameCube, que la estrecha por rango, no la
+        // fuente. EE-GCC no la estrecha y PS2 emite 0xFFFFFFFC.
         static std::size_t GrowRequest(std::size_t currententries, bool collisionoverflow) {
             if (collisionoverflow) {
                 return (currententries * 20 / 16 + 3) & 0xFFFFFFFC;
             } else {
-                return (currententries * 20 / 16 + 3) & 0x1FFFFFFC;
+                return (currententries * 20 / 16 + 3) & 0xFFFFFFFC;
             }
         }
     };
@@ -455,8 +463,8 @@ class HashMap {
         Node *table = mTable;
         unsigned int actualIndex = HashMapTablePolicy::KeyIndex(key, mTableSize, mKeyShift);
         unsigned int searchLen = 0;
-        unsigned int maxSearchLen = table[actualIndex].MaxSearch();
-        while (searchLen < maxSearchLen && table[actualIndex].GetKey() != key) {
+        unsigned int maxSearchlen = table[actualIndex].MaxSearch();
+        while (searchLen < maxSearchlen && table[actualIndex].GetKey() != key) {
             if (table[actualIndex].IsValid()) {
             }
             actualIndex = HashMapTablePolicy::WrapIndex(actualIndex + 1, mTableSize, 0);
@@ -532,7 +540,7 @@ class HashMap {
         Node *table = this->mTable;
         unsigned int actualIndex = HashMapTablePolicy::KeyIndex(key, this->mTableSize, this->mKeyShift);
         unsigned int searchLen = 0;
-        unsigned int maxSearchLen = table[actualIndex].MaxSearch();
+        unsigned int maxSearchlen = table[actualIndex].MaxSearch();
         unsigned int currline = (uintptr_t)&table[actualIndex] >> (lineSize & 0x3f); // TODO huh?
 
         if (currline != 0) {
@@ -541,7 +549,7 @@ class HashMap {
         }
 
         for (;;) {
-            if (searchLen >= maxSearchLen) {
+            if (searchLen >= maxSearchlen) {
                 break;
             }
 

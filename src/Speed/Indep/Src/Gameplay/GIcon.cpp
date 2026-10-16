@@ -9,7 +9,19 @@
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Src/World/WorldModel.hpp"
 
-// Valores leidos de .data 0x8041D3DC. mType coincide con el indice.
+// Valores leidos de .data: 0x8041D3DC en GameCube (SLUS tiene la misma tabla) y 0x615238 en la A124. mType coincide
+// con el indice.
+#ifdef EA_BUILD_A124
+// La A124 tiene 15 tipos (sin kType_SpeedTrapInRace ni kType_AreaUnlock) y otros modelos; las particulas son las
+// mismas que en las de tienda.
+GIcon::EffectInfo GIcon::kEffectInfo[] = {
+    {0, 0x00000000, 0x00000000},  {1, 0xFDCBE5CD, 0xE1EB3B0F},  {2, 0xE7419585, 0x3CCB52C5},
+    {3, 0x13EB0558, 0xC0087531},  {4, 0xC1E65CC8, 0xB8E326BF},  {5, 0xAFF83943, 0x5A4699BF},
+    {6, 0x3BB57CD8, 0x60BB33EC},  {7, 0xCA81F6FD, 0x8A2709BE},  {8, 0xDB13E4F0, 0x6D018122},
+    {9, 0x1409F387, 0xBE1EF064},  {10, 0x9A32E8DB, 0x6699D23D}, {11, 0x1409F387, 0xF9F71422},
+    {12, 0x1409F387, 0x7546C031}, {13, 0xC1FD605B, 0x60BB33EC}, {14, 0x738B1F9B, 0x00000000},
+};
+#else
 GIcon::EffectInfo GIcon::kEffectInfo[] = {
     {0, 0x00000000, 0x00000000},  {1, 0x9E535570, 0xE1EB3B0F},  {2, 0x3A583CA3, 0x3CCB52C5},
     {3, 0xC8E0972E, 0xC0087531},  {4, 0x734A6A5E, 0xB8E326BF},  {5, 0xCA67B527, 0x5A4699BF},
@@ -18,18 +30,19 @@ GIcon::EffectInfo GIcon::kEffectInfo[] = {
     {12, 0x00000000, 0x7546C031}, {13, 0xC1FD605B, 0x60BB33EC}, {14, 0xC1FD605B, 0x60BB33EC},
     {15, 0x00000000, 0x00000000}, {16, 0x738B1F9B, 0x00000000},
 };
+#endif
 
 static int sNumSpawned = 0;
 
-GIcon::GIcon(Type type, const UMath::Vector3 &position, float rotation)
+GIcon::GIcon(Type type, const UMath::Vector3 &pos, float rotDeg)
     : mType(type),
       mFlags(0),
       mSectionID(-1),
       mCombSectionID(-1),
       mModel(NULL),
       mEmitter(NULL),
-      mPosition(UMath::Vector3Make(position.x, position.y, position.z)) {
-    mRotation = bDegToAng(rotation);
+      mPosition(UMath::Vector3Make(pos.x, pos.y, pos.z)) {
+    mRotation = bDegToAng(rotDeg);
     FindSection();
 }
 
@@ -111,9 +124,11 @@ void GIcon::SnapToGround() {
         return;
     }
 
+#ifndef EA_BUILD_A124 // la A124 recoloca aunque ya tenga altura
     if (mPosition.z != 0.0f) {
         return;
     }
+#endif
 
     UMath::Vector3 posSwiz = UMath::Vector3Make(-mPosition.y, mPosition.z, mPosition.x);
 
@@ -158,12 +173,12 @@ void GIcon::ReleaseParticleEffect() {
 }
 
 void GIcon::RefreshEffects() {
-    bool enabled = IsFlagSet(0x8);
+    bool shouldBeEnabled = IsFlagSet(0x8);
 
     Disable();
     ReleaseParticleEffect();
 
-    if (enabled) {
+    if (shouldBeEnabled) {
         Enable();
     }
 }
@@ -193,7 +208,10 @@ void GIcon::SetPosition() {
         bMatrix4 mat;
         bVector3 pos;
 
-        bCopy(&pos, (const bVector3 *) &mPosition);
+        // Copia miembro a miembro: el original la emite por FPU, no por VU.
+        pos.x = mPosition.x;
+        pos.y = mPosition.y;
+        pos.z = mPosition.z;
         bIdentity(&mat);
         eRotateZ(&mat, &mat, mRotation);
         bCopy(&mat.v3, &pos, 1.0f);

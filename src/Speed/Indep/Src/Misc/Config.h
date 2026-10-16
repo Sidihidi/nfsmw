@@ -62,6 +62,8 @@ extern int AnimCfg_DisableAnimations;
 extern int AnimCfg_DebugOutput;
 extern int AnimCfg_DisableWorldAnimations;
 extern int OnlineEnabled;
+// Solo PS2 (A124: SkipOLDnas:G21, entre UseRecordable y DisableCaffeine); UIAuthDNAS::NotificationMessage lo lee.
+extern bool SkipOLDnas;
 extern int DisableCommunication;
 extern bool UnlockAllThings;
 extern bool SkipCareerIntro;

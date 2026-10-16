@@ -44,10 +44,14 @@ void SFXCTL_Shifting::UpdateMixerOutputs() {
 }
 
 int SFXCTL_Shifting::GetController(int Index) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return Index == 0 ? 4 : -1;
+#else
     if (Index != 0) {
         return -1;
     }
     return 4;
+#endif
 }
 
 void SFXCTL_Shifting::AttachController(SFXCTL *psfxctl) {
@@ -65,7 +69,6 @@ void SFXCTL_Shifting::SetupSFX(CSTATE_Base *_StateBase) {
 
 void SFXCTL_Shifting::InitSFX() {
     SFXCTL::InitSFX();
-    this->ShiftType = static_cast<AEMS_SHIFTING_SAMPLES>(1);
     this->m_VOL_LFO_AMP = 0;
     this->m_VOL_LFO_FRQ = 0;
     this->m_TRQ_LFO_AMP = 0;
@@ -78,10 +81,11 @@ void SFXCTL_Shifting::InitSFX() {
     this->m_bPendingNeedShiftSound = false;
     this->m_bShouldBeWhining = false;
     this->m_bBrakePedalMashed = false;
+    this->ShiftType = AEMS_SHIFTING_UP;
     this->tShiftDelay = 0.0f;
+    this->t_Last_Shift = 0.0f;
     this->m_nPostShiftFXLevel = 0;
     this->m_bNeed_DeccelSnd = false;
-    this->t_Last_Shift = 0.0f;
     this->m_bNeed_AccelSnd = false;
     this->m_timeBrakeLastMashed = Timer(0);
 }
@@ -127,7 +131,7 @@ void SFXCTL_Shifting::UpdateGearShiftState(float t) {
     this->UpdateTorque(t);
     this->m_InterpShiftVol.Update(t);
     this->PostShiftFX_Update(t);
-    this->t_CurStage = t * 1000.0f + this->t_CurStage;
+    this->t_CurStage += t * 1000.0f;
 
     switch (this->eShiftState) {
     case SHFT_UP_DISENGAGE: {
@@ -228,7 +232,7 @@ void SFXCTL_Shifting::UpdateGearShiftState(float t) {
         this->eShiftStageChanged = SHFT_DOWN_ENGAGING_FALL;
 
         int Length = static_cast<int>(this->m_pShiftingPatternData->Down_Engaging_Fall_T());
-        if (this->GetCurGear() < SECOND_GEAR && this->m_UGL < AEMS_LEVEL2) {
+        if (this->GetCurGear() < SECOND_GEAR && this->m_UGL <= AEMS_LEVEL1) {
             Length = static_cast<int>(static_cast<float>(Length) * THIRD_GEAR_LFO_SCALE);
         }
 
@@ -338,7 +342,7 @@ float SFXCTL_Shifting::GetShiftingVOL() { return this->m_InterpShiftVol.GetValue
 void SFXCTL_Shifting::BeginUpShift() {
     this->CleanUpShiftFX();
 
-    if (MIN_RPM_FOR_SHIFT_FX > this->m_pEngineCtl->m_pPhysicsCtl->GetPhysRPM()) {
+    if (this->m_pEngineCtl->m_pPhysicsCtl->GetPhysRPM() < MIN_RPM_FOR_SHIFT_FX) {
         return;
     }
 
@@ -354,8 +358,8 @@ void SFXCTL_Shifting::BeginUpShift() {
                         static_cast<float>(this->m_pShiftingPatternData->Up_DisengageFall(0).Time),
                         static_cast<float>(this->m_pShiftingPatternData->Up_DisengageFall(0).RPM));
 
-    this->m_CurStage = 0;
     this->t_CurStage = 0.0f;
+    this->m_CurStage = 0;
     this->RPMOffset = static_cast<unsigned short>(static_cast<int>(this->RPM_AtShift));
 
     this->m_InterpShiftRPM.Initialize(this->RPM_AtShift, this->RPM_AtShift, 0, LINEAR);
@@ -376,7 +380,7 @@ void SFXCTL_Shifting::BeginUpShift() {
 
     this->tShiftDelay = SndBase::m_fRunningTime + this->m_pShiftingPatternData->Up_Shift_Sound_Delay();
     this->m_bPendingNeedShiftSound = true;
-    this->ShiftType = static_cast<AEMS_SHIFTING_SAMPLES>(1);
+    this->ShiftType = AEMS_SHIFTING_UP;
     this->m_bNeed_DisengageSnd = true;
 }
 
@@ -394,47 +398,45 @@ void FillGraphFromSpline(const UMath::Matrix4 &matrix, bVector2 *points, int num
 void SFXCTL_Shifting::BeginDownShift() {
     float TargetRPM;
 
-    if (this->GetCurGear() != NEUTRAL) {
-        this->CleanUpShiftFX();
-        this->eShiftState = SHFT_DOWN_DISENGAGE;
-        this->eShiftStageChanged = SHFT_DOWN_DISENGAGE;
-
-        this->RPM_AtShift = this->m_pEngineCtl->m_fPrevRPM;
-        this->m_pEngineCtl->SetEngRPM(this->RPM_AtShift);
-        this->t_Last_Shift = SndBase::m_fRunningTime;
-
-        this->m_InterpShiftTorque.Initialize(this->m_pEngineCtl->m_pPhysicsCtl->GetPhysTRQ(), 0.0f, 0x32, LINEAR);
-
-        TargetRPM = this->RPM_AtShift - static_cast<float>(this->m_pShiftingPatternData->Down_Disengage_Fall_RPM());
-        TargetRPM = bClamp(TargetRPM, 1000.0f, 10000.0f);
-        this->m_InterpShiftRPM.Initialize(this->RPM_AtShift, TargetRPM,
-                                    static_cast<int>(this->m_pShiftingPatternData->Down_Disengage_Fall_T()), LINEAR);
-        this->m_InterpShiftVol.Initialize(0.0f, 0.0f, 1, LINEAR);
-
-        this->tShiftDelay = SndBase::m_fRunningTime + this->m_pShiftingPatternData->Down_Shift_Sound_Delay();
-        if (MIN_RPM_FOR_SHIFT_FX < this->m_pEngineCtl->m_pPhysicsCtl->GetPhysRPM()) {
-            this->m_bPendingNeedShiftSound = true;
-        }
-
-        this->ShiftType = static_cast<AEMS_SHIFTING_SAMPLES>(0);
+    if (this->GetCurGear() == NEUTRAL) {
+        return;
     }
+    this->CleanUpShiftFX();
+    this->eShiftState = SHFT_DOWN_DISENGAGE;
+    this->eShiftStageChanged = SHFT_DOWN_DISENGAGE;
+
+    this->RPM_AtShift = this->m_pEngineCtl->m_fPrevRPM;
+    this->m_pEngineCtl->SetEngRPM(this->RPM_AtShift);
+    this->t_Last_Shift = SndBase::m_fRunningTime;
+
+    this->m_InterpShiftTorque.Initialize(this->m_pEngineCtl->m_pPhysicsCtl->GetPhysTRQ(), 0.0f, 0x32, LINEAR);
+
+    TargetRPM = this->RPM_AtShift - static_cast<float>(this->m_pShiftingPatternData->Down_Disengage_Fall_RPM());
+    TargetRPM = bClamp(TargetRPM, 1000.0f, 10000.0f);
+    this->m_InterpShiftRPM.Initialize(this->RPM_AtShift, TargetRPM,
+                                static_cast<int>(this->m_pShiftingPatternData->Down_Disengage_Fall_T()), LINEAR);
+    this->m_InterpShiftVol.Initialize(0.0f, 0.0f, 1, LINEAR);
+
+    this->tShiftDelay = SndBase::m_fRunningTime + this->m_pShiftingPatternData->Down_Shift_Sound_Delay();
+    if (this->m_pEngineCtl->m_pPhysicsCtl->GetPhysRPM() > MIN_RPM_FOR_SHIFT_FX) {
+        this->m_bPendingNeedShiftSound = true;
+    }
+
+    this->ShiftType = AEMS_SHIFTING_DOWN;
 }
 
 void SFXCTL_Shifting::PostShiftFX_Update(float t) {
-    if (this->eShift_LFO != SHIFT_LFO_NONE) {
+    if (this->eShift_LFO) {
         this->m_Shift_RPM_AMP_DECAY.Update(t);
         this->m_Shift_VOL_AMP_DECAY.Update(t);
         if (this->m_Shift_RPM_AMP_DECAY.IsFinished()) {
-        }
-        if (this->m_Shift_RPM_AMP_DECAY.IsFinished()) {
             this->CleanUpShiftFX();
-            return;
+        } else {
+            this->m_RPM_LFO_AMP = static_cast<int>(this->m_Shift_RPM_AMP_DECAY.GetValue());
+            this->m_RPM_LFO_FRQ = static_cast<int>(this->m_pShiftingPatternData->LFO_RPM_Freq());
+            this->m_VOL_LFO_AMP = static_cast<int>(this->m_Shift_VOL_AMP_DECAY.GetValue());
+            this->m_VOL_LFO_FRQ = static_cast<int>(this->m_pShiftingPatternData->LFO_Vol_Freq());
         }
-
-        this->m_RPM_LFO_AMP = static_cast<int>(this->m_Shift_RPM_AMP_DECAY.GetValue());
-        this->m_RPM_LFO_FRQ = static_cast<int>(this->m_pShiftingPatternData->LFO_RPM_Freq());
-        this->m_VOL_LFO_AMP = static_cast<int>(this->m_Shift_VOL_AMP_DECAY.GetValue());
-        this->m_VOL_LFO_FRQ = static_cast<int>(this->m_pShiftingPatternData->LFO_Vol_Freq());
     }
 }
 
@@ -449,7 +451,11 @@ void SFXCTL_Shifting::PostShiftFX_End() {
 }
 
 void SFXCTL_Shifting::PostShiftFX_Init() {
+#ifdef EA_BUILD_A124
+    if (this->GetCurGear() >= FOURTH_GEAR) {
+#else
     if (this->GetCurGear() >= SIXTH_GEAR) {
+#endif
         return;
     }
 
@@ -460,12 +466,14 @@ void SFXCTL_Shifting::PostShiftFX_Init() {
     if (this->GetCurGear() == THIRD_GEAR) {
         ScaleDown = THIRD_GEAR_LFO_SCALE;
     }
+#ifndef EA_BUILD_A124
     if (this->GetCurGear() == FOURTH_GEAR) {
         ScaleDown = FOURTH_GEAR_LFO_SCALE;
     }
     if (this->GetCurGear() == FIFTH_GEAR) {
         ScaleDown = FIFTH_GEAR_LFO_SCALE;
     }
+#endif
 
     this->eShift_LFO = SHIFT_LFO_ON;
     this->m_Shift_RPM_AMP_DECAY.Initialize(static_cast<float>(this->m_pShiftingPatternData->LFO_RPM_Amp()) * ScaleDown, 0.0f,

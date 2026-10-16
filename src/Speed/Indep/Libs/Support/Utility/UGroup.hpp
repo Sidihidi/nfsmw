@@ -1,5 +1,5 @@
-#ifndef SUPPORT_UTILITY_UEALIBS_H
-#define SUPPORT_UTILITY_UEALIBS_H
+#ifndef SUPPORT_UTILITY_UGROUP_H
+#define SUPPORT_UTILITY_UGROUP_H
 
 #ifdef EA_PRAGMA_ONCE_SUPPORTED
 #pragma once
@@ -52,6 +52,10 @@ class UData {
         void *fPointer;       // offset 0x0, size 0x4
         unsigned int fOffset; // offset 0x0, size 0x4
     }; // offset 0xC, size 0x4
+
+    unsigned int Tag() const {
+        return fTag;
+    }
 
     unsigned int DataCount() const {
         return fCount;
@@ -107,10 +111,10 @@ class UGroup {
     void ResolveOffsets(const UGroupResolverData &resolver) const;
     void ProcessBreadthFirst(UGroup::Processor &processor) const;
     unsigned int GroupCountType(unsigned int type) const;
-    const UGroup *GroupLocateFirst(unsigned int type, unsigned int baseIndex, unsigned int maxIndex) const;
+    const UGroup *GroupLocateFirst(unsigned int tag, unsigned int baseIndex, unsigned int maxIndex) const;
     const UGroup *GroupLocateTag(unsigned int typeIndexTag) const;
-    unsigned int DataCountType(unsigned int type) const;
-    const UData *DataLocateFirst(unsigned int type, unsigned int baseIndex, unsigned int maxIndex) const;
+    unsigned int DataCountType(unsigned int tag) const;
+    const UData *DataLocateFirst(unsigned int tag, unsigned int baseIndex, unsigned int maxIndex) const;
     const UData *DataLocateTag(unsigned int typeIndexTag) const;
     const void *GetArray() const;
 

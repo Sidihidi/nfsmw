@@ -27,6 +27,9 @@
 #include "Speed/Indep/Src/FEng/FEngine.h"
 #include "types.h"
 
+
+
+
 // File: speed/indep/src/feng/FEPackageReader.cpp
 // total size: 0x8
 // Decl: speed/indep/src/feng/FEPackageReader.cpp:36
@@ -35,11 +38,15 @@ struct FETypeSize {
     u32 Size; // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackageReader.cpp:37
 };
 
+
 FEPackageReader::FEPackageReader() {
     Reset();
 }
 
+
 FEPackageReader::~FEPackageReader() {}
+
+
 
 void FEPackageReader::Reset() {
     pChunk = nullptr;
@@ -54,6 +61,11 @@ void FEPackageReader::Reset() {
     CurButton = 0;
     ButtonCount = 0;
 }
+
+
+
+
+
 
 FEPackage *FEPackageReader::Load(const void *pDataPtr, FEGameInterface *pInt, FEngine *pEng, bool bLoadObjNames, bool bLoadScrNames, bool bLibrary) {
     FEPackage *pResult = nullptr;
@@ -74,12 +86,58 @@ FEPackage *FEPackageReader::Load(const void *pDataPtr, FEGameInterface *pInt, FE
         pPack = nullptr;
     }
 Error:
-    if (pPack) {
-        delete pPack;
-    }
+    delete pPack;
+
+
     pPack = nullptr;
     return pResult;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 FEChunk *FEPackageReader::FindChild(FEChunk *pChunk, u32 ID) {
     FEChunk *pLast = pChunk->GetLastChunk();
@@ -93,6 +151,8 @@ FEChunk *FEPackageReader::FindChild(FEChunk *pChunk, u32 ID) {
     return nullptr;
 }
 
+
+
 u32 FEPackageReader::GetTypeSize(u32 TypeID) {
     for (u32 i = 0; i < TypeSizeCount; i++) {
         if (FEngGetu32(TypeSizeList[i].ID) == TypeID) {
@@ -101,6 +161,7 @@ u32 FEPackageReader::GetTypeSize(u32 TypeID) {
     }
     return 0;
 }
+
 
 bool FEPackageReader::ReadTypeSizes() {
     FEChunk *pSizesChunk = FindChild(pChunk, Chunk_FETypeSizes);
@@ -124,6 +185,7 @@ bool FEPackageReader::ReadHeaderChunk() {
     if (FEngGetu32(pData[0]) < FENG_PACKAGEWRITER_VERSION) {
         return false;
     }
+
     pPack = FNEW FEPackage();
     pPack->pCurrentButton = nullptr;
     ResourceCount = FEngGetu32(pData[2]);
@@ -135,6 +197,12 @@ bool FEPackageReader::ReadHeaderChunk() {
     pPack->SetFilename(pFileName);
     return true;
 }
+
+
+
+
+
+
 
 // TODO: regswap
 bool FEPackageReader::ReadReferencedPackagesChunk() {
@@ -184,13 +252,30 @@ bool FEPackageReader::ReadReferencedPackagesChunk() {
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool FEPackageReader::ReadLibraryRefsChunk() {
     FEChunk *pRefChunk = FindChild(pChunk, Chunk_FELibRefList);
     if (!pRefChunk) {
         return pPack->GetLibraryList().GetNumElements() == 0;
     }
     u32 Count = pRefChunk->GetSize() / sizeof(FELibraryRef);
-    if (pRefChunk->GetSize() != Count * sizeof(FELibraryRef)) {
+    if (pRefChunk->GetSize() % sizeof(FELibraryRef) != 0) {
         return false;
     }
     u32 *pData = reinterpret_cast<u32 *>(pRefChunk->GetData());
@@ -206,24 +291,36 @@ bool FEPackageReader::ReadLibraryRefsChunk() {
     return true;
 }
 
+
+
+
 bool FEPackageReader::ReadResourceChunk() {
+
     FEChunk *pResChunk = FindChild(pChunk, Chunk_FEResList);
     if (!pResChunk) {
         return false;
     }
+
+
     FEChunk *pNameChunk = pResChunk->GetFirstChunk();
     if (pNameChunk->GetID() != Chunk_FEResNames) {
         return false;
     }
+
     FEChunk *pResReqChunk = pNameChunk->GetNext();
     if (pResReqChunk->GetID() != Chunk_FEResRequests) {
         return false;
     }
+
+
+
+
     u32 *pData = reinterpret_cast<u32 *>(pResReqChunk->GetData());
     u32 NumRequests = FEngGetu32(pData[0]);
     pData++;
     pPack->NumRequests = NumRequests;
     if (NumRequests != 0) {
+
         pPack->pRequests = FNEW FEResourceRequest[NumRequests];
         pPack->pResourceNames = FNEW char[pNameChunk->GetSize()];
         for (u32 Index = 0; Index < NumRequests; Index++) {
@@ -243,6 +340,15 @@ bool FEPackageReader::ReadResourceChunk() {
     return true;
 }
 
+
+
+
+
+
+
+
+
+
 bool FEPackageReader::ReadPackageResponseChunk() {
     FEChunk *pRespList = FindChild(pChunk, Chunk_FEPackageResponseList);
     if (pRespList) {
@@ -250,6 +356,7 @@ bool FEPackageReader::ReadPackageResponseChunk() {
     }
     return true;
 }
+
 
 bool FEPackageReader::ReadObjectChunk() {
     FEChunk *pObjList = FindChild(pChunk, Chunk_FEObjectList);
@@ -264,10 +371,10 @@ bool FEPackageReader::ReadObjectChunk() {
         return false;
     }
 
-    while (pObjChunk->GetID() != Chunk_FEObject) {
-        if (pObjChunk >= pLast) {
-            return true;
-        }
+    while (pObjChunk->GetID() != Chunk_FEObject && pObjChunk < pLast) {
+
+
+
         if (pObjChunk->GetID() == Chunk_FEButtonCount) {
             ButtonCount = FEngGetu32(*reinterpret_cast<u32 *>(pObjChunk->GetData()));
             pPack->ButtonMap.SetCount(ButtonCount);
@@ -341,42 +448,68 @@ bool FEPackageReader::ReadObjectChunk() {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 FEObject *FEPackageReader::CreateObject(u32 ObjectType) {
     FEObject *pObject;
+
+
     switch (ObjectType) {
+
         case FE_String:
             pObject = FNEW FEString();
             break;
+
         case FE_List:
             pObject = FNEW FEListBox();
             break;
+
         case FE_CodeList:
             pObject = FNEW FECodeListBox();
             static_cast<FECodeListBox *>(pObject)->SetGameInterface(pInterface);
             break;
+
         case FE_Group:
             pObject = FNEW FEGroup();
             break;
+
         case FE_Image:
             pObject = FNEW FEImage();
             break;
+
         case FE_Movie:
             pObject = FNEW FEMovie();
             break;
+
         case FE_ColoredImage:
             pObject = FNEW FEColoredImage();
             break;
+
         case FE_AnimImage:
             pObject = FNEW FEAnimImage();
             break;
+
         case FE_SimpleImage:
             pObject = FNEW FESimpleImage();
             break;
+
         case FE_MultiImage:
             pObject = FNEW FEMultiImage();
             break;
+
         case FE_None:
             return nullptr;
+
         default:
             pObject = FNEW FEObject();
             break;
@@ -386,6 +519,11 @@ FEObject *FEPackageReader::CreateObject(u32 ObjectType) {
     pObject->SetDataSize(Size);
     return pObject;
 }
+
+
+
+
+
 
 bool FEPackageReader::ReadObjectTags(FETag *pTag, u32 Length) {
     FETag *pEnd = reinterpret_cast<FETag *>(reinterpret_cast<char *>(pTag) + Length);
@@ -502,6 +640,48 @@ bool FEPackageReader::ReadObjectTags(FETag *pTag, u32 Length) {
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEPackageReader::ProcessStringTag(FETag *pTag) {
     FEString *pString = static_cast<FEString *>(pObj);
     switch (pTag->GetID()) {
@@ -510,6 +690,7 @@ void FEPackageReader::ProcessStringTag(FETag *pTag) {
             break;
         case Tag_FEObjStringText:
             pString->string = reinterpret_cast<i16 *>(pTag->Data());
+#ifdef FENG_BIG_ENDIAN
             {
                 i16 *ptr = pString->string.mpsString;
                 while (*ptr) {
@@ -517,6 +698,7 @@ void FEPackageReader::ProcessStringTag(FETag *pTag) {
                     ptr++;
                 }
             }
+#endif
             break;
         case Tag_FEObjStringJustification:
             pString->Format = pTag->Getu32(0);
@@ -538,6 +720,15 @@ void FEPackageReader::ProcessStringTag(FETag *pTag) {
     }
 }
 
+
+
+
+
+
+
+
+
+
 void FEPackageReader::ProcessImageTag(FETag *pTag) {
     FEImage *pImage = static_cast<FEImage *>(pObj);
     if (pTag->GetID() != Tag_FEObjImageFlags) {
@@ -545,6 +736,10 @@ void FEPackageReader::ProcessImageTag(FETag *pTag) {
     }
     pImage->ImageFlags = pTag->Getu32(0);
 }
+
+
+
+
 
 void FEPackageReader::ProcessMultiImageTag(FETag *pTag) {
     FEMultiImage *pImage = static_cast<FEMultiImage *>(pObj);
@@ -570,12 +765,16 @@ void FEPackageReader::ProcessMultiImageTag(FETag *pTag) {
     }
 }
 
+
+
+
 void FEPackageReader::ProcessListBoxTag(FETag *pTag) {
-#ifdef EA_BUILD_A124
-    (void)pTag;
-    return;
-#else
+
+
+
+
     FEListBox *pList = static_cast<FEListBox *>(pObj);
+    FEListEntryData *pRowColData;
     switch (pTag->GetID()) {
         case Tag_FEObjListDimesions:
             pList->SetNumColumns(pTag->Getu32(0));
@@ -605,19 +804,18 @@ void FEPackageReader::ProcessListBoxTag(FETag *pTag) {
         }
         case Tag_FEObjListColumnData:
             CurListCol++;
-            {
-                FEListEntryData *pRowColData = pList->GetPColumnData(CurListCol);
-                pRowColData->fValue = pTag->Getf32(0);
-                pRowColData->ulJustification = pTag->Getu32(1);
-            }
+            pRowColData = pList->GetPColumnData(CurListCol);
+            pRowColData->fValue = pTag->Getf32(0);
+            pRowColData->ulJustification = pTag->Getu32(1);
+
             break;
         case Tag_FEObjListRowData:
             CurListRow++;
-            {
-                FEListEntryData *pRowColData = pList->GetPRowData(CurListRow);
-                pRowColData->fValue = pTag->Getf32(0);
-                pRowColData->ulJustification = pTag->Getu32(1);
-            }
+            pRowColData = pList->GetPRowData(CurListRow);
+            pRowColData->fValue = pTag->Getf32(0);
+            pRowColData->ulJustification = pTag->Getu32(1);
+
+
             break;
         case Tag_FEObjListCellColor: {
             CurListCell++;
@@ -655,14 +853,21 @@ void FEPackageReader::ProcessListBoxTag(FETag *pTag) {
         default:
             break;
     }
-#endif
+
 }
 
+
+
+
+
+
+
+
+
 void FEPackageReader::ProcessCodeListBoxTag(FETag *pTag) {
-#ifdef EA_BUILD_A124
-    (void)pTag;
-    return;
-#else
+
+
+
     FECodeListBox *pList = static_cast<FECodeListBox *>(pObj);
     switch (pTag->GetID()) {
         case Tag_FEObjCodeListDimensions:
@@ -698,8 +903,15 @@ void FEPackageReader::ProcessCodeListBoxTag(FETag *pTag) {
         default:
             break;
     }
-#endif
+
+
 }
+
+
+
+
+
+
 
 bool FEPackageReader::ReadScriptTags(FETag *pTag, u32 Length) {
     FETag *pEnd = reinterpret_cast<FETag *>(reinterpret_cast<unsigned char *>(pTag) + Length);
@@ -884,6 +1096,105 @@ bool FEPackageReader::ReadScriptTags(FETag *pTag, u32 Length) {
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool FEPackageReader::ReadMessageResponseTags(FETag *pTag, u32 Length, bool bPackage) {
     FETag *pEnd = reinterpret_cast<FETag *>(reinterpret_cast<char *>(pTag) + Length);
     FEMessageResponse *pMsgResp = nullptr;
@@ -934,6 +1245,21 @@ bool FEPackageReader::ReadMessageResponseTags(FETag *pTag, u32 Length, bool bPac
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool FEPackageReader::ReadMessageTargetListChunk() {
     FETag *pTag;
     FETag *pLast;
@@ -948,7 +1274,9 @@ bool FEPackageReader::ReadMessageTargetListChunk() {
         while (pTag < pLast) {
             switch (pTag->GetID()) {
                 case Tag_FEMsgTargetCount: {
+
                     u32 NumMsgs = pTag->Getu32(0);
+
                     pPack->NumMsgTargets = NumMsgs;
                     pPack->pMsgTargets = FNEW FEMsgTargetList[NumMsgs];
                     break;
@@ -973,20 +1301,22 @@ bool FEPackageReader::ReadMessageTargetListChunk() {
     return true;
 }
 
+
+
 // c34ord3 f6: el objetivo emite FindReferencedObject DETRAS de
 // ReadMessageTargetListChunk, no delante de ReadMessageResponseTags.
 // NO volver a subirla.
-bool FEPackageReader::FindReferencedObject(u32 ObjGUID, FEObject **ppRefObj, FEPackage **ppRefPack) {
-    *ppRefObj = nullptr;
-    *ppRefPack = nullptr;
+bool FEPackageReader::FindReferencedObject(u32 ObjGUID, FEObject **pRefObj, FEPackage **pRefPack) {
+    *pRefObj = nullptr;
+    *pRefPack = nullptr;
     FELibraryRef *pRef = pPack->FindLibraryReference(ObjGUID);
     if (!pRef) {
         return false;
     }
-    *ppRefPack = pEngine->FindLibraryPackage(pRef->PackNameHash);
-    if (!*ppRefPack) {
+    *pRefPack = pEngine->FindLibraryPackage(pRef->PackNameHash);
+    if (!*pRefPack) {
         return false;
     }
-    *ppRefObj = (*ppRefPack)->FindObjectByGUID(pRef->LibGUID);
-    return *ppRefObj != nullptr;
+    *pRefObj = (*pRefPack)->FindObjectByGUID(pRef->LibGUID);
+    return *pRefObj != nullptr;
 }

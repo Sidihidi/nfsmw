@@ -19,7 +19,7 @@
 #include "Speed/Indep/Src/Physics/PVehicle.h"
 #include "Speed/Indep/Src/Sim/Simulation.h"
 
-extern int gGameBreakerCamera;
+extern bool gGameBreakerCamera;
 extern bool Tweak_TriggerMomentAlways;
 
 EPlayRaceNIS::EPlayRaceNIS(GMarker *pStartMarker, const char *pSceneName, const char *pSceneType, int pPlayerIdx, int pCameraTrack,
@@ -255,10 +255,10 @@ void EPlayRaceNIS_MakeEvent_Callback(const void *staticData) {
                      ((EPlayRaceNIS::StaticData *) staticData)->fPostMovie);
 }
 
-int EPlayRaceNIS_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 7) {
-        new EPlayRaceNIS((GMarker *) lua_tostring(L, 1), lua_tostring(L, 2), lua_tostring(L, 3), (int) lua_tonumber(L, 4),
-                         (int) lua_tonumber(L, 5), lua_tostring(L, 6), lua_tostring(L, 7));
+int EPlayRaceNIS_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 7) {
+        new EPlayRaceNIS((GMarker *) lua_tostring(luaState, 1), lua_tostring(luaState, 2), lua_tostring(luaState, 3), (int) lua_tonumber(luaState, 4),
+                         (int) lua_tonumber(luaState, 5), lua_tostring(luaState, 6), lua_tostring(luaState, 7));
     }
     return 0;
 }

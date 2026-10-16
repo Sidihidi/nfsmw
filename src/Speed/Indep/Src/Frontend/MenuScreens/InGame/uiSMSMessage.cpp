@@ -93,8 +93,10 @@ void uiSMSMessage::Setup() {
 #endif
     m_TextScroller.SetTextHash(FEngHashString("SMS_MESSAGE_%d", the_msg->GetHandle()));
     if (!the_msg->IsVoice()) {
-        FEngSetInvisible(FEngFindObject(GetPackageName(), 0x2a631207));
-        FEngSetInvisible(FEngFindObject(GetPackageName(), 0x914614e5));
+        FEngSetInvisible(GetPackageName(), 0x2a631207);
+#ifndef EA_BUILD_A124
+        FEngSetInvisible(GetPackageName(), 0x914614e5);
+#endif
     }
     Module* cop_speech = Speech::Manager::GetSpeechModule(1);
     if (cop_speech != nullptr) {
@@ -124,11 +126,19 @@ void uiSMSMessage::NotificationMessage(u32 msg, FEObject* pobj, u32 param1, u32 
     case 0x34dc1bcf:
         break;
     case 0x35f8620b: {
+#ifdef EA_BUILD_A124 // la A124 solo marca el mensaje (bandera 2) si es de voz y no se ha leido
+        if (the_msg->IsVoice() && the_msg->IsUnRead()) {
+            the_msg->ClearFlags();
+            the_msg->SetFlag(2);
+            MiscSpeech::SMSCellCall(the_msg->GetHandle());
+        }
+#else
         if (the_msg->IsVoice() && the_msg->IsUnRead()) {
             MiscSpeech::SMSCellCall(the_msg->GetHandle());
         }
         the_msg->ClearFlags();
         the_msg->SetFlag(4);
+#endif
         break;
     }
     case 0xe1fde1d1: {

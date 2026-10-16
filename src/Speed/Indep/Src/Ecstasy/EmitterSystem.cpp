@@ -16,6 +16,9 @@
 #include "eMath.hpp"
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 #include <algorithm>
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/PC/Src/Ecstasy/eViewPlat.hpp"
+#endif
 
 uint32 CrappyStuffThatCantShip[3] = {0x378D447E, 0xF8170EED, 0x0B9204CE};
 TexturePageRange *EmitterSystem::mTextureRanges = 0;
@@ -41,9 +44,10 @@ bool IsAShittyEffect(uint32 group_key) {
     return false;
 }
 
-// La A124 no comprime las velocidades de las particulas (smVector3 lleva un bVector3 entero): no tiene ni
-// ExpandVector ni CompressVector, y UpdateParticles y SpawnParticles copian el vector tal cual.
-#ifndef EA_BUILD_A124
+// Las dos PS2 no comprimen las velocidades de las particulas (smVector3 lleva un bVector3 entero): no tienen ni
+// ExpandVector ni CompressVector, y UpdateParticles y SpawnParticles copian el vector tal cual. PC tampoco
+// (w12c6: mFlags en 0x5C y 0x70 B por particula, igual que PS2).
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
 void ExpandVector(const smVector3 *sv, bVector3 *bv) {
     bv->x = sv->magnitude * (1.0f / 127 * sv->x);
     bv->y = sv->magnitude * (1.0f / 127 * sv->y);
@@ -156,6 +160,18 @@ bool GetConstraintBasis(EffectParticleConstraint constraint, bVector4 &x_basis, 
     return res;
 }
 
+// Las esquinas de una particula con eje fijo (la llama el render de particulas de PS2, AcidFXE.cpp; en GameCube se
+// compila y el enlazador la quita: Range 0xFFFFFFFF en el DWARF).
+void AdjustConstrainedParticle(bVector4 &position, bVector4 &local_basis_x, bVector4 &local_basis_y, bVector4 &wp0, bVector4 &wp1,
+                               bVector4 &wp2, bVector4 &wp3) {
+    bVector4 local_basis_x_minus_local_basis_y = local_basis_x - local_basis_y;
+    bVector4 local_basis_x_plus__local_basis_y = local_basis_x + local_basis_y;
+    wp0 = position - local_basis_x_minus_local_basis_y;
+    wp1 = position - local_basis_x_plus__local_basis_y;
+    wp2 = position + local_basis_x_plus__local_basis_y;
+    wp3 = position + local_basis_x_minus_local_basis_y;
+}
+
 void EmitterSystem::OrphanParticlesFromThisEmitter(Emitter *em) {
     if (em->HasOrphanedParticles()) {
         return;
@@ -186,7 +202,11 @@ int GetNumParticleTextures();
 void EmitterSystem::KillEverything() {
     for (EmitterGroup *grp = this->mEmitterGroups.GetHead(); grp != this->mEmitterGroups.EndOfList();) {
         EmitterGroup *grp_next = grp->GetNext();
+#ifdef EA_PLATFORM_WIN32 // speed.exe prueba el flag directo (test byte [esi+0x18],2); con IsStatic() sale shr+test
+        if (!(grp->mFlags & IS_STATIC)) {
+#else
         if (!grp->IsStatic()) {
+#endif
             delete grp;
             grp = grp_next;
         }
@@ -196,23 +216,25 @@ void EmitterSystem::KillEverything() {
 }
 
 void InitParticleSlotPool() {
-    ParticleSlotPool = bNewSlotPool(0x40, 0x400, "ParticleSlotPool", 0);
-    ParticleSlotPool->ClearFlag(SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY);
+    ParticleSlotPool = bNewSlotPool(sizeof(EmitterParticle), 0x400, "ParticleSlotPool", 0);
     ParticleSlotPool->ClearFlag(SLOTPOOL_FLAG_OVERFLOW_IF_FULL);
+    ParticleSlotPool->ClearFlag(SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY);
 }
 
 void InitEmitterSlotPool() {
     EmitterSlotPool = bNewSlotPool(0x90, 500, "EmitterSlotPool", 0);
-    EmitterSlotPool->ClearFlag(SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY);
     EmitterSlotPool->ClearFlag(SLOTPOOL_FLAG_OVERFLOW_IF_FULL);
+    EmitterSlotPool->ClearFlag(SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY);
 }
 
 void InitEmitterGroupSlotPool() {
     EmitterGroupSlotPool = bNewSlotPool(0x80, 200, "EmitterGroupSlotPool", 0);
-    EmitterGroupSlotPool->ClearFlag(SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY);
     EmitterGroupSlotPool->ClearFlag(SLOTPOOL_FLAG_OVERFLOW_IF_FULL);
+    EmitterGroupSlotPool->ClearFlag(SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY);
 }
 
+// La A124 no tiene ServiceWorldEffects: sus efectos del mundo se crean todos en RefreshWorldEffects.
+#ifndef EA_BUILD_A124
 void EmitterSystem::ServiceWorldEffects() {
     for (LibList::iterator it = this->mLibs.begin(); it != this->mLibs.end(); it++) {
         EmitterLibrary *lib = it->Lib;
@@ -239,6 +261,7 @@ void EmitterSystem::ServiceWorldEffects() {
         }
     }
 }
+#endif
 
 void EmitterSystem::RefreshWorldEffects() {
     for (WorldFXTrigger *trig = this->mWorldTriggers.GetHead(); trig != this->mWorldTriggers.EndOfList(); trig = trig->GetNext()) {
@@ -319,9 +342,17 @@ EmitterDataAttribWrapper::EmitterDataAttribWrapper(const Attrib::Collection *spe
 EmitterGroupAttribWrapper::EmitterGroupAttribWrapper(const Attrib::Collection *spec) : mStaticData(spec, 0, nullptr) {}
 
 void GetFloatColor(uint32 clr, bVector4 &clr_out) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // r53 (PS2): mascara antes del desplazamiento — el ee-gcc materializa 0xff000000 (lui+and)
+    // y 0xff00 (andi) y despues desplaza; el srl limpio GC ya lo casa (prodg simplifica).
+    uint32 rr = (clr & 0xff000000) >> 0x18;
+    uint32 gg = clr >> 0x10 & 0xff;
+    uint32 bb = (clr & 0xff00) >> 8;
+#else
     uint32 rr = clr >> 0x18;
     uint32 gg = clr >> 0x10 & 0xff;
     uint32 bb = clr >> 8 & 0xff;
+#endif
     uint32 aa = clr & 0xff;
 
     clr_out.x = rr * 0.003921569f;
@@ -354,7 +385,10 @@ void EmitterDataAttribWrapper::CalculateBases() {
     float key3 = this->mStaticData.KeyPositions().w / 3;
 
     bVector4 partSize(this->mStaticData.Size());
+    // Las dos PS2 copian el tamano tal cual; GameCube, PC y X360 lo reducen a la mitad.
+#ifndef EA_PLATFORM_PLAYSTATION2
     partSize *= 0.5f;
+#endif
     extra_control_matrix.v0.x = partSize.x;
     extra_control_matrix.v1.x = partSize.y;
     extra_control_matrix.v2.x = partSize.z;
@@ -374,13 +408,19 @@ Emitter::Emitter(const Attrib::Collection *spec, EmitterGroup *parent_group) {
     this->mParticleAccumulation = 0.0f;
     this->mRandomSeed = 0;
     eIdentity(&this->mLocalWorld);
-    this->mRandomSeed = static_cast<int>(bRandom(2.1474836e+09f, &EmitterRandomSeed));
+    this->mRandomSeed = bFloatToInt(bRandom(2.1474836e+09f, &EmitterRandomSeed));
     this->mFlags = parent_group->GetFlags() & 0xffff0000;
     this->mMinIntensity = 0.0f;
+#ifdef EA_PLATFORM_WIN32
+    // w12c6: el original emite mMaxIntensity antes que mGroup (mov [esi+0x74] primero)
+    this->mMaxIntensity = 1.0f;
+#endif
     this->mGroup = parent_group;
     this->mTexPageTokenNode = nullptr;
     this->mNumParticles = 0;
+#ifndef EA_PLATFORM_WIN32
     this->mMaxIntensity = 1.0f;
+#endif
     this->mListIndex = this->CalcParticleListIndex();
     this->mTexturePageRange = nullptr;
 }
@@ -403,8 +443,12 @@ void Emitter::GetInitialParticleColorAndSize(const bMatrix4 *xtra_basis, const b
     outParticle->mSize = extra_params.x;
 
     bAngle pangle = outParticle->mAngle;
-    bAngle adelta = static_cast<bAngle>(extra_params.y);
+    bAngle adelta = static_cast<bAngle>(bFloatToInt(extra_params.y));
+#ifdef EA_PLATFORM_WIN32 // speed.exe prueba el bit con test; GameCube casa con el modulo
+    if ((pangle & 1) == 0) {
+#else
     if (pangle % 2 == 0) {
+#endif
         pangle += adelta;
     } else {
         pangle -= adelta;
@@ -438,11 +482,15 @@ void Emitter::GetInitialParticleColorAndSize(const bMatrix4 *xtra_basis, const b
     if (col.w > 255.0f) {
         col.w = 255.0f;
     }
-    uint32 r = static_cast<int>(col.x);
-    uint32 g = static_cast<int>(col.y);
-    uint32 b = static_cast<int>(col.z);
-    uint32 a = static_cast<int>(col.w);
+    uint32 r = bFloatToInt(col.x);
+    uint32 g = bFloatToInt(col.y);
+    uint32 b = bFloatToInt(col.z);
+    uint32 a = bFloatToInt(col.w);
+#ifdef EA_PLATFORM_WIN32 // speed.exe empaqueta ARGB (D3DCOLOR): su primer ftol es el de a
+    outParticle->mColour = a << 24 | r << 16 | g << 8 | b;
+#else
     outParticle->mColour = r << 24 | g << 16 | b << 8 | a;
+#endif
 }
 
 void Emitter::GetDiscVelocity(float &x, float &y, float &z, uint32 &rand_seed) const {
@@ -451,9 +499,16 @@ void Emitter::GetDiscVelocity(float &x, float &y, float &z, uint32 &rand_seed) c
 
     bMatrix4 orientation(this->mLocalWorld);
     orientation.v3.x = 0.0f;
+#ifdef EA_PLATFORM_WIN32
+    // w12c6: y,z,w en orden textual; con w antes MSVC adelanta el store de 1.0f
+    orientation.v3.y = 0.0f;
+    orientation.v3.z = 0.0f;
+    orientation.v3.w = 1.0f;
+#else
     orientation.v3.w = 1.0f;
     orientation.v3.y = 0.0f;
     orientation.v3.z = 0.0f;
+#endif
 
     bMatrix4 *identity = eGetIdentityMatrix();
     bMatrix4 rott;
@@ -502,10 +557,19 @@ uint16 Emitter::CalcParticleListIndex() {
 
 void GetAnimatedUVs(EffectParticleAnimation texture_layout_type, int frame, uint32 *uvS, uint32 *uvE) {
     if (texture_layout_type != ANIMATE_PARTICLE_NONE) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // r53 (PS2): mascara antes del desplazamiento (familia GetFloatColor) — el ee-gcc del
+        // original emite lui 0xffff + and + srl 16; GC casa con el srl limpio (prodg simplifica).
+        float startu = ((*uvS & 0xffff0000) >> 16) / 65535.0f;
+        float startv = (*uvS & 0xffff) / 65535.0f;
+        float endu = ((*uvE & 0xffff0000) >> 16) / 65535.0f;
+        float endv = (*uvE & 0xffff) / 65535.0f;
+#else
         float startu = (*uvS >> 16) / 65535.0f;
         float startv = (*uvS & 0xffff) / 65535.0f;
         float endu = (*uvE >> 16) / 65535.0f;
         float endv = (*uvE & 0xffff) / 65535.0f;
+#endif
         // TODO some names might be wrong
         int32 square_width;
         int num_sub_squares = frame / texture_layout_type;
@@ -513,8 +577,8 @@ void GetAnimatedUVs(EffectParticleAnimation texture_layout_type, int frame, uint
         float fsquarewidth = xdiff / texture_layout_type;
         int i = frame - num_sub_squares * texture_layout_type;
         int j = num_sub_squares;
-        *uvS = (int)((i * fsquarewidth + startu) * 65535.0f) << 16 | (int)((j * fsquarewidth + startv) * 65535.0f);
-        *uvE = (int)(((i + 1) * fsquarewidth + startu) * 65535.0f) << 16 | (int)(((j + 1) * fsquarewidth + startv) * 65535.0f);
+        *uvS = bFloatToInt((i * fsquarewidth + startu) * 65535.0f) << 16 | bFloatToInt((j * fsquarewidth + startv) * 65535.0f);
+        *uvE = bFloatToInt(((i + 1) * fsquarewidth + startu) * 65535.0f) << 16 | bFloatToInt(((j + 1) * fsquarewidth + startv) * 65535.0f);
     }
 }
 
@@ -532,9 +596,15 @@ EmitterGroup::EmitterGroup(const Attrib::Collection *spec, uint32 creation_conte
     eIdentity(&this->mLocalWorld);
     this->mSubscriber = nullptr;
     this->mDeleteCallback = nullptr;
+#ifdef EA_BUILD_A124
+    // En la A124 las tres ultimas palabras son pad[3] (stabs) y el constructor pone a cero las dos primeras.
+    this->mNumZeroParticleFrames = 0;
+    this->mCreationTimeStamp = 0;
+#else
     this->mNumZeroParticleFrames = 0;
     this->mCreationTimeStamp = bGetTicker();
     this->pad = 0;
+#endif
     if (spec) {
         if (this->SetEmitters(creation_context_flags)) {
             this->SetLoadedFlag();
@@ -557,7 +627,15 @@ bool EmitterGroup::SetEmitters(uint32 creation_context_flags) {
     if (grpatr.IsValid()) {
         int num_emitters = grpatr.Num_Emitters();
         int num_ranges = grpatr.Num_IntensityRanges();
+#ifdef EA_PLATFORM_WIN32 // speed.exe materializa el bool por rama (store + jne + store); GameCube casa con el sete
+        bool setRanges = false;
+
+        if (num_ranges == num_emitters) {
+            setRanges = true;
+        }
+#else
         bool setRanges = num_ranges == num_emitters;
+#endif
         if (num_emitters == 0) {
             return false;
         }
@@ -576,13 +654,17 @@ bool EmitterGroup::SetEmitters(uint32 creation_context_flags) {
                 emitter->SetLocalWorld(&this->mLocalWorld);
                 if (setRanges) {
                     UMath::Vector2 range = grpatr.IntensityRanges(i);
+#ifndef EA_BUILD_A124
                     if (range.x == range.y || range.x > range.y) {
                         range.x = 0.0f;
                         range.y = 1.0f;
                     }
+#endif
                     emitter->SetIntensityRange(range.x, range.y);
+#ifndef EA_BUILD_A124
                 } else {
                     emitter->SetIntensityRange(0.0f, 999999.0f);
+#endif
                 }
                 this->mEmitters.AddTail(emitter);
                 this->mNumEmitters++;
@@ -702,8 +784,13 @@ WorldFXTrigger *EmitterLibraryHeader::GetLibraryTriggers(int32 i) {
             return trigs;
         }
         uint16 num_trigs = lib->mNumTriggers;
+#ifdef EA_PLATFORM_WIN32 // speed.exe incrementa ix antes de avanzar lib (como GetLibrary); GameCube casa al reves
+        ix++;
+        lib = reinterpret_cast<EmitterLibrary *>(trigs + lib->mNumTriggers);
+#else
         lib = reinterpret_cast<EmitterLibrary *>(trigs + lib->mNumTriggers);
         ix++;
+#endif
     }
     return nullptr;
 }
@@ -720,12 +807,12 @@ EmitterLibrary *EmitterLibraryHeader::GetLibrary(int32 i) {
     ix = 0;
     while (ix < i) {
         uint16 num_trigs = lib->mNumTriggers;
-        EmitterLibrary *next = reinterpret_cast<EmitterLibrary *>(lib + 1);
+        WorldFXTrigger *trigs = reinterpret_cast<WorldFXTrigger *>(lib + 1);
+        trigs += num_trigs;
         ix++;
-        next = reinterpret_cast<EmitterLibrary *>(reinterpret_cast<WorldFXTrigger *>(next) + num_trigs);
-        lib = next;
+        lib = reinterpret_cast<EmitterLibrary *>(trigs);
         if (ix == i) {
-            return next;
+            return lib;
         }
     }
     return nullptr;
@@ -757,13 +844,21 @@ void EmitterLibraryHeader::EndianSwap() {
 
 // UNSOLVED (EmitterParticle ctor)
 EmitterParticle *EmitterSystem::GetNewParticle(Emitter *spawning_emitter) {
+#ifndef EA_BUILD_A124 // la A124 no recicla grupos al llegar al tope (EmitterSystem.cpp:1742-1753 de sus stabs)
     if (this->mTotalNumParticles == 1024) {
         bool high_priority = spawning_emitter->GetEmitterGroup()->GetFlags() & 0x40000;
         if (high_priority) {
             bool done = false;
             for (EmitterGroup *grp = this->mEmitterGroups.GetHead(); !done && grp != mEmitterGroups.EndOfList();) {
                 EmitterGroup *grpnext = grp->GetNext();
-                if (grp->GetNumParticles() != 0 && (((grp->GetFlags() & 0x8000000) != 0) &&  // CreationContextFlags::WORLD_EFFECT?
+                // CreationContextFlags::WORLD_EFFECT?
+                if (grp->GetNumParticles() != 0 && (((grp->GetFlags() & 0x8000000)
+#ifdef EA_PLATFORM_WIN32
+                                                     // w12c6: `> 0` emite jbe como el original; `!= 0` emite je
+                                                     > 0) &&
+#else
+                                                     != 0) &&
+#endif
                                                     ((grp->GetFlags() & 0x40000) == 0) &&    // CreationContextFlags::GAMEPLAY_EFFECT?
                                                     ((grp->GetFlags() & 0x4000000) == 0))) { // CreationContextFlags::TRIGGERED_EFFECT?
                     done = true;
@@ -784,6 +879,7 @@ EmitterParticle *EmitterSystem::GetNewParticle(Emitter *spawning_emitter) {
             }
         }
     }
+#endif
     EmitterParticle *new_particle = new EmitterParticle();
     if (new_particle) {
         new_particle->mFlags = spawning_emitter->GetFlags() & 0xFFFF0000;
@@ -895,7 +991,7 @@ EmitterGroup *EmitterSystem::CreateEmitterGroup(const Attrib::Collection *group_
                     }
                 }
 
-                if (ThisIsNISCondition || (this->mNumEmitters + numEmitters < 501 && this->mNumEmitterGroups < 200)) {
+                if (ThisIsNISCondition || (this->mNumEmitters + numEmitters <= 500 && this->mNumEmitterGroups < 200)) {
                     grp = new EmitterGroup(group_spec, creation_context_flags);
                     if (grp) {
                         grp->Enable();
@@ -969,7 +1065,7 @@ void EmitterSystem::UpdateParticles(float dt) {
         return;
     }
     ProfileNode profile_node;
-    int32 time_step = static_cast<int>(dt * 1024.0f);
+    int32 time_step = bFloatToInt(dt * 1024.0f);
     float ed_drag = 0.0f;                                        // f26
     float ed_gravity = 0.0f;                                     // f27
     float ed_life = 0.0f;                                        // f24
@@ -982,7 +1078,11 @@ void EmitterSystem::UpdateParticles(float dt) {
     const Attrib::Gen::emitterdata *last_emitter_data_atr = nullptr;
 
     for (EmitterGroup *grp = this->mEmitterGroups.GetHead(); grp != this->mEmitterGroups.EndOfList(); grp = grp->GetNext()) {
+#ifdef EA_BUILD_A124
+        if (!this->IsCloseEnough(grp, 0)) {
+#else
         if (!this->IsCloseEnough(grp, 0, 0.7f)) {
+#endif
             bTList<Emitter> &emitters = grp->GetEmitters();
             for (Emitter *em = emitters.GetHead(); em != emitters.EndOfList(); em = em->GetNext()) {
                 gEmitterSystem.KillParticlesFromThisEmitter(em);
@@ -1038,7 +1138,7 @@ void EmitterSystem::UpdateParticles(float dt) {
                             uint32 cur_frame;
                             int frame_index;
 
-                            delta_frames = (int32)(dt * fAnimFPS / f_num_frames * 65535.0f);
+                            delta_frames = bFloatToInt(dt * fAnimFPS / f_num_frames * 65535.0f);
                             cur_frame = particle->mAnimFrame;
 
                             cur_frame += delta_frames;
@@ -1048,7 +1148,7 @@ void EmitterSystem::UpdateParticles(float dt) {
                                 cur_frame -= 65535;
                             }
                             cur_frame = (uint16)cur_frame;
-                            frame_index = (int32)((float)cur_frame / 65535.0f * f_max_frame_index);
+                            frame_index = bFloatToInt((float)cur_frame / 65535.0f * f_max_frame_index);
                             em->GetStandardUVs(&particle->mUVStart, &particle->mUVEnd);
                             GetAnimatedUVs(anim_type, frame_index, &particle->mUVStart, &particle->mUVEnd);
                             particle->mAnimFrame = cur_frame;
@@ -1056,7 +1156,7 @@ void EmitterSystem::UpdateParticles(float dt) {
                         ppos.x = particle->mPosX;
                         ppos.y = particle->mPosY;
                         ppos.z = particle->mPosZ;
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
                         // lqc2 de 0x10 y 0x30 de la particula (0x220148 y 0x220150)
                         pvel = particle->mVel.v;
                         pacc = particle->mAcc.v;
@@ -1079,7 +1179,7 @@ void EmitterSystem::UpdateParticles(float dt) {
                         particle->mPosX = ppos.x;
                         particle->mPosY = ppos.y;
                         particle->mPosZ = ppos.z;
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
                         // sqc2 a 0x10 y 0x30 de la particula (0x220240 y 0x220248)
                         particle->mVel.v = pvel;
                         particle->mAcc.v = pacc;
@@ -1105,10 +1205,10 @@ void EmitterSystem::UpdateParticles(float dt) {
                         particle->mAngle = pangle;
                         RotateTranslate(t, *reinterpret_cast<const UMath::Matrix4 *>(ColourBasis), col);
                         Scale(col, 255.0f, col);
-                        r = bClamp(static_cast<int>(col.x), 0, 255);
-                        g = bClamp(static_cast<int>(col.y), 0, 255);
-                        b = bClamp(static_cast<int>(col.z), 0, 255);
-                        a = bClamp(static_cast<int>(col.w), 0, 255);
+                        r = bClamp(bFloatToInt(col.x), 0, 255);
+                        g = bClamp(bFloatToInt(col.y), 0, 255);
+                        b = bClamp(bFloatToInt(col.z), 0, 255);
+                        a = bClamp(bFloatToInt(col.w), 0, 255);
                         particle->mColour = r << 24 | g << 16 | b << 8 | a;
                         ignore_programmer_badness = em->GetAttributes().NoKillAtAlpha();
                         alpha_value_to_kill_at = em->GetAttributes().AlphaToKillAt();
@@ -1180,6 +1280,23 @@ EmitterSystem::EmitterSystem() {
     bMemSet(mParticleListCounts, 0, sizeof(mParticleListCounts));
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC: las particulas van a un objeto global (0x9877CC, su primer byte es el "pintando" de PlatStart/EndParticleRender)
+// con un metodo __thiscall (0x6C1160, ret 0x18). Los nombres de la clase, del objeto y del metodo son nuestros.
+struct eParticleRenderer {
+    bool Rendering;
+
+    void AddParticle(const EmitterParticle &particle, const UMath::Vector3 &upVec, const UMath::Vector3 &rightVec, unsigned int hack_flags,
+                     bVector4 *x_constrain_basis, bVector4 *y_constrain_basis);
+};
+extern eParticleRenderer eParticles;
+
+void PlatAddParticle(const EmitterParticle &particle, const UMath::Vector3 &upVec, const UMath::Vector3 &rightVec, unsigned int hack_flags,
+                     bVector4 *x_constrain_basis, bVector4 *y_constrain_basis) {
+    eParticles.AddParticle(particle, upVec, rightVec, hack_flags, x_constrain_basis, y_constrain_basis);
+}
+#endif
+
 void PlatRotateScaleParticle(EmitterParticle *particle, UMath::Vector3 &rightVec, UMath::Vector3 &upVec, UMath::Vector3 &fwdVec,
                              UMath::Vector3 &newUpVec, UMath::Vector3 &newRightVec) {
     float angle = bAngToDeg(particle->mAngle);
@@ -1193,8 +1310,18 @@ void PlatRotateScaleParticle(EmitterParticle *particle, UMath::Vector3 &rightVec
 }
 
 void afxGetWorldViewMatrix(eView *view, bMatrix4 *world_view) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2: la WorldViewMatrix vive en la memoria de trabajo del VU y es un PUNTERO dentro de
+    // eViewPlatInfo (offset 0). El original la toma con el doble puntero GetPlatInfo()->GetWorldViewMatrix()
+    // (lw v1,0(view) / lw v0,0(v1)), no desde la camara. En GC la matriz es inline y el cuerpo de camara
+    // ya esta al 100: la guarda deja ese camino INTACTO (mismo preprocesado para GC -> DOL invariante).
+    bCopy(world_view, view->GetPlatInfo()->GetWorldViewMatrix());
+#elif defined(EA_PLATFORM_WIN32) // PC: la WorldViewMatrix de eViewPlatInfo (offset 0), como PlatGetViewVectors
+    bCopy(world_view, &view->GetPlatInfo()->WorldViewMatrix);
+#else
     Camera *camera = view->GetCamera();
     bCopy(world_view, camera->GetCameraMatrix());
+#endif
 }
 
 // TODO move
@@ -1212,7 +1339,7 @@ void EmitterSystem::Render(eView *view) {
         return;
     }
     if (this->mTotalNumParticles > 0) {
-        ProfileNode profile_node;
+        ProfileNode profile_node(nullptr, 0);
         int32 num_textures = 0;
         const EmitterDataAttribWrapper *last_emitter_data = nullptr;
         const Attrib::Gen::emitterdata *last_emitter_data_atr = nullptr;
@@ -1250,7 +1377,30 @@ void EmitterSystem::Render(eView *view) {
          * TEMPORAL del compilador, no una variable de fuente. R26: los DOS
          * hacen `stmw r14`, o sea 18 salvados; el objetivo ademas derrama, o
          * sea que tiene 19 valores de larga vida y nosotros 18, y por eso a
-         * nosotros nos sobra r14. Falta el valor 19, no sobra una decision. */
+         * nosotros nos sobra r14. Falta el valor 19, no sobra una decision.
+         * R33 (banco tmp_r33, volcados -dr -dd -dc de la unidad con flags
+         * exactos): el centinela NO es una variable sino el pseudo que crea GCSE
+         * "PRE/HOIST: end of bb 2, expression 7 (plus(this,0x37c))" -- nace en
+         * gcse, llega ULTIMO a global_alloc (5 refs x profundidad 1, empata con
+         * el fin de elist y pierde por numero de pseudo) y por eso coge el
+         * ultimo salvado libre (r14 nuestro). El original necesita UN allocno
+         * mas de prioridad superior para empujarlo fuera: la PRUEBA del agujero
+         * r19 (salvado por stmw, NUNCA escrito en el objetivo) dice que ese
+         * allocno 19 existe, coge registro y reload lo REMATERIALIZA (los usos
+         * vuelven a nacer como addi directos con nota REG_EQUAL, igual que el
+         * pseudo 96 &world_view en el nuestro), dejando el registro vacio y el
+         * centinela derramado. Candidatos medidos y descartados: local para
+         * mCurrentTexture (empuja this/view hacia abajo, no derrama nada),
+         * world_size antes de eMulVector (cuesta un PAR f30/f31 de salvados que
+         * el original no tiene), ctor 2-arg de ProfileNode con cadena (+8 B de
+         * rodata, prohibido). Y el DWARF SI tenia cuatro diferencias que r23
+         * leyo como identicas: el ctor era el de DOS args, `this_emitter_data`
+         * y el par interior eran `const`, y el par interior SOMBRA los nombres
+         * `last_emitter_data`/`_atr` -- las cuatro corregidas aqui (dwarf
+         * 94,5->96,2 %, asm y DOL clavados). El PS2 original TAMBIEN derrama
+         * (sp 192..208: this, view, num_textures, grp y el centinela) y el
+         * nuestro lo replica al 91,6 %: la presion es del fuente, la frontera
+         * 18/19 es del compilador. Sin palanca C++ conocida para el allocno 19. */
         for (EmitterGroup *grp = this->mEmitterGroups.GetHead(); grp != this->mEmitterGroups.EndOfList(); grp = grp->GetNext()) {
             bTList<Emitter> &elist = grp->GetEmitters();
             for (Emitter *em = elist.GetHead(); em != elist.EndOfList(); em = em->GetNext()) {
@@ -1275,16 +1425,16 @@ void EmitterSystem::Render(eView *view) {
                 PlatGetViewVectors(view, rightVec, upVec, fwdVec);
                 bool submitParticles = PlatStartParticleRender(view, this->mCurrentTexture, em->GetNumParticles());
                 if (submitParticles) {
-                    EmitterDataAttribWrapper *inner_last_emitter_data = nullptr;
-                    const Attrib::Gen::emitterdata *inner_last_emitter_data_atr = nullptr;
+                    const EmitterDataAttribWrapper *last_emitter_data = nullptr;
+                    const Attrib::Gen::emitterdata *last_emitter_data_atr = nullptr;
                     for (EmitterParticle *particle = plist->GetHead(); particle != plist->EndOfList(); particle = particle->GetNext()) {
-                        EmitterDataAttribWrapper *this_emitter_data = em->GetEmitterData();
+                        const EmitterDataAttribWrapper *this_emitter_data = em->GetEmitterData();
                         const Attrib::Gen::emitterdata *this_emitter_data_atr = &this_emitter_data->GetAttributes();
                         bool orphaned;
-                        bool emitter_data_switch = em->GetEmitterData() != inner_last_emitter_data;
+                        bool emitter_data_switch = em->GetEmitterData() != last_emitter_data;
                         if (emitter_data_switch) {
-                            inner_last_emitter_data = this_emitter_data;
-                            inner_last_emitter_data_atr = this_emitter_data_atr;
+                            last_emitter_data = this_emitter_data;
+                            last_emitter_data_atr = this_emitter_data_atr;
                         }
                         const EffectParticleConstraint &constraint = this_emitter_data_atr->AxisConstraint();
                         bool axis_constrained = constraint != CONSTRAIN_PARTICLE_NONE;
@@ -1312,7 +1462,9 @@ void EmitterSystem::Render(eView *view) {
         SetParticleSystemStats(this->mTotalNumParticles, 0x400, num_textures, total_num_textures, gEmitterSystem.GetNumEmitters(), 500,
                                gEmitterSystem.GetNumEmitterGroups(), 200);
     }
+#ifndef EA_PLATFORM_WIN32 // PC no llama a DrawXenonEmitters
     DrawXenonEmitters(view);
+#endif
 }
 
 void EmitterSystem::Init() {
@@ -1343,13 +1495,40 @@ EmitterGroupAttribWrapper *EmitterSystem::GetEmitterGroup(const Attrib::Collecti
     return ddata;
 }
 
+#ifdef EA_BUILD_A124
+// La A124 tiene un solo IsCloseEnough: el del grupo, con el recorte del grupo y el coseno en una global (emmitterDot).
+float emmitterDot = 0.7f;
+
+bool EmitterSystem::IsCloseEnough(EmitterGroup *group, int32 frustrum) const {
+    int32 num_points = eGetCurrentViewMode() == EVIEWMODE_TWOH ? 2 : 1;
+    float farclip = group->GetFarClip();
+    const bVector3 *group_position = group->GetPosition();
+    if (frustrum == 0) {
+        for (int32 i = 0; i < num_points; i++) {
+            float distance = bDistBetween(group_position, &this->mInterestPoints[i]);
+            if (distance < farclip) {
+                return true;
+            }
+        }
+    } else {
+        for (int32 i = 0; i < num_points; i++) {
+            float distance = bDistBetween(group_position, &this->mInterestPoints[i]);
+            if (distance < farclip) {
+                bVector3 toGroup = *group_position - this->mInterestPoints[i];
+                toGroup /= distance;
+                if (bDot(&toGroup, &this->mInterestVectors[i]) > emmitterDot) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+#else
 bool EmitterSystem::IsCloseEnough(const bVector3 *group_pos, float farclip, int frustrum, float cos_angle_fov) const {
     const bVector3 *group_position = group_pos;
-    int32 num_points = 1;
+    int32 num_points = eGetCurrentViewMode() == EVIEWMODE_TWOH ? 2 : 1;
 
-    if (eGetCurrentViewMode() == EVIEWMODE_TWOH) {
-        num_points = 2;
-    }
     if (frustrum == 0) {
         for (int32 i = 0; i < num_points; i++) {
             float distance = bDistBetween(group_position, &this->mInterestPoints[i]);
@@ -1385,6 +1564,7 @@ bool EmitterSystem::IsCloseEnough(EmitterGroup *group, int frustrum, float cos_a
     const bVector3 *group_position = group->GetPosition();
     return this->IsCloseEnough(group_position, group->GetFarClip(), frustrum, cos_angle_fov);
 }
+#endif
 
 void UpdateTriggers() {
     float time_now = WorldTimer.GetSeconds();
@@ -1470,12 +1650,16 @@ int32 EmitterSystem::Loader(bChunk *bchunk) {
             gEmitterSystem.AddLibrary(lib);
             if (lib->SectionNumber != 0) {
                 if (num_triggers == 0) {
+#ifdef EA_BUILD_A124
+                    EmitterGroup *emgroup = gEmitterSystem.CreateEmitterGroup(lib->GroupKey, 0x8000000);
+#else
                     EmitterGroup *emgroup;
                     if (lib->SectionNumber == 0xa28) {
                         emgroup = gEmitterSystem.CreateEmitterGroup(lib->GroupKey, 0x8020000);
                     } else {
                         emgroup = nullptr;
                     }
+#endif
                     if (emgroup) {
                         emgroup->SubscribeToDeletion(lib, NotifyLibOfDeletion);
                         lib->mGroup = emgroup;
@@ -1679,7 +1863,9 @@ void EmitterSystem::Update(float dt) {
     if (!EnableParticleSystem) {
         return;
     }
+#ifndef EA_BUILD_A124
     this->ServiceWorldEffects();
+#endif
     HandleFXTriggers();
     this->UpdateInterestPoints();
 
@@ -1688,12 +1874,15 @@ void EmitterSystem::Update(float dt) {
         next_group = group->GetNext();
         if (group->IsAutoUpdate()) {
             group->Update(dt);
+            // La A124 no borra los emisores de los grupos que llevan diez cuadros sin particulas.
+#ifndef EA_BUILD_A124
         } else {
             if ((group->GetFlags() & 0x40000000) && !group->IsOldSurfaceEffect() && group->GetNumParticles() == 0) {
                 group->IncZeroParticleFrame();
                 if (group->GetNumZeroParticleFrames() > 10)
                     group->DeleteEmitters();
             }
+#endif
         }
         if (group->CurrentNumEmitters() == 0 && !group->IsStatic()) {
             delete group;
@@ -1710,7 +1899,11 @@ void EmitterGroup::Update(float dt) {
     if (!EnableParticleSystem || !this->IsEnabled()) {
         return;
     }
+#ifdef EA_BUILD_A124
+    bool closeEnough2spawn = gEmitterSystem.IsCloseEnough(this, 1);
+#else
     bool closeEnough2spawn = gEmitterSystem.IsCloseEnough(this, !(this->GetFlags() & 0x40000), 0.7f);
+#endif
     Emitter *next_emitter;
     for (Emitter *emitter = this->mEmitters.GetHead(); emitter != this->mEmitters.EndOfList(); emitter = next_emitter) {
         next_emitter = emitter->GetNext();
@@ -1738,7 +1931,7 @@ void EmitterGroup::Update(float dt) {
     }
 }
 
-bool EmitterControl::Update(float dt, Emitter *em, float &rollover_time) {
+bool EmitterControl::Update(float fSeconds, Emitter *em, float &rollover_time) {
     bool will_require_spawn;
 
     if (!EnableParticleSystem || !em->IsEnabled()) {
@@ -1782,64 +1975,63 @@ bool EmitterControl::Update(float dt, Emitter *em, float &rollover_time) {
         case ECS_NOT_STARTED:
             if (has_start_delay) {
                 this->mState = ECS_DELAYING;
-                this->mTime = start_delay - dt;
+                this->mTime = start_delay - fSeconds;
                 will_require_spawn = false;
                 break;
             }
             if (has_on_cycle) {
                 this->mState = ECS_ON_CYCLE;
-                this->mTime = (on_cycle + bRandom(on_cycle_variance, &aseed)) - dt;
+                this->mTime = (on_cycle + bRandom(on_cycle_variance, &aseed)) - fSeconds;
                 if (this->mTime < 0.0f) {
                     this->mTime = 0.0f;
                 }
                 will_require_spawn = true;
                 break;
             }
-            will_require_spawn = true;
             this->mTime = 0.0f;
             this->mState = ECS_ON;
+            will_require_spawn = true;
             break;
         case ECS_DELAYING:
-            this->mTime -= dt;
-            if (this->mTime > 0.0f) {
-                will_require_spawn = false;
+            this->mTime -= fSeconds;
+            if (this->mTime <= 0.0f) {
+                rollover_time = this->mTime;
+                will_require_spawn = true;
+                if (has_on_cycle) {
+                    this->mState = ECS_ON_CYCLE;
+                    this->mTime += on_cycle + bRandom(on_cycle_variance, &aseed);
+                    break;
+                }
+                this->mTime = 0.0f;
+                this->mState = ECS_ON;
                 break;
             }
-            rollover_time = this->mTime;
-            will_require_spawn = true;
-            if (has_on_cycle) {
-                this->mState = ECS_ON_CYCLE;
-                this->mTime += on_cycle + bRandom(on_cycle_variance, &aseed);
-                break;
-            }
-            this->mTime = 0.0f;
-            this->mState = ECS_ON;
+            will_require_spawn = false;
             break;
         case ECS_ON_CYCLE:
             will_require_spawn = true;
-            this->mTime -= dt;
-            if (this->mTime > 0.0f) {
-                break;
+            this->mTime -= fSeconds;
+            if (this->mTime <= 0.0f) {
+                rollover_time = this->mTime + fSeconds;
+                if (is_one_shot) {
+                    this->mState = ECS_OFF;
+                    this->mTime = 0.0f;
+                    break;
+                }
+                this->mState = ECS_OFF_CYCLE;
+                this->mTime += off_cycle + bRandom(off_cycle_variance, &aseed);
             }
-            rollover_time = this->mTime + dt;
-            if (is_one_shot) {
-                this->mState = ECS_OFF;
-                this->mTime = 0.0f;
-                break;
-            }
-            this->mState = ECS_OFF_CYCLE;
-            this->mTime += off_cycle + bRandom(off_cycle_variance, &aseed);
             break;
         case ECS_OFF_CYCLE:
-            this->mTime -= dt;
-            if (this->mTime > 0.0f) {
-                will_require_spawn = false;
+            this->mTime -= fSeconds;
+            if (this->mTime <= 0.0f) {
+                rollover_time = this->mTime;
+                this->mState = ECS_ON_CYCLE;
+                this->mTime += on_cycle + bRandom(on_cycle_variance, &aseed);
+                will_require_spawn = true;
                 break;
             }
-            rollover_time = this->mTime;
-            this->mState = ECS_ON_CYCLE;
-            this->mTime += on_cycle + bRandom(on_cycle_variance, &aseed);
-            will_require_spawn = true;
+            will_require_spawn = false;
             break;
         case ECS_ON:
             will_require_spawn = true;
@@ -2022,7 +2214,7 @@ void Emitter::SpawnParticles(float dt, float intensity) {
                 particle->mPosY = ppos.y;
                 particle->mPosZ = ppos.z;
 
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
                 // sqc2 a 0x10 y 0x30 de la particula (0x222AD8 y 0x222AE0)
                 particle->mVel.v = pvel;
                 particle->mAcc.v = paccel;

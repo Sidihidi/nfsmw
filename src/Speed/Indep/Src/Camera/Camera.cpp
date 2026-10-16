@@ -9,11 +9,17 @@
 #include "Speed/Indep/Src/Camera/ICE/ICEManager.hpp"
 #include "Speed/Indep/Src/Camera/ICE/ICEReplay.hpp"
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/PSX2/Src/Ecstasy/EcstasyE.hpp" // eGetScreenWidth, eGetScreenHeight
+#elif defined(EA_PLATFORM_WIN32)
+#include "Speed/PC/Src/Ecstasy/eViewPlat.hpp" // eGetScreenWidth, eGetScreenHeight
+#endif
+
+JollyRancherResponsePacket Camera::JollyRancherResponse; // .bss: 0x8045AAE4
+
 int Camera::StopUpdating = 0;
 
 static int cameralink = 0;
-
-JollyRancherResponsePacket Camera::JollyRancherResponse; // .bss: 0x8045AAE4
 
 int bStreamingPositionFromICE = 0;      // .data: 0x804164C4
 static const float kJRCaffeineRate = 0.4f; // .data: 0x804164C8
@@ -67,6 +73,18 @@ Camera::Camera() : LastDisparateTime(RealTimeFrames), LastUpdateTime(-0x80000000
     SetCameraMatrix(m, 1.0f);
     SetCameraMatrix(m, 1.0f);
 }
+
+#ifdef EA_BUILD_A124
+// Only the PS2 prototype has it: the up vector of the camera, the second row of the inverse of its matrix.
+bVector3 *Camera::GetUpVec() {
+    bMatrix4 m;
+    eTransposeMatrix(&m, &CurrentKey.Matrix);
+
+    static bVector3 UpVector;
+    bNormalize(&UpVector, reinterpret_cast<bVector3 *>(&m.v1));
+    return &UpVector;
+}
+#endif
 
 void Camera::SetCameraMatrix(const bMatrix4 &m, float fTime) {
     if (StopUpdating)
@@ -184,6 +202,28 @@ void Camera::CommunicateWithJollyRancher(char *cameraname) {
         bFunkCallASync("JR2Server", 1, data, sizeof(data));
     }
 }
+
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+// Projects a point in world space to [-1, 1] screen coordinates (GameCube's linker drops it; PC: speed.exe 0x467160).
+void Camera::ProjectNormalized(bVector3 *pIn, bVector2 *pOut) {
+    bVector3 v;
+    bMulMatrix(&v, &CurrentKey.Matrix, pIn);
+
+    if (0.0f == v.z) {
+        pOut->x = 0.0f;
+        pOut->y = 0.0f;
+        return;
+    }
+
+    float fTanX = v.x / v.z;
+    float fTanY = v.y / v.z;
+    float fTanFovX = bTan(GetFov() / 2);
+    float fTanFovY = fTanFovX * eGetScreenHeight() / eGetScreenWidth();
+
+    pOut->x = fTanX / fTanFovX;
+    pOut->y = fTanY / fTanFovY;
+}
+#endif
 
 float NoiseBase(int x) {
     return 1.0f - (float)((((x << 13) ^ x) * (((x << 13) ^ x) * ((x << 13) ^ x) * 15731 + 789221) + 1376312589 & 0x7FFFFFFF)) *

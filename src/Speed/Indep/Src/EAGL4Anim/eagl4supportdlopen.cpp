@@ -31,6 +31,66 @@ const char DynamicLoader::SkeletonType[] = "Skeleton";
 // const char DynamicLoader::AnimIdType[];
 // const char DynamicLoader::PosePaletteBankType[];
 
+// total size: 0x430
+struct HashPointer {
+    void *operator new(size_t size) {
+        // TODO
+        return EAGL4Internal::EAGL4Malloc(size, nullptr);
+    }
+
+    // void *operator new(size_t size, const char *msg) {}
+
+    void operator delete(void *ptr, size_t size) {
+        EAGL4Internal::EAGL4Free(ptr, size);
+    }
+
+    // void *operator new[](size_t size) {}
+
+    // void *operator new[](size_t size, const char *msg) {}
+
+    // void operator delete[](void *ptr, size_t size) {}
+
+    // void *operator new(size_t, void *ptr) {}
+
+    bool IsResolved() {
+        return resolved;
+    }
+
+    DynamicLoader &GetDynamicLoader() {
+        return *mpDynamicLoader;
+    }
+
+    HashPointer(DynamicLoader *pDL)
+        : next(nullptr), strtab(nullptr), resolved(false), symbols_num(0), symtab(nullptr), sections(nullptr), e(nullptr),
+          chain(nullptr), isOriginal(nullptr), mpDynamicLoader(pDL), pSearchFunction(nullptr) {}
+
+    ~HashPointer() {
+        if (chain) {
+            EAGL4Internal::EAGL4Free(chain, symbols_num * sizeof(*chain));
+        }
+
+        if (isOriginal) {
+            EAGL4Internal::EAGL4Free(isOriginal, symbols_num * sizeof(*isOriginal));
+        }
+    }
+
+    HashPointer *next;                   // offset 0x0, size 0x4
+    HashPointer *prev;                   // offset 0x4, size 0x4
+    char *strtab;                        // offset 0x8, size 0x4
+    bool resolved;                       // offset 0xC, size 0x1
+    int symbols_num;                     // offset 0x10, size 0x4
+    ELF32_Sym *symtab;                   // offset 0x14, size 0x4
+    ELFSectionHeader *sections;          // offset 0x18, size 0x4
+    ELFHeader *e;                        // offset 0x1C, size 0x4
+    long unsigned int hash[256];         // offset 0x20, size 0x400
+    long unsigned int *chain;            // offset 0x420, size 0x4
+    bool *isOriginal;                    // offset 0x424, size 0x4
+    DynamicLoader *mpDynamicLoader;      // offset 0x428, size 0x4
+    DynamicUserCallback pSearchFunction; // offset 0x42C, size 0x4
+};
+
+static HashPointer *hashhead = 0;
+
 static long unsigned int elfhash(const char *name) {
     long unsigned int h = 0; // r3
     long unsigned int g;     // r9
@@ -77,9 +137,6 @@ DynamicLoader::~DynamicLoader() {
     }
     mpPatchAddresses32 = nullptr;
 }
-
-// TODO where does this go?
-static HashPointer *hashhead = 0;
 
 void DynamicLoader::Release() {
     if (handle) {
@@ -160,252 +217,251 @@ void DynamicLoader::RunDestructors() {
 }
 
 void DynamicLoader::Resolve() {
+    int i;
+    int j;
     HashPointer *h;
     ELFSectionHeader *sheader;
     ELFHeader *e;
     const int MAX_UNRESOLVED_ERRORS = 32;
-    int i;
-    int j;
-    int unresolvedSymbolError;
+    bool unresolvedSymbolError;
     const char *unresolvedList[MAX_UNRESOLVED_ERRORS];
     int numUnresolved;
 
     h = reinterpret_cast<HashPointer *>(handle);
 
-    if (h) {
+    if (!h || h->resolved) {
+        return;
+    }
 
-        if (!h->resolved) {
+    h->resolved = true;
 
-            h->resolved = true;
+    sheader = h->sections;
+    e = h->e;
 
-            sheader = h->sections;
-            e = h->e;
+    unresolvedSymbolError = false;
 
-            unresolvedSymbolError = 0;
+    numUnresolved = 0;
 
-            numUnresolved = 0;
+    for (i = 0; i < e->e_shnum; i++) {
 
-            for (i = 0; i < e->e_shnum; i++) {
+        if (sheader[i].sh_type == SHT_REL) {
 
-                if (sheader[i].sh_type == SHT_REL) {
+            int relocations = static_cast<int>(sheader[i].sh_size) / static_cast<int>(sizeof(ELF32_Rel));
+            char *patchbase = reinterpret_cast<char *>(sheader[i].sh_vinfo);
 
-                    int relocations = static_cast<int>(sheader[i].sh_size) / static_cast<int>(sizeof(ELF32_Rel));
-                    char *patchbase = reinterpret_cast<char *>(sheader[i].sh_vinfo);
+            ELF32_Rel *r = reinterpret_cast<ELF32_Rel *>(sheader[i].sh_voffset);
 
-                    ELF32_Rel *r = reinterpret_cast<ELF32_Rel *>(sheader[i].sh_voffset);
+            ELF32_Sym *symtab = reinterpret_cast<ELF32_Sym *>(sheader[i].sh_vlink);
 
-                    ELF32_Sym *symtab = reinterpret_cast<ELF32_Sym *>(sheader[i].sh_vlink);
+            while (relocations--) {
 
-                    while (relocations--) {
+                unsigned int baseaddr = 0;
+                int iIndex;
+                ELF32_Sym *sym;
+                unsigned int *patchaddr;
+                unsigned short *patchaddr16;
 
-                        unsigned int baseaddr = 0;
-                        int iIndex;
-                        ELF32_Sym *sym;
-                        unsigned int *patchaddr;
-                        unsigned short *patchaddr16;
+                r->r_offset = htotul(r->r_offset);
+                r->r_info = htotul(r->r_info);
 
-                        r->r_offset = htotul(r->r_offset);
-                        r->r_info = htotul(r->r_info);
+                sym = &symtab[r->r_info >> 8];
 
-                        sym = &symtab[r->r_info >> 8];
+            retry:
+                switch (sym->st_info & 0xF) {
 
-                    retry:
-                        switch (sym->st_info & 0xF) {
+                case STT_NOTYPE:
+                case STT_OBJECT:
+                case STT_FUNC:
+                case STT_SECTION:
 
-                        case STT_NOTYPE:
-                        case STT_OBJECT:
-                        case STT_FUNC:
-                        case STT_SECTION:
+                    iIndex = sym->st_shndx;
 
-                            iIndex = sym->st_shndx;
+                    if (iIndex > 0 && iIndex < e->e_shnum) {
 
-                            if (iIndex > 0 && iIndex < e->e_shnum) {
+                        baseaddr = reinterpret_cast<unsigned int>(sheader[iIndex].sh_voffset);
 
-                                baseaddr = reinterpret_cast<unsigned int>(sheader[iIndex].sh_voffset);
+                    } else {
 
+                        HashPointer *hp = hashhead;
+
+                        if (hp) {
+
+                            do {
+
+                                if (hp != h) {
+
+                                    void *addr = dlsym(hp, &h->strtab[sym->st_name]);
+                                    if (addr) {
+
+                                        sym->st_shndx = 1;
+                                        sym->st_value = reinterpret_cast<unsigned int>(addr) -
+                                                        reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
+                                        sym->st_other = 2;
+                                        goto retry;
+                                    }
+                                }
+
+                                hp = hp->next;
+
+                            } while (hp);
+                        }
+
+                        if (h->pSearchFunction) {
+
+                            bool valid;
+                            void *addr = h->pSearchFunction(&h->strtab[sym->st_name], valid);
+
+                            if (valid) {
+
+                                sym->st_shndx = 1;
+                                sym->st_value = reinterpret_cast<unsigned int>(addr) -
+                                                reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
+                                sym->st_other = 3;
+                                goto retry;
+                            }
+                        }
+
+                        {
+                            bool valid;
+                            void *addr = gSymbolPool.Search(&h->strtab[sym->st_name], valid);
+
+                            if (valid) {
+
+                                sym->st_shndx = 1;
+                                sym->st_value = reinterpret_cast<unsigned int>(addr) -
+                                                reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
+                                sym->st_other = 4;
+                                goto retry;
+                            }
+                        }
+
+                        {
+                            Symbol s;
+
+                            s.name = &h->strtab[sym->st_name];
+                            s.type = &h->strtab[sym->st_name] + strlen(s.name);
+                            s.type++;
+                            if (s.type[0] == 0x7F) {
+                                s.type++;
                             } else {
+                                s.type--;
+                            }
 
-                                HashPointer *hp = hashhead;
+                            if (strncmp(gRuntimeAllocType, s.name, strlen(gRuntimeAllocType)) == 0) {
 
-                                if (hp) {
+                                const char *stripped_name = s.name + strlen(gRuntimeAllocType);
 
-                                    do {
+                                RuntimeAllocConstructor c = gRuntimeAllocConsPool.FindConstructor(s.type);
 
-                                        if (hp != h) {
+                                if (c) {
 
-                                            void *addr = dlsym(hp, &h->strtab[sym->st_name]);
-                                            if (addr) {
+                                    RuntimeAllocDestructor d = gRuntimeAllocConsPool.FindDestructor(s.type);
 
-                                                sym->st_shndx = 1;
-                                                sym->st_value = reinterpret_cast<unsigned int>(addr) -
-                                                                reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
-                                                sym->st_other = 2;
-                                                goto retry;
-                                            }
-                                        }
+                                    int auxData;
+                                    bool bCallDestructor = false;
 
-                                        hp = hp->next;
+                                    s.data = c(stripped_name, this, auxData, bCallDestructor, s.name);
 
-                                    } while (hp);
+                                    if (bCallDestructor && s.data) {
+
+                                        RuntimeAllocDestructorEntry *de =
+                                            new RuntimeAllocDestructorEntry(d, s.data, auxData);
+
+                                        de->next = RuntimeAllocDestructors;
+                                        RuntimeAllocDestructors = de;
+                                    }
+
+                                    sym->st_shndx = 1;
+                                    sym->st_value = reinterpret_cast<unsigned int>(s.data) -
+                                                    reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
+                                    sym->st_other = 5;
+                                    goto retry;
                                 }
+                            }
+                        }
 
-                                if (h->pSearchFunction) {
+                        if (!unresolvedSymbolError) {
 
-                                    bool valid;
-                                    void *addr = h->pSearchFunction(&h->strtab[sym->st_name], valid);
+                            unresolvedSymbolError = true;
+                        }
 
-                                    if (valid) {
+                        if (numUnresolved < MAX_UNRESOLVED_ERRORS) {
 
-                                        sym->st_shndx = 1;
-                                        sym->st_value = reinterpret_cast<unsigned int>(addr) -
-                                                        reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
-                                        sym->st_other = 3;
-                                        goto retry;
-                                    }
-                                }
+                            bool found = false;
 
-                                {
-                                    bool valid;
-                                    void *addr = gSymbolPool.Search(&h->strtab[sym->st_name], valid);
+                            for (j = 0; j < numUnresolved; j++) {
 
-                                    if (valid) {
-
-                                        sym->st_shndx = 1;
-                                        sym->st_value = reinterpret_cast<unsigned int>(addr) -
-                                                        reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
-                                        sym->st_other = 4;
-                                        goto retry;
-                                    }
-                                }
-
-                                {
-                                    Symbol s;
-
-                                    s.name = &h->strtab[sym->st_name];
-                                    s.type = &h->strtab[sym->st_name] + strlen(s.name);
-                                    s.type++;
-                                    if (s.type[0] == 0x7F) {
-                                        s.type++;
-                                    } else {
-                                        s.type--;
-                                    }
-
-                                    if (strncmp(gRuntimeAllocType, s.name, strlen(gRuntimeAllocType)) == 0) {
-
-                                        const char *stripped_name = s.name + strlen(gRuntimeAllocType);
-
-                                        RuntimeAllocConstructor c = gRuntimeAllocConsPool.FindConstructor(s.type);
-
-                                        if (c) {
-
-                                            RuntimeAllocDestructor d = gRuntimeAllocConsPool.FindDestructor(s.type);
-
-                                            int auxData;
-                                            bool bCallDestructor = false;
-
-                                            s.data = c(stripped_name, this, auxData, bCallDestructor, s.name);
-
-                                            if (bCallDestructor && s.data) {
-
-                                                RuntimeAllocDestructorEntry *de =
-                                                    new RuntimeAllocDestructorEntry(d, s.data, auxData);
-
-                                                de->next = RuntimeAllocDestructors;
-                                                RuntimeAllocDestructors = de;
-                                            }
-
-                                            sym->st_shndx = 1;
-                                            sym->st_value = reinterpret_cast<unsigned int>(s.data) -
-                                                            reinterpret_cast<unsigned int>(sheader[1].sh_voffset);
-                                            sym->st_other = 5;
-                                            goto retry;
-                                        }
-                                    }
-                                }
-
-                                if (!unresolvedSymbolError) {
-
-                                    unresolvedSymbolError = 1;
-                                }
-
-                                if (numUnresolved < MAX_UNRESOLVED_ERRORS) {
-
-                                    bool found = false;
-
-                                    for (j = 0; j < numUnresolved; j++) {
-
-                                        if (&h->strtab[sym->st_name] == unresolvedList[j]) {
-                                            found = true;
-                                            break;
-                                        }
-                                    }
-
-                                    if (!found) {
-                                        unresolvedList[numUnresolved] = &h->strtab[sym->st_name];
-                                        numUnresolved++;
-                                    }
+                                if (&h->strtab[sym->st_name] == unresolvedList[j]) {
+                                    found = true;
+                                    break;
                                 }
                             }
 
-                            baseaddr += sym->st_value;
-                            break;
+                            if (!found) {
+                                unresolvedList[numUnresolved] = &h->strtab[sym->st_name];
+                                numUnresolved++;
+                            }
                         }
-
-                        patchaddr = reinterpret_cast<unsigned int *>(&patchbase[r->r_offset]);
-                        patchaddr16 = reinterpret_cast<unsigned short *>(patchaddr);
-
-                        *patchaddr = htotul(*patchaddr);
-
-                        switch (static_cast<int>(r->r_info & 0xFF)) {
-
-                        case R_MIPS_32:
-                            *patchaddr += baseaddr;
-                            break;
-
-                        case R_MIPS_16:
-                        case R_MIPS_REL32:
-                        case R_MIPS_GPREL16:
-                        case R_MIPS_LITERAL:
-                        case R_MIPS_GOT16:
-                        case R_MIPS_PC16:
-                        case R_MIPS_CALL16:
-                        case R_MIPS_GPREL32:
-                            break;
-
-                        case R_MIPS_26:
-                            baseaddr += (*patchaddr & 0x03FFFFFF) << 2;
-                            *patchaddr = (*patchaddr & 0xFC000000) | ((baseaddr >> 2) & 0x03FFFFFF);
-                            break;
-
-                        case R_MIPS_LO16:
-                            *patchaddr16 += baseaddr;
-                            break;
-
-                        case R_MIPS_HI16:
-                            *patchaddr16 += baseaddr >> 16;
-                            break;
-
-                        case R_MIPS_UNUSED2:
-                        case R_MIPS_UNUSED3:
-                        case R_MIPS_SHIFT5:
-                        case R_MIPS_SHIFT6:
-                        case R_MIPS_64:
-                        case R_MIPS_GOT_DISP:
-                        case R_MIPS_GOT_PAGE:
-                        case R_MIPS_GOT_OFST:
-                            break;
-                        }
-
-                        r++;
                     }
+
+                    baseaddr += sym->st_value;
+                    break;
                 }
+
+                patchaddr = reinterpret_cast<unsigned int *>(&patchbase[r->r_offset]);
+                patchaddr16 = reinterpret_cast<unsigned short *>(patchaddr);
+
+                *patchaddr = htotul(*patchaddr);
+
+                switch (static_cast<int>(r->r_info & 0xFF)) {
+
+                case R_MIPS_32:
+                    *patchaddr += baseaddr;
+                    break;
+
+                case R_MIPS_NONE:
+                case R_MIPS_16:
+                case R_MIPS_REL32:
+                case R_MIPS_GPREL16:
+                case R_MIPS_LITERAL:
+                case R_MIPS_GOT16:
+                case R_MIPS_PC16:
+                case R_MIPS_CALL16:
+                case R_MIPS_GPREL32:
+                    break;
+
+                case R_MIPS_26:
+                    baseaddr += (*patchaddr << 2) & 0x0FFFFFFF;
+                    *patchaddr = (*patchaddr & 0xFC000000) | ((baseaddr & 0x0FFFFFFF) >> 2);
+                    break;
+
+                case R_MIPS_LO16:
+                    *patchaddr16 += baseaddr;
+                    break;
+
+                case R_MIPS_HI16:
+                    *patchaddr16 += baseaddr >> 16;
+                    break;
+
+                case R_MIPS_UNUSED2:
+                case R_MIPS_UNUSED3:
+                case R_MIPS_SHIFT5:
+                case R_MIPS_SHIFT6:
+                case R_MIPS_64:
+                case R_MIPS_GOT_DISP:
+                case R_MIPS_GOT_PAGE:
+                case R_MIPS_GOT_OFST:
+                    break;
+                }
+
+                r++;
             }
-
-            RunConstructors();
-
-            mIsResolved = true;
         }
     }
+
+    RunConstructors();
+
+    mIsResolved = true;
 }
 
 void DynamicLoader::Initialize(DynamicUserCallback pSearchFunction) {
@@ -416,17 +472,6 @@ void DynamicLoader::Initialize(DynamicUserCallback pSearchFunction) {
     ELFHeader *e;
     char *shstrtab;
     void *p;
-
-    pHP->e = nullptr;
-    pHP->next = nullptr;
-    pHP->strtab = nullptr;
-    pHP->resolved = false;
-    pHP->symbols_num = 0;
-    pHP->symtab = nullptr;
-    pHP->sections = nullptr;
-    pHP->chain = nullptr;
-    pHP->isOriginal = nullptr;
-    pHP->pSearchFunction = nullptr;
 
     e = reinterpret_cast<ELFHeader *>(mpData);
     pHP->e = e;
@@ -447,8 +492,8 @@ void DynamicLoader::Initialize(DynamicUserCallback pSearchFunction) {
 
     p = ELFAddr(e->e_shoff);
 
-    pHP->symtab = nullptr;
     pHP->sections = reinterpret_cast<ELFSectionHeader *>(p);
+    pHP->symtab = nullptr;
 
     for (i = 0; i < e->e_shnum; i++) {
 
@@ -736,7 +781,7 @@ void DynamicLoader::Initialize(DynamicUserCallback pSearchFunction) {
     pHP->pSearchFunction = pSearchFunction;
 
     for (i = 0; i < 256; i++) {
-        pHP->hash[i] = -1;
+        pHP->hash[i] = 0xFFFFFFFF;
     }
 
     pHP->chain = reinterpret_cast<long unsigned int *>(EAGL4Internal::EAGL4Malloc(pHP->symbols_num * sizeof(*pHP->chain), "EAGL4::dynamic symbols"));
@@ -830,7 +875,7 @@ static void *dlsym(void *handle, const char *name) {
     EAGL4::ELF32_Sym *s = h->symtab;
     unsigned long j = h->hash[EAGL4::elfhash(name)];
 
-    while (j != -1) {
+    while (j != 0xFFFFFFFF) {
         if (h->isOriginal[j] && strcmp(name, &h->strtab[s[j].st_name]) == 0) {
             int iIndex = s[j].st_shndx;
             if (iIndex > 0 && iIndex < h->e->e_shnum) {

@@ -12,7 +12,12 @@ CSTATEMGR_Collision::~CSTATEMGR_Collision() {}
 void CSTATEMGR_Collision::EnterWorld(eSndGameMode esgm) {
     int ColSFXID = 1;
 
+#ifdef EA_PLATFORM_XENON
+    // X360 crea 20 estados de colision, no 10 (probado al 100 %).
+    for (int n = 0; n < 20; n++) {
+#else
     for (int n = 0; n < 10; n++) {
+#endif
         CSTATE_Base *NewState = this->CreateState(0, ColSFXID);
         NewState->Setup(ColSFXID);
     }

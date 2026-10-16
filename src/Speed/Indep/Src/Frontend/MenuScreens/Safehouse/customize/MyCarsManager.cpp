@@ -20,17 +20,25 @@
 void CarDatum::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u32 param2) {
     if (msg == 0xc407210 || msg == 0x406415e3) {
         if (Handle == 0xFFFFFFFF) {
+#ifndef EA_BUILD_A124
             FEDatabase->SetGameMode(static_cast<eFEGameModes>(FEDatabase->GetGameMode() | 0x20));
+#endif
             cFEng::Get()->QueuePackageSwitch("Car_Select.fng", 0, 0, false);
         } else {
             FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
             FECarRecord *carRecord = stable->GetCarRecordByHandle(Handle);
-            if (carRecord) {
-                if (!carRecord->IsCustomized()) {
-                    carRecord = stable->CreateNewCustomCar(carRecord->Handle);
-                }
-                BeginCarCustomize(CEP_MAIN_MENU, carRecord);
+            if (!carRecord) {
+                return;
             }
+            if (!carRecord->IsCustomized()) {
+                carRecord = stable->CreateNewCustomCar(carRecord->Handle);
+            }
+#ifdef EA_BUILD_A124
+            // La A124 elige aqui el coche de la carrera rapida y pone el modo de personalizar.
+            FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SetSelectedCar(carRecord->Handle, 0);
+            FEDatabase->SetGameMode(static_cast<eFEGameModes>(FEDatabase->GetGameMode() | 0x20));
+#endif
+            BeginCarCustomize(CEP_MAIN_MENU, carRecord);
         }
     }
 }
@@ -69,7 +77,8 @@ void MyCarsManager::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
         case 0xc98356ba: {
             if (tCarLoadTimer.IsSet()) {
                 float elapsed = static_cast<float>(RealTimer.GetPackedTime() - tCarLoadTimer.GetPackedTime()) / 4000.0f;
-                if (elapsed >= 0.25f && pSelectedCar) {
+                bool ready = elapsed >= 0.25f;
+                if (ready && pSelectedCar) {
                     RideInfo ride;
                     FEDatabase->GetPlayerCarStable(0)->BuildRideForPlayer(pSelectedCar->Handle, 0, &ride);
                     CarViewer::SetRideInfo(&ride, static_cast<eSetRideInfoReasons>(1), static_cast<eCarViewerWhichCar>(0));
@@ -81,9 +90,13 @@ void MyCarsManager::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
         case 0x911ab364: {
             if (!pSelectedCar) {
                 RideInfo ride;
+#ifdef EA_BUILD_A124
+                FEDatabase->GetPlayerCarStable(0)->BuildRideForPlayer(FEDatabase->GetCareerSettings()->GetCurrentCar(), 0, &ride);
+#else
                 FEPlayerCarDB *carDB = FEDatabase->GetPlayerCarStable(0);
                 RaceSettings *rs = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
                 carDB->BuildRideForPlayer(rs->SelectedCar[0], 0, &ride);
+#endif
                 CarViewer::SetRideInfo(&ride, static_cast<eSetRideInfoReasons>(1), static_cast<eCarViewerWhichCar>(0));
             }
             if (FEDatabase->IsCarStableDirty() && IsMemcardEnabled) {
@@ -123,6 +136,9 @@ void MyCarsManager::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
             break;
         case 0xe1fde1d1:
             if (bGoToShowcase) {
+#ifdef EA_BUILD_A124
+                Showcase::FromCarHandle = 0xFFFFFFFF;
+#endif
                 Showcase::FromArgs = 0;
                 Showcase::FromPackage = GetPackageName();
                 cFEng::Get()->QueuePackageSwitch("Showcase.fng", reinterpret_cast<int>(pSelectedCar), 0, false);
@@ -189,15 +205,17 @@ void MyCarsManager::RefreshHeader() {
     const u32 FEObj_addcar = 0x42ea22dd;
     const u32 FEObj_editdeletecar = 0x06d41ccc;
     ArrayScrollerMenu::RefreshHeader();
+#ifdef EA_BUILD_A124 // la A124 no comprueba el dato actual
+    {
+#else
     if (GetCurrentDatum()) {
+#endif
         unsigned int handle = static_cast<CarDatum *>(GetCurrentDatum())->Handle;
         FEPlayerCarDB *carDB = FEDatabase->GetPlayerCarStable(0);
         FECarRecord *car = carDB->GetCarRecordByHandle(handle);
         if (car->IsValid()) {
             const char *pkg = GetPackageName();
-            unsigned int logo = carDB->GetCarRecordByHandle(handle)->GetLogoHash();
-            FEImage *img = FEngFindImage(pkg, 0xb05dd708);
-            FEngSetTextureHash(img, logo);
+            FEngSetTextureHash(pkg, 0xb05dd708, carDB->GetCarRecordByHandle(handle)->GetLogoHash());
         }
         if (static_cast<CarDatum *>(GetCurrentDatum())->Handle == 0xFFFFFFFF) {
             FEngSetLanguageHash(GetPackageName(), 0xbfa25765, 0xc2598bd8);
@@ -205,12 +223,18 @@ void MyCarsManager::RefreshHeader() {
         } else {
             FEngSetLanguageHash(GetPackageName(), 0xbfa25765, 0xc9847935);
             cFEng::Get()->QueuePackageMessage(FEObj_editdeletecar, GetPackageName(), nullptr);
+#ifndef EA_BUILD_A124
             for (int i = 0; i < 0xb; i++) {
                 RaceSettings *rs = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(i));
                 rs->SelectedCar[0] = static_cast<CarDatum *>(GetCurrentDatum())->Handle;
             }
+#endif
         }
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        FEPrintf(GetPackageName(), __NUMBER__, "%d", GetCurrentDatumNum() + 1);
+#else
         FEPrintf(GetPackageName(), __NUMBER__, "%d", GetCurrentDatumNum());
+#endif
         FEPrintf(GetPackageName(), __NUMBER_OF__, "%d", GetNumDatum());
         UpdateSliders();
         UpdateCar();
@@ -246,7 +270,11 @@ void MyCarsManager::UpdateCar() {
     FEPlayerCarDB *stable;
     unsigned int handle;
 
+#ifdef EA_BUILD_A124 // la A124 no comprueba el dato actual
+    {
+#else
     if (GetCurrentDatum()) {
+#endif
         handle = static_cast<CarDatum *>(GetCurrentDatum())->Handle;
         stable = FEDatabase->GetPlayerCarStable(0);
         if (!pSelectedCar) {

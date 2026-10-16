@@ -11,8 +11,12 @@
 
 class SmartBitStream : public BitStream {
   public:
-    void AddQuantizedInt(int value, IntQuantizer &iq);
-    void AddQuantizedFloat(float value, FloatQuantizer &qf);
+    void AddQuantizedInt(int value, IntQuantizer &iq) {
+        AddBits(iq.Pack(value), iq.GetNumBits());
+    }
+    void AddQuantizedFloat(float value, FloatQuantizer &qf) {
+        AddBits(qf.Pack(value), qf.GetNumBits());
+    }
     int GetQuantizedInt(IntQuantizer &iq) {
         uint32 temp = 0;
         GetBits(temp, iq.GetNumBits());
@@ -30,9 +34,7 @@ class SmartBitStream : public BitStream {
         value = temp;
     }
     bool GetBool() {
-        uint32 temp = 0;
-        GetBits(temp, 1);
-        return temp == 1;
+        return GetBits(1) == 1;
     }
     void AddByte(uint8 value) { AddBits(value, 8); }
     void GetByte(uint8 &value) {
@@ -41,9 +43,7 @@ class SmartBitStream : public BitStream {
         value = temp;
     }
     uint8 GetByte() {
-        uint32 temp = 0;
-        GetBits(temp, 8);
-        return temp;
+        return GetBits(8);
     }
     void AddShort(short value) { AddBits(value, 16); }
     void GetShort(short &value) {
@@ -52,9 +52,7 @@ class SmartBitStream : public BitStream {
         value = temp;
     }
     short GetShort() {
-        uint32 temp = 0;
-        GetBits(temp, 16);
-        return *reinterpret_cast<short *>(&temp);
+        return GetBits(16);
     }
     void AddInt(int value) { AddBits(value, 32); }
     void GetInt(int &value) {
@@ -63,9 +61,7 @@ class SmartBitStream : public BitStream {
         value = temp;
     }
     int GetInt() {
-        uint32 temp = 0;
-        GetBits(temp, 32);
-        return temp;
+        return GetBits(32);
     }
     void AddRawData(const char *data, int num_bytes);
     int GetRawData(char *buffer, int bufsize);

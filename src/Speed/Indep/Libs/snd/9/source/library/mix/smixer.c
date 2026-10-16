@@ -53,10 +53,17 @@ typedef struct HPFSTATE {
     char pad[0x58 - 0x1C];
 } HPFSTATE;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// total size: 0x1C
+typedef struct FT16STATE {
+    SFILTERNODE sfn; // offset 0x0
+} FT16STATE;
+#else
 // total size: 0x1C
 typedef struct FT24_32STATE {
     SFILTERNODE sfn; // offset 0x0
 } FT24_32STATE;
+#endif
 
 // total size: 0x5C
 typedef struct SNDMIXVOICE {
@@ -77,34 +84,49 @@ typedef struct SNDMIXVOICE {
     HPFSTATE *phps;                // offset 0x58
 } SNDMIXVOICE;
 
-// total size: 0x8
+// total size: 0x8 (PS2: 0xC)
 typedef struct SNDMIXFXSTATE {
-    float **inbuf; // offset 0x0
-    int timeout;   // offset 0x4
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float **inbufUnaligned; // offset 0x0
+#endif
+    float **inbuf; // offset 0x0 (PS2: 0x4)
+    int timeout;   // offset 0x4 (PS2: 0x8)
 } SNDMIXFXSTATE;
 
 // total size: 0x1E8
+// En PS2 (snd 9.06.00-ps2, stabs de la A124) mide 0x1EC: pfxwetmix y fxaddiop detras de fxadd, el filtro de
+// salida es el de 16 bits (ft16s) y no hay decode16 (supf/suplf/suppf llaman directo a decode16x87).
 typedef struct SNDMIXSTATE {
     MIXCONFIG mc;                            // offset 0x0
     unsigned short outputframeincr;          // offset 0xC
     unsigned char resamplequality;           // offset 0xE
     char pad[1];                             // offset 0xF
     void (*fxadd)(int);                      // offset 0x10
-    int *wetbusactive;                       // offset 0x14
-    UNPACKINITFN *filterunpackinit[6][3];    // offset 0x18
-    int filterunpacksize[6][3];              // offset 0x60
-    float *punalignedtempbuf[2];             // offset 0xA8
-    float *ptempbuf[2];                      // offset 0xB0
-    float *punalignedmixbuf[6];              // offset 0xB8
-    float *pmixbuf[6];                       // offset 0xD0
-    float stoppedvoiceaccdry[6];             // offset 0xE8
-    float *stoppedvoiceaccwet;               // offset 0x100
-    SFILTERNODE *outputfilterhead[6];        // offset 0x104
-    LPFRCSTATE *plps[6];                     // offset 0x11C
+#ifdef EA_PLATFORM_PLAYSTATION2
+    void *pfxwetmix;                         // offset 0x14
+    void (*fxaddiop)(int);                   // offset 0x18
+#endif
+    int *wetbusactive;                       // offset 0x14 (PS2: 0x1C)
+    UNPACKINITFN *filterunpackinit[6][3];    // offset 0x18 (PS2: 0x20)
+    int filterunpacksize[6][3];              // offset 0x60 (PS2: 0x68)
+    float *punalignedtempbuf[2];             // offset 0xA8 (PS2: 0xB0)
+    float *ptempbuf[2];                      // offset 0xB0 (PS2: 0xB8)
+    float *punalignedmixbuf[6];              // offset 0xB8 (PS2: 0xC0)
+    float *pmixbuf[6];                       // offset 0xD0 (PS2: 0xD8)
+    float stoppedvoiceaccdry[6];             // offset 0xE8 (PS2: 0xF0)
+    float *stoppedvoiceaccwet;               // offset 0x100 (PS2: 0x108)
+    SFILTERNODE *outputfilterhead[6];        // offset 0x104 (PS2: 0x10C)
+    LPFRCSTATE *plps[6];                     // offset 0x11C (PS2: 0x124)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    FT16STATE ft16s[6];                      // offset 0x13C
+#else
     FT24_32STATE ft24s[6];                   // offset 0x134
-    SNDMIXVOICE *smv;                        // offset 0x1DC
-    void (*mix)(int, float, void *, void *); // offset 0x1E0
+#endif
+    SNDMIXVOICE *smv;                        // offset 0x1DC (PS2: 0x1E4)
+    void (*mix)(int, float, void *, void *); // offset 0x1E0 (PS2: 0x1E8)
+#ifndef EA_PLATFORM_PLAYSTATION2
     void (*decode16)(int, short *, float *); // offset 0x1E4
+#endif
 } SNDMIXSTATE;
 
 namespace Snd {
@@ -156,51 +178,62 @@ void *memset(void *p, int c, unsigned int n);
 extern SNDMIXFXSTATE sndfx;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void SFILTER_ft16init(FT16STATE *ps);
+#else
 void SFILTER_ft24_32init(FT24_32STATE *ps);
+#endif
 int SFILTER_timestretchinit(TIMESTRETCHSTATE *ptss, unsigned char *psideband, int voice);
 
 SNDMIXSTATE sndmix;
+#ifdef EA_PLATFORM_PLAYSTATION2
+unsigned int SNDMIXfastramfree;
+void (*sndmixopenlog)();
+#endif
 void (*sndmixwritelog)(short **, int);
+#ifdef EA_PLATFORM_PLAYSTATION2
+void (*sndmixcloselog)();
+#endif
 
 void MIXI_interpolateto0(float *acc, float *pdst) {
-    pdst[0] = *acc * 0.941176474f + pdst[0];
-    pdst[1] = *acc * 0.882352948f + pdst[1];
-    pdst[2] = *acc * 0.823529422f + pdst[2];
-    pdst[3] = *acc * 0.764705896f + pdst[3];
-    pdst[4] = *acc * 0.70588237f + pdst[4];
-    pdst[5] = *acc * 0.647058845f + pdst[5];
-    pdst[6] = *acc * 0.588235319f + pdst[6];
-    pdst[7] = *acc * 0.529411793f + pdst[7];
-    pdst[8] = *acc * 0.470588237f + pdst[8];
-    pdst[9] = *acc * 0.411764711f + pdst[9];
-    pdst[10] = *acc * 0.352941185f + pdst[10];
-    pdst[11] = *acc * 0.294117659f + pdst[11];
-    pdst[12] = *acc * 0.235294119f + pdst[12];
-    pdst[13] = *acc * 0.176470593f + pdst[13];
-    pdst[14] = *acc * 0.117647059f + pdst[14];
-    pdst[15] = *acc * 0.0588235296f + pdst[15];
+    pdst[0] += *acc * 0.941176474f;
+    pdst[1] += *acc * 0.882352948f;
+    pdst[2] += *acc * 0.823529422f;
+    pdst[3] += *acc * 0.764705896f;
+    pdst[4] += *acc * 0.70588237f;
+    pdst[5] += *acc * 0.647058845f;
+    pdst[6] += *acc * 0.588235319f;
+    pdst[7] += *acc * 0.529411793f;
+    pdst[8] += *acc * 0.470588237f;
+    pdst[9] += *acc * 0.411764711f;
+    pdst[10] += *acc * 0.352941185f;
+    pdst[11] += *acc * 0.294117659f;
+    pdst[12] += *acc * 0.235294119f;
+    pdst[13] += *acc * 0.176470593f;
+    pdst[14] += *acc * 0.117647059f;
+    pdst[15] += *acc * 0.0588235296f;
     *acc = 0.0f;
 }
 
 void MIXI_interpolatemix(float gain, float gaintarget, float *psrc, float *pdst) {
     float gainincr = (gaintarget - gain) * 0.0588235296f;
 
-    pdst[0] = psrc[0] * (gain + gainincr * 1.0f) + pdst[0];
-    pdst[1] = psrc[1] * (gain + gainincr * 2.0f) + pdst[1];
-    pdst[2] = psrc[2] * (gain + gainincr * 3.0f) + pdst[2];
-    pdst[3] = psrc[3] * (gain + gainincr * 4.0f) + pdst[3];
-    pdst[4] = psrc[4] * (gain + gainincr * 5.0f) + pdst[4];
-    pdst[5] = psrc[5] * (gain + gainincr * 6.0f) + pdst[5];
-    pdst[6] = psrc[6] * (gain + gainincr * 7.0f) + pdst[6];
-    pdst[7] = psrc[7] * (gain + gainincr * 8.0f) + pdst[7];
-    pdst[8] = psrc[8] * (gain + gainincr * 9.0f) + pdst[8];
-    pdst[9] = psrc[9] * (gain + gainincr * 10.0f) + pdst[9];
-    pdst[10] = psrc[10] * (gain + gainincr * 11.0f) + pdst[10];
-    pdst[11] = psrc[11] * (gain + gainincr * 12.0f) + pdst[11];
-    pdst[12] = psrc[12] * (gain + gainincr * 13.0f) + pdst[12];
-    pdst[13] = psrc[13] * (gain + gainincr * 14.0f) + pdst[13];
-    pdst[14] = psrc[14] * (gain + gainincr * 15.0f) + pdst[14];
-    pdst[15] = psrc[15] * (gain + gainincr * 16.0f) + pdst[15];
+    pdst[0] += psrc[0] * (gain + gainincr * 1.0f);
+    pdst[1] += psrc[1] * (gain + gainincr * 2.0f);
+    pdst[2] += psrc[2] * (gain + gainincr * 3.0f);
+    pdst[3] += psrc[3] * (gain + gainincr * 4.0f);
+    pdst[4] += psrc[4] * (gain + gainincr * 5.0f);
+    pdst[5] += psrc[5] * (gain + gainincr * 6.0f);
+    pdst[6] += psrc[6] * (gain + gainincr * 7.0f);
+    pdst[7] += psrc[7] * (gain + gainincr * 8.0f);
+    pdst[8] += psrc[8] * (gain + gainincr * 9.0f);
+    pdst[9] += psrc[9] * (gain + gainincr * 10.0f);
+    pdst[10] += psrc[10] * (gain + gainincr * 11.0f);
+    pdst[11] += psrc[11] * (gain + gainincr * 12.0f);
+    pdst[12] += psrc[12] * (gain + gainincr * 13.0f);
+    pdst[13] += psrc[13] * (gain + gainincr * 14.0f);
+    pdst[14] += psrc[14] * (gain + gainincr * 15.0f);
+    pdst[15] += psrc[15] * (gain + gainincr * 16.0f);
 }
 
 void SNDMIX_setmasterlowpass(float leakage) {
@@ -258,8 +291,15 @@ void SNDI_Delete(void *p) {
 }
 
 void MIX_create(MIXCONFIG *pmc) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    unsigned int fastramaddr;
+#endif
     int i = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int pingPongBufSize = 0x1058;
+#else
     int pingPongBufSize = 0xABC;
+#endif
 
     Snd::CODASetNew(SNDI_New);
     Snd::CODASetDelete(SNDI_Delete);
@@ -269,6 +309,12 @@ void MIX_create(MIXCONFIG *pmc) {
 
     SNDSYS_entercritical();
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En PS2 los buferes van primero a la memoria rapida (el scratchpad) que den las opciones del sistema.
+    fastramaddr = (unsigned int)sndgs.sso.set.fastramaddr;
+    SNDMIXfastramfree = sndgs.sso.set.fastramsize;
+#endif
+
     MIX_createFxglobals();
 
     for (i = 0; i < Snd::gMaxFxBuses; i++) {
@@ -276,8 +322,20 @@ void MIX_create(MIXCONFIG *pmc) {
     }
 
     for (i = 0; i < 2; i++) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        if (SNDMIXfastramfree >= pingPongBufSize) {
+            SNDMIXfastramfree -= pingPongBufSize;
+            sndmix.punalignedtempbuf[i] = (float *)fastramaddr;
+            sndmix.ptempbuf[i] = (float *)fastramaddr;
+            fastramaddr += pingPongBufSize;
+        } else {
+            sndmix.punalignedtempbuf[i] = (float *)SNDMEMI_allocz(pingPongBufSize);
+            sndmix.ptempbuf[i] = sndmix.punalignedtempbuf[i];
+        }
+#else
         sndmix.punalignedtempbuf[i] = (float *)SNDMEMI_allocz(pingPongBufSize);
         sndmix.ptempbuf[i] = sndmix.punalignedtempbuf[i] + 2;
+#endif
 
         while (((sndptrint)sndmix.ptempbuf[i] & 0x3F) != 0) {
             sndmix.ptempbuf[i] += 1;
@@ -285,10 +343,24 @@ void MIX_create(MIXCONFIG *pmc) {
     }
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        int bufsize = 0x840;
+
+        if (SNDMIXfastramfree >= bufsize) {
+            SNDMIXfastramfree -= bufsize;
+            sndmix.punalignedmixbuf[i] = (float *)fastramaddr;
+            sndmix.pmixbuf[i] = (float *)fastramaddr;
+            fastramaddr += bufsize;
+        } else {
+            sndmix.punalignedmixbuf[i] = (float *)SNDMEMI_allocz(bufsize);
+            sndmix.pmixbuf[i] = sndmix.punalignedmixbuf[i];
+        }
+#else
         int bufsize = 0x2C0;
 
         sndmix.punalignedmixbuf[i] = (float *)SNDMEMI_allocz(bufsize);
         sndmix.pmixbuf[i] = sndmix.punalignedmixbuf[i];
+#endif
 
         while (((sndptrint)sndmix.pmixbuf[i] & 0x3F) != 0) {
             sndmix.pmixbuf[i] += 1;
@@ -321,11 +393,19 @@ void MIX_create(MIXCONFIG *pmc) {
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
         sndmix.outputfilterhead[i] = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        SFILTER_ft16init(&sndmix.ft16s[i]);
+        sndmix.ft16s[i].sfn.priority = 0;
+        sndmix.ft16s[i].sfn.requester = 0;
+        SFILTER_add(&sndmix.outputfilterhead[i], &sndmix.ft16s[i].sfn);
+        memset(sndmix.pmixbuf[i], 0, 0x800);
+#else
         SFILTER_ft24_32init(&sndmix.ft24s[i]);
         sndmix.ft24s[i].sfn.priority = 0;
         sndmix.ft24s[i].sfn.requester = 0;
         SFILTER_add(&sndmix.outputfilterhead[i], &sndmix.ft24s[i].sfn);
         memset(sndmix.pmixbuf[i], 0, 0x280);
+#endif
     }
 }
 
@@ -342,6 +422,12 @@ void MIX_destroy() {
     }
 
     for (i = 0; i < 2; i++) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // lo que salio de la memoria rapida (0x70000000, el scratchpad) no se libera
+        if (((sndptruint)sndmix.punalignedtempbuf[i] & 0x70000000) == 0x70000000) {
+            sndmix.punalignedtempbuf[i] = 0;
+        } else
+#endif
         if (sndmix.punalignedtempbuf[i] != 0) {
             SNDMEMI_free(sndmix.punalignedtempbuf[i]);
             sndmix.punalignedtempbuf[i] = 0;
@@ -349,6 +435,11 @@ void MIX_destroy() {
     }
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        if (((sndptruint)sndmix.punalignedmixbuf[i] & 0x70000000) == 0x70000000) {
+            sndmix.punalignedmixbuf[i] = 0;
+        } else
+#endif
         if (sndmix.punalignedmixbuf[i] != 0) {
             SNDMEMI_free(sndmix.punalignedmixbuf[i]);
             sndmix.punalignedmixbuf[i] = 0;
@@ -362,9 +453,19 @@ void MIX_destroy() {
 
 void MIX_reset() {
     sndmix.mix = mixc;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    sndmix.outputframeincr = 1024;
+#else
     sndmix.decode16 = decode16x87;
     sndmix.outputframeincr = 320;
+#endif
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" void MIX_setresamplequality(int quality) {
+    sndmix.resamplequality = quality;
+}
+#endif
 
 void MIX_playinit(int voice, int samplerep, int playtype, void *psample, void *ploopstart, void *ptsdata, int numchan, int totalframes, int sustainstart, int sustainend, void *pcoeftable, void *ploopstate, int platformver, int requester) {
     UNPACKINITPARAMS upip;
@@ -383,7 +484,11 @@ void MIX_playinit(int voice, int samplerep, int playtype, void *psample, void *p
     upip.bits16 = 1;
     upip.unpackgetframe = 0;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (samplerep == 8) {
+#else
     if (samplerep == 7) {
+#endif
         upindex = 0;
     } else if (samplerep == 10) {
         upindex = 1;
@@ -476,11 +581,11 @@ void MIX_stop(int voice) {
     int i;
 
     for (i = 0; i < Snd::gMaxFxBuses; i++) {
-        sndmix.stoppedvoiceaccwet[i] = psmv->wetbusgainprev[i] * psmv->lastmixed + sndmix.stoppedvoiceaccwet[i];
+        sndmix.stoppedvoiceaccwet[i] += psmv->wetbusgainprev[i] * psmv->lastmixed;
     }
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
-        sndmix.stoppedvoiceaccdry[i] = psmv->drybusgainprev[i] * psmv->lastmixed + sndmix.stoppedvoiceaccdry[i];
+        sndmix.stoppedvoiceaccdry[i] += psmv->drybusgainprev[i] * psmv->lastmixed;
     }
 
     do {
@@ -577,6 +682,11 @@ void MIX_audioslice(void **poutput, int frames) {
     if (sndmix.fxadd != 0) {
         sndmix.fxadd(frames);
     }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndmix.fxaddiop != 0) {
+        sndmix.fxaddiop(frames);
+    }
+#endif
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
         if (sndmix.plps[i] != 0) {
@@ -587,7 +697,32 @@ void MIX_audioslice(void **poutput, int frames) {
         }
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndgs.logmixing || sndgs.logcallbackfn != 0) {
+#else
     if (sndgs.logcallbackfn != 0) {
+#endif
         sndmixwritelog((short **)poutput, frames);
     }
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" void MIX_audio(void **poutputpassed, int frames) {
+    void *poutput[6];
+    int i;
+
+    for (i = 0; i < sndmix.mc.outputchannels; i++) {
+        poutput[i] = poutputpassed[i];
+    }
+
+    while (frames > 0) {
+        MIX_audioslice(poutput, frames > 512 ? 512 : frames);
+
+        for (i = 0; i < sndmix.mc.outputchannels; i++) {
+            poutput[i] = (char *)poutput[i] + sndmix.outputframeincr;
+        }
+
+        frames -= 512;
+    }
+}
+#endif

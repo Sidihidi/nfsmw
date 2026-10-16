@@ -26,7 +26,6 @@ class MNotifyCellCallComplete : public Hermes::Message {
 
     MNotifyCellCallComplete() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MNotifyCellCallComplete() {}
 };
 
 
@@ -34,9 +33,9 @@ class MNotifyCellCallComplete : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyCellCallComplete::HandleMessage_LuaBinding(const MNotifyCellCallComplete &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyCellCallComplete::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

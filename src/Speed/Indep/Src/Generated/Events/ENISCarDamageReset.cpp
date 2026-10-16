@@ -28,8 +28,8 @@ void ENISCarDamageReset_MakeEvent_Callback(const void *staticData) {
     new ENISCarDamageReset(gEventDynamicData.fhSimable);
 }
 
-int ENISCarDamageReset_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int ENISCarDamageReset_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new ENISCarDamageReset(gEventDynamicData.fhSimable);
     }
     return 0;

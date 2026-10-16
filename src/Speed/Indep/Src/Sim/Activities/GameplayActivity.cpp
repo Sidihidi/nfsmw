@@ -31,9 +31,9 @@ class GameplayActivity : public Sim::Activity {
 
 GameplayActivity::GameplayActivity(Sim::Param params) : Sim::Activity(0) {
     mUpdateTask = AddTask("GameplayActivity", 1.0f, 0.0f, Sim::TASK_FRAME_FIXED);
+#ifndef EA_BUILD_A124
     Sim::ProfileTask(mUpdateTask, "GameplayActivity");
 
-#ifndef EA_BUILD_A124
     GManager::Get().PreBeginGameplay();
 #endif
     GRaceStatus::Init();

@@ -1,29 +1,9 @@
-typedef int INT32;
-typedef unsigned int UINT32;
-typedef short Q_LIST_ENTRY;
+#include <string.h>
 
-typedef struct {
-    UINT32 FrameQIndex;
-    UINT32 ThisFrameQuantizerValue;
-    Q_LIST_ENTRY round[8];
-    Q_LIST_ENTRY mult[8];
-    Q_LIST_ENTRY zbin[8];
-    UINT32 LastQuantizerValue;
-    UINT32 QThreshTable[64];
-    UINT32 *transIndex;
-    unsigned char quant_index[64];
-    Q_LIST_ENTRY *dequant_coeffs[2];
-    Q_LIST_ENTRY *dequant_coeffsAlloc[2];
-    INT32 QuantCoeffs[64][2];
-    INT32 QuantRound[64][2];
-    INT32 ZeroBinSize[64][2];
-    INT32 ZlrZbinCorrections[64][2];
-} QUANTIZER;
-
-extern void *memset(void *, int, unsigned int);
-extern void *memcpy(void *, const void *, unsigned int);
-extern void *duck_malloc(unsigned long size, int type);
-extern void duck_free(void *mem);
+#include "codec_common.h"
+#include "codec_common_interface.h"
+#include "quantize.h"
+#include "duck_mem.h"
 
 static const UINT32 VP6_QThreshTable[64] = {
     94, 92, 90, 88, 86, 82, 78, 74, 70, 66, 62, 58, 54, 53, 52, 51,
@@ -67,9 +47,9 @@ static const UINT32 transIndexC[64] = {
     48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
 };
 
-void (*VP6_BuildQuantIndex)(QUANTIZER *);
+void (*VP6_BuildQuantIndex)(QUANTIZER *qi);
 
-void VP6_InitQTables(QUANTIZER *qi, unsigned char Vp3VersionNo) {
+void VP6_InitQTables(QUANTIZER *qi, UINT8 Vp3VersionNo) {
     memcpy(qi->QThreshTable, VP6_QThreshTable, sizeof(qi->QThreshTable));
 }
 
@@ -84,8 +64,8 @@ void VP6_BuildQuantIndex_Generic(QUANTIZER *qi) {
     }
 }
 
-void VP6_init_dequantizer(QUANTIZER *qi, unsigned char Vp3VersionNo) {
-    INT32 i, j;
+void VP6_init_dequantizer(QUANTIZER *qi, UINT8 Vp3VersionNo) {
+    int i, j;
 
     for (i = 1; i < 64; i++) {
         j = qi->quant_index[i];
@@ -100,7 +80,7 @@ void VP6_init_dequantizer(QUANTIZER *qi, unsigned char Vp3VersionNo) {
     qi->dequant_coeffs[1][0] = (unsigned short)VP6_UvDcQuant[qi->FrameQIndex] * 4;
 }
 
-void VP6_UpdateQ(QUANTIZER *qi, unsigned char Vp3VersionNo) {
+void VP6_UpdateQ(QUANTIZER *qi, UINT8 Vp3VersionNo) {
     if (qi->QThreshTable[qi->FrameQIndex] != qi->LastQuantizerValue) {
         qi->LastQuantizerValue = qi->ThisFrameQuantizerValue;
         VP6_BuildQuantIndex(qi);
@@ -123,21 +103,21 @@ static void DeleteQuantizerBuffers(QUANTIZER *qi) {
 static INT32 AllocateQuantizerBuffers(QUANTIZER *qi) {
     DeleteQuantizerBuffers(qi);
 
-    qi->dequant_coeffsAlloc[0] = duck_malloc(64 * sizeof(Q_LIST_ENTRY) + 32, 0);
-    if (qi->dequant_coeffsAlloc[0] == 0)
-        goto fail;
+    qi->dequant_coeffsAlloc[0] = duck_malloc(64 * sizeof(Q_LIST_ENTRY) + 32, DMEM_GENERAL);
+    if (!qi->dequant_coeffsAlloc[0]) {
+        DeleteQuantizerBuffers(qi);
+        return FALSE;
+    }
     qi->dequant_coeffs[0] = (Q_LIST_ENTRY *)(((UINT32)qi->dequant_coeffsAlloc[0] + 31) & ~31);
 
-    qi->dequant_coeffsAlloc[1] = duck_malloc(64 * sizeof(Q_LIST_ENTRY) + 32, 0);
-    if (qi->dequant_coeffsAlloc[1] == 0)
-        goto fail;
+    qi->dequant_coeffsAlloc[1] = duck_malloc(64 * sizeof(Q_LIST_ENTRY) + 32, DMEM_GENERAL);
+    if (!qi->dequant_coeffsAlloc[1]) {
+        DeleteQuantizerBuffers(qi);
+        return FALSE;
+    }
     qi->dequant_coeffs[1] = (Q_LIST_ENTRY *)(((UINT32)qi->dequant_coeffsAlloc[1] + 31) & ~31);
 
-    return 1;
-
-fail:
-    DeleteQuantizerBuffers(qi);
-    return 0;
+    return TRUE;
 }
 
 void VP6_DeleteQuantizer(QUANTIZER **qi) {
@@ -152,7 +132,7 @@ QUANTIZER *VP6_CreateQuantizer(void) {
     QUANTIZER *qi = 0;
     INT32 quantizer_size = sizeof(QUANTIZER);
 
-    qi = duck_malloc(quantizer_size, 0);
+    qi = duck_malloc(quantizer_size, DMEM_GENERAL);
     if (!qi)
         return 0;
 

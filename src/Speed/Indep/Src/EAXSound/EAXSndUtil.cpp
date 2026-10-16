@@ -23,10 +23,8 @@ void cPathLine::Initialize(float _Start, float _Finish, int _Length) {
 }
 
 void cPathLine::ClearStages() {
-    this->CurValue = 0.0f;
-    this->ElapsedTime = 0.0f;
-    this->cur_stage = 0;
-    this->num_stages = 0;
+    this->ElapsedTime = this->CurValue = 0.0f;
+    this->num_stages = this->cur_stage = 0;
     for (int i = 0; i < 6; i++) {
         this->Length[i] = this->Finish[i] = this->Start[i] = 0.0f;
         this->IsLinked[i] = false;
@@ -61,12 +59,12 @@ int cPathLine::AddStage(float _Start, float _Finish, int _Length, eCURVETYPE _Cu
 
 int cPathLine::AddLinkedStage(float _Finish, int _Length, eCURVETYPE _Curve) {
     float _Start = 0.0f;
-    if (this->num_stages != 0) {
-        this->AddStage(_Start, _Finish, _Length, _Curve);
-        this->IsLinked[this->num_stages - 1] = true;
-        return this->num_stages;
+    if (this->num_stages == 0) {
+        return -1;
     }
-    return -1;
+    this->AddStage(_Start, _Finish, _Length, _Curve);
+    this->IsLinked[this->num_stages - 1] = true;
+    return this->num_stages;
 }
 
 void cPathLine::Update(float delta_time) {
@@ -99,22 +97,22 @@ void cPathLine::Update(float delta_time) {
     case LINEAR:
     default: {
         float s = this->Start[this->cur_stage];
-        this->CurValue = (this->Finish[this->cur_stage] - s) * (delta_time / this->Length[this->cur_stage]) + s;
+        this->CurValue = s + (this->Finish[this->cur_stage] - s) * (delta_time / this->Length[this->cur_stage]);
         break;
     }
     case PARABOLIC: {
         float t = this->Finish[this->cur_stage] - this->Start[this->cur_stage];
         float s;
         float x;
-        this->CurValue = t * (delta_time / this->Length[this->cur_stage]) * (delta_time / this->Length[this->cur_stage]) + this->Start[this->cur_stage];
+        this->CurValue = this->Start[this->cur_stage] + t * (delta_time / this->Length[this->cur_stage]) * (delta_time / this->Length[this->cur_stage]);
         break;
     }
     case INV_PARABOLIC: {
         float t = this->Finish[this->cur_stage] - this->Start[this->cur_stage];
         float s;
         float x;
-        this->CurValue = t * (-(delta_time / this->Length[this->cur_stage] - 1.0f) * (delta_time / this->Length[this->cur_stage] - 1.0f) + 1.0f) +
-                   this->Start[this->cur_stage];
+        this->CurValue = this->Start[this->cur_stage] +
+                   t * (-(delta_time / this->Length[this->cur_stage] - 1.0f) * (delta_time / this->Length[this->cur_stage] - 1.0f) + 1.0f);
         break;
     }
     case EQ_PWR_SQ: {
@@ -124,33 +122,30 @@ void cPathLine::Update(float delta_time) {
         int Delta = bClamp(static_cast<int>((delta_time * 32767.0f) / this->Length[this->cur_stage]), 0, 0x7fff);
         float Result = static_cast<float>(NFSMixShape::GetCurveOutput(::SHAPE_UP_EQPWR_SQ, Delta, false));
         Result *= 3.051851e-05f;
-        this->CurValue = t * Result + this->Start[this->cur_stage];
+        this->CurValue = this->Start[this->cur_stage] + t * Result;
         break;
     }
     }
 }
 
 cInterpLine::cInterpLine() {
-    this->CurValue = 0.0f;
-    this->ElapsedTime = 0.0f;
-    this->Start = 0.0f;
-    this->Finish = 0.0f;
+    this->ElapsedTime = this->CurValue = 0.0f;
+    this->Length = this->Finish = this->Start = 0.0f;
     this->CurveTypes = LINEAR;
-    this->Length = 0.0f;
     this->bComplete = true;
 }
 
 cInterpLine::~cInterpLine() {}
 
 void cInterpLine::Initialize(float _Start, float _Finish, int _Length, eCURVETYPE _Curve) {
-    this->Length = static_cast<float>(_Length) * 0.001f;
+    this->Length = static_cast<float>(_Length) / 1000.0f;
     if (this->Length <= 0.0f) {
         this->Length = 0.01f;
     }
     this->Finish = _Finish;
+    this->Start = _Start;
     this->CurveTypes = _Curve;
     this->bComplete = false;
-    this->Start = _Start;
     this->CurValue = _Start;
     this->ElapsedTime = 0.0f;
 }
@@ -180,20 +175,20 @@ void cInterpLine::Update(float delta_time) {
     switch (this->CurveTypes) {
     case LINEAR:
     default:
-        this->CurValue = (this->Finish - this->Start) * (delta_time / this->Length) + this->Start;
+        this->CurValue = this->Start + (this->Finish - this->Start) * (delta_time / this->Length);
         break;
     case PARABOLIC: {
         float t = this->Finish - this->Start;
         float s;
         float x;
-        this->CurValue = t * (delta_time / this->Length) * (delta_time / this->Length) + this->Start;
+        this->CurValue = this->Start + t * (delta_time / this->Length) * (delta_time / this->Length);
         break;
     }
     case INV_PARABOLIC: {
         float t = this->Finish - this->Start;
         float s;
         float x;
-        this->CurValue = t * (-(delta_time / this->Length - 1.0f) * (delta_time / this->Length - 1.0f) + 1.0f) + this->Start;
+        this->CurValue = this->Start + t * (-(delta_time / this->Length - 1.0f) * (delta_time / this->Length - 1.0f) + 1.0f);
         break;
     }
     case EQ_PWR_SQ: {
@@ -203,7 +198,7 @@ void cInterpLine::Update(float delta_time) {
         int Delta = bClamp(static_cast<int>((delta_time * 32767.0f) / this->Length), 0, 0x7fff);
         float Result = static_cast<float>(NFSMixShape::GetCurveOutput(::SHAPE_UP_EQPWR_SQ, Delta, false));
         Result *= 3.051851e-05f;
-        this->CurValue = t * Result + this->Start;
+        this->CurValue = this->Start + t * Result;
         break;
     }
     }
@@ -229,8 +224,8 @@ void Slope::Initialize(float _Min, float _Max, float _Start, float _Finish) {
     (void)zero;
 }
 
-float Slope::GetValue(float input) {
-    this->LastInput = input;
+float Slope::GetValue(float arg) {
+    this->LastInput = arg;
     this->Regenerate();
     return this->LastOutput;
 }

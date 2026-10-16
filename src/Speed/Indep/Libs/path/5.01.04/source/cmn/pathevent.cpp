@@ -40,7 +40,7 @@ int PATHI_addevent(unsigned int projectflags, PATHEVENT *event) {
     }
     for (project = 0; project < 4; project++) {
         if (Path::pfstates[project] != 0 &&
-            (Path::pfstates[project]->idflags & projectflags & 0xff000000) ==
+            (Path::pfstates[project]->idflags & projectflags) ==
                 Path::pfstates[project]->idflags) {
             eventindex = Path::pfstates[project]->eventindex;
             if (eventindex > 15) {

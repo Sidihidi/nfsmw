@@ -28,9 +28,9 @@ void ENISConstraint_MakeEvent_Callback(const void *staticData) {
     new ENISConstraint(((ENISConstraint::StaticData *) staticData)->fDegrees, gEventDynamicData.fhSimable);
 }
 
-int ENISConstraint_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ENISConstraint(lua_tonumber(L, 1), gEventDynamicData.fhSimable);
+int ENISConstraint_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ENISConstraint(lua_tonumber(luaState, 1), gEventDynamicData.fhSimable);
     }
     return 0;
 }

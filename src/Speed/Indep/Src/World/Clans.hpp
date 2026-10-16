@@ -10,7 +10,7 @@
 #include "Speed/Indep/bWare/Inc/bList.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 
-struct eView;
+class eView;
 
 extern SlotPool *ClanSlotPool;
 

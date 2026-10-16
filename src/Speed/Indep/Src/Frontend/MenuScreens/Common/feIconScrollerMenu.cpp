@@ -22,7 +22,8 @@ IconOption::IconOption(uint32 tex_hash, uint32 name_hash, uint32 desc_hash)
     if (tex_hash == 0xAAAB31E9) {
         SetTutorialMovieName(gTUTORIAL_MOVIE_DRAG);
     } else if (tex_hash == 0x66C9A7B6) {
-        SetTutorialMovieName(gTUTORIAL_MOVIE_SPEEDTRAP);
+        pTutorialMovieName = gTUTORIAL_MOVIE_SPEEDTRAP;
+        bIsTutorialAvailable = true;
     }
 }
 
@@ -74,7 +75,7 @@ FEImage *IconPanel::AddOption(IconOption *option) {
     Options.AddTail(option);
     if (pCurrentNode == nullptr) {
         pCurrentNode = Options.GetHead();
-        FEngSetCurrentButton(pPackageName, pCurrentNode->FEngObject->NameHash);
+        FEngSetCurrentButton(pPackageName, pCurrentNode->FEngObject);
     }
     return image;
 }
@@ -86,7 +87,7 @@ void IconPanel::Act(uint32 data, FEObject *obj, uint32 param1, uint32 param2) {
 }
 
 IconOption *IconPanel::GetOption(int to_find) {
-    if (to_find <= 0) {
+    if (to_find < 1) {
         return nullptr;
     }
     int i = 1;
@@ -117,7 +118,7 @@ bool IconPanel::SetSelection(IconOption *option) {
     if (!option->IsGreyOut) {
         pCurrentNode->StartScale(0.614f, 0.2f);
         pCurrentNode = option;
-        FEngSetCurrentButton(pPackageName, option->FEngObject->NameHash);
+        FEngSetCurrentButton(pPackageName, option->FEngObject);
         pCurrentNode->StartScale(0.95f, 0.2f);
         return true;
     }
@@ -136,9 +137,9 @@ void IconPanel::SetInitialPos() {
     float i = 0.0f;
     for (IconOption *opt = Options.GetHead(); opt != Options.EndOfList(); opt = opt->GetNext()) {
         if (bHorizontal) {
-            FEngSetTopLeft(opt->FEngObject, (size_x + fIconSpacing) * i + first_x, master_y - size_y * 0.5f);
+            FEngSetTopLeft(opt->FEngObject, first_x + (size_x + fIconSpacing) * i, master_y - size_y * 0.5f);
         } else {
-            FEngSetTopLeft(opt->FEngObject, master_x - size_y * 0.5f, (size_y + fIconSpacing) * i + first_y);
+            FEngSetTopLeft(opt->FEngObject, master_x - size_y * 0.5f, first_y + (size_y + fIconSpacing) * i);
         }
         i = i + 1.0f;
     }
@@ -256,21 +257,24 @@ IconScroller::IconScroller(const char *pkg_name, const char *master, const char 
       HeadBookEnd(nullptr),                                         //
       TailBookEnd(nullptr),                                         //
       ScrollBar(pkg_name, "ScrollBar", false, false, true),         //
-      AnimateCubic(1, 1.0f) {
-    AlignmentToSelected = eSA_MIDDLE;
-    iCurSelectedIndex = 1;
-    fHeight = 0.0f;
-    iNumBookEnds = 4;
-    fXCenter = 0.0f;
-    fYCenter = 0.0f;
-    fCurrentAddPos = 0.0f;
-    fCurFadeTime = 0.0f;
-    fMaxFadeTime = 9.0f;
-    bAllowColorAnim = true;
-    IdleColor = 0xFFFFFFFF;
-    FadeColor = 0x00FFFFFF;
-    fWidth = width;
-    bDelayUpdate = bInitialized = bFadingOut = bFadingIn = false;
+      AnimateCubic(1, 1.0f),                                        //
+      AlignmentToSelected(eSA_MIDDLE),                              //
+      iNumBookEnds(4),                                              //
+      iCurSelectedIndex(1),                                         //
+      fWidth(width),                                                //
+      fHeight(0.0f),                                                //
+      fXCenter(0.0f),                                               //
+      fYCenter(0.0f),                                               //
+      fCurrentAddPos(0.0f),                                         //
+      fCurFadeTime(0.0f),                                           //
+      fMaxFadeTime(9.0f),                                           //
+      bAllowColorAnim(true),                                        //
+      bFadingIn(false),                                             //
+      bFadingOut(false),                                            //
+      bInitialized(false),                                          //
+      bDelayUpdate(false),                                          //
+      IdleColor(0xFFFFFFFF),                                        //
+      FadeColor(0x00FFFFFF) {
     fIconSpacing = -5.0f;
     FEObject *master_obj = FEngFindObject(pkg_name, FEHashUpper(master));
     if (master_obj != nullptr) {
@@ -329,9 +333,9 @@ void IconScroller::Update() {
 void IconScroller::AddInitialBookEnds() {
     for (int i = 0; i < iNumBookEnds / 2; i++) {
         FEScrollyBookEnd *bookEnd = new ("FEScrollyBookEnd", 0) FEScrollyBookEnd(0x43B6310F);
-        FEImage *image = AddOption(bookEnd);
-        if (image != nullptr) {
-            FEngSetTextureHash(image, bookEnd->Item);
+        FEImage *img = AddOption(bookEnd);
+        if (img != nullptr) {
+            FEngSetTextureHash(img, bookEnd->Item);
         }
     }
     HeadBookEnd = Options.GetTail();
@@ -363,7 +367,7 @@ FEImage *IconScroller::AddOption(IconOption *option) {
     if (pCurrentNode == nullptr) {
         if (iIndexToAdd > iNumBookEnds + 1) {
             pCurrentNode = HeadBookEnd->GetNext();
-            FEngSetCurrentButton(pPackageName, pCurrentNode->FEngObject->NameHash);
+            FEngSetCurrentButton(pPackageName, pCurrentNode->FEngObject);
         }
     }
     return image;
@@ -559,7 +563,7 @@ void IconScroller::PositionOption(IconOption *option) {
             aligned_pos = FEngGetTopLeftY(option->FEngObject);
             break;
         case eSA_MIDDLE:
-            aligned_pos = (option->OrigHeight - option->OrigHeight * scale) * 0.5f + FEngGetTopLeftY(option->FEngObject);
+            aligned_pos = FEngGetTopLeftY(option->FEngObject) + (option->OrigHeight - option->OrigHeight * scale) * 0.5f;
             break;
         case eSA_BOTTOM:
             aligned_pos = FEngGetTopLeftY(option->FEngObject) + (option->OrigHeight - option->OrigHeight * scale);
@@ -585,34 +589,34 @@ void IconScroller::UpdateFade(IconOption *option, float scale) {
         float g2 = static_cast<float>((FadeColor >> 8) & 0xFF);
         float b2 = static_cast<float>(FadeColor & 0xFF);
 
-        unsigned char a = static_cast<unsigned char>(a1 * scale + a2 * (1.0f - scale));
+        unsigned char a = static_cast<unsigned char>(bFloatToInt(a1 * scale + a2 * (1.0f - scale)));
         if (option->IsGreyOut) {
             a = 0x96;
         } else {
             a = static_cast<unsigned char>(bClamp(a, 0, 255));
         }
 
-        unsigned char r = static_cast<unsigned char>(r1 * scale + r2 * (1.0f - scale));
-        unsigned char g = static_cast<unsigned char>(g1 * scale + g2 * (1.0f - scale));
-        unsigned char b = static_cast<unsigned char>(b1 * scale + b2 * (1.0f - scale));
+        unsigned char r = static_cast<unsigned char>(bFloatToInt(r1 * scale + r2 * (1.0f - scale)));
+        unsigned char g = static_cast<unsigned char>(bFloatToInt(g1 * scale + g2 * (1.0f - scale)));
+        unsigned char b = static_cast<unsigned char>(bFloatToInt(b1 * scale + b2 * (1.0f - scale)));
 
         r = static_cast<unsigned char>(bClamp(r, 0, 255));
         g = static_cast<unsigned char>(bClamp(g, 0, 255));
         b = static_cast<unsigned char>(bClamp(b, 0, 255));
 
         unsigned int color = (a << 24) + (r << 16) + (g << 8);
-        FEngSetColor(option->FEngObject, color | b);
+        FEngSetColor(option->FEngObject, color + b);
     }
 }
 
 void IconScroller::UpdateArrows() {
     if (pCurrentNode == Options.GetHead()) {
-        ScrollBar.SetArrowVisibility(1, false);
+        ScrollBar.SetArrow1Visibility(false);
     } else if (pCurrentNode == Options.GetTail()) {
-        ScrollBar.SetArrowVisibility(2, false);
+        ScrollBar.SetArrow2Visibility(false);
     } else {
-        ScrollBar.SetArrowVisibility(1, true);
-        ScrollBar.SetArrowVisibility(2, true);
+        ScrollBar.SetArrow1Visibility(true);
+        ScrollBar.SetArrow2Visibility(true);
     }
 }
 
@@ -695,9 +699,11 @@ void IconScrollerMenu::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, 
         case __PAD_BUTTON4__: {
             IconOption *cur_option = Options.GetCurrentOption();
             if (cur_option->IsTutorialAvailable()) {
+#ifndef EA_BUILD_A124 // la A124 no esconde el menu al lanzar el tutorial (ni lo restaura al acabar)
                 const u32 FEObj_MASTERBLASTER = 0x99344537;
                 const u32 FEObj_HIDE = 0x16A259;
                 FEngSetScript(GetPackageName(), FEObj_MASTERBLASTER, FEObj_HIDE, true);
+#endif
                 g_pEAXSound->PlayUISoundFX(UISND_COMMON_SELECT);
                 FEAnyTutorialScreen::LaunchMovie(cur_option->GetTutorialMovieName()
 #ifndef EA_BUILD_A124
@@ -721,12 +727,14 @@ void IconScrollerMenu::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, 
             }
             break;
         }
+#ifndef EA_BUILD_A124
         case FEMSG_MOVIE_FINISHED: {
             const u32 FEObj_MASTERBLASTER = 0x99344537;
             const u32 FEObj_Init = FEHash_Init;
             FEngSetScript(GetPackageName(), FEObj_MASTERBLASTER, FEObj_Init, true);
             break;
         }
+#endif
     }
 }
 

@@ -9,7 +9,7 @@
 
 // total size: 0x7D0
 class AIVehiclePursuit : public AIVehiclePid, public IPursuitAI {
-  public:
+  protected:
     AIVehiclePursuit(const BehaviorParams &bp);
 
     // Overrides: IUnknown
@@ -17,7 +17,7 @@ class AIVehiclePursuit : public AIVehiclePid, public IPursuitAI {
 
     // Overrides: AIVehicle
     void ResetInternals() override;
-
+  public:
     // Overrides: IPursuitAI
     void StartPatrol() override;
 
@@ -50,9 +50,9 @@ class AIVehiclePursuit : public AIVehiclePid, public IPursuitAI {
 
     // Overrides: AIVehicle
     void Update(float dT) override;
-
+  protected:
     virtual void UpdateSiren(float dT);
-
+  public:
     // Overrides: IPursuitAI
     void SetInPursuit(bool inPursuit) override {
         mInPursuit = inPursuit;
@@ -186,7 +186,7 @@ class AIVehiclePursuit : public AIVehiclePid, public IPursuitAI {
     bool mInFormation;                // offset 0x79C, size 0x1
     bool mInPosition;                 // offset 0x7A0, size 0x1
     bool mWithinEngagementRadius;     // offset 0x7A4, size 0x1
-    UMath::Vector3 mPursuitOffset;    // offset 0x7A8, size 0xC
+    ALIGNVEC UMath::Vector3 mPursuitOffset;    // offset 0x7A8, size 0xC (360: +0x30 de IPursuitAI; PS2: 0x900)
     ALIGNVEC UMath::Vector3 mInPositionOffset; // offset 0x7B4, size 0xC
     UCrc32 mInPositionGoal;           // offset 0x7C0, size 0x4
     float mTimeSinceTargetSeen;       // offset 0x7C4, size 0x4

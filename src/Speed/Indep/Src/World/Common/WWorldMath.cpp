@@ -24,9 +24,9 @@ bool WWorldMath::SegmentIntersect(const UMath::Vector4 *line1, const UMath::Vect
             if ((ub_n >= -0.0001f && ub_n <= ua_d) || (ub_n <= 0.0001f && ub_n >= ua_d)) {
                 if (intersectPt != nullptr) {
                     float t = ua_n / ua_d;
-                    intersectPt->x = t * x11 + l1x;
-                    intersectPt->y = t * (line1[1].y - line1[0].y) + line1[0].y;
-                    intersectPt->z = t * z11 + l1z;
+                    intersectPt->x = l1x + t * x11;
+                    intersectPt->y = line1[0].y + t * (line1[1].y - line1[0].y);
+                    intersectPt->z = l1z + t * z11;
                     intersectPt->w = 1.0f;
                 }
                 return true;
@@ -96,8 +96,8 @@ void WWorldMath::NearestPointLine2D(const UMath::Vector4 &pt, const UMath::Vecto
         u = 0.0f;
     }
 
-    float x = u * (x2 - x1) + x1;
-    float z = u * (z2 - z1) + z1;
+    float x = x1 + u * (x2 - x1);
+    float z = z1 + u * (z2 - z1);
     nearPt.z = z;
     nearPt.y = 0.0f;
     nearPt.x = x;
@@ -114,7 +114,7 @@ void WWorldMath::NearestPointLine2D3(const UMath::Vector3 &pt, const UMath::Vect
     float u = (px - x1) * (x2 - x1) + (pz - z1) * (z2 - z1);
     float div = pow2(x2 - x1) + pow2(z2 - z1);
 
-    if (1e-6f < div) {
+    if (div > 1e-6f) {
         u = u / div;
     } else {
         u = 0.0f;

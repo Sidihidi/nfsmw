@@ -33,6 +33,7 @@ class AudioMemoryManager {
     }
 
     AudioMemoryManager(void);
+    ~AudioMemoryManager();
 
     friend bool IsWorldDataStreaming(unsigned int);
     friend void AssignAudioStreamHandle(unsigned int);

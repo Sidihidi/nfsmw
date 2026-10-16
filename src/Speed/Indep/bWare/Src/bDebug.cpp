@@ -12,11 +12,20 @@
 #include <dolphin.h>
 #elif defined(EA_PLATFORM_PLAYSTATION2)
 #include "Speed/PSX2/bWare/Src/ee/include/eekernel.h"
+#elif defined(EA_PLATFORM_WIN32)
+#include "Speed/PC/Src/Win32Min.hpp"
+#include <stdio.h>
+#elif defined(EA_PLATFORM_XENON)
+#include <xtl.h>
 #endif
 
 void bFigureOutPSX2Platform();
 
+#ifdef MILESTONE_BUILD // la A124 lo guarda a 1 (.data 0x5DBB70) y nadie lo escribe: el LTCG de X360 quita las comprobaciones
+int EnableReleasePrintf = true;
+#else
 int EnableReleasePrintf = false;
+#endif
 bool (*UserPutStringFunction)(int, const char *) = nullptr;
 bool InUserPutStringFunction = false;
 void (*SendPacketFunction)(struct bFunkPacketHeader *, const void *, int) = 0;
@@ -29,7 +38,7 @@ int NewFileCheckResult = 0;
 int bSuperBenderConnected = false;
 #endif
 
-#ifdef MILESTONE_BUILD
+#if defined(MILESTONE_BUILD) || defined(EA_PLATFORM_PLAYSTATION2)
 float bCodeineVersion = 0.0f;
 #endif
 
@@ -93,29 +102,50 @@ void bReleasePutString(char terminal_channel, const char *s) {
             scePrintf("%s", s);
             bRestoreInterrupts(state);
         }
+#elif defined(EA_PLATFORM_WIN32)
+        printf("%s", s);
+        OutputDebugStringA(s);
+#elif defined(EA_PLATFORM_XENON) // NFS.exe 0x821657D8: solo OutputDebugStringA (0x82669D10), sin printf
+        OutputDebugStringA(s);
 #endif
     }
 }
 
 // STRIPPED
-int bNewFileCheckerAdd(const char *filename) {}
+int bNewFileCheckerAdd(const char *filename) {
+#ifdef EA_PLATFORM_WIN32
+    return 0;
+#endif
+}
 
 // STRIPPED
 void bNewFileCheckerRemove(int id) {}
 
 // STRIPPED
-int bCheckForNewFiles() {}
+int bCheckForNewFiles() {
+#ifdef EA_PLATFORM_WIN32
+    return 0;
+#endif
+}
 
 // STRIPPED
-int bCheckForNewFiles(float seconds) {}
+int bCheckForNewFiles(float seconds) {
+#ifdef EA_PLATFORM_WIN32
+    return 0;
+#endif
+}
 
 bool bIsDebuggerConnected() {
+#ifdef EA_PLATFORM_WIN32
+    return false;
+#else
 
     if (bIsCodeineConnected()) {
         // TODO: from sn debug.c
         // return snIsDebuggerRunning();
     }
     return true;
+#endif
 }
 
 static int GetCodeineString(char *string, int max_chars, int bfunk_num) {
@@ -144,18 +174,50 @@ void bBreak() {
     OSPanic("", 0, "");
 #elif defined(EA_PLATFORM_PLAYSTATION2)
     asm("break 0, 1");
+#elif defined(EA_PLATFORM_WIN32)
+    // asm de EA (docs/asm-de-ea.md): speed.exe 0x45CD20 es `cc c3` y VerifyPoolIntegrity lo expande sin mover el
+    // int3 por delante de los argumentos de la llamada siguiente; __debugbreak() da el int3 pero lo reordena.
+    __asm int 3
+#elif defined(EA_PLATFORM_XENON)
+    // NFS.exe 0x82669D50 es `b DbgBreakPoint` (el DebugBreak del XDK) y 240 funciones del juego lo llaman; vacio,
+    // LTCG quitaba todas esas llamadas.
+    DebugBreak();
 #endif
 }
 
 int bIsValidPointer(void *p, int size) {
+#ifdef EA_PLATFORM_WIN32
+    if ((reinterpret_cast<uintptr_t>(p) & size - 1) != 0) {
+        return false;
+    }
+    return !IsBadReadPtr(p, 1);
+#else
     return (reinterpret_cast<uintptr_t>(p) & size - 1) == 0;
+#endif
 }
 
 // STRIPPED
-int bLaunch(const char *command_line, int dos_command) {}
+int bLaunch(const char *command_line, int dos_command) {
+#ifdef EA_PLATFORM_WIN32
+    return -1;
+#endif
+}
 
 // STRIPPED
-int bLaunchWindows(const char *command_line) {}
+int bLaunchWindows(const char *command_line) {
+#ifdef EA_PLATFORM_WIN32
+    STARTUPINFOA startup_info;
+    PROCESS_INFORMATION process_info;
+
+    memset(&startup_info, 0, sizeof(startup_info));
+    startup_info.cb = sizeof(startup_info);
+    if (!CreateProcessA(nullptr, const_cast<char *>(command_line), nullptr, nullptr, false, 0, nullptr, nullptr,
+                        &startup_info, &process_info)) {
+        return GetLastError();
+    }
+    return 0;
+#endif
+}
 
 float bGetTickerDifference(unsigned int start_ticks) {
 
@@ -163,40 +225,115 @@ float bGetTickerDifference(unsigned int start_ticks) {
 }
 
 int bGetFixTickerDifference(unsigned int start_ticks, unsigned int end_ticks) {
-#ifdef EA_BUILD_A124
-    unsigned int ticks = end_ticks - start_ticks;
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 (bDebug.cpp:833-843 de la A124)
+    unsigned int ticks;
+    if (start_ticks > end_ticks) {
+        ticks = (0xFFFFFFFF - start_ticks) + end_ticks + 1;
+    } else {
+        ticks = end_ticks - start_ticks;
+    }
     return ticks * 0x40 / 0x125;
 #else
     return static_cast<int>(bGetTickerDifference(start_ticks, end_ticks) * 65536.0f);
 #endif
 }
 
-void bInitTicker(float min_wraparound_time) {}
+#ifdef EA_PLATFORM_WIN32
+// PC: el contador de rendimiento de Windows, desplazado lo justo para que la cuenta de 32 bits no de la vuelta antes
+// de min_wraparound_time milisegundos.
+int __ticker_cycpertick;
+float __ticker_msperfreq;
 
+void bInitTicker(float min_wraparound_time) {
+    LARGE_INTEGER frequency;
+
+    QueryPerformanceFrequency(&frequency);
+    __ticker_cycpertick = 0;
+    __ticker_msperfreq = 1000.0f / static_cast<float>(frequency.QuadPart);
+    float wraparound_time = 2147483648.0f * __ticker_msperfreq;
+    while (wraparound_time < min_wraparound_time) {
+        wraparound_time += wraparound_time;
+        __ticker_cycpertick++;
+        __ticker_msperfreq += __ticker_msperfreq;
+    }
+}
+#elif defined(EA_PLATFORM_XENON)
+// X360: el ticker es la base de tiempos dividida por 4 (bGetTicker), asi que los milisegundos por cuenta son
+// 4000 / frecuencia (NFS.exe 0x82165B88).
+float __ticker_msperfreq;
+
+void bInitTicker(float min_wraparound_time) {
+    LARGE_INTEGER frequency;
+
+    QueryPerformanceFrequency(&frequency);
+    __ticker_msperfreq = 4000.0f / static_cast<float>(frequency.QuadPart);
+}
+#else
+void bInitTicker(float min_wraparound_time) {}
+#endif
+
+#ifndef EA_PLATFORM_PLAYSTATION2
 unsigned int bGetTicker() {
 #ifdef EA_PLATFORM_GAMECUBE
     return OSGetTick();
+#elif defined(EA_PLATFORM_WIN32)
+    LARGE_INTEGER ticks;
+
+    QueryPerformanceCounter(&ticks);
+    return static_cast<unsigned int>(ticks.QuadPart >> __ticker_cycpertick);
+#elif defined(EA_PLATFORM_XENON)
+    return static_cast<unsigned int>(__mftb() >> 2);
 #endif
 }
+#endif
 
 // UNSOLVED
 float bGetTickerDifference(unsigned int start_ticks, unsigned int end_ticks) {
-    if (start_ticks < end_ticks) {
-        start_ticks = end_ticks - start_ticks;
+#ifdef EA_PLATFORM_WIN32
+    if (__ticker_msperfreq == 0.0f) {
+        bInitTicker(60000.0f);
+        return 0.0f;
+    }
+#endif
+    unsigned int ticks;
+    if (start_ticks > end_ticks) {
+        ticks = (0xFFFFFFFF - start_ticks) + end_ticks + 1;
     } else {
-        start_ticks = end_ticks - start_ticks;
+        ticks = end_ticks - start_ticks;
     }
 #ifdef EA_PLATFORM_GAMECUBE
-    return OSTicksToMicroseconds(start_ticks) * 0.001f;
+    return OSTicksToMicroseconds(ticks) * 0.001f;
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    float t = ticks / 300000.0f;
+    t *= 1.0167f;
+    return t;
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    return ticks * __ticker_msperfreq;
 #endif
 }
 
 // STRIPPED
-bool bHasTickerExpired(unsigned int start_ticks, float ms) {}
+bool bHasTickerExpired(unsigned int start_ticks, float ms) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    return bGetTickerDifference(start_ticks, bGetTicker()) > ms;
+#endif
+}
 
-int bDisableInterrupts() {}
+int bDisableInterrupts() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return DIntr() != 0;
+#elif defined(EA_PLATFORM_WIN32)
+    return 0;
+#endif
+}
 
-void bRestoreInterrupts(int previous_state) {}
+void bRestoreInterrupts(int previous_state) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (previous_state) {
+        EIntr();
+    }
+#endif
+}
 
 void bMutex::Create() {
     MUTEX_create(reinterpret_cast<MUTEX *>(this));

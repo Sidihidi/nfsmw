@@ -26,8 +26,8 @@ void ECameraShake_MakeEvent_Callback(const void *staticData) {
     new ECameraShake();
 }
 
-int ECameraShake_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int ECameraShake_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new ECameraShake();
     }
     return 0;

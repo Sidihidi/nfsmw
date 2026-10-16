@@ -22,9 +22,9 @@ void EDisableTrigger_MakeEvent_Callback(const void *staticData) {
     new EDisableTrigger(((EDisableTrigger::StaticData *) staticData)->fTrigger);
 }
 
-int EDisableTrigger_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EDisableTrigger((CARP::Trigger *) lua_tostring(L, 1));
+int EDisableTrigger_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EDisableTrigger((CARP::Trigger *) lua_tostring(luaState, 1));
     }
     return 0;
 }

@@ -226,7 +226,7 @@ unsigned int iSPCH_GetStartSample(unsigned int gameNum, int numSamples, int cycl
     unsigned int startSample;
 
     partitionSize = numSamples / cycleLength;
-    overflowSamples = numSamples - partitionSize * cycleLength;
+    overflowSamples = numSamples % cycleLength;
     if (gameNum > overflowSamples) {
         startSample = partitionSize * gameNum + overflowSamples;
     } else {
@@ -297,8 +297,8 @@ int SPCH_AddBank(char *bankHdr) {
     for (j = gBankCount; j > bankIndex; j--) {
         gVoxBanks[j] = gVoxBanks[j - 1];
     }
-    bankHandle = gUniqueBankHandle;
     gVoxBanks[bankIndex].voxHdr = hdr;
+    bankHandle = gUniqueBankHandle;
     gVoxBanks[bankIndex].bankHandle = bankHandle;
     gUniqueBankHandle = bankHandle + 1;
     gBankCount = gBankCount + 1;

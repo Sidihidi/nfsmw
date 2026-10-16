@@ -24,9 +24,9 @@ void EShowTimeExtension_MakeEvent_Callback(const void *staticData) {
     new EShowTimeExtension(((EShowTimeExtension::StaticData *) staticData)->fPlayer, ((EShowTimeExtension::StaticData *) staticData)->fTimeToShow);
 }
 
-int EShowTimeExtension_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new EShowTimeExtension((IPlayer *) lua_tostring(L, 1), lua_tonumber(L, 2));
+int EShowTimeExtension_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new EShowTimeExtension((IPlayer *) lua_tostring(luaState, 1), lua_tonumber(luaState, 2));
     }
     return 0;
 }

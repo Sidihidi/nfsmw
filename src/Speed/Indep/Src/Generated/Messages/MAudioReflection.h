@@ -27,8 +27,6 @@ class MAudioReflection : public Hermes::Message {
     MAudioReflection(int _PlayerNum, float _Dist, bool _Covered)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fPlayerNum(_PlayerNum), fDist(_Dist), fCovered(_Covered) {}
 
-    ~MAudioReflection() {}
-
     int GetPlayerNum() const {
         return fPlayerNum;
     }
@@ -64,9 +62,9 @@ class MAudioReflection : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MAudioReflection::HandleMessage_LuaBinding(const MAudioReflection &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MAudioReflection::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -76,7 +76,8 @@ class ResetCar : protected VehicleBehavior, protected IResetable {
     bool ResetTo(const UMath::Vector3 &position, const UMath::Vector3 &direction, bool manual);
 
     float mFlippedOver;                   // offset 0x58, size 0x4
-    CookieTrail<ResetCookie, 4> mCookies; // offset 0x5C, size 0x90
+    // En PS2 va alineado a 16: los stabs de la A124 lo ponen en 0xB0 detras de mFlippedOver (0xA0).
+    ALIGNVEC CookieTrail<ResetCookie, 4> mCookies; // offset 0x5C, size 0x90
     ICollisionBody *mCollisionBody;       // offset 0xEC, size 0x4
     ISuspension *mSuspension;             // offset 0xF0, size 0x4
     IRBVehicle *mVehicleBody;             // offset 0xF4, size 0x4
@@ -173,7 +174,11 @@ bool ResetCar::ShouldReset() const {
         return true;
     }
 
-    return Tweak_ResetCar_FlipTime < this->mFlippedOver;
+    if (this->mFlippedOver > Tweak_ResetCar_FlipTime) {
+        return true;
+    }
+
+    return false;
 }
 
 void ResetCar::TrackState(float dT) {
@@ -185,8 +190,8 @@ void ResetCar::TrackState(float dT) {
             const UMath::Vector3 &vup = this->mCollisionBody->GetUpVector();
             float ground_dot = UMath::Dot(vup, UMath::Vector4To3(this->mCollisionBody->GetGroundNormal()));
 
-            if (ground_dot < Tweak_ResetCar_GroundDot) {
-                flippedover = vup.y < Tweak_ResetCar_UprightDot;
+            if (ground_dot < Tweak_ResetCar_GroundDot && vup.y < Tweak_ResetCar_UprightDot) {
+                flippedover = true;
             }
         }
     }
@@ -273,7 +278,13 @@ bool ResetCar::ResetTo(const UMath::Vector3 &position, const UMath::Vector3 &dir
     return false;
 }
 
+// El prototipo A124 la tiene en 2,5: GameCube y SLUS estan al 100 %
+// con 3,5 y solo SLES pedia 2,5.
+#ifdef EA_BUILD_A124
+static const float Tweak_MaxResetAltitudeChange = 2.5f;
+#else
 static const float Tweak_MaxResetAltitudeChange = 3.5f;
+#endif
 
 bool ResetCar::FindNearestRoad(ResetCookie *cookie) const {
     IVehicleAI *iai;

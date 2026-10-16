@@ -341,7 +341,11 @@ void ParameterAccessor::ClearLayer() {
 }
 
 void ParameterAccessor::CaptureData(float x, float y) {
-    this->CurrentParameterData = this->Layer != nullptr ? this->Layer->GetParameterData(x, y) : this->Layer;
+    if (this->Layer != nullptr) {
+        this->CurrentParameterData = this->Layer->GetParameterData(x, y);
+    } else {
+        this->CurrentParameterData = nullptr;
+    }
 }
 
 void ParameterAccessor::ClearData() {
@@ -426,7 +430,13 @@ void ParameterAccessorBlend::SetUpForNewLayer() {
     if (this->Layer != nullptr) {
         int data_size = this->Layer->GetSizeOfParameterSet();
         if (data_size > 0) {
-            this->LastData = new ("Parameter Accessor Blend Buffer", 0) char[data_size];
+#ifdef EA_PLATFORM_XENON
+            // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa new[] con texto.
+            this->LastData = ::new (static_cast<char *>(bMalloc(data_size, "Parameter Accessor Blend Buffer", 0, 0)))
+#else
+            this->LastData = new ("Parameter Accessor Blend Buffer", 0)
+#endif
+                char[data_size];
         }
     }
 }
@@ -491,9 +501,9 @@ void ParameterMapsManager::UnloadAllLayers() {
 }
 
 int ParameterMapsManager::GetDataForLayer(unsigned int layer_name_hash, ParameterAccessor *accessor, int warning_if_not_found) {
-    for (ParameterMapLayer *layer = this->ParameterMapLayers.GetHead(); layer != this->ParameterMapLayers.EndOfList(); layer = layer->GetNext()) {
-        if (layer->GetNameHash() == layer_name_hash) {
-            accessor->SetLayer(layer);
+    for (ParameterMapLayer *current_layer = this->ParameterMapLayers.GetHead(); current_layer != this->ParameterMapLayers.EndOfList(); current_layer = current_layer->GetNext()) {
+        if (current_layer->GetNameHash() == layer_name_hash) {
+            accessor->SetLayer(current_layer);
             return 1;
         }
     }
@@ -545,4 +555,8 @@ int UnloaderParameterMaps(bChunk *chunk) {
 }
 
 // STRIPPED
-int GetXYviewCar(eView *view, float *x, float *y) {}
+int GetXYviewCar(eView *view, float *x, float *y) {
+    *x = view->GetCamera()->GetPosition()->x;
+    *y = view->GetCamera()->GetPosition()->y;
+    return 1;
+}

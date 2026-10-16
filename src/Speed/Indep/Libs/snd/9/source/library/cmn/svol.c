@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 int SNDvol(int shandle, int vol) {
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
 
     if (voice >= 0) {
@@ -39,9 +40,9 @@ int SNDvol(int shandle, int vol) {
 void Snd::Hal::SetVol(int voice) {
     SetVolInternal(voice);
 
-    CHANPUB *pv = &sndgs.chan[voice];
+    CHANPUB *ppubv = &sndgs.chan[voice];
 
-    if (pv->rendermode & 4) {
+    if (ppubv->rendermode & 4) {
         int i;
 
         for (i = 0; i < Snd::gMaxFxBuses; i++) {

@@ -37,14 +37,18 @@ enum LibMessage {
     LMSG_FLUSH_DONE = 22,
     LMSG_MOUNT_DONE = 23,
     LMSG_UNMOUNT_DONE = 24,
-    LMSG_IS_IT_YOUR_FILE = 25,
-    LMSG_TRC = 26,
-    LMSG_FILE_INFO = 27,
-    LMSG_READ_READY = 28,
-    LMSG_WRITE_READY = 29,
-    LMSG_CHECK_DATA_INTEGRITY = 30,
-    LMSG_FORMAT_DONE = 31,
-    LMSG_TASK_UNKNOWN = 32,
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2 pregunta tambien por los directorios (stabs de la A124): lo que sigue va un numero por detras.
+    LMSG_IS_IT_YOUR_DIRECTORY,
+#endif
+    LMSG_IS_IT_YOUR_FILE,
+    LMSG_TRC,
+    LMSG_FILE_INFO,
+    LMSG_READ_READY,
+    LMSG_WRITE_READY,
+    LMSG_CHECK_DATA_INTEGRITY,
+    LMSG_FORMAT_DONE,
+    LMSG_TASK_UNKNOWN,
 };
 
 enum TaskResult {
@@ -108,6 +112,19 @@ enum UserMessage {
 };
 
 struct CardID {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    CardID() {
+        this->port = 0;
+        this->slot = 0;
+    }
+    CardID(unsigned short p, unsigned short s) {
+        this->port = p;
+        this->slot = s;
+    }
+
+    unsigned short port;
+    unsigned short slot;
+#else
     CardID() {
         this->slot = 0;
         this->systemData = 0;
@@ -119,6 +136,7 @@ struct CardID {
 
     unsigned short slot;
     unsigned short systemData;
+#endif
 };
 
 enum GCImageFormat {
@@ -156,6 +174,85 @@ struct GCBannerDataInfo {
     char *imageData;
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+typedef char DirNameType;
+
+struct DateTime {
+    unsigned short year;
+    unsigned char month;
+    unsigned char day;
+    unsigned char hour;
+    unsigned char minute;
+    unsigned char second;
+};
+
+struct FileTime {
+    DateTime created;
+    DateTime lastModified;
+};
+
+struct DirectoryInfo {
+    DirectoryInfo() {
+        this->directoryName = nullptr;
+        this->iconSysData = nullptr;
+        this->iconSysDataSize = 0;
+        this->staticIconData = nullptr;
+        this->staticIconDataSize = 0;
+        this->staticIconFilename = nullptr;
+        this->copyIconData = nullptr;
+        this->copyIconDataSize = 0;
+        this->copyIconFilename = nullptr;
+        this->deleteIconData = nullptr;
+        this->deleteIconDataSize = 0;
+        this->deleteIconFilename = nullptr;
+    }
+
+    DirNameType *directoryName;
+    const char *iconSysData;
+    int iconSysDataSize;
+    const char *staticIconData;
+    int staticIconDataSize;
+    const char *staticIconFilename;
+    const char *copyIconData;
+    int copyIconDataSize;
+    const char *copyIconFilename;
+    const char *deleteIconData;
+    int deleteIconDataSize;
+    const char *deleteIconFilename;
+};
+
+struct FileInfo {
+    FileInfo() {
+        this->fileName = nullptr;
+        this->fileByteSize = 0;
+
+        this->directoryInfo = nullptr;
+    }
+
+    const char *fileName;
+    int fileByteSize;
+    DirectoryInfo *directoryInfo;
+};
+
+struct StartGameInfo {
+    StartGameInfo()
+        : fileInfo()
+        , checkCardID() {
+        this->totalBlocksNeeded = 0;
+
+        this->gameTitle = nullptr;
+        this->autoSave = false;
+        this->checkAllSlots = false;
+    }
+
+    FileInfo fileInfo;
+    unsigned int totalBlocksNeeded;
+    CardID checkCardID;
+    bool checkAllSlots;
+    wchar_t *gameTitle;
+    bool autoSave;
+};
+#else
 struct FileInfo {
     FileInfo()
         : fileName(0)
@@ -198,7 +295,14 @@ struct StartGameInfo {
     bool checkAllSlots;
     unsigned int totalFilesNeeded;
 };
+#endif
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// En PS2 es una clase vacia (1 B en los stabs): el manejador de libmc vive en Ps2FileDescriptor.
+struct OpenFileDescriptor {
+    OpenFileDescriptor() {}
+};
+#else
 struct OpenFileDescriptor {
     OpenFileDescriptor() {
         this->fileNumber = 0;
@@ -206,6 +310,7 @@ struct OpenFileDescriptor {
 
     int fileNumber;
 };
+#endif
 
 struct Message {
     struct DetailInfo {
@@ -226,16 +331,22 @@ struct Message {
 
             CardID cardID;
             int freeSpace;
+#ifndef EA_PLATFORM_PLAYSTATION2
             int freeFiles;
+#endif
         };
 
         struct FileInfo {
             char *fileName;
             int fileSize;
+#ifdef EA_PLATFORM_PLAYSTATION2
+            FileTime fileTime;
+#else
             unsigned int fileTime;
             unsigned int userDataOffset;
             char companyCode[2];
             char gameCode[4];
+#endif
         };
 
         struct OpenResult {
@@ -301,6 +412,22 @@ enum FileOpenMode {
     FOM_CREATE = 512,
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+enum McResult {
+    MCR_UNKNOWN = 0,
+    MCR_SUCCESS = 1,
+    MCR_FAILED = 2,
+    MCR_BUSY = 3,
+};
+
+enum FileAttribute {
+    FA_NONE = 0,
+    FA_READABLE = 1,
+    FA_WRITABLE = 2,
+    FA_EXECUTABLE = 4,
+    FA_COPY_PROTECTED = 8,
+};
+#else
 enum FileAttribute {
     FA_NONE = 0,
     FA_PUBLIC = 4,
@@ -308,6 +435,7 @@ enum FileAttribute {
     FA_NO_MOVE = 16,
     FA_COMPANY = 64,
 };
+#endif
 
 struct BaseInterface {
     virtual int AddRef() = 0;
@@ -341,13 +469,41 @@ struct BaseInterface {
     virtual ~BaseInterface() {}
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+enum CharType {
+    CT_ASCII = 0,
+    CT_SJIS = 1,
+    CT_UNKNOWN = 2,
+};
+
+// Conversion ASCII <-> Shift-JIS de los nombres de la tarjeta (source/lib/ps2/ps2_sjis.cpp).
+struct Sjis {
+    unsigned char Sjis2Ascii(unsigned short sjis);
+    unsigned short Ascii2Sjis(unsigned char asciiCode);
+    void Sjis2AsciiString(const unsigned short *sjisStr, unsigned char *asciiStr);
+    void Ascii2SjisString(const unsigned char *asciiStr, unsigned short *sjisStr);
+    CharType CheckChar(unsigned char c);
+};
+
+struct BlockCalculator;
+#endif
+
 struct Interface : public BaseInterface {
     static Interface *CreateInstance(const SystemInterface &iSystem);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    static void InitMultitap(bool, bool);
+
+    virtual void CreateDirectory(const CardID &, const char *) = 0;
+    virtual void DeleteDirectory(const CardID &, const char *) = 0;
+    virtual Sjis *GetSjisInterface() = 0;
+    virtual void Format(const CardID &) = 0;
+#else
 
     virtual void Mount(const CardID &) = 0;
     virtual void Unmount(const CardID &) = 0;
     virtual bool CheckForAutosaveCardRemoval() = 0;
     virtual void ResetAutosaveCardDetection() = 0;
+#endif
 
   protected:
     virtual ~Interface() {}
@@ -393,7 +549,16 @@ struct MessageTimer {
     void Set(unsigned int nSeconds) {
         this->mIsActive = true;
         this->mNumTicksElapsed = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // PS2 (3.04.00): 0 pide el retardo por defecto (msg_timer.h:72 lee mNumSecondsDefaultDelay dentro del inline).
+        if (nSeconds == 0) {
+            this->mNumTicksToExpire = this->mNumSecondsDefaultDelay * 1000;
+        } else {
+            this->mNumTicksToExpire = nSeconds * 1000;
+        }
+#else
         this->mNumTicksToExpire = nSeconds * 1000;
+#endif
     }
 
     void Stop() {
@@ -673,7 +838,10 @@ struct Task {
         this->mSubstate = TS_START;
     }
 
-    virtual void Init(bool) {}
+    virtual void Init(bool) {
+        this->mState = TS_START;
+        this->mSubstate = TS_START;
+    }
 
     TaskID GetID() {
         return this->mID;
@@ -704,6 +872,56 @@ struct Task {
     TaskState mSubstate;
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// task.h de la 3.04.00: los cuerpos del gestor de tareas van detras de las clases, en este orden, y por eso StartTask y
+// EndTask llaman a IsPublicTrcTask y a TrcSingletonAssert con jal en vez de expandirlas. Solo ps2_interface.cpp las
+// emite (es la unidad que construye un TaskManager y necesita su tabla virtual).
+inline void TaskManager::StartTask(Task *newTask) {
+    this->TrcSingletonAssert(newTask);
+    if (this->mCurrentTask != nullptr) {
+        this->mTaskStack.Push(this->mCurrentTask);
+    }
+    this->mCurrentTask = newTask;
+    newTask->SetState(TS_START, TS_START);
+    if (this->IsPublicTrcTask(newTask)) {
+        this->mPublicTrcFunctionRefcount++;
+    }
+}
+
+inline void TaskManager::EndTask(Task *task) {
+    this->mTaskStack.Pop(&this->mCurrentTask);
+    if (this->IsPublicTrcTask(task)) {
+        this->mPublicTrcFunctionRefcount--;
+    }
+}
+
+inline bool TaskManager::IsPublicTrcTask(Task *task) {
+    if (task != nullptr) {
+        switch (task->GetID()) {
+        case TID_TRC_STARTGAME:
+        case TID_TRC_CARDEXISTS:
+        case TID_TRC_GETCARDINFO:
+        case TID_TRC_LOADFILE:
+        case TID_TRC_SAVECHECK:
+        case TID_TRC_SAVEFILE:
+        case TID_TRC_DELETEFILE:
+        case TID_TRC_LISTFILES:
+            return true;
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
+inline void TaskManager::TrcSingletonAssert(Task *newTask) {
+    if (this->IsPublicTrcTask(newTask)) {
+        return;
+    }
+}
+#endif
+
+#ifndef EA_PLATFORM_PLAYSTATION2
 struct GcTask : public Task {
     GcTask(TaskID id, TaskManager *parent)
         : Task(id, parent)
@@ -1215,6 +1433,7 @@ inline void TaskTrcCheckSpace::Start(CardID cardID, FileInfo *fileInfo, unsigned
 inline void GcTask::End() {
     this->mParent->EndTask(this);
 }
+#endif
 
 } // namespace Realmc
 
@@ -1223,7 +1442,9 @@ namespace RealmcIface {
 extern const char *ALL_ENTRIES;
 
 struct FileHeader {
-    FileHeader() {}
+    FileHeader() {
+        this->Clear();
+    }
 
     unsigned int mFileHeaderVersion;
     unsigned int mFileSize;
@@ -1277,19 +1498,26 @@ struct LoadInfo {
     void Clear() {
         memset(this->mEntryName, 0, sizeof(this->mEntryName));
         this->mContentName = nullptr;
+#if REALMEMCARD_VERSION >= 30401
         this->mTypeName = nullptr;
+#endif
         this->mHeader = nullptr;
         this->mBody = nullptr;
         this->mTitleInfo.Clear();
         this->mTryLoad = false;
     }
 
-    void Init(const char *entryName, const wchar_t *content, const wchar_t *type,
+    void Init(const char *entryName, const wchar_t *content,
+#if REALMEMCARD_VERSION >= 30401
+              const wchar_t *type,
+#endif
               char *header, char *body, const TitleInfo *titleInfo) {
         this->Clear();
         strncpy(this->mEntryName, entryName, sizeof(this->mEntryName));
         this->mContentName = content;
+#if REALMEMCARD_VERSION >= 30401
         this->mTypeName = type;
+#endif
         this->mHeader = header;
         this->mBody = body;
         if (titleInfo != nullptr) {
@@ -1300,7 +1528,9 @@ struct LoadInfo {
 
     char mEntryName[64];
     const wchar_t *mContentName;
+#if REALMEMCARD_VERSION >= 30401
     const wchar_t *mTypeName;
+#endif
     char *mHeader;
     char *mBody;
     TitleInfo mTitleInfo;
@@ -1318,14 +1548,21 @@ struct McTask {
         this->mDetails.mBootupCheck.mBootupResults.Clear();
     }
 
-    void InitLoad(unsigned int nEntries, const char **entryNames,
-                  const wchar_t *content, const wchar_t *type, const TitleInfo *titleInfo) {
+    void InitLoad(unsigned int nEntries, const char **entryNames, const wchar_t *content,
+#if REALMEMCARD_VERSION >= 30401
+                  const wchar_t *type,
+#endif
+                  const TitleInfo *titleInfo) {
         this->mDetails.mLoad.mNumEntries = nEntries;
         this->mDetails.mLoad.mCurEntry = 0;
         this->mDetails.mLoad.mLastEntryFound = 0;
         this->mDetails.mLoad.mLoadInfos = new LoadInfo[nEntries];
         for (unsigned int iEntry = 0; iEntry < nEntries; iEntry++) {
+#if REALMEMCARD_VERSION >= 30401
             this->mDetails.mLoad.mLoadInfos[iEntry].Init(entryNames[iEntry], content, type, nullptr, nullptr, titleInfo);
+#else
+            this->mDetails.mLoad.mLoadInfos[iEntry].Init(entryNames[iEntry], content, nullptr, nullptr, titleInfo);
+#endif
         }
     }
 
@@ -1432,7 +1669,11 @@ struct TaskManager {
 
     void BootupCheck(const BootupCheckParams *, unsigned int, const char **, wchar_t *);
     void FindEntries(const char *, const TitleInfo *);
+#if REALMEMCARD_VERSION >= 30401
     void Load(const char *, char *, char *, const wchar_t *, const wchar_t *, const TitleInfo *);
+#else
+    void Load(const char *, char *, char *, const wchar_t *, const TitleInfo *);
+#endif
     void Save(const char *, const char *, const char *, const SaveInfo *, const TitleInfo *);
     void Delete(const char *, const wchar_t *);
     void Delete(unsigned int, const char **, const wchar_t *);
@@ -1501,21 +1742,36 @@ struct MemcardInterfaceImpl {
     void SetMessage(MessageState state, unsigned int message);
     void TaskManagerBootupCheck(const BootupCheckParams *params, unsigned int nEntries, const char **entryNames, wchar_t *content);
     void TaskManagerFindEntries(const char *entryNamePattern, const TitleInfo *titleInfo);
+#if REALMEMCARD_VERSION >= 30401
     void TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName, const TitleInfo *titleInfo);
+#else
+    void TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo);
+#endif
     void TaskManagerSave(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
     void TaskManagerDelete(const char *entryName, const wchar_t *contentName);
     void TaskManagerCheckCard(CardId cardId);
     void TaskManagerSetAutosave(AutosaveState state, unsigned int nSaveReqs, SaveReq **saveReqs, const char *entryName, CardId cardId);
     void SaveCheck(const char *entryName, unsigned int nSaveReqs, SaveReq **saveReqs);
     void Save(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo);
+#if REALMEMCARD_VERSION < 30401
+    void SaveCheckAlternate(const char *entryName, unsigned int nSaveReqs, SaveReq **saveReqs, const TitleInfo *titleInfo);
+    void SaveAlternate(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
+    void SetBootFlow(bool bootFlow);
+#endif
     unsigned int CalcSaveSize(const SaveInfo *saveInfo, const DataFormat dataFormat);
+    void ConvertAsciiToSjisString(const char *asciiStr, wchar_t *sjisStr);
     void SetAutosave(AutosaveState state, unsigned int nSaveReqs, SaveReq **saveReqs, const char *entryName, CardId cardId);
     void Delete(const char *entryName, const wchar_t *contentName);
     void FindEntries(const char *entryNamePattern);
     void DeleteMultiple(unsigned int nEntryNames, const char **entryNames, const wchar_t *contentName);
     void FindEntriesAlternate(const char *entryNamePattern, const TitleInfo *titleInfo);
+#if REALMEMCARD_VERSION >= 30401
     void Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName);
     void LoadAlternate(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName, const TitleInfo *titleInfo);
+#else
+    void Load(const char *entryName, char *header, char *body, const wchar_t *contentName);
+    void LoadAlternate(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo);
+#endif
     void TaskManagerSetMonitor(MonitorState state);
     void BootupCheck(const BootupCheckParams *params);
     void _ProcessBootupCheck(const Realmc::Message *message);
@@ -1581,8 +1837,18 @@ struct MemcardInterfaceImpl {
     const char **mEntryList;
     unsigned int mNumEntries;
     unsigned int mCurEntry;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    char mDirName[32];
+    char mFileName[32];
+    Realmc::DirectoryInfo mDirInfo;
+    char (*mEntryTable)[32];
+    unsigned int mNumFiles;
+    bool mFileFound;
+    NameType mNameType;
+#else
     wchar_t *mInsufficientSpaceMsg;
     unsigned int mFilesNeeded;
+#endif
 };
 
 } // namespace RealmcIface

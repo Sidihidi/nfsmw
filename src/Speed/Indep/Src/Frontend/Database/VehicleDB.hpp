@@ -267,7 +267,9 @@ class FECareerRecord {
         return ServedInfractions;
     }
 
-    void TweakBounty(uint32 bounty) {} // Decl: speed/indep/src/database/VehicleDB.hpp:422
+    void TweakBounty(uint32 bounty) {
+        Bounty = bounty;
+    } // Decl: speed/indep/src/database/VehicleDB.hpp:422
 
   private:
     uint32 Bounty;                         // offset 0x10, size 0x4, Decl: speed/indep/src/database/VehicleDB.hpp:425
@@ -386,7 +388,11 @@ class FEPlayerCarDB {
 
     FECarRecord *CreateNewCareerCar(FECarHandle fromCar); // Decl: speed/indep/src/database/VehicleDB.hpp:560
 
+#ifdef EA_BUILD_A124
+    void AwardRivalCar(FECarHandle preset); // la A124 no devuelve el coche (stabs)
+#else
     FECarRecord *AwardRivalCar(FECarHandle preset); // Decl: speed/indep/src/database/VehicleDB.hpp:562
+#endif
     bool CanCreateNewCarRecord();                   // Decl: speed/indep/src/database/VehicleDB.hpp:563
     bool CanCreateNewCustomizationRecord();         // Decl: speed/indep/src/database/VehicleDB.hpp:564
     bool IsBonusCar(const char *preset_name);
@@ -460,6 +466,7 @@ class FEPlayerCarDB {
 
 void AdjustStableHeat_EvadePursuit(int playerNum);
 void AdjustStableHeat_EventWin(int playerNum);
+void AdjustStableHeat_DebugIncrease(int playerNum, float heat);
 void AdjustStableImpound_EvadePursuit(int playerNum);
 
 POVTypes GetPOVTypeFromPlayerCamera(ePlayerSettingsCameras cam);

@@ -26,8 +26,6 @@ class MNotifyRaceTimeSecTick : public Hermes::Message {
 
     MNotifyRaceTimeSecTick(float _TimeElapsed) : Hermes::Message(_GetKind(), _GetSize(), 0), fTimeElapsed(_TimeElapsed) {}
 
-    ~MNotifyRaceTimeSecTick() {}
-
     float GetTimeElapsed() const {
         return fTimeElapsed;
     }
@@ -45,9 +43,9 @@ class MNotifyRaceTimeSecTick : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyRaceTimeSecTick::HandleMessage_LuaBinding(const MNotifyRaceTimeSecTick &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyRaceTimeSecTick::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

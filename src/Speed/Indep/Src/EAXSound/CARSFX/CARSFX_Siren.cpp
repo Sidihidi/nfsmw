@@ -35,7 +35,7 @@ void CARSFX_Siren::SetupSFX(CSTATE_Base *_StateBase) {
 void CARSFX_Siren::InitSFX() {
     if (IsSoundEnabled != 0) {
         this->SndBase::InitSFX();
-        this->bIgnoreHealth = this->GetPhysCar()->mHealth < 0.01f;
+        this->bIgnoreHealth = this->GetPhysCar()->mHealth < 0.01f ? true : false;
         this->m_SirenState = Sound::SIREN_OFF;
         this->m_PrevSirenState = Sound::SIREN_OFF;
         this->tSirenState = g_pEAXSound->Random(2.0f) + 6.0f;
@@ -55,14 +55,9 @@ void CARSFX_Siren::UpdateParams(float t) {
             this->Enable();
         }
 
-        if (state == Sound::SIREN_OFF) {
-            if (this->IsEnabled()) {
-                this->Disable();
-            }
-            return;
-        }
-
-        if (!this->IsEnabled()) {
+        if (state == Sound::SIREN_OFF && this->IsEnabled()) {
+            this->Disable();
+        } else if (state != Sound::SIREN_OFF && !this->IsEnabled()) {
             this->Enable();
         }
     }

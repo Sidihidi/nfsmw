@@ -6,12 +6,6 @@
 // NOTE: the snd lib is compiled with -x c++; SFILTER_* helpers keep their
 // mangled names, so they are declared as plain C++ functions.
 
-#if defined(__ANDROID__)
-// En 64 bits los rellenos de esta vista dejan de cuadrar con el reparto
-// real de smixer.c: ver smixport.h, que da UNA sola definicion con los dos
-// vocabularios de nombres.
-#include "smixport.h"
-#else
 typedef struct TIMESTRETCHSTATE TIMESTRETCHSTATE;
 typedef struct UNPACKINITPARAMS UNPACKINITPARAMS;
 
@@ -30,16 +24,22 @@ typedef struct MIXVOICE {
 typedef struct SNDMIXSTATE {
     char pad0[0xE];
     unsigned char platformver;           // offset 0xE
-    char pad0b[0x18 - 0xF];
-    void (*unpackinit[12])(void *pstate, UNPACKINITPARAMS *pparams); // offset 0x18
+    char pad0b[1];                       // offset 0xF
+    void (*fxadd)(int);                  // offset 0x10
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // snd 9.06.00-ps2 (stabs de la A124): desde aqui todo va 8 bytes mas adelante
+    void *pfxwetmix;                     // offset 0x14
+    void (*fxaddiop)(int);               // offset 0x18
+#endif
+    int *wetbusactive;                   // offset 0x14 (PS2: 0x1C)
+    void (*unpackinit[12])(void *pstate, UNPACKINITPARAMS *pparams); // offset 0x18 (PS2: 0x20)
     char pad1[0x60 - 0x48];
-    int unpackstatesize[12];             // offset 0x60
+    int unpackstatesize[12];             // offset 0x60 (PS2: 0x68)
     char pad2[0x1DC - 0x90];
-    MIXVOICE *voices;                    // offset 0x1DC
+    MIXVOICE *voices;                    // offset 0x1DC (PS2: 0x1E4)
 } SNDMIXSTATE;
 
 extern SNDMIXSTATE sndmix;
-#endif
 
 void SFILTER_timestretchsetratio(TIMESTRETCHSTATE *pts, int ratio);
 void SFILTER_unpackfinit(void *pstate, UNPACKINITPARAMS *pparams);

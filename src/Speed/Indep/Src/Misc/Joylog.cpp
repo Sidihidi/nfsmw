@@ -8,6 +8,9 @@
 #include "bFile.hpp"
 #include "Config.h"
 #include <cstring>
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 
 int EnableJoylog = ENABLE_IN_MILESTONE; // Decl: 110
 
@@ -44,7 +47,9 @@ JoylogChannelInfo NFSJoylogChannelInfoTable[MAX_JOYLOG_CHANNELS] = {
     {JOYLOG_CHANNEL_CHECKSUM, "JOYLOG_CHANNEL_CHECKSUM", 0, 0},
     {JOYLOG_CHANNEL_LOOP_COUNTER, "JOYLOG_CHANNEL_LOOP_COUNTER", 0, 0},
     {JOYLOG_CHANNEL_QUEUEDFILE_STATUS, "JOYLOG_CHANNEL_QUEUEDFILE_STATUS", 16, 0},
+#ifndef EA_PLATFORM_PLAYSTATION2
     {JOYLOG_CHANNEL_QUEUEDFILENAME, "JOYLOG_CHANNEL_QUEUEDFILENAME", 0, 0},
+#endif
     {JOYLOG_CHANNEL_MOVIE_PLAYER_STATUS, "JOYLOG_CHANNEL_MOVIE_PLAYER_STATUS", 0, 0},
     {JOYLOG_CHANNEL_MEMORY_CARD, "JOYLOG_CHANNEL_MEMORY_CARD", 0, 0},
     {JOYLOG_CHANNEL_RANDOM, "JOYLOG_CHANNEL_RANDOM", 0, 0},
@@ -62,7 +67,10 @@ inline JoylogChannelInfo *GetJoylogChannelInfo(int channel_number) {
 // STRIPPED: char *GetJoylogChannelName(int channel_number)
 
 // Decl: 182
-// STRIPPED: int GetJoylogChannelRepeatCount(int channel_number)
+// Estripada en GameCube; la A124 la tiene (MWExtension.cpp la llama).
+int GetJoylogChannelRepeatCount(int channel_number) {
+    return GetJoylogChannelInfo(channel_number)->YieldRepeatCount;
+}
 
 // total size: 0xC
 // Decl: 200
@@ -230,11 +238,22 @@ uint32 JoylogBuffer::GetData(int data_size, int channel_number) {
         CurrentPosition = lookahead_pos;
     }
 
+#ifdef EA_BUILD_A124
+    CancelScreenPrintf(-300, 0);
+#endif
     int percent_complete = CurrentPosition * 100 / this->GetTotalSize();
+#ifdef EA_BUILD_A124
+    ScreenPrintf(-300, 0, "JOYLOG: %d/100", percent_complete);
+#endif
     if (buffer_entry.ChannelNumber != channel_number) {
         this->PrintNearbyJoylogEntries(prev_position);
         bBreak();
         CurrentPosition = TopPosition;
+#ifdef EA_BUILD_A124
+        ScreenPrintf(-300, 0, 5.0f, "Joylog Failure");
+    } else if (!this->IsMoreData()) {
+        ScreenPrintf(-300, 0, 5.0f, "Joylog Finished");
+#endif
     }
 
     return buffer_entry.Data;
@@ -437,7 +456,16 @@ void Joylog::AddOrGetData(uint16 *string, JoylogChannel channel_number) {
     }
 }
 
-// STRIPPED: void Joylog::VerifyData(int data, int data_size, JoylogChannel channel_number)
+// STRIPPED en GameCube; las dos PS2 la tienen
+void Joylog::VerifyData(int32 data, int data_size, JoylogChannel channel_number) {
+    if (IsCapturing()) {
+        AddData(data, data_size, channel_number);
+    } else if (IsReplaying()) {
+        if (static_cast<int32>(GetData(32, channel_number)) != data) {
+            bBreak();
+        }
+    }
+}
 
 void Joylog::Init() {
     if (EnableJoylog) {

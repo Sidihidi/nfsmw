@@ -1,4 +1,5 @@
 #include "FnRawPoseChannel.h"
+#include "FnRawEventChannel.h"
 #include "Speed/Indep/Src/EAGL4Anim/RawPoseChannel.h"
 
 namespace EAGL4Anim {

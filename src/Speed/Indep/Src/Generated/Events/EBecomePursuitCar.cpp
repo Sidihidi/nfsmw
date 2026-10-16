@@ -37,8 +37,8 @@ void EBecomePursuitCar_MakeEvent_Callback(const void *staticData) {
     new EBecomePursuitCar(gEventDynamicData.fhSimable);
 }
 
-int EBecomePursuitCar_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EBecomePursuitCar_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EBecomePursuitCar(gEventDynamicData.fhSimable);
     }
     return 0;

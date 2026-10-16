@@ -44,9 +44,9 @@ void EProcessAreaStimulus_MakeEvent_Callback(const void *staticData) {
                              ((EProcessAreaStimulus::StaticData *) staticData)->fRadius, gEventDynamicData.fPosition);
 }
 
-int EProcessAreaStimulus_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 4) {
-        new EProcessAreaStimulus(UCrc32(lua_tostring(L, 1)), UCrc32(lua_tostring(L, 2)), UCrc32(lua_tostring(L, 3)), lua_tonumber(L, 4),
+int EProcessAreaStimulus_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 4) {
+        new EProcessAreaStimulus(UCrc32(lua_tostring(luaState, 1)), UCrc32(lua_tostring(luaState, 2)), UCrc32(lua_tostring(luaState, 3)), lua_tonumber(luaState, 4),
                                  gEventDynamicData.fPosition);
     }
     return 0;

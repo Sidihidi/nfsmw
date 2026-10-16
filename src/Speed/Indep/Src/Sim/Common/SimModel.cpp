@@ -11,8 +11,13 @@
 #include <types.h>
 
 template <>
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+UTL::Collections::GarbageNode<Sim::Model, 2296>::Collector UTL::Collections::GarbageNode<Sim::Model, 2296>::_mCollector =
+    UTL::Collections::GarbageNode<Sim::Model, 2296>::Collector();
+#else
 UTL::Collections::GarbageNode<Sim::Model, 434>::Collector UTL::Collections::GarbageNode<Sim::Model, 434>::_mCollector =
     UTL::Collections::GarbageNode<Sim::Model, 434>::Collector();
+#endif
 
 namespace Sim {
 
@@ -279,7 +284,13 @@ void Model::PlayEffect(UCrc32 identifire, const Attrib::Collection *effect, cons
         }
     }
     if (!modeleffect) {
-        modeleffect = ::new ("SimModel\0\0\0\0\0\0\0", 0) Model::Effect(identifire, GetWorldID(), GetAttributes().GetConstCollection());
+#ifdef EA_PLATFORM_XENON
+        // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto (operator new de 3 args).
+        modeleffect = ::new (static_cast<Model::Effect *>(bMalloc(sizeof(Model::Effect), "SimModel\0\0\0\0\0\0\0", 0, 0)))
+#else
+        modeleffect = ::new ("SimModel\0\0\0\0\0\0\0", 0)
+#endif
+            Model::Effect(identifire, GetWorldID(), GetAttributes().GetConstCollection());
 
         mEffects.AddTail(modeleffect);
     }

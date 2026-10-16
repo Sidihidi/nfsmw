@@ -65,7 +65,9 @@ struct uiRapSheetVD : public ArrayScrollerMenu {
     uiRapSheetVD(ScreenConstructorData* sd);
     ~uiRapSheetVD() override {}
     void NotificationMessage(u32 msg, FEObject* pobj, u32 param1, u32 param2) override;
+  private:
     void Setup();
+  public:
     void RefreshHeader() override;
 };
 

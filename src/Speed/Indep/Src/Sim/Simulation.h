@@ -46,6 +46,7 @@ bool Exists();
 void StartProfile();
 void Suspend();
 float GetTime();
+void SetWorkspace(void *data_buffer, void *stack);
 void Update();
 SimRandom &GetRandom();
 unsigned int GetTick();

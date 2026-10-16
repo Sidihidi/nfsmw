@@ -6,10 +6,7 @@
 // the first global object of the zDebug TU survives (see the key of
 // _GLOBAL_.I.__10DebugGraphPcfffiffb).
 
-struct Vector2 {
-    float x;
-    float y;
-};
+#include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 
 struct DebugGraphDataSet;
 
@@ -33,14 +30,14 @@ struct DebugGraph {
     char mTitle[16];                 // 0x08
     float mMaxUnit;                  // 0x18
     unsigned int mColour;            // 0x1C
-    Vector2 mPosition;               // 0x20
-    Vector2 mDimension;              // 0x28
+    UMath::Vector2 mPosition;               // 0x20
+    UMath::Vector2 mDimension;              // 0x28
     unsigned int mGraphDataSetCount; // 0x30
     DebugGraphDataSet *mGraphDataSetList[16]; // 0x34
 };
 
 struct DebugGraphDataSet {
-    DebugGraphDataSet(char *name, unsigned int elements, int colour, Vector2 &dimension, float maxUnit);
+    DebugGraphDataSet(char *name, unsigned int elements, int colour, UMath::Vector2 &dimension, float maxUnit);
     ~DebugGraphDataSet();
 
     void AddElement(float element);
@@ -50,7 +47,7 @@ struct DebugGraphDataSet {
 
     char mTitle[16];          // 0x00
     unsigned int mElementCount; // 0x10
-    Vector2 mDimension;       // 0x14
+    UMath::Vector2 mDimension;       // 0x14
     unsigned int mColour;     // 0x1C
     float mDataGraphUnitScale; // 0x20
     float *mElementList;      // 0x24

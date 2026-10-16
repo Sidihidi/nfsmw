@@ -210,12 +210,12 @@ void MoveChunks(bChunk *dest_chunks, bChunk *source_chunks, int32 sizeof_chunks,
         int chunk_class = 0;
         if (chunk_id == 0) {
             chunk_class = current_chunk_class;
-        } else {
-            if (chunk_id == BCHUNK_GEOMETRY_PACK) {
-                chunk_class = 1;
-            } else if (chunk_id == BCHUNK_TEXTURE_PACK || chunk_id == BCHUNK_TEXTURE_ANIM_PACK) {
-                chunk_class = 2;
-            }
+        } else if (chunk_id == BCHUNK_GEOMETRY_PACK) {
+            chunk_class = 1;
+        } else if (chunk_id == BCHUNK_TEXTURE_PACK) {
+            chunk_class = 2;
+        } else if (chunk_id == BCHUNK_TEXTURE_ANIM_PACK) {
+            chunk_class = 2;
         }
         if (chunk_class == -1) {
             chunk_class = 0;
@@ -262,6 +262,7 @@ int PrintChunks;
 int PrintChunkLevel = 0;
 
 void EndianSwapChunkHeadersRecursive(bChunk *first_chunk, bChunk *last_chunk) {
+#ifdef NATIVE_ENDIAN_BIG
     for (bChunk *chunk = first_chunk; chunk < last_chunk; chunk = chunk->GetNext()) {
         EndianSwapChunkHeader(chunk);
         if (chunk->IsNestedChunk()) {
@@ -270,6 +271,7 @@ void EndianSwapChunkHeadersRecursive(bChunk *first_chunk, bChunk *last_chunk) {
             PrintChunkLevel--;
         }
     }
+#endif
 }
 
 bool IsTempChunk(bChunk *chunk) {
@@ -282,7 +284,13 @@ int SplitPermTempChunks(bool split_temp, bChunk *source_chunks, int source_chunk
     if (depth > 10) {
         bBreak();
     }
-    const int alignment_amount = 0x80;
+    const int alignment_amount =
+#ifdef EA_PLATFORM_XENON
+        // X360 alinea los trozos a 0x1000 (clrlwi 20 / addi 0x1000); GC y PS2 usan 0x80.
+        0x1000;
+#else
+        0x80;
+#endif
     const int alignment_mask = alignment_amount - 1;
 
     for (bChunk *source_chunk = source_chunks; source_chunk < GetLastChunk(source_chunks, source_chunks_size);
@@ -291,7 +299,12 @@ int SplitPermTempChunks(bool split_temp, bChunk *source_chunks, int source_chunk
         if (is_temp_chunk == split_temp) {
             intptr_t source_position = reinterpret_cast<intptr_t>(source_chunk);
             int pad_size = source_position - dest_position & alignment_mask;
+#ifdef EA_PLATFORM_XENON
+            // X360 escribe el umbral como <= 8 (cmpwi 8 / bgt); el resto usa < 9 (cmpwi 9 / bge).
+            if ((pad_size != 0) && (pad_size <= 8)) {
+#else
             if ((pad_size != 0) && (pad_size < 9)) {
+#endif
                 pad_size += alignment_amount;
             }
             if (dest_buffer && pad_size != 0) {
@@ -305,7 +318,12 @@ int SplitPermTempChunks(bool split_temp, bChunk *source_chunks, int source_chunk
         if (source_chunk->IsNestedChunk() && !is_temp_chunk) {
             int new_dest_position = SplitPermTempChunks(split_temp, source_chunk->GetFirstChunk(), source_chunk->GetSize(), dest_buffer,
                                                         dest_position + sizeof(bChunk), depth);
+#ifdef EA_PLATFORM_XENON
+            // X360 compara con signo (cmpw): el literal evita la promocion a unsigned de sizeof.
+            if (new_dest_position != dest_position + 8) {
+#else
             if (new_dest_position != dest_position + sizeof(bChunk)) {
+#endif
                 if (dest_buffer) {
                     bChunk *dest_chunk = reinterpret_cast<bChunk *>(dest_buffer + dest_position);
                     dest_chunk->ID = source_chunk->ID;
@@ -396,11 +414,11 @@ void InitResourceLoader() {
 void CloseResourceLoader() {}
 
 ResourceFile::ResourceFile(const char *filename, ResourceFileType type, int flags, int file_offset, int file_size) {
+    mEnableFreeMemory = true;
+    Type = type;
     Flags = flags;
     FileOffset = file_offset;
     FileSize = file_size;
-    mEnableFreeMemory = true;
-    Type = type;
     Filename = bAllocateSharedString(filename);
     HotFilename = nullptr;
     FileTransfersInProgress = 0;
@@ -410,7 +428,7 @@ ResourceFile::ResourceFile(const char *filename, ResourceFileType type, int flag
     NumLoadedHotFileEntries = 0;
     Callback = nullptr;
     CallbackParam = nullptr;
-    SetAllocationParams(0x2000, filename);
+    SetAllocationParams(BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT), filename);
     HotFilename = nullptr;
     SizeofChunks = bFileSize(Filename);
     if (SizeofChunks < 0) {
@@ -436,17 +454,24 @@ void ResourceFile::AllocateMemory(bool loading_compressed_file) {
     if (Flags & 2) {
         allocation_params |= 0x40;
     }
+    // La A124 no mira aun el pool: sus stabs solo tienen allocation_params y su codigo no llama a bMemoryGetPoolNum.
+#ifndef EA_BUILD_A124
     int pool_num = bMemoryGetPoolNum(allocation_params);
+#endif
     if (loading_compressed_file) {
         allocation_params |= 0x40;
-        if (pool_num != 0) {
-            pool_num = 0;
-            allocation_params &= ~0xF;
-        }
     }
+#ifndef EA_BUILD_A124
+    if (loading_compressed_file && pool_num != 0) {
+        allocation_params &= ~0xF;
+        pool_num = 0;
+    }
+#endif
+#ifndef EA_BUILD_A124
     if (pool_num != 0 && SizeofChunks > bLargestMalloc(allocation_params)) {
         allocation_params &= ~0xF;
     }
+#endif
     pFirstChunk = reinterpret_cast<bChunk *>(bMalloc(SizeofChunks, AllocationName, 0, allocation_params));
 }
 
@@ -467,7 +492,11 @@ void ResourceFile::FreeMemory() {
 
 int NumResourcesBeingLoaded = 0;
 
+#ifdef EA_BUILD_A124
+void ResourceFile::BeginLoading(void (*callback)(int), int callback_param) {
+#else
 void ResourceFile::BeginLoading(void (*callback)(void *), void *callback_param) {
+#endif
     Callback = callback;
     CallbackParam = callback_param;
     NumResourcesBeingLoaded++;
@@ -477,7 +506,11 @@ void ResourceFile::BeginLoading(void (*callback)(void *), void *callback_param) 
     }
     if (SizeofChunks != 0) {
         FileTransfersInProgress++;
+#ifdef EA_BUILD_A124
+        AddQueuedFile(pFirstChunk, Filename, FileOffset, SizeofChunks, FileTransferCallback, reinterpret_cast<int>(this), nullptr);
+#else
         AddQueuedFile(pFirstChunk, Filename, FileOffset, SizeofChunks, FileTransferCallback, this, nullptr);
+#endif
     }
 }
 
@@ -506,8 +539,8 @@ void ResourceFile::LoadResourceIfFileTransferFinished() {
         return;
     }
     if (Flags & 8) {
-        LZHeader *header = reinterpret_cast<LZHeader *>(pFirstChunk);
-        if (header) {
+        if (pFirstChunk) {
+            LZHeader *header = reinterpret_cast<LZHeader *>(pFirstChunk);
             bPlatEndianSwap(&header->ID);
             bPlatEndianSwap(&header->Flags);
             bPlatEndianSwap(&header->UncompressedSize);
@@ -522,14 +555,13 @@ void ResourceFile::LoadResourceIfFileTransferFinished() {
                 }
                 bFree(compressed_data);
             }
-            goto block_8;
-        }
-    } else {
-    block_8:
-        if (pFirstChunk) {
-            EndianSwapChunkHeadersRecursive(pFirstChunk, SizeofChunks);
         }
     }
+#ifdef NATIVE_ENDIAN_BIG
+    if (pFirstChunk) {
+        EndianSwapChunkHeadersRecursive(pFirstChunk, SizeofChunks);
+    }
+#endif
     LoadTempPermChunks(&pFirstChunk, &SizeofChunks, AllocationParams, AllocationName);
     if (Flags & 4) {
         if (pFirstChunk) {
@@ -540,7 +572,13 @@ void ResourceFile::LoadResourceIfFileTransferFinished() {
     LoadingFinishedFlag = 1;
 }
 
-void ResourceFile::FileTransferCallback(void *param, int error_status) {
+void ResourceFile::FileTransferCallback(
+#ifdef EA_BUILD_A124
+    int param,
+#else
+    void *param,
+#endif
+    int error_status) {
     reinterpret_cast<ResourceFile *>(param)->FileTransfersInProgress--;
 }
 
@@ -551,34 +589,43 @@ int ResourceFile::GetSize(int chunk_id, int *pnum_chunks) {
 
 bTList<ResourceFile> ResourceFileList;
 
-ResourceFile *CreateResourceFile(const char *filename, ResourceFileType type, int flags, int flag_offset, int file_size) {
-    ResourceFile *r = new ResourceFile(filename, type, flags, flag_offset, file_size);
+ResourceFile *CreateResourceFile(const char *filename, ResourceFileType type, int flags, int file_offset, int file_size) {
+    ResourceFile *r = new ResourceFile(filename, type, flags, file_offset, file_size);
     ResourceFileList.AddTail(r);
     return r;
 }
 
+#ifdef EA_BUILD_A124
+ResourceFile *LoadResourceFile(const char *filename, enum ResourceFileType type, int flags, void (*callback)(int), int callback_param,
+                               int file_offset, int file_size) {
+#else
 ResourceFile *LoadResourceFile(const char *filename, enum ResourceFileType type, int flags, void (*callback)(void *), void *callback_param,
                                int file_offset, int file_size) {
+#endif
     ResourceFile *r = CreateResourceFile(filename, type, flags, file_offset, file_size);
     r->BeginLoading(callback, callback_param);
     return r;
 }
 
 void UnloadResourceFile(ResourceFile *resource_file) {
-    if (!resource_file) {
-        return;
+    if (resource_file) {
+        while (!resource_file->IsFinishedLoading()) {
+            ServiceResourceLoading();
+        }
+        ResourceFileList.Remove(resource_file);
+        delete resource_file;
     }
-    while (!resource_file->IsFinishedLoading()) {
-        ServiceResourceLoading();
-    }
-    ResourceFileList.Remove(resource_file);
-    delete resource_file;
 }
 
 // total size: 0x8
 struct DelayedResourceCallback {
+#ifdef EA_BUILD_A124
+    void (*pCallback)(int); // offset 0x0, size 0x4
+    int Param;              // offset 0x4, size 0x4
+#else
     void (*pCallback)(void *); // offset 0x0, size 0x4
     void *Param;               // offset 0x4, size 0x4
+#endif
 };
 
 int NumDelayedResourceCallbacks = 0;
@@ -622,17 +669,22 @@ int IsResourceLoadingComplete() {
 void WaitForResourceLoadingComplete() {
     ServiceResourceLoading();
     while (!IsResourceLoadingComplete()) {
+#ifdef EA_PLATFORM_GAMECUBE
         DVDErrorTask(nullptr, 0);
+#endif
         bThreadYield(8);
         ServiceResourceLoading();
     }
 }
 
+#ifdef EA_BUILD_A124
+void SetDelayedResourceCallback(void (*callback)(int), int param) {
+#else
 void SetDelayedResourceCallback(void (*callback)(void *), void *param) {
-    DelayedResourceCallback *drc = &DelayedResourceCallbacks[NumDelayedResourceCallbacks];
+#endif
+    DelayedResourceCallback *drc = &DelayedResourceCallbacks[NumDelayedResourceCallbacks++];
     drc->pCallback = callback;
     drc->Param = param;
-    NumDelayedResourceCallbacks++;
 }
 
 // STRIPPED
@@ -680,6 +732,8 @@ int UnloaderColourCube(bChunk *chunk) {
     return chunk->GetID() == BCHUNK_FENG_FONT;
 }
 
+// La memoria virtual sobre la ARAM: solo GameCube (ninguna otra version tiene estas funciones).
+#ifdef EA_PLATFORM_GAMECUBE
 VMFile::VMFile() {
     mInit = false;
     mCompressed = false;
@@ -790,3 +844,4 @@ VMFile *LoadFileIntoVirtualMemory(const char *filename, bool compressed, bool us
 
     return vm_file;
 }
+#endif

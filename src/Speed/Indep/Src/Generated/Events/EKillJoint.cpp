@@ -28,8 +28,8 @@ void EKillJoint_MakeEvent_Callback(const void *staticData) {
     new EKillJoint(gEventDynamicData.fhSimable);
 }
 
-int EKillJoint_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EKillJoint_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EKillJoint(gEventDynamicData.fhSimable);
     }
     return 0;

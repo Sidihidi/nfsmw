@@ -174,8 +174,12 @@ void CARSFX_TrafficSkids::Detach() {
 }
 
 int CARSFX_TrafficSkids::GetController(int Index) {
+#ifdef EA_PLATFORM_XENON
+    return Index != 0 ? -1 : 3; // NFS.exe: el trafico de X360 usa el controlador 3
+#else
     if (Index == 0) {
         return 1;
     }
     return -1;
+#endif
 }

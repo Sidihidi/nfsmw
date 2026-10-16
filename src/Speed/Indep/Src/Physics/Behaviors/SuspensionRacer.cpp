@@ -187,7 +187,7 @@ class SuspensionRacer : public Chassis, public Sim::Collision::IListener, public
         }
 
         bool IsSlipping() const {
-            return this->mTraction >= 1.0f;
+            return this->mTraction < 1.0f;
         }
 
         float UpdateLoaded(float lat_vel, float fwd_vel, float body_speed, float load, float dT);
@@ -436,8 +436,7 @@ class SuspensionRacer : public Chassis, public Sim::Collision::IListener, public
 
         void Reset() {
             this->Previous = 0.0f;
-            this->Wheels[1] = 0.0f;
-            this->Wheels[0] = 0.0f;
+            this->Wheels[0] = this->Wheels[1] = 0.0f;
             this->Maximum = ABSOLUTE_MAX_STEERING;
             this->LastMaximum = ABSOLUTE_MAX_STEERING;
             this->LastInput = 0.0f;
@@ -919,7 +918,7 @@ Radians SuspensionRacer::GetWheelAngularVelocity(int index) const {
     if (tire->IsBrakeLocked()) {
         return 0.0f;
     }
-    if (!tire->IsOnGround() || !tire->IsSlipping()) {
+    if (!tire->IsOnGround() || tire->IsSlipping()) {
         return tire->GetAngularVelocity();
     }
     return tire->GetRoadSpeed() / tire->GetRadius();
@@ -992,9 +991,11 @@ void SuspensionRacer::OnTaskSimulate(float dT) {
 
     float drag_pct = 1.0f - this->mGameBreaker * 0.75f;
     float aero_pct = 1.0f;
+#ifndef EA_BUILD_A124
     if (state.driver_style == STYLE_DRAG) {
         aero_pct = Tweak_DragAeroMult;
     }
+#endif
     this->DoAerodynamics(state, drag_pct, aero_pct, this->GetWheel(0).GetLocalArm().z, this->GetWheel(2).GetLocalArm().z, tunings);
     this->DoDriveForces(state);
     this->DoWheelForces(state);
@@ -1127,8 +1128,8 @@ static const bool bShowHandling = false; // TODO use
 static const float Tweak_GameBreakerMaxSteer = 60.0f;
 
 void SuspensionRacer::OnCollision(const COLLISION_INFO &cinfo) {
-    if (cinfo.type >= COLLISION_INFO::OBJECT && cinfo.type <= COLLISION_INFO::WORLD) {
-        float impulse = !cinfo.objAImmobile ? cinfo.impulseA : 0.0f;
+    if (cinfo.type == COLLISION_INFO::WORLD || cinfo.type == COLLISION_INFO::OBJECT) {
+        float impulse = cinfo.objAImmobile ? 0.0f : cinfo.impulseA;
         if (cinfo.objB == this->GetOwner()->GetInstanceHandle()) {
             impulse = !cinfo.objBImmobile ? cinfo.impulseB : 0.0f;
         }
@@ -1199,8 +1200,7 @@ float SuspensionRacer::DoHumanSteering(Chassis::State &state) {
         // the remap selector is 1-based: 0 means "no remapping", so the table index is value - 1
         steer_input = SteerInputRemapTables[steer_remapping - 1].GetValue(steer_input);
         float steering_speed = (this->CalculateSteeringSpeed(state) * steering_coeff) * state.time;
-        float max_diff = steer + steering_speed;
-        newsteer = bClamp(newsteer, steer - steering_speed, max_diff);
+        newsteer = bClamp(newsteer, steer - steering_speed, steer + steering_speed);
         // this is absolutely pointless but it's part of the steering calculation for whatever reason
         if (bAbs(newsteer) < 0.0f) {
             newsteer = 0.0f;
@@ -1418,9 +1418,9 @@ static float YawAngleThreshold = 20.0f;
 
 // Credits: Brawltendo
 float YawFrictionBoost(float yaw, float ebrake, float speed, float yawcontrol, float grade) {
-    yaw = bAbs(yaw);
     float retval = 1.0f;
     retval += bAbs(grade);
+    yaw = bAbs(yaw);
     if (ebrake > YawEBrakeThreshold && yaw < bDegToRad(YawAngleThreshold))
         return retval;
 
@@ -1711,8 +1711,8 @@ void SuspensionRacer::Differential::CalcSplit(bool locked) {
     float combined_av = UMath::Abs(av_0 + av_1);
 
     if (combined_av > EPSILON) {
-        torque_split[0] = ((1.0f - factor) * bias) + ((factor * UMath::Abs(av_1)) / combined_av);
-        torque_split[1] = ((1.0f - factor) * (1.0f - bias)) + ((factor * UMath::Abs(av_0)) / combined_av);
+        torque_split[0] = ((factor * UMath::Abs(av_1)) / combined_av) + ((1.0f - factor) * bias);
+        torque_split[1] = ((factor * UMath::Abs(av_0)) / combined_av) + ((1.0f - factor) * (1.0f - bias));
     } else {
         torque_split[0] = bias;
         torque_split[1] = 1.0f - bias;
@@ -1895,7 +1895,7 @@ void SuspensionRacer::DoWheelForces(Chassis::State &state) {
         // how angled the wheel is relative to the ground
         float upness = UMath::Clamp(UMath::Dot(groundNormal, vUp), 0.0f, 1.0f);
         const float oldCompression = wheel.GetCompression();
-        float newCompression = rideheight_specs[axle] * upness + penetration;
+        float newCompression = penetration + rideheight_specs[axle] * upness;
         float max_compression = travel_specs[axle];
         if (wheel.GetCompression() == 0.0f) {
             maxDelta = UMath::Max(maxDelta, newCompression - max_compression);

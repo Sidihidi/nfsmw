@@ -41,6 +41,7 @@ import os
 import re
 import struct
 import sys
+from escritura import entero
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 OBJ = os.path.join(ROOT, "build", "GOWE69", "obj")
@@ -347,9 +348,9 @@ def main():
         linea = "\t%-11s start:0x%08X end:0x%08X%s" % (seccion, addr, addr + n, nl)
         txt = txt[:j] + linea + txt[j:]
         n_ok += 1
-    open(SPLITS + ".bak2", "w", encoding="utf-8", newline="").write(
+    entero(SPLITS + ".bak2", "w", encoding="utf-8", newline="").write(
         open(SPLITS, encoding="utf-8", errors="replace").read())
-    open(SPLITS, "w", encoding="utf-8", newline="").write(txt)
+    entero(SPLITS, "w", encoding="utf-8", newline="").write(txt)
     print()
     print("escritas %d lineas en splits.txt (copia en splits.txt.bak2)" % n_ok)
     print("ahora: python configure.py && python -m ninja   -> verifica 'main.dol: OK'")

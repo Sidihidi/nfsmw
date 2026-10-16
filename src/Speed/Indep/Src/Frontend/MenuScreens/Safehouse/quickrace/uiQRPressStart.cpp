@@ -60,6 +60,10 @@ void uiQRPressStart::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32
 }
 
 void uiQRPressStart::Setup() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    FEPrintf(GetPackageName(), 0xb244cf71, GetLocalizedString(0x63f6a01c), iPlayerNum + 1);
+#else
     FEPrintf(GetPackageName(), 0xb244cf71, GetLocalizedString(0xcf538e1c), iPlayerNum + 1);
     FEPrintf(GetPackageName(), 0x545570c6, GetLocalizedString(0xa065effe));
+#endif
 }

@@ -74,7 +74,12 @@ int SFILTER_unpackxalf(void *pstate, int framestoup, void *psrcp, void *pdstp, i
 
     framesdecoded = 0;
     ptmpdst = (float *)pdstp;
+#ifdef EA_PLATFORM_WIN32
+    // PC: el bucle de sustain solo con platformver <= 1 (speed.exe 0x826E84: cmp [esi+0x30], 1; jg).
+    if (pups->platformver <= 1) {
+#else
     if (pups->platformver <= 2) {
+#endif
         if (pups->feddatabeforess == 0) {
             tmpframecnt = (pups->sustainstart / 28) * 28;
             pups->pDecoder->Feed(pups->psample, tmpframecnt * sizeof(float), tmpframecnt);
@@ -157,7 +162,12 @@ void SFILTER_unpackxalfinit(void *pstate, UNPACKINITPARAMS *pupip) {
     pups->loopend = pupip->sustainend;
     pups->pDecoder = new Snd::CEAXABLKDecf();
     pupip->unpackgetframe = SFILTER_unpackgetframexalf;
+#ifdef EA_PLATFORM_WIN32
+    // PC: platformver <= 1 (speed.exe 0x827074: cmp [esi+0x30], 1; jg).
+    if (pups->platformver <= 1) {
+#else
     if (pups->platformver <= 2) {
+#endif
         pups->psample = (unsigned char *)pupip->psample;
         pups->totalframes = pupip->totalframes;
         pups->startblockmet = 0;

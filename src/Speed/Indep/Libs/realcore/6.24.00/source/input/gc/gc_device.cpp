@@ -4,7 +4,7 @@
 namespace RealInput {
 
 GcDevice::GcDevice(Type type, GcInterface *pInterface)
-    : DeviceImp(PLATFORM_XBOX, type) {
+    : DeviceImp(PLATFORM_GC, type) {
     this->mpInterface = pInterface;
 }
 

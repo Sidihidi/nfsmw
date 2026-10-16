@@ -26,8 +26,6 @@ class MNotifyMusicFlow : public Hermes::Message {
 
     MNotifyMusicFlow(int _Part) : Hermes::Message(_GetKind(), _GetSize(), 0), fPart(_Part) {}
 
-    ~MNotifyMusicFlow() {}
-
     int GetPart() const {
         return fPart;
     }
@@ -45,9 +43,9 @@ class MNotifyMusicFlow : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyMusicFlow::HandleMessage_LuaBinding(const MNotifyMusicFlow &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyMusicFlow::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

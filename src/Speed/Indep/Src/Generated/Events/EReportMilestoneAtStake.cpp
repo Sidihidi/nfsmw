@@ -41,9 +41,9 @@ void EReportMilestoneAtStake_MakeEvent_Callback(const void *staticData) {
     new EReportMilestoneAtStake(((EReportMilestoneAtStake::StaticData *) staticData)->fMilestonePtr);
 }
 
-int EReportMilestoneAtStake_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EReportMilestoneAtStake((GMilestone *) lua_tostring(L, 1));
+int EReportMilestoneAtStake_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EReportMilestoneAtStake((GMilestone *) lua_tostring(luaState, 1));
     }
     return 0;
 }

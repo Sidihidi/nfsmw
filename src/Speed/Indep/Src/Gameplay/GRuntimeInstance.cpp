@@ -39,17 +39,21 @@ void GRuntimeInstance::SetConnectionBuffer(ConnectedInstance *buffer, unsigned i
     mNumConnected = 0;
 }
 
-void GRuntimeInstance::AllocateConnectionBuffer(unsigned int maxConnections) {
-    mConnected = new ConnectedInstance[maxConnections];
+void GRuntimeInstance::AllocateConnectionBuffer(unsigned int numEntries) {
+#ifdef EA_BUILD_A124
+    mConnected = new ("Gameplay instance connection list", 0) ConnectedInstance[numEntries];
+#else
+    mConnected = new ConnectedInstance[numEntries];
+#endif
     mNumConnected = 0;
     SetFlag(0x4);
 }
 
 void GRuntimeInstance::ConnectToInstance(const unsigned int &key, int index, GRuntimeInstance *instance) {
     PackedIndexedKey packedKey = MakePackedKey(key, index);
-    ConnectedInstance &slot = mConnected[mNumConnected++];
-    slot.mIndexedKey = packedKey;
-    slot.mInstance = instance;
+    ConnectedInstance &connected = mConnected[mNumConnected++];
+    connected.mIndexedKey = packedKey;
+    connected.mInstance = instance;
 }
 
 void GRuntimeInstance::LockConnections() {
@@ -112,9 +116,9 @@ void GRuntimeInstance::AddToTypeList(GameplayObjType type) {
 void GRuntimeInstance::RemoveFromTypeList() {
     mNext->mPrev = mPrev;
     mPrev->mNext = mNext;
-    for (unsigned int i = 0; i < kGameplayObjType_Count; i++) {
-        if (sRingListHead[i] == this) {
-            sRingListHead[i] = (mNext == this) ? NULL : mNext;
+    for (unsigned int onType = 0; onType < kGameplayObjType_Count; onType++) {
+        if (sRingListHead[onType] == this) {
+            sRingListHead[onType] = (mNext == this) ? NULL : mNext;
         }
     }
     mNext = NULL;
@@ -130,24 +134,24 @@ GRuntimeInstance *GRuntimeInstance::GetConnectionAt(unsigned int index) const {
 }
 
 bool GRuntimeInstance::IsDerivedFromTemplate(unsigned int templateKey) const {
-    unsigned int parent = GetParent();
-    while (parent != 0) {
-        if (parent == templateKey) {
+    unsigned int parentKey = GetParent();
+    while (parentKey != 0) {
+        if (parentKey == templateKey) {
             return true;
         }
-        Attrib::Gen::gameplay instance(parent, 0, NULL);
-        parent = instance.GetParent();
+        Attrib::Gen::gameplay parentObj(parentKey, 0, NULL);
+        parentKey = parentObj.GetParent();
     }
     return false;
 }
 
-bool GRuntimeInstance::GetPosition(UMath::Vector3 &position) {
+bool GRuntimeInstance::GetPosition(UMath::Vector3 &pos) {
     switch (GetType()) {
     case kGameplayObjType_Marker:
-        position = static_cast<GMarker *>(this)->mPosition;
+        pos = static_cast<GMarker *>(this)->mPosition;
         return true;
     case kGameplayObjType_Trigger:
-        static_cast<GTrigger *>(this)->GetPosition(position);
+        static_cast<GTrigger *>(this)->GetPosition(pos);
         return true;
     default:
         return false;

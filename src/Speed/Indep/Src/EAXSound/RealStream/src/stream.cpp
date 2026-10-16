@@ -3,15 +3,30 @@
 #include "Speed/Indep/bWare/Inc/bDebug.hpp"
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/std.h"
 
+// Lo que cambia por plataforma: los stabs de la A124 dan fname[256] (strncpy con 0xFF, MEM_clear con 0x100) y las
+// dos PS2 alinean el buffer a 64 B (`& -0x40` y `+ 0x40` en STREAM_create; 0x180 + 0x40 en STREAM_overhead).
+#ifdef EA_PLATFORM_PLAYSTATION2
+#define STREAM_FNAMESIZE 256
+#define STREAM_ALIGN 0x40
+#elif defined(EA_PLATFORM_WIN32) // MAX_PATH: STREAM_queuefile copia 0x103 y los campos siguientes van 4 B mas alla
+#define STREAM_FNAMESIZE 260
+#define STREAM_ALIGN 0x40 // speed.exe tambien alinea a 64 B: `& -0x40` y `+ 0x40` en STREAM_create, 0x1D0 en STREAM_overhead
+#else
+#define STREAM_FNAMESIZE 255
+#define STREAM_ALIGN 0x20
+#endif
+
 struct STREAMCHUNKHDR {
     int type; // offset 0x0, size 0x4
     int size; // offset 0x4, size 0x4
 };
 
-struct REQUESTSTRUCTtag;
-struct TAPSTRUCTtag;
-struct FILTERSTRUCTtag;
-struct STREAMHEADERtag;
+// Los typedef van antes que los struct (los stabs dan REQUESTSTRUCT *prev/next y STREAMHEADER *stream): con el
+// puntero al tipo incompleto, el bucle de peticiones de STREAM_create relee strm->request en cada vuelta en PS2.
+typedef struct REQUESTSTRUCTtag REQUESTSTRUCT;
+typedef struct TAPSTRUCTtag TAPSTRUCT;
+typedef struct FILTERSTRUCTtag FILTERSTRUCT;
+typedef struct STREAMHEADERtag STREAMHEADER;
 
 typedef enum READTYPE {
     FILEREAD = 0,
@@ -33,36 +48,36 @@ typedef enum STREAMSTATE {
 } STREAMSTATE;
 
 // total size: 0x124
-typedef struct REQUESTSTRUCTtag {
+struct REQUESTSTRUCTtag {
     int id;                          // offset 0x0, size 0x4
     STREAMREQUESTSTATE state;        // offset 0x4, size 0x4
-    REQUESTSTRUCTtag *prev;         // offset 0x8, size 0x4
-    REQUESTSTRUCTtag *next;         // offset 0xC, size 0x4
+    REQUESTSTRUCT *prev;             // offset 0x8, size 0x4
+    REQUESTSTRUCT *next;             // offset 0xC, size 0x4
     READTYPE type;                   // offset 0x10, size 0x4
-    char fname[255];                 // offset 0x14, size 0xFF
+    char fname[STREAM_FNAMESIZE];    // offset 0x14, size 0xFF
     char *address;                   // offset 0x114, size 0x4
     int parm;                        // offset 0x118, size 0x4
     int endchunkid;                  // offset 0x11C, size 0x4
     char *datastart;                 // offset 0x120, size 0x4
-} REQUESTSTRUCT;
+};
 
 // total size: 0x10
-typedef struct TAPSTRUCTtag {
-    STREAMHEADERtag *stream; // offset 0x0, size 0x4
+struct TAPSTRUCTtag {
+    STREAMHEADER *stream;    // offset 0x0, size 0x4
     int tapnum;              // offset 0x4, size 0x4
     int gettable;            // offset 0x8, size 0x4
     char *getptr;            // offset 0xC, size 0x4
-} TAPSTRUCT;
+};
 
 // total size: 0xC
-typedef struct FILTERSTRUCTtag {
+struct FILTERSTRUCTtag {
     int mask;   // offset 0x0, size 0x4
     int value;  // offset 0x4, size 0x4
     int tapnum; // offset 0x8, size 0x4
-} FILTERSTRUCT;
+};
 
 // total size: 0x18C
-typedef struct STREAMHEADERtag {
+struct STREAMHEADERtag {
     int id;                    // offset 0x0, size 0x4
     MUTEX mutex;               // offset 0x4, size 0x1C
     REQUESTSTRUCT *request;    // offset 0x20, size 0x4
@@ -87,24 +102,27 @@ typedef struct STREAMHEADERtag {
     REQUESTSTRUCT *curreq;     // offset 0x6C, size 0x4
     REQUESTSTRUCT *lastreq;    // offset 0x70, size 0x4
     REQUESTSTRUCT *freereq;    // offset 0x74, size 0x4
-    char fname[255];           // offset 0x78, size 0xFF
+    char fname[STREAM_FNAMESIZE]; // offset 0x78, size 0xFF
     int fhandle;               // offset 0x178, size 0x4
     int foffset;               // offset 0x17C, size 0x4
     int fop;                   // offset 0x180, size 0x4
     int readsize;              // offset 0x184, size 0x4
     int readblocksize;         // offset 0x188, size 0x4
-} STREAMHEADER;
+};
 
-typedef char StreamRequestSizeCheck[(sizeof(REQUESTSTRUCT) == 0x124) ? 1 : -1];
+typedef char StreamRequestSizeCheck[(sizeof(REQUESTSTRUCT) == 0x124 + (STREAM_FNAMESIZE + 3 & ~3) - 0x100) ? 1 : -1];
 typedef char StreamTapSizeCheck[(sizeof(TAPSTRUCT) == 0x10) ? 1 : -1];
 typedef char StreamFilterSizeCheck[(sizeof(FILTERSTRUCT) == 0xC) ? 1 : -1];
 #ifdef EA_PLATFORM_PLAYSTATION2
 // En PS2 MUTEX mide 0x10 (system.h): 0x180 segun el DWARF de la alpha 124.
 typedef char StreamHeaderSizeCheck[(sizeof(STREAMHEADER) == 0x180) ? 1 : -1];
 #else
-typedef char StreamHeaderSizeCheck[(sizeof(STREAMHEADER) == 0x18C) ? 1 : -1];
+typedef char StreamHeaderSizeCheck[(sizeof(STREAMHEADER) == 0x18C + (STREAM_FNAMESIZE + 3 & ~3) - 0x100) ? 1 : -1];
 #endif
 
+// Las cabeceras de bloque del stream van en little endian: GameCube (y Xbox 360) las recomponen byte a byte y las dos
+// PS2 las leen y escriben tal cual (lw/sw en filterchunk, STREAM_get, parsechunks...).
+#if defined(EA_PLATFORM_GAMECUBE) || defined(EA_PLATFORM_XENON)
 inline int ReadChunkWord(const int *field) {
     const unsigned char *bytes = static_cast<const unsigned char *>(static_cast<const void *>(field));
     return (static_cast<int>(bytes[3]) << 24) | (static_cast<int>(bytes[2]) << 16) | (static_cast<int>(bytes[1]) << 8) |
@@ -132,6 +150,18 @@ inline void WriteChunkWord(int *field, int value) {
     bytes[2] = static_cast<unsigned char>(static_cast<unsigned int>(value) >> 16);
     bytes[3] = static_cast<unsigned char>(static_cast<unsigned int>(value) >> 24);
 }
+#else
+inline int ReadChunkWord(const int *field) {
+    return *field;
+}
+
+#define little_get(src, n) (*reinterpret_cast<const unsigned int *>(src))
+#define little_put(dst, data, n) (*reinterpret_cast<int *>(dst) = (data))
+
+inline void WriteChunkWord(int *field, int value) {
+    *field = value;
+}
+#endif
 
 inline unsigned int ReadChunkTapTag(const int *field) {
     return static_cast<unsigned int>(ReadChunkWord(field)) & 0xFF000000U;
@@ -163,8 +193,8 @@ extern bool gbWorldDataBlocksAudioRead;
 extern bool bReadCallbackToggle;
 unsigned int utickreadcallback = 0;
 unsigned int uTicksSinceLastAudioReadBailed = 0;
-extern void SYNCTASK_run();
-extern void THREAD_yield(int);
+// r75: fuera 2 extern duplicados (SYNCTASK_run, THREAD_yield): system.h ya los
+// declara con la misma signatura (via bDebug.hpp, include propio del fichero).
 STREAMCHUNKHDR *STREAM_get(int sndstreamhandle);
 void STREAM_release(int sndstreamhandle, STREAMCHUNKHDR *chunk);
 void STREAM_kill(int sndstreamhandle);
@@ -330,7 +360,7 @@ int parsechunks(STREAMHEADERtag *strm) {
 
     req = strm->curreq;
 
-    while (strm->dataend - strm->datatail > 7) {
+    while (strm->dataend - strm->datatail >= 8) {
         chunk = reinterpret_cast<STREAMCHUNKHDR *>(strm->datatail);
         chunksize = ReadChunkWord(&chunk->size);
         if (ReadChunkTapTag(&chunk->size) != 0) {
@@ -344,8 +374,8 @@ int parsechunks(STREAMHEADERtag *strm) {
         }
 
         if (ReadChunkWord(&chunk->type) == req->endchunkid) {
-            int tail_floor = reinterpret_cast<unsigned int>(strm->datatail) & 0x1F;
-            chunksize = ((chunksize + tail_floor + 0x1F) & ~0x1F) - tail_floor;
+            int tail_floor = reinterpret_cast<unsigned int>(strm->datatail) & (STREAM_ALIGN - 1);
+            chunksize = ((chunksize + tail_floor + (STREAM_ALIGN - 1)) & ~(STREAM_ALIGN - 1)) - tail_floor;
         }
 
         tapnum = filterchunk(strm, chunk);
@@ -354,7 +384,7 @@ int parsechunks(STREAMHEADERtag *strm) {
             MUTEX_lock(&strm->mutex);
             canceled = req->state == STREAMREQUEST_CANCELED;
             if (!canceled) {
-                WriteChunkWord(&chunk->type, -2);
+                little_put(&chunk->type, -2, 4);
                 strm->datatail = strm->datatail + chunksize;
             }
             MUTEX_unlock(&strm->mutex);
@@ -390,8 +420,8 @@ int parsechunks(STREAMHEADERtag *strm) {
             }
 
             {
-                int tail_floor = reinterpret_cast<unsigned int>(strm->datatail) & 0x1F;
-                chunksize = ((chunksize + tail_floor + 0x1F) & ~0x1F) - tail_floor;
+                int tail_floor = reinterpret_cast<unsigned int>(strm->datatail) & (STREAM_ALIGN - 1);
+                chunksize = ((chunksize + tail_floor + (STREAM_ALIGN - 1)) & ~(STREAM_ALIGN - 1)) - tail_floor;
                 WriteChunkWord(&chunk->size, chunksize | (tapnum << 24));
             }
             break;
@@ -494,32 +524,34 @@ static void startnextrequest(STREAMHEADERtag *strm, int priority) {
     }
     MUTEX_unlock(&strm->mutex);
 
-    if (!nopendingrequest) {
-        strm->dataend = strm->datatail;
-        if (req->type == 1) {
-            strm->foffset = 0;
-        } else {
-            strm->foffset = req->parm;
-            if (strcmp(req->fname, strm->fname) != 0) {
-                strcpy(strm->fname, req->fname);
-                if (strm->fhandle == 0) {
-                    strm->fop = reinterpret_cast<int>(FILESYS_open(strm->fname, 1, priority, strm));
-                    if (!strm->fop) {
-                        return;
-                    }
-                    FILESYS_callbackop(strm->fop, opencallback);
-                    return;
-                }
-                strm->fop = reinterpret_cast<int>(FILESYS_close(strm->fhandle, priority, strm));
+    if (nopendingrequest) {
+        return;
+    }
+
+    strm->dataend = strm->datatail;
+    if (req->type == 1) {
+        strm->foffset = 0;
+    } else {
+        strm->foffset = req->parm;
+        if (strcmp(req->fname, strm->fname) != 0) {
+            strcpy(strm->fname, req->fname);
+            if (strm->fhandle == 0) {
+                strm->fop = reinterpret_cast<int>(FILESYS_open(strm->fname, 1, priority, strm));
                 if (!strm->fop) {
                     return;
                 }
-                FILESYS_callbackop(strm->fop, closecallback);
+                FILESYS_callbackop(strm->fop, opencallback);
                 return;
             }
+            strm->fop = reinterpret_cast<int>(FILESYS_close(strm->fhandle, priority, strm));
+            if (!strm->fop) {
+                return;
+            }
+            FILESYS_callbackop(strm->fop, closecallback);
+            return;
         }
-        restartstream(strm, priority);
     }
+    restartstream(strm, priority);
 }
 
 void restartstream(STREAMHEADERtag *stream, int priority) {
@@ -534,14 +566,13 @@ void restartstream(STREAMHEADERtag *stream, int priority) {
 
     while (strm->datastart != strm->datatail) {
         chunk = reinterpret_cast<STREAMCHUNKHDR *>(strm->datastart);
-        int marker = ReadChunkWord(&chunk->type);
-        if (marker == -1) {
+        if (static_cast<int>(little_get(&chunk->type, 4)) == -1) {
             strm->datastart = strm->bufferstart;
         } else {
-            if (marker != -2) {
+            if (static_cast<int>(little_get(&chunk->type, 4)) != -2) {
                 break;
             }
-            strm->datastart = reinterpret_cast<char *>(chunk) + ReadChunkWord(&chunk->size);
+            strm->datastart = reinterpret_cast<char *>(chunk) + little_get(&chunk->size, 4);
         }
     }
 
@@ -557,9 +588,9 @@ void restartstream(STREAMHEADERtag *stream, int priority) {
     MUTEX_unlock(&strm->mutex);
 
     if (strm->datastart > strm->dataend) {
-        largestread = strm->datastart - strm->dataend - 0x21;
+        largestread = strm->datastart - strm->dataend - (STREAM_ALIGN + 1);
     } else {
-        largestread = strm->bufferend - strm->dataend - 0x20;
+        largestread = strm->bufferend - strm->dataend - STREAM_ALIGN;
         if (largestread < strm->readblocksize) {
             unsigned int count = strm->dataend - strm->datatail;
             if (strm->curreq->type == 1) {
@@ -567,15 +598,15 @@ void restartstream(STREAMHEADERtag *stream, int priority) {
                     strm->state = STREAM_STOPPED_STATE;
                     return;
                 }
-            } else if (strm->datastart - strm->bufferstart - 0x20 < static_cast<int>(count + 1)) {
+            } else if (strm->datastart - strm->bufferstart - STREAM_ALIGN < static_cast<int>(count + 1)) {
                 strm->state = STREAM_STOPPED_STATE;
                 return;
             }
 
-            if ((count & 0x1F) == 0 || strm->curreq->type == 1) {
+            if ((count & (STREAM_ALIGN - 1)) == 0 || strm->curreq->type == 1) {
                 strm->bufferstart = strm->actualbufferstart;
             } else {
-                strm->bufferstart = strm->actualbufferstart - (static_cast<int>(count) % 0x20 - 0x20);
+                strm->bufferstart = strm->actualbufferstart - (static_cast<int>(count) % STREAM_ALIGN - STREAM_ALIGN);
             }
             MEM_copy(strm->bufferstart, strm->datatail, count);
 
@@ -590,7 +621,7 @@ void restartstream(STREAMHEADERtag *stream, int priority) {
             STREAMCHUNKHDR *nextchunk = reinterpret_cast<STREAMCHUNKHDR *>(strm->datastart);
             if (ReadChunkWord(&nextchunk->type) == -1) {
                 strm->datastart = strm->bufferstart;
-                largestread = strm->bufferend - reqend - 0x20;
+                largestread = strm->bufferend - reqend - STREAM_ALIGN;
             } else {
                 largestread = reinterpret_cast<char *>(nextchunk) - reqend - 1;
             }
@@ -629,35 +660,25 @@ void restartstream(STREAMHEADERtag *stream, int priority) {
         MEM_copy(strm->dataend, req->address, strm->readsize);
         req->address = req->address + strm->readsize;
         readcallback(0, 0, stream);
-        return;
-    }
-
-    if (largestread > strm->readblocksize) {
-        strm->readsize = (largestread / strm->readblocksize) * strm->readblocksize;
     } else {
-        strm->readsize = strm->readblocksize;
-    }
+        if (largestread > strm->readblocksize) {
+            strm->readsize = (largestread / strm->readblocksize) * strm->readblocksize;
+        } else {
+            strm->readsize = strm->readblocksize;
+        }
 
-    bReadCallbackToggle = false;
-    op = FILESYS_read(strm->fhandle, strm->foffset, strm->dataend, strm->readsize, priority, stream);
-    strm->fop = reinterpret_cast<int>(op);
-    if (!op) {
-        return;
+        bReadCallbackToggle = false;
+        op = FILESYS_read(strm->fhandle, strm->foffset, strm->dataend, strm->readsize, priority, stream);
+        strm->fop = reinterpret_cast<int>(op);
+        if (op) {
+            FILESYS_callbackop(strm->fop, readcallback);
+        }
     }
-
-    FILESYS_callbackop(strm->fop, readcallback);
-    return;
 }
 
 int STREAM_overhead(int requests, int filters, int taps) {
-    int filterBytes = filters * 0xC;
-    int tapBytes = taps << 4;
-    int requestBytes = requests * 0x124;
-    filterBytes += 0x18C;
-    requestBytes += filterBytes;
-    requestBytes += tapBytes;
-    requestBytes += 0x20;
-    return requestBytes;
+    return sizeof(STREAMHEADER) + requests * sizeof(REQUESTSTRUCT) + filters * sizeof(FILTERSTRUCT) + taps * sizeof(TAPSTRUCT) +
+           STREAM_ALIGN;
 }
 
 int STREAM_create(int requests, int filters, int taps, void *buffer, int size) {
@@ -681,15 +702,11 @@ int STREAM_create(int requests, int filters, int taps, void *buffer, int size) {
         return 0;
     }
 
-    if (static_cast<unsigned int>(filters - 1) > 0xF) {
+    if (filters < 1 || filters > 16) {
         return 0;
     }
 
-    if (taps < 1) {
-        return 0;
-    }
-
-    if (taps > filters) {
+    if (taps < 1 || taps > filters) {
         return 0;
     }
 
@@ -706,7 +723,7 @@ int STREAM_create(int requests, int filters, int taps, void *buffer, int size) {
         tapbase = reinterpret_cast<char *>(filt) + filters * sizeof(FILTERSTRUCT));
     strm->taps = taps;
     tap = reinterpret_cast<TAPSTRUCT *>(
-        (reinterpret_cast<unsigned int>(tapbase + taps * sizeof(TAPSTRUCT)) & 0xFFFFFFE0U) + 0x20);
+        (reinterpret_cast<int>(tapbase + taps * sizeof(TAPSTRUCT)) & ~(STREAM_ALIGN - 1)) + STREAM_ALIGN);
     strm->actualbufferstart = static_cast<char *>(static_cast<void *>(tap));
     strm->bufferstart = static_cast<char *>(static_cast<void *>(tap));
     strm->bufferend = static_cast<char *>(buffer) + size;
@@ -724,16 +741,16 @@ int STREAM_create(int requests, int filters, int taps, void *buffer, int size) {
     strm->lastreq = nullptr;
     strm->freereq = req;
 
-    MEM_clear(strm->fname, 0xFF);
+    MEM_clear(strm->fname, sizeof(strm->fname));
     strm->fhandle = 0;
 
     if (size - overhead < 0x4000) {
         strm->readblocksize = 0x800;
-    } else if (size - overhead <= 0x7FFF) {
+    } else if (size - overhead < 0x8000) {
         strm->readblocksize = 0x1000;
-    } else if (size - overhead <= 0xFFFF) {
+    } else if (size - overhead < 0x10000) {
         strm->readblocksize = 0x2000;
-    } else if (size - overhead <= 0x17FFF) {
+    } else if (size - overhead < 0x18000) {
         strm->readblocksize = 0x4000;
     } else if (size - overhead <= 0x1FFFF) {
         strm->readblocksize = 0x8000;
@@ -743,19 +760,13 @@ int STREAM_create(int requests, int filters, int taps, void *buffer, int size) {
         strm->readblocksize = 0x8000;
     }
 
-    i = 0;
-    while (i < requests) {
-        REQUESTSTRUCT *request = static_cast<REQUESTSTRUCT *>(
-            static_cast<void *>(static_cast<char *>(static_cast<void *>(strm->request)) + i * sizeof(REQUESTSTRUCT)));
+    for (i = 0; i < requests; i++) {
+        REQUESTSTRUCT *request = &strm->request[i];
         request->id = i;
         request->state = STREAMREQUEST_FREE;
-        request->next = static_cast<REQUESTSTRUCT *>(
-            static_cast<void *>(static_cast<char *>(static_cast<void *>(strm->request)) + (i * sizeof(REQUESTSTRUCT) + sizeof(REQUESTSTRUCT))));
-        ++i;
+        request->next = &strm->request[i + 1];
     }
-    reinterpret_cast<REQUESTSTRUCT *>(static_cast<char *>(static_cast<void *>(strm->request)) + requests * sizeof(REQUESTSTRUCT) -
-                                     sizeof(REQUESTSTRUCT))
-        ->next = nullptr;
+    strm->request[requests - 1].next = nullptr;
 
     for (i = 0; i < filters; ++i) {
         filt = strm->filter + i;
@@ -781,10 +792,10 @@ void STREAM_setfilter(int handle, int filternum, int mask, int value, int tapnum
     STREAMHEADERtag *strm;
     FILTERSTRUCTtag *filt;
     TAPSTRUCTtag *tap;
-    if (validatehandle(handle, &strm, &tap) == 0 && filternum > 0) {
+    if (validatehandle(handle, &strm, &tap) == 0 && filternum >= 1) {
         if (filternum <= strm->filters &&
             (filternum != strm->filters || (mask | value) == 0) &&
-            (tapnum > 0 || tapnum == -1 || tapnum == -2) && tapnum <= strm->taps &&
+            (tapnum >= 1 || tapnum == -1 || tapnum == -2) && tapnum <= strm->taps &&
             strm->state == STREAM_IDLE_STATE) {
             filt = strm->filter + (filternum - 1);
             filt->mask = mask;
@@ -859,13 +870,13 @@ void STREAM_setgreedystate(int sndstreamhandle, int greedystate) {
 int STREAM_taphandle(int handle, int tapnum) {
     STREAMHEADERtag *strm;
     TAPSTRUCTtag *tap;
-    if (validatehandle(handle, &strm, &tap) != 0 || tapnum <= 0) {
+    if (validatehandle(handle, &strm, &tap) != 0) {
         return 0;
     }
-    if (tapnum <= strm->taps) {
-        return reinterpret_cast<int>(strm->tap + (tapnum - 1));
+    if (tapnum < 1 || tapnum > strm->taps) {
+        return 0;
     }
-    return 0;
+    return reinterpret_cast<int>(strm->tap + (tapnum - 1));
 }
 
 int STREAM_queuefile(int handle, const char *fname, int offset, int endchunkid) {
@@ -884,7 +895,7 @@ int STREAM_queuefile(int handle, const char *fname, int offset, int endchunkid) 
     }
 
     req->type = FILEREAD;
-    strncpy(req->fname, fname, 0xFE);
+    strncpy(req->fname, fname, sizeof(req->fname) - 1);
     req->parm = offset;
     req->endchunkid = endchunkid;
     queuerequest(strm, req);
@@ -932,10 +943,10 @@ int STREAM_queuemem(int handle, void *address, int length, int endchunkid) {
         length += little_get(&chunk->size, 4);
     }
 
-    req->parm = length;
-    req->address = static_cast<char *>(address);
-    req->endchunkid = endchunkid;
     req->type = MEMREAD;
+    req->address = static_cast<char *>(address);
+    req->parm = length;
+    req->endchunkid = endchunkid;
     queuerequest(strm, req);
 
     MUTEX_lock(&strm->mutex);
@@ -1044,7 +1055,7 @@ void STREAM_kill(int handle) {
     if (validatehandle(handle, const_cast<STREAMHEADERtag **>(&strm), &tap) == 0) {
         req = strm->lastreq;
         if (req) {
-            while (static_cast<unsigned int>(req->state - STREAMREQUEST_PENDING) < 2) {
+            while (static_cast<unsigned int>(req->state - STREAMREQUEST_PENDING) <= 1) {
                 STREAM_cancelrequest(handle, req->id);
                 req = strm->lastreq;
             }
@@ -1080,8 +1091,8 @@ void STREAM_kill(int handle) {
                 if (chunk == reinterpret_cast<STREAMCHUNKHDR *>(strm->bufferstart)) {
                     strm->bufferstart = strm->datatail = strm->actualbufferstart;
                 } else {
-                    int pad = 0x20 - (reinterpret_cast<unsigned int>(strm->datatail) & 0x1F);
-                    if (pad == 0x20) {
+                    int pad = STREAM_ALIGN - (reinterpret_cast<unsigned int>(strm->datatail) & (STREAM_ALIGN - 1));
+                    if (pad == STREAM_ALIGN) {
                         pad = 0;
                     }
                     chunk = reinterpret_cast<STREAMCHUNKHDR *>(strm->datatail - chunksize);
@@ -1127,12 +1138,7 @@ STREAMCHUNKHDR *STREAM_get(int sndstreamhandle) {
         nextChunk = reinterpret_cast<STREAMCHUNKHDR *>(reinterpret_cast<char *>(&chunk->type) + chunkSize);
         chunkTap = tapRaw->tapnum << 24;
         while (true) {
-            const unsigned char *nextChunkSizeBytes =
-                static_cast<const unsigned char *>(static_cast<const void *>(&nextChunk->size));
-            nextChunkSize = (static_cast<unsigned int>(nextChunkSizeBytes[3]) << 24) |
-                            (static_cast<unsigned int>(nextChunkSizeBytes[2]) << 16) |
-                            (static_cast<unsigned int>(nextChunkSizeBytes[1]) << 8) |
-                            static_cast<unsigned int>(nextChunkSizeBytes[0]);
+            nextChunkSize = little_get(&nextChunk->size, 4);
             if (static_cast<int>(nextChunkSize & 0xFF000000) == chunkTap) {
                 break;
             }

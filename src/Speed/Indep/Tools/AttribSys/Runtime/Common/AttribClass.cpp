@@ -104,7 +104,7 @@ void *Class::AllocLayout() const {
         void *data = Attrib::Alloc(mPrivates.mLayoutSize, "Attrib::Class");
         memset(data, 0, mPrivates.mLayoutSize);
 
-        Definition *defs = mPrivates.mDefinitions;
+        const Definition *defs = mPrivates.mDefinitions;
         for (std::size_t d = 0; d < mPrivates.mNumDefinitions; d++) {
             if (defs[d].IsArray() && defs[d].InLayout()) {
                 char *arrayptr = (char *)data + defs[d].GetOffset(); // or maybe the offset is added later
@@ -129,7 +129,7 @@ void *Class::CloneLayout(void *srcLayout) const {
 }
 
 void Class::CopyLayout(void *srcLayout, void *dstLayout) const {
-    if (mPrivates.mLayoutSize != 0) {
+    if (mPrivates.mLayoutSize > 0) {
         memcpy(dstLayout, srcLayout, mPrivates.mLayoutSize);
     }
 }

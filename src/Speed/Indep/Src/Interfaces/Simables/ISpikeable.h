@@ -5,7 +5,11 @@
 #include "Speed/Indep/Libs/Support/Utility/UListable.h"
 #include "Speed/Indep/Src/Physics/PhysicsTypes.h"
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class ISpikeable : public UTL::COM::IUnknown, public UTL::Collections::Listable<ISpikeable, 20> {
+#else
 class ISpikeable : public UTL::COM::IUnknown, public UTL::Collections::Listable<ISpikeable, 10> {
+#endif
   public:
     DECL_INTERFACE(ISpikeable);
 

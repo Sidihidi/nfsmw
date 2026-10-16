@@ -73,9 +73,9 @@ DebugCarCustomizeScreen::~DebugCarCustomizeScreen() {
 }
 
 DebugCarCustomizeScreen::DebugCarOption *DebugCarCustomizeScreen::FindElement(bTList<DebugCarOption> &list, int id) {
-    for (DebugCarOption *node = list.GetHead(); node != list.EndOfList(); node = node->GetNext()) {
-        if (node->GetValue() == id) {
-            return node;
+    for (DebugCarOption *d = list.GetHead(); d != list.EndOfList(); d = d->GetNext()) {
+        if (d->GetValue() == id) {
+            return d;
         }
     }
     return nullptr;
@@ -84,7 +84,7 @@ DebugCarCustomizeScreen::DebugCarOption *DebugCarCustomizeScreen::FindElement(bT
 void DebugCarCustomizeScreen::BuildOptionsLists() {
     DebugCarOption *opt = new DebugCarOption("CARTYPENAME_ANY", 0);
     CarTypeNameHashes.AddTail(opt);
-    for (int i = 0; i < 0x54; i++) {
+    for (int i = 0; i < NUM_CARTYPES; i++) {
         CarTypeInfo *ti = GetCarTypeInfo(static_cast<CarType>(i));
         if (ti) {
             DebugCarOption *node = new ("DebugCarOption", 0) DebugCarOption(reinterpret_cast<const char *>(ti), ti->CarTypeNameHash);
@@ -162,7 +162,10 @@ void DebugCarCustomizeScreen::RebuildPartsList() {
 
 void DebugCarCustomizeScreen::NewPreviewPart() {
     FECarRecord *car = FEDatabase->GetPlayerCarStable(0)->GetCarRecordByHandle(pDebugCar->mHandle);
-    if (car->IsCustomized() && !InstallableParts.IsEmpty()) {
+    if (car->IsCustomized()) {
+        if (InstallableParts.IsEmpty()) {
+            return;
+        }
         CarPart *part = static_cast<CarPart *>(CurrentInstallablePart->GetpObject());
         GetCarTypeInfoFromHash(part->GetCarTypeNameHash());
         gCarCustomizeManager.PreviewPart(CurrentLookupSlotID->GetValue(), part);
@@ -171,7 +174,10 @@ void DebugCarCustomizeScreen::NewPreviewPart() {
 
 void DebugCarCustomizeScreen::InstallPreviewingPart() {
     FECarRecord *car = FEDatabase->GetPlayerCarStable(0)->GetCarRecordByHandle(pDebugCar->mHandle);
-    if (car->IsCustomized() && !InstallableParts.IsEmpty()) {
+    if (car->IsCustomized()) {
+        if (InstallableParts.IsEmpty()) {
+            return;
+        }
         CarPart *part = static_cast<CarPart *>(CurrentInstallablePart->GetpObject());
         GetCarTypeInfoFromHash(part->GetCarTypeNameHash());
         gCarCustomizeManager.InstallPart(CurrentLookupSlotID->GetValue(), part);

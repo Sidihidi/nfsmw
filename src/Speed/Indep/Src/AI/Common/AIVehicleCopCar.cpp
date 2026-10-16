@@ -10,6 +10,10 @@
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
+#ifdef EA_BUILD_A124
+// La A124 lleva el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en sus stabs).
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 
 // El ELF carga aqui 1/2.237f y lo multiplica por 65.0f SIN plegar las dos
 // constantes: es una inline, no una expresion constante. MPH2MPS de
@@ -125,7 +129,8 @@ bool AIVehicleCopCar::CanSeeTarget(AITarget *target) {
     UMath::Unit(dirTo, dirTo);
     float dist = UMath::Distance(myPos, targetPos);
 
-    bool blocked = dist >= frontLOS || (dist >= rearLOS && UMath::Dot(forward, dirTo) <= mLOSAngleFront);
+    bool blocked = dist >= frontLOS;
+    blocked = blocked || (dist >= rearLOS && UMath::Dot(forward, dirTo) <= mLOSAngleFront);
     bool outOfSight = blocked;
 
     if (pursuit) {
@@ -168,7 +173,10 @@ void AIVehicleCopCar::WatchForPerps() {
              ++iter) {
             IVehicle *itargetVehicle = *iter;
             DriverClass driverclass = itargetVehicle->GetDriverClass();
-            if (driverclass != DRIVER_HUMAN && driverclass != DRIVER_REMOTE && CheckForPursuit(itargetVehicle)) {
+            if (driverclass == DRIVER_HUMAN || driverclass == DRIVER_REMOTE) {
+                continue;
+            }
+            if (CheckForPursuit(itargetVehicle)) {
                 return;
             }
         }
@@ -191,22 +199,18 @@ bool AIVehicleCopCar::CheckForPursuit(IVehicle *itargetVehicle) {
     itargetVehicle->QueryInterface(&ivehicleai);
 
     float lasttraffichittime = iperp->GetLastTrafficHitTime();
-    bool hittraffic = false;
-    if (lasttraffichittime > 0.0f) {
-        hittraffic = (Sim::GetTime() - lasttraffichittime) < 1.0f;
-    }
+    bool hittraffic = lasttraffichittime > 0.0f && (Sim::GetTime() - lasttraffichittime) < 1.0f;
     bool active911 = iperp->Get911CallTime() > 0.0f;
-
-    bool alreadypursuit = false;
-    if (ivehicleai && ivehicleai->GetPursuit()) {
-        alreadypursuit = true;
-    }
+    bool alreadypursuit = ivehicleai && ivehicleai->GetPursuit();
 
     int heat = (int)iperp->GetHeat();
-    if (!alreadypursuit && !active911 && !hittraffic && heat <= 3 && itargetVehicle->GetSpeed() < CopCarMPH2MPS(65.0f)) {
+    if (!alreadypursuit && !active911 && !hittraffic && heat < 4 && itargetVehicle->GetSpeed() < CopCarMPH2MPS(65.0f)) {
         return false;
     }
 
+#ifdef EA_BUILD_A124
+    DebugMenu::SetPursuitState(STATE_PURSUIT);
+#endif
     GetTarget()->Aquire(itargetSimable);
     return true;
 }

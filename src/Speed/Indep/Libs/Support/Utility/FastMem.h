@@ -37,6 +37,15 @@ class FastMem {
   public:
     FastMem();
     FastMem(EA::Allocator::IAllocator *allocator, size_t bytes, const char *name, unsigned int expansionsize, size_t trackingsize);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Las dos PS2 lo emiten (_$_7FastMem, el destructor estatico de gFastMem): libera el bloque si lo hay. GameCube
+    // no tiene ni el destructor ni Deinit.
+    ~FastMem() {
+        if (mBlock) {
+            Deinit();
+        }
+    }
+#endif
     void Init();
     void Deinit();
     void *Alloc(size_t bytes, const char *kind);
@@ -93,5 +102,19 @@ extern FastMem gFastMem; // Decl: 108
 inline void FastMem::Lock() {
     gFastMem.mLocks++;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Line 168 in the prototype. Only the two PS2 builds have it (Free__7UMemoryPv, 8 B: zFoundation in SLUS, zDebug
+// in the A124); the GameCube DWARF has no UMemory at all, with -fkeep-inline-functions.
+void bFree(void *ptr);
+
+namespace UMemory {
+
+inline void Free(void *ptr) {
+    bFree(ptr);
+}
+
+} // namespace UMemory
+#endif
 
 #endif

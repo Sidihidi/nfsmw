@@ -15,18 +15,6 @@ class GMarker;
 // total size: 0x80
 class GCharacter : public GRuntimeInstance, public UTL::COM::Object, public IAttachable {
   public:
-    // GRuntimeInstance y UTL::COM::Object declaran los dos operator new; en el
-    // original Object no lo declara. Se redeclaran aqui para deshacer la
-    // ambiguedad sin tocar UCOM.h (cabecera compartida por todo el juego).
-    void *operator new(size_t size, void *ptr) {
-        return ptr;
-    }
-
-    void operator delete(void *mem, void *ptr) {
-    }
-
-    USE_FASTALLOC(GCharacter);
-
     enum State {
         kCharState_Invalid = 0,
         kCharState_Unspawned = 1,

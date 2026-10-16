@@ -46,6 +46,7 @@ class WorldMap : public UIWidgetMenu {
     ~WorldMap() override;
 
     void NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) override;
+  private:
     void ScrollZoom(eScrollDir dir);
     float GetZoomFactor(eWorldMapZoomLevels zoom);
     void UpdateIconVisibility(eWorldMapItemType type, bool vis);
@@ -74,7 +75,9 @@ class WorldMap : public UIWidgetMenu {
     void RefreshHeader();
 
     FEObject *Cursor;
+#ifndef EA_PLATFORM_WIN32 // PC no tiene la cola del mando (CurrentVelocity en 0x128, tras Cursor)
     ActionQueue *mActionQ;
+#endif
     bVector2 CurrentVelocity;
     Timer TimeSinceLastMove;
     bVector2 CursorMoveFrom;
@@ -91,7 +94,9 @@ class WorldMap : public UIWidgetMenu {
     bool bInToggleMode;
     bool bCursorOn;
     bool bCursorMoving;
+#ifndef EA_BUILD_A124 // la A124 no lo tiene (stabs: WorldMap de 0x198, fSnapDist en 0x194)
     bool bLeftHeldOnMap;
+#endif
     float fSnapDist;
 
     static GIcon *mGPSingIcon;
@@ -314,7 +319,9 @@ void ItemTypeToggle::Act(const char *parent_pkg, uint32 data) {
     if (data == __BUTTON_PRESSED__) {
         bVisibility = !bVisibility;
         FEDatabase->GetGameplaySettings()->SetMapItem(GetType(), bVisibility);
+#ifndef EA_BUILD_A124
         g_pEAXSound->PlayUISoundFX(UISND_COMMON_LEFT);
+#endif
         Draw();
     }
 }
@@ -377,10 +384,12 @@ void ItemTypeToggle::SetIcon(FEImage *icon, uint32 texHash, uint32 texColour) {
             color = 0xffffffff;
             tex_hash = 0xdac364e9;
             break;
+#ifndef EA_BUILD_A124
         case WMIT_ROADBLOCK:
             color = 0xffffed00;
             tex_hash = 0x123f07e2;
             break;
+#endif
         default:
             break;
     }
@@ -414,18 +423,34 @@ void WorldMap::ClearGPSing() {
 
 WorldMap::WorldMap(ScreenConstructorData *sd)
     : UIWidgetMenu(sd), MapSize(0.0f, 0.0f), CurrentRaceType(-1), fSnapDist(20.0f), CurrentVelocity(0.0f, 0.0f), CursorMoveFrom(0.0f, 0.0f),
-      MapTopLeft(0.0f, 0.0f), bLeftHeldOnMap(false), Cursor(nullptr), mActionQ(nullptr), TimeSinceLastMove(), pCurrentTrack(nullptr),
+      MapTopLeft(0.0f, 0.0f),
+#ifndef EA_BUILD_A124
+      bLeftHeldOnMap(false),
+#endif
+      Cursor(nullptr),
+#ifndef EA_PLATFORM_WIN32
+      mActionQ(nullptr),
+#endif
+      TimeSinceLastMove(), pCurrentTrack(nullptr),
       TrackMap(nullptr), SelectedItem(nullptr), MapStreamer(nullptr), CurrentView(0), CurrentZoom(0), bInToggleMode(false), bCursorMoving(false) {
+#ifndef EA_PLATFORM_WIN32
+#ifdef EA_BUILD_A124 // la A124 crea la cola en el puerto 0
+    mActionQ = new ActionQueue(0, 0x82d21520, "WorldMapMain", false);
+#else
     int player_port = FEDatabase->GetPlayersJoystickPort(0);
     mActionQ = new ActionQueue(player_port, 0x82d21520, "WorldMapMain", false);
+#endif
     mActionQ->Enable(true);
+#endif
     iMaxWidgetsOnScreen = 10;
     Setup();
     RefreshHeader();
 }
 
 WorldMap::~WorldMap() {
+#ifndef EA_PLATFORM_WIN32
     delete mActionQ;
+#endif
     delete MapStreamer;
     MapStreamer = nullptr;
 
@@ -698,10 +723,10 @@ void WorldMap::ScrollZoom(eScrollDir dir) {
     }
 }
 
-float WorldMap::GetZoomFactor(eWorldMapZoomLevels zoom) {
+float WorldMap::GetZoomFactor(eWorldMapZoomLevels level) {
     float factor = 1.0f;
 
-    switch (zoom) {
+    switch (level) {
         case WMZ_LEVEL_1:
             factor = 2.0f;
             break;
@@ -768,6 +793,7 @@ bool WorldMap::ClampToMapBounds(float &x, float &y) {
 }
 
 void WorldMap::UpdateAnalogInput() {
+#ifndef EA_PLATFORM_WIN32
     if (mActionQ) {
         while (!mActionQ->IsEmpty() && !bInToggleMode) {
             ActionRef action = mActionQ->GetAction();
@@ -789,6 +815,7 @@ void WorldMap::UpdateAnalogInput() {
             mActionQ->PopAction();
         }
     }
+#endif
 }
 
 void WorldMap::UpdateCursor(bool zoom_thing) {
@@ -1015,7 +1042,7 @@ void WorldMap::Setup() {
     Cursor = FEngFindObject(GetPackageName(), 0xf156f6c5);
 
     int region_unlock = 0;
-    if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 13) {
+    if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 12) {
         region_unlock = 1;
     } else if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 8) {
         region_unlock = 2;
@@ -1182,7 +1209,8 @@ void WorldMap::AddRoadBlocks() {
         ConvertPos(target_pos);
         float rot = ConvertRot(target_dir);
 
-        FEImage *icon = FEngFindImage(GetPackageName(), FEngHashString("MMICON_ROADBLOCK_%d", img_num++));
+        FEImage *icon = FEngFindImage(GetPackageName(), FEngHashString("MMICON_ROADBLOCK_%d", img_num));
+        img_num++;
 
         TheMapItems.AddTail(new ("MapItem", 0) MapItem(WMIT_ROADBLOCK, icon, target_pos, world_pos, rot, nullptr));
     }
@@ -1228,6 +1256,12 @@ void WorldMap::AddIcons(GIcon::Type desiredIconType) {
             continue;
         }
 
+#ifdef EA_BUILD_A124 // la A124 solo pone los tipos de icono que el jugador tiene activados en el mapa
+        if (!FEDatabase->GetGameplaySettings()->IsMapItemEnabled(iconInfo.mItemType)) {
+            continue;
+        }
+#endif
+
         AddIcon(iconInfo.mItemType, FEngHashString(iconInfo.mElementString, numIconsPlaced++), icon);
     }
 
@@ -1256,12 +1290,16 @@ void WorldMap::SetupEvent() {
     AddIcons(GIcon::kType_RaceSpeedtrap);
     AddIcons(GIcon::kType_RaceRival);
     AddIcons(GIcon::kType_SpeedTrap);
+#ifndef EA_BUILD_A124 // la A124 no tiene el icono del radar de carrera
     AddIcons(GIcon::kType_SpeedTrapInRace);
+#endif
 }
 
 void WorldMap::SetupPursuit() {
     FEngSetInvisible(GetPackageName(), 0xA808E057);
+#ifndef EA_BUILD_A124
     FEngSetInvisible(GetPackageName(), 0x95FDFC4E);
+#endif
 
     AddIcons(GIcon::kType_GateSafehouse);
     AddIcons(GIcon::kType_PursuitBreaker);
@@ -1318,7 +1356,11 @@ void WorldMap::DrawItemStats() {
     }
 
     if (SelectedItem->GetType() != WMIT_PLAYER_CAR) {
+#ifdef EA_PLATFORM_WIN32
+        float length = distance / (kph ? 1000.0f : 1600.0f); // PC divide (fdiv en el exe); GC y PS2 multiplican
+#else
         float length = distance * (kph ? 0.001f : 0.000625f);
+#endif
         FEPrintf(GetPackageName(), 0xFEEEB39B, "%$.1f %s", length, distUnits);
         FEngSetVisible(GetPackageName(), 0xFEEEB39B);
     } else {

@@ -29,8 +29,6 @@ class MAIEngineRev : public Hermes::Message {
     MAIEngineRev(unsigned int _hSimable, unsigned int _CarID, EAX_CarState *_CarState, unsigned int _PatterToPlay)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fhSimable(_hSimable), fCarID(_CarID), fCarState(_CarState), fPatterToPlay(_PatterToPlay) {}
 
-    ~MAIEngineRev() {}
-
     unsigned int GethSimable() const {
         return fhSimable;
     }
@@ -74,9 +72,9 @@ class MAIEngineRev : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MAIEngineRev::HandleMessage_LuaBinding(const MAIEngineRev &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MAIEngineRev::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

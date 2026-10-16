@@ -65,6 +65,7 @@ void ChooseArrestAnimation(int *cameraTrack, char *sceneName, int strLen) {
                 case 6:
                     bStrNCpy(sceneName, "ArrestF02b", strLen);
                     break;
+                case 7:
                 default:
                     bStrNCpy(sceneName, "ArrestF18b", strLen);
                     break;
@@ -85,6 +86,7 @@ void ChooseArrestAnimation(int *cameraTrack, char *sceneName, int strLen) {
                     bStrNCpy(sceneName, "ArrestM04b", strLen);
                     break;
                 case 6:
+                case 7:
                 default:
                     bStrNCpy(sceneName, "ArrestF23b", strLen);
                     break;
@@ -120,6 +122,12 @@ void ChooseArrestAnimation(int *cameraTrack, char *sceneName, int strLen) {
             // whoops
             break;
 #endif
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+        case 9:
         default:
             switch (randPick) {
                 case 0:
@@ -143,6 +151,7 @@ void ChooseArrestAnimation(int *cameraTrack, char *sceneName, int strLen) {
                 case 6:
                     bStrNCpy(sceneName, "ArrestF06b", strLen);
                     break;
+                case 7:
                 default:
                     bStrNCpy(sceneName, "ArrestF07b", strLen);
                     break;

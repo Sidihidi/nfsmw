@@ -7,6 +7,7 @@
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
 #include "Speed/Indep/Src/Frontend/FEManager.hpp"
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/chassis.h"
 #include "Speed/Indep/Src/Generated/Messages/MGamePlayMoment.h"
 #include "Speed/Indep/Src/Generated/Messages/MICECameraFinished.h"
 #include "Speed/Indep/Src/Generated/Messages/MMiscSound.h"
@@ -25,7 +26,7 @@
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 
-Avoidables *TheAvoidables = nullptr;
+CameraAI::Avoidables *TheAvoidables = nullptr;
 
 typedef UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32> CameraAIActionFactory;
 
@@ -34,13 +35,19 @@ BIND_SIM_SUBSYSTEM(CameraAI, CameraAI::Init, CameraAI::Shutdown);
 IMPLEMENT_LISTABLE(CameraAI::Director)
 IMPLEMENT_FACTORY(CameraAIActionFactory)
 
-extern int gGameBreakerCamera;
+extern bool gGameBreakerCamera;
 extern GameFlowManager TheGameFlowManager;
 
 void SetNewSndCamAction(Attrib::StringKey camtype, EVIEW_ID viewID);
 
+#ifdef EA_BUILD_A124
+static const float Tweak_JumpCamAverageAirTresh[2] = {2.75f, 1.5f};
+static const float Tweak_JumpCamHighestAirTresh[2] = {4.5f, 2.0f};
+static const float Tweak_JumpCamLongestAirTresh[2] = {40.0f, 15.0f};
+#else
 static const float Tweak_JumpCamHighestAirTresh[2] = {2.5f, 1.8f};
 static const float Tweak_JumpCamLongestAirTresh[2] = {25.0f, 15.0f};
+#endif
 
 namespace CameraAI {
 
@@ -98,6 +105,8 @@ void CameraAI::Director::SetAction(Attrib::StringKey action) {
     SetNewSndCamAction(mActionName, mView);
 }
 
+// La A124 no tiene esta funcion: sus tres llamadores miran solo JumpCam (CameraAI.cpp:183, 713 y 909 de la A124).
+#ifndef EA_BUILD_A124
 static bool AreMomentCamerasEnabled() {
     if (FEDatabase->IsSplitScreenMode()) {
         return false;
@@ -107,6 +116,7 @@ static bool AreMomentCamerasEnabled() {
     }
     return FEDatabase->GetGameplaySettings()->JumpCam;
 }
+#endif
 
 static inline bool ICEHasGenericGroup() {
     ICEManager *mgr = &TheICEManager;
@@ -136,7 +146,11 @@ void CameraAI::Director::SelectAction() {
                 CameraMover *mover = view->GetCameraMover();
                 if (mover && mover->GetType() == CM_DRIVE_CUBIC) {
                     CameraAnchor *anchor = mover->GetAnchor();
+#ifdef EA_BUILD_A124
+                    if (anchor && FEDatabase->GetGameplaySettings()->JumpCam) {
+#else
                     if (anchor && AreMomentCamerasEnabled()) {
+#endif
                         float vel = anchor->GetVelocityMagnitude();
                         if ((vel > 20.0f || (vel > 10.0f && anchor->IsTouchingGround())) &&
                             anchor->IsCloseToRoadBlock()) {
@@ -205,8 +219,8 @@ void CameraAI::Director::TotaledStart() {
     SetAction(mActionName);
 }
 
-void CameraAI::Director::JumpStart(float t) {
-    mJumpTimer = t * (4.0f / 3.0f);
+void CameraAI::Director::JumpStart(float time) {
+    mJumpTimer = time * (4.0f / 3.0f);
 }
 
 void CameraAI::Director::EndJumping() {
@@ -216,20 +230,18 @@ void CameraAI::Director::EndJumping() {
 }
 
 void CameraAI::Director::PursuitStart() {
-    if (mPursuitTimer > 0.0f) {
-        return;
+    if (mPursuitTimer <= 0.0f) {
+        MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0x88bff834).Send("MomentStrm");
+        MMiscSound(1).Send("Snd");
+        mPursuitTimer = 2.5f;
+        mCinematicScale = 0.5f;
     }
-    MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0x88bff834).Send("MomentStrm");
-    MMiscSound(1).Send("Snd");
-    mPursuitTimer = 2.5f;
-    mCinematicScale = 0.5f;
 }
 
 void CameraAI::Director::EndPursuitStart() {
-    if (mPursuitTimer >= 2.0f) {
-        return;
+    if (mPursuitTimer < 2.0f) {
+        mPursuitTimer = -1.0f;
     }
-    mPursuitTimer = -1.0f;
 }
 
 void CameraAI::Director::Update(float dT) {
@@ -239,7 +251,11 @@ void CameraAI::Director::Update(float dT) {
             mJumpTimer -= dT;
         }
     }
-    if (!FEManager::ShouldPauseSimulation(true)) {
+    // La A124 descuenta el de la persecucion aunque el frontend pare la simulacion.
+#ifndef EA_BUILD_A124
+    if (!FEManager::ShouldPauseSimulation(true))
+#endif
+    {
 
         if (mPursuitTimer > 0.0f) {
             mPursuitTimer -= dT;
@@ -312,7 +328,7 @@ void CameraAI::Update(float dT) {
                 new Director(viewID);
             }
             player++;
-        } while (player <= EVIEW_PLAYER1);
+        } while (player < EVIEW_PLAYER2);
     }
     for (UTL::Collections::Listable<Director, 2>::List::const_iterator iter = Director::GetList().begin(); iter != Director::GetList().end();
          ++iter) {
@@ -349,9 +365,12 @@ void CameraAI::StartCinematicSlowdown(EVIEW_ID view, float scale) {
 }
 
 void CameraAI::MaybeDoTotaledCam(IPlayer *iplayer) {
+    // La A124 no mira el modo del usuario.
+#ifndef EA_BUILD_A124
     if (Sim::GetUserMode() != 0) {
         return;
     }
+#endif
     for (UTL::Collections::Listable<Director, 2>::List::const_iterator it = Director::GetList().begin(); it != Director::GetList().end(); ++it) {
         Director *director = *it;
         if (director->GetView() == iplayer->GetRenderPort()) {
@@ -364,7 +383,11 @@ void CameraAI::MaybeDoPursuitCam(IVehicle *ivehicle) {
     if (TheICEManager.IsEditorOn()) {
         return;
     }
+#ifdef EA_BUILD_A124
+    if (!FEDatabase->GetGameplaySettings()->JumpCam) {
+#else
     if (!AreMomentCamerasEnabled()) {
+#endif
         return;
     }
     if (INIS::Get()) {
@@ -407,6 +430,115 @@ void CameraAI::MaybeKillPursuitCam(unsigned int world_id) {
     }
 }
 
+#ifdef EA_BUILD_A124
+// La A124 es otra version: sin IVehicle ni la carga aerodinamica, proyecta la trayectoria entera (fSeconds) antes de
+// mirar el suelo, lleva la racha en el aire mas larga (fLongest) y, con b_grounded_abort, deja de mirar al aterrizar.
+static float AverageAir(ISimable *isimable, float fSeconds, float *pHighest, float *pLongest, bool b_grounded_abort) {
+    IRigidBody *irb = isimable->GetRigidBody();
+    if (!irb) {
+        return 0.0f;
+    }
+
+    ICollisionBody *irbc;
+    if (!isimable->QueryInterface(&irbc)) {
+        return 0.0f;
+    }
+
+    ISuspension *isuspension;
+    if (!isimable->QueryInterface(&isuspension)) {
+        return 0.0f;
+    }
+
+    float fSpeed = irb->GetSpeed();
+    if (fSpeed < 10.0f) {
+        return 0.0f;
+    }
+
+    int nSteps = bFloatToInt(fSpeed * fSeconds * (1.0f / 3.0f));
+    if (nSteps <= 0) {
+        return 0.0f;
+    }
+
+    UMath::Vector3 p = UMath::Vector3::kZero;
+    for (unsigned int j = 0; j < isuspension->GetNumWheels(); j++) {
+        UMath::Vector3 wp = isuspension->GetWheelPos(j);
+        UMath::ScaleAdd(irbc->GetUpVector(), -isuspension->GetWheelRadius(j), wp, wp);
+        UMath::ScaleAdd(wp, 0.25f, p, p);
+    }
+
+    UMath::Vector4 vNormal = irbc->GetGroundNormal();
+    WWorldPos pTopo = isimable->GetWPos();
+    pTopo.SetTolerance(4.5f);
+    float fElevation = pTopo.HeightAtPoint(p);
+    float fAirSum = bMax(0.0f, p.y - fElevation);
+    float fAirMax = fAirSum;
+    float fStep = fSeconds / static_cast<float>(nSteps);
+    float fLongest = (fAirSum > 0.0f) ? fStep : 0.0f;
+    float fDeparture = (fAirSum > 0.0f) ? -fStep : 0.0f;
+
+    float fDownAccel = bMin(irbc->GetForce().y, 0.0f) / irb->GetMass();
+
+    UMath::Vector3 v = irb->GetLinearVelocity();
+    UMath::Vector3 a = UMath::Vector3Make(0.0f, fDownAccel, 0.0f);
+    UMath::Vector3 pNew;
+    UMath::ScaleAdd(a, fSeconds * 0.5f, v, pNew);
+    UMath::ScaleAdd(pNew, fSeconds, p, pNew);
+
+    UMath::Vector4 seg[2];
+    seg[0] = UMath::Vector4Make(p, 1.0f);
+    seg[1] = UMath::Vector4Make(pNew, 1.0f);
+    WCollisionMgr::WorldCollisionInfo cInfo;
+    WCollisionMgr(0, 3).CheckHitWorld(seg, cInfo, 2);
+    if (cInfo.HitSomething()) {
+        return 0.0f;
+    }
+
+    int i;
+    for (i = 1; i < nSteps; i++) {
+        float fFuture = fStep * static_cast<float>(i);
+        float fAirTime = fFuture - fDeparture;
+        float fElevation;
+        float fAir;
+        UMath::ScaleAdd(a, fAirTime * 0.5f, v, pNew);
+        UMath::ScaleAdd(pNew, fAirTime, p, pNew);
+        if (!pTopo.Update(pNew, vNormal, true, 0, true) || !pTopo.OnValidFace()) {
+            continue;
+        }
+        if (vNormal.y < 0.5f) {
+            continue;
+        }
+        fElevation = pTopo.HeightAtPoint(pNew);
+        fAir = pNew.y - fElevation;
+        if (fAir > 0.0f) {
+            fAirMax = bMax(fAirMax, fAir);
+            fLongest = bMax(fLongest, fAirTime);
+            fAirSum += fAir;
+        } else {
+            if (b_grounded_abort && fLongest > 0.0f) {
+                fLongest = fAirTime;
+                break;
+            }
+            p.x = pNew.x;
+            p.z = pNew.z;
+            p.y = fElevation;
+            UMath::Vector3 c;
+            UMath::Cross(UMath::Vector4To3(vNormal), v, c);
+            UMath::Cross(c, UMath::Vector4To3(vNormal), v);
+            UMath::Unit(v);
+            UMath::Scale(v, fSpeed);
+            fDeparture = fFuture;
+        }
+    }
+
+    if (pHighest) {
+        *pHighest = fAirMax;
+    }
+    if (pLongest) {
+        *pLongest = fLongest;
+    }
+    return fAirSum / static_cast<float>(i);
+}
+#else
 static float AverageAir(ISimable *isimable, float fSeconds, float *pHighest, float *pLongest) {
     IRigidBody *irb = isimable->GetRigidBody();
     if (!irb) {
@@ -423,7 +555,7 @@ static float AverageAir(ISimable *isimable, float fSeconds, float *pHighest, flo
         return 0.0f;
     }
 
-    int nSteps = static_cast<int>(fSpeed * fSeconds * (1.0f / 3.0f));
+    int nSteps = bFloatToInt(fSpeed * fSeconds * (1.0f / 3.0f));
     if (nSteps <= 0) {
         return 0.0f;
     }
@@ -480,15 +612,21 @@ static float AverageAir(ISimable *isimable, float fSeconds, float *pHighest, flo
         fAirTime = fStep * static_cast<float>(i) - fDeparture;
         UMath::ScaleAdd(a, fAirTime * tbarr, v, pNew);
         UMath::ScaleAdd(pNew, fAirTime, p, pNew);
-        if (pTopo.Update(pNew, vNormal, true, 0, true) && pTopo.OnValidFace() && vNormal.y >= tbarr) {
-            float fElevation = pTopo.HeightAtPoint(pNew);
-            float fAir = pNew.y - fElevation;
-            if (fAir > 0.0f) {
-                fAirMax = bMax(fAirMax, fAir);
-                fAirSum += fAir;
-            } else {
-                break;
-            }
+        // Dos continue, como en la A124: en PowerPC da lo mismo, pero en EE `vNormal.y < tbarr` es c.lt.s y bc1tl al
+        // continue (func_0016A200 de SLUS, CameraAI.cpp:869-873 de GameCube).
+        if (!pTopo.Update(pNew, vNormal, true, 0, true) || !pTopo.OnValidFace()) {
+            continue;
+        }
+        if (vNormal.y < tbarr) {
+            continue;
+        }
+        float fElevation = pTopo.HeightAtPoint(pNew);
+        float fAir = pNew.y - fElevation;
+        if (fAir > 0.0f) {
+            fAirMax = bMax(fAirMax, fAir);
+            fAirSum += fAir;
+        } else {
+            break;
         }
     }
 
@@ -500,6 +638,7 @@ static float AverageAir(ISimable *isimable, float fSeconds, float *pHighest, flo
     }
     return fAirSum / static_cast<float>(i);
 }
+#endif
 
 void CameraAI::MaybeKillJumpCam(unsigned int world_id) {
     Director *director = FindDirector(world_id);
@@ -512,7 +651,11 @@ void CameraAI::MaybeDoJumpCam(ISimable *isimable) {
     if (TheICEManager.IsEditorOn()) {
         return;
     }
+#ifdef EA_BUILD_A124
+    if (!FEDatabase->GetGameplaySettings()->JumpCam) {
+#else
     if (!AreMomentCamerasEnabled()) {
+#endif
         return;
     }
     if (INIS::Get()) {
@@ -552,35 +695,32 @@ void CameraAI::MaybeDoJumpCam(ISimable *isimable) {
 
     float highest = 0.0f;
     float longest = 0.0f;
+#ifdef EA_BUILD_A124
+    float avg = AverageAir(isimable, 3.0f, &highest, &longest, true);
+    if (avg < 8.0f && highest < 16.0f && longest < 2.0f) {
+        if (avg > Tweak_JumpCamAverageAirTresh[in_jump_zone] && highest > Tweak_JumpCamHighestAirTresh[in_jump_zone] &&
+            longest * speed > Tweak_JumpCamLongestAirTresh[in_jump_zone]) {
+#else
     float avg = AverageAir(isimable, 3.0f, &highest, &longest);
-    if (avg >= 20.1f) {
-        return;
-    }
-    if (highest >= 20.1f) {
-        return;
-    }
-    if (longest >= 3.1f) {
-        return;
-    }
-    if (avg <= 1.0f) {
-        return;
-    }
+    if (avg < 20.1f && highest < 20.1f && longest < 3.1f) {
+        if (avg > 1.0f && highest > Tweak_JumpCamHighestAirTresh[in_jump_zone] &&
+            longest * speed > Tweak_JumpCamLongestAirTresh[in_jump_zone]) {
+#endif
+            CameraAI::SetAction(director->GetView(), "CDActionTrackCar");
+            director->JumpStart(bClamp(longest + longest, 1.0f, 4.0f));
 
-    if (highest > Tweak_JumpCamHighestAirTresh[in_jump_zone] && longest * speed > Tweak_JumpCamLongestAirTresh[in_jump_zone]) {
-        CameraAI::SetAction(director->GetView(), "CDActionTrackCar");
-        director->JumpStart(bClamp(longest + longest, 1.0f, 4.0f));
-
-        MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0xa3447e3f).Send("MomentStrm");
-    }
+            MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0xa3447e3f).Send("MomentStrm");
+        }
 
 #ifndef EA_BUILD_A124
-    if (avg > 1.0f) {
-        SoundAI *sound = UTL::Collections::Singleton<SoundAI>::Get();
-        if (sound && sound->GetObserver()) {
-            sound->GetObserver()->NotifyAirborne(highest, longest);
+        if (avg > 1.0f) {
+            SoundAI *sound = UTL::Collections::Singleton<SoundAI>::Get();
+            if (sound && sound->GetObserver()) {
+                sound->GetObserver()->NotifyAirborne(highest, longest);
+            }
         }
-    }
 #endif
+    }
 }
 
 void CameraAI::Init() {

@@ -7,6 +7,9 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/uiWorldMap.hpp"
 #include "Speed/Indep/Src/Gameplay/GInfractionManager.h"
 #include "Speed/Indep/Src/Gameplay/GRace.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
+#endif
 #include "VehicleDB.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
@@ -152,6 +155,10 @@ class VideoSettings {
     float ScreenOffsetX; // offset 0x4, size 0x4
     float ScreenOffsetY; // offset 0x8, size 0x4
     bool WideScreen;     // offset 0xC, size 0x1
+#ifdef EA_PLATFORM_XENON // X360: OptionsSettings mide 0x8C (UserProfile::SaveToBuffer) y TheCareerSettings va en 0xB0
+    float X360Video10; // offset 0x10: 0.5f en OptionsSettings::Default de NFS.exe (0x822E9BE0); nombre nuestro
+    float X360Video14; // offset 0x14: 0.51020408f; nombre nuestro
+#endif
 };
 
 // total size: 0x34
@@ -186,7 +193,6 @@ class AudioSettings {
     float GetMasteredSpeedVol() {
         return MasterVol * SpeedVol;
     };
-
     float MasterVol;          // offset 0x0, size 0x4
     float SpeechVol;          // offset 0x4, size 0x4
     float FEMusicVol;         // offset 0x8, size 0x4
@@ -201,7 +207,6 @@ class AudioSettings {
     int EATraxMode;           // offset 0x2C, size 0x4
     int PlayState;            // offset 0x30, size 0x4
 };
-
 // total size: 0xC0
 class OptionsSettings {
   public:
@@ -216,7 +221,6 @@ class OptionsSettings {
     AudioSettings TheAudioSettings;       // offset 0x34, size 0x34
     PlayerSettings ThePlayerSettings[2];  // offset 0x68, size 0x58
 };
-
 #ifdef EA_BUILD_A124
 typedef uint16 FESMSHandle;
 #else
@@ -229,13 +233,7 @@ typedef enum { SMS_FLAG_UNREAD = 1, SMS_FLAG_READ = 2 } SMSMessageFlags;
 class SMSMessage {
   public:
     SMSMessage() {
-        Handle =
-#ifdef EA_BUILD_A124
-            0xFFFF
-#else
-            0xFF
-#endif
-            ;
+        Handle = static_cast<FESMSHandle>(-1); // 0xFFFF en la A124 (uint16), 0xFF en las demas
         Flags = 0;
 #ifndef EA_BUILD_A124
         SortOrder = 0;
@@ -278,10 +276,21 @@ class SMSMessage {
         return FEngHashString("SMS_MESSAGE_%d_SUBJECT", GetHandle());
     }
     bool IsUnRead() {
+#ifdef EA_BUILD_A124
+        // En la A124 "sin leer" es el bit 0 (lbu + andi 1 en AddSMSDatum y uiSMSMessage).
+        return (Flags & 1) != 0;
+#else
         return (Flags & 2) != 0;
+#endif
     }
     bool IsRead() {
+#ifdef EA_BUILD_A124
+        // En la A124 "leido" es el bit 1 (uiSMS::Setup: srl 1 + andi 1): la de venta anadio un bit
+        // por debajo y lo corrio al 2.
+        return (Flags & 2) != 0;
+#else
         return (Flags & 4) != 0;
+#endif
     }
     bool IsValid() {
         return Handle !=
@@ -302,7 +311,6 @@ class SMSMessage {
     uint16 SortOrder;   // offset 0x2, size 0x2
 #endif
 };
-
 enum CS_SpecialFlags {
     CS_CAREER_STARTED = 1 << 0,
     CS_ONE_TIME_CASH_BONUS = 1 << 1,
@@ -590,10 +598,10 @@ struct GameCompletionStats {
     uint8 m_nTotalChallengeRaces;     // offset 0x4, size 0x1
     uint8 m_nCompletedChallengeRaces; // offset 0x5, size 0x1
 };
-
 // total size: 0xA28
 class cFrontendDatabase {
   public:
+#ifndef EA_PLATFORM_PLAYSTATION2
     static void *operator new(size_t size, unsigned int alloc_params) {
 #ifdef MILESTONE_BUILD
         return bMalloc(size, __FILE__, __LINE__, alloc_params);
@@ -603,6 +611,7 @@ class cFrontendDatabase {
     }
 
     static void operator delete(void *ptr) {}
+#endif
 
   private:
     eHighScoresRaceTypes CalcRaceTypeForHighScores();
@@ -681,9 +690,22 @@ class cFrontendDatabase {
     void RestoreFromBackupDB();
     bool IsDirty();
     bool IsDDay() {
+#ifdef EA_PLATFORM_WIN32
+        // PC: el original compara `> 15` (fndiff: cmp 0xf + jbe; GC/PS2 usan `>= 16` y estan al 100%).
+        return GetCareerSettings()->GetCurrentBin() > 15;
+#else
         return GetCareerSettings()->GetCurrentBin() >= 16;
+#endif
     }
+#ifdef EA_BUILD_A124
+    // En el prototipo es inline y no busca la carrera 1.8.1: cualquier persecucion del ultimo cajon.
+    bool IsFinalEpicChase() {
+        return GetCareerSettings()->GetCurrentBin() < 2 && GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters() &&
+               GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace();
+    }
+#else
     bool IsFinalEpicChase();
+#endif
     void SetOptionsDirty(bool dirty) {
         bIsOptionsDirty = dirty;
     }
@@ -764,9 +786,12 @@ class cFrontendDatabase {
         return &mOnlineCreateUserSettings;
     };
 #endif
-    FEKeyboardSettings *GetFEKeyboardSettings() {}
+    // Cuerpo de la A124 (L804@FEDatabase.hpp; UIOLAgeVerf::NotificationMessage lo expande: FEDatabase + 0x42C).
+    FEKeyboardSettings *GetFEKeyboardSettings() {
+        return &mFEKeyboardSettings;
+    }
     FEPlayerCarDB *GetPlayerCarStable(int player) {
-        if (player >= 0 && player <= 1)
+        if (player >= 0 && player < 2)
             return &CurrentUserProfiles[player]->PlayersCarStable;
         return nullptr;
     }
@@ -798,9 +823,13 @@ class cFrontendDatabase {
     bool bSavedProfileForMP;             // offset 0x8, size 0x1
     bool bProfileLoaded;                 // offset 0xC, size 0x1
     bool bIsOptionsDirty;                // offset 0x10, size 0x1
-#ifndef EA_BUILD_A124
-    // El prototipo A124 no tiene este miembro, y sin la guarda TODO lo que va
-    // detras queda 4 B corrido en PS2 (`lw 0x1c` donde el original pone 0x20).
+#ifndef EA_PLATFORM_PLAYSTATION2
+    // NINGUNA de las dos PS2 tiene este miembro, no solo el prototipo: la guarda
+    // era `#ifndef EA_BUILD_A124' y SLUS lo seguia llevando, con lo que en la
+    // version de venta TODO lo de detras quedaba 4 B corrido (el original lee
+    // CurrentUserProfiles en 0x1c y nosotros en 0x20, en catorce funciones del
+    // frontend). Confirmar la sobrescritura del autoguardado es cosa de la
+    // memory card de GameCube.
     bool bAutoSaveOverwriteConfirmed;    // offset 0x14, size 0x1
 #endif
     uint32 iDefaultStableHash;           // offset 0x18, size 0x4

@@ -8,6 +8,7 @@
 #include "Speed/Indep/Src/FEng/FEString.h"
 #include "Speed/Indep/Src/Frontend/FECarLoader.hpp"
 #include "Speed/Indep/Src/Input/ActionQueue.h"
+#include "Speed/Indep/Src/Misc/Joystick.hpp"
 #include "Speed/Indep/Src/World/Car.hpp"
 #include "Speed/Indep/Src/Camera/Movers/SelectCar.hpp"
 
@@ -87,7 +88,10 @@ class GarageMainScreen : public MenuScreen {
     int CarState;                       // offset 0x54, size 0x4
     bool CameraPushRequested;           // offset 0x58, size 0x1
     Attrib::Key DesiredCamKey;          // offset 0x5C, size 0x4
-    ActionQueue *mActionQ[2];           // offset 0x60, size 0x8
+    // Una cola por puerto de mando (Joystick.hpp). PC: un solo new en el ctor, pCarName en +0x64
+    // y HideEntireScreen en +0x6C (IsVisable). 360: el ctor y el dtor recorren 4 colas
+    // (NFS.exe 0x82593BD8 li r28, 4) y pCarName va en +0x70.
+    ActionQueue *mActionQ[NUM_JOYSTICK_PORTS]; // offset 0x60, size 0x8 (GC/PS2)
     FEString *pCarName;                 // offset 0x68, size 0x4
     FEString *pPlayerName;              // offset 0x6C, size 0x4
   public:

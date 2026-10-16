@@ -17,7 +17,11 @@ class Model : public Sim::Object,
               public IAttachable,
               public IModel,
               public EventSequencer::IContext,
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+              public UTL::Collections::GarbageNode<Model, 2296> {
+#else
               public UTL::Collections::GarbageNode<Model, 434> {
+#endif
   public:
     // total size: 0x60
     struct Effect : public Sim::Effect {

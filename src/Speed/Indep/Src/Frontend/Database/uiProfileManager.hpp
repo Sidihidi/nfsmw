@@ -12,61 +12,85 @@ void MemcardEnter(const char* from, const char* to, unsigned int op, void (*pTer
 
 struct PMSave : public IconOption {
     PMSave(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
-        : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~PMSave() override {}
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
+#ifdef EA_BUILD_A124
+    void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override;
+#else
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             MemcardEnter(pkg_name, pkg_name, 0x2251, 0, 0, 0, 0);
         }
     }
+#endif
 
 };
 
 struct PMLoad : public IconOption {
     PMLoad(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
-        : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~PMLoad() override {}
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
+#ifdef EA_BUILD_A124
+    void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override;
+#else
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             MemcardEnter(pkg_name, pkg_name, 0x411, 0, 0, 0x3A2BE557, 0x8867412D);
         }
     }
+#endif
 
 };
 
 struct PMDelete : public IconOption {
     PMDelete(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
-        : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~PMDelete() override {}
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
+#ifdef EA_BUILD_A124
+    void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override;
+#else
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             MemcardEnter(pkg_name, pkg_name, 0x31, 0, 0, 0, 0);
         }
     }
+#endif
 
 };
 
 struct PMCreateNew : public IconOption {
     PMCreateNew(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
-        : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~PMCreateNew() override {}
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
+#ifdef EA_BUILD_A124
+    void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override;
+#else
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             MemcardEnter(pkg_name, pkg_name, 0x61, 0, 0, 0, 0);
         }
     }
+#endif
 
 };
 
 struct PMPopDelete : public IconOption {
     PMPopDelete(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~PMPopDelete() override {}
+#ifdef EA_BUILD_A124
+    // la A124 lo define fuera de linea en uiProfileManager.cpp y abre MC_DeleteProfile.fng
+    void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override;
+#else
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             MemcardEnter(pkg_name, pkg_name, 0x61, 0, 0, 0, 0);
         }
     }
+#endif
 
 };
 
@@ -76,9 +100,12 @@ struct UIProfileManager : public IconScrollerMenu {
 
     UIProfileManager(ScreenConstructorData* sd);
     ~UIProfileManager() override {}
+  private:
     void Refresh();
+  public:
     void NotificationMessage(u32 msg, FEObject* obj, u32 param1,
                              u32 param2) override;
+  private:
     void Setup() override;
 };
 
@@ -86,8 +113,12 @@ struct UIProfileManager : public IconScrollerMenu {
 struct UIDeleteProfile : public IconScrollerMenu {
     UIDeleteProfile(ScreenConstructorData* sd);
     ~UIDeleteProfile() override {}
+  private:
     void Setup() override;
+#ifndef EA_BUILD_A124
     void Refresh();
+#endif
+  public:
     void NotificationMessage(u32 msg, FEObject* obj, u32 param1,
                              u32 param2) override;
 };

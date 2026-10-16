@@ -15,7 +15,11 @@ typedef short i16;          // Decl: speed/indep/src/feng/FETypes.h:29
 typedef unsigned char u8;   // Decl: speed/indep/src/feng/FETypes.h:30
 #endif
 
-#define FENG_BIG_ENDIAN // :32 // TODO: probably set conditionally by build platform
+// Los paquetes de FEng se escriben en little-endian: PS2 (y PC) los leen tal cual y los PowerPC les dan la vuelta
+// (la A124 y SLUS comparan los ID de chunk sin girar; mismo criterio que NATIVE_ENDIAN_BIG de bWare.hpp).
+#if defined(EA_PLATFORM_GAMECUBE) || defined(EA_PLATFORM_XENON)
+#define FENG_BIG_ENDIAN // :32
+#endif
 
 static const u32 FEngLibVersion = 78339; // size: 0x4, Decl: speed/indep/src/feng/FETypes.h:67
 
@@ -109,7 +113,8 @@ class FERect {
     }
 };
 
-// Decl: speed/indep/src/feng/FETypes.h:152-154 // TODO: probably checks FENG_BIG_ENDIAN for byte swaps
+#ifdef FENG_BIG_ENDIAN
+// Decl: speed/indep/src/feng/FETypes.h:152-154
 inline u32 FEngGetu32(u32 Val) {
     return (Val >> 24) | (Val << 24) | ((Val & 0xFF00) << 8) | ((Val >> 8) & 0xFF00);
 }
@@ -132,5 +137,26 @@ inline float FEngGetf32(float &Val) {
     u32 Temp = FEngGetu32(*reinterpret_cast<u32 *>(&Val));
     return *reinterpret_cast<float *>(&Temp);
 }
+#else
+inline u32 FEngGetu32(u32 Val) {
+    return Val;
+}
+
+inline i32 FEngGeti32(i32 Val) {
+    return Val;
+}
+
+inline u16 FEngGetu16(u16 Val) {
+    return Val;
+}
+
+inline i16 FEngGeti16(i16 Val) {
+    return Val;
+}
+
+inline float FEngGetf32(float &Val) {
+    return Val;
+}
+#endif
 
 #endif

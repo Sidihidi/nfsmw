@@ -52,32 +52,34 @@ template <int N> class FEObjectSorter {
 template <int N> void FEObjectSorter<N>::SortObjects() {
     SFERadixKey *pstDestList = mastScratchList;
     SFERadixKey *pstSrcList = mastFinalList;
-    long alElemCount[256];
-    long alElemIndex[256];
+    i32 alElemCount[256];
+    i32 alElemIndex[256];
     int lNumBytes = mulNumObjects << 3;
     int i;
-    {
-        int b = 3;
-        do {
-            FEngMemSet(alElemCount, 0, sizeof(alElemCount));
-            unsigned char *pucByte = reinterpret_cast<unsigned char *>(pstSrcList) + (b + 4);
-            for (i = 0; i < lNumBytes; i += 8) {
-                alElemCount[pucByte[i]]++;
-            }
-            alElemIndex[0] = 0;
-            for (i = 0; i < 255; i++) {
-                alElemIndex[i + 1] = alElemIndex[i] + alElemCount[i];
-            }
-            for (i = 0; i < static_cast<int>(mulNumObjects); i++) {
-                unsigned char ucIndex = pucByte[i * 8];
-                pstDestList[alElemIndex[ucIndex]] = pstSrcList[i];
-                alElemIndex[ucIndex]++;
-            }
-            SFERadixKey *pstTemp = pstSrcList;
-            pstSrcList = pstDestList;
-            pstDestList = pstTemp;
-            b--;
-        } while (b >= 0);
+
+    // El byte de menos peso de ulKey va primero: el ultimo en big-endian y el primero en little-endian.
+#ifdef FENG_BIG_ENDIAN
+    for (int b = 3; b >= 0; b--) {
+#else
+    for (int b = 0; b < 4; b++) {
+#endif
+        FEngMemSet(alElemCount, 0, sizeof(alElemCount));
+        unsigned char *pucByte = reinterpret_cast<unsigned char *>(pstSrcList) + (b + 4);
+        for (i = 0; i < lNumBytes; i += 8) {
+            alElemCount[pucByte[i]]++;
+        }
+        alElemIndex[0] = 0;
+        for (i = 0; i < 255; i++) {
+            alElemIndex[i + 1] = alElemIndex[i] + alElemCount[i];
+        }
+        for (i = 0; i < static_cast<int>(mulNumObjects); i++) {
+            unsigned char ucIndex = pucByte[i * 8];
+            pstDestList[alElemIndex[ucIndex]] = pstSrcList[i];
+            alElemIndex[ucIndex]++;
+        }
+        SFERadixKey *pstTemp = pstSrcList;
+        pstSrcList = pstDestList;
+        pstDestList = pstTemp;
     }
 }
 

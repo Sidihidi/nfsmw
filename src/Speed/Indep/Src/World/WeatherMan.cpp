@@ -22,6 +22,11 @@ int BaseWeatherFogColourB = 0x6E;
 // TODO move
 extern int FogControlOverRide;
 
+#ifndef EA_PLATFORM_GAMECUBE
+float distColAff = 1.8f;
+float distfall = 0.45f;
+#endif
+
 int LoaderWeatherMan(bChunk *bchunk) {
     if (bchunk->GetID() != BCHUNK_GENERIC_REGIONS) {
         return 0;
@@ -120,14 +125,20 @@ int RegionQuery::CalculateRegionInfo(eView *view, RegionType regionKind, int InF
     bVector3 cPos(*view->GetCamera()->GetPosition());
 
     if (FogControlOverRide) {
-        DistFogStart = BaseWeatherFogStart;
         FogFalloff = BaseFogFalloff;
         FogFalloffX = BaseFogFalloffX;
         FogFalloffY = BaseFogFalloffY;
-
-        unsigned int fog_colour = ((BaseWeatherFogColourB << 16) | (BaseWeatherFogColourG << 8) | BaseWeatherFogColourR) & 0xFFFFFF;
-        unsigned int retcol = fog_colour | 0x80000000;
+        DistFogStart = BaseWeatherFogStart;
         DistFogPower = BaseWeatherFog;
+
+        unsigned int fog_colour = (BaseWeatherFogColourB << 16) | (BaseWeatherFogColourG << 8) | BaseWeatherFogColourR;
+        colr_r = fog_colour & 0xFF;
+        colr_g = (fog_colour >> 8) & 0xFF;
+        colr_b = (fog_colour >> 16) & 0xFF;
+
+        DistFogStart = BaseWeatherFogStart; // repetido, como en rain.cpp: el mapa de lineas lo pide (545)
+
+        unsigned int retcol = colr_r | (colr_g << 8) | (colr_b << 16) | 0x80000000;
         DistFogColour = retcol;
 
         if (oldDistFogColour == retcol && oldDistFogPower == DistFogPower && oldDistFogStart == DistFogStart) {
@@ -221,6 +232,84 @@ int RegionQuery::CalculateRegionInfo(eView *view, RegionType regionKind, int InF
     return 1;
 }
 
+#ifndef EA_PLATFORM_GAMECUBE
+// La distancia aproximada en pantalla (la mayor de las dos mas un cuarto de la menor), en las lineas 742-751 del
+// WeatherMan.cpp de la A124.
+static inline int ApproxScreenDistance(int x0, int y0, int x1, int y1) {
+    int dx = bAbs(x0 - x1);
+    int dy = bAbs(y0 - y1);
+
+    if (dx > dy) {
+        return dx + (dy >> 2);
+    }
+    return dy + (dx >> 2);
+}
+
+// El color del horizonte en un punto de la pantalla, sumando las regiones de color de horizonte cercanas; GameCube no la
+// tiene.
+void getHorizonColour(eView *view, int x, int y, uint32 *r, uint32 *g, uint32 *b, uint32 *a) {
+    bVector3 cPos = *view->GetCamera()->GetPosition();
+    float rf = 0.0f;
+    float gf = 0.0f;
+    float bf = 0.0f;
+    bTList<GenericRegion> *region_list = &RegionLists[REGION_HORIZON_COLOUR];
+    float lasteffect = 0.0f;
+    float Amod;
+
+    for (GenericRegion *region = region_list->GetHead(); region != region_list->EndOfList(); region = region->GetNext()) {
+        if (region->modifier > 0.0f) {
+            float colr_r = static_cast<float>(region->FogColour & 0xff);
+            float colr_g = static_cast<float>((region->FogColour >> 8) & 0xff);
+            float colr_b = static_cast<float>((region->FogColour >> 16) & 0xff);
+            float dist = static_cast<float>(
+                ApproxScreenDistance(x, y, bFloatToInt(region->ScreenPosX), bFloatToInt(region->ScreenPosY)));
+            float effect = (128.0f - dist * distfall) * (1.0f / 128.0f);
+
+            effect *= region->modifier;
+            if (effect < 0.0f) {
+                continue;
+            }
+
+            Amod = 1.0f - lasteffect;
+
+            lasteffect += effect;
+            if (Amod < 0.0f) {
+                continue;
+            }
+            rf += effect * (Amod * (colr_r * 0.5f));
+            gf += effect * (Amod * (colr_g * 0.5f));
+            bf += effect * (Amod * (colr_b * 0.5f));
+        }
+    }
+
+    if (lasteffect > 0.0f) {
+        rf *= distColAff;
+        gf *= distColAff;
+        bf *= distColAff;
+        if (rf > 255.0f) {
+            rf = 255.0f;
+        }
+        if (gf > 255.0f) {
+            gf = 255.0f;
+        }
+        if (bf > 255.0f) {
+            bf = 255.0f;
+        }
+    }
+
+    *r = static_cast<uint32>(rf);
+    *g = static_cast<uint32>(gf);
+    *b = static_cast<uint32>(bf);
+
+    float atten = static_cast<float>(*r + *g + *b) * (1.0f / 384.0f);
+
+    if (atten > 1.0f) {
+        atten = 1.0f;
+    }
+    *a = static_cast<uint32>(static_cast<float>(*a) * atten);
+}
+#endif
+
 GenericRegion *GetClosestRegionInView(eView *view, bVector3 *endVector, float *angleCos) {
     cPos = *view->GetCamera()->GetPosition();
     bVector3 cDir(*view->GetCamera()->GetDirection());
@@ -250,7 +339,7 @@ GenericRegion *GetClosestRegionInView(eView *view, bVector3 *endVector, float *a
         bNormalize(&Delta2, &Delta);
 
         angleCOS = bDot(Delta2, cDir);
-        if (0.0f < angleCOS) {
+        if (angleCOS > 0.0f) {
             float dist = bLength(Delta);
             if (dist < maxDist) {
                 *angleCos = angleCOS;

@@ -21,7 +21,6 @@ class FEMemWidget : public ScrollerDatum {
     // Sin destructor propio: el sintetizado repone la vtable de ScrollerDatum
     // y no emite el store de la suya, que es lo que hace el original.
     FEMemWidget(const char *pName, const char *pDate, int size, int flag) {
-        bEnabled = true;
         m_Flag = static_cast<MemCardFileFlag>(flag);
         m_Size = size;
 
@@ -77,7 +76,9 @@ class UIMemcardList : public MenuScreen {
 class UIMemcardBoot : public UIMemcardBase {
   public:
     UIMemcardBoot(ScreenConstructorData *sd) : UIMemcardBase(sd) {
+#ifdef EA_PLATFORM_GAMECUBE
         FEngFindString(GetPackageName(), 0x1E2640FA)->Flags &= ~0x200;
+#endif
     }
 
     ~UIMemcardBoot() override {}

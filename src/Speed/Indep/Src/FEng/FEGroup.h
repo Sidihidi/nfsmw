@@ -4,30 +4,38 @@
 #include "FEObject.h"
 #include "types.h"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 // File: speed/indep/src/feng/FEGroup.h
 // total size: 0x6C
-// Decl: speed/indep/src/feng/FEGroup.h:28
+// Decl: speed/indep/src/feng/FEGroup.h:23
 class FEGroup : public FEObject {
   private:
-    FEMinList Children; // offset 0x5C, size 0x10, Decl: speed/indep/src/feng/FEGroup.h:30
+    FEMinList Children; // offset 0x5C, size 0x10, Decl: speed/indep/src/feng/FEGroup.h:25
 
   public:
-    FEGroup() { // Decl: speed/indep/src/feng/FEGroup.h:33
-        Type = FE_Group;
-    }
+    FEGroup() { Type = FE_Group; } // Decl: speed/indep/src/feng/FEGroup.h:28
     FEGroup(const FEGroup &Object, bool bCloneChildren, bool bReference);
-    FEObject *Clone(bool bReference) override { // Decl: speed/indep/src/feng/FEGroup.h:36
-        return FNEW FEGroup(*this, true, bReference);
-    }
 
-    void AddObject(FEObject *pObj) { // Decl: speed/indep/src/feng/FEGroup.h:38
-        Children.AddTail(pObj);
-    }
-    void AddObjectAfter(FEObject *pObj, FEObject *pAddAfter) { // Decl: speed/indep/src/feng/FEGroup.h:39
+    FEObject *Clone(bool bReference) override { return FNEW FEGroup(*this, true, bReference); } // Decl: speed/indep/src/feng/FEGroup.h:31
+
+    void AddObject(FEObject *pObj) { Children.AddTail(pObj); } // Decl: speed/indep/src/feng/FEGroup.h:33
+    void AddObjectAfter(FEObject *pObj, FEObject *pAddAfter) { // Decl: speed/indep/src/feng/FEGroup.h:34
         Children.AddNode(pAddAfter, pObj);
     }
 
-    void RemoveObject(FEObject *pObj) { // Decl: speed/indep/src/feng/FEGroup.h:41
+    void RemoveObject(FEObject *pObj) { // Decl: speed/indep/src/feng/FEGroup.h:36
         Children.RemNode(pObj);
     }
 

@@ -5,8 +5,14 @@
 #pragma once
 #endif
 
-#include "Speed/Indep/Src/Misc/attribuserinclude.h"
 #include "Speed/Indep/Libs/Support/Miscellaneous/StringHash.h"
+
+// El constructor desde Attrib::StringKey solo va DECLARADO aqui (con la clase incompleta): la
+// definicion inline vive en attribuserinclude.h. Si UCrc.h arrastrara la clase, toda unidad de juego
+// veria su literal "" caer al pool comun de .rodata y el prefijo de 96 B lo romperia (medido).
+namespace Attrib {
+class StringKey;
+}
 
 class bHash32 {
     unsigned int mCRC;
@@ -41,9 +47,10 @@ class UCrc32 {
 
     UCrc32(const UCrc32 &from) : mCRC(from.mCRC) {}
 
+    UCrc32(const Attrib::StringKey &key);
+
     UCrc32(unsigned int crc) : mCRC(crc) {}
 
-    UCrc32(const Attrib::StringKey &key) : mCRC(key.GetHash32()) {}
 
     const UCrc32 &operator=(const UCrc32 &from) {
         mCRC = from.mCRC;
@@ -98,3 +105,4 @@ inline bool operator!=(const char *a, const UCrc32 &b) {
 }
 
 #endif
+

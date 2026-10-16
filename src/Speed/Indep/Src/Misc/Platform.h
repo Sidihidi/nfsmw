@@ -4,7 +4,14 @@
 // I just made this up to store declarations for Platform.cpp
 // TODO where to put these?
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+void InitPlatform(int argc, char **argv);
+#else
 void InitPlatform();
+#endif
+#ifdef EA_PLATFORM_WIN32
+bool IsTheGameAlreadyRunning(const char *exe_name, int max_instances); // Platform_PC.cpp (speed.exe 0x6CBC00)
+#endif
 void InitDisplaySystem();
 void ServicePlatform();
 extern "C" int bDoWithStack(void *function, void *stack_pointer, int arg1, int arg2);

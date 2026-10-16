@@ -321,12 +321,21 @@ const TypeDesc &Database::GetTypeDesc(unsigned int t) const {
     return *mPrivates.mCompiledTypes[0];
 }
 
+// La A124 encola sin mirar si ya esta (sus Delete son un push_back: ni IsReferenced ni find en el binario).
 void Database::Delete(const Collection *c) {
+#ifdef EA_BUILD_A124
+    mPrivates.mGarbageCollections.push_back(c);
+#else
     DatabasePrivate::QueueForDelete(c, mPrivates.mGarbageCollections);
+#endif
 }
 
 void Database::Delete(const Class *c) {
+#ifdef EA_BUILD_A124
+    mPrivates.mGarbageClasses.push_back(c);
+#else
     DatabasePrivate::QueueForDelete(c, mPrivates.mGarbageClasses);
+#endif
 }
 
 void Database::CollectGarbage() {

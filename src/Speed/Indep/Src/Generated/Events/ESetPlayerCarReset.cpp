@@ -43,9 +43,9 @@ void ESetPlayerCarReset_MakeEvent_Callback(const void *staticData) {
     new ESetPlayerCarReset(((ESetPlayerCarReset::StaticData *) staticData)->fUseTrigger, ((ESetPlayerCarReset::StaticData *) staticData)->fTrigger);
 }
 
-int ESetPlayerCarReset_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ESetPlayerCarReset((int) lua_tonumber(L, 1), (CARP::Trigger *) lua_tostring(L, 2));
+int ESetPlayerCarReset_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ESetPlayerCarReset((int) lua_tonumber(luaState, 1), (CARP::Trigger *) lua_tostring(luaState, 2));
     }
     return 0;
 }

@@ -11,11 +11,15 @@
 #include "Speed/Indep/Libs/Support/Utility/UListable.h"
 #include "Speed/Indep/Src/World/WorldTypes.h"
 #include "Speed/Indep/Src/World/WorldConn.h"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 
 struct EAX_HeliState;
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class CarSoundConn : public Sim::Connection, public UTL::Collections::Listable<CarSoundConn, 20> {
+#else
 class CarSoundConn : public Sim::Connection, public UTL::Collections::Listable<CarSoundConn, 10> {
+#endif
   public:
     bool mConnected;                // offset 0x14, size 0x1
     // Alineado a 16 en PS2 y X360, igual que en HeliSoundConn: los dos lo tienen en 0x20 (stabs de la A124,
@@ -38,7 +42,11 @@ class CarSoundConn : public Sim::Connection, public UTL::Collections::Listable<C
     }
 };
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class HeliSoundConn : public Sim::Connection, public UTL::Collections::Listable<HeliSoundConn, 20> {
+#else
 class HeliSoundConn : public Sim::Connection, public UTL::Collections::Listable<HeliSoundConn, 10> {
+#endif
   public:
     ALIGNVEC EAX_HeliState *mState; // offset 0x14, size 0x4
     WorldConn::Reference mTarget;   // offset 0x18, size 0x10
@@ -57,44 +65,26 @@ namespace SoundConn {
 // Todos los paquetes van alineados a 16 en PS2 y X360, no Sim::Packet (que mide 4): en la A124 miden
 // multiplos de 16 aunque sus campos acaben antes (Pkt_Effect_Open, campos hasta 0x18, mide 0x20) y en X360
 // Pkt_Effect_Open::Size() devuelve 0x20. En GameCube, 0x18.
-// total size: 0x10
-class ALIGNVEC Pkt_Heli_Open : public Sim::Packet {
-  public:
-    Pkt_Heli_Open(const Attrib::Collection *spec, WUID worldid) : m_VehicleSpec(spec), mWorldID(worldid) {}
-
-    // Virtual overrides
-    // Packet
-    UCrc32 ConnectionClass() override {
-        static UCrc32 hash = "HeliSoundConn";
-        return hash;
-    }
-
-    unsigned int Size() override {
-        return sizeof(*this);
-    }
-
-    unsigned int Type() override {
-        return SType();
-    }
-
-    static unsigned int SType() {
-        static UCrc32 hash = "Pkt_Heli_Open";
-        return hash.GetValue();
-    }
-
-    const Attrib::Collection *m_VehicleSpec; // offset 0x4, size 0x4
-    WUID mWorldID;                           // offset 0x8, size 0x4
-};
-
+// datos-gc 2026-10-13: orden de clases del DWARF (Car_Open, Car_Service, Heli_Open,
+// Heli_Service); Pkt_Heli_Open va tras Pkt_Car_Service, junto a Pkt_Heli_Service.
 // total size: 0x18
 class ALIGNVEC Pkt_Car_Open : public Sim::Packet {
   public:
+#ifndef EA_BUILD_A124
     Pkt_Car_Open(const Attrib::Collection *spec, WUID worldid, Sound::Context ctx, bool spool_load, HSIMABLE__ *handle)
         : m_VehicleSpec(spec) //
         , mWorldID(worldid) //
         , mCarContext(ctx) //
         , mSpoolLoad(spool_load) //
         , mHandle(handle) {}
+#else
+    // La A124 no lleva mHandle (stabs: Pkt_Car_Open acaba en mSpoolLoad, 0x10).
+    Pkt_Car_Open(const Attrib::Collection *spec, WUID worldid, Sound::Context ctx, bool spool_load)
+        : m_VehicleSpec(spec) //
+        , mWorldID(worldid) //
+        , mCarContext(ctx) //
+        , mSpoolLoad(spool_load) {}
+#endif
 
     UCrc32 ConnectionClass() override {
         static UCrc32 hash = "CarSoundConn";
@@ -118,12 +108,17 @@ class ALIGNVEC Pkt_Car_Open : public Sim::Packet {
     WUID mWorldID;                           // offset 0x8, size 0x4
     Sound::Context mCarContext;              // offset 0xC, size 0x4
     bool mSpoolLoad;                         // offset 0x10, size 0x1
+#ifndef EA_BUILD_A124
     HSIMABLE__ *mHandle;                     // offset 0x14, size 0x4
+#endif
 };
 
 // total size: 0x108
 class ALIGNVEC Pkt_Car_Service : public Sim::Packet {
-  public:
+    // PC: ??0Pkt_Car_Service@SoundConn@@AAE@M@Z (private); lo construye CarSoundConn::UpdateState.
+    friend class ::CarSoundConn;
+
+  private:
     explicit Pkt_Car_Service(float audible_rpm)
         : mRPMPercent(0.0f) //
         , mThrottlePercent(0.0f) //
@@ -175,10 +170,25 @@ class ALIGNVEC Pkt_Car_Service : public Sim::Packet {
         this->mWheelZforce[0] = 0.0f;
 #endif
     }
-    UCrc32 ConnectionClass() override;
-    unsigned int Size() override;
-    unsigned int Type() override;
-    static unsigned int SType();
+  public:
+    // datos-gc 2026-10-13: los cuerpos van en la clase, como Pkt_Car_Open/Pkt_Heli_Open y como
+    // dice el DWARF (las TU que solo parsean SoundConn.h, p.ej. zSim/zPhysicsBehaviors, emiten
+    // los 8 hash de SoundConn). Estaban como `inline` en SoundConn.cpp y solo los emitian las
+    // TU que incluian ese .cpp.
+    UCrc32 ConnectionClass() override {
+        static UCrc32 hash = "CarSoundConn";
+        return hash;
+    }
+    unsigned int Size() override {
+        return sizeof(*this);
+    }
+    unsigned int Type() override {
+        return SType();
+    }
+    static unsigned int SType() {
+        static UCrc32 hash = "Pkt_Car_Service";
+        return hash.GetValue();
+    }
 
     float mRPMPercent;             // offset 0x4, size 0x4
     float mThrottlePercent;        // offset 0x8, size 0x4
@@ -325,15 +335,54 @@ class ALIGNVEC Pkt_Car_Service : public Sim::Packet {
     }
 };
 
+// total size: 0x10
+class ALIGNVEC Pkt_Heli_Open : public Sim::Packet {
+  public:
+    Pkt_Heli_Open(const Attrib::Collection *spec, WUID worldid) : m_VehicleSpec(spec), mWorldID(worldid) {}
+
+    // Virtual overrides
+    // Packet
+    UCrc32 ConnectionClass() override {
+        static UCrc32 hash = "HeliSoundConn";
+        return hash;
+    }
+
+    unsigned int Size() override {
+        return sizeof(*this);
+    }
+
+    unsigned int Type() override {
+        return SType();
+    }
+
+    static unsigned int SType() {
+        static UCrc32 hash = "Pkt_Heli_Open";
+        return hash.GetValue();
+    }
+
+    const Attrib::Collection *m_VehicleSpec; // offset 0x4, size 0x4
+    WUID mWorldID;                           // offset 0x8, size 0x4
+};
+
 class ALIGNVEC Pkt_Heli_Service : public Sim::Packet {
   public:
     Pkt_Heli_Service()
         : mVelocity(0.0f) //
         , mAcceleration(0.0f) {}
-    UCrc32 ConnectionClass() override;
-    unsigned int Size() override;
-    unsigned int Type() override;
-    static unsigned int SType();
+    UCrc32 ConnectionClass() override {
+        static UCrc32 hash = "HeliSoundConn";
+        return hash;
+    }
+    unsigned int Size() override {
+        return sizeof(*this);
+    }
+    unsigned int Type() override {
+        return SType();
+    }
+    static unsigned int SType() {
+        static UCrc32 hash = "Pkt_Heli_Service";
+        return hash.GetValue();
+    }
 
   private:
     float mVelocity;

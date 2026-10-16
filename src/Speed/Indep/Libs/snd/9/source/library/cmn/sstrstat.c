@@ -19,7 +19,9 @@ int SNDSTRM_requeststatus(int sndrequesthandle, SNDREQUESTSTATUS *psrs) {
 
     Snd::SNDSTREAMREQUEST *psr = SNDSTRMI_getrequestptr(sndrequesthandle);
     if (psr != NULL) {
-        if (psr->continuation != 0) {
+        if (psr->continuation == 0) {
+            psrs->state = 0;
+        } else {
             unsigned short samplerate;
 
             if ((Snd::SNDSTREAMREQUEST *)pssc->allocatedrequests.phead == psr) {
@@ -32,11 +34,9 @@ int SNDSTRM_requeststatus(int sndrequesthandle, SNDREQUESTSTATUS *psrs) {
 
             float rate = 1000.0f / samplerate;
 
-            psrs->currenttime = SNDI_ftoiround(psr->currentframe * rate);
-            psrs->timetoend = SNDI_ftoiround((psr->totalframes - psr->currentframe) * rate);
-            psrs->timebuffered = SNDI_ftoiround(psr->outstandingframes * rate);
-        } else {
-            psrs->state = 0;
+            psrs->currenttime = SNDI_ftoifast(psr->currentframe * rate);
+            psrs->timetoend = SNDI_ftoifast((psr->totalframes - psr->currentframe) * rate);
+            psrs->timebuffered = SNDI_ftoifast(psr->outstandingframes * rate);
         }
     } else {
         psrs->state = 3;

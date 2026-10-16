@@ -7,7 +7,8 @@
 
 struct RRandom {
     static int Fixed() {
-        int randtemp = fastRandom * randSeed;
+        // Sin signo: la A124 desplaza con srl (y SimRandom declara unsigned su randtemp).
+        unsigned int randtemp = fastRandom * randSeed;
 
         fastRandom = randtemp & 0xFFFF;
 

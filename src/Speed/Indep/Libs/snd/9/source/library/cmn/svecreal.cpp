@@ -1,6 +1,6 @@
 #include "./sndcmn.h"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system/systask.h"
 
-int SYNCTASK_add(void (*task)(void *, int), int priority, int period, void *arg);
 void SYSTEM_addexit(void (*pfunc)());
 void SNDREAL_exithandler();
 
@@ -10,7 +10,7 @@ static void SNDREAL6_systemtask(void *pdata, int unused) {
     SNDSYS_service();
 }
 
-void SNDREAL6_abortmsg(char *pmsg) {
+void SNDREAL6_abortmsg(char *message) {
 }
 
 Result System::VectorToReal6() {

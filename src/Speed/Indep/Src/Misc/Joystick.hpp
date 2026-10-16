@@ -12,7 +12,15 @@ typedef enum {
     JOYSTICK_PORT_ALL = 4
 } JoystickPort;
 
+#if defined(EA_PLATFORM_XENON)
+#define NUM_JOYSTICK_PORTS 4
+#elif defined(EA_PLATFORM_WIN32)
+#define NUM_JOYSTICK_PORTS 1
+#else
 #define NUM_JOYSTICK_PORTS 2  // :37
+#endif
 #define DEBUG_JOYSTICK_PORT 1 // :43
+
+bool IsJoystickTypeWheel(JoystickPort port);
 
 #endif

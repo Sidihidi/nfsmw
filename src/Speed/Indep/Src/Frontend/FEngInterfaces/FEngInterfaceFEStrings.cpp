@@ -11,10 +11,10 @@ static char FEPrintf_Buffer[1024];
 FEString *FEngFindString(const char *pkg_name, int name_hash) {
     FEObject *obj = FEngFindObject(pkg_name, name_hash);
 
-    if (obj == nullptr || obj->Type != FE_String) {
-        return nullptr;
+    if (obj != nullptr && obj->Type == FE_String) {
+        return static_cast<FEString *>(obj);
     }
-    return (FEString *) obj;
+    return nullptr;
 }
 
 void FEngSetLanguageHash(FEString *text, unsigned int hash) {
@@ -61,7 +61,7 @@ void FEngSetLanguageHash(const char *pkg_name, unsigned int obj_hash, unsigned i
 void FESetString(FEString *text, const short *string) {
     if (string != nullptr && text != nullptr) {
         text->SetString((short *) string);
-        text->Flags |= FF_DirtyCode | 2;
+        text->Flags |= 2;
     }
 }
 
@@ -69,12 +69,12 @@ static int DoFEngPrintf(FEString *text, char *string, int len) {
     if (text != nullptr) {
         u32 length = text->string.mulBufferLength;
 
-        if (length <= 1023) {
+        if (length < 1024) {
             string[length - 1] = '\0';
         }
 
         text->SetString(string);
-        text->Flags |= FF_DirtyCode | 2;
+        text->Flags |= 2;
 
         return len;
     }

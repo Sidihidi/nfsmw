@@ -23,9 +23,9 @@ bool FnPoseAnim::GetLength(float &timeLength) const {
 }
 
 static inline void PoseLinearBlendF3(float w, const float *d0, const float *d1, float *out) {
-    out[0] = (d1[0] - d0[0]) * w + d0[0];
-    out[1] = (d1[1] - d0[1]) * w + d0[1];
-    out[2] = (d1[2] - d0[2]) * w + d0[2];
+    out[0] = d0[0] + (d1[0] - d0[0]) * w;
+    out[1] = d0[1] + (d1[1] - d0[1]) * w;
+    out[2] = d0[2] + (d1[2] - d0[2]) * w;
 }
 
 bool FnPoseAnim::EvalPose(float currTime, const PosePaletteBank *paletteBank, float *sqt) {

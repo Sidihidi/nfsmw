@@ -31,12 +31,9 @@ struct CResumeFreeRoam : public IconOption {
         : IconOption(tex_hash, name_hash, desc_hash) {
         SetReactImmediately(true);
     }
-    ~CResumeFreeRoam() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
-            cFrontendDatabase *db = FEDatabase;
-            signed char port = FEngMapJoyParamToJoyport(param1);
-            db->SetPlayersJoystickPort(0, port);
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
             const char *blurb = GetLocalizedString(0xEB694C0C);
             DialogInterface::ShowTwoButtons(pkg_name, "", static_cast<eDialogTitle>(1), LANGUAGE_COMMON_YES, LANGUAGE_COMMON_NO, 0xD05FC3A3, 0x34DC1BCF, 0x34DC1BCF,
                                             static_cast<eDialogFirstButtons>(1), blurb);
@@ -48,7 +45,6 @@ struct CResumeFreeRoam : public IconOption {
 struct CCarSelect : public IconOption {
     CCarSelect(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~CCarSelect() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             cFEng::Get()->QueuePackageSwitch("Car_Select.fng", 0, 0, false);
@@ -60,7 +56,6 @@ struct CCarSelect : public IconOption {
 struct CRapSheet : public IconOption {
     CRapSheet(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~CRapSheet() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             FEDatabase->SetGameMode(eFE_GAME_MODE_RAP_SHEET);
@@ -73,7 +68,6 @@ struct CRapSheet : public IconOption {
 struct CTop15 : public IconOption {
     CTop15(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~CTop15() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             iCurrentViewBin = FEDatabase->GetCareerSettings()->GetCurrentBin();
@@ -86,12 +80,17 @@ struct CTop15 : public IconOption {
 struct CSave : public IconOption {
     CSave(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) {
+#ifndef EA_BUILD_A124
         SetReactImmediately(true);
+#endif
     }
-    ~CSave() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
+#ifdef EA_BUILD_A124
+            MemcardEnter(pkg_name, pkg_name, 0x2253, 0, 0, 0, 0);
+#else
             MemcardEnter(pkg_name, pkg_name, 0x2251, 0, 0, 0, 0);
+#endif
         }
     }
 
@@ -154,8 +153,10 @@ void uiCareerCrib::Setup() {
     u32 hash;
     const u32 FEObj_TITLE = 0x3C458C1;
     const u32 FEObj_TITLESHADOW = 0xB5C74226;
+#ifndef EA_BUILD_A124
     const char *szPercentUnit;
     eLanguages currLang;
+#endif
 
     AddOption(new ("CResumeFreeRoam", 0) CResumeFreeRoam(0x12BB5EA2, 0x1BD185C, 0));
 
@@ -175,17 +176,23 @@ void uiCareerCrib::Setup() {
     FEngSetLanguageHash(GetPackageName(), FEObj_TITLE, 0xE596C4A3);
     FEngSetLanguageHash(GetPackageName(), FEObj_TITLESHADOW, 0xE596C4A3);
 
+#ifndef EA_BUILD_A124
     szPercentUnit = "%";
     currLang = static_cast<eLanguages>(GetCurrentLanguage());
     if (currLang == eLANGUAGE_DANISH || currLang == eLANGUAGE_FINNISH || currLang == eLANGUAGE_FRENCH || currLang == eLANGUAGE_GERMAN ||
         currLang == eLANGUAGE_SWEDISH) {
         szPercentUnit = " %";
     }
+#endif
 
     FEngSetScript(GetPackageName(), FEHashUpper("PLAYER_MASTER"), FEHashUpper("SHOW"), true);
 
+#ifdef EA_BUILD_A124
+    FEPrintf(GetPackageName(), static_cast<int>(FEHashUpper("CAREER_DATA")), "%d%%", FEDatabase->GetGameCompletionStats().m_nCareer);
+#else
     FEPrintf(GetPackageName(), static_cast<int>(FEHashUpper("CAREER_DATA")), "%d%s",
              FEDatabase->GetGameCompletionStats().m_nCareer, szPercentUnit);
+#endif
 
     FEPrintf(GetPackageName(), static_cast<int>(FEHashUpper("BOUNTY_DATA")), "%$d",
              FEDatabase->GetPlayerCarStable(0)->GetTotalBounty());

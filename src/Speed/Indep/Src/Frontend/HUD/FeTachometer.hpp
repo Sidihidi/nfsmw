@@ -19,9 +19,9 @@ class Tachometer : public HudElement, public ITachometer {
     void SetRpm(float rpm) override {
         mRpm = rpm;
     };
-    void SetRevLimiter(float redline, float maxRpm) override {
+    void SetRevLimiter(float redline, float maxrpm) override {
         mRedline = redline;
-        mMaxRpm = maxRpm;
+        mMaxRpm = maxrpm;
     }
     void SetShifting(bool shifting) override {
         mIsShifting = shifting;
@@ -59,7 +59,11 @@ class Tachometer : public HudElement, public ITachometer {
     bool mIsShifting;                     // offset 0x5C, size 0x1
     bool mInPerfectLaunchRange;           // offset 0x60, size 0x1
     ShiftPotential mShiftPotential;       // offset 0x64, size 0x4
+#ifdef EA_BUILD_A124
+    int mOriginalNeedleColour;
+#else
     bool mNeedleColourSetToPerfectLaunch; // offset 0x68, size 0x1
+#endif
     float mOriginalNeedleWidth;           // offset 0x6C, size 0x4
 };
 

@@ -1,3 +1,7 @@
+// La unidad del original trae UCOM.h (y con el la STL) antes que cualquier tipo de EAGL4Anim: en el DWARF de
+// GameCube UTL::COM::Object sale antes que AttributeId, y en las dos PS2 DeleteFnAnimAux compara los tipos con el
+// operator!= de stl_relops.h, que solo existe si la STL ya esta incluida.
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
 #include "eagl4AnimBank.h"
 #include "CompoundChannel.h"
 #include "FnStatelessQ.h"

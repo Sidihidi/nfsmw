@@ -8,6 +8,9 @@
 namespace Csis {
 struct PlayFrontEndSample;
 struct PlayFrontEndSample_RS;
+#ifdef EA_BUILD_A124
+struct PlayFrontEndSample_loop;
+#endif
 struct FEDriveOn;
 class FX_Hydraulic;
 class FX_Hydr_Bounce;
@@ -45,7 +48,17 @@ struct EAXFrontEnd {
     Csis::FX_Hydraulic *m_hydraulicsControls[4];           // offset 0x0, size 0x10
     Csis::FX_Hydr_Bounce *m_hydraulicsBounce[4];           // offset 0x10, size 0x10
     Csis::PlayFrontEndSample *m_pPlayFrontEndSampleHandle; // offset 0x20, size 0x4
+    // El prototipo A124 tiene aqui DOS punteros de bucle (su .mdebug:
+    // 0x24 y 0x28) y la version de venta el de la hoja de antecedentes, que
+    // se anadio despues. Sin la guarda todo lo de detras --los fundidos, el
+    // estado de arranque, el SFX del HUD y la vtable-- queda 4 B corrido en
+    // SLES, y eso tumbaba 7 de las 12 funciones de la clase.
+#ifdef EA_BUILD_A124
+    Csis::PlayFrontEndSample_loop *m_pPlayLoopFrontEndSampleHandle;   // offset 0x24, size 0x4
+    Csis::PlayFrontEndSample_loop *m_pPlayLoopFrontEndBASSLoopHandle; // offset 0x28, size 0x4
+#else
     Csis::PlayFrontEndSample_RS *m_pPlayRapSheet;          // offset 0x24, size 0x4
+#endif
     Csis::FEDriveOn *m_pDriveOnOffSampleHandle[2][3];      // offset 0x28, size 0x18
     cInterpLine DriveOnFadeOut[2][3];                      // offset 0x40, size 0xA8
     bool IsEnding[2][3];                                   // offset 0xE8, size 0x6
@@ -71,5 +84,11 @@ struct EAXFrontEnd {
     void DestroyDriveOn(DRIVE_ON_STATE SndIndex, DRIVE_ON_CAR_INDEX CarIndex);
     void DestroyAllDriveOnSnds();
 };
+
+#ifdef EA_BUILD_A124
+// EAXFrontEnd.cpp. EAXSound::PlayUISoundFX de la A124 escribe en pantalla el sonido del FE.
+char *GetFESoundName(eMenuSoundTriggers id);
+extern bool DEBUG_PRINT_FE_SND;
+#endif
 
 #endif // _EAXFRONTEND

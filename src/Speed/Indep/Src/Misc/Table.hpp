@@ -75,7 +75,7 @@ template <typename T> class tTable : public TableBase {
     void GetValue(T *p, float arg) {
         int entries = GetNumEntries();
         float normarg = GetIndex(arg);
-        int index = (int)normarg;
+        int index = bFloatToInt(normarg);
         float blend;
         if (index < 0) {
             bMemCpy(p, &pTable[0], sizeof(T));
@@ -205,7 +205,7 @@ template <typename T> class tAverage : public AverageBase {
         for (int i = 0; i < nSamples; i++) {
             Total += pData[i];
         }
-        float fRecip = 1.0f / (float)bMax(1, (int)nSamples);
+        float fRecip = 1.0f / bFloatToInt(bMax(1, (int)nSamples));
         Average = bScale(Total, fRecip);
     }
 
@@ -301,6 +301,13 @@ template <typename T> class tGraph {
     GraphEntry<T> *GraphData; // offset 0x0, size 0x4
     int NumEntries;           // offset 0x4, size 0x4
 };
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// En PS2 el original emite tGraph<float>::GetValue(float *, float) fuera de linea en zCamera (292 B; JoyHandler la
+// llama en vez de inlinearla: 63.27 % -> 99.88 %). En GC no hay copia fuera de linea (JoyHandler inlnea al 100 %):
+// sin este gate GC se rompe. La definicion esta en Camera/Movers/DebugWorld.cpp (zCamera, su unidad).
+template <> void tGraph<float>::GetValue(float *pValue, float x);
+#endif
 
 // total size: 0x84
 struct PidError {

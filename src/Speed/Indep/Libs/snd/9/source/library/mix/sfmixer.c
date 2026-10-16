@@ -32,6 +32,39 @@ int SFILTER_mixer(void *pstate, int frames, void *psrcp, void *pdstp, int reques
     if (retframes2 <= 0) {
         return retframes2;
     }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // snd 9.06.00-ps2: la suma de los dos buffers con la VU0, de 16 en 16 muestras (lqc2/vadd/sqc2 en el binario)
+    asm __volatile__(".set noreorder\n"
+                     "move $4, %0\n"
+                     "sll $4, $4, 2\n"
+                     "move $5, %1\n"
+                     "move $6, %2\n"
+                     "add $4, $4, $5\n"
+                     "1:\n"
+                     "lqc2 vf2, 0x0($5)\n"
+                     "lqc2 vf3, 0x10($5)\n"
+                     "lqc2 vf4, 0x20($5)\n"
+                     "lqc2 vf5, 0x30($5)\n"
+                     "lqc2 vf6, 0x0($6)\n"
+                     "lqc2 vf7, 0x10($6)\n"
+                     "lqc2 vf8, 0x20($6)\n"
+                     "lqc2 vf9, 0x30($6)\n"
+                     "addi $5, $5, 0x40\n"
+                     "vadd.xyzw vf6, vf6, vf2\n"
+                     "vadd.xyzw vf7, vf7, vf3\n"
+                     "vadd.xyzw vf8, vf8, vf4\n"
+                     "vadd.xyzw vf9, vf9, vf5\n"
+                     "sqc2 vf6, 0x0($6)\n"
+                     "sqc2 vf7, 0x10($6)\n"
+                     "sqc2 vf8, 0x20($6)\n"
+                     "sqc2 vf9, 0x30($6)\n"
+                     "bne $4, $5, 1b\n"
+                     "addi $6, $6, 0x40\n"
+                     ".set reorder"
+                     :
+                     : "r"(frames), "r"(pms->ptempbuf), "r"(pdstp)
+                     : "$4", "$5", "$6", "memory");
+#else
     {
         float *pdst = (float *)pdstp;
         int i;
@@ -40,6 +73,7 @@ int SFILTER_mixer(void *pstate, int frames, void *psrcp, void *pdstp, int reques
             pdst[i] = pdst[i] + pms->ptempbuf[i];
         }
     }
+#endif
     return frames;
 }
 

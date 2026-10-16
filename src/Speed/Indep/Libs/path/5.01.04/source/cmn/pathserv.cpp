@@ -18,24 +18,16 @@ int PATHI_switchproject(int p, int idflags)
     {
         int voiceflags = idflags & PATH_ALL_VOICES;
 
-        if (!voiceflags || (*(unsigned long *)&pfstates[p]->idflags & voiceflags))
+        if (!voiceflags || (pfstates[p]->idflags & voiceflags))
         {
             int projectflags = idflags & PATH_ALL_PROJECTS;
 
-            if (*(unsigned long *)&pfstates[p]->idflags & projectflags)
+            if (pfstates[p]->idflags & projectflags)
             {
                 pfstate = pfstates[p];
-                // The original reloads idflags after switching the current project.
-                // r67b: RETIRADA la barrera `asm("" : "+m"(pfstate->idflags))` con ALLOC y
-                // symtab identicas. Es la palanca de alias del reves: no se da tipo agregado
-                // a `pfstate` (r66, cinco formas negativas) sino tipo ESCALAR a las tres
-                // lecturas de `idflags` (`*(unsigned long *)&...`: la direccion deja de ser
-                // un COMPONENT_REF y la MEM no lleva MEM_IN_STRUCT_P). Con eso
-                // fixed_scalar_and_varying_struct_p ya no exime al almacen de `pfstate`
-                // (escalar en direccion fija): mata la carga de las guardas y el planificador
-                // no adelanta la recarga. MEDIDO: solo las dos guardas -> recarga delante del
-                // `stw` (3013a518); solo el almacen agregado -> recarga tambien `pfstate`.
-                return *(unsigned long *)&pfstate->idflags;
+                // El original relee idflags tras cambiar de proyecto: con el compilador de path (SN v1.83,
+                // sin la regla fixed_scalar_and_varying_struct_p) sale asi escrito de forma natural.
+                return pfstate->idflags;
             }
         }
     }
@@ -150,7 +142,7 @@ void PATHI_serviceproject()
                 PATHI_subbankready(track, track->loadingsubbank);
         }
 
-        if (track->ramtrack != intimer)
+        if ((track->ramtrack != 0) != intimer)
             continue;
 
         if (!trackplaying)

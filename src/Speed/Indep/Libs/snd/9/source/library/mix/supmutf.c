@@ -5,6 +5,11 @@ extern "C" {
 void *memset(void *dst, int c, unsigned int bytes);
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC: snd pone a cero con su asm de x87 (speed.exe 0x822050, dos argumentos); el nombre es nuestro (pc/sdsound.c).
+void SNDI_memclear(void *p, int bytes);
+#endif
+
 namespace Snd {
 
 // total size: 0xC
@@ -77,7 +82,11 @@ int SFILTER_unpackmtf(void *pstate, int framestoup, void *psrcp, void *pdstp, in
         pdst += framesdecoded;
         if (framesdecoded < framestoup) {
             framestoup -= framesdecoded;
+#ifdef EA_PLATFORM_WIN32
+            SNDI_memclear(pdst, framestoup * sizeof(float));
+#else
             memset(pdst, 0, framestoup * sizeof(float));
+#endif
         }
         retVal = 1;
     }
@@ -104,7 +113,13 @@ void SFILTER_unpackmtfinit(void *pstate, UNPACKINITPARAMS *pupip) {
     mts = pups->pDecoder->GetState();
     mts.doWholeInit = 1;
     pups->pDecoder->SetState(&mts, 0);
+#ifdef EA_PLATFORM_WIN32
+    // PC solo da el codec 0 a platformver <= 1 (speed.exe 0x826C9F: cmp [ebx+0x24], 1; jg). Las voces de PC
+    // (copspeech, platformver 2) llevan el byte de marca por trama del codec 1.
+    if (pups->platformver <= 1) {
+#else
     if (pups->platformver <= 2) {
+#endif
         pups->pDecoder->SetCodecVersion(0);
     } else {
         pups->pDecoder->SetCodecVersion(1);

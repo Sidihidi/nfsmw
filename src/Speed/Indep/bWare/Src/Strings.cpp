@@ -53,15 +53,8 @@ char *bStrCpy(char *to, const char *from) {
 
 char *bStrNCpy(char *to, const char *from, int m) {
     int n = 0;
-    if (m-- != 0) {
-        to[0] = from[0];
-        while (to[n] != '\0') {
-            n++;
-            if (m-- == 0) {
-                return to;
-            }
-            to[n] = from[n];
-        }
+    while (m-- != 0 && (to[n] = from[n]) != '\0') {
+        n++;
     }
     return to;
 }
@@ -165,22 +158,7 @@ int bStrNICmp(const char *s1, const char *s2, int n) {
         return 1;
     }
 
-    for (;;) {
-        if (n-- == 0) {
-            break;
-        }
-
-        if (*s1 == '\0') {
-            break;
-        }
-
-        if (*s2 == '\0') {
-            break;
-        }
-
-        if (bToUpper(*s1++) != bToUpper(*s2++)) {
-            break;
-        }
+    while (n-- != 0 && *s1 != '\0' && *s2 != '\0' && bToUpper(*s1++) == bToUpper(*s2++)) {
     }
 
     return n >= 0 ? (*s1 == '\0' ? (*s2 == '\0' ? bToUpper(s1[-1]) - bToUpper(s2[-1]) : -1) : 1) : 0;
@@ -208,7 +186,16 @@ char *bStrCat(char *to, const char *s1, const char *s2) {
 }
 
 // STRIPPED
-char *bStrChr(const char *s1, int c) {}
+char *bStrChr(const char *s1, int c) {
+    if (s1 != nullptr) {
+        do {
+            if (*s1 == c) {
+                return const_cast<char *>(s1);
+            }
+        } while (*s1++ != 0);
+    }
+    return nullptr;
+}
 
 char *bToUpper(char *s) {
     if (*s != '\0') {
@@ -379,15 +366,8 @@ uint16 *bStrNCpy(uint16 *to, const uint16 *from, int m) {
 
 uint16 *bStrNCpy(uint16 *to, const char *from, int m) {
     int n = 0;
-    if (m-- != 0) {
-        to[0] = from[0];
-        while (to[n] != '\0') {
-            n++;
-            if (m-- == 0) {
-                return to;
-            }
-            to[n] = from[n];
-        }
+    while (m-- != 0 && (to[n] = from[n]) != '\0') {
+        n++;
     }
     return to;
 }
@@ -667,7 +647,11 @@ void bFreeSharedString(const char *s) {
 void bDumpSharedStrings() {}
 
 // STRIPPED
-short bGetSharedStringIndex(const char *s) {}
+short bGetSharedStringIndex(const char *s) {
+    return gSharedStringPool.GetIndex(s);
+}
 
 // STRIPPED
-const char *bGetSharedString(int index) {}
+const char *bGetSharedString(int index) {
+    return gSharedStringPool.GetString(index);
+}

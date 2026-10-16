@@ -5,12 +5,8 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/Src/EAXSound/AudioMemBase.hpp"
 #include "Speed/Indep/Src/EAXSound/AudioMemoryManager.hpp"
+#include "Speed/Indep/Src/EAXSound/CSISAllocator.h"
 #include "Speed/Indep/Src/Misc/Hermes.h"
-#define GENERATED_MESSAGES_MGAMEPLAYMOMENT_H
-#define GENERATED_MESSAGES_MPURSUITBREAKER_H
-class MGamePlayMoment;
-class MPursuitBreaker;
-#include "Speed/Indep/Src/EAXSound/CARSFX/SFXObj_MomentStrm.hpp"
 #include "Speed/Indep/Src/EAXSound/CARSFX/SFXObj_NISStream.hpp"
 #include "Speed/Indep/Src/EAXSound/SFX_base.hpp"
 #include "Speed/Indep/Src/EAXSound/Stream/EAXS_StreamChannel.h"
@@ -30,6 +26,11 @@ class MPursuitBreaker;
 #include "Speed/Indep/Src/Misc/Config.h"
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/Src/Misc/QueuedFile.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#include "Speed/Indep/bWare/Inc/bPrintf.hpp"
+#endif
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/Speech/SpeechFlow.h"
 #include "Speed/Indep/Src/Speech/SoundAI.h"
@@ -52,7 +53,7 @@ extern void SPCH_InitEventRuleCallback(SPCHType_EventRuleResult (*callback)(Even
 extern void SPCH_InitReparmCallback(int (*callback)(int, unsigned int *));
 extern void SPCH_InitRuleCallbacks(int (*test)(EventSpec *, int, int, int), void (*set)(EventSpec *, int, int, int));
 extern void SPCH_SetMemCallbacks(void *(*memAlloc)(unsigned int), void (*memFree)(void *));
-extern void *bMalloc(int size, int allocation_params);
+// r75: fuera extern bMalloc duplicado; bWare.hpp ya lo declara (via AudioMemoryManager.hpp).
 extern EAXS_StreamManager *gpEAXS_StrmMgr;
 extern SlotPool *pCsisSlotPools[];
 extern Timer RealTimer;
@@ -60,21 +61,21 @@ namespace Speech {
 static bool InteruptedAndNotDelayed(ScheduledSpeechEvent *this_event);
 }
 
-static void *CSISAllocatorMemAlloc(unsigned int numBytes);
-static void CSISAllocatorMemFree(void *memPtr);
 static unsigned int gSpeechSeed = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Las dos PS2 lo definen aqui y no tienen VALIDATE_SED_GENERATE: sus _GLOBAL_$I$ y $D$ de zSpeech llevan su nombre
+// (la A124 lo lee en GameSpeech::Update).
+int DEBUG_SPEECHAI = 0;
+#else
 int VALIDATE_SED_GENERATE = 0;
+#endif
 int SPEECH_DISPLAY_HISTORY = 0;
+#ifdef EA_BUILD_A124
+bool VERIFY_EVENTSAMPLE_INTEGRITY = true;
+// Definido en zEAXSound (su .rodata, 0x5453b0, junto a EAXAemsManager::m_SlotSizes).
+extern const int PRINT_SND_IO_DEBUG;
+#endif
 extern float TRACKSTREAMER_BACKLOG_THRESH;
-
-static void *CSISAllocatorMemAlloc(unsigned int numBytes) {
-    (void)numBytes;
-    return bOMalloc(pCsisSlotPools[0]);
-}
-
-static void CSISAllocatorMemFree(void *memPtr) {
-    bFree(pCsisSlotPools[0], memPtr);
-}
 
 namespace Speech {
 
@@ -154,7 +155,7 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
                     this_event->entry_time = WorldTimer;
                     this_event->actor = actor;
                     if (size != 0) {
-                        bMemCpy(this_event->GetData(0), data, size);
+                        bMemCpy(this_event->GetData(), data, size);
                     }
                 }
                 return 0;
@@ -196,7 +197,7 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
     }
     mEvents[0].push_back(event);
     if (size != 0) {
-        bMemCpy(event->GetData(0), data, size);
+        bMemCpy(event->GetData(), data, size);
     }
     return event;
 }
@@ -206,12 +207,12 @@ int Manager::IndirectSpeechEvent(ScheduledSpeechEvent *evt, bool test_only) {
         return -2;
     }
 
-    int result = Csis::Function::Call(evt->fh, evt->GetData(0));
+    int result = Csis::Function::Call(evt->fh, evt->GetData());
     int rval;
 
     if (result < 0) {
         evt->fh->Set(evt->iid);
-        result = Csis::Function::Call(evt->fh, evt->GetData(0));
+        result = Csis::Function::Call(evt->fh, evt->GetData());
     }
 
     mCurrentEvent = evt;
@@ -233,41 +234,27 @@ int Manager::IndirectSpeechEvent(ScheduledSpeechEvent *evt, bool test_only) {
 }
 
 void Manager::Destroy() {
-    if (m_speechMode == SPEECH_FRONTEND_MODE) {
-        goto cleanup;
-    }
-    if (m_speechMode > SPEECH_FRONTEND_MODE) {
-        goto check_split_destroy;
-    }
-    if (m_speechMode == SPEECH_GAME_MODE) {
-        goto game_destroy;
-    }
-    goto cleanup;
-
-check_split_destroy:
-    if (m_speechMode == SPEECH_SPLITSCREEN_MODE) {
-        goto split_destroy;
-    }
-    goto cleanup;
-
-game_destroy:
-    if (m_SpeechModule[COPSPEECH_MODULE]) {
-        delete m_SpeechModule[COPSPEECH_MODULE];
-    }
-    m_SpeechModule[COPSPEECH_MODULE] = 0;
-    if (m_SpeechModule[NISSFX_MODULE]) {
-        delete m_SpeechModule[NISSFX_MODULE];
-        m_SpeechModule[NISSFX_MODULE] = 0;
-    }
-    goto cleanup;
-
-split_destroy:
-    if (m_SpeechModule[NISSFX_MODULE]) {
-        delete m_SpeechModule[NISSFX_MODULE];
-        m_SpeechModule[NISSFX_MODULE] = 0;
+    switch (m_speechMode) {
+    case SPEECH_FRONTEND_MODE:
+        break;
+    case SPEECH_GAME_MODE:
+        if (m_SpeechModule[COPSPEECH_MODULE]) {
+            delete m_SpeechModule[COPSPEECH_MODULE];
+        }
+        m_SpeechModule[COPSPEECH_MODULE] = 0;
+        if (m_SpeechModule[NISSFX_MODULE]) {
+            delete m_SpeechModule[NISSFX_MODULE];
+            m_SpeechModule[NISSFX_MODULE] = 0;
+        }
+        break;
+    case SPEECH_SPLITSCREEN_MODE:
+        if (m_SpeechModule[NISSFX_MODULE]) {
+            delete m_SpeechModule[NISSFX_MODULE];
+            m_SpeechModule[NISSFX_MODULE] = 0;
+        }
+        break;
     }
 
-cleanup:
     if (m_SPEECH_bankPtrMem) {
         gAudioMemoryManager.FreeMemory(m_SPEECH_bankPtrMem);
         m_SPEECH_bankPtrMem = 0;
@@ -308,45 +295,31 @@ void Manager::Init(SPEECH_MODE mode) {
         SPCH_InitEventRuleCallback(EventRuleCallback);
         SPCH_InitReparmCallback(ReparmCallback);
 
-        if (m_speechMode == SPEECH_FRONTEND_MODE) {
-            goto init_done;
-        }
-        if (m_speechMode > SPEECH_FRONTEND_MODE) {
-            goto check_splitscreen;
-        }
-        if (m_speechMode == SPEECH_GAME_MODE) {
-            goto game_mode;
-        }
-        goto init_done;
-
-    check_splitscreen:
-        if (m_speechMode == SPEECH_SPLITSCREEN_MODE) {
-            goto splitscreen_mode;
-        }
-        goto init_done;
-
-    game_mode:
-        m_gameSpeechInitted = 0;
-        m_NISAudioInitted = 0;
-        if (IsSpeechEnabled) {
-            m_SpeechModule[COPSPEECH_MODULE] = new ("AUD:GameSpeech") GameSpeech();
-            m_SpeechModule[COPSPEECH_MODULE]->Init(SPEECH_NONE_MODE);
-        }
-        if (IsNISAudioEnabled) {
-            m_SpeechModule[NISSFX_MODULE] = new ("AUD:NISSFXModule") SED_NISSFX();
-            m_SpeechModule[NISSFX_MODULE]->Init(SPEECH_FRONTEND_MODE);
-        }
-        goto init_done;
-
-    splitscreen_mode:
-        m_NISAudioInitted = 0;
-        m_gameSpeechInitted = 0;
-        if (IsNISAudioEnabled) {
-            m_SpeechModule[NISSFX_MODULE] = new ("AUD:NISSFXModule") SED_NISSFX();
-            m_SpeechModule[NISSFX_MODULE]->Init(SPEECH_FRONTEND_MODE);
+        switch (m_speechMode) {
+            case SPEECH_GAME_MODE:
+                m_gameSpeechInitted = 0;
+                m_NISAudioInitted = 0;
+                if (IsSpeechEnabled) {
+                    m_SpeechModule[COPSPEECH_MODULE] = new ("AUD:GameSpeech") GameSpeech();
+                    m_SpeechModule[COPSPEECH_MODULE]->Init(SPEECH_NONE_MODE);
+                }
+                if (IsNISAudioEnabled) {
+                    m_SpeechModule[NISSFX_MODULE] = new ("AUD:NISSFXModule") SED_NISSFX();
+                    m_SpeechModule[NISSFX_MODULE]->Init(SPEECH_FRONTEND_MODE);
+                }
+                break;
+            case SPEECH_FRONTEND_MODE:
+                break;
+            case SPEECH_SPLITSCREEN_MODE:
+                m_NISAudioInitted = 0;
+                m_gameSpeechInitted = 0;
+                if (IsNISAudioEnabled) {
+                    m_SpeechModule[NISSFX_MODULE] = new ("AUD:NISSFXModule") SED_NISSFX();
+                    m_SpeechModule[NISSFX_MODULE]->Init(SPEECH_FRONTEND_MODE);
+                }
+                break;
         }
 
-    init_done:
         PopulateHashMap();
         mGlobalHistory.Init();
     }
@@ -396,12 +369,12 @@ void Manager::Init2() {
             break;
     }
 
-    int bankPtrMemSize = SPCH_GetBankPtrMemSize(m_numberSpeechBanks);
+    int buffSize = SPCH_GetBankPtrMemSize(m_numberSpeechBanks);
 
     if (m_speechMode == SPEECH_GAME_MODE) {
-        m_SPEECH_bankPtrMem = gAudioMemoryManager.AllocateMemoryChar(bankPtrMemSize, "AUD:Speech Bank Ptrs", false);
+        m_SPEECH_bankPtrMem = gAudioMemoryManager.AllocateMemoryChar(buffSize, "AUD:Speech Bank Ptrs", false);
     } else {
-        m_SPEECH_bankPtrMem = gAudioMemoryManager.AllocateMemoryChar(bankPtrMemSize, "AUD:Speech Bank Ptrs", false);
+        m_SPEECH_bankPtrMem = gAudioMemoryManager.AllocateMemoryChar(buffSize, "AUD:Speech Bank Ptrs", false);
     }
 
     SPCH_InitBankMem(m_numberSpeechBanks, m_SPEECH_bankPtrMem);
@@ -429,7 +402,11 @@ void Manager::AttachSFXOBJ(SpeechModuleIndex idx, SFX_Base *psfx, eSFXOBJ_MAIN_T
 }
 
 Module *Manager::GetSpeechModule(int nindex) {
+#ifdef EA_PLATFORM_WIN32
+    if (nindex < 2) {
+#else
     if (nindex <= 1) {
+#endif
         return m_SpeechModule[nindex];
     }
     return nullptr;
@@ -602,8 +579,8 @@ int Manager::LoadSpeechBank(CLUMP_IDX_FILE *index, int &type, int &number, SPEEC
 found:
     if (index->item[i].size == 0) {
         sb->mem = 0;
-        sb->bank = -1;
         sb->offset = 0;
+        sb->bank = -1;
         return -1;
     }
 
@@ -649,9 +626,62 @@ int Manager::GetTicker() {
     float secs = static_cast<float>(RealTimeFrames) * (1.0f / 60.0f);
     float ms = secs * 1000.0f;
     m_clock_in_ms = ms;
-    return static_cast<int>(ms);
+    return bFloatToInt(ms);
 }
 
+#ifdef EA_BUILD_A124
+void Manager::VerifySampleIntegrity() {
+    for (SchedSpchEvents::iterator iter = mEvents[2].begin(); iter != mEvents[2].end();) {
+        ScheduledSpeechEvent *evt = *iter;
+        bool err_detected = false;
+
+        if (evt) {
+            for (short i = 0; i < 7; i++) {
+                SpeechSampleData *stitch = evt->assoc_samples[i];
+
+                if (stitch) {
+                    if (stitch->cached && stitch->ready) {
+                        if (!stitch->GetData()) {
+                            err_detected = true;
+                        }
+
+                        // la cabecera del bloque de sonido, "SCHl" leido en little-endian
+                        if (*static_cast<unsigned int *>(stitch->GetData()) != 0x6c484353) {
+                            err_detected = true;
+                        }
+
+                        if (err_detected) {
+                            if (PRINT_SND_IO_DEBUG) {
+                                for (short j = 0; j < evt->assoc_samples_count; j++) {
+                                    // la A124 deja el bucle con el cuerpo vacio
+                                }
+                                gSpeechCache.DebugPrintAllocations();
+                            }
+
+                            Juice::GameHook::Instance()->GameEvent("SPEECH", "Sample No Longer Available", "WARNING", 0, 0.0f,
+                                                                   evt->iid->pString, "", "");
+
+                            Expire(evt);
+                            delete evt;
+                            evt = nullptr;
+
+                            if (!mEvents[2].empty()) {
+                                iter = mEvents[2].begin();
+                                i = 7;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!err_detected) {
+            ++iter;
+        }
+    }
+}
+
+#endif
 void Manager::Update(float t) {
     static unsigned int max_samplerequests = 0;
 
@@ -681,6 +711,11 @@ game_mode:
         }
 
         if (m_SpeechModule[COPSPEECH_MODULE] && IsSpeechEnabled) {
+#ifdef EA_BUILD_A124
+            if (VERIFY_EVENTSAMPLE_INTEGRITY) {
+                VerifySampleIntegrity();
+            }
+#endif
             m_deadair = g_EAXIsPaused() ? 65535.0f : (WorldTimer - GetTimeSinceLastEvent(COPSPEECH_MODULE)).GetSeconds();
 
             CalcProbPlayback();
@@ -707,15 +742,25 @@ game_mode:
 
             if (SPEECH_DISPLAY_HISTORY != 0) {
                 SPCHEventList::iterator i = mEvtHistory.begin();
-                int y;
-                int x;
+                int y = -170;
+                int x = -300;
                 for (; i != mEvtHistory.end(); i++) {
                     SPCHType_1_EventID event = *i;
                     History *hist = mGlobalHistory.Find(event);
                     if (hist != 0) {
                         Attrib::Gen::speech speech(mHashMap.GetHash(event), 0, 0);
+#ifdef EA_BUILD_A124
+                        ScreenPrintf(x, y, 1.0f, 0x7F0000FF, "%s", speech.CollectionName());
+                        y += 15;
+#else
                         speech.CollectionName();
+#endif
                     }
+#ifdef EA_BUILD_A124
+                    else {
+                        ScreenPrintf(x, y, 1.0f, 0x7FFF0000, "---EVENT NOT FOUND---");
+                    }
+#endif
                 }
             }
         }
@@ -976,7 +1021,11 @@ void Manager::Deduce() {
 
 void Manager::ClearPlayback() {
     for (int ndx = 0; ndx < 4; ++ndx) {
+#ifdef EA_PLATFORM_WIN32
+        if (mEvents[ndx].size() > 0) {
+#else
         if (mEvents[ndx].size() != 0) {
+#endif
             for (SchedSpchEvents::iterator i = mEvents[ndx].begin(); i != mEvents[ndx].end(); ++i) {
                 ScheduledSpeechEvent *this_event = *i;
                 if (this_event != 0) {
@@ -986,13 +1035,19 @@ void Manager::ClearPlayback() {
             mEvents[ndx].clear();
         }
     }
+#ifndef EA_BUILD_A124
     mSampleRequests.clear();
+#endif
 }
 
 bool Manager::RecallSpeechEvent(SPCHType_1_EventID recall_id) {
     bool found_event = false;
     for (int ndx = 0; ndx < 4; ++ndx) {
+#ifdef EA_PLATFORM_WIN32
+        if (mEvents[ndx].size() > 0) {
+#else
         if (mEvents[ndx].size() != 0) {
+#endif
             for (SchedSpchEvents::iterator i = mEvents[ndx].begin(); i != mEvents[ndx].end();) {
                 ScheduledSpeechEvent *this_event = *i;
                 if (this_event->ID == recall_id) {
@@ -1014,7 +1069,10 @@ void Manager::ResetGlobalHistory() {
 }
 
 void Manager::Expire(ScheduledSpeechEvent *event) {
-    if (event) {
+#ifndef EA_BUILD_A124
+    if (event)
+#endif
+    {
         for (SchedSpchEvents::iterator j = mEvents[2].begin(); j != mEvents[2].end(); ++j) {
             if (*j == event) {
                 mEvents[2].erase(j);
@@ -1025,6 +1083,10 @@ void Manager::Expire(ScheduledSpeechEvent *event) {
 }
 
 bool Manager::IsQueued(SPCHType_1_EventID evtID, int indices) {
+#ifdef EA_PLATFORM_WIN32
+    int start_index = (indices == 4) ? 0 : indices;
+    int end_index = (indices == 4) ? 4 : indices + 1;
+#else
     int start_index = 0;
     if (indices != 4) {
         start_index = indices;
@@ -1033,8 +1095,13 @@ bool Manager::IsQueued(SPCHType_1_EventID evtID, int indices) {
     if (indices != 4) {
         end_index = indices + 1;
     }
+#endif
     for (int ndx = start_index; ndx < end_index; ++ndx) {
+#ifdef EA_PLATFORM_WIN32
+        if (mEvents[ndx].size() > 0) {
+#else
         if (mEvents[ndx].size() != 0) {
+#endif
             for (SchedSpchEvents::iterator i = mEvents[ndx].begin(); i != mEvents[ndx].end(); ++i) {
                 ScheduledSpeechEvent *this_event = *i;
                 if (this_event->ID == evtID) {
@@ -1053,6 +1120,9 @@ float Manager::IsEventDead(ScheduledSpeechEvent *evt) {
         return -1.0f;
     }
     float elapsed = (WorldTimer - evt->finish_time).GetSeconds();
+#ifdef EA_PLATFORM_WIN32
+    return elapsed >= enforce_time ? -1.0f : enforce_time - elapsed;
+#else
     float remaining;
     if (elapsed < enforce_time) {
         remaining = enforce_time - elapsed;
@@ -1060,6 +1130,7 @@ float Manager::IsEventDead(ScheduledSpeechEvent *evt) {
         remaining = -1.0f;
     }
     return remaining;
+#endif
 }
 
 void Manager::NotifyEventCompletion(ScheduledSpeechEvent *evt, bool playback_complete) {
@@ -1098,7 +1169,11 @@ void Manager::NotifyEventCompletion(ScheduledSpeechEvent *evt, bool playback_com
 }
 
 ScheduledSpeechEvent *Manager::GetNextEvent() {
+#ifdef EA_PLATFORM_WIN32
+    if (mEvents[2].size() > 0) {
+#else
     if (mEvents[2].size() != 0) {
+#endif
         SchedSpchEvents::iterator iter;
 
         if (mEvents[2].size() > 1) {
@@ -1159,10 +1234,9 @@ ScheduledSpeechEvent *Manager::GetNextEvent() {
                     return 0;
                 }
                 if (keep == kDeferEvt) {
-                    if (iter == mEvents[2].end()) {
-                        return 0;
+                    if (iter != mEvents[2].end()) {
+                        ++iter;
                     }
-                    ++iter;
                 } else if (keep == kKeepEvt) {
                     return next;
                 }
@@ -1215,7 +1289,11 @@ SpeechValRtnType Manager::PostValidate(ScheduledSpeechEvent *evt, unsigned int m
             }
         }
 
+#ifdef EA_PLATFORM_WIN32
+        if (history->count > 0 && (mask & 8)) {
+#else
         if (history->count != 0 && (mask & 8)) {
+#endif
             last_heard = (WorldTimer - history->time).GetSeconds();
             if (last_heard < event.Interval()) {
                 return kDeferEvt;
@@ -1228,7 +1306,11 @@ SpeechValRtnType Manager::PostValidate(ScheduledSpeechEvent *evt, unsigned int m
             }
         }
 
+#ifdef EA_PLATFORM_WIN32
+        if (event.Num_DepFollow() > 0 && (mask & 0x20)) {
+#else
         if (event.Num_DepFollow() != 0 && (mask & 0x20)) {
+#endif
             short pass = false;
 
             if (event.BackTime() > 0.0f) {
@@ -1245,7 +1327,11 @@ SpeechValRtnType Manager::PostValidate(ScheduledSpeechEvent *evt, unsigned int m
                         break;
                     }
                 }
+#ifdef EA_PLATFORM_WIN32
+            } else if (mEvtHistory.size() > 0) {
+#else
             } else if (mEvtHistory.size() != 0) {
+#endif
                 SPCHType_1_EventID last_evt_id = mEvtHistory.front();
                 unsigned int last_hist_key = mHashMap.GetHash(last_evt_id);
 
@@ -1347,7 +1433,10 @@ bool Manager::CanPlayback(Attrib::Gen::speech &event_attribs) {
     }
 
     float sim_prob = Sim::GetRandom()._SimRandom_FloatRange(1.0f);
-    return sim_prob <= mProbPlayback;
+    if (sim_prob <= mProbPlayback) {
+        return true;
+    }
+    return false;
 }
 
 int Manager::FlushSpeechForActor(EAXCharacter *actor) {
@@ -1357,7 +1446,11 @@ int Manager::FlushSpeechForActor(EAXCharacter *actor) {
 
     int num_flushed = 0;
     for (int ndx = 0; ndx < 4; ++ndx) {
+#ifdef EA_PLATFORM_WIN32
+        if (mEvents[ndx].size() > 0) {
+#else
         if (mEvents[ndx].size() != 0) {
+#endif
             SchedSpchEvents::iterator i = mEvents[ndx].begin();
             while (i != mEvents[ndx].end()) {
                 ScheduledSpeechEvent *this_event = *i;
@@ -1503,7 +1596,11 @@ GameSpeech::GameSpeech()
       m_ChirpParams(0, 0x7FFF, 0x1000, 0, 0, 0) {
     mLoadState.clear();
     if ((m_strm == 0) && IsSpeechEnabled) {
+#ifdef EA_BUILD_A124
+        m_pendingList = new ("AUD: speech queue") SpeechSampleList;
+#else
         m_pendingList.reserve(7);
+#endif
     }
     m_ChirpParams.Vol = 0;
     m_ChirpParams.Az = 0;
@@ -1538,7 +1635,17 @@ GameSpeech::~GameSpeech() {
         gpEAXS_StrmMgr->RemoveStreamChannel(STYPE_COPSPEECH);
         m_strm = 0;
     }
+#ifdef EA_BUILD_A124
+    if (m_pendingList) {
+        m_pendingList->clear();
+        if (m_pendingList->empty()) {
+            delete m_pendingList;
+            m_pendingList = 0;
+        }
+    }
+#else
     m_pendingList.clear();
+#endif
     m_pSFXOBJ_Speech = 0;
     if (m_Chirper != 0) {
         delete m_Chirper;
@@ -1691,6 +1798,147 @@ static bool Unlocked(SpeechSampleData *data) {
     return true;
 }
 
+#ifdef EA_BUILD_A124
+// La A124 pausa la voz ella misma, mira el siguiente evento al principio (y se lo cuenta a Juice) y sigue el estado de
+// cada muestra de la lista pendiente (lineas 317-540 de su GameSpeech.cpp).
+void GameSpeech::Update() {
+    if (ShouldPause() && !TestFlag(2)) {
+        m_strm->Pause();
+        SetFlag(2);
+    }
+
+    if (!ShouldPause() && TestFlag(2)) {
+        m_strm->Resume();
+        ClearFlag(2);
+    }
+
+    if (!TestFlag(2)) {
+        UpdateChirps();
+        if (m_strm && IsSpeechEnabled) {
+            int LowPassFilter = m_pSFXOBJ_Speech->GetDMixOutput(0xC, DMX_FREQ);
+            m_strm->SetLowPass(LowPassFilter);
+
+            ScheduledSpeechEvent *nextevent = Manager::GetNextEvent();
+            if (nextevent) {
+                if (nextevent->priority <= 100) {
+                    if (!TestFlag(8)) {
+                        Attrib::Gen::speech speech(Manager::GetHashIDMap().GetHash(nextevent->ID), 0, 0);
+                        int speakerID = nextevent->actor ? nextevent->actor->GetSpeakerID() : 0;
+                        float elapsed = (WorldTimer - nextevent->playback_time).GetSeconds();
+
+                        Juice::GameHook::Instance()->GameEvent("SPEECH", "EventPlayback", "Start", speakerID, elapsed, speech.CollectionName(),
+                                                               Juice::MWExtension::GetImageName(), Juice::MWExtension::GetPlayerPosition());
+                        IssuePlayback(nextevent);
+                        RadioChirp(0);
+                    }
+                } else {
+                    Attrib::Gen::speech speech(Manager::GetHashIDMap().GetHash(nextevent->ID), 0, 0);
+                    int speakerID = nextevent->actor ? nextevent->actor->GetSpeakerID() : 0;
+                    float elapsed = (WorldTimer - nextevent->playback_time).GetSeconds();
+
+                    Juice::GameHook::Instance()->GameEvent("SPEECH", "EventPlayback", "IntStart", speakerID, elapsed, speech.CollectionName(),
+                                                           Juice::MWExtension::GetImageName(), Juice::MWExtension::GetPlayerPosition());
+                    ReleaseResource();
+                    IssuePlayback(nextevent);
+                    RadioChirp(0);
+                }
+            }
+
+            SNDSTREAMSTATUS ss;
+            m_strm->GetStatus(&ss);
+
+            static int requests_in_queue = ss.outstandingrequests;
+            static int req_timer;
+
+            if (ss.outstandingrequests > 0) {
+                SetFlag(8);
+                requests_in_queue = ss.outstandingrequests;
+                for (SpeechSampleList::iterator i = m_pendingList->begin(); i != m_pendingList->end(); i++) {
+                    SpeechSampleData *sample = *i;
+                    if (sample && sample->HSTRM >= 0) {
+                        SNDREQUESTSTATUS srs;
+                        int err = m_strm->GetRequestStatus(sample->HSTRM, &srs);
+                        if (err >= 0) {
+                            switch (srs.state) {
+                                case 3:
+                                    sample->t_play = WorldTimer;
+                                    req_timer = 0;
+                                    m_pendingList->erase(i);
+                                    if (!m_pendingList->empty()) {
+                                        i = m_pendingList->begin();
+                                    }
+                                    break;
+                                case 1:
+                                case 0:
+                                    m_pSFXOBJ_Speech->SetDMIX_Input(2, TestFlag(0x20) ? 0x7FFF : 0);
+                                    break;
+                                case 2: {
+                                    m_currEventTime += srs.currenttime - req_timer;
+                                    req_timer = srs.currenttime;
+                                    if ((m_currEventTime > 3000) && !TestFlag(0x10)) {
+                                        Manager::NotifyEventCompletion(m_currEvent, false);
+                                        SetFlag(0x10);
+                                    }
+
+                                    if (TestFlag(0x20)) {
+                                        m_pSFXOBJ_Speech->SetDMIX_Input(2, 0x7FFF);
+                                        m_strm->SetAz(m_pSFXOBJ_Speech->GetDMixOutput(0, DMX_AZIM));
+                                    } else {
+                                        m_pSFXOBJ_Speech->SetDMIX_Input(2, 0);
+                                        m_strm->SetAz(0);
+                                    }
+
+                                    int nQVol = GetVolForSpeaker(sample->speakerID);
+                                    float fvol = static_cast<float>(nQVol) / 32768.0f;
+                                    fvol *= 100.0f;
+                                    m_strm->SetVol(m_enable ? static_cast<int>(fvol) : 0, false);
+                                    if (DEBUG_SPEECHAI) {
+                                        ScreenPrintf(-300, -230, 0.1f, 0xFF1F6F3F, "%d ms (%d @ %.1f)", m_currEventTime, sample->speakerID,
+                                                     fvol);
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                mLastEventTimestamp = WorldTimer;
+            } else if (ss.outstandingrequests == 0) {
+                if (requests_in_queue > 0) {
+                    if (m_currEvent) {
+                        if (m_currEvent->finish_time == Timer(0)) {
+                            m_currEvent->finish_time = WorldTimer;
+                            if (!TestFlag(0x10)) {
+                                Manager::NotifyEventCompletion(m_currEvent, false);
+                                SetFlag(0x10);
+                            }
+                            Manager::NotifyEventCompletion(m_currEvent, true);
+                            RadioChirp(1);
+                        }
+
+                        if (Manager::IsEventDead(m_currEvent) < 0.0f) {
+                            requests_in_queue = ss.outstandingrequests;
+                            mLastEventTimestamp = WorldTimer;
+                            if (m_currEvent) {
+                                delete m_currEvent;
+                                m_currEvent = 0;
+                                ClearFlag(8);
+                                ClearFlag(4);
+                            }
+                        } else {
+                            SetFlag(0xC);
+                        }
+                    } else {
+                        requests_in_queue = 0;
+                        ClearFlag(8);
+                        ClearFlag(4);
+                    }
+                }
+            }
+        }
+    }
+}
+#else
 void GameSpeech::Update() {
     if (TestFlag(2)) {
         return;
@@ -1758,17 +2006,8 @@ void GameSpeech::Update() {
                         m_strm->SetAz(0);
                     }
 
-                    // La A124 pasa el speakerID de la muestra (lw a1, 0xC(s1)).
-                    int nQVol = GetVolForSpeaker(
-#ifndef EA_BUILD_A124
-                        m_currEventSpeakerID
-#else
-                        sample->speakerID
-#endif
-                    );
-#ifndef EA_BUILD_A124
+                    int nQVol = GetVolForSpeaker(m_currEventSpeakerID);
                     m_pSFXOBJ_Speech->SetDMIX_Input(3, m_currEventClarity);
-#endif
                     SndStrmWrapper *strm = m_strm;
                     fvol = static_cast<float>(nQVol);
                     fvol /= 32768.0f;
@@ -1849,16 +2088,68 @@ void GameSpeech::CheckNextEvent() {
     }
 }
 
+#endif
+
+#ifdef EA_BUILD_A124
+// La A124 pone la claridad directamente en la mezcla, apunta la muestra en Juice y recorre siempre las siete muestras
+// del evento (lineas 551-619 de su GameSpeech.cpp).
 void GameSpeech::IssuePlayback(ScheduledSpeechEvent *nextevent) {
-    Attrib::Gen::speech speech(Manager::mHashMap.GetHash(nextevent->ID), 0, 0);
+    Attrib::Gen::speech speech(Manager::GetHashIDMap().GetHash(nextevent->ID), 0, 0);
+
+    if (m_pSFXOBJ_Speech) {
+        float scale = speech.Clarity();
+        scale *= 0.1f;
+        scale *= 32767.0f;
+        m_pSFXOBJ_Speech->SetDMIX_Input(3, static_cast<int>(scale));
+    }
+
+    MNotifySpeechStatus(nextevent).Send(UCrc32("PlayStart"));
+
+    char buff[64];
+    bSPrintf(buff, "%s - %d", speech.CollectionName(), nextevent->actor ? nextevent->actor->GetSpeakerID() : 0);
+    Juice::GameHook::Instance()->AssetHit("SPEECH", buff);
+
+    if (speech.Pan()) {
+        SetFlag(0x20);
+    } else {
+        ClearFlag(0x20);
+    }
+
+    if (speech.RadioChirp()) {
+        SetFlag(0x400);
+    } else {
+        ClearFlag(0x400);
+    }
+
+    for (short i = 0; i < 7; ++i) {
+        SpeechSampleData *stitch = nextevent->assoc_samples[i];
+        if (stitch) {
+            stitch->t_load = WorldTimer;
+            stitch->Lock();
+            m_pendingList->push_back(stitch);
+            if (stitch->cached) {
+                stitch->HSTRM = m_strm->AddToStream(0, stitch->GetData(), 0, 0);
+            } else {
+                stitch->HSTRM = m_strm->AddToStrmReq(GetFilename(), stitch->dataoffset, 0);
+            }
+        }
+    }
+
+    m_currEventTime = 0;
+    ClearFlag(0x10);
+
+    m_currEvent = nextevent;
+    Manager::Expire(m_currEvent);
+}
+#else
+void GameSpeech::IssuePlayback(ScheduledSpeechEvent *nextevent) {
+    Attrib::Gen::speech speech(Manager::GetHashIDMap().GetHash(nextevent->ID), 0, 0);
 
     if (m_pSFXOBJ_Speech) {
         float scale = static_cast<unsigned int>(speech.Clarity());
         scale *= 0.1f;
         scale *= 32767.0f;
-#ifndef EA_BUILD_A124
         m_currEventClarity = static_cast<int>(scale);
-#endif
     }
 
     {
@@ -1925,20 +2216,38 @@ void GameSpeech::IssuePlayback(ScheduledSpeechEvent *nextevent) {
 
     m_currEvent = nextevent;
     Manager::Expire(m_currEvent);
-#ifndef EA_BUILD_A124
     m_currEventSpeakerID = 0;
     if (m_currEvent && m_currEvent->actor) {
         m_currEventSpeakerID = static_cast<short>(m_currEvent->actor->GetSpeakerID());
     }
-#endif
 }
+#endif
 
 void GameSpeech::ClearCompletedRequests() {
     if (m_strm && m_strm->IsPlaying()) {
         m_strm->Stop();
     }
 
-    if (m_pendingList.size() != 0) {
+#ifdef EA_BUILD_A124
+    // La A124 suelta todas las muestras de la lista, sin mirar si estan cargadas.
+    SpeechSampleList::iterator i;
+    for (i = m_pendingList->begin(); i != m_pendingList->end(); i++) {
+        if (*i) {
+            (*i)->Unlock();
+        }
+    }
+
+    m_pendingList->clear();
+    if (m_currEvent) {
+        delete m_currEvent;
+    }
+    m_currEvent = 0;
+    ClearFlag(8);
+    ClearFlag(4);
+    ClearFlag(0x10);
+}
+#else
+    if (m_pendingList.size() > 0) {
         SpeechSampleVec::iterator i = std::remove_if(m_pendingList.begin(), m_pendingList.end(), Unlocked);
         m_pendingList.erase(i, m_pendingList.end());
         for (unsigned int i = 0; i < m_pendingList.size(); ++i) {
@@ -1956,6 +2265,7 @@ void GameSpeech::ClearCompletedRequests() {
     m_currEvent = 0;
     ClearFlag(0x1c);
 }
+#endif
 
 void GameSpeech::ReleaseResource() {
     Module::ReleaseResource();
@@ -2010,7 +2320,7 @@ bool GameSpeech::ShouldPause() {
 void GameSpeech::RadioChirp(unsigned char type) {
     if ((m_pSFXOBJ_Speech != 0) && (m_Chirper == 0) && TestFlag(0x400)) {
         int stich_id;
-        if (type != 0) {
+        if (type > 0) {
             if (bRandom(1.0f) > 0.67f) {
                 stich_id = bRandom(4);
             } else {
@@ -2068,13 +2378,15 @@ int GameSpeech::GetVolForSpeaker(int id) {
             break;
         default:
             vol = m_pSFXOBJ_Speech->GetDMixOutput(0xe, DMX_VOL);
-            if (m_currEvent && (m_currEvent->ID == kSPCH1_EventID_CellCall) && m_currEvent->GetData(nullptr)) {
-                Csis::CellCallStruct *data = static_cast<Csis::CellCallStruct *>(m_currEvent->GetData(nullptr));
+#ifndef EA_BUILD_A124 // la A124 no sube la llamada 07 del grupo 01
+            if (m_currEvent && (m_currEvent->ID == kSPCH1_EventID_CellCall) && m_currEvent->GetData()) {
+                Csis::CellCallStruct *data = static_cast<Csis::CellCallStruct *>(m_currEvent->GetData());
                 if (data && (data->cell_call_bucket == Csis::Type_cell_call_bucket_bucket_01) &&
                     (data->cell_call_number == Csis::Type_cell_call_number_call_07)) {
                     bClamp(vol += vol, 0, 0x7fff);
                 }
             }
+#endif
             break;
         }
     }
@@ -2089,10 +2401,20 @@ int GameSpeech::GetVolForSpeaker(int id) {
 }
 
 } // namespace Speech   // r61-resto: el #include tiene que caer FUERA de
-#undef GENERATED_MESSAGES_MGAMEPLAYMOMENT_H
-#undef GENERATED_MESSAGES_MPURSUITBREAKER_H
-#include "Speed/Indep/Src/Generated/Messages/MGamePlayMoment.h"
-#include "Speed/Indep/Src/Generated/Messages/MPursuitBreaker.h"
+#include "Speed/Indep/Src/EAXSound/CARSFX/SFXObj_MomentStrm.hpp"
+// SyncAudioObject lives in namespace Speech on PS2 only (see NISSFXModule.hpp)
+#ifdef EA_PLATFORM_PLAYSTATION2
+namespace Speech {
+#endif
+inline SyncAudioObject::~SyncAudioObject() {
+    if (qsObject) {
+        qsObject->lock = 0;
+    }
+}
+#ifdef EA_PLATFORM_PLAYSTATION2
+} // namespace Speech
+#endif
+
 namespace Speech {
 
 char *SED_NISSFX::m_tempCharPtr = 0;
@@ -2120,21 +2442,21 @@ SED_NISSFX::~SED_NISSFX() {
         m_strm->Stop();
     }
     if (m_bankHeaders) {
-        FreeMemory(m_bankHeaders);
+        gAudioMemoryManager.FreeMemory(m_bankHeaders);
         m_bankHeaders = 0;
     }
     if (m_eventDat) {
-        FreeMemory(m_eventDat);
+        gAudioMemoryManager.FreeMemory(m_eventDat);
         m_eventDat = 0;
     }
     if (m_speechBanks) {
-        FreeMemory(m_speechBanks);
+        gAudioMemoryManager.FreeMemory(m_speechBanks);
         m_speechBanks = 0;
         m_numBanks = 0;
     }
     if (m_csisData) {
         Csis::System::Unsubscribe(m_csisData);
-        FreeMemory(m_csisData);
+        gAudioMemoryManager.FreeMemory(m_csisData);
         m_csisData = 0;
     }
     m_dataIsLoaded = false;
@@ -2146,9 +2468,6 @@ SED_NISSFX::~SED_NISSFX() {
     if (m_strm) {
         gpEAXS_StrmMgr->RemoveStreamChannel(STYPE_NISSFX);
         m_strm = 0;
-    }
-    if (m_SyncObject.qsObject) {
-        m_SyncObject.qsObject->lock = 0;
     }
 }
 
@@ -2284,7 +2603,11 @@ SPCHType_EventRuleResult SED_NISSFX::EventRuleCallback(int) {
 
 bool SED_NISSFX::QueStream(eNISSFX_TYPE stream_type, void (*callback)(), bool) {
     if (m_SyncObject.qsObject != 0) {
+#ifdef EA_BUILD_A124 // la A124 solo deja pasar el arranque de carrera (bnez sobre el tipo)
+        if (stream_type != STRM_NIS_RACE_START) {
+#else
         if (stream_type > STRM_NIS_BUSTED) {
+#endif
             return true;
         }
         m_strm->PurgeStream();
@@ -2361,7 +2684,11 @@ void SED_NISSFX::Update() {
             int vol = sfxmoment->GetDMixOutput(sfxmoment->VolSlot, DMX_VOL);
             m_strm->SetVol(vol >> 8, true);
             if (sfxmoment->m_IsPositioned) {
+#ifdef EA_BUILD_A124
+                m_strm->SetAz(m_pSFXOBJ_Moment->GetDMixOutput(0, DMX_AZIM));
+#else
                 m_strm->SetAz(sfxmoment->GetDMixOutput(0, DMX_AZIM));
+#endif
             } else {
                 m_strm->SetAz(0);
             }
@@ -2395,14 +2722,10 @@ void SED_NISSFX::Update() {
             FreeMemory(m_SyncObject.qsObject);
             m_SyncObject.qsObject = 0;
         }
-    } else if (m_strm->GetTimeBuffered() > 0) {
-        if (m_SyncObject.qsObject == 0) {
-            goto check_done;
-        }
-
+    } else if (m_strm->GetTimeBuffered() > 0 && m_SyncObject.qsObject != 0) {
         m_bIsStreamQueued = true;
-        if (m_SyncObject.callback && (m_SyncObject.id >= STRM_NIS_RACE_START) &&
-            ((m_SyncObject.id < STRM_THUNDER) || (m_SyncObject.id == STRM_SFX_MOMENT)) && (m_SyncObject.holdtime <= 0)) {
+        if (m_SyncObject.callback && (m_SyncObject.id >= 0) &&
+            ((m_SyncObject.id <= 2) || (m_SyncObject.id == STRM_SFX_MOMENT)) && (m_SyncObject.holdtime <= 0)) {
             m_SyncObject.callback();
         }
         m_SyncObject.callback = 0;
@@ -2410,7 +2733,6 @@ void SED_NISSFX::Update() {
         m_SyncObject.qsObject = 0;
     }
 
-check_done:
     if (m_SyncObject.qsObject == 0) {
         if (!m_strm->IsPlaying()) {
             m_SyncObject.id = STRM_NONE;

@@ -9,6 +9,7 @@
 class EngineTempGauge : public HudElement, public IEngineTempGauge {
   public:
     EngineTempGauge(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~EngineTempGauge() override {}
     void Update(IPlayer *player) override;
     void SetEngineTemp(float temp) override;
 

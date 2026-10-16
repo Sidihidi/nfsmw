@@ -15,5 +15,8 @@ class eEnvMap {
 };
 
 eEnvMap *eGetEnvMap();
+#ifdef EA_PLATFORM_PLAYSTATION2
+void ComputeReflectionST(bVector3 *normal, bVector2 *st);
+#endif
 
 #endif

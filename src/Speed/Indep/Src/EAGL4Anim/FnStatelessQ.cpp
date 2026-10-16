@@ -73,7 +73,7 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
             floorKey = 0;
         } else {
 
-            int timeIndex;
+            int timeIndex = 0;
 
             if (mPrevKey) {
 
@@ -140,8 +140,10 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
         unsigned short *frameData = statelessQ->GetFrameData(dataBuf, floorKey);
         unsigned char *boneIdxs = statelessQ->mBoneIdxs;
         int nBones = statelessQ->mNumBones;
+#ifndef EA_PLATFORM_PLAYSTATION2
         int ibone;
         int index;
+#endif
         int numConsts;
 
         if (slerpReqd && floorKey < statelessQ->mNumKeys - 1) {
@@ -151,6 +153,75 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
             UMath::Vector4 prevQ;
             UMath::Vector4 nextQ;
 
+            // asm de EA en PS2 (VU0 autorizado en la ronda 17; docs/asm-de-ea.md): en las dos PS2 los bucles de huesos
+            // son bloques de asm con addi (el compilador da addiu), j a etiqueta local con nop propio, $8-$12 fijos en
+            // todos los bloques y lqc2/qmtc2.ni/vmulx sin patron en ee-gcc. Los registros de los operandos los reparte
+            // el compilador.
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "li $10, 0xbfff\n"
+                             "sll $10, $10, 16\n"
+                             "ori $10, $10, 0x8000\n"
+                             "ori $11, $0, 0x30\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lbu $12, 0(%1)\n"
+                             "mult $12, $12, $11\n"
+                             "addu $12, %2, $12\n"
+                             "lw $8, 0(%3)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 4(%5)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 0(%5)\n"
+                             "lw $8, 4(%3)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 12(%5)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 8(%5)\n"
+                             "lw $8, 0(%4)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 4(%6)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 0(%6)\n"
+                             "lw $8, 4(%4)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 12(%6)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 8(%6)\n"
+                             "lqc2 vf1, 0(%5)\n"
+                             "lqc2 vf2, 0(%6)\n"
+                             "vsub.xyzw vf2, vf2, vf1\n"
+                             "qmtc2.ni %7, vf3\n"
+                             "vmulx.xyzw vf2, vf2, vf3x\n"
+                             "vadd.xyzw vf4, vf2, vf1\n"
+                             "sqc2 vf4, 0($12)\n"
+                             "addi %0, %0, -1\n"
+                             "addiu %3, %3, 8\n"
+                             "addiu %4, %4, 8\n"
+                             "addiu %1, %1, 1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(nBones), "r"(boneIdxs), "r"(q), "r"(frameData), "r"(nextFrameData), "r"(&prevQ),
+                               "r"(&nextQ), "r"(scale)
+                             : "$8", "$9", "$10", "$11", "$12");
+#else
             for (ibone = 0; ibone < nBones; ibone++) {
 
                 *reinterpret_cast<unsigned int *>(&prevQ.x) = StatelessQ::Uncompress2Bits(*frameData++);
@@ -168,8 +239,49 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
                 q[index + 2] = prevQ.z + scale * (nextQ.z - prevQ.z);
                 q[index + 3] = prevQ.w + scale * (nextQ.w - prevQ.w);
             }
+#endif
         } else {
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "li $10, 0xbfff\n"
+                             "sll $10, $10, 16\n"
+                             "ori $10, $10, 0x8000\n"
+                             "ori $11, $0, 0x30\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lbu $12, 0(%1)\n"
+                             "mult $12, $12, $11\n"
+                             "addu $12, %2, $12\n"
+                             "lw $8, 0(%3)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 4($12)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 0($12)\n"
+                             "lw $8, 4(%3)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 12($12)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 8($12)\n"
+                             "addi %0, %0, -1\n"
+                             "addiu %3, %3, 8\n"
+                             "addiu %1, %1, 1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(nBones), "r"(boneIdxs), "r"(q), "r"(frameData)
+                             : "$8", "$9", "$10", "$11", "$12");
+#else
             for (ibone = 0; ibone < nBones; ibone++) {
 
                 index = boneIdxs[ibone] * 12;
@@ -178,6 +290,7 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
                 *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*frameData++);
                 *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*frameData++);
             }
+#endif
         }
 
         numConsts = statelessQ->mNumConstBones;
@@ -187,6 +300,43 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
             unsigned char *constIdxs = statelessQ->GetConstBoneIdx();
             unsigned short *constBuf = statelessQ->GetConstData(dataBuf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "li $10, 0xbfff\n"
+                             "sll $10, $10, 16\n"
+                             "ori $10, $10, 0x8000\n"
+                             "ori $11, $0, 0x30\n"
+                             "1:\n"
+                             "lbu $12, 0(%1)\n"
+                             "mult $12, $12, $11\n"
+                             "addu $12, %2, $12\n"
+                             "lw $8, 0(%3)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 4($12)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 0($12)\n"
+                             "lw $8, 4(%3)\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 12($12)\n"
+                             "sll $8, $8, 16\n"
+                             "sra $9, $8, 1\n"
+                             "and $9, $9, $10\n"
+                             "sw $9, 8($12)\n"
+                             "addi %0, %0, -1\n"
+                             "addiu %3, %3, 8\n"
+                             "addiu %1, %1, 1\n"
+                             "bgtz %0, 1b\n"
+                             "nop\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(numConsts), "r"(constIdxs), "r"(q), "r"(constBuf)
+                             : "$8", "$9", "$10", "$11", "$12");
+#else
             for (ibone = 0; ibone < numConsts; ibone++) {
 
                 index = constIdxs[ibone] * 12;
@@ -195,6 +345,7 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
                 *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
                 *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
             }
+#endif
         }
     } else {
 
@@ -243,14 +394,22 @@ bool FnStatelessQ::EvalSQTMask(float, float *sqt, const BoneMask *boneMask, bool
                 prevData = &frameData[ibone * 4];
                 nextData = &nextFrameData[ibone * 4];
 
-                *reinterpret_cast<unsigned int *>(&prevQ.x) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&prevQ.y) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&prevQ.z) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&prevQ.w) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.x) = StatelessQ::Uncompress2Bits(*nextData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.y) = StatelessQ::Uncompress2Bits(*nextData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.z) = StatelessQ::Uncompress2Bits(*nextData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.w) = StatelessQ::Uncompress2Bits(*nextData++);
+                *reinterpret_cast<unsigned int *>(&prevQ.x) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&prevQ.y) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&prevQ.z) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&prevQ.w) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.x) = ((*nextData & 0x8000) << 16) | ((*nextData & 0x7FFF) << 15);
+                nextData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.y) = ((*nextData & 0x8000) << 16) | ((*nextData & 0x7FFF) << 15);
+                nextData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.z) = ((*nextData & 0x8000) << 16) | ((*nextData & 0x7FFF) << 15);
+                nextData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.w) = ((*nextData & 0x8000) << 16) | ((*nextData & 0x7FFF) << 15);
+                nextData++;
 
                 index = boneIdxs[ibone] * 12;
                 q[index] = prevQ.x + scale * (nextQ.x - prevQ.x);
@@ -267,10 +426,14 @@ bool FnStatelessQ::EvalSQTMask(float, float *sqt, const BoneMask *boneMask, bool
 
                 index = boneIdxs[ibone] * 12;
                 prevData = &frameData[ibone * 4];
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*prevData++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*prevData++);
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*prevData & 0x8000) << 16) | ((*prevData & 0x7FFF) << 15);
+                prevData++;
             }
         }
     }
@@ -287,10 +450,14 @@ bool FnStatelessQ::EvalSQTMask(float, float *sqt, const BoneMask *boneMask, bool
             if (boneMask->GetBone(constIdxs[ibone])) {
 
                 index = constIdxs[ibone] * 12;
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
             }
         }
     }

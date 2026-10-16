@@ -8,8 +8,8 @@ int DisableWideStringHistogram = 0;
 
 void WideCharHistogram::PlatEndianSwap() {
     bPlatEndianSwap(&NumEntries);
-    for (int i = 0; i < NumEntries; i++) {
-        bPlatEndianSwap(&EntryTable[i]);
+    for (int n = 0; n < NumEntries; n++) {
+        bPlatEndianSwap(&EntryTable[n]);
     }
 }
 

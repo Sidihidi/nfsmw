@@ -34,7 +34,13 @@ typedef UTL::Std::vector<GCharacter *, _type_ID_GCharacterList> GCharacterList;
 typedef UTL::Std::map<unsigned int, MilestoneTypeInfo, _type_ID_MilestoneInfoMap> MilestoneInfoMap;
 typedef UTL::Std::map<unsigned int, ISimable *, _type_ID_StockCarMap> StockCarMap;
 typedef UTL::Std::map<unsigned int, ObjectStateBlockHeader *, _type_ID_ObjectStateMap> ObjectStateMap;
+// La cola de SMS de las dos PS2 es la lista generica: los stabs de la A124 dicen list<int,_type_list> mPendingSMS y
+// los ELF de la A124 y de SLUS tienen clear__t4list2ZiZQ33UTL3Stdt9Allocator2ZiZ10_type_list.
+#ifdef EA_PLATFORM_PLAYSTATION2
+typedef UTL::Std::list<int, _type_list> PendingSMSList;
+#else
 typedef UTL::Std::list<int, _type_ID_PendingSMSList> PendingSMSList;
+#endif
 typedef UTL::Std::list<unsigned int, _type_ID_AttribKeyList> AttribKeyList;
 
 // total size: 0x308
@@ -91,13 +97,6 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
         unsigned int mNumPendingSMS;       // offset 0x38, size 0x4
     };
 
-    // UTL::COM::Object declara su propio operator new, que oculta el global de
-    // bWare. El original asigna GManager con __builtin_vec_new (bware.hpp 682),
-    // no con gFastMem, asi que hay que reexponer la forma con file/line.
-    void *operator new(size_t size, const char *file, int line) {
-        return new char[size];
-    }
-
     static void Init(const char *vaultPackName);
 
     virtual ~GManager();
@@ -142,7 +141,7 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
     void UpdatePursuit();
     void UpdateTriggerAvailability();
     void UpdateIconVisibility();
-    static void NotifyCollisionPackLoaded(int sectionNumber, bool loaded);
+    static void NotifyCollisionPackLoaded(int sectionID, bool loaded);
 
     unsigned int ReduceCollectionKey(Attrib::Key key) const {
         return key >> mCollectionKeyShiftTo32;
@@ -150,7 +149,9 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
 
     void LoadVaultSync(struct GVault *vault);
     void InitializeRaceStreaming();
+#ifndef EA_BUILD_A124
     void PreBeginGameplay();
+#endif
     void BeginGameplay();
     void EndGameplay();
     void Update(float dT);
@@ -270,12 +271,15 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
 
     unsigned int SaveSMSInfo(int *saveInfo);
     void LoadSMSInfo(int *loadInfo, unsigned int count);
-    // In the prototype CanPlaySMS is not const, and GetHasPendingSMS, which calls it, cannot be either.
-    bool GetHasPendingSMS()
-#ifndef EA_BUILD_A124
-        const
+#ifdef EA_BUILD_A124
+    // En el prototipo es inline y solo mira la cola, sin preguntar a CanPlaySMS.
+    bool GetHasPendingSMS() {
+        return mPendingSMS.size() != 0;
+    }
+#else
+    bool GetHasPendingSMS() const;
 #endif
-        ;
+    // In the prototype CanPlaySMS is not const.
     bool CanPlaySMS()
 #ifndef EA_BUILD_A124
         const
@@ -288,7 +292,12 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
         float dT
 #endif
     );
+    // En la A124 no devuelve el mensaje a reproducir (su volcado: void PushSMSToInbox()).
+#ifdef EA_BUILD_A124
+    void PushSMSToInbox();
+#else
     int PushSMSToInbox();
+#endif
 
     static GManager &Get() {
         return *mObj;
@@ -316,6 +325,8 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
         return mAllowEngageSafehouse;
     }
 
+    // El prototipo no recarga el mundo con la carrera reiniciada (no tiene EReloadGame).
+#ifndef EA_BUILD_A124
     void SetRestartEvent(unsigned int eventHash) {
         mRestartEventHash = eventHash;
     }
@@ -323,6 +334,7 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
     unsigned int GetRestartEvent() const {
         return mRestartEventHash;
     }
+#endif
 
     bool GetStartFreeRoamPursuit() {
         return mStartFreeRoamPursuit;
@@ -366,9 +378,11 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
         TrackValue(valueName, static_cast<float>(value));
     }
 
+#ifndef EA_BUILD_A124
     bool GetHasPendingRestartEvent() const {
         return mRestartEventHash != 0;
     }
+#endif
 
   private:
     friend class GRuntimeInstance;
@@ -442,11 +456,17 @@ class GManager : public UTL::COM::Object, public IVehicleCache {
     bool mEventIconsShown;                          // offset 0x2E8, size 0x1
     bool mMenuGateIconsShown;                       // offset 0x2EC, size 0x1
     bool mSpeedTrapIconsShown;                      // offset 0x2F0, size 0x1
+    // La A124 no lo tiene: sus stabs pasan de mSpeedTrapIconsShown (0x2fc) a mAllowEngageEvents (0x300),
+    // y su GIcon::Type no tiene kType_SpeedTrapInRace.
+#ifndef EA_BUILD_A124
     bool mSpeedTrapRaceIconsShown;                  // offset 0x2F4, size 0x1
+#endif
     bool mAllowEngageEvents;                        // offset 0x2F8, size 0x1
     bool mAllowEngageSafehouse;                     // offset 0x2FC, size 0x1
     bool mAllowMenuGates;                           // offset 0x300, size 0x1
+#ifndef EA_BUILD_A124
     unsigned int mRestartEventHash;                 // offset 0x304, size 0x4
+#endif
 };
 
 void NotifyTrackMarkersChanged();

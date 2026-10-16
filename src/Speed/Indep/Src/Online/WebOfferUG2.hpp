@@ -6,9 +6,14 @@
 #endif
 
 #include <types.h>
+#include <string.h>
 
+#include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEMenuScreen.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feScrollerina.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Common/CTextScroller.hpp"
+#include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterface.hpp"
+#include "Speed/Indep/bWare/Inc/Strings.hpp"
 
 struct WebOfferT;
 
@@ -137,24 +142,24 @@ class CWebOffer {
     void Tick();
 
   protected:
-    virtual void StartAlert(const WebOfferAlertT &);
-    virtual void StartPromo(const WebOfferPromoT &);
-    virtual void StartCredit(const WebOfferCreditT &);
-    virtual void StartHTTP(const WebOfferBusyT &);
-    virtual void StartNews(const char *, const WebOfferNewsT &);
-    virtual EProcessAction ProcessAlert() { return eProcessAction_Nothing; }
-    virtual EProcessAction ProcessPromo() { return eProcessAction_Nothing; }
-    virtual EProcessAction ProcessCredit() { return eProcessAction_Nothing; }
-    virtual EProcessAction ProcessHTTP() { return eProcessAction_Nothing; }
-    virtual EProcessAction ProcessNews() { return eProcessAction_Nothing; }
-    virtual void EndAlert();
-    virtual void EndPromo();
-    virtual void EndCredit();
-    virtual void EndHTTP();
-    virtual void EndNews();
+    virtual void StartAlert(const WebOfferAlertT &) {}
+    virtual void StartPromo(const WebOfferPromoT &) {}
+    virtual void StartCredit(const WebOfferCreditT &) {}
+    virtual void StartHTTP(const WebOfferBusyT &) {}
+    virtual void StartNews(const char *, const WebOfferNewsT &) {}
+    virtual EProcessAction ProcessAlert() { return eProcessAction_AbortScript; }
+    virtual EProcessAction ProcessPromo() { return eProcessAction_AbortScript; }
+    virtual EProcessAction ProcessCredit() { return eProcessAction_AbortScript; }
+    virtual EProcessAction ProcessHTTP() { return eProcessAction_AbortScript; }
+    virtual EProcessAction ProcessNews() { return eProcessAction_AbortScript; }
+    virtual void EndAlert() {}
+    virtual void EndPromo() {}
+    virtual void EndCredit() {}
+    virtual void EndHTTP() {}
+    virtual void EndNews() {}
     virtual bool FillInPromoSubmitData(char *, int) { return false; }
     virtual bool FillInCreditCardSubmitData(WebOfferCreditT &) { return false; }
-    virtual void Finished(int);
+    virtual void Finished(int) {}
 
   private:
     void StartNextCommand();
@@ -188,34 +193,6 @@ struct SButtons {
     uint32 NameHash;
     uint32 HighlightNameHash;
     EProcessAction Action;
-};
-
-struct FEngFont;
-
-struct CTextScroller {
-  private:
-    MenuScreen *m_pOwner;
-    FEngFont *m_pFont;
-    FEScrollBar *m_pScrollBar;
-    char m_TextBoxNameTemplate[32];
-    int m_ViewWidth;
-    int m_ViewVisibleLines;
-    int m_NumAddedLines;
-    int16 **m_pLines;
-    char *m_pRawDataBlock;
-    uint32 m_DataBlockSize;
-    uint32 m_DataBlockCurPos;
-    int m_TopLine;
-    uint32 m_ScrollDownMsg;
-    uint32 m_ScrollUpMsg;
-
-  public:
-    CTextScroller();
-    ~CTextScroller();
-    void Initialise(MenuScreen *pOwner, int ViewWidth, int ViewLines, char *pTextDisplayNameTempl,
-                    FEngFont *pFont);
-    void UseScrollBar(FEScrollBar *pScrollBar) { m_pScrollBar = pScrollBar; }
-    void SetText(int16 *pText);
 };
 
 struct CUIWebOfferScreen : MenuScreen {
@@ -283,8 +260,7 @@ class CWebOfferUG2 : public CWebOffer {
         , m_pOwner(nullptr) //
         , m_Dialog(0) //
         , m_bAlertDialogPopulated(false) {}
-    ~CWebOfferUG2() override;
-    void SetOwner(MenuScreen *owner) { m_pOwner = owner; }
+    void SetOwner(MenuScreen *pOwner) { m_pOwner = pOwner; }
     void SetPendingAction(EProcessAction action) { m_PendingAction = action; }
     void DismissDialog();
     char *DecodeString(const char *pString, bool *pbWasLabel) {
@@ -325,13 +301,87 @@ class CUIWebOfferStart : public MenuScreen {
         , m_pCurrentWebOfferScreen(nullptr) {
         m_WebOffer.SetOwner(this);
     }
-    ~CUIWebOfferStart() override;
-    void Shutdown();
-    static void SetNextPackages(const char *successPackage, const char *failPackage);
+    ~CUIWebOfferStart() override {
+        m_WebOffer.DismissDialog();
+        m_WebOffer.Shutdown();
+    }
+    void Shutdown() {
+        m_WebOffer.Shutdown();
+    }
+    static void SetNextPackages(const char *pSuccessPackage, const char *pFailPackage) {
+        bStrNCpy(m_NextPackageSuccess, pSuccessPackage, 31);
+        bStrNCpy(m_NextPackageFail, pFailPackage, 31);
+    }
     static void MakeURLScript2(const char *url, uint32 titleHash, uint32 messageHash);
+#ifdef EA_BUILD_A124
+    // A124: stab MakeURLScript::f22:PCciiii y cuerpo inline (WebOfferUG2.hpp:261-283) que expanden
+    // MMOnlineNews::React y MMOnlineTOS::React (uionlinemainmenu.cpp). pURL, TotalStrLen, FudgedURL y
+    // pURLScriptFormat salen de los stabs del bloque inline; los cuatro int llegan como constantes y no dejan
+    // nombre: son los cuatro campos 0x%x del guion (TIME=30 y $exit=-1 van fijos; 36 = 4*8 + 2 + 2).
+    static void MakeURLScript(const char *pURL, int busyMessage, int failTitle, int failMessage, int failButton) {
+        int TotalStrLen;
+        char FudgedURL[32];
+        const char *pURLScriptFormat =
+            "%%{ CMD=http\nTIME=%d\nMESG=0x%x\nURL-GET=%s\nSUCCESS-GOTO=$http\nBTN1-GOTO=$exit=-1\n%%}\n"
+            "%%{FAILURE CMD=alrt\nTITLE=0x%x\nMESG=0x%x\nBTN1=0x%x\nBTN1-GOTO=$exit=%d\n%%}";
+
+        if (strlen(pURL) == 0) {
+            strcpy(FudgedURL, "http://1mdi71");
+            pURL = FudgedURL;
+        }
+
+        TotalStrLen = strlen(pURLScriptFormat) + 36;
+        if (TotalStrLen < 512) {
+            bSPrintf(m_WebOfferScript, pURLScriptFormat, 30, busyMessage, pURL, failTitle, failMessage, failButton, -1);
+        }
+    }
+#else
     static void MakeURLScript(const char *url);
+#endif
     static int MakeDialogButtonHash(int buttonIndex);
-    void NotificationMessage(uint32 msg, FEObject *obj, uint32 param1, uint32 param2) override;
+    void NotificationMessage(uint32 Message, FEObject *pObject, uint32 Param1, uint32 Param2) override {
+        switch (Message) {
+            case 0xd15504ec:
+            case 0xd15554ec:
+            case 0xd25504ec:
+                break;
+            case 0xd15c04ec:
+                m_WebOffer.DismissDialog();
+                m_WebOffer.Shutdown();
+                break;
+            case 0xc98356ba:
+                m_WebOffer.Tick();
+                break;
+            case 0xb19b00b5:
+                m_pCurrentWebOfferScreen = reinterpret_cast<MenuScreen *>(Param1);
+                break;
+            case 0xdead900d: {
+                EProcessAction Action = static_cast<EProcessAction>(Param1);
+                m_WebOffer.SetPendingAction(Action);
+                break;
+            }
+            case 0xd09f00d5:
+                if (m_pCurrentWebOfferScreen) {
+                    m_pCurrentWebOfferScreen->NotificationMessage(0xb19ba115, nullptr, 0, 0);
+                }
+                break;
+            case 0xb19ba115:
+                if (Param1 == 0) {
+                    cFEng::Get()->QueuePackageSwitch(m_NextPackageSuccess, 0, 0, false);
+                } else {
+                    cFEng::Get()->QueuePackageSwitch(m_NextPackageFail, 0, 0, false);
+                }
+                break;
+            default: {
+                int Button = 0x0eb0ffe0;
+                if ((Message & Button) == Button) {
+                    EProcessAction Action = static_cast<EProcessAction>(Message & ~Button);
+                    m_WebOffer.SetPendingAction(Action);
+                }
+                break;
+            }
+        }
+    }
 
     friend void ConfigureWebOfferForTOS();
     friend MenuScreen *CreateOnlineWebOfferScreen(ScreenConstructorData *sd);

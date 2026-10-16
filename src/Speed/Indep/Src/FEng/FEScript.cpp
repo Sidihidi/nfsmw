@@ -3,6 +3,7 @@
 #include "Speed/Indep/Src/FEng/FEngStandard.h"
 #include "Speed/Indep/Src/FEng/ObjectPool.h"
 
+
 // size: 0x2C, address: 0x803EAC10, Decl: speed/indep/src/feng/FEScript.cpp:11
 // c36feng: el simbolo es GLOBAL en el objeto extraido. Un `const` de ambito
 // de fichero tiene enlace interno y GCC lo difiere a finish_file (acaba al
@@ -12,8 +13,19 @@ const u32 FETrackOffsets[11] = {
     0x00000000, 0x00000004, 0x00000007, 0x0000000A, 0x0000000E, 0x00000011, 0x00000013, 0x00000015, 0x00000019, 0x0000001D, 0x00000021,
 };
 
+
+
+
+
+
+
+
+
+
+
 // size: 0x10, address: 0x80473DFC, Decl: speed/indep/src/feng/FEScript.cpp:27
 ObjectPool<FEScript, 32> FEScript::NodePool = ObjectPool<FEScript, 32>();
+
 
 void FEScript::Init() {
     pName = nullptr;
@@ -25,12 +37,17 @@ void FEScript::Init() {
     pTracks = nullptr;
 }
 
+
+
 FEScript::~FEScript() {
     delete[] pTracks;
     pTracks = nullptr;
     delete[] pName;
     pName = nullptr;
 }
+
+
+
 
 FEScript::FEScript(FEScript &Src, bool bReference) {
     Init();
@@ -59,11 +76,43 @@ FEScript::FEScript(FEScript &Src, bool bReference) {
     Events = Src.Events;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void *FEScript::operator new(size_t) {
     FEScript *pNode = NodePool.AllocSingle();
     pNode->Init();
     return pNode;
 }
+
 
 void FEScript::operator delete(void *pNode) {
     FEScript *pDeleteNode = static_cast<FEScript *>(pNode);
@@ -71,8 +120,20 @@ void FEScript::operator delete(void *pNode) {
     NodePool.FreeSingle(pDeleteNode);
 }
 
+
+
+
+
+
+
+
+
+
+
+
 void FEScript::SetName(const char *pNewName) {
     if (pName) {
+
         delete[] pName;
         pName = nullptr;
     }
@@ -80,20 +141,80 @@ void FEScript::SetName(const char *pNewName) {
     ID = 0xFFFFFFFF;
     if (pNewName) {
         int Len = FEngStrLen(pNewName) + 1;
+
         pName = FNEW char[Len];
         FEngStrCpy(pName, pNewName);
         ID = FEHashUpper(pName);
     }
 }
 
+
+
 void FEScript::SetTrackCount(i32 Count) {
     delete[] pTracks;
     pTracks = nullptr;
     TrackCount = Count;
+
     if (Count != 0) {
         pTracks = FNEW FEKeyTrack[Count];
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 FEKeyTrack *FEScript::FindTrack(FEKeyTrack_Indices TrackIndex) const {
 

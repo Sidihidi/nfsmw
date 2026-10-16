@@ -20,9 +20,9 @@ void ENISCopCarDoors_MakeEvent_Callback(const void *staticData) {
     new ENISCopCarDoors(((ENISCopCarDoors::StaticData *) staticData)->fCarDoor, ((ENISCopCarDoors::StaticData *) staticData)->fCarDoorPos, ((ENISCopCarDoors::StaticData *) staticData)->fCarDoorAnimLength, ((ENISCopCarDoors::StaticData *) staticData)->fCarDoorEndPos);
 }
 
-int ENISCopCarDoors_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 4) {
-        new ENISCopCarDoors((int) lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
+int ENISCopCarDoors_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 4) {
+        new ENISCopCarDoors((int) lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), lua_tonumber(luaState, 4));
     }
     return 0;
 }

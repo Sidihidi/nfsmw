@@ -6,7 +6,7 @@
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Src/Input/Action.h"
 #include "Speed/Indep/Src/Input/InputDevice.h"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 
 enum InputUpdateType {
     kUpdate = 0,

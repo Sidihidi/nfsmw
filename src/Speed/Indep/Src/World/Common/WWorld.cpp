@@ -3,6 +3,7 @@
 #include "Speed/Indep/Libs/Support/Miscellaneous/CARP.h"
 #include "Speed/Indep/Src/Sim/SimSurface.h"
 #include "Speed/Indep/Src/World/WCollisionAssets.h"
+#include "Speed/Indep/Src/World/WSoftBarrierCollider.h"
 #include "Speed/Indep/Src/Misc/SpeedChunks.hpp"
 
 WWorld::WWorld()
@@ -69,14 +70,19 @@ bool WWorld::Open() {
 
     {
         unsigned int artCount = persistentGroup->GroupCountType('Arti');
-        const struct UData *foundSbUData;
+        const struct UData *foundSbUData = nullptr;
         const UGroup *article = fRootWorldGroup->GroupLocateFirst('Arti', 0xFFFFFFFF, 0xFFFFFFFF);
 
         for (unsigned int artInd = 0; artInd < artCount; artInd++) {
             const UData *sbUData = article->DataLocate(MAKE_UDATA_TYPE('SB'), 'ar');
-            article->DataEnd();
+            if (sbUData != article->DataEnd()) {
+                foundSbUData = sbUData;
+            }
             article++;
         }
+#ifdef EA_BUILD_A124
+        WSoftBarrierCollider::Init(foundSbUData);
+#endif
     }
 
     return fRootWorldGroup != nullptr;

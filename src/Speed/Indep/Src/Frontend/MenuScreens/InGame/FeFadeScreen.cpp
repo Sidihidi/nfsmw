@@ -16,5 +16,5 @@ void FadeScreen::NotificationMessage(u32 Message, FEObject *pObject, u32 Param1,
 }
 
 bool FadeScreen::IsFadeScreenOn() {
-    return FEngIsScriptSet("FadeScreen.fng", 0x027FF2DC, FEHASH_APPEAR) != false;
+    return FEngIsScriptSet("FadeScreen.fng", 0x027FF2DC, FEHASH_APPEAR) != false ? true : false;
 }

@@ -52,6 +52,7 @@ struct ReplayCategory {
 
 int GetReplayCategoryNumElements();
 unsigned int GetReplayCategoryHash(int n);
+char *GetReplayCategoryName(unsigned int category_hash);
 ReplayCategory *GetReplayCategory(unsigned int hash);
 
 } // namespace ICE

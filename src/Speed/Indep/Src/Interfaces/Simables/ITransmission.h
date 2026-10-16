@@ -17,6 +17,10 @@ class ITransmission : public UTL::COM::IUnknown {
     virtual float GetSpeedometer() const = 0;
     virtual float GetMaxSpeedometer() const = 0;
     virtual float GetDriveTorque() const = 0;
+#ifdef EA_BUILD_A124
+    // Solo el prototipo: vtable[10] en los stabs de la A124, entre GetDriveTorque y GetShiftPoint.
+    virtual Rpm GetOptimalShiftRange(GearID to_gear) const = 0;
+#endif
     virtual float GetShiftPoint(GearID from_gear, GearID to_gear) const = 0;
     virtual ShiftStatus GetShiftStatus() const = 0;
     virtual ShiftPotential GetShiftPotential() const = 0;

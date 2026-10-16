@@ -12,6 +12,12 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 
+#ifdef EA_BUILD_A124
+static GameTipInfo GameTipInfoTable[] = {
+    {"LOADING_CONTROLLER_PS2_C", GT_BIN_A, GTF_TRANSITION_TO_FE},
+    {"LOADING_CONTROLLER_XBOX_C", GT_BIN_B, GTF_TRANSITION_TO_INGAME},
+};
+#else
 GameTipInfo GameTipInfoTable[] = {
     {"TIP_STRIKEOUT", GT_BIN_NONE, GT_TYPE_NONE, GFT_WAIT_FOR_BUTTON_PRESS},
     {"TIP_ENGAGE_MECHANIC", GT_BIN_NONE, GT_TYPE_NONE, GFT_WAIT_FOR_BUTTON_PRESS},
@@ -42,9 +48,12 @@ GameTipInfo GameTipInfoTable[] = {
     {"TIP_STRIKEOUT", static_cast<eGameTipBins>(0x1F80), GT_TYPE_FREE_ROAM, GTF_TRANSITION_TO_INGAME},
     {"GAME_TIP_USE_CONTROLLER_CONFIG", GT_BIN_ALL, GT_TYPE_ALL, GTF_TRANSITION_TO_INGAME},
 };
+#endif
 void *LoadingTips::mLoadingTipsScreenPtr = nullptr;
 bool LoadingTips::mDoneShowingLoadingTips = true;
+#ifndef EA_BUILD_A124
 bool LoadingTips::mDoneLoading = false;
+#endif
 
 void LoadingTips_FinishLoadingTexBridge(unsigned int p) {
     LoadingTips *screen = static_cast<LoadingTips *>(FEngFindScreen("Loading_Tips.fng"));
@@ -53,6 +62,81 @@ void LoadingTips_FinishLoadingTexBridge(unsigned int p) {
     }
 }
 
+#ifdef EA_BUILD_A124
+LoadingTips::LoadingTips(ScreenConstructorData *sd) : MenuScreen(sd) {
+    CurrentTip = nullptr;
+    Setup();
+    mDoneShowingLoadingTips = false;
+}
+
+LoadingTips::~LoadingTips() {
+    eUnloadStreamingTexture(TipTextureHash, NUM_TEXTURES);
+}
+
+void LoadingTips::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) {
+    switch (msg) {
+        case 0xC98356BA:
+            if ((RealTimer - DisplayTime).GetSeconds() > 5.0f) {
+                mDoneShowingLoadingTips = true;
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
+void LoadingTips::Setup() {
+    DisplayTime.ResetHigh();
+    CurrentTip = GetGameTip(GAME_TIP_LOADING_CONTROLLER_PS2);
+    StartLoadingTipImage();
+}
+
+void LoadingTips::StartLoadingTipImage() {
+    if (CurrentTip != nullptr) {
+        TipTextureHash[0] = FEngHashString("SKY_SUNSET_A_CAP_A");
+        for (int i = 1; i < NUM_TEXTURES; i++) {
+            TipTextureHash[i] = FEngHashString("%s%d", CurrentTip->Name, i);
+        }
+        eLoadStreamingTexture(TipTextureHash, NUM_TEXTURES, LoadingTips_FinishLoadingTexBridge, 0, 0);
+    }
+}
+
+void LoadingTips::ShowTipInfo() {
+    if (CurrentTip != nullptr) {
+        unsigned int lang_hash = FEngHashString(CurrentTip->Name);
+        FEngSetLanguageHash(GetPackageName(), 0xC5FBC710, lang_hash);
+        for (int i = 0; i < NUM_TEXTURES; i++) {
+            FEngSetTextureHash(GetPackageName(), FEngHashString("IMAGE_%d", i), TipTextureHash[i]);
+        }
+        FEngSetScript(GetPackageName(), 0x3248E720, FEHASH_APPEAR, true);
+        DisplayTime = RealTimer;
+    }
+}
+
+eGameTips LoadingTips::WhatTipScreenShouldIUseToday() {
+    if (GRaceDatabase::Exists() && GRaceDatabase::Get().GetStartupRace()) {
+        return GAME_TIP_USE_CONTROLLER_CONFIG;
+    }
+    return GAME_TIP_NONE;
+}
+
+GameTipInfo *LoadingTips::GetGameTip(eGameTips tip) {
+    if (tip < GAME_TIP_USE_CONTROLLER_CONFIG) {
+        return &GameTipInfoTable[tip];
+    }
+    return &GameTipInfoTable[GAME_TIP_LOADING_CONTROLLER_PS2];
+}
+
+void LoadingTips::InitLoadingTipsScreen() {
+    mLoadingTipsScreenPtr = bMalloc(sizeof(LoadingTips), "LoadingTips", 0, 0);
+}
+
+void LoadingTips::FinishLoadingTexCallback(uint32 p) {
+    FEngSetScript(GetPackageName(), 0x47FF4E7C, 0x001CA7C0, true);
+    ShowTipInfo();
+}
+#else
 LoadingTips::LoadingTips(ScreenConstructorData *sd) : MenuScreen(sd) {
     DisplayTime.ResetHigh();
     CurrentTip = nullptr;
@@ -120,7 +204,7 @@ void LoadingTips::ShowTipInfo() {
     lang_hash = FEngHashString("%s_HEADER", CurrentTip->Name);
     FEngSetLanguageHash(GetPackageName(), 0x0D555245, lang_hash);
     unsigned int tex = TipTextureHash;
-    FEngSetTextureHash(FEngFindImage(GetPackageName(), 0xC9D77CB6), tex);
+    FEngSetTextureHash(GetPackageName(), 0xC9D77CB6, tex);
     FEngSetScript(GetPackageName(), 0x3248E720, FEHASH_APPEAR, true);
     DisplayTime = RealTimer;
 }
@@ -275,3 +359,4 @@ void LoadingTips::InitLoadingTipsScreen() {
 void LoadingTips::FinishLoadingTexCallback(uint32 p) {
     ShowTipInfo();
 }
+#endif

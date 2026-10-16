@@ -126,16 +126,13 @@ void CopyString(i16 *pDst, const T *pSrc, u32 ulMaxLength) // Decl: speed/indep/
     if (pSrc != nullptr) {
         u32 i = 0;
         ulMaxLength--;
-        if (*pSrc != 0 && ulMaxLength != 0) {
-            do {
-                i++;
-                *pDst = *pSrc;
-                pSrc++;
-                pDst++;
-                if (*pSrc == '\0') {
-                    break;
-                }
-            } while (ulMaxLength != i);
+        while (*pSrc != '\0') {
+            if (ulMaxLength == i) {
+                break;
+            }
+            *pDst++ = *pSrc;
+            pSrc++;
+            i++;
         }
     }
 

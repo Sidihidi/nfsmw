@@ -59,7 +59,7 @@ void GameFlowLoadGarageScreen(ASYNCFILE_CALLBACK callback, intptr_t param);
 // TODO: esolidplat
 extern bTList<eSolid> SolidList;
 
-EAXSound *g_pEAXSound; // size: 0x4, Decl: speed/indep/src/frontend/menuscreens/FeGarageMain.cpp:57
+extern EAXSound *g_pEAXSound; // la define EAXSound.cpp (Decl: speed/indep/src/frontend/menuscreens/FeGarageMain.cpp:57, 4 B)
 
 bool RenderLookAtPoint = false;
 float carPosX = 0.0f;
@@ -84,7 +84,7 @@ static Attrib::Key FindScreenInfo(const char *pkg_name, int category) {
     if (len > 3) {
         name[len - 4] = 0;
         bMemSet(prefix, 0, 128);
-        if (FEDatabase->GetGameMode() & 0x20) {
+        if (FEDatabase->IsCustomizeMode()) {
             bStrCat(prefix, "customize_", name);
             if (category > -1) {
                 bSPrintf(prefix, "%s_%d", prefix, category);
@@ -100,19 +100,19 @@ static Attrib::Key FindScreenInfo(const char *pkg_name, int category) {
                     return FindScreenInfo(pkg_name, -1);
                 }
             }
-        } else if (FEDatabase->GetGameMode() & 0x8000) {
+        } else if (FEDatabase->IsCarLotMode()) {
             bStrCat(prefix, "carlot_", name);
-        } else if (FEDatabase->GetGameMode() & 1) {
+        } else if (FEDatabase->IsCareerMode()) {
             bStrCat(prefix, "career_", name);
-        } else if (FEDatabase->GetGameMode() & 4 && FEDatabase->GetGameMode() & 0x400) {
+        } else if (FEDatabase->IsQuickRaceMode() && FEDatabase->IsModeSelectMode()) {
             bStrCat(prefix, "quickrace_", name);
-        } else if (FEDatabase->GetGameMode() & 4) {
+        } else if (FEDatabase->IsQuickRaceMode()) {
             bStrCat(prefix, "quickracemain_", name);
-        } else if (FEDatabase->GetGameMode() & 8 || FEDatabase->GetGameMode() & 0x40) {
+        } else if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
             bStrCat(prefix, "online_", name);
-        } else if (FEDatabase->GetGameMode() & 0x10) {
+        } else if (FEDatabase->IsOptionsMode()) {
             bStrCat(prefix, "options_", name);
-        } else if (FEDatabase->GetGameMode() & 0x100) {
+        } else if (FEDatabase->IsCareerManagerMode()) {
             bStrCat(prefix, "career_", "manager");
         } else {
             bStrCat(prefix, "", name);
@@ -130,8 +130,7 @@ static Attrib::Key FindScreenInfo(const char *pkg_name, int category) {
 }
 
 static const char *GetCurrentGarageName() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CUSTOMIZATION_SHOP_BACKROOM:
             return "backroom";
         case GARAGETYPE_CAREER_SAFEHOUSE:
@@ -232,15 +231,11 @@ void FEGeometryModels::UnInit() {
 void FEGeometryModels::Render(eView *view, bMatrix4 *local, uint32 render_flags) {
     for (int i = 0; i < mNumModels; i++) {
         bool renderModel = true;
-        if ((render_flags & 4) != 0) {
-            if ((1 << i & mModelCastsShadowMapFlags) == 0) {
-                renderModel = false;
-            }
+        if ((render_flags & 4) != 0 && !(1 << i & mModelCastsShadowMapFlags)) {
+            renderModel = false;
         }
-        if ((render_flags & 1) != 0) {
-            if ((1 << i & mModelNextGenOnly) != 0) {
-                renderModel = false;
-            }
+        if ((render_flags & 1) != 0 && (1 << i & mModelNextGenOnly)) {
+            renderModel = false;
         }
         if ((render_flags & 2) != 0 && (1 << i & mModelCurrGenOnly) != 0) {
             renderModel = false;
@@ -257,22 +252,21 @@ GarageMainScreen::GarageMainScreen(ScreenConstructorData *sd, int eview_id, Ride
       RenderingCar(nullptr),                              //
       Player(player),                                     //
       CameraPushRequested(false),                         //
+      HideEntireScreen(1),                                //
+      ViewID(eview_id),                                   //
       mScreenKeyCamIsSetTo(0),                            //
+      bUserRotate(false),                                 //
       mOrbitV(0.0f),                                      //
-      mOrbitH(0.0f)                                       //
+      mOrbitH(0.0f),                                      //
+      mZoom(0.0f),                                        //
+      mCustomizationCategory(-1)                          //
 {
-    HideEntireScreen = 1;
-    ViewID = eview_id;
-    bUserRotate = false;
-    mZoom = 0.0f;
-    mCustomizationCategory = -1;
-
     int i = 0;
     do {
         mActionQ[i] = new ActionQueue(i, 0x82d21520, "GarageMainScreen", false);
         mActionQ[i]->Enable(true);
         i++;
-    } while (i < 2);
+    } while (i < NUM_JOYSTICK_PORTS);
 
     if (player == 0) {
         pCarName = FEngFindString(GetPackageName(), 0xdb8ccef6);
@@ -309,7 +303,7 @@ GarageMainScreen::~GarageMainScreen() {
     if (g_pEAXSound->GetFrontEnd()) {
         g_pEAXSound->GetFrontEnd()->DestroyAllDriveOnSnds();
     }
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
         if (mActionQ[i]) {
             delete mActionQ[i];
             mActionQ[i] = nullptr;
@@ -334,8 +328,8 @@ void GarageMainScreen::DisableCarRendering() {
 }
 
 bool GarageMainScreen::IsCarRendering() {
-    if (RenderingCar && RenderingCar->Visible) {
-        return true;
+    if (RenderingCar) {
+        return RenderingCar->Visible;
     }
     return false;
 }
@@ -455,6 +449,21 @@ void GarageMainScreen::UpdateCurrentCameraView(bool bForce) {
 }
 
 void GarageMainScreen::RefreshBackground() {
+#ifdef EA_BUILD_A124
+    const char *garageName = FEManager::Get()->GetGarageNameFromType();
+    ResourceFile *bg = FEManager::Get()->GetGarageBackground();
+    if (!bg || bStrCmp(bg->GetFilename(), garageName) != 0) {
+        new EFadeScreenOn();
+        UnloadResourceFile(bg);
+        int pool = 7;
+        if (bFileSize(garageName) >= bLargestMalloc(7)) {
+            pool = 0;
+        }
+        FEManager::Get()->SetGarageBackground(CreateResourceFile(garageName, RESOURCE_FILE_FRONTEND, 0, 0, 0));
+        FEManager::Get()->GetGarageBackground()->SetAllocationParams(pool | 0x2000, garageName);
+        FEManager::Get()->GetGarageBackground()->BeginLoading(BackgroundLoaded, 0);
+    }
+#else
     const char *garageName = FEManager::Get()->GetGarageNameFromType();
     ResourceFile *bg = FEManager::Get()->GetGarageBackground();
     char name[128];
@@ -462,86 +471,87 @@ void GarageMainScreen::RefreshBackground() {
     char *dot = bStrIStr(name, ".");
     bStrCpy(dot, ".BIN");
     if (!bg || bStrCmp(name, garageName) != 0) {
-        new EFadeScreenOn(
-#ifndef EA_BUILD_A124
-            false
-#endif
-        );
+        new EFadeScreenOn(false);
         eRemoveFEEnvMapPlat();
         eInitFEEnvMapPlat();
         UnloadResourceFile(bg);
         GameFlowLoadGarageScreen(BackgroundLoaded, 0);
     }
+#endif
 }
 
 void GarageMainScreen::BackgroundLoaded(int param) {
-    GarageMainScreen *inst = GetInstance();
-    if (inst) {
+    GarageMainScreen *pGarage = GetInstance();
+    if (pGarage) {
+#ifdef EA_BUILD_A124
+        eRemoveFEEnvMapPlat();
+        eInitFEEnvMapPlat();
+#endif
         new EFadeScreenOff(0x14035fb);
-        inst->mGeometryModels.UnInit();
-        inst->mGeometryModels.Init("BACKDROP");
-        inst->UpdateCurrentCameraView(true);
-        inst->pCameraMover->Update(0.0f);
+        pGarage->mGeometryModels.UnInit();
+        pGarage->mGeometryModels.Init("BACKDROP");
+        pGarage->UpdateCurrentCameraView(true);
+        pGarage->pCameraMover->Update(0.0f);
     }
 }
 
 float GarageMainScreen::GetCarRotationX() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
-        case GARAGETYPE_CAR_LOT:
-            return -0.3796229958534241f;
-        case GARAGETYPE_NONE:
-        case GARAGETYPE_MAIN_FE:
-        default:
-            return 0.0f;
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 0.0f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
+            return 0.0f;
+        case GARAGETYPE_CAR_LOT:
+#ifdef EA_BUILD_A124
+            return -1.85f;
+#else
+            return -0.3796229958534241f;
+#endif
+        case GARAGETYPE_MAIN_FE:
+        default:
             return 0.0f;
     }
 }
 
 float GarageMainScreen::GetCarRotationY() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
-        case GARAGETYPE_CAR_LOT:
-            return -0.00019299999985378236f;
-        case GARAGETYPE_NONE:
-        case GARAGETYPE_MAIN_FE:
-        default:
-            return 0.0f;
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 0.0f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
+            return 0.0f;
+        case GARAGETYPE_CAR_LOT:
+#ifdef EA_BUILD_A124
+            return 0.0f;
+#else
+            return -0.00019299999985378236f;
+#endif
+        case GARAGETYPE_MAIN_FE:
+        default:
             return 0.0f;
     }
 }
 
 float GarageMainScreen::GetCarRotationZ() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
-        case GARAGETYPE_CAR_LOT:
-            return 340.0f;
-        case GARAGETYPE_NONE:
-        case GARAGETYPE_MAIN_FE:
-        default:
-            return 304.96978759765625f;
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 304.96978759765625f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
+            return 304.96978759765625f;
+        case GARAGETYPE_CAR_LOT:
+            return 340.0f;
+        case GARAGETYPE_MAIN_FE:
+        default:
             return 304.96978759765625f;
     }
 }
 
 float GarageMainScreen::GetGeometryZAngle() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 302.85308837890625f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
         case GARAGETYPE_CAR_LOT:
             return 0.0f;
-        case GARAGETYPE_NONE:
         case GARAGETYPE_MAIN_FE:
         default:
             return 134.41250610351562f;
@@ -549,49 +559,43 @@ float GarageMainScreen::GetGeometryZAngle() {
 }
 
 float GarageMainScreen::GetGeometryXPos() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
-        case GARAGETYPE_NONE:
-        case GARAGETYPE_MAIN_FE:
-        default:
-            return 0.0f;
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 0.0f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
             return 0.0f;
         case GARAGETYPE_CAR_LOT:
+            return 0.0f;
+        case GARAGETYPE_MAIN_FE:
+        default:
             return 0.0f;
     }
 }
 
 float GarageMainScreen::GetGeometryYPos() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
-        case GARAGETYPE_CAR_LOT:
-            return 0.07500000298023224f;
-        case GARAGETYPE_NONE:
-        case GARAGETYPE_MAIN_FE:
-        default:
-            return 0.0f;
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 0.0f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
+            return 0.0f;
+        case GARAGETYPE_CAR_LOT:
+            return 0.07500000298023224f;
+        case GARAGETYPE_MAIN_FE:
+        default:
             return 0.0f;
     }
 }
 
 float GarageMainScreen::GetGeometryZPos() {
-    eGarageType type = FEManager::Get()->GetGarageType();
-    switch (type) {
-        case GARAGETYPE_NONE:
-        case GARAGETYPE_MAIN_FE:
-        default:
-            return 0.0f;
+    switch (FEManager::Get()->GetGarageType()) {
         case GARAGETYPE_CAREER_SAFEHOUSE:
             return 0.0f;
         case GARAGETYPE_CUSTOMIZATION_SHOP:
             return 0.0f;
         case GARAGETYPE_CAR_LOT:
+            return 0.0f;
+        case GARAGETYPE_MAIN_FE:
+        default:
             return 0.0f;
     }
 }
@@ -800,9 +804,11 @@ void GarageMainScreen::NotificationMessage(u32 Message, FEObject *pObject, u32 P
             HideEntireScreen = 0;
             HandleShowPackage(FEMSG_SHOW_PACKAGE);
             break;
+#ifndef EA_BUILD_A124
         case FEMSG_ERROR_STATE:
             HandleJoyEvents();
             break;
+#endif
         case FEMSG_SCREEN_TICK:
             HandleTick(FEMSG_SCREEN_TICK);
             break;

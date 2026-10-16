@@ -9,9 +9,9 @@
 #include "GRace.h"
 #include "GRaceDatabase.h"
 #include "GTimer.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
-#include "Speed/Indep/Src/Ecstasy/EmitterSystem.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/gameplay.h"
 #include "Speed/Indep/Src/Interfaces/SimActivities/IVehicleCache.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
@@ -20,6 +20,7 @@
 
 #include <types.h>
 
+class EmitterGroup;
 struct PidError;
 
 // total size: 0x1A8
@@ -42,8 +43,8 @@ struct GRacerInfo {
     }
 
     // inline en el original (DWARF de Game_NotifyRaceFinished)
-    void SetPctRaceComplete(float pct) {
-        mPctRaceComplete = pct;
+    void SetPctRaceComplete(float f) {
+        mPctRaceComplete = f;
     }
 
     void IncPerfectShifts() {
@@ -224,6 +225,10 @@ struct GRacerInfo {
         return mGameCharacter;
     }
 
+    int GetIndex() const {
+        return mIndex;
+    }
+
     int GetRanking() const {
         return mRanking;
     }
@@ -282,6 +287,12 @@ struct GRacerInfo {
 
     float GetFinishingSpeed() const {
         return mFinishingSpeed;
+    }
+
+    // Nombre provisional: la A124 lee mTopSpeed (0x114) en PhotoFinishScreen::Setup (oraculo A124
+    // 0x29a3b4: lwc1 0x114 + MPS2MPH); sin lector en el arbol. Inline sin usar fuera de A124.
+    float GetTopSpeed() const {
+        return mTopSpeed;
     }
 
     GTimer &GetRaceTimer() {
@@ -426,9 +437,9 @@ struct GRacerInfo {
     GTimer mRaceTimer;                       // offset 0x160, size 0xC
     GTimer mLapTimer;                        // offset 0x16C, size 0xC
     GTimer mCheckTimer;                      // offset 0x178, size 0xC
-    ALIGN_16 UMath::Vector3 mSavedPosition;  // offset 0x184, size 0xC
+    ALIGNVEC UMath::Vector3 mSavedPosition;  // offset 0x184, size 0xC
     float mSavedHeatLevel;                   // offset 0x190, size 0x4
-    ALIGN_16 UMath::Vector3 mSavedDirection; // offset 0x194, size 0xC
+    ALIGNVEC UMath::Vector3 mSavedDirection; // offset 0x194, size 0xC
     float mSavedSpeed;                       // offset 0x1A0, size 0x4
 #ifndef EA_BUILD_A124
     bool mDNF; // offset 0x1A4, size 0x1
@@ -733,6 +744,9 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
     }
 
     void UpdateAdaptiveBonus();
+#ifdef EA_BUILD_A124
+    void UpdateAdaptiveBonus(const GRacerInfo *racer_info);
+#endif
 
     float GetTaskTime() const {
         return mTaskTime;
@@ -745,6 +759,7 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
 
     typedef UTL::Std::vector<struct GTrigger *, _type_ID_GRaceStatusTriggerList> TriggerList;
 
+#ifndef EA_PLATFORM_PLAYSTATION2 // PS2 usa el new/delete global: SLUS llama a __builtin_vec_new y su destructor borra con el global
     static void *operator new(size_t size, unsigned int alloc_params) {
         return bMalloc(size, alloc_params);
     }
@@ -752,6 +767,7 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
     static void operator delete(void *ptr) {
         bFree(ptr);
     }
+#endif
 
     static void Init();
     static void Shutdown();
@@ -831,8 +847,8 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
         mActivelyRacing = racing;
     }
 
-    void SetHasBeenWon(bool won) {
-        mHasBeenWon = won;
+    void SetHasBeenWon(bool hasWon) {
+        mHasBeenWon = hasWon;
     }
 
     bool GetHasBeenWon() const {
@@ -843,8 +859,8 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
         mIsLoading = loading;
     }
 
-    void SetTaskTime(float time) {
-        mTaskTime = time;
+    void SetTaskTime(float seconds) {
+        mTaskTime = seconds;
     }
 
     void EnterSuddenDeath() {

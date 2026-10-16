@@ -39,15 +39,18 @@ char *itoa(int value, char *string, int radix)
     static char lower[] = "0123456789abcdefghijklmnopqrstuvwxyz";
     int i;
     int neg;
+    unsigned int u;
 
     neg = value < 0;
     if (neg && radix == 10)
-        value = -value;
+        u = -value;
+    else
+        u = value;
     i = 0;
     do {
-        string[i++] = lower[(unsigned int)value % (unsigned int)radix];
-        value = (int)((unsigned int)value / (unsigned int)radix);
-    } while (value != 0);
+        string[i++] = lower[u % radix];
+        u /= radix;
+    } while (u != 0);
     if (neg)
         string[i++] = '-';
     string[i] = '\0';
@@ -72,6 +75,16 @@ extern double sn_fmod(double, double);
  * (4 filas, solo registro).  Los negativos de la r65 (once ordenes y tipos de
  * `lo') y de la r66 (-msafe-sda, -mstrict-align) estan en
  * docs/analisis/r65-vfprintf.md y r66-libc-flags.md; ver r67-libc.md. */
+#ifdef EA_PLATFORM_PLAYSTATION2
+/* El EE es little endian: la palabra baja va primero (la rama __IEEE_LITTLE_ENDIAN de newlib). */
+typedef union {
+    double value;
+    struct {
+        unsigned int lsw;
+        unsigned int msw;
+    } parts;
+} ieee_double_shape_type;
+#else
 typedef union {
     double value;
     struct {
@@ -79,6 +92,7 @@ typedef union {
         unsigned int lsw;
     } parts;
 } ieee_double_shape_type;
+#endif
 
 #define EXTRACT_WORDS(ix0, ix1, d)       \
     do {                                 \
@@ -88,10 +102,9 @@ typedef union {
         (ix1) = ew_u.parts.lsw;          \
     } while (0)
 
-static char str[164];
-
-char *fftoa(double value, int ndigits, int fmt, int trim, char *sign)
+char *fftoa(double value, int ndigits, char fmt, int trim, char *sign)
 {
+    static char str[164];
     unsigned int hi, mant, t, neg, expo;
     unsigned int lo;
     char *buf;
@@ -131,7 +144,7 @@ char *fftoa(double value, int ndigits, int fmt, int trim, char *sign)
 
     if (value >= 1.0) {
         double intpart = sn_floor(value);
-        int j, k;
+        int k;
 
         value -= intpart;
         do {
@@ -144,11 +157,11 @@ char *fftoa(double value, int ndigits, int fmt, int trim, char *sign)
             intpart /= 10.0;
         } while (intpart >= 1.0);
 
-        for (j = 0, k = i - 1; j < k; j++, k--) {
+        for (digit = 0, k = i - 1; digit < k; digit++, k--) {
             char c;
 
-            c = buf[j];
-            buf[j] = buf[k];
+            c = buf[digit];
+            buf[digit] = buf[k];
             buf[k] = c;
         }
     }
@@ -157,11 +170,8 @@ char *fftoa(double value, int ndigits, int fmt, int trim, char *sign)
     if (e == 0) {
         if (fmt != 'f') {
             if (value != 0.0) {
-                value *= 10.0;
-                while (value < 1.0 && e > -1021) {
-                    value *= 10.0;
+                while ((value *= 10.0) < 1.0 && e > -1021)
                     e--;
-                }
                 e--;
             }
             if (value >= 1.0) {

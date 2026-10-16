@@ -20,11 +20,15 @@ class CameraMover;
 
 DECLARE_CONTAINER_TYPE(CameraAIAvoidables);
 
+namespace CameraAI {
+
 struct Avoidables : public UTL::Std::list<IBody *, _type_CameraAIAvoidables> {
     USE_FASTALLOC(Avoidables)
 };
 
-extern Avoidables *TheAvoidables;
+}; // namespace CameraAI
+
+extern CameraAI::Avoidables *TheAvoidables;
 
 namespace CameraAI {
 
@@ -59,7 +63,7 @@ class Director : public UTL::Collections::Listable<Director, 2> {
     bool mUnused;                 // offset 0x2B0, size 0x1
     float mPursuitTimer;          // offset 0x2B4, size 0x4
     float mJumpTimer;             // offset 0x2B8, size 0x4
-    int mFlags;                   // offset 0x2BC, size 0x4
+    bool mFlags;                  // offset 0x2BC, size 0x4
     float mCinematicScale;        // offset 0x2C0, size 0x4
     // vptr                       // offset 0x2C4, size 0x4
 
@@ -102,7 +106,7 @@ class Director : public UTL::Collections::Listable<Director, 2> {
         return mFlags;
     }
 
-    int IsCinematicMomement() {
+    bool IsCinematicMomement() {
         return mFlags;
     }
 

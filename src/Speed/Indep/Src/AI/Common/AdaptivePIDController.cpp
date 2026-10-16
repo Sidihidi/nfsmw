@@ -30,13 +30,13 @@ AdaptivePIDControllerBase::~AdaptivePIDControllerBase() {
 }
 
 void AdaptivePIDControllerBase::UpdateBase(float model_error, float timestep, float desired_process_value) {
-    ePIDTerm term_to_update = static_cast<ePIDTerm>(static_cast<int>(WorldTimer.GetSeconds() / TimeSlice) % NUM_PID_TERMS);
+    ePIDTerm term_to_update = static_cast<ePIDTerm>(bFloatToInt(WorldTimer.GetSeconds() / TimeSlice) % NUM_PID_TERMS);
     float term_value = GetTerm(term_to_update);
     float coefficient_derivative = 0.0f;
 
     if (bAbs(term_value) >= TuningThreshold[term_to_update]) {
         coefficient_derivative = GetNewCoefficientDerivative(term_to_update, model_error, desired_process_value);
-        Coefficient[term_to_update] = bClamp(coefficient_derivative * timestep + Coefficient[term_to_update], CoefficientClamp[term_to_update][0],
+        Coefficient[term_to_update] = bClamp(Coefficient[term_to_update] + coefficient_derivative * timestep, CoefficientClamp[term_to_update][0],
                                              CoefficientClamp[term_to_update][1]);
     }
 
@@ -92,14 +92,13 @@ float AdaptivePIDControllerBase::GetSensitivityDerivative(float coefficient_deri
         return bClamp(model_error_derivative / coefficient_derivative, -1000.0f, 1000.0f);
     }
 
-    float result = 0.0f;
-    if (!bEqual(model_error_derivative, 0.0f, 0.001f)) {
-        if (model_error_derivative <= 0.0f) {
-            return -1.0f;
-        }
+    if (bEqual(model_error_derivative, 0.0f, 0.001f)) {
+        return 0.0f;
+    }
+    if (model_error_derivative > 0.0f) {
         return 1.0f;
     }
-    return result;
+    return -1.0f;
 }
 
 float AdaptivePIDControllerBase::Sign(float v) {

@@ -4,28 +4,225 @@
 #include "Speed/Indep/Src/FEng/FEWideString.h"
 #include "Speed/Indep/Src/FEng/FEngStandard.h"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEListBox::FEListBox()
     : mulFlags(FELISTBOX_FLAGS_DONTWRAP), //
       mulNumColumns(0),                   //
       mulNumRows(0),                      //
-      mstViewDimensions(0.0f, 0.0f),      //
-      mstCurrentLocation(0.0f, 0.0f),     //
+      mstViewDimensions(0.0f),            //
+      mstCurrentLocation(0.0f),           //
       mpstColumnData(nullptr),            //
       mpstRowData(nullptr),               //
-      mstSelectionSpeed(1.0f, 1.0f),      //
+      mstSelectionSpeed(1.0f),            //
       mulCurrentColumn(0),                //
       mulCurrentRow(0),                   //
       mpstCells(nullptr),                 //
-      mstTargetLocation(0.0f, 0.0f),      //
-      mstDirection(0.0f, 0.0f),           //
+      mstTargetLocation(0.0f),            //
+      mstDirection(0.0f),                 //
       mfCurrentAlpha(1.0f),               //
       mfAlphaDelta(-1.0f / 720.0f) {
     Type = FE_List;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEListBox::~FEListBox() {
     Terminate();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::Terminate() {
     if (!(mulFlags & FELISTBOX_FLAGS_INITIALIZED)) {
@@ -37,30 +234,56 @@ void FEListBox::Terminate() {
     CleanupCells();
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::SetNumColumns(u32 ulNumColumns) {
+
     if (ulNumColumns == 0) {
+
         CleanupColumns();
         CleanupCells();
         return;
     }
 
+
     FEListEntryData *pstNewColumns = FNEW FEListEntryData[ulNumColumns];
     u32 ulNumCopy = 0;
+
+
+
     if (mulNumColumns != 0) {
-        ulNumCopy = ulNumColumns;
-        if (ulNumColumns > mulNumColumns) {
-            ulNumCopy = mulNumColumns;
-        }
+
+        ulNumCopy = ulNumColumns > mulNumColumns ? mulNumColumns : ulNumColumns;
         FEngMemCpy(pstNewColumns, mpstColumnData, ulNumCopy * sizeof(FEListEntryData));
-        if (mpstColumnData) {
-            delete[] mpstColumnData;
-        }
+
+
+        delete[] mpstColumnData;
+
+
     }
     InitializeListEntry(pstNewColumns + ulNumCopy, ulNumColumns - ulNumCopy);
+
+
+
 
     u32 ulNumCells = ulNumColumns * mulNumRows;
     FEListBoxCell *pstCells = nullptr;
     if (ulNumCells != 0) {
+
         pstCells = FNEW FEListBoxCell[ulNumCells];
         if (mpstCells) {
             for (u32 c = 0; c < mulNumRows; c++) {
@@ -69,9 +292,9 @@ void FEListBox::SetNumColumns(u32 ulNumColumns) {
                 FEngMemCpy(pstCells + dstOff, mpstCells + srcOff, ulNumCopy);
                 InitializeCell(pstCells + dstOff + ulNumCopy, ulNumColumns - ulNumCopy);
             }
-            if (mpstCells) {
-                delete[] mpstCells;
-            }
+            delete[] mpstCells;
+
+
         } else {
             InitializeCell(pstCells, ulNumCells);
         }
@@ -81,8 +304,32 @@ void FEListBox::SetNumColumns(u32 ulNumColumns) {
     mpstCells = pstCells;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::SetNumRows(u32 ulNumRows) {
+
     if (ulNumRows == 0) {
+
         CleanupRows();
         CleanupCells();
         return;
@@ -90,28 +337,36 @@ void FEListBox::SetNumRows(u32 ulNumRows) {
 
     u32 ulNumCopy = 0;
     FEListEntryData *pstNewRows = FNEW FEListEntryData[ulNumRows];
+
+
+
+
     if (mulNumRows != 0) {
-        ulNumCopy = ulNumRows;
-        if (ulNumRows > mulNumRows) {
-            ulNumCopy = mulNumRows;
-        }
+
+        ulNumCopy = ulNumRows > mulNumRows ? mulNumRows : ulNumRows;
         FEngMemCpy(pstNewRows, mpstRowData, ulNumCopy * sizeof(FEListEntryData));
-        if (mpstRowData) {
-            delete[] mpstRowData;
-        }
+
+
+        delete[] mpstRowData;
+
+
     }
     InitializeListEntry(pstNewRows + ulNumCopy, ulNumRows - ulNumCopy);
+
+
+
 
     u32 ulNumCells = mulNumColumns * ulNumRows;
     FEListBoxCell *pstCells = nullptr;
     if (ulNumCells != 0) {
+
         pstCells = FNEW FEListBoxCell[ulNumCells];
         if (mpstCells) {
             FEngMemCpy(pstCells, mpstCells, ulNumCopy * mulNumColumns);
             InitializeCell(pstCells + ulNumCopy * mulNumColumns, (ulNumRows - ulNumCopy) * mulNumColumns);
-            if (mpstCells) {
-                delete[] mpstCells;
-            }
+            delete[] mpstCells;
+
+
         } else {
             InitializeCell(pstCells, ulNumCells);
         }
@@ -120,6 +375,103 @@ void FEListBox::SetNumRows(u32 ulNumRows) {
     mpstRowData = pstNewRows;
     mpstCells = pstCells;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::SetCellType(u32 ulType) {
     FEListBoxCell *pstCell = GetPCellData(mulCurrentColumn, mulCurrentRow);
@@ -132,18 +484,95 @@ void FEListBox::SetCellType(u32 ulType) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::SetCellString(const i16 *psString) {
     FEListBoxCell *pCell = GetPCellData(mulCurrentColumn, mulCurrentRow);
+
+
+
     if (pCell->u.string.pStr) {
+
         delete[] pCell->u.string.pStr;
         pCell->u.string.pStr = nullptr;
     }
+
     if (psString) {
+
         u32 ulNewLength = (GetStringLength(psString) + 1);
         pCell->u.string.pStr = FNEW i16[ulNewLength];
         FEngMemCpy(pCell->u.string.pStr, psString, ulNewLength * sizeof(i16));
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::IncrementCellByColumn() {
     mulCurrentColumn++;
@@ -155,6 +584,404 @@ void FEListBox::IncrementCellByColumn() {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
     u32 i;
@@ -196,7 +1023,7 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
                 do {
                     mstCurrentLocation.h = mstCurrentLocation.h + GetColumnData(i)->fValue;
                     i32 next = i + 1;
-                    i = next - (next / mulNumColumns) * mulNumColumns;
+                    i = next % mulNumColumns;
                 } while (i != static_cast<i32>(mulCurrentColumn));
             } else {
                 if (lColumn < static_cast<i32>(mulNumColumns)) {
@@ -206,12 +1033,12 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
                 i32 i = mulCurrentColumn;
                 do {
                     mstTargetLocation.h =
-                        mstTargetLocation.h + GetColumnData(i - (i / mulNumColumns) * mulNumColumns)->fValue;
+                        mstTargetLocation.h + GetColumnData(i % mulNumColumns)->fValue;
                     i = i + 1;
                 } while (i != lColumn);
             }
             mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
-            mulCurrentColumn = lColumn - (lColumn / mulNumColumns) * mulNumColumns;
+            mulCurrentColumn = lColumn % mulNumColumns;
             goto end_column;
         }
     set_column:
@@ -261,7 +1088,7 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
                 do {
                     mstCurrentLocation.v = mstCurrentLocation.v + GetRowData(i)->fValue;
                     i32 next = i + 1;
-                    i = next - (next / mulNumRows) * mulNumRows;
+                    i = next % mulNumRows;
                 } while (i != static_cast<i32>(mulCurrentRow));
             } else {
                 if (lRow < static_cast<i32>(mulNumRows)) {
@@ -270,12 +1097,12 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
                 mstTargetLocation.v = mstCurrentLocation.v;
                 i32 i = mulCurrentRow;
                 do {
-                    mstTargetLocation.v = mstTargetLocation.v + GetRowData(i - (i / mulNumRows) * mulNumRows)->fValue;
+                    mstTargetLocation.v = mstTargetLocation.v + GetRowData(i % mulNumRows)->fValue;
                     i = i + 1;
                 } while (i != lRow);
             }
             mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
-            mulCurrentRow = lRow - (lRow / mulNumRows) * mulNumRows;
+            mulCurrentRow = lRow % mulNumRows;
             goto end_row;
         }
     set_row:
@@ -314,6 +1141,63 @@ compute_direction:
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::Update(float fNumTicks) {
     mfCurrentAlpha = mfCurrentAlpha + mfAlphaDelta * fNumTicks;
     if (mfCurrentAlpha < 0.0f) {
@@ -339,6 +1223,32 @@ void FEListBox::Update(float fNumTicks) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::SetAutoWrap(bool bStopWrap) {
     if (bStopWrap) {
         mulFlags &= ~FELISTBOX_FLAGS_DONTWRAP;
@@ -347,9 +1257,44 @@ void FEListBox::SetAutoWrap(bool bStopWrap) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::InitializeListEntry(FEListEntryData *pstEntries, u32 ulNumEntries) {
     FEngMemSet(pstEntries, 0, ulNumEntries * sizeof(FEListEntryData));
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::InitializeCell(FEListBoxCell *pstCells, u32 ulNumCells) {
     for (u32 i = 0; i < ulNumCells; i++) {
@@ -362,41 +1307,97 @@ void FEListBox::InitializeCell(FEListBoxCell *pstCells, u32 ulNumCells) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::CleanupColumns() {
     if (mulNumColumns != 0) {
-        if (mpstColumnData) {
-            delete[] mpstColumnData;
-        }
+        delete[] mpstColumnData;
         mpstColumnData = nullptr;
         mulNumColumns = 0;
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::CleanupRows() {
     if (mulNumRows != 0) {
-        if (mpstRowData) {
-            delete[] mpstRowData;
-        }
+        delete[] mpstRowData;
         mpstRowData = nullptr;
         mulNumRows = 0;
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEListBox::CleanupCells() {
-    u32 numCells = mulNumRows * mulNumColumns;
-    if (numCells != 0) {
-        for (u32 i = 0; i < numCells; i++) {
+    u32 ulNumCells = mulNumRows * mulNumColumns;
+    if (ulNumCells != 0) {
+        for (u32 i = 0; i < ulNumCells; i++) {
             if (mpstCells[i].ulType == 2 && mpstCells[i].u.string.pStr) {
                 delete[] mpstCells[i].u.string.pStr;
                 mpstCells[i].u.string.pStr = nullptr;
             }
         }
-        if (mpstCells) {
-            delete[] mpstCells;
-        }
+        delete[] mpstCells;
         mpstCells = nullptr;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::RecalculateCummulative() {
     FEListEntryData *pstColumn = mpstColumnData;
@@ -415,6 +1416,27 @@ void FEListBox::RecalculateCummulative() {
         pstRow++;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEListBox::CompleteScroll() {
     mstCurrentLocation = mstTargetLocation;

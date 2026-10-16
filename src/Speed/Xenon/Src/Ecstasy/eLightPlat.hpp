@@ -6,6 +6,10 @@
 #endif
 
 struct eLightMaterialPlatInterface {
+    // X360: el original la lleva (UnloaderLights lee Version en +0x10 y el nodo en +4,
+    // como con PlatInfo de PC; tamano 0xA8 del objeto en .data).
+    void *PlatInfo; // offset 0x0, size 0x4
+
     void CreatePlatInfo();
     void UpdatePlatInfo();
 };

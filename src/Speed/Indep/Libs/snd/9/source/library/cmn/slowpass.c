@@ -2,6 +2,8 @@
 
 int SNDCTRL_lowpass(int shandle, int lowpasscutoff) {
     int setvoice;
+
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
 
     if (voice >= 0) {

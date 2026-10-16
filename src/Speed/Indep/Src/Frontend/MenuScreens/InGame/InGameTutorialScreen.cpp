@@ -20,6 +20,7 @@ bool InGameAnyTutorialScreen::PackageSet = false;
 static const char *InGameTutorialScreenName = "InGameAnyTutorial.fng";
 
 InGameAnyTutorialScreen::InGameAnyTutorialScreen(ScreenConstructorData *sd) : MenuScreen(sd) {
+#ifndef EA_BUILD_A124
     unsigned int str_hash = 0;
     bool mSkipable = true;
 
@@ -29,6 +30,11 @@ InGameAnyTutorialScreen::InGameAnyTutorialScreen(ScreenConstructorData *sd) : Me
     if (eIsWidescreen()) {
         cFEng::Get()->QueuePackageMessage(0x70d2183b, GetPackageName(), 0);
     }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (FEDatabase->GetVideoSettings()->WideScreen) {
+        cFEng::Get()->QueuePackageMessage(0x70d2183b, GetPackageName(), 0);
+    }
+#endif
 
     CareerSettings *career = FEDatabase->GetCareerSettings();
 
@@ -74,7 +80,6 @@ InGameAnyTutorialScreen::InGameAnyTutorialScreen(ScreenConstructorData *sd) : Me
     FEngSetLanguageHash(GetPackageName(), 0x5a0ee0d8, label_hash);
     FEngSetLanguageHash(GetPackageName(), 0x07d2ea5d, label_hash);
 
-#ifndef EA_BUILD_A124
     mSubtitler.BeginningMovie(MovieFilename, GetPackageName());
 #endif
     new EFadeScreenOff(0x14035fb);
@@ -103,7 +108,9 @@ void InGameAnyTutorialScreen::NotificationMessage(u32 msg, FEObject *obj, u32 pa
 }
 
 InGameAnyTutorialScreen::~InGameAnyTutorialScreen() {
+#ifndef EA_PLATFORM_PLAYSTATION2
     gInGameMoviePlaying = false;
+#endif
 }
 
 void InGameAnyTutorialScreen::LaunchMovie(const char *filename
@@ -112,7 +119,9 @@ void InGameAnyTutorialScreen::LaunchMovie(const char *filename
                                           const char *packageName
 #endif
 ) {
+#ifndef EA_PLATFORM_PLAYSTATION2
     gInGameMoviePlaying = true;
+#endif
 #ifndef EA_BUILD_A124
     PackageSet = false;
 #endif
@@ -130,10 +139,14 @@ void InGameAnyTutorialScreen::LaunchMovie(const char *filename
 }
 
 void InGameAnyTutorialScreen::DismissMovie() {
+#ifndef EA_PLATFORM_PLAYSTATION2
     gInGameMoviePlaying = false;
+#endif
     MNotifyMovieFinished().Post(UCrc32(0x20d60dbf));
     cFEng::Get()->QueuePackagePop(0);
+#ifndef EA_BUILD_A124
     cFEng::Get()->QueueGameMessage(0xc3960eb9, PackageFilename, 0xff);
+#endif
     new EFadeScreenOn(
 #ifndef EA_BUILD_A124
         false

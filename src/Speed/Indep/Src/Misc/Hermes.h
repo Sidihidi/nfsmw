@@ -12,12 +12,26 @@
 
 struct lua_State;
 
+// El nombre solo existe en MILESTONE_BUILD (como en Attrib::Class::TablePolicy):
+// en el DOL de GC hay 0 copias y en A124 esta en cada TU que lo expande.
 inline void *DefaultTableAllocFunc(size_t bytes) {
-    return AttribAlloc::Allocate(bytes, "Attrib::vechashmap");
+    return AttribAlloc::Allocate(bytes,
+#ifdef MILESTONE_BUILD
+                                  "Attrib::vechashmap"
+#else
+                                  nullptr
+#endif
+    );
 }
 
 inline void DefaultTableFreeFunc(void *ptr, size_t bytes) {
-    AttribAlloc::Free(ptr, bytes, "Attrib::vechashmap");
+    AttribAlloc::Free(ptr, bytes,
+#ifdef MILESTONE_BUILD
+                      "Attrib::vechashmap"
+#else
+                      nullptr
+#endif
+    );
 }
 
 namespace Hermes {

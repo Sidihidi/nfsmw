@@ -24,24 +24,31 @@ char *g_DataPaths[] = {"sound\\", "sound\\Engine\\", "sound\\evt_sys\\", "sound\
 int DISABLE_SLOT_LOADING = 0;
 extern "C" int SNDmemlargestunused(int *start);
 extern "C" int SNDmemlimits(int lower, int upper);
-extern void *bMalloc(int size, int allocation_params);
-extern void *bMalloc(int size, const char *name, int line, int pool);
-extern char *bStrCat(char *destString, const char *s1, const char *s2);
-extern void bFree(void *ptr);
+// r75: fuera 4 extern duplicados (bMalloc x2, bStrCat, bFree): ya los declara
+// bWare.hpp/Strings.hpp, alcanzables por los includes propios del fichero
+// (AudioMemoryManager.hpp -> bWare.hpp; bFile.hpp -> Strings.hpp).
+#include "Speed/Indep/Src/Misc/Main.hpp" // DoWithMainMemoryStack (PS2); ocupa la linea de relleno
 extern "C" void SNDSYS_service();
 extern int QueuedFileDefaultPriority;
 extern stSndDataLoadParams g_SndAssetList[];
 extern Timer WorldTimer;
 int StartBankLoadTicks = 0;
 
-// .rodata:0x803D6B78, 0x20 B. La declara EAXAemsManager.h:248 y no la definia
-// nadie. Valores leidos del zEAXSound extraido.
+// .rodata, 0x20 B: GameCube 0x803D6B78; la ranura 0 de PS2 es menor (la RAM del SPU): SLUS 0x4CE308, A124 0x545390.
+// PC (speed.exe 0x896364, la lee InitializeSlots 0x4D0CD0): sin ARAM, todo el banco va a MAIN.
 const int EAXAemsManager::m_SlotSizes[4][2] = {
+#if defined(EA_PLATFORM_WIN32)
+    {0, 160000}, {0, 140000}, {0, 0}, {0, 0}};
+#else
+#if defined(EA_PLATFORM_PLAYSTATION2) && defined(EA_BUILD_A124)
+    {53000, 10000},
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    {47000, 10000},
+#else
     {157000, 15360},
-    {0, 0},
-    {0, 0},
-    {0, 20480},
-};
+#endif
+    {0, 0}, {0, 0}, {0, 20480}};
+#endif
 namespace Csis {
 extern ClassHandle gFX_NITROUSHandle;
 extern InterfaceId FX_NITROUSId;
@@ -155,16 +162,18 @@ EAXAemsManager::EAXAemsManager() : m_pAsyncBuff(nullptr) {
     this->mAsyncBuffSize = 0x10000;
     this->m_nCallbackEvtSys = -1;
     this->m_pCurLoadSDLP = nullptr;
+#ifndef EA_BUILD_A124
     this->m_pAsyncLoadSDLP = nullptr;
     this->m_ItemsPendingAsyncResolve = 0;
-#ifndef EA_BUILD_A124
     this->m_bBulkLoad = false;
 #endif
     m_ExternalLoadCallback = nullptr;
     this->m_pEvtSystems.clear();
     this->mWaitForResolve.clear();
     this->mBankSlots.clear();
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     this->mPFBankSlot.clear();
+#endif
     this->m_SPUMainAllocsEnd = 0;
     this->m_SPU_UpperAddress = 0;
 }
@@ -185,10 +194,17 @@ EAXAemsManager::~EAXAemsManager() {
 }
 
 bool EAXAemsManager::AreResourceLoadsPending() {
+#ifdef EA_BUILD_A124
+    // La A124 solo mira la cola de espera (EAXAemsManager.cpp:287 de su .mdebug).
+    if (this->mWaitForResolve.size() != 0) {
+        return true;
+    }
+#else
     if (this->m_pCurLoadSDLP != nullptr || this->m_ItemsPendingAsyncResolve != 0 ||
         this->m_IsWaitingForFileCB != 0 || this->m_nCurLoadedBankIndex < (this->m_nEndOfList - 1)) {
         return true;
     }
+#endif
     return false;
 }
 
@@ -231,7 +247,11 @@ int EAXAemsManager::AddEventSystem(eEVTSYS eESIndex, eSNDDATAPATH eSDP) {
 
 void EAXAemsManager::EvtSysLoadCallback(int param, int error_status) {
     gAEMSMgr.m_nCallbackEvtSys = param;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    DoWithMainMemoryStack((void *)SubscribeEventSys, 0, 0);
+#else
     SubscribeEventSys();
+#endif
 }
 
 void *EAXAemsManager::GetCallbackEventSys() {
@@ -259,10 +279,12 @@ void EAXAemsManager::UnloadSndData(int Index) {
         return;
     }
 
+#ifndef EA_BUILD_A124 // la A124 no espera a las cargas pendientes
     while (this->AreResourceLoadsPending()) {
         ServiceQueuedFiles();
         g_pEAXSound->Update(0.1f);
     }
+#endif
 
     this->m_pCurUNLOADSDLP = g_SndAssetList + Index;
     if (!this->m_pCurUNLOADSDLP->bResolvedSync) {
@@ -523,6 +545,11 @@ void EAXAemsManager::CheckForCompleteAsyncLoad() {
 }
 
 void EAXAemsManager::CompleteAsyncLoad() {
+#ifdef EA_BUILD_A124
+    gAEMSMgr.m_pCurLoadSDLP->bResolvedAsync = 1;
+    SNDmemlimits(-1, gAEMSMgr.m_SPUMainAllocsEnd);
+    this->m_pCurLoadSDLP->t_load = WorldTimer;
+#else
     stSndDataLoadParams *m_pCurrentlyLoading;
     int Result;
     float delta;
@@ -534,7 +561,8 @@ void EAXAemsManager::CompleteAsyncLoad() {
     m_pCurrentlyLoading->bResolvedAsync = 1;
     SNDmemlimits(-1, gAEMSMgr.m_SPUMainAllocsEnd);
     m_pCurrentlyLoading->t_load = WorldTimer;
-    delta = (WorldTimer - Timer(static_cast<int>(StartBankLoadTicks))).GetSeconds();
+    delta = (WorldTimer - Timer(StartBankLoadTicks)).GetSeconds();
+#endif
 }
 
 void EAXAemsManager::ResolvePendingAsyncLoads() {}
@@ -602,7 +630,11 @@ ReprocessQueue:
         }
     } else {
         this->SetupNextLoad();
+#ifdef EA_BUILD_A124
+        if (this->m_pCurLoadSDLP == nullptr) {
+#else
         if (this->m_pCurLoadSDLP == nullptr && this->m_ItemsPendingAsyncResolve == 0) {
+#endif
             if (this->m_pAsyncBuff != nullptr) {
                 if (this->m_AsyncBuffLocation == TMP_ALLOC_AUDIO) {
                     gAudioMemoryManager.FreeMemory(this->m_pAsyncBuff);
@@ -666,6 +698,22 @@ ReprocessQueue:
 }
 
 void *EAXAemsManager::AsyncResidentAllocCB(int size) {
+#ifdef EA_BUILD_A124
+    // La A124 no tiene carga asincrona en bloque: siempre la carga en curso, releida de gAEMSMgr tras cada llamada.
+    void *newresalloc;
+    if (gAEMSMgr.m_pCurLoadSDLP->mBankSlot != nullptr) {
+        newresalloc = gAEMSMgr.m_pCurLoadSDLP->mBankSlot->pLastAlloc;
+        gAEMSMgr.m_pCurLoadSDLP->mBankSlot->pLastAlloc += size;
+    } else {
+        const char *filename = gAEMSMgr.m_pCurLoadSDLP->AssetDescription.FileName.GetString();
+        char dbgstring[64];
+        bStrCat(dbgstring, filename, ": resident allocation");
+        newresalloc = gAudioMemoryManager.AllocateMemory(size, dbgstring, true);
+        unsigned int newresallocaddr = reinterpret_cast<unsigned int>(newresalloc);
+        gAEMSMgr.m_pCurLoadSDLP->resallocs.push_back(newresallocaddr);
+    }
+    return newresalloc;
+#else
     stSndDataLoadParams *tmpLoading = gAEMSMgr.m_pAsyncLoadSDLP;
     stSndDataLoadParams *m_pCurrentlyLoading;
     void *newresalloc;
@@ -687,6 +735,7 @@ void *EAXAemsManager::AsyncResidentAllocCB(int size) {
         m_pCurrentlyLoading->resallocs.push_back(newresallocaddr);
     }
     return newresalloc;
+#endif
 }
 
 void *EAXAemsManager::ResidentAllocCB(void *pbank, int residentsize, int totalsize) {
@@ -695,7 +744,7 @@ void *EAXAemsManager::ResidentAllocCB(void *pbank, int residentsize, int totalsi
         EAXAemsManager &mgr = gAEMSMgr;
         void *resmem;
         if (mgr.m_pCurLoadSDLP->AssetDescription.eDataType == SDT_AEMS_MAINMEM) {
-            resmem = bMalloc(residentsize, 0x1040);
+            resmem = bMalloc(residentsize, mgr.m_pCurLoadSDLP->AssetDescription.FileName.GetString(), 0, 0x1040);
         } else {
             stBankSlot *pBankSlot = mgr.m_pCurLoadSDLP->mBankSlot;
             if (pBankSlot != nullptr) {
@@ -718,15 +767,23 @@ void *EAXAemsManager::ResidentAllocCB(void *pbank, int residentsize, int totalsi
 
 void EAXAemsManager::DataLoadCB(int param, int error_status) {
     (void)error_status;
+#ifndef EA_BUILD_A124
     StartBankLoadTicks = bGetTicker();
+#endif
     gAEMSMgr.m_pCurLoadSDLP = reinterpret_cast<stSndDataLoadParams *>(param);
+#ifndef EA_BUILD_A124
     gAEMSMgr.m_pCurLoadSDLP->t_load = WorldTimer;
+#endif
 
     switch (gAEMSMgr.m_pCurLoadSDLP->AssetDescription.eDataType) {
     case SDT_AEMS_AUDIOMEM:
     case SDT_AEMS_MAINMEM:
     case SDT_AEMS_SYNCSPU:
+#ifdef EA_PLATFORM_PLAYSTATION2
+        DoWithMainMemoryStack((void *)AddAemsBank, 0, 0);
+#else
         AddAemsBank();
+#endif
         gAEMSMgr.ResolveCurrentDataMemory();
         gAEMSMgr.m_pCurLoadSDLP->bResolvedAsync = true;
         gAEMSMgr.m_pCurLoadSDLP->bResolvedSync = true;
@@ -767,6 +824,10 @@ void EAXAemsManager::DataLoadCB(int param, int error_status) {
     }
 
     gAEMSMgr.m_IsWaitingForFileCB = false;
+#ifdef EA_BUILD_A124
+    // La A124 sella el tiempo de carga al final (EAXAemsManager.cpp:1344 de su .mdebug).
+    gAEMSMgr.m_pCurLoadSDLP->t_load = WorldTimer;
+#endif
 }
 
 void EAXAemsManager::ResolveCurrentDataMemory() {
@@ -826,17 +887,20 @@ int EAXAemsManager::IsAssetLoaded(Attrib::StringKey filename) {
 }
 
 void EAXAemsManager::QueueFileLoad(stSndAssetQueue &queueitem, eBANK_SLOT_TYPE SlotType) {
-    int bankIndex = this->IsAssetInList(queueitem.Asset.FileName);
-    if (bankIndex == -1) {
+    int bankIndex = -1;
+    if (this->IsAssetInList(queueitem.Asset.FileName) == -1) {
         if (DISABLE_SLOT_LOADING != 0) {
             SlotType = eBANK_SLOT_NONE;
         }
         stBankSlot *slot = nullptr;
 
         if (SlotType != eBANK_SLOT_NONE) {
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
             if (SlotType == eBANK_SLOT_PATHFINDER) {
                 slot = this->mPFBankSlot.GetFreeSlot(eBANK_SLOT_PATHFINDER);
-            } else {
+            } else
+#endif
+            {
                 slot = this->mBankSlots.GetFreeSlot(SlotType);
             }
 
@@ -863,25 +927,33 @@ void EAXAemsManager::QueueFileLoad(stSndAssetQueue &queueitem, eBANK_SLOT_TYPE S
 
 void EAXAemsManager::InitializeSlots(bool bDoPFSlot) {
     if (DISABLE_SLOT_LOADING == 0) {
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
         if (bDoPFSlot) {
             this->mPFBankSlot.DestroySlots();
         }
+#endif
         this->mBankSlots.DestroySlots();
         this->m_SPUMainAllocsEnd = this->m_SPU_UpperAddress;
         for (int n = 0; n < 4; n++) {
             this->RegisterSlots(static_cast<eBANK_SLOT_TYPE>(n), m_RequiredSlots[n], m_SlotSizes[n][0], m_SlotSizes[n][1], bDoPFSlot);
         }
+#ifndef EA_PLATFORM_WIN32
         SNDmemlimits(-1, this->m_SPUMainAllocsEnd);
+#endif
     }
 }
 
 void EAXAemsManager::DestroySlots(bool bDoPFSlot) {
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     if (bDoPFSlot == true) {
         this->mPFBankSlot.DestroySlots();
     }
+#endif
     this->mBankSlots.DestroySlots();
     this->m_SPUMainAllocsEnd = this->m_SPU_UpperAddress;
+#ifndef EA_PLATFORM_WIN32
     SNDmemlimits(-1, this->m_SPU_UpperAddress);
+#endif
     bMemSet(EAXAemsManager::m_RequiredSlots, 0, 0x10);
 }
 
@@ -901,15 +973,20 @@ void EAXAemsManager::RegisterSlots(eBANK_SLOT_TYPE Type, int NumSlots, int SizeP
         NewSlot.BANKMemSize = SizePerSlotSPU;
         NewSlot.pAssetParams = nullptr;
 
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
         if (Type == eBANK_SLOT_PATHFINDER && bDoPFSlot) {
             this->mPFBankSlot.push_back(NewSlot);
-        } else {
+        } else
+#endif
+        {
             this->mBankSlots.push_back(NewSlot);
         }
     }
 }
 
+// Orden del mapa de lineas de GameCube (SndDataParams.hpp:285-294): Type primero, LoadFailed el ultimo.
 inline void stBankSlot::Clear() {
+    this->Type = static_cast<eBANK_SLOT_TYPE>(-1);
     this->BANKmemLocation = 0;
     this->MAINmemLocation = nullptr;
     this->pLastAlloc = nullptr;
@@ -917,6 +994,5 @@ inline void stBankSlot::Clear() {
     this->pAssetParams = nullptr;
     this->BANKMemSize = 0;
     this->MAINmemSize = 0;
-    this->Type = static_cast<eBANK_SLOT_TYPE>(-1);
     this->LoadFailed = 0;
 }

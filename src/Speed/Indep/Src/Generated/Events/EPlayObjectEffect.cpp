@@ -103,10 +103,10 @@ void EPlayObjectEffect_MakeEvent_Callback(const void *staticData) {
                           gEventDynamicData.fVelocity);
 }
 
-int EPlayObjectEffect_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 6) {
-        new EPlayObjectEffect(lua_tostring(L, 1), UCrc32(lua_tostring(L, 2)), lua_tonumber(L, 3), UCrc32(lua_tostring(L, 4)),
-                              (unsigned int) lua_tonumber(L, 5), (unsigned int) lua_tonumber(L, 6), gEventDynamicData.fhModel,
+int EPlayObjectEffect_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 6) {
+        new EPlayObjectEffect(lua_tostring(luaState, 1), UCrc32(lua_tostring(luaState, 2)), lua_tonumber(luaState, 3), UCrc32(lua_tostring(luaState, 4)),
+                              (unsigned int) lua_tonumber(luaState, 5), (unsigned int) lua_tonumber(luaState, 6), gEventDynamicData.fhModel,
                               gEventDynamicData.fVelocity);
     }
     return 0;

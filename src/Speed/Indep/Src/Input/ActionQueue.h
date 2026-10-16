@@ -33,8 +33,6 @@ public:
     ~ActionQueue();
 
     const char *GetName() {
-        if (mQueueName == nullptr)
-            return "";
         return mQueueName;
     }
     bool IsRequired() const { return mRequired && mPort >= 0; }
@@ -69,7 +67,9 @@ public:
     const ActionRef operator[](int i);
     // int Size() {}
 
-    // Timer LastActionTime() const {}
+    Timer LastActionTime() const {
+        return mActionTime;
+    }
 
     // Timer ActivationTime() const {}
 

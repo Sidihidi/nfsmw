@@ -136,7 +136,8 @@ SndBase *SFXCTL_GameState::CreateObject(unsigned int allocator) {
 }
 
 void SFXCTL_GameState::UpdateMixerOutputs() {
-    for (int i = 0; i <= 13; i++) {
+    // El limite es MAX_SFX_STATE: la A124 no tiene SFX_STATE_FADE_OUT (12 estados, slti 0xd) y el resto 13 (slti 0xe).
+    for (int i = 0; i <= MAX_SFX_STATE; i++) {
         if (g_ActiveSFXStates & (1 << i)) {
             this->SetDMIX_Input(i, 0x7fff);
         } else {

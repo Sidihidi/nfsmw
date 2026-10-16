@@ -23,6 +23,10 @@
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_FeWorldMapQuickList.hpp"
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_UI_DebugCarCustomize.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Online/LobbyUsers.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/uiMain.hpp"
+#endif
 
 extern int g_MaximumMaximumTimesBusted;
 
@@ -71,8 +75,7 @@ QRCarSelectBustedManager::QRCarSelectBustedManager(const char *pkg_name, int fla
 
 QRCarSelectBustedManager::~QRCarSelectBustedManager() {
     if (ImpoundStampHash) {
-        uint32 hash = ImpoundStampHash;
-        eUnloadStreamingTexture(&hash, 1);
+        eUnloadStreamingTexture(ImpoundStampHash);
         ImpoundStampHash = 0;
     }
 }
@@ -97,7 +100,7 @@ void QRCarSelectBustedManager::NotificationMessage(u32 msg, FEObject *pobj, u32 
             WorkingCareerRecord->SetVehicleHeat(0.0f);
             {
                 unsigned int cost = WorkingCarRecord->GetReleaseFromImpoundCost();
-                FEDatabase->GetCareerSettings()->SpendCash(static_cast<int>(static_cast<float>(cost)));
+                FEDatabase->GetCareerSettings()->SpendCash(bFloatToInt(static_cast<float>(cost)));
             }
             RefreshHeader();
             return;
@@ -129,12 +132,21 @@ void QRCarSelectBustedManager::NotificationMessage(u32 msg, FEObject *pobj, u32 
 void QRCarSelectBustedManager::TextureLoadedCallback() {
     if (ShowImpoundedTexture()) {
         FEngSetTextureHash(ParentPkg, 0xce18427d, ImpoundStampHash);
+#ifdef EA_BUILD_A124
+        FEngSetTextureHash(ParentPkg, 0xbc7b91f, ImpoundStampHash);
+#else
         FEngSetTextureHash(ParentPkg, 0x5b8f2a45, ImpoundStampHash);
-        if (Flags == BUSTED_ANIM_SHOW_IMPOUNDED) {
+#endif
+        bool animate = Flags == BUSTED_ANIM_SHOW_IMPOUNDED;
+        if (animate) {
             FEngSetScript(ParentPkg, 0xbc7b91f, FEHASH_ANIMATE, true);
             Flags = BUSTED_ANIM_NOTHING;
         } else {
+#ifdef EA_BUILD_A124
+            FEngSetScript(ParentPkg, 0xbc7b91f, FEHASH_SHOW, true);
+#else
             FEngSetScript(ParentPkg, 0xbc7b91f, FEHASH_NORMAL, true);
+#endif
         }
     } else {
         FEngSetScript(ParentPkg, 0xbc7b91f, 0x16a259, true);
@@ -170,6 +182,7 @@ void QRCarSelectBustedManager::LoadImpoundTexture() {
         case 13:
             ImpoundStampHash = 0xce184620;
             break;
+#ifndef EA_BUILD_A124
         case 8:
             ImpoundStampHash = 0xce185c2f;
             break;
@@ -182,13 +195,18 @@ void QRCarSelectBustedManager::LoadImpoundTexture() {
         case 11:
             ImpoundStampHash = 0xce188180;
             break;
+#endif
         default:
             ImpoundStampHash = 0xce18427d;
             break;
     }
 
+#ifdef EA_BUILD_A124
+    eLoadStreamingTexture(ImpoundStampHash, TextureLoadedCallbackAccessor, reinterpret_cast<uint32>(this), 0);
+#else
     uint32 hash = ImpoundStampHash;
     eLoadStreamingTexture(&hash, 1, TextureLoadedCallbackAccessor, reinterpret_cast<uintptr_t>(this), 0);
+#endif
 }
 
 void QRCarSelectBustedManager::SetSelectedCar(FECarRecord *record) {
@@ -242,7 +260,7 @@ void QRCarSelectBustedManager::RefreshHeader() {
         FEngSetScript(ParentPkg, 0x64f3a49c, 0x16a259, true);
     }
     if ((WorkingCareerRecord->TheImpoundData.TimesBusted & 0x80) == 0) {
-        FEngSetVisible(FEngFindObject(ParentPkg, 0x75721326));
+        FEngSetVisible(ParentPkg, 0x75721326);
         int posIndex = 1;
         unsigned int script1 = 0x16a259;
         unsigned int script2 = 0x16a259;
@@ -277,16 +295,16 @@ void QRCarSelectBustedManager::RefreshHeader() {
         }
     } else {
         if (WorkingCareerRecord->TheImpoundData.IsReleasable()) {
-            FEngSetInvisible(FEngFindObject(ParentPkg, 0x75721326));
+            FEngSetInvisible(ParentPkg, 0x75721326);
         } else if (WorkingCareerRecord->TheImpoundData.IsImpounded()) {
-            FEngSetInvisible(FEngFindObject(ParentPkg, 0x75721326));
+            FEngSetInvisible(ParentPkg, 0x75721326);
         } else {
             bNotImpounded = true;
         }
     }
     if (bNotImpounded) {
         FEngSetScript(ParentPkg, 0xbc7b91f, 0x16a259, true);
-        FEngSetInvisible(FEngFindObject(ParentPkg, 0x75721326));
+        FEngSetInvisible(ParentPkg, 0x75721326);
         FEngSetLanguageHash(ParentPkg, 0xb94139f4, 0x2b65a216);
     }
 }
@@ -305,21 +323,26 @@ bool QRCarSelectBustedManager::CalcGameOver() {
 void QRCarSelectBustedManager::MaybeReleaseCar() {
     FECareerRecord *record = FEDatabase->GetPlayerCarStable(0)->GetCareerRecordByHandle(WorkingCarRecord->CareerHandle);
     float costf = WorkingCarRecord->GetReleaseFromImpoundCost();
-    int cost = static_cast<int>(costf);
+    int cost = bFloatToInt(costf);
     bool has_cash = FEDatabase->GetCareerSettings()->GetCash() >= cost;
     bool has_marker = TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_IMPOUND_RELEASE, 0) > 0;
 
     if (record->TheImpoundData.IsReleasable() && has_cash) {
         if (has_marker) {
+#ifdef EA_BUILD_A124 // la A124 abre el dialogo en el primer boton
+            DialogInterface::ShowThreeButtons(ParentPkg, "", dialog_confirmation, 0xf9c73cc2, 0x4eb9591f, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0xa0fc39f9,
+                                              0x5ee58948, 0x5ee58948, first_dialog_button1, 0xb715ae8f, cost);
+#else
             DialogInterface::ShowThreeButtons(ParentPkg, "", dialog_confirmation, 0xf9c73cc2, 0x4eb9591f, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0xa0fc39f9,
                                               0x5ee58948, 0x5ee58948, first_dialog_button2, 0xb715ae8f, cost);
+#endif
         } else {
             DialogInterface::ShowTwoButtons(ParentPkg, "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xa0fc39f9, 0x5ee58948, first_dialog_button1,
                                             0xcad5722e, cost);
         }
     } else if (has_marker) {
         DialogInterface::ShowTwoButtons(ParentPkg, "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0x5ee58948, first_dialog_button1,
-                                        0xed4dd591, static_cast<int>(costf));
+                                        0xed4dd591, bFloatToInt(costf));
     } else {
         DialogInterface::ShowOneButton(ParentPkg, "", dialog_alert, LANGUAGE_COMMON_OK, 0x5ee58948, 0xe96fa0c5);
     }
@@ -369,16 +392,24 @@ UIQRCarSelect::UIQRCarSelect(ScreenConstructorData *sd)
     if (FEDatabase->IsSplitScreenMode()) {
         const u32 FEObj_PLAYER_TEXT_GROUP = 0xe3fe27fe;
         if (iPlayerNum == 0) {
+#ifdef EA_BUILD_A124 // la A124 no lleva gPlayerNum y borra el perfil del segundo jugador en el destructor
+            FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), FEObj_PLAYER_TEXT_GROUP, LANGUAGE_COMMON_PLAYER_1);
+#else
             gPlayerNum = iPlayerNum;
             FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), FEObj_PLAYER_TEXT_GROUP, LANGUAGE_COMMON_PLAYER_1);
             FEDatabase->DeleteMultiplayerProfile(1);
+#endif
         } else {
+#ifndef EA_BUILD_A124
             gPlayerNum = 1;
+#endif
             FEDatabase->CreateMultiplayerProfile(1);
             FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), FEObj_PLAYER_TEXT_GROUP, LANGUAGE_COMMON_PLAYER_2);
         }
+#ifndef EA_BUILD_A124
     } else {
         gPlayerNum = 0;
+#endif
     }
 
     if (!FEDatabase->IsCarLotMode()) {
@@ -388,10 +419,16 @@ UIQRCarSelect::UIQRCarSelect(ScreenConstructorData *sd)
         FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x20c83c31);
     }
 
+#ifdef EA_BUILD_A124 // sin LAN y con un solo objeto que ocultar
+    if (FEDatabase->IsOnlineMode()) {
+        FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xe9ed0a2);
+    }
+#else
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xe9ed0a2);
         FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x18a4384f);
     }
+#endif
 
     if (TheBustedManager.IsImpoundInfoVisible()) {
         TheBustedManager.LoadImpoundTexture();
@@ -400,20 +437,30 @@ UIQRCarSelect::UIQRCarSelect(ScreenConstructorData *sd)
     InitStatsSliders();
     SetAsGarageScreen();
     Setup();
+#ifndef EA_BUILD_A124 // la A124 no tiene el empujon de camara del garaje
     if (!FEDatabase->IsCareerMode() || !FEDatabase->IsCarLotMode()) {
         GarageMainScreen::GetInstance()->CancelCameraPush();
     }
+#endif
 }
 
-UIQRCarSelect::~UIQRCarSelect() {}
+UIQRCarSelect::~UIQRCarSelect() {
+#ifdef EA_BUILD_A124 // la A124 borra aqui el perfil del segundo jugador de la pantalla partida
+    if (FEDatabase->IsSplitScreenMode() && iPlayerNum == 1) {
+        FEDatabase->DeleteMultiplayerProfile(1);
+    }
+#endif
+}
 
 bool UIQRCarSelect::IsCarImpounded(uint32 handle) {
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FECarRecord *car = stable->GetCarRecordByHandle(handle);
     FECareerRecord *career = stable->GetCareerRecordByHandle(car->CareerHandle);
+#ifndef EA_BUILD_A124 // la A124 no comprueba el historial
     if (!career) {
         return false;
     }
+#endif
     return career->TheImpoundData.IsImpounded();
 }
 
@@ -430,10 +477,12 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
 
     switch (msg) {
         case 0x1265ece9: {
+#ifndef EA_BUILD_A124 // la A124 mueve la camara en todos los modos
             if (!FEDatabase->IsCareerMode())
                 return;
             if (!FEDatabase->IsCarLotMode())
                 return;
+#endif
             GarageMainScreen::GetInstance()->UpdateCurrentCameraView(false);
             return;
         }
@@ -451,9 +500,15 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
             if (!tLastEventTimer.IsSet())
                 return;
             float elapsed = (RealTimer - tLastEventTimer).GetSeconds();
-            if (elapsed < 0.25f)
-                return;
-            {
+            if (elapsed >= 0.25f) {
+#ifdef EA_BUILD_A124 // la A124 cancela la carga si no hay coche elegido
+                if (!pSelectedCar) {
+                    CarViewer::CancelCarLoad(static_cast<eCarViewerWhichCar>(0));
+                    cFEng::Get()->QueuePackageMessage(0x913fa282, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
+                    bLoadingBarActive = false;
+                    return;
+                }
+#endif
                 RideInfo ride;
                 FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
                 stable->BuildRideForPlayer(pSelectedCar->mHandle, iPlayerNum, &ride);
@@ -479,12 +534,13 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                 return;
             if (pSelectedCar->bLocked != 0)
                 return;
-            unsigned int flags = FEDatabase->GetGameMode();
-            if ((flags & 8) != 0)
+            if (FEDatabase->IsOnlineMode())
                 return;
-            if ((flags & 0x40) != 0)
+#ifndef EA_BUILD_A124 // la A124 no tiene LAN
+            if (FEDatabase->IsLANMode())
                 return;
-            if ((FEDatabase->GetGameMode() & 1) != 0 && (FEDatabase->GetGameMode() & 0x8000) == 0) {
+#endif
+            if (FEDatabase->IsCareerMode() && !FEDatabase->IsCarLotMode()) {
                 FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
                 FECarRecord *car = GetSelectedCarRecord();
                 FECareerRecord *career = stable->GetCareerRecordByHandle(car->CareerHandle);
@@ -519,7 +575,7 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                 return;
             if (FEDatabase->IsCarLotMode())
                 return;
-            if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 15)
+            if (FEDatabase->IsDDay())
                 return;
             if (!pSelectedCar)
                 return;
@@ -542,9 +598,7 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
             }
             char buf[512];
             char cost_str[16];
-            const char *digits_fmt = "%$d";
-            unsigned int cost = car->GetCost();
-            bSNPrintf(cost_str, 0x10, digits_fmt, cost >> 1);
+            bSNPrintf(cost_str, 0x10, "%$d", car->GetCost() >> 1);
             bSNPrintf(buf, 0x200, GetLocalizedString(0xb4a40135), cost_str);
             DialogInterface::ShowTwoButtons(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_YES, LANGUAGE_COMMON_NO,
                                             0xa46253ba, 0x34dc1bcf, 0x34dc1bcf, first_dialog_button2, buf);
@@ -552,10 +606,17 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
         }
         case 0xc519bfc3: {
             if (FEDatabase->IsSplitScreenMode()) {
+#ifdef EA_BUILD_A124
+                unsigned int op = 0x413;
+                if (iPlayerNum == 1) {
+                    op = 0x20413;
+                }
+#else
                 unsigned int op = 0x411;
                 if (iPlayerNum == 1) {
                     op = 0x20411;
                 }
+#endif
                 MemcardEnter(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), reinterpret_cast<MenuScreen *>(this)->GetPackageName(), op,
                              nullptr, nullptr, 0x7e998e5e, 0x8867412d);
                 return;
@@ -569,24 +630,33 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
             if (bShowcaseMode) {
                 unsigned int handle = pSelectedCar->mHandle;
                 FECarRecord *car = FEDatabase->GetPlayerCarStable(iPlayerNum)->GetCarRecordByHandle(handle);
+#ifdef EA_BUILD_A124 // la A124 vuelve del showcase por Showcase::FromIndex
+                Showcase::FromIndex = pSelectedCar->mHandle;
+                Showcase::FromArgs = 0;
+                Showcase::FromPackage = reinterpret_cast<MenuScreen *>(this)->GetPackageName();
+                Showcase::FromCarHandle = 0xffffffff;
+#else
                 ForceCar = pSelectedCar->mHandle;
                 Showcase::FromArgs = iPlayerNum;
                 Showcase::FromPackage = reinterpret_cast<MenuScreen *>(this)->GetPackageName();
+#endif
                 cFEng::Get()->QueuePackageSwitch("Showcase.fng", reinterpret_cast<int>(car), 0, false);
                 return;
             }
+#ifndef EA_BUILD_A124
             ForceCar = 0xffffffff;
+#endif
             if (iPrevButtonMsg == 0x406415e3) {
-                if ((FEDatabase->GetGameMode() & 8) != 0 || (FEDatabase->GetGameMode() & 0x40) != 0) {
+                if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
                     cFEng::Get()->QueuePackageSwitch("OL_MAIN.fng", 0, 0, false);
                     return;
                 }
-                if ((FEDatabase->GetGameMode() & 1) != 0) {
-                    if ((FEDatabase->GetGameMode() & 0x8000) == 0) {
+                if (FEDatabase->IsCareerMode()) {
+                    if (!FEDatabase->IsCarLotMode()) {
                         cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
                         return;
                     }
-                } else if ((FEDatabase->GetGameMode() & 0x20) != 0) {
+                } else if (FEDatabase->IsCustomizeMode()) {
                     unsigned int handle = pSelectedCar->mHandle;
                 FECarRecord *car = FEDatabase->GetPlayerCarStable(iPlayerNum)->GetCarRecordByHandle(handle);
                     if (!car->IsCustomized()) {
@@ -597,7 +667,7 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                     cFEng::Get()->QueuePackageSwitch("MyCarsManager.fng", 0, 0, false);
                     return;
                 }
-                if (FEDatabase->RaceMode != GRace::kRaceType_Drag) {
+                if (FEDatabase->RaceMode != 2) {
                     if (FEDatabase->GetPlayerSettings(iPlayerNum)->TransmissionPromptOn != 0) {
                         goto choose_transmission;
                     }
@@ -605,26 +675,40 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                 if (FEDatabase->IsSplitScreenMode() && iPlayerNum != 1) {
                     return;
                 }
+#ifdef EA_BUILD_A124 // la A124 no borra el perfil del segundo jugador al empezar
+                FEManager::Get()->AllowControllerError(true);
+                RaceStarter::StartRace();
+#else
                 CommitChangeStartRace(true);
+#endif
                 return;
             } else if (iPrevButtonMsg == 0x911ab364) {
-                int iVar3 = -1;
-                unsigned int flags = FEDatabase->GetGameMode();
-                if ((flags & 1) != 0) {
-                    if ((flags & 0x8000) != 0) {
+                unsigned int iVar3 = 0xFFFFFFFF;
+                if (FEDatabase->IsCareerMode()) {
+#ifdef EA_BUILD_A124 // la A124 devuelve el coche antes de mirar el concesionario
+                    if (!IsCarImpounded(originalCar)) {
+                        FEDatabase->GetCareerSettings()->SetCurrentCar(originalCar);
+                    }
+                    if (FEDatabase->IsCarLotMode()) {
+                        RaceStarter::StartCareerFreeRoam();
+                        return;
+                    }
+#else
+                    if (FEDatabase->IsCarLotMode()) {
                         RaceStarter::StartCareerFreeRoam();
                         return;
                     }
                     if (!IsCarImpounded(originalCar)) {
                         FEDatabase->GetCareerSettings()->SetCurrentCar(originalCar);
                     }
+#endif
                     cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
-                } else if ((FEDatabase->GetGameMode() & 8) != 0 || (FEDatabase->GetGameMode() & 0x40) != 0) {
+                } else if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
                     RaceSettings *settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
                     settings->SelectedCar[iPlayerNum] = originalCar;
                     cFEng::Get()->QueuePackageSwitch("OL_MAIN.fng", 0, 0, false);
                 } else {
-                    bool allowControllerError = (FEDatabase->GetGameMode() & 0x20) != 0;
+                    bool allowControllerError = FEDatabase->IsCustomizeMode();
                     if (allowControllerError) {
                         cFEng::Get()->QueuePackageSwitch("MyCarsManager.fng", 0, 0, false);
                     } else {
@@ -646,7 +730,7 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                         }
                     }
                 }
-                if (iVar3 != -1) {
+                if (iVar3 != 0xFFFFFFFF) {
                     RideInfo ride;
                     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
                     stable->BuildRideForPlayer(iVar3, iPlayerNum, &ride);
@@ -684,16 +768,20 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
             float elapsed = (RealTimer - tLastEventTimer).GetSeconds();
             if (elapsed < 0.25f)
                 return;
-            if ((FEDatabase->GetGameMode() & 8) != 0 || (FEDatabase->GetGameMode() & 0x40) != 0) {
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+#ifndef EA_BUILD_A124
                 OnlineActOnSelect();
+#endif
                 iPrevButtonMsg = 0x406415e3;
                 ChooseTransmission();
                 return;
             }
-            if ((FEDatabase->GetGameMode() & 1) != 0) {
-                if ((FEDatabase->GetGameMode() & 0x8000) != 0) {
+            if (FEDatabase->IsCareerMode()) {
+                if (FEDatabase->IsCarLotMode()) {
+#ifndef EA_BUILD_A124 // la A124 no lista las partidas viejas
                     if (MemoryCard::GetInstance()->IsListingOldSaveFiles())
                         return;
+#endif
                     unsigned int cost = GetSelectedCarRecord()->GetCost();
                     if (cost > static_cast<unsigned int>(FEDatabase->GetCareerSettings()->GetCash())) {
                         DialogInterface::ShowOneButton(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK,
@@ -701,12 +789,16 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                         return;
                     }
                     FEPlayerCarDB *stable2 = FEDatabase->GetPlayerCarStable(iPlayerNum);
+#ifdef EA_BUILD_A124
+                    if (stable2->GetNumCareerCars() > 9) {
+#else
                     if (stable2->GetNumPurchasedCars() > 9) {
+#endif
                         DialogInterface::ShowOneButton(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK,
                                                        0x34dc1bcf, 0x41030a1b);
                         return;
                     }
-                    if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 15) {
+                    if (FEDatabase->IsDDay()) {
                         DialogInterface::ShowTwoButtons(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_YES,
                                                         LANGUAGE_COMMON_NO, 0xd05fc3a3, 0x34dc1bcf, 0x34dc1bcf, first_dialog_button2, 0x74317cbc);
                         return;
@@ -728,16 +820,27 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                 cFEng::Get()->QueuePackageMessage(FEHASH_LEAVE_ACCEPT, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
                 return;
             }
-            if ((FEDatabase->GetGameMode() & 0x20) != 0) {
+            if (FEDatabase->IsCustomizeMode()) {
                 iPrevButtonMsg = 0x406415e3;
                 cFEng::Get()->QueuePackageMessage(FEHASH_LEAVE_ACCEPT, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
                 return;
             }
-            if (FEDatabase->RaceMode != GRace::kRaceType_Drag) {
+            if (FEDatabase->RaceMode != 2) {
                 if (FEDatabase->GetPlayerSettings(iPlayerNum)->TransmissionPromptOn != 0) {
                     goto choose_transmission;
                 }
             }
+#ifdef EA_BUILD_A124 // la A124 mira antes la pantalla partida y ata el mando al jugador uno
+            if (FEDatabase->IsSplitScreenMode() && iPlayerNum == 0) {
+                cFEng::Get()->QueuePackageSwitch("PressStart.fng", true, 0xff, false);
+                return;
+            }
+            char port = FEngMapJoyParamToJoyport(param1);
+            FEDatabase->SetPlayersJoystickPort(0, port);
+            iPrevButtonMsg = 0x406415e3;
+            cFEng::Get()->QueuePackageMessage(FEHASH_LEAVE_ACCEPT, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
+            return;
+#else
             char port = FEngMapJoyParamToJoyport(param1);
             FEDatabase->SetPlayersJoystickPort(iPlayerNum, port);
             if (!FEDatabase->IsSplitScreenMode() || iPlayerNum != 0) {
@@ -747,27 +850,37 @@ void UIQRCarSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
             }
             cFEng::Get()->QueuePackageSwitch("PressStart.fng", true, 0xff, false);
             return;
+#endif
         }
 choose_transmission:
         ChooseTransmission();
         return;
         case 0x911ab364: {
             bool bShouldProceed = true;
-            unsigned int flags = FEDatabase->GetGameMode();
-            if ((flags & 1) != 0) {
-                if ((flags & 0x8000) != 0) {
-                    bShouldProceed = FEDatabase->GetCareerSettings()->GetCurrentBin() < 16;
+            if (FEDatabase->IsCareerMode()) {
+                if (FEDatabase->IsCarLotMode()) {
+                    if (FEDatabase->IsDDay()) {
+                        bShouldProceed = false;
+                    }
                 } else {
                     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+#ifdef EA_BUILD_A124 // la A124 mira el coche elegido y ofrece sacarlo del deposito
+                    FECarRecord *car = stable->GetCarRecordByHandle(pSelectedCar->mHandle);
+#else
                     FECarRecord *car = stable->GetCarRecordByHandle(originalCar);
+#endif
                     FECareerRecord *career = stable->GetCareerRecordByHandle(car->CareerHandle);
                     bool impounded = career->TheImpoundData.IsImpounded();
                     if (impounded || career->TheImpoundData.IsReleasable()) {
+#ifdef EA_BUILD_A124
+                        TheBustedManager.MaybeReleaseCar();
+#else
                         DialogInterface::ShowOk(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "", dialog_alert, 0x630931b6);
+#endif
                         bShouldProceed = false;
                     }
                 }
-            } else if ((FEDatabase->GetGameMode() & 8) != 0 || (FEDatabase->GetGameMode() & 0x40) != 0) {
+            } else if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
                 RideInfo ride;
                 FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
                 stable->BuildRideForPlayer(originalCar, iPlayerNum, &ride);
@@ -800,35 +913,69 @@ choose_transmission:
             char port = FEngMapJoyParamToJoyport(param1);
             FEDatabase->SetPlayersJoystickPort(iPlayerNum, port);
             FEDatabase->GetPlayerSettings(iPlayerNum)->Transmission = 0;
+#ifdef EA_BUILD_A124 // la A124 vuelve al menu online y no borra el perfil del segundo jugador
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+                LobbyUsers::Instance().UpdateCarName();
+                cFEng::Get()->QueuePackageSwitch(gOnlineMainMenu, 0, 0, false);
+                return;
+            }
+            if (FEDatabase->IsSplitScreenMode() && iPlayerNum == 0) {
+                cFEng::Get()->QueuePackageSwitch("PressStart.fng", true, 0xff, false);
+                return;
+            }
+            FEManager::Get()->AllowControllerError(false);
+            RaceStarter::StartRace();
+#else
             if (FEDatabase->IsSplitScreenMode() && iPlayerNum == 0) {
                 cFEng::Get()->QueuePackageSwitch("PressStart.fng", true, 0xff, false);
                 return;
             }
             CommitChangeStartRace(false);
+#endif
             return;
         }
         case 0x5f5e3886: {
             char port = FEngMapJoyParamToJoyport(param1);
             FEDatabase->SetPlayersJoystickPort(iPlayerNum, port);
             FEDatabase->GetPlayerSettings(iPlayerNum)->Transmission = 1;
+#ifdef EA_BUILD_A124 // la A124 vuelve al menu online y no borra el perfil del segundo jugador
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+                LobbyUsers::Instance().UpdateCarName();
+                cFEng::Get()->QueuePackageSwitch(gOnlineMainMenu, 0, 0, false);
+                return;
+            }
+            if (FEDatabase->IsSplitScreenMode() && iPlayerNum == 0) {
+                cFEng::Get()->QueuePackageSwitch("PressStart.fng", true, 0xff, false);
+                return;
+            }
+            FEManager::Get()->AllowControllerError(false);
+            RaceStarter::StartRace();
+#else
             if (FEDatabase->IsSplitScreenMode() && iPlayerNum == 0) {
                 cFEng::Get()->QueuePackageSwitch("PressStart.fng", true, 0xff, false);
                 return;
             }
             CommitChangeStartRace(false);
+#endif
             return;
         }
         case 0x7e998e5e:
+#ifdef EA_BUILD_A124 // la A124 solo refresca la cabecera al volver de la tarjeta
+            RefreshHeader();
+#else
             filter = 0xf0001;
             RefreshCarList();
             RefreshHeader();
             cFEng::Get()->QueuePackageMessage(FEHashUpper("ENABLE_INPUTS"), reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
+#endif
             return;
+#ifndef EA_BUILD_A124 // la A124 no refresca la cabecera al liberar el coche
         case 0x8defa48b:
         case 0xa0fc39f9:
         case 0xe845bc1c:
             RefreshHeader();
             return;
+#endif
     }
     return;
 }
@@ -859,7 +1006,11 @@ void UIQRCarSelect::Setup() {
             const u32 FEObj_quickrace = 0xde511657;
             cFEng::Get()->QueuePackageMessage(FEObj_quickrace, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
         }
+#ifdef EA_BUILD_A124 // la A124 no tiene LAN
+    } else if (FEDatabase->IsOnlineMode()) {
+#else
     } else if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+#endif
         const u32 FEObj_online = 0x70fbb1e4;
         cFEng::Get()->QueuePackageMessage(FEObj_online, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
     } else if (FEDatabase->IsCustomizeMode()) {
@@ -872,13 +1023,15 @@ void UIQRCarSelect::Setup() {
 
     FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x64f6d21f);
 
-    if ((FEDatabase->GetGameMode() & 1) != 0) {
+    if (FEDatabase->IsCareerMode()) {
         originalCar = FEDatabase->GetCareerSettings()->GetCurrentCar();
-        if ((FEDatabase->GetGameMode() & 0x8000) != 0) {
+        if (FEDatabase->IsCarLotMode()) {
             filter = 0xf0001;
             UserProfile *profile = FEDatabase->GetUserProfile(0);
-            if ((profile->GetCareer()->SpecialFlags & 2) == 0) {
+            if (!profile->GetCareer()->HasCashBonusBeenAwarded()) {
+#ifndef EA_BUILD_A124 // la A124 no bloquea la entrada mientras lista las partidas viejas
                 cFEng::Get()->QueuePackageMessage(FEHashUpper("DISABLE_INPUTS"), reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
+#endif
                 MemoryCard::GetInstance()->StartListingOldSaveFiles();
             }
             goto init_list_handles;
@@ -887,7 +1040,14 @@ void UIQRCarSelect::Setup() {
     } else {
         RaceSettings *settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
         originalCar = settings->GetSelectedCar(iPlayerNum);
-        if ((FEDatabase->GetGameMode() & 0x20) == 0 && originalCar != 0x12345678) {
+#ifdef EA_BUILD_A124 // la A124 recupera el filtro que cada jugador dejo en la carrera rapida
+        if (FEDatabase->IsCustomizeMode()) {
+            filter = 0xf0001;
+        } else {
+            filter = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->CarSelectFilterBits[iPlayerNum];
+        }
+#else
+        if (!FEDatabase->IsCustomizeMode() && originalCar != 0x12345678) {
             unsigned int m3gtrHash = FEHashUpper("M3GTRCAREERSTART");
             if (originalCar != m3gtrHash) {
                 FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
@@ -899,6 +1059,7 @@ void UIQRCarSelect::Setup() {
             }
         }
         filter = 0xf0001;
+#endif
     }
 
 init_list_handles:
@@ -924,7 +1085,11 @@ void UIQRCarSelect::UpdateSliders() {
     Physics::Info::Performance perf2;
 
     if (pSelectedCar != nullptr) {
+#ifdef EA_BUILD_A124 // la A124 siempre mira la cuadra del jugador uno
+        FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+#else
         FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
+#endif
         if (stable != nullptr) {
             FECarRecord *car = stable->GetCarRecordByHandle(pSelectedCar->mHandle);
             if (car != nullptr) {
@@ -936,7 +1101,7 @@ void UIQRCarSelect::UpdateSliders() {
                 }
                 Physics::Info::EstimatePerformance(pveh, perf1);
             }
-            if ((FEDatabase->GetGameMode() & 1) != 0) {
+            if (FEDatabase->IsCareerMode()) {
                 car = stable->GetCarRecordByHandle(originalCar);
             }
             if (car != nullptr) {
@@ -951,7 +1116,7 @@ void UIQRCarSelect::UpdateSliders() {
         }
     }
 
-    if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 15) {
+    if (FEDatabase->IsDDay()) {
         perf2 = perf1;
     }
 
@@ -969,7 +1134,7 @@ void UIQRCarSelect::UpdateSliders() {
 }
 
 int UIQRCarSelect::GetFilterType() {
-    switch (static_cast<unsigned int>(static_cast<unsigned short>(filter))) {
+    switch (static_cast<unsigned int>(filter) & 0xFFFF) {
         case 1:
             return 0;
         case 2:
@@ -990,6 +1155,28 @@ int UIQRCarSelect::GetFilterType() {
 void UIQRCarSelect::SetupForPlayer(int player) {
     SelectableCar *car = nullptr;
     for (SelectableCar *sc = FilteredCarsList.GetHead(); sc != FilteredCarsList.EndOfList(); sc = static_cast<SelectableCar *>(reinterpret_cast<bTNode<SelectableCar> *>(sc)->GetNext())) {
+#ifdef EA_BUILD_A124 // la A124 vuelve del showcase por Showcase::FromIndex y no fuerza coche
+        if (sc->mHandle == ListHandles[GetFilterType()]) {
+            car = sc;
+            break;
+        }
+        if (Showcase::FromIndex != 0 && sc->mHandle == Showcase::FromIndex) {
+            car = sc;
+            Showcase::FromIndex = 0;
+            break;
+        }
+        if (FEDatabase->IsCareerMode()) {
+            if (sc->mHandle == FEDatabase->GetCareerSettings()->GetCurrentCar()) {
+                car = sc;
+                break;
+            }
+        } else {
+            if (sc->mHandle == FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->GetSelectedCar(iPlayerNum)) {
+                car = sc;
+                break;
+            }
+        }
+#else
         if (ForceCar != 0xFFFFFFFF) {
             if (sc->mHandle == ForceCar) {
                 car = sc;
@@ -1012,14 +1199,17 @@ void UIQRCarSelect::SetupForPlayer(int player) {
                 }
             }
         }
+#endif
     }
+#ifndef EA_BUILD_A124
     if (FEDatabase->IsCarLotMode() && ForceCar == 0xFFFFFFFF) {
         CarViewer::CancelCarLoad(eCARVIEWER_PLAYER1_CAR);
         car = FilteredCarsList.GetHead();
         originalCar = car->mHandle;
     }
     ForceCar = 0xFFFFFFFF;
-    if (car == nullptr && FilteredCarsList.GetHead() != FilteredCarsList.EndOfList()) {
+#endif
+    if (car == nullptr && !FilteredCarsList.IsEmpty()) {
         car = FilteredCarsList.GetHead();
     }
     SetSelectedCar(car, iPlayerNum);
@@ -1028,8 +1218,8 @@ void UIQRCarSelect::SetupForPlayer(int player) {
 
 int UIQRCarSelect::GetBonusUnlockText(FECarRecord *fe_car) {
     switch (fe_car->Handle) {
-        case 0x965fu ... 0x9666u:
-        case 0x13624eu ... 0x136253u:
+        case 0x965fu: case 0x9660u: case 0x9661u: case 0x9662u: case 0x9663u: case 0x9664u: case 0x9665u: case 0x9666u:
+        case 0x13624eu: case 0x13624fu: case 0x136250u: case 0x136251u: case 0x136252u: case 0x136253u:
             return 0x4ef2a115;
         case 0x2cf370f0u:
             return 0xbd8bac94;
@@ -1265,13 +1455,43 @@ void UIQRCarSelect::RefreshHeader() {
 }
 
 void UIQRCarSelect::ChooseTransmission() {
+#ifdef EA_BUILD_A124 // la A124 monta el dialogo a mano y lo ata al mando del jugador en pantalla partida
+    eDialogFirstButtons first_button = first_dialog_button2;
+    if (FEDatabase->GetPlayerSettings(iPlayerNum)->Transmission) {
+        first_button = first_dialog_button1;
+    }
+    feDialogConfig conf;
+    GetLocalizedString(conf.BlurbString, 0x200, LANGUAGE_COMMON_TRANSMISSION);
+    conf.Title = dialog_confirmation;
+    conf.NumButtons = 2;
+    conf.Button1TextHash = LANGUAGE_COMMON_MANUAL;
+    conf.Button1PressedMessage = 0x5f5e3886;
+    conf.Button2TextHash = LANGUAGE_COMMON_AUTO;
+    conf.Button2PressedMessage = 0x1a2826e1;
+    conf.DialogCancelledMessage = 0x1fab5998;
+    conf.FirstButton = first_button;
+    conf.ParentPackage = reinterpret_cast<MenuScreen *>(this)->GetPackageName();
+    conf.DialogPackage = "";
+    conf.bIsDismissable = true;
+    if (FEDatabase->IsSplitScreenMode()) {
+        conf.ControlMask = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(iPlayerNum));
+    } else {
+        conf.ControlMask = 0xff;
+    }
+    DialogInterface::ShowDialog(&conf);
+#else
     DialogInterface::ShowTwoButtons(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "", dialog_confirmation, LANGUAGE_COMMON_MANUAL, LANGUAGE_COMMON_AUTO,
                                     0x5f5e3886, 0x1a2826e1, 0x34dc1bcf,
                                     (eDialogFirstButtons)(FEDatabase->GetPlayerSettings(iPlayerNum)->Transmission == 0), LANGUAGE_COMMON_TRANSMISSION);
+#endif
 }
 
 FECarRecord *UIQRCarSelect::GetSelectedCarRecord() {
+#ifdef EA_BUILD_A124 // la A124 siempre mira la cuadra del jugador uno
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
+#endif
     FECarRecord *selected_car = stable->GetCarRecordByHandle(pSelectedCar->mHandle);
     return selected_car;
 }
@@ -1303,7 +1523,11 @@ void UIQRCarSelect::SetSelectedCar(SelectableCar *newCar, int player_num) {
 }
 
 int SortCarsByUnlock(SelectableCar *a, SelectableCar *b) {
+#ifdef EA_BUILD_A124
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(gPlayerNum);
+#endif
     FECarRecord *carA = stable->GetCarRecordByHandle(a->mHandle);
     Attrib::Gen::frontend fe_a(carA->FEKey, 0, nullptr);
     FECarRecord *carB = stable->GetCarRecordByHandle(b->mHandle);
@@ -1398,18 +1622,25 @@ void UIQRCarSelect::RefreshBonusCarList() {
 
 void UIQRCarSelect::RefreshCarList() {
     ClearCarList();
+#ifndef EA_BUILD_A124 // la A124 no tiene la lista de coches de bonificacion
     if ((filter & 8) != 0) {
         RefreshBonusCarList();
         return;
     }
+#endif
     FEPlayerCarDB *carDB = FEDatabase->GetPlayerCarStable(iPlayerNum);
     unsigned int unlockFilter;
     if (FEDatabase->IsCareerMode()) {
         unlockFilter = 2;
     } else if (FEDatabase->IsQuickRaceMode()) {
         unlockFilter = 1;
+#ifdef EA_BUILD_A124 // sin LAN, y online desbloquea con su propio filtro
+    } else if (FEDatabase->IsOnlineMode()) {
+        unlockFilter = UNLOCK_ONLINE;
+#else
     } else if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         unlockFilter = 7;
+#endif
     } else {
         unlockFilter = 1;
     }
@@ -1473,6 +1704,11 @@ void UIQRCarSelect::ScrollLists(eScrollDir dir) {
 
     uint32 region = this->filter & 0xffff0000;
     uint32 list = this->filter & 0xffff;
+#ifdef EA_BUILD_A124 // la A124 tiene seis listas de coches (la ultima, 0x20)
+    const uint32 last_list = 0x20;
+#else
+    const uint32 last_list = 8;
+#endif
 
     if (GetMikeMannBuild() == 2) {
         if (list == 1) {
@@ -1484,12 +1720,12 @@ void UIQRCarSelect::ScrollLists(eScrollDir dir) {
         }
     } else if (dir == eSD_PREV) {
         if (list == 1) {
-            list = 8;
+            list = last_list;
         } else {
             list = list / 2;
         }
     } else if (dir == eSD_NEXT) {
-        if (list == 8) {
+        if (list == last_list) {
             list = 1;
         } else {
             list = list << 1;
@@ -1497,6 +1733,9 @@ void UIQRCarSelect::ScrollLists(eScrollDir dir) {
     }
 
     filter = region | list;
+#ifdef EA_BUILD_A124 // y guarda el filtro de cada jugador en la carrera rapida
+    FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->CarSelectFilterBits[iPlayerNum] = filter;
+#endif
 
     RefreshCarList();
     RefreshHeader();

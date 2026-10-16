@@ -32,6 +32,9 @@
 #include "Speed/Indep/Src/Frontend/FEManager.hpp"
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Speech/MiscSpeech.h"
+#endif
 
 int g_MaxSongs = (int)0xFFFFFFFF;
 
@@ -61,16 +64,11 @@ cFrontendDatabase *FEDatabase = nullptr;
 cFrontendDatabase *gFEDatabase = FEDatabase;
 
 char *SaveSomeData(void *save_to, void *save_from, int bytes, void *maxptr) {
-    char *dest = static_cast<char *>(save_to);
-
-    if (reinterpret_cast<uint32>(dest) + bytes <= reinterpret_cast<uint32>(maxptr)) {
-
-        bMemCpy(save_to, save_from, bytes);
-        dest = dest + bytes;
-
-        return dest;
+    if (reinterpret_cast<uint32>(save_to) + bytes > reinterpret_cast<uint32>(maxptr)) {
+        return static_cast<char *>(save_to);
     }
-    return static_cast<char *>(save_to);
+    bMemCpy(save_to, save_from, bytes);
+    return static_cast<char *>(save_to) + bytes;
 }
 
 char *LoadSomeData(void *load_to, void *load_from, int bytes, void *maxptr) {
@@ -100,12 +98,12 @@ void PlayerSettings::Default() {
 
 
 
+    // PS2 arranca sin vibracion (sw zero en las dos PS2; GameCube y PC la ponen a 1).
+#ifdef EA_PLATFORM_PLAYSTATION2
+    Rumble = 0;
+#else
     Rumble = 1;
-
-
-
-
-
+#endif
 
 
 
@@ -122,7 +120,7 @@ void PlayerSettings::Default() {
 }
 
 bool PlayerSettings::operator==(const PlayerSettings &rhs) const {
-    return bMemCmp(this, &rhs, 0x2C) == 0;
+    return bMemCmp(this, &rhs, sizeof(PlayerSettings)) == 0;
 }
 
 void PlayerSettings::DefaultFromOptionsScreen() {
@@ -180,26 +178,23 @@ Attrib::Key PlayerSettings::GetControllerAttribs(eControllerAttribs type
 }
 
 void PlayerSettings::ScrollDriveCam(int dir) {
-    int cam = CurCam;
+    int cur_cam = CurCam;
+
     if (dir == 1) {
         do {
-            cam++;
-            if (cam > 6) {
-                cam = 0;
+            if (++cur_cam > 6) {
+                cur_cam = 0;
             }
-        } while (!IsPlayerCameraSelectable(GetPOVTypeFromPlayerCamera(static_cast<ePlayerSettingsCameras>(cam))));
-        CurCam = static_cast<ePlayerSettingsCameras>(cam);
+        } while (!IsPlayerCameraSelectable(GetPOVTypeFromPlayerCamera(static_cast<ePlayerSettingsCameras>(cur_cam))));
     } else if (dir == -1) {
         do {
-            cam--;
-            if (cam < 0) {
-                cam = 6;
+            if (--cur_cam < 0) {
+                cur_cam = 6;
             }
-        } while (!IsPlayerCameraSelectable(GetPOVTypeFromPlayerCamera(static_cast<ePlayerSettingsCameras>(cam))));
-        CurCam = static_cast<ePlayerSettingsCameras>(cam);
-    } else {
-        CurCam = static_cast<ePlayerSettingsCameras>(cam);
+        } while (!IsPlayerCameraSelectable(GetPOVTypeFromPlayerCamera(static_cast<ePlayerSettingsCameras>(cur_cam))));
     }
+
+    CurCam = static_cast<ePlayerSettingsCameras>(cur_cam);
 }
 
 void GameplaySettings::Default() {
@@ -253,12 +248,13 @@ void VideoSettings::Default() {
     ScreenOffsetX = 0.0f;
     ScreenOffsetY = 0.0f;
     WideScreen = false;
+#ifdef EA_PLATFORM_XENON
+    X360Video10 = 0.5f; X360Video14 = 0.51020408f; // NFS.exe 0x822E9BE0 (WideScreen lo toma de un global del XDK)
+#endif
 }
-
 bool VideoSettings::operator==(const VideoSettings &rhs) const {
-    return bMemCmp(this, &rhs, 0x10) == 0;
+    return bMemCmp(this, &rhs, sizeof(VideoSettings)) == 0; // X360: 0x18 (NFS.exe 0x822E9B08)
 }
-
 void AudioSettings::Default() {
     MasterVol = 1.0f;
     SpeechVol = 1.0f;
@@ -269,7 +265,11 @@ void AudioSettings::Default() {
     CarVol = 1.0f;
     AmbientVol = 1.0f;
     SpeedVol = 1.0f;
+#ifdef EA_PLATFORM_WIN32
+    AudioMode = 1;
+#else
     AudioMode = 2;
+#endif
 #ifndef EA_BUILD_A124
     AudioMode = g_pEAXSound->GetDefaultPlatformAudioMode();
 #endif
@@ -277,8 +277,10 @@ void AudioSettings::Default() {
     EATraxMode = 1;
     PlayState = 0;
 }
-
 bool AudioSettings::operator==(const AudioSettings &rhs) const {
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON) // X360: 0x34 B (NFS.exe 0x822E9BA0)
+    return bMemCmp(this, &rhs, sizeof(AudioSettings)) == 0;
+#else
     if (MasterVol != rhs.MasterVol)
         return false;
     if (SpeechVol != rhs.SpeechVol)
@@ -306,6 +308,7 @@ bool AudioSettings::operator==(const AudioSettings &rhs) const {
     if (AudioMode != rhs.AudioMode && AudioMode != AUDIO_MODE_MONO && AudioMode != AUDIO_MODE_STEREO)
         return false;
     return true;
+#endif
 }
 
 void OptionsSettings::Default() {
@@ -343,7 +346,15 @@ void CareerSettings::Default() {
         }
         SMSMessages[i].ClearFlags();
     }
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124 // el prototipo borra aqui las puntuaciones, el juego y los desbloqueos
+    if (GRaceDatabase::Exists()) {
+        GRaceDatabase::Get().ClearRaceScores();
+    }
+    if (GManager::Exists()) {
+        GManager::Get().ResetAllGameplayData();
+    }
+    DefaultUnlockData();
+#else
     SMSSortOrder = 0;
 #endif
 }
@@ -369,30 +380,27 @@ unsigned short CareerSettings::GetSMSSortOrder() {
 #endif
 
 bool SMSMessage::IsVoice() {
+#ifdef EA_BUILD_A124 // el prototipo pregunta al habla si hay llamada para el mensaje
+    if (IsSpeechEnabled && IsSoundEnabled) {
+        return MiscSpeech::IsSMSValid(Handle);
+    }
+    return false;
+#else
     switch (Handle) {
-        case 0x6E:
-        case 0x6F:
-        case 0x78:
-        case 0x79:
-        case 0x7A:
-        case 0x7B:
-        case 0x7C:
-        case 0x7D:
-        case 0x7E:
-        case 0x7F:
-        case 0x80:
-        case 0x81:
-        case 0x82:
-        case 0x84:
-        case 0x85:
-        case 0x86:
-        case 0x87:
-        case 0x88:
-        case 0x89:
+        case 0x6E: case 0x6F:
+        case 0x78: case 0x79:
+        case 0x7A: case 0x7B:
+        case 0x7C: case 0x7D:
+        case 0x7E: case 0x7F:
+        case 0x80: case 0x81:
+        case 0x82: case 0x84:
+        case 0x85: case 0x86:
+        case 0x87: case 0x88: case 0x89:
             return false;
         default:
             return true;
     }
+#endif
 }
 
 void CareerSettings::SpendCash(int amount) {
@@ -404,6 +412,15 @@ void CareerSettings::SpendCash(int amount) {
 }
 
 void CareerSettings::StartNewCareer(bool bEnterGameplay) {
+#ifdef EA_BUILD_A124 // el prototipo borra aqui los marcadores, las puntuaciones y el juego
+    TheFEMarkerManager.Default();
+    if (GRaceDatabase::Exists()) {
+        GRaceDatabase::Get().ClearRaceScores();
+    }
+    if (GManager::Exists()) {
+        GManager::Get().ResetAllGameplayData();
+    }
+#endif
     Default();
     CurrentCar = FEDatabase->GetDefaultCar();
     GenerateCaseFileName();
@@ -411,15 +428,25 @@ void CareerSettings::StartNewCareer(bool bEnterGameplay) {
 
     if (SkipCareerIntro && SkipDDayRaces) {
         CurrentBin = 0xF;
+#ifdef EA_BUILD_A124 // el prototipo no simula el dia D y crea los dos primeros coches de la lista
+        FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+        FECarRecord *rec = stable->CreateNewCareerCar(1);
+        CurrentCar = rec->Handle;
+        rec = stable->CreateNewCareerCar(2);
+        CurrentCar = rec->Handle;
+#else
         GRaceDatabase::Get().SimulateDDayComplete();
         FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
         FECarRecord *rec = stable->CreateNewCareerCar(0x2CF385B2);
         CurrentCar = rec->Handle;
         rec = stable->CreateNewCareerCar(0x03A94520);
         CurrentCar = rec->Handle;
+#endif
     }
 
+#ifndef EA_BUILD_A124
     TryAwardDemoMarker();
+#endif
 
     if (!bEnterGameplay) {
         return;
@@ -435,9 +462,11 @@ void CareerSettings::StartNewCareer(bool bEnterGameplay) {
             CurrentBin = 0xF;
         }
     } else {
+#ifndef EA_BUILD_A124 // el prototipo no empieza la carrera con el M3 GTR
         unsigned int hash = FEHashUpper("M3GTRCAREERSTART");
         FEDatabase->GetCareerSettings()->SetCurrentCar(hash);
         FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SetSelectedCar(hash, 0);
+#endif
         gMemcardSetup.mMemScreen = nullptr;
         gMemcardSetup.mToScreen = nullptr;
         gMemcardSetup.mFromScreen = nullptr;
@@ -472,6 +501,11 @@ void CareerSettings::ResumeCareer() {
         dday_flow_completed = true;
     }
 
+#ifdef EA_BUILD_A124
+    // El prototipo no mira HasBeatenCareer: con el jefe final ganado vuelve siempre a la persecucion.
+    bool finalBossRaceCompleted =
+        GRaceDatabase::Get().IsCareerRaceComplete(GRaceDatabase::Get().GetRaceFromName(GRaceDatabase::Get().GetFinalBossRace())->GetEventHash());
+#else
     const char *lastBossRace = GRaceDatabase::Get().GetFinalBossRace();
     bool finalBossRaceCompleted = false;
     if (!HasBeatenCareer()) {
@@ -479,20 +513,25 @@ void CareerSettings::ResumeCareer() {
             finalBossRaceCompleted = true;
         }
     }
+#endif
 
     if (CurrentBin == 0x10) {
         if (!dday_flow_completed) {
+#ifndef EA_BUILD_A124
             unsigned int hash = FEHashUpper("M3GTRCAREERSTART");
             FEDatabase->GetCareerSettings()->CurrentCar = hash;
             FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SelectedCar[0] = hash;
+#endif
             const char *nextDDayRace = GRaceDatabase::Get().GetNextDDayRace();
             GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromName(nextDDayRace);
             GRaceCustom *race = GRaceDatabase::Get().AllocCustomRace(parms);
             GRaceDatabase::Get().SetStartupRace(race, GRace::kRaceContext_Career);
             GRaceDatabase::Get().FreeCustomRace(race);
+#ifndef EA_BUILD_A124
             if (bStrCmp(nextDDayRace, "16.1.0") != 0) {
                 MemoryCard::GetInstance()->CancelNextAutoSave();
             }
+#endif
         }
         RaceStarter::StartCareerFreeRoam();
     } else if (finalBossRaceCompleted) {
@@ -502,7 +541,9 @@ void CareerSettings::ResumeCareer() {
         GRaceDatabase::Get().SetStartupRace(race, GRace::kRaceContext_Career);
         GRaceDatabase::Get().FreeCustomRace(race);
         RaceStarter::StartCareerFreeRoam();
+#ifndef EA_BUILD_A124
         MemoryCard::GetInstance()->CancelNextAutoSave();
+#endif
     } else {
         FEManager::Get()->SetGarageType(static_cast<eGarageType>(2));
         FEDatabase->ClearGameMode(eFE_GAME_MODE_CAREER_MANAGER);
@@ -578,7 +619,11 @@ char *CareerSettings::LoadFromBuffer(void *buffer, void *maxbuf) {
 }
 
 int32 CareerSettings::GetSaveBufferSize(bool bExcludeGameplay) {
+#ifdef EA_BUILD_A124 // los ajustes de carrera del prototipo ocupan menos
+    int size = TheFEMarkerManager.GetSaveBufferSize() + 0x3e7;
+#else
     int size = TheFEMarkerManager.GetSaveBufferSize() + 0x441;
+#endif
     if (!bExcludeGameplay) {
         size += 0x52C4;
     }
@@ -703,13 +748,94 @@ void UserProfile::SetProfileName(const char *pName, bool isP1) {
     }
 }
 
-const char *UserProfile::GetProfileName() {}
+const char *UserProfile::GetProfileName() {
+    return m_aProfileName;
+}
 
 bool UserProfile::IsProfileNamed() {
     return m_bNamed;
 }
 
 void UserProfile::Default(int player_number, bool commit_default) {
+#ifdef EA_BUILD_A124 // el prototipo reserva la lista de canciones segun la licencia y elige ya el modo de audio
+    if (!player_number) {
+        SetProfileName(nullptr, true);
+    } else {
+        SetProfileName(nullptr, false);
+    }
+
+    PlayersCarStable.Default();
+
+    if (!player_number) {
+        TheOptionsSettings.Default();
+        TheCareerSettings.Default();
+        HighScores.Default();
+        CareerModeHasBeenCompletedAtLeastOnce = false;
+
+        if (g_pEAXSound) {
+            TheOptionsSettings.TheAudioSettings.AudioMode = g_pEAXSound->GetDefaultPlatformAudioMode();
+        }
+
+        if (!Playlist) {
+            Attrib::Gen::audiosystem *playlist_atrs = new Attrib::Gen::audiosystem(0x7E4B0ED2, 0, nullptr);
+            if (playlist_atrs->IsValid()) {
+                Attrib::Gen::audiosystem licensed_music(playlist_atrs->LicensedMusic(), 0, nullptr);
+                g_MaxSongs = licensed_music.Num_PFMapping();
+
+                for (int i = 0; i < static_cast<int>(Songs.size()); i++) {
+                    delete Songs[i];
+                }
+                Songs.clear();
+
+                if (static_cast<int>(Songs.capacity()) < g_MaxSongs) {
+                    Songs.reserve(g_MaxSongs);
+                }
+
+                for (int i = 0; i < g_MaxSongs; i++) {
+                    Sound::stSongInfo *newsong = new ("Sound::stSongInfo", 0) Sound::stSongInfo;
+                    Attrib::Gen::music currsong(static_cast<const Attrib::Collection *>(nullptr), 0, nullptr);
+
+                    currsong.ChangeWithDefault(licensed_music.PFMapping(i));
+
+                    newsong->SongName = const_cast<char *>(currsong.SongName().GetString());
+                    newsong->Album = const_cast<char *>(currsong.Album().GetString());
+                    newsong->Artist = const_cast<char *>(currsong.Artist().GetString());
+                    newsong->DefPlay = const_cast<char *>(currsong.DefPlay().GetString());
+                    newsong->PathEvent = currsong.PathEvent();
+                    Songs.push_back(newsong);
+                }
+            }
+        }
+
+        if (Playlist) {
+            delete[] Playlist;
+        }
+        Playlist = new ("JukeboxEntry[]", 0) JukeboxEntry[Songs.size()];
+
+        for (unsigned int i = 0; i < Songs.size(); i++) {
+            Playlist[i].SongIndex = i;
+
+            Sound::stSongInfo *song = Songs[i];
+            eSongPlayability epbf;
+            if (song == nullptr) {
+                epbf = ePLAY_OFF;
+            } else {
+                if (bStrCmp(song->DefPlay, "FE") == 0) {
+                    epbf = ePLAY_MENU;
+                } else if (bStrCmp(song->DefPlay, "IG") == 0) {
+                    epbf = ePLAY_RACE;
+                } else if (bStrCmp(song->DefPlay, "AL") == 0) {
+                    epbf = ePLAY_ALL;
+                } else {
+                    epbf = ePLAY_OFF;
+                }
+            }
+            Playlist[i].PlayabilityField = epbf;
+        }
+
+        InitializeEATrax();
+    }
+#else
     static bool song_info_loaded = false;
 
     if (!player_number) {
@@ -794,6 +920,7 @@ void UserProfile::Default(int player_number, bool commit_default) {
 
     PlayersCarStable.AwardBonusCars();
     TheCareerSettings.TryAwardDemoMarker();
+#endif
 }
 
 void UserProfile::CommitHighScoresPauseQuit() {
@@ -831,6 +958,15 @@ void UserProfile::SaveToBuffer(void *buffer, int size) {
     buf = TheCareerSettings.SaveToBuffer(buf, maxbuf);
     buf = SaveSomeData(buf, &FEDatabase->iDefaultStableHash, 4, maxbuf);
     buf = SaveSomeData(buf, m_aProfileName, 0x20, maxbuf);
+#ifdef EA_BUILD_A124 // el prototipo guarda la lista de canciones entera, un solo coche de carrera rapida y lo de online
+    buf = SaveSomeData(buf, Playlist, g_MaxSongs * sizeof(JukeboxEntry), maxbuf);
+    buf = SaveSomeData(buf, &TheOptionsSettings, 0xC0, maxbuf);
+    buf = PlayersCarStable.SaveToBuffer(buf, maxbuf - buf);
+    buf = SaveSomeData(buf, &CareerModeHasBeenCompletedAtLeastOnce, 4, maxbuf);
+    buf = SaveSomeData(buf, &HighScores, 0xBD8, maxbuf);
+    buf = SaveSomeData(buf, &FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SelectedCar[0], 4, maxbuf);
+    buf = FEDatabase->OnlineSettings.SaveToBuffer(buf);
+#else
     buf = SaveSomeData(buf, Playlist, 0xF0, maxbuf);
     buf = SaveSomeData(buf, &TheOptionsSettings, 0xC0, maxbuf);
     int stableSize = PlayersCarStable.GetSaveBufferSize();
@@ -842,6 +978,7 @@ void UserProfile::SaveToBuffer(void *buffer, int size) {
         unsigned int h = settings->GetSelectedCar(0);
         buf = SaveSomeData(buf, &h, 4, maxbuf);
     }
+#endif
     WriteProfileHash(static_cast<char *>(buffer) + 0x10, buf, size - 0x20, maxbuf);
 }
 
@@ -851,6 +988,38 @@ bool UserProfile::LoadFromBuffer(void *buffer, int size, bool commit_changes
                                  int player_id
 #endif
 ) {
+#ifdef EA_BUILD_A124 // el prototipo carga la lista de canciones entera y lo de online, y aplica el audio al momento
+    char *buf = static_cast<char *>(buffer);
+    char *maxbuf = buf + size;
+    char aVersion[16];
+    buf = LoadSomeData(aVersion, buf, 0x10, maxbuf);
+    buf = TheCareerSettings.LoadFromBuffer(buf, maxbuf);
+    unsigned int version;
+    buf = LoadSomeData(&version, buf, 4, maxbuf);
+    if (version != FEDatabase->iDefaultStableHash) {
+        return false;
+    }
+    buf = LoadSomeData(m_aProfileName, buf, 0x20, maxbuf);
+    buf = LoadSomeData(Playlist, buf, g_MaxSongs * sizeof(JukeboxEntry), maxbuf);
+    buf = LoadSomeData(&TheOptionsSettings, buf, 0xC0, maxbuf);
+    buf = PlayersCarStable.LoadFromBuffer(buf, maxbuf - buf);
+    PlayersCarStable.AwardBonusCars();
+    buf = LoadSomeData(&CareerModeHasBeenCompletedAtLeastOnce, buf, 4, maxbuf);
+    buf = LoadSomeData(&HighScores, buf, 0xBD8, maxbuf);
+    buf = LoadSomeData(&FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SelectedCar[0], buf, 4, maxbuf);
+    buf = FEDatabase->OnlineSettings.LoadFromBuffer(buf);
+    if (!VerifyProfileHash(static_cast<char *>(buffer) + 0x10, buf, size - 0x20)) {
+        return false;
+    }
+    m_bNamed = true;
+    if (commit_changes) {
+        TheOptionsSettings.TheAudioSettings.AudioMode =
+            g_pEAXSound->SetAudioModeFromMemoryCard(static_cast<eSndAudioMode>(TheOptionsSettings.TheAudioSettings.AudioMode));
+        g_pEAXSound->UpdateVolumes(&TheOptionsSettings.TheAudioSettings, -1.0f);
+        MControlPathfinder(true, 0, 0, 0).Send("EATraxInit");
+    }
+    return true;
+#else
     char *buf = static_cast<char *>(buffer);
     char *maxbuf = buf + size;
     char aVersion[16];
@@ -904,11 +1073,21 @@ bool UserProfile::LoadFromBuffer(void *buffer, int size, bool commit_changes
     }
     m_bNamed = true;
     return true;
+#endif
 }
 
 int32 UserProfile::GetSaveBufferSize(bool bExcludeGameplay) {
+#ifdef EA_BUILD_A124
+    int size = g_MaxSongs * sizeof(JukeboxEntry) + 0xf4;
+    size += TheCareerSettings.GetSaveBufferSize(bExcludeGameplay);
+    size += PlayersCarStable.GetSaveBufferSize();
+    size += 0xbe0;
+    size += FEDatabase->OnlineSettings.GetSaveBufferSize();
+    return size + 0x10;
+#else
     int size = TheCareerSettings.GetSaveBufferSize(bExcludeGameplay) + 0x1e4;
     return size + PlayersCarStable.GetSaveBufferSize() + 0xc18;
+#endif
 }
 
 cFrontendDatabase::cFrontendDatabase()
@@ -919,43 +1098,110 @@ cFrontendDatabase::cFrontendDatabase()
     CurrentUserProfiles[0] = new ("Player 1 UserProfile", 0) UserProfile();
 }
 
+// clang-format off
+// Relleno: desde aqui hasta AllocBackupDB las lineas siguen al original de la A124, cuyo bMalloc
+// (MILESTONE_BUILD) pasa __LINE__: 1145 en Default y 1407 en AllocBackupDB. No anadas ni quites lineas.
+
+
 void cFrontendDatabase::Default() {
+
+
     iNumPlayers = 1;
     bComingFromBoot = true;
     bProfileLoaded = false;
     bIsOptionsDirty = false;
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     bAutoSaveOverwriteConfirmed = false;
 #endif
+
+
+
+
+
     GetUserProfile(0)->Default(0, true);
     iCurPauseSubOptionType = 0;
     iCurPauseOptionType = 0;
     FEGameMode = 0;
+#ifndef EA_BUILD_A124
     if (SkipFE && SkipFESplitScreen) {
         FEGameMode = 4;
         iNumPlayers = 2;
     }
+#endif
     PlayerJoyports[0] = 0;
     PlayerJoyports[1] = -1;
     RaceMode = GRace::kRaceType_Circuit;
     unsigned int default_car = GetDefaultCar();
     DefaultRaceSettings();
     GetUserProfile(0)->GetCareer()->SetCurrentCar(default_car);
+
+
+
+
+
     if (!iDefaultStableHash) {
         FEPlayerCarDB *stable = &GetUserProfile(0)->PlayersCarStable;
         int buf_size = stable->GetSaveBufferSize();
-        char *buf = static_cast<char *>(bMalloc(buf_size, "Memcard Car Stable Hashing", 0, 0x40));
+        char *buf = static_cast<char *>(bMalloc(buf_size, "Memcard Car Stable Hashing", __LINE__, 0x40));
         int save_size = stable->GetSaveBufferSize();
         stable->SaveToBuffer(buf, save_size);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         int crc_size = stable->GetSaveBufferSize();
         iDefaultStableHash = bCalculateCrc32(buf, crc_size, 0xFFFFFFFF);
         bFree(buf);
     }
 }
 
+
 void cFrontendDatabase::DefaultProfile() {
+#ifdef EA_BUILD_A124 // el prototipo no tiene desbloqueos, marcadores ni puntuaciones que borrar
     CurrentUserProfiles[0]->Default(0, true);
-#ifndef EA_BUILD_A124
+    DefaultRaceSettings();
+    unsigned int default_car = GetDefaultCar();
+    GetCareerSettings()->SetCurrentCar(default_car);
+    bProfileLoaded = false;
+    bIsOptionsDirty = false;
+    GetPlayerCarStable(0)->Default();
+    GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SetSelectedCar(GetDefaultCar(), 0);
+    MemoryCard::GetInstance()->SetCardRemovedWithAutoSaveEnabled(false);
+#else
+    CurrentUserProfiles[0]->Default(0, true);
+#ifndef EA_PLATFORM_PLAYSTATION2
     bAutoSaveOverwriteConfirmed = false;
 #endif
     DefaultRaceSettings();
@@ -972,6 +1218,7 @@ void cFrontendDatabase::DefaultProfile() {
     if (GManager::Exists()) {
         GManager::Get().ResetAllGameplayData();
     }
+#endif
 }
 
 void cFrontendDatabase::DefaultRaceSettings() {
@@ -981,14 +1228,42 @@ void cFrontendDatabase::DefaultRaceSettings() {
         settings.Default();
         settings.SetSelectedCar(default_car, 0);
         settings.SetSelectedCar(default_car, 1);
+#ifdef EA_BUILD_A124 // el filtro de coches de cada jugador vive en la carrera rapida
+        settings.CarSelectFilterBits[0] = 0xf0001;
+        settings.CarSelectFilterBits[1] = 0xf0001;
+#endif
     }
     TheQuickRaceSettings[0].NumLaps = 1;
     TheQuickRaceSettings[2].NumLaps = 1;
     TheQuickRaceSettings[5].NumLaps = 1;
-    TheQuickRaceSettings[4].NumOpponents = 0;
     TheQuickRaceSettings[3].NumLaps = TheQuickRaceSettings[3].NumOpponents;
     TheQuickRaceSettings[4].NumLaps = 1;
+    TheQuickRaceSettings[4].NumOpponents = 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void cFrontendDatabase::NotifyDeleteCar(uint32 handle) {
     uint32 default_car = GetDefaultCar();
     for (unsigned int i = 0; i < 11; i++) {
@@ -1002,12 +1277,35 @@ void cFrontendDatabase::NotifyDeleteCar(uint32 handle) {
     }
 }
 
+
 void cFrontendDatabase::SetPlayersJoystickPort(int player, int8 joy_port) {
     if (joy_port == -1 && PlayerJoyports[player] != -1) {
         cFEngJoyInput::mInstance->SetRequiredJoy(static_cast<JoystickPort>(PlayerJoyports[player]), false);
     }
     PlayerJoyports[player] = joy_port;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 unsigned int cFrontendDatabase::GetDefaultCar() {
     Attrib::Gen::frontend frontend(0xeec2271a, 0, nullptr);
@@ -1031,14 +1329,56 @@ unsigned int cFrontendDatabase::GetDefaultCar() {
     return handle;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void cFrontendDatabase::CreateMultiplayerProfile(int player) {
+#ifdef EA_BUILD_A124 // el prototipo rehace siempre el perfil
+    DeleteMultiplayerProfile(player);
+    CurrentUserProfiles[player] = new ("FEDatabase UserProfile", 0) UserProfile;
+    CurrentUserProfiles[player]->Default(player, true);
+#else
     if (!CurrentUserProfiles[player]) {
         CurrentUserProfiles[player] = new ("FEDatabase UserProfile", 0) UserProfile;
         CurrentUserProfiles[player]->Default(player, true);
     }
+#endif
 }
 
 void cFrontendDatabase::DeleteMultiplayerProfile(int player) {
+#ifdef EA_BUILD_A124 // el prototipo borra el perfil de cualquier jugador
+    if (CurrentUserProfiles[player]) {
+        if (player == 1) {
+            RaceSettings *settings = GetQuickRaceSettings(GRace::kRaceType_NumTypes);
+            FEPlayerCarDB *stable = GetPlayerCarStable(1);
+            FECarRecord *record = stable->GetCarRecordByHandle(settings->GetSelectedCar(1));
+            FECustomizationRecord *customization = stable->GetCustomizationRecordByHandle(record->Customization);
+            bStrCpy(SplitScreenCarType, record->GetDebugName());
+            if (customization) {
+                SplitScreenCustomization = static_cast<FECustomizationRecord *>(bMalloc(sizeof(FECustomizationRecord), "Splitscreen FECustomizationRecord", 0, 0x47));
+                bMemCpy(SplitScreenCustomization, customization, sizeof(FECustomizationRecord));
+            } else {
+                SplitScreenCustomization = nullptr;
+            }
+        }
+        delete CurrentUserProfiles[player];
+        CurrentUserProfiles[player] = nullptr;
+    }
+#else
     if (player == 1 && CurrentUserProfiles[1]) {
         RaceSettings *settings = GetQuickRaceSettings(GRace::kRaceType_NumTypes);
         FEPlayerCarDB *stable = GetPlayerCarStable(1);
@@ -1054,10 +1394,17 @@ void cFrontendDatabase::DeleteMultiplayerProfile(int player) {
         delete CurrentUserProfiles[player];
         CurrentUserProfiles[player] = nullptr;
     }
+#endif
 }
 void cFrontendDatabase::AllocBackupDB(bool bForce) {
-    if (!m_pDBBackup && bForce) {
-        m_pDBBackup = static_cast<char *>(bMalloc(GetUserProfileSaveSize(false), "BackupDB Buffer", 0, BMEMORY_ALLOCATE_FROM_TOP));
+
+    if (m_pDBBackup) {
+        return;
+    }
+
+// clang-format on
+    if (bForce) {
+        m_pDBBackup = static_cast<char *>(bMalloc(GetUserProfileSaveSize(false), "BackupDB Buffer", __LINE__, BMEMORY_ALLOCATE_FROM_TOP));
         SaveUserProfileToBuffer(m_pDBBackup, GetUserProfileSaveSize(false));
     }
 }
@@ -1106,12 +1453,13 @@ void cFrontendDatabase::RefreshCurrentRide() {
 }
 
 RaceSettings *cFrontendDatabase::GetQuickRaceSettings(GRace::Type type) {
-    if (static_cast<int>(type) > 10) {
+    if (type >= GRace::kRaceType_NumTypes) {
         return &TheQuickRaceSettings[RaceMode];
     }
     return &TheQuickRaceSettings[type];
 }
 
+#ifndef EA_BUILD_A124
 bool cFrontendDatabase::IsFinalEpicChase() {
     if (GRaceStatus::Exists()) {
         bool ret = false;
@@ -1124,11 +1472,18 @@ bool cFrontendDatabase::IsFinalEpicChase() {
     }
     return false;
 }
+#endif
 
 void cFrontendDatabase::GetRandomRaceOptions(RaceSettings *race, GRace::Type type) {
+#ifdef EA_BUILD_A124 // el prototipo sortea tambien la ayuda y la habilidad
+    race->CatchUp = bRandom(1) != 0;
+    race->CopDensity = static_cast<uint8>(bRandom(4));
+    race->AISkill = static_cast<uint8>(bRandom(3));
+#else
     race->CatchUp = true;
     race->CopDensity = static_cast<uint8>(bRandom(4));
     race->AISkill = 1;
+#endif
     int num_opponents = bRandom(3) + 1;
     race->NumOpponents = static_cast<uint8>(num_opponents);
     switch (type) {
@@ -1170,6 +1525,19 @@ void cFrontendDatabase::FillCustomRace(GRaceCustom *parms, RaceSettings *race) {
         default:
             parms->SetTrafficDensity(0);
             break;
+#ifdef EA_BUILD_A124
+        case 1:
+            parms->SetTrafficDensity(33);
+            break;
+        case 2:
+            parms->SetTrafficDensity(66);
+            break;
+        case 3:
+            parms->SetTrafficDensity(100);
+            break;
+    }
+    parms->SetReversed(race->TrackDirection != 0);
+#else
         case 1:
             parms->SetTrafficDensity(10);
             break;
@@ -1181,6 +1549,7 @@ void cFrontendDatabase::FillCustomRace(GRaceCustom *parms, RaceSettings *race) {
             break;
     }
     parms->SetReversed(race->TrackDirection == 1);
+#endif
 }
 
 void cFrontendDatabase::BuildCurrentRideForPlayer(int player, RideInfo *ride) {
@@ -1188,7 +1557,7 @@ void cFrontendDatabase::BuildCurrentRideForPlayer(int player, RideInfo *ride) {
     unsigned int car;
 
     // El original mezcla accesos por this y por el global FEDatabase.
-    if ((FEDatabase->FEGameMode & eFE_GAME_MODE_QUICK_RACE) || FEDatabase->IsLanMode() || FEDatabase->IsOnlineMode()) {
+    if (FEDatabase->IsQuickRaceMode() || FEDatabase->IsLanMode() || FEDatabase->IsOnlineMode()) {
         car = GetQuickRaceSettings(GRace::kRaceType_NumTypes)->GetSelectedCar(player);
     } else {
         car = FEDatabase->GetCareerSettings()->GetCurrentCar();
@@ -1216,6 +1585,9 @@ void cFrontendDatabase::SaveUserProfileToBuffer(void *buffer, int32 bufsize) {
 }
 
 bool cFrontendDatabase::LoadUserProfileFromBuffer(void *buffer, int bufsize, int player) {
+#ifdef EA_BUILD_A124 // el prototipo carga cada perfil sin copiar los ajustes del segundo jugador
+    return CurrentUserProfiles[player]->LoadFromBuffer(buffer, bufsize, true);
+#else
     if (player == 0) {
         return CurrentUserProfiles[0]->LoadFromBuffer(buffer, bufsize, true
 #ifndef EA_BUILD_A124
@@ -1234,6 +1606,7 @@ bool cFrontendDatabase::LoadUserProfileFromBuffer(void *buffer, int bufsize, int
                 sizeof(PlayerSettings));
         return result;
     }
+#endif
 }
 
 unsigned int cFrontendDatabase::GetChallengeHeaderHash(unsigned int series) {
@@ -1245,6 +1618,9 @@ unsigned int cFrontendDatabase::GetChallengeDescHash(unsigned int series) {
 }
 
 uint32 cFrontendDatabase::GetBountyIconHash(uint32 hal_id) {
+#ifdef EA_BUILD_A124 // el prototipo usa el icono generico de recompensa
+    return 0x021a4b0c;
+#else
     if (hal_id < 5) {
         return 0x8A21B882;
     }
@@ -1252,6 +1628,7 @@ uint32 cFrontendDatabase::GetBountyIconHash(uint32 hal_id) {
         return 0x895EC0AE;
     }
     return 0x9129E7FB;
+#endif
 }
 
 unsigned int cFrontendDatabase::GetBountyHeaderHash(unsigned int spawn_point) {
@@ -1532,16 +1909,20 @@ GameCompletionStats cFrontendDatabase::GetGameCompletionStats() {
 
     for (unsigned int i = 0; i < GRaceDatabase::Get().GetRaceCount(); i++) {
         GRaceParameters *pParams = GRaceDatabase::Get().GetRaceParameters(i);
+#ifndef EA_BUILD_A124 // el prototipo no tiene la prueba de Burger King ni la edicion de coleccionista
         if (bStrCmp(pParams->GetEventID(), GRaceDatabase::Get().GetBurgerKingRace()) != 0) {
             if (GetIsCollectorsEdition() || !pParams->GetIsCollectorsEditionRace()) {
+#endif
                 if (pParams->GetIsChallengeSeriesRace()) {
                     stats.m_nTotalChallengeRaces++;
                     if (GRaceDatabase::Get().IsQuickRaceComplete(pParams->GetEventHash())) {
                         stats.m_nCompletedChallengeRaces++;
                     }
                 }
+#ifndef EA_BUILD_A124
             }
         }
+#endif
     }
 
     for (unsigned int i = 0; static_cast<float>(i) < nTotalMilestones; i++) {
@@ -1551,25 +1932,44 @@ GameCompletionStats cFrontendDatabase::GetGameCompletionStats() {
     }
 
     for (unsigned int i = 0; i < 10; i++) {
+#ifdef EA_BUILD_A124
+        int rankMovement = 15 - FEDatabase->GetMultiplayerProfile(0)->GetHighScores()->CalcPursuitRank(static_cast<ePursuitDetailTypes>(i), true);
+        if (rankMovement >= 0) {
+            nRapSheetRankings += static_cast<float>(rankMovement);
+        }
+#else
         int rankMovement = FEDatabase->GetMultiplayerProfile(0)->GetHighScores()->CalcPursuitRank(static_cast<ePursuitDetailTypes>(i), true);
         if (15 - rankMovement >= 0) {
             nRapSheetRankings += static_cast<float>(15 - rankMovement);
         }
+#endif
     }
 
     stats.m_nRapSheetRankings = static_cast<unsigned char>(nRapSheetRankings / nTotalRapSheetRankings * 100.0f);
     stats.m_nCareer = static_cast<unsigned char>((nCompletedCareerRaces + nMilestonesAwarded) / (nTotalCareerRaces + nTotalMilestones) * 100.0f);
+#ifdef EA_BUILD_A124 // el prototipo calcula el porcentaje de desafios en enteros
+    stats.m_nChallenge = stats.m_nCompletedChallengeRaces / stats.m_nTotalChallengeRaces * 100;
+#else
     stats.m_nChallenge =
         static_cast<unsigned char>(static_cast<float>(stats.m_nCompletedChallengeRaces) / static_cast<float>(stats.m_nTotalChallengeRaces) * 100.0f);
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 ponderan en doble precision (litodp/dpmul/dpadd/dptoul en su asm)
+    stats.m_nOverall = static_cast<unsigned char>(stats.m_nCareer * 0.7 + stats.m_nChallenge * 0.2 + stats.m_nRapSheetRankings * 0.1);
+#else
     stats.m_nOverall = static_cast<unsigned char>(static_cast<float>(static_cast<int>(stats.m_nCareer)) * 0.7f +
                                                   static_cast<float>(static_cast<int>(stats.m_nChallenge)) * 0.2f +
                                                   static_cast<float>(static_cast<int>(stats.m_nRapSheetRankings)) * 0.1f);
+#endif
 
     return stats;
 }
 
 void InitFrontendDatabase() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    FEDatabase = new ("cFrontendDatabase", 0) cFrontendDatabase();
+#else
     FEDatabase = new (GetVirtualMemoryAllocParams()) cFrontendDatabase();
+#endif
     FEDatabase->Default();
 }
 

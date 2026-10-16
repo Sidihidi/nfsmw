@@ -189,14 +189,15 @@ class SndBase : public AudioMemBase {
     int objectID;                    // offset 0x20, size 0x4
 };
 
-#define TYPEINFO(classType) (&classType::s_TypeInfo) // Decl: 421
+#define TYPEINFO(classType) (classType::GetStaticTypeInfo()) // Decl: 421
 // Decl: 429
 #define DECLARE_TYPEINFO()                                                                                                                           \
-  public:                                                                                                                                            \
+  protected:                                                                                                                                         \
     static SndBase::TypeInfo s_TypeInfo;                                                                                                             \
+  public:                                                                                                                                            \
     SndBase::TypeInfo *GetTypeInfo() const override;                                                                                                 \
     const char *GetTypeName() const override;                                                                                                        \
-    static SndBase::TypeInfo *GetStaticTypeInfo();
+    static SndBase::TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 #define DECLARE_CREATABLE() DECLARE_TYPEINFO() static SndBase *CreateObject(uint32 allocator); // Decl: 442
 
 // Decl: 457

@@ -116,7 +116,7 @@ void CARSFX_TrafficEngine::ProcessUpdate() {
         return;
     };
 
-    int VelocityFactor = static_cast<int>(bClamp(this->GetPhysCar()->GetVelocityMagnitudeMPH() * 7.3142858f, 0.0f, 1024.0f));
+    int VelocityFactor = static_cast<int>(bClamp(1024.0f * (this->GetPhysCar()->GetVelocityMagnitudeMPH() / 140.0f), 0.0f, 1024.0f));
     this->GetInstanceID();
     int PitchFactor = this->GetDMixOutput(4, DMX_PITCH) - 0x1000;
     float fDMIXDoppler = this->GetDMixOutput(4, DMX_PITCH);
@@ -351,9 +351,9 @@ void CARSFX_TrafficWoosh::UpdateParams(float t) {
         }
 
         float SpeedDiff = this->GetPlayerSpeedRelativeToUs();
-        bool FastEnough = (SpeedDiff <= TRAFFIC_MIN_PLAYERSPEED_FOR_FX);
+        bool FastEnough = SpeedDiff > TRAFFIC_MIN_PLAYERSPEED_FOR_FX;
 
-        if (FastEnough || (this->tSinceLastWoosh + 3.0f > this->m_pStateBase->GetCurTime())) {
+        if (!FastEnough || (this->tSinceLastWoosh + 3.0f > this->m_pStateBase->GetCurTime())) {
             return;
         }
 

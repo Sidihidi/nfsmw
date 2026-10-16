@@ -119,22 +119,22 @@ void CARSFX_Shift::AttachController(SFXCTL *psfxctl) {
 void CARSFX_Shift::UpdateParams(float t) {
     SndBase::UpdateParams(t);
 
-    if (this->m_DeccelSnd != nullptr && this->m_DeccelSnd->GetRefCount() < 2) {
+    if (this->m_DeccelSnd != nullptr && this->m_DeccelSnd->GetRefCount() <= 1) {
         delete this->m_DeccelSnd;
         this->m_DeccelSnd = nullptr;
     }
 
-    if (this->m_AccelSnd != nullptr && this->m_AccelSnd->GetRefCount() < 2) {
+    if (this->m_AccelSnd != nullptr && this->m_AccelSnd->GetRefCount() <= 1) {
         delete this->m_AccelSnd;
         this->m_AccelSnd = nullptr;
     }
 
-    if (this->m_Disengage != nullptr && this->m_Disengage->GetRefCount() < 2) {
+    if (this->m_Disengage != nullptr && this->m_Disengage->GetRefCount() <= 1) {
         delete this->m_Disengage;
         this->m_Disengage = nullptr;
     }
 
-    if (this->m_Engage != nullptr && this->m_Engage->GetRefCount() < 2) {
+    if (this->m_Engage != nullptr && this->m_Engage->GetRefCount() <= 1) {
         delete this->m_Engage;
         this->m_Engage = nullptr;
     }

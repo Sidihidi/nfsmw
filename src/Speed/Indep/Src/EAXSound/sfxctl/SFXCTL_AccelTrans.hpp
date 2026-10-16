@@ -25,8 +25,9 @@ enum FX_ACCEL_STATE {
 };
 
 struct SFXCTL_AccelTrans : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:

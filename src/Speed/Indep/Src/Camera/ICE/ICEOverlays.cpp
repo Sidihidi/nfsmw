@@ -46,14 +46,13 @@ const char *ICE::GetOverlayName(unsigned char overlay) {
 void ICE::ShowOverlay(unsigned char overlay) {
     if (overlay) {
 
-        if ((gOverlay & 0x7f) != 0 && (gOverlay & 0x80) == 0) {
-            return;
+        if ((gOverlay & 0x7f) == 0 || (gOverlay & 0x80) != 0) {
+
+            new ELoadingScreenOff;
+
+            gOverlay = overlay;
+            cFEng::Get()->PushNoControlPackage(ICE::GetOverlayName(overlay), FE_PACKAGE_PRIORITY_SECOND_CLOSEST);
         }
-
-        new ELoadingScreenOff;
-
-        gOverlay = overlay;
-        cFEng::Get()->PushNoControlPackage(ICE::GetOverlayName(overlay), FE_PACKAGE_PRIORITY_SECOND_CLOSEST);
     }
 }
 

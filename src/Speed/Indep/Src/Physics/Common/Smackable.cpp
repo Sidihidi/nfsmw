@@ -47,10 +47,10 @@ class RBSmackable : public RigidBody {
 unsigned int Smackable_RigidCount = 0;
 
 static float GetDropTimer(const Attrib::Gen::smackable &attributes) {
-    float dropout = attributes.DROPOUT(0);
-    if (dropout <= 0.0f || attributes.DROPOUT(1) <= 0.0f)
+    float result = attributes.DROPOUT(0);
+    if (result <= 0.0f || attributes.DROPOUT(1) <= 0.0f)
         return 0.0f;
-    return dropout;
+    return result;
 }
 
 bool Smackable::Simplify() {
@@ -617,16 +617,12 @@ bool Smackable::ShouldDie() {
 }
 
 bool Smackable::CanRetrigger() const {
-    if (mCollisionBody == NULL) {
-        return false;
-    }
-
-    if (!GetWPos().OnValidFace()) {
-        return false;
-    }
-
-    if (mCollisionBody->IsSleeping()) {
-        return true;
+    if (mCollisionBody != NULL) {
+        if (GetWPos().OnValidFace()) {
+            if (mCollisionBody->IsSleeping()) {
+                return true;
+            }
+        }
     }
 
     return false;
@@ -708,16 +704,17 @@ void Smackable::ProcessOffWorld(float dT) {
 
             mOffWorldTimer += dT;
 
-            if (mOffWorldTimer >= 1.0f) {
-
-                if (mModel && !mPersistant) {
-
-                    mModel->ReleaseModel();
-                    mModel = NULL;
-                }
-
-                Kill();
+            if (mOffWorldTimer < 1.0f) {
+                return;
             }
+
+            if (mModel && !mPersistant) {
+
+                mModel->ReleaseModel();
+                mModel = NULL;
+            }
+
+            Kill();
         } else {
             mOffWorldTimer = 0.0f;
         }

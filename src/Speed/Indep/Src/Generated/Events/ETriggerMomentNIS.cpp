@@ -39,9 +39,9 @@ void ETriggerMomentNIS_MakeEvent_Callback(const void *staticData) {
     new ETriggerMomentNIS(((ETriggerMomentNIS::StaticData *) staticData)->fSceneName, gEventDynamicData.fhModel);
 }
 
-int ETriggerMomentNIS_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ETriggerMomentNIS(lua_tostring(L, 1), gEventDynamicData.fhModel);
+int ETriggerMomentNIS_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ETriggerMomentNIS(lua_tostring(luaState, 1), gEventDynamicData.fhModel);
     }
     return 0;
 }

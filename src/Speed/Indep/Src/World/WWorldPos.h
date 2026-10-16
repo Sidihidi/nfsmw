@@ -25,11 +25,8 @@ class WWorldPos {
         fSurface = nullptr;
     }
 
-    WWorldPos(float yOffset) {
-        fYOffset = yOffset;
-        fFaceValid = 0;
-        fMissCount = 0;
-        fUsageCount = 0;
+    WWorldPos(float yOffset)
+        : fFaceValid(0), fMissCount(0), fUsageCount(0), fYOffset(yOffset) {
         fFace.fPt0 = UMath::Vector3::kZero;
         fFace.fPt1 = UMath::Vector3::kZero;
         fFace.fPt2 = UMath::Vector3::kZero;
@@ -64,14 +61,6 @@ class WWorldPos {
     void UNormal(UMath::Vector3 *norm) const {
         if (fFaceValid) {
             fFace.GetNormal(norm);
-            if (norm->y < 0.0f) {
-                norm->y = -norm->y;
-                norm->x = -norm->x;
-                norm->z = -norm->z;
-            }
-            if (0.9999f <= norm->y) {
-                norm->y = 0.9999f;
-            }
         } else {
             norm->z = 0.0f;
             norm->x = 0.0f;
@@ -104,11 +93,14 @@ class WWorldPos {
 
     // bool FindClosestFace(const WCollisionInstanceCacheList &instList, const UMath::Vector3 &pt, bool quitIfOnSameFace) {}
 
-    WCollisionTri fFace;           // offset 0x0, size 0x30
+    PS2ALIGN16 WCollisionTri fFace; // offset 0x0, size 0x30
     unsigned int fFaceValid : 1;   // offset 0x30, size 0x4
     unsigned int fMissCount : 15;  // offset 0x30, size 0x4
     unsigned int fUsageCount : 16; // offset 0x30, size 0x4
 #ifdef EA_BUILD_A124
+    // Solo la A124: SLUS lleva el puntero ya resuelto (en su FindClosestFace no hay
+    // llamada a SimSurface::Lookup y Update guarda fSurface en +0x38), asi que este
+    // campo NO es de plataforma. Ver WCollisionTri.h:48-54.
     UCrc32 fSurfaceHash;
 #endif
     float fYOffset;                     // offset 0x34, size 0x4

@@ -26,9 +26,9 @@ void EEnableCollisionElement_MakeEvent_Callback(const void *staticData) {
     new EEnableCollisionElement(((EEnableCollisionElement::StaticData *) staticData)->fEnable, ((EEnableCollisionElement::StaticData *) staticData)->fColElement);
 }
 
-int EEnableCollisionElement_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new EEnableCollisionElement((int) lua_tonumber(L, 1), (CARP::CollisionObject *) lua_tostring(L, 2));
+int EEnableCollisionElement_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new EEnableCollisionElement((int) lua_tonumber(luaState, 1), (CARP::CollisionObject *) lua_tostring(luaState, 2));
     }
     return 0;
 }

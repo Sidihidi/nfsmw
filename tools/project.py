@@ -379,19 +379,29 @@ def check_path_case(path: Path):
 # tools/rename_section.py expects: "<old>=<new> <old>=<new> ...".
 # Accepts a string, a list of "old=new" strings or a dict.
 def make_section_renames(renames: Any) -> str:
+    # Entradas "<name>@<align>" (parche de alineacion de seccion, ver
+    # rename_section.py) pasan tal cual junto a los renames.
     if isinstance(renames, dict):
         pairs = [f"{old}={new}" for old, new in renames.items()]
     elif isinstance(renames, str):
-        pairs = [renames]
+        # Una cadena puede llevar varias entradas separadas por comas.
+        pairs = [p.strip() for p in renames.split(",") if p.strip()]
     else:
         pairs = list(renames)
     for pair in pairs:
-        if "=" not in pair:
-            sys.exit(f"Invalid section_rename {pair!r}, expected <old>=<new>")
-        old, new = pair.split("=", 1)
-        if len(old) != len(new):
+        if pair.startswith("sym:"):
+            if "=" not in pair:
+                sys.exit(f"Invalid section_rename {pair!r}, expected sym:<old>=<new>")
+            continue
+        if "=" in pair:
+            old, new = pair.split("=", 1)
+            if len(old) != len(new):
+                sys.exit(
+                    f"Invalid section_rename {pair!r}: names must be the same length"
+                )
+        elif "@" not in pair:
             sys.exit(
-                f"Invalid section_rename {pair!r}: names must be the same length"
+                f"Invalid section_rename {pair!r}, expected <old>=<new> or <name>@<align>"
             )
     return " ".join(pairs)
 
@@ -841,15 +851,31 @@ def generate_build_ninja(
     ee_gcc_pp = config.tools_dir / "ee_gcc_pp.py"
     ee_gcc_pp_dir = build_path / "pp"
     # Workaround because otherwise the dependency files are all placed into the root folder
+    # SUNPRO_DEPENDENCIES y no DEPENDENCIES_OUTPUT: en el cpp de GCC 2.95 la segunda es -MM y deja fuera todo lo
+    # incluido con <...> (la STL de stlps2/ y gpp/, las cabeceras de la libc...), igual que -MMD en ngccc: tocar
+    # stl_alloc.h dejo sin recompilar 6 unidades por version de PS2 y la medida salio corta (2026-09-24).
     if is_windows():
-        ee_gcc_cmd = f"{CHAIN}set DEPENDENCIES_OUTPUT=$basefile.d&& $python {ee_gcc_pp} {ee_gcc_pp_dir} {ee_gcc} -- $cflags -c -o $out $in"
+        ee_gcc_cmd = f"{CHAIN}set SUNPRO_DEPENDENCIES=$basefile.d&& $python {ee_gcc_pp} {ee_gcc_pp_dir} {ee_gcc} -- $cflags -c -o $out $in"
     else:
-        ee_gcc_cmd = f"env DEPENDENCIES_OUTPUT=$basefile.d $python {ee_gcc_pp} {ee_gcc_pp_dir} {wrapper_cmd}{ee_gcc} -- $cflags -c -o $out $in"
+        ee_gcc_cmd = f"env SUNPRO_DEPENDENCIES=$basefile.d $python {ee_gcc_pp} {ee_gcc_pp_dir} {wrapper_cmd}{ee_gcc} -- $cflags -c -o $out $in"
     ee_gcc_implicit: List[Optional[Path]] = [
         compilers_implicit or ee_gcc,
         binutils,
         wrapper_implicit,
         ee_gcc_pp,
+    ]
+
+    # PS2 .S files (SN's libc): preprocessed with ee-gcc -E and assembled with SN's Ps2EeAs (tools/ee_as_S.py).
+    ee_as_S = config.tools_dir / "ee_as_S.py"
+    ee_as_S_cmd = (
+        f"$python {ee_as_S} "
+        + (f"--wrapper {wrapper} " if wrapper else "")
+        + f"{ee_gcc} {compiler_path / 'ee' / 'bin' / 'Ps2EeAs.exe'} -- $cflags -o $out $in"
+    )
+    ee_as_S_implicit: List[Optional[Path]] = [
+        compilers_implicit or ee_gcc,
+        wrapper_implicit,
+        ee_as_S,
     ]
 
     # TODO do EE-GCC linker
@@ -1055,6 +1081,32 @@ def generate_build_ninja(
     n.rule(
         name="ee-gcc_rename",
         command=ee_gcc_rename_cmd,
+        description="EE-GCC $out",
+        depfile="$basefile.d",
+        deps="gcc",
+    )
+    n.newline()
+
+    n.comment("EE-GCC preprocessor + SN Ps2EeAs (PS2 .S files)")
+    n.rule(
+        name="ee-as_S",
+        command=ee_as_S_cmd,
+        description="PS2EEAS $out",
+    )
+    n.newline()
+
+    # SN's PS2 libc: the same compile, but assembled with SN's Ps2EeAs instead of GNU as
+    # (tools/ee_gcc_pp.py --as). Objects whose library sets "ee_as": "Ps2EeAs" use it.
+    ee_gcc_snas_cmd = ee_gcc_cmd.replace(
+        f"{ee_gcc_pp} {ee_gcc_pp_dir}",
+        f"{ee_gcc_pp} --as {compiler_path / 'ee' / 'bin' / 'Ps2EeAs.exe'} {ee_gcc_pp_dir}",
+    )
+    if ee_gcc_snas_cmd == ee_gcc_cmd:
+        sys.exit("ee-gcc_snas: the ee-gcc command no longer has the expected form")
+    n.comment("EE-GCC build, assembled with SN Ps2EeAs (SN's PS2 libc)")
+    n.rule(
+        name="ee-gcc_snas",
+        command=ee_gcc_snas_cmd,
         description="EE-GCC $out",
         depfile="$basefile.d",
         deps="gcc",
@@ -1389,6 +1441,9 @@ def generate_build_ninja(
                 # Add EE-GCC build rule
                 build_rule = "ee-gcc"
                 build_implicit = ee_gcc_implicit
+                if obj.options.get("ee_as") == "Ps2EeAs":
+                    # SN's libc: assembled with SN's Ps2EeAs (rule ee-gcc_snas)
+                    build_rule = "ee-gcc_snas"
 
                 if obj.options["section_rename"] is not None:
                     build_rule = "ee-gcc_rename"
@@ -1460,6 +1515,30 @@ def generate_build_ninja(
             if obj.options["add_to_all"]:
                 source_inputs.append(objdiff_output)
 
+            return obj.src_obj_path
+
+        def ee_as_S_build(obj: Object, src_path: Path) -> Optional[Path]:
+            # A PS2 .S file: ee-gcc -E, then SN's Ps2EeAs (rule ee-as_S).
+            if obj.src_obj_path is None or obj.src_obj_path in source_added:
+                return obj.src_obj_path
+            source_added.add(obj.src_obj_path)
+            n.comment(f"{obj.name}: {obj.options['lib']} (linked {obj.completed})")
+            n.build(
+                outputs=obj.src_obj_path,
+                rule="ee-as_S",
+                inputs=src_path.as_posix(),
+                variables={
+                    "toolchain_version": Path(obj.options["toolchain_version"]),
+                    "cflags": make_flags_str(
+                        obj.options["cflags"] + obj.options["extra_cflags"]
+                    ),
+                },
+                implicit=ee_as_S_implicit,
+                order_only="pre-compile",
+            )
+            n.newline()
+            if obj.options["add_to_all"]:
+                source_inputs.append(obj.src_obj_path)
             return obj.src_obj_path
 
         def asm_build(
@@ -1550,6 +1629,9 @@ def generate_build_ninja(
                 if file_is_c_cpp(obj.src_path):
                     # Add C/C++ build rule
                     built_obj_path = c_build(obj, obj.src_path)
+                elif config.platform == Platform.PS2 and obj.src_path.suffix == ".S":
+                    # PS2 .S: preprocessor + SN's Ps2EeAs
+                    built_obj_path = ee_as_S_build(obj, obj.src_path)
                 elif file_is_asm(obj.src_path):
                     # Add assembler build rule
                     built_obj_path = asm_build(obj, obj.src_path, obj.src_obj_path)
@@ -2146,12 +2228,16 @@ def generate_objdiff_config(
         "ProDG/3.7": "prodg_37",
         "ProDG/3.8.1": "prodg_381",
         "ProDG/3.9.3": "prodg_393",
+        # la toolchain desde la fuente GPL de SN (tools/sn-gcc) da los mismos objetos que la oficial
+        "ProDG/3.9.3-src": "prodg_393",
         "PS2/ee-gcc2.9-991111": "ee-gcc2.9-991111",
         "PS2/ee-gcc2.95.2-273a": "ee-gcc2.95.2-273a",
         "PS2/ee-gcc2.95.2-274": "ee-gcc2.95.2-274",
         "PS2/ee-gcc2.95.3-107": "ee-gcc2.95.3-107",
         "PS2/ee-gcc2.95.3-114": "ee-gcc2.95.3-114",
         "PS2/ee-gcc2.95.3-136": "ee-gcc2.95.3-136",
+        # the copy of scripts/replica_snas.py: same compiler, only its Ps2EeAs differs
+        "PS2/ee-gcc2.95.3-136-snas": "ee-gcc2.95.3-136",
         "X360/14.00.2110": "msvc_ppc_14.00.2110",
         "X360/16.00.11886.00": "msvc_ppc_16.00.11886.00",
         "Win32/7.1": "msvc7.1",
@@ -2299,6 +2385,17 @@ def generate_objdiff_config(
             return [cleandict(v) for v in d]
         else:
             return d
+
+    # Mapeos de sufijo de clase local (contador var_labelno de GCC 2.95) contra el
+    # objeto recien compilado, para TODAS las unidades y versiones: sin esta pasada
+    # los thunks locales (FEPlayerCarDB en zFe2, IconSort en zGameplay...) salen al
+    # 0 % en cada informe regenerado y los mapeos de GameCube se cuelan como ruido
+    # en los objdiff de PS2. Ver tools/sufijo_local.py (emparejar).
+    from .sufijo_local import emparejar as sufijo_emparejar
+
+    for unit_config in objdiff_config["units"]:
+        if unit_config.get("base_path"):
+            sufijo_emparejar(unit_config)
 
     # Write objdiff.json
     with open("objdiff.json", "w", encoding="utf-8") as w:

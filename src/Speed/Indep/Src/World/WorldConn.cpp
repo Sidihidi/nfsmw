@@ -142,7 +142,7 @@ void WorldBodyConn::Update(float dT) {
     bVector3 prevvel(this->mDest->velocity);
     eSwizzleWorldMatrix(reinterpret_cast<const bMatrix4 &>(pkt.mMatrix), this->mDest->matrix);
     eSwizzleWorldVector(reinterpret_cast<const bVector3 &>(pkt.mVelocity), this->mDest->velocity);
-    if (0.0f < this->mDest->time) {
+    if (this->mDest->time > 0.0f) {
         this->mDest->acceleration.x = (this->mDest->velocity.x - prevvel.x) / dT;
         this->mDest->acceleration.y = (this->mDest->velocity.y - prevvel.y) / dT;
         this->mDest->acceleration.z = (this->mDest->velocity.z - prevvel.z) / dT;
@@ -320,7 +320,7 @@ void WorldEffectConn::Update(float dT) {
     eSwizzleWorldVector(reinterpret_cast<const bVector3 &>(simnormal), normal);
 
     if (this->mOwnerRef.GetVelocity() != nullptr) {
-        if (0.0f < this->mAttributes.InheritVelocity()) {
+        if (this->mAttributes.InheritVelocity() > 0.0f) {
             bScale(&velocity, this->mOwnerRef.GetVelocity(), this->mAttributes.InheritVelocity());
         }
     }
@@ -344,7 +344,7 @@ void WorldEffectConn::Update(float dT) {
         bCopy(&matrix.v3, &position, 1.0f);
 
         if (this->mEmitters != nullptr) {
-            if (0.0f < emitter_intensity && distance < this->mAttributes.VisualCullDist()) {
+            if (emitter_intensity > 0.0f && distance < this->mAttributes.VisualCullDist()) {
                 this->mEmitters->Enable();
                 this->mEmitters->SetLocalWorld(&matrix);
                 this->mEmitters->SetInheritVelocity(&velocity);
@@ -356,7 +356,7 @@ void WorldEffectConn::Update(float dT) {
         }
     }
     if (this->mAudioEvent == nullptr) {
-        if (!this->mSilent && 0.0f < audio_intensity && distance < this->mAttributes.AudioCullDist()) {
+        if (!this->mSilent && audio_intensity > 0.0f && distance < this->mAttributes.AudioCullDist()) {
             Sound::AudioEventParams params;
             params.position = position;
             params.normal = normal;
@@ -371,7 +371,7 @@ void WorldEffectConn::Update(float dT) {
             }
         }
     } else {
-        if (0.0f < audio_intensity && distance < this->mAttributes.AudioCullDist()) {
+        if (audio_intensity > 0.0f && distance < this->mAttributes.AudioCullDist()) {
             this->mAudioEvent->Update(position, normal, velocity, audio_intensity);
         } else {
             this->mAudioEvent->Release();

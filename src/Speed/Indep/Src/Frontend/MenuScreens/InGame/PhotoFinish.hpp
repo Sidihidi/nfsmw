@@ -13,7 +13,7 @@
 struct load_info {
     FEImage *LoadIntoImage;
     uint32 LoadingTexture;
-    int IsLoaded;
+    bool IsLoaded;
 };
 
 class SillyTextureStreamerManager {
@@ -24,7 +24,11 @@ class SillyTextureStreamerManager {
     void Unload(unsigned int hash);
     void UnloadAll();
     bool IsLoaded(unsigned int hash);
-    bool IsBusyLoading();
+    // Sin copia fuera de linea en ningun oraculo (A124 ni SLUS): inline que lee mCurrentlyLoading
+    // (oraculo A124 0x29a00: lw 0x16C + bnez en NotificationMessage).
+    bool IsBusyLoading() {
+        return mCurrentlyLoading;
+    }
 
   private:
     static void MakeSpaceInPoolCallbackBridge(int param);
@@ -34,9 +38,9 @@ class SillyTextureStreamerManager {
 
     char BundleFileName[256];
     load_info LoadInfos[4];
-    int mCurrentlyLoading;
+    bool mCurrentlyLoading;
 #ifndef EA_BUILD_A124
-    int mMakeSpaceInPoolComplete;
+    bool mMakeSpaceInPoolComplete;
 #endif
     int mCurrentLoadingIndex;
 };

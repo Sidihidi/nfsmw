@@ -7,7 +7,11 @@
 
 Infractions::Infractions(UTL::COM::Object *pOutter, const char *pkg_name, int player_number)
     : HudElement(pkg_name, 0x200000000ULL), IInfractions(pOutter) {
+#ifdef EA_BUILD_A124
+    RegisterString(FEHashUpper("INFRACTIONS_HEADER_GROUP")); // la A124 lo registra como texto
+#else
     RegisterGroup(FEHashUpper("INFRACTIONS_HEADER_GROUP"));
+#endif
     mpDataGenericIcon = RegisterObject(FEHashUpper("GENERIC_ICONS"));
     mpDataTotalInfractions = RegisterString(FEHashUpper("TOTAL_INFRACTIONS_TEXT"));
     for (int i = 0; i < 4; i++) {
@@ -19,7 +23,7 @@ Infractions::Infractions(UTL::COM::Object *pOutter, const char *pkg_name, int pl
 
 void Infractions::Update(IPlayer *player) {
     bool infractionStringShowing = false;
-    for (int i = 0; i <= 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (!FEngIsScriptSet(mpDataInfractionStrings[i], 0x16a259)) {
             infractionStringShowing = true;
             break;

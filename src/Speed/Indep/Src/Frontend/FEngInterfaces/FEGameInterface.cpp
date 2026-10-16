@@ -12,13 +12,23 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/Src/FEng/FEPackage.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h" // ResetScreenPrintf
+#endif
 
 extern int g_discErrorOccured;
 extern char *FEngPleaseRenderSinglePackage;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Las dos PS2 los construyen en blanco (`0xFFFFFFFF` en _GLOBAL_$I$gOnlineMainMenu de la A124 y de SLUS).
+static FEColor gNormal(0xFFFFFFFFu);
+static FEColor gTint(0xFFFFFFFFu);
+static FEColor gRapsheet(0xFFFFFFFFu);
+#else
 static FEColor gNormal(0xFFE6E6C8u);
 static FEColor gTint(0xFFFFAF41u);
 static FEColor gRapsheet(0xFFAAE646u);
+#endif
 
 cFEngGameInterface *cFEngGameInterface::pInstance = nullptr;
 char *FEngPleaseRenderSinglePackage = nullptr;
@@ -37,15 +47,12 @@ static char *GetBaseName(char *dest, const char *filename) {
     }
 
     last = x;
-    if (x != 0) {
-        if (filename[x] != '.') {
-            while (--x != 0) {
-                if (filename[x] == '.') {
-                    last = x;
-                    break;
-                }
-            }
+    while (x != 0) {
+        if (filename[x] == '.') {
+            last = x;
+            break;
         }
+        x--;
     }
 
     long y = 0;
@@ -80,7 +87,7 @@ bool cFEngGameInterface::LoadResources(FEPackage *pPackage, i32 Count, FEResourc
                 pList[i].UserParam = 0;
                 break;
             case 4: {
-                void *mem = bMalloc(256, "Movie filename", __LINE__, 0);
+                void *mem = bMalloc(256, "Movie filename", 0, 0);
                 bStrNCpy(static_cast<char *>(mem), filename, 256);
                 pList[i].Handle = reinterpret_cast<u32>(mem);
                 pList[i].UserParam = 0;
@@ -190,6 +197,12 @@ void cFEngGameInterface::BeginPackageRendering(FEPackage *pPackage) {
 }
 
 void cFEngGameInterface::EndPackageRendering(FEPackage *pPackage) {
+#ifdef EA_BUILD_A124
+    // La A124 limpia los ScreenPrintf al terminar de pintar este paquete.
+    if (pPackage->GetNameHash() == 0x8046C2FB) {
+        ResetScreenPrintf();
+    }
+#endif
     cFEngRender::mInstance->PackageFinished(pPackage);
 }
 

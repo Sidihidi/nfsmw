@@ -26,7 +26,6 @@ class MStateEnter : public Hermes::Message {
 
     MStateEnter() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MStateEnter() {}
 };
 
 
@@ -34,9 +33,9 @@ class MStateEnter : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MStateEnter::HandleMessage_LuaBinding(const MStateEnter &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MStateEnter::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

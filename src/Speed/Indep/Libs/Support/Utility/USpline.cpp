@@ -96,7 +96,7 @@ void USpline::BuildSplineEx(const UMath::Vector3 &start, const UMath::Vector3 &s
     }
 }
 
-void USpline::EvaluateSpline(float t, UMath::Vector4 &result) {
+void USpline::EvaluateSpline(float t, UMath::Vector4 &position) {
     UMath::Vector4 tvec;
 
     tvec.w = 1.0f;
@@ -107,11 +107,11 @@ void USpline::EvaluateSpline(float t, UMath::Vector4 &result) {
     UMath::Matrix4 matrix;
 
     UMath::Mult(GetBasisMatrix(), fSplineMat, matrix);
-    UMath::RotateTranslate(tvec, matrix, result);
-    result.w = 1.0f;
+    UMath::RotateTranslate(tvec, matrix, position);
+    position.w = 1.0f;
 
     if (fSplineType == kSpline_CatMulRom) {
-        VU0_v4scalexyz(result, 0.5f, result);
+        VU0_v4scalexyz(position, 0.5f, position);
     }
 }
 
@@ -120,7 +120,7 @@ void USpline::EvaluateTangent(float t, UMath::Vector4 &tangent) {
     VU0_v4unitxyz(tangent, tangent);
 }
 
-void USpline::EvaluateDerivative(float t, UMath::Vector4 &derivative) {
+void USpline::EvaluateDerivative(float t, UMath::Vector4 &tangent) {
     UMath::Vector4 tvec;
 
     tvec.w = 1.0f;
@@ -131,11 +131,11 @@ void USpline::EvaluateDerivative(float t, UMath::Vector4 &derivative) {
     UMath::Matrix4 matrix;
 
     UMath::Mult(GetTangentBasisMatrix(), fSplineMat, matrix);
-    UMath::RotateTranslate(tvec, matrix, derivative);
-    derivative.w = 1.0f;
+    UMath::RotateTranslate(tvec, matrix, tangent);
+    tangent.w = 1.0f;
 }
 
-void USpline::Evaluate2ndDerivative(float t, UMath::Vector4 &derivative) {
+void USpline::Evaluate2ndDerivative(float t, UMath::Vector4 &tangent) {
     UMath::Vector4 tvec;
 
     tvec.w = 1.0f;
@@ -146,8 +146,8 @@ void USpline::Evaluate2ndDerivative(float t, UMath::Vector4 &derivative) {
     UMath::Matrix4 matrix;
 
     UMath::Mult(Get2ndBasisMatrix(), fSplineMat, matrix);
-    UMath::RotateTranslate(tvec, matrix, derivative);
-    derivative.w = 1.0f;
+    UMath::RotateTranslate(tvec, matrix, tangent);
+    tangent.w = 1.0f;
 }
 
 float USpline::EvaluateCurvatureXZ(float t) {
@@ -155,10 +155,9 @@ float USpline::EvaluateCurvatureXZ(float t) {
     UMath::Vector4 secondDerivative;
 
     EvaluateDerivative(t, derivative);
-    UMath::Vector4 *pder = &derivative;
     Evaluate2ndDerivative(t, secondDerivative);
 
-    const float tangentLength = VU0_sqrt(derivative.x * derivative.x + pder->z * pder->z);
+    const float tangentLength = UMath::LengthXZ(derivative);
     const float crossLength = UMath::CrossXZ(derivative, secondDerivative);
     const float tangentLengthCubed = tangentLength * tangentLength * tangentLength;
 

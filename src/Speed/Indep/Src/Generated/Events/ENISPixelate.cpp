@@ -23,9 +23,9 @@ void ENISPixelate_MakeEvent_Callback(const void *staticData) {
     new ENISPixelate(((ENISPixelate::StaticData *)staticData)->fEnable, ((ENISPixelate::StaticData *)staticData)->fWidth, ((ENISPixelate::StaticData *)staticData)->fHeight);
 }
 
-int ENISPixelate_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 3) {
-        new ENISPixelate((int)lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3));
+int ENISPixelate_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 3) {
+        new ENISPixelate((int)lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3));
     }
     return 0;
 }

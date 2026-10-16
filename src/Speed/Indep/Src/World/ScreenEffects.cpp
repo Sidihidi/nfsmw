@@ -121,11 +121,11 @@ void ScreenEffectDB::AddPaletteEffect(ScreenEffectPaletteDef *palette) {
 
 void InitScreenEFX() {
 #ifdef EA_BUILD_A124
-    SE_PaletteFile[EFX_UNIQUE].SE_Def[0].intensity = 0.5f;
+    SE_PaletteFile[EFX_UNIQUE].NumEffects = 1;
     SE_PaletteFile[EFX_UNIQUE].SE_type[0] = SE_VISUAL_SIG;
     SE_PaletteFile[EFX_UNIQUE].SE_Controller[0] = SEC_FUNCTION;
     SE_PaletteFile[EFX_UNIQUE].SE_Def[0].UpdateFnc = Unique;
-    SE_PaletteFile[EFX_UNIQUE].NumEffects = 1;
+    SE_PaletteFile[EFX_UNIQUE].SE_Def[0].intensity = 0.5f;
 #endif
 }
 
@@ -148,7 +148,7 @@ float GlareFallon = 0.0399999991f;
 float TUNHEIGHT = 10.0f;
 
 void UpdateAllScreenEFX() {
-    for (int i = 1; i < 3; i++) {
+    for (int i = 1; i <= 2; i++) {
         eView *view = eGetView(i, false);
         if (view->IsActive()) {
             eGetView(i, false)->ScreenEffects->Update(0.033333335f);
@@ -162,6 +162,36 @@ void UpdateAllScreenEFX() {
         }
     }
 }
+
+#ifdef EA_BUILD_A124
+// El efecto EFX_UNIQUE de la A124: tine la pantalla con el color del mapa de parametros "Screen Tint SunRise" en la
+// posicion del coche. Lee tambien el de mediodia, pero no lo usa.
+void Unique(ScreenEffectType type, ScreenEffectDB *seDB) {
+    seDB->SetController(type, SEC_FUNCTION);
+    int idIndex = seDB->GetMyView()->GetID() - 1;
+    float x = 0.0f;
+    float y = 0.0f;
+
+    GetXYviewCar(seDB->GetMyView(), &x, &y);
+    float US_r = 0.0f;
+    float US_g = 0.0f;
+    float US_b = 0.0f;
+
+    if (TintSunRiseAccessor[idIndex].IsValid()) {
+        TintSunRiseAccessor[idIndex].CaptureData(x, y, 50.0f);
+        US_r = TintSunRiseAccessor[idIndex].GetDataFloat(0);
+        US_g = TintSunRiseAccessor[idIndex].GetDataFloat(1);
+        US_b = TintSunRiseAccessor[idIndex].GetDataFloat(2);
+    }
+    if (TintMiddayAccessor[idIndex].IsValid()) {
+        TintMiddayAccessor[idIndex].CaptureData(x, y, 50.0f);
+        TintMiddayAccessor[idIndex].GetDataFloat(0);
+        TintMiddayAccessor[idIndex].GetDataFloat(1);
+        TintMiddayAccessor[idIndex].GetDataFloat(2);
+    }
+    seDB->SetRGBA(type, US_r, US_g, US_b, 128.0f);
+}
+#endif
 
 void FlushAccumulationBuffer() {
     FACflush = 1;
@@ -397,7 +427,7 @@ void DoTunnelBloom(eView *view) {
                 SE_def.intensity = SE_def.data[1];
                 view->ScreenEffects->AddScreenEffect(SE_GLARE, &SE_def, 1, SEC_FRAME);
 
-                if ((view->Precipitation != nullptr) && 0.0f < view->Precipitation->GetRainIntensity()) {
+                if ((view->Precipitation != nullptr) && view->Precipitation->GetRainIntensity() > 0.0f) {
                     view->Precipitation->IsValidRainCurtainPos = CT_OVERIDE;
                     view->Precipitation->AttachRainCurtain(SE_def.data[8], SE_def.data[9], SE_def.data[10], SE_def.data[11], SE_def.data[12],
                                                            SE_def.data[13], SE_def.data[2], SE_def.data[3], SE_def.data[4], SE_def.data[5],
@@ -408,7 +438,7 @@ void DoTunnelBloom(eView *view) {
         return;
     }
 
-    if (0.0f < view->ScreenEffects->GetIntensity(SE_GLARE)) {
+    if (view->ScreenEffects->GetIntensity(SE_GLARE) > 0.0f) {
         ScreenEffectDef SE_def;
         SE_def.r = 128.0f;
         SE_def.g = 128.0f;

@@ -17,11 +17,11 @@ struct ICEAnchor;
 float GetGroundElevation(const ICE::Vector3 *p);
 ICEAnchor *GetICEAnchor();
 
-bool ICEReplay::WasRecentlyUsed(ICETrack *pTrack) {
+bool ICEReplay::WasRecentlyUsed(ICETrack *track) {
 
     for (int i = 0; i < 3; i++) {
 
-        if (reinterpret_cast<int>(pTrack) == ICEReplay::RecentlyUsedTracks[i]) {
+        if (reinterpret_cast<int>(track) == ICEReplay::RecentlyUsedTracks[i]) {
 
             return true;
         }
@@ -104,32 +104,34 @@ void ICEManager::FixAnimElevation(ICE::Vector3 *p) {
 }
 
 ICEManager::ICEManager() {
-
     this->nState = 0;
     this->nTrack = 0;
     this->nHandle = 0;
     this->nOption = 0;
+    this->nContext = 3;
     this->nSetting = 0;
+    this->fAnimElevation = 0.0f;
     this->nSceneHash = 0;
+
+    this->fParameterStart = 0.0f;
+    this->fParameterLength = 0.0f;
+    this->fParameterLengthBackup = this->fAnimElevation;
+
     this->nExitConfirmOption = 0;
     this->nDeleteConfirmOption = 0;
     this->nCopyMode = 0;
+
     this->nNisCameras = 0;
     this->nFmvCameras = 0;
     this->nReplayCameras = 0;
     this->nGenericCameras = 0;
+
     this->pNisCameras = nullptr;
     this->pFmvCameras = nullptr;
     this->pReplayCameras = nullptr;
     this->pGenericCameras = nullptr;
     this->pShakeGroup = nullptr;
 
-    this->fAnimElevation = 0.0f;
-    this->fParameterStart = 0.0f;
-    this->fParameterLength = 0.0f;
-    this->fParameterLengthBackup = 0.0f;
-
-    this->nContext = 3;
     this->nPlayGenericGroupHash = bStringHash("");
     this->nPlayGenericTrackName[0] = '\0';
     this->pPlaybackTrack = nullptr;
@@ -138,6 +140,14 @@ ICEManager::ICEManager() {
     this->bSmoothExit = false;
     this->nMarkerIndex = -1;
     this->bUseRealTime = false;
+}
+
+ICEManager::~ICEManager() {
+    delete[] pNisCameras;
+    delete[] pFmvCameras;
+    delete[] pReplayCameras;
+    delete[] pGenericCameras;
+    delete pShakeGroup;
 }
 
 float ICEManager::GetTimerSeconds() {
@@ -270,13 +280,15 @@ int ICEManager::ChooseGoodSceneCameraTrackIndex(uint32 scene_hash, const ICE::Ma
     return bestTrack;
 }
 
+#ifndef EA_BUILD_A124
 void ICEManager::SetGenericCameraToPlay(const char *group_name, const char *track_name) {
 
     nPlayGenericGroupHash = bStringHash(group_name);
-    bStrNCpy(nPlayGenericTrackName, track_name, 13);
+    ICE::StrNCpy(nPlayGenericTrackName, track_name, 13);
 
     nPlayGenericTrackName[13] = 0;
 }
+#endif
 
 ICEGroup *ICEManager::GetNisCameraGroup(unsigned int scene_hash) {
 
@@ -476,17 +488,46 @@ void ICEManager::Resolve() {
 
 int ICEManager::GetCameraIndex(float f_parameter, ICETrack *track) {
 
+    // ronda 27: el early-return con test NULL primero casa BYTE A BYTE en las dos PS2
+    // (A124/SLUS, 44 B: move a0,a1; bnez al call; v0=0 en delay). En GC la misma fuente
+    // da otro reparto de registros (or. r4 + li antes del beq vs or. r3 + beq corto del
+    // original): probadas 6 formas (if/else-i de antes, ternaria, i preinicializada,
+    // else explicito, ramas intercambiadas, retorno directo) y ninguna satisface MWCC
+    // y ee-gcc a la vez. Item abierto documentado en la ronda 27.
+    //
+    // ronda 28 (CERRADO con veredicto): es una DIVERGENCIA REAL del original entre
+    // plataformas, no una forma pendiente. El DWARF GC del GOWE69 trae el bloque
+    // {0x8007E098..0x8007E0A0} (SOLO la llamada a GetKeyNumber) con una `i` int muerta
+    // dentro: el fuente GC era `if (track) { int i = track->GetKeyNumber(f); return i;
+    // } return 0;`. Compiladas 8 formas contra los DOS compiladores reales (ngccc ProDG
+    // 3.9.3 y ee-gcc 2.9-991111, tmp_r28/gci_micro*): todo cuerpo con test POSITIVO da
+    // en GC la secuencia exacta del original (mr. r3,r4; beq al li; bl; b) y en PS2 un
+    // beq+lw doble que NO es el SLUS; todo cuerpo con test NEGATIVO da en PS2 el SLUS
+    // byte a byte (bnez; jal; v0=0 en delay) y en GC el patrón bne que no es el
+    // original. Cada compilador PRESERVA la polaridad del fuente: los binarios GC
+    // (48 B) y SLUS (44 B) provienen de revisiones distintas del mismo cuerpo.
+    //
+    // ronda 54: la guarda EA_PLATFORM_GAMECUBE (precedente r53 AdjustQuickDynamicLight)
+    // toma la opcion que la r28 dejo abierta: el DWARF de GC delataba la `i` int muerta
+    // y la forma que cierra el 100% GC es la PHI con else explicito (i sin inicializar,
+    // asignada en las dos ramas): produce el mr. r3,r4 (move+test fundidos) y el return
+    // con el li 0 DETRAS del bloque de llamada, exacto al original. Las dos PS2 quedan
+    // intactas con su forma negativa byte a byte (PC/LTCG tambien, misma rama #else).
+#ifdef EA_PLATFORM_GAMECUBE
     int i;
-
-    if (track) {
-
+    if (track != NULL) {
         i = track->GetKeyNumber(f_parameter);
     } else {
-
         i = 0;
     }
-
     return i;
+#else
+    if (track == NULL) {
+        return 0;
+    }
+
+    return track->GetKeyNumber(f_parameter);
+#endif
 }
 
 float ICEManager::GetParameter() {
@@ -715,7 +756,7 @@ void ICEManager::GetSlope(ICE::Vector3 *pEye, ICE::Vector3 *pLook, float *pDutch
                 float f_neighbour_blend = f_camera_size / (f_camera_size + f_neighbour_size);
                 float f_camera_blend = 1.0f - f_neighbour_blend;
 
-                if (f_neighbour_size > 0.000001f) {
+                if (f_neighbour_size > 0.000001) {
 
                     f_neighbour_blend *= f_camera_size / f_neighbour_size;
                 }
@@ -780,6 +821,10 @@ int ICEManager::GetNumSceneCameraTrack(uint32 scene_hash) {
 
     return n;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+void ICEManager::Render(eView *p_view) {}
+#endif
 
 ICEGroup *ICEManager::AddCameraGroup(ICEContext context, unsigned int handle) {
 
@@ -976,7 +1021,7 @@ void ICEManager::UnloadCameraSet(bChunk *set_chunk) {
 
 void ICEManager::LoadCameraShakes(bChunk *set_chunk) {
     unsigned int id = set_chunk->GetID();
-    bool warned_overflow;
+    bool warned_overflow = false;
     bChunk *chunk;
     {
         unsigned int *p_handle = reinterpret_cast<unsigned int *>(set_chunk->GetData());
@@ -991,6 +1036,7 @@ void ICEManager::LoadCameraShakes(bChunk *set_chunk) {
                 group->AddTrack(track);
                 track = reinterpret_cast<ICEShakeTrack *>(reinterpret_cast<char *>(track) + track->MemoryImageSize());
             }
+            warned_overflow = true; // DWARF de GC: vive en r0 (la entrada del for compara con su cero); GC y SLUS lo exigen
         }
     }
 }

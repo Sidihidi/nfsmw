@@ -31,11 +31,11 @@ class MD5 {
     }
 
     void Reset() {
+        this->uCount = 0;
         this->uRegs[0] = 0x67452301;
         this->uRegs[1] = 0xEFCDAB89;
         this->uRegs[2] = 0x98BADCFE;
         this->uRegs[3] = 0x10325476;
-        this->uCount = 0;
         this->computed = false;
     }
 

@@ -53,8 +53,8 @@ uint32 PlayerDataT::GetTotalGamesPlayed(int mode) {
     if (mode == 3) {
         return GetTotalWins(mode) + GetTotalLosses(mode);
     }
-    return (stats.raceModeStats[mode].clientLosses + stats.raceModeStats[mode].hostWins) +
-           (stats.raceModeStats[mode].hostLosses + stats.raceModeStats[mode].clientWins);
+    return (stats.raceModeStats[mode].clientLosses + stats.raceModeStats[mode].hostLosses) +
+           (stats.raceModeStats[mode].hostWins + stats.raceModeStats[mode].clientWins);
 }
 
 uint32 PlayerDataT::GetTotalWinsAsClient() {
@@ -384,6 +384,8 @@ bool LobbyUsers::GetDisqualificationsFromUserRecord(const char *persona, uint32 
             lobbyMutex.Unlock("LobbyUsers::GetDisqualificationsFromUserRecord");
             return true;
         }
+        lobbyMutex.Unlock("LobbyUsers::GetDisqualificationsFromUserRecord");
+        return false;
     } else {
         for (OnlineUsersData *oud = userList.GetHead(); oud != userList.EndOfList();
              oud = oud->GetNext()) {

@@ -29,8 +29,8 @@ void Countdown::Update(IPlayer *player) {
 
     if (WorldTimer.IsSet()) {
         bool shouldStep = mCountdown == RACE_COUNTDOWN_NUMBER_4 ||
-                          (mCountdown > 0 && (WorldTimer - mSecondTimer).GetSeconds() >= 1.0f) ||
-                          (mCountdown == 0 && (WorldTimer - mSecondTimer).GetSeconds() >= 6.0f);
+                          (mCountdown > RACE_COUNTDOWN_NUMBER_GO && (WorldTimer - mSecondTimer).GetSeconds() >= 1.0f) ||
+                          (mCountdown == RACE_COUNTDOWN_NUMBER_GO && (WorldTimer - mSecondTimer).GetSeconds() >= 6.0f);
         if (!shouldStep)
             return;
 
@@ -57,7 +57,9 @@ void Countdown::Update(IPlayer *player) {
             new ENISWorldAnimTrigger("EN_TollBoothArm_03", 0.0f, 0, 0);
             new ENISWorldAnimTrigger("EN_TollBoothArm_04", 0.0f, 0, 0);
 
+#ifndef EA_BUILD_A124
             SetSoundControlState(false, SNDSTATE_NIS_321, "NIS 321");
+#endif
             return;
         }
 
@@ -69,7 +71,9 @@ void Countdown::Update(IPlayer *player) {
             new ENISWorldAnimTrigger("EN_TollBoothArm_03", 0.0f, 1, 0);
             new ENISWorldAnimTrigger("EN_TollBoothArm_04", 0.0f, 1, 0);
 
+#ifndef EA_BUILD_A124
             g_pEAXSound->START_321Countdown();
+#endif
         } else if (mCountdown == RACE_COUNTDOWN_NUMBER_2) {
             FEngSetScript(pMessageGroup, 0xe479, true);
         } else if (mCountdown == RACE_COUNTDOWN_NUMBER_1) {
@@ -87,18 +91,24 @@ void Countdown::Update(IPlayer *player) {
 
 void Countdown::BeginCountdown() {
     mCountdown = RACE_COUNTDOWN_NUMBER_4;
+#ifndef EA_BUILD_A124
     SetSoundControlState(true, SNDSTATE_NIS_321, "Countdown");
+#endif
 }
 
 bool Countdown::IsActive() {
-    return mCountdown > 0;
+#ifdef EA_BUILD_A124
+    return mCountdown > RACE_COUNTDOWN_NUMBER_NONE;
+#else
+    return mCountdown > RACE_COUNTDOWN_NUMBER_GO ? true : false;
+#endif
 }
 
 float Countdown::GetSecondsBeforeRaceStart() {
     if (mCountdown == RACE_COUNTDOWN_NUMBER_4) {
         return 3.0f;
     }
-    if (mCountdown > 0) {
+    if (mCountdown > RACE_COUNTDOWN_NUMBER_GO) {
         return static_cast<float>(mCountdown) - (WorldTimer - mSecondTimer).GetSeconds();
     }
     return 0.0f;

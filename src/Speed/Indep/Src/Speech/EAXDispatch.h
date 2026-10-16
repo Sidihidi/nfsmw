@@ -13,9 +13,11 @@ class EAXCop;
 // total size: 0x40
 // Decl: 24
 class EAXDispatch : public EAXCharacter {
-  public:
+    // PC: ??0EAXDispatch@@AAE@H@Z (private); solo lo construye SoundAI (new EAXDispatch(1) en SoundAI.cpp).
+    friend class SoundAI;
     EAXDispatch(int sID) : EAXCharacter(sID, nullptr, 0, 0) {}
 
+  public:
     ~EAXDispatch() override;
 
     void Update() override;

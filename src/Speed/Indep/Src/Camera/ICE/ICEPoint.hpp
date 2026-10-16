@@ -34,23 +34,23 @@ struct Cubic1D {
         state = 0;
     }
 
-    void SetVal(float v) {
-        Val = v;
-        if (v != ValDesired) {
+    void SetVal(float pV) {
+        Val = pV;
+        if (pV != ValDesired) {
             state = 2;
         }
     }
 
-    void SetdVal(float v) {
-        dVal = v;
-        if (v != dValDesired) {
+    void SetdVal(float pV) {
+        dVal = pV;
+        if (pV != dValDesired) {
             state = 2;
         }
     }
 
-    void SetValDesired(float v) {
-        ValDesired = v;
-        if (v != Val) {
+    void SetValDesired(float pV) {
+        ValDesired = pV;
+        if (pV != Val) {
             state = 2;
         }
     }
@@ -191,6 +191,102 @@ struct Cubic3D {
     Cubic1D x; // offset 0x0, size 0x2C
     Cubic1D y; // offset 0x2C, size 0x2C
     Cubic1D z; // offset 0x58, size 0x2C
+};
+
+// La stab de la A124 (Point:Tt22547=s376) lista la clase completa: layout
+// IDENTICO al gemelo cPoint de Misc/Point.hpp (mUpdateFunc en 0x168, vptr al
+// final) y los mismos ~80 metodos. Del original solo se emitieron DOS
+// out-of-line: Update(float) y el dtor (las SplineSeek/SpringDamper/accessores
+// murieron inline igual que las lineas 90-282 del Point.cpp original).
+struct Cubic2D;
+
+// total size: 0x178
+class Point {
+  public:
+    Point();
+    Point(const Point &);
+    Point &operator=(const Point &);
+
+    virtual ~Point();
+    virtual void Update(float fSeconds);
+
+    int HasArrived();
+    void SetCallBack(void (*func)(int, int), int p1, int p2);
+    void ClearCallBack();
+    void CallBack();
+
+    static void SplineSeek(Cubic1D *p, float time, float fDClamp, float fDDClamp);
+    static void SplineSeek(Cubic2D *p, float time);
+    static void SplineSeek(Cubic3D *p, float time);
+    static void SpringDamper(Cubic1D *p, float time);
+    static void SpringDamper(Cubic2D *p, float time);
+    static void SpringDamper(Cubic3D *p, float time);
+    void BuildMatrix(Matrix4 *pMatrix);
+    static void PointVelocity(Point *p, float time);
+    static void PointVelocityWrap(Point *p, float time);
+    static void PointSpline(Point *p, float time);
+    static void PointSpringDamper(Point *p, float time);
+    void SetPos(const Vector3 *p);
+    void SetPos(float x, float y, float z);
+    void SetPosX(float x);
+    void SetPosY(float y, bool ratio);
+    void SetPosZ(float z);
+    void SetPosDesired(const Vector3 *p);
+    void SetPosDesired(float x, float y, float z);
+    void SetPosDesiredX(float x);
+    void SetPosDesiredY(float y, bool ratio);
+    void SetPosDesiredZ(float z);
+    void SetdPos(const Vector3 *p);
+    void SetdPos(float x, float y, float z);
+    void SetdPosX(float x);
+    void SetdPosY(float y);
+    void SetdPosZ(float z);
+    void SetdPosDesired(const Vector3 *p);
+    void SetdPosDesired(float x, float y, float z);
+    void SetdPosDesiredX(float x);
+    void SetdPosDesiredY(float y);
+    void SetdPosDesiredZ(float z);
+    void SetRot(const Vector3 *p);
+    void SetRot(float x, float y, float z);
+    void SetRotX(float x);
+    void SetRotY(float y);
+    void SetRotZ(float z);
+    void SetRotDesired(const Vector3 *p);
+    void SetRotDesired(float x, float y, float z);
+    void SetRotDesiredX(float x);
+    void SetRotDesiredY(float y);
+    void SetRotDesiredZ(float z);
+    void SetdRot(const Vector3 *p);
+    void SetdRot(float x, float y, float z);
+    void SetdRotX(float x);
+    void SetdRotY(float y);
+    void SetdRotZ(float z);
+    void SetdRotDesired(const Vector3 *p);
+    void SetdRotDesired(float x, float y, float z);
+    void SetdRotDesiredX(float x);
+    void SetdRotDesiredY(float y);
+    void SetdRotDesiredZ(float z);
+    void SetScale(float s);
+    void SetScaleDesired(float s);
+    void SetYScale(float s);
+    void SetYScaleDesired(float s);
+    void SetdScale(float s);
+    void SetdScaleDesired(float s);
+    void SetdYScale(float s);
+    void SetdYScaleDesired(float s);
+    void SetDuration(float seconds);
+    void Snap();
+    void SetBiasZ(float ratio);
+
+    Cubic3D mPos;                        // offset 0x0, size 0x84
+    Cubic3D mRot;                        // offset 0x84, size 0x84
+    Cubic1D mScale;                      // offset 0x108, size 0x2C
+    Cubic1D mYScale;                     // offset 0x134, size 0x2C
+    float mZBias;                        // offset 0x160, size 0x4
+    void (*mCallBackFunc)(int, int);     // offset 0x164, size 0x4
+    void (*mUpdateFunc)(Point *, float); // offset 0x168, size 0x4
+    int mCBParam1;                       // offset 0x16C, size 0x4
+    int mCBParam2;                       // offset 0x170, size 0x4
 };
 
 }; // namespace ICE

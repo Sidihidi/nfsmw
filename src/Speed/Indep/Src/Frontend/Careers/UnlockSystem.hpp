@@ -59,9 +59,17 @@ class CareerUnlocker {
 
 class QuickRaceUnlocker {
   public:
+#ifdef EA_PLATFORM_WIN32
+    // firma original (DWARF de GC): bool; la forma int era nuestro andamio. El repo hermano
+    // dbalatoni13/nfsmw (commit d1f7e2e) la trae de vuelta para PC y el banco la verifica al 100.
+    static bool IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, int player, bool backroom);
+    static bool IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, int player, bool backroom);
+    static bool IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, int player, bool backroom);
+#else
     static int IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, int player, bool backroom);
     static int IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, int player, bool backroom);
     static int IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, int player, bool backroom);
+#endif
     static bool IsTrackUnlocked(eUnlockFilters filter, int event_hash, int player);
     static bool IsCarUnlocked(eUnlockFilters filter, unsigned int car, int player);
     static bool IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level, int player);
@@ -118,6 +126,7 @@ class FEMarkerManager {
 
     FEMarkerManager();
     void Default();
+    void CheatToGetMarkers();
     void GetMarkerForLaterSelection(int index, ePossibleMarker &marker, int &param);
     void AddMarkerForLaterSelection(ePossibleMarker marker, int param);
     void ClearMarkersForLaterSelection();
@@ -128,6 +137,8 @@ class FEMarkerManager {
     bool IsMarkerAvailable(ePossibleMarker marker, int param);
     int GetNumCustomizeMarkers();
     int GetNumMarkers(ePossibleMarker marker, int param);
+    int GetNumMarkers(CarPart *part);
+    int GetNumMarkers(Physics::Upgrades::Type pkg_type);
     ePossibleMarker ConvertBigBangMarkerAward(const char *marker_name, const char *partid);
     void AwardMarker(Attrib::Gen::gameplay &inst, bool immediate_reward);
     char *SaveToBuffer(char *buffer);

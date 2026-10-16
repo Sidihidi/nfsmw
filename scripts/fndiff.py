@@ -2,21 +2,29 @@ import json, subprocess, sys, os
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 SCR = os.environ.get('SCRATCH', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'build', 'scratch'))
 os.makedirs(SCR, exist_ok=True)
+# La version se elige con V=... (por defecto GameCube, que es como
+# nacio esto). Para PS2: V=SLES-53558-A124 python scripts/fndiff.py ...
+V=os.environ.get('V','GOWE69')
 unit=sys.argv[1]; sym=sys.argv[2]
 lim=int(sys.argv[3]) if len(sys.argv)>3 else 2000
 # El nombre suelto es una SourceList; con '/' es una ruta relativa a
-# build/GOWE69/{obj,src} -- hacen falta para las 184 unidades que NO son
+# build/{V}/{obj,src} -- hacen falta para las 184 unidades que NO son
 # SourceLists (LibSN/steering, libc/*, Libs/snd/*...).
 # Nombre suelto -> SourceList; con '/' -> ruta relativa. Y si la SourceList no
 # existe, el nombre suelto ES la ruta (hay unidades en la raiz: FSasync, vmbase).
 rel = unit if '/' in unit else f'Speed/Indep/SourceLists/{unit}'
-if not os.path.exists(f'{ROOT}/build/GOWE69/obj/{rel}.o') and os.path.exists(f'{ROOT}/build/GOWE69/obj/{unit}.o'):
+# X360 y PC usan .obj de MSVC, no .o; el binario vive en build/tools.
+EXT = '.obj' if V in ('EUROPEGERMILESTONE', 'SPEED_EXE_1_3') else '.o'
+CLI = f'{ROOT}/build/tools/objdiff-cli.exe'
+if not os.path.exists(CLI):
+    CLI = f'{ROOT}/objdiff-cli-windows-x86_64.exe'
+if not os.path.exists(f'{ROOT}/build/{V}/obj/{rel}{EXT}') and os.path.exists(f'{ROOT}/build/{V}/obj/{unit}{EXT}'):
     rel = unit
-out=f'{SCR}/d_{unit.replace(chr(47),"_")}.json'
+out=f'{SCR}/d_{V}_{unit.replace(chr(47),"_")}.json'
 if os.environ.get('REUSE')!='1' or not os.path.exists(out):
-    r=subprocess.run([f'{ROOT}/objdiff-cli-windows-x86_64.exe','diff',
-      '-1',f'{ROOT}/build/GOWE69/obj/{rel}.o',
-      '-2',f'{ROOT}/build/GOWE69/src/{rel}.o',
+    r=subprocess.run([CLI,'diff',
+      '-1',f'{ROOT}/build/{V}/obj/{rel}{EXT}',
+      '-2',f'{ROOT}/build/{V}/src/{rel}{EXT}',
       '-c','function_reloc_diffs=none','-c','ppc.calculatePoolRelocations=false','-o',out,'--format','json',sym],capture_output=True,text=True)
     if r.returncode!=0:
         print(r.stdout[-2000:]); print(r.stderr[-2000:]); sys.exit(1)

@@ -1,4 +1,5 @@
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 #include "Speed/Indep/Src/Animation/AnimCandidates.hpp"
@@ -25,6 +26,9 @@
 #include "Speed/Indep/Src/Generated/Events/ELoadingScreenOff.hpp"
 #include "Speed/Indep/Src/Generated/Events/EPlayRaceMovie.hpp"
 #include "Speed/Indep/Src/Generated/Events/EPlayEndNIS.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EPlayDDFlyInNIS.hpp"
+#endif
 #include "Speed/Indep/Src/Generated/Events/ESndGameState.hpp"
 #include "Speed/Indep/Src/Generated/Messages/MNISComplete.h"
 #include "Speed/Indep/Src/Generated/Messages/MPerpBusted.h"
@@ -312,8 +316,8 @@ class NISActivity : public Sim::Activity, public INIS, public EventSequencer::IC
     float mDefault_MaxTicksPerTimestep;           // offset 0x3BC, size 0x4
     CarList mVehicleTable;                        // offset 0x3C0, size 0x10
     EventSequencer::IEngine *mSequencer;          // offset 0x3D0, size 0x4
-    ALIGN_16 UMath::Vector3 mStartLocation;       // offset 0x3D4, size 0xC
-    ALIGN_16 UMath::Vector3 mStartCameraLocation; // offset 0x3E0, size 0xC
+    ALIGNVEC UMath::Vector3 mStartLocation;       // offset 0x3D4, size 0xC
+    ALIGNVEC UMath::Vector3 mStartCameraLocation; // offset 0x3E0, size 0xC
     bool mStartPlayingNow;                        // offset 0x3EC, size 0x1
     bool mRunningThroughICE;                      // offset 0x3F0, size 0x1
     int mLoadAttemptCount;                        // offset 0x3F4, size 0x4
@@ -399,7 +403,9 @@ NISActivity::NISActivity()
       mUsingFEngOverlay(false),           //
       mCareerNIS(false),                  //
       mDDayNIS(false),                    //
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+      mDDayNISSkipped(false),             //
+#else
       mBlackListNIS(false),   //
       mNonSkipableNIS(false), //
       mNISSkipped(false),     //
@@ -415,19 +421,28 @@ NISActivity::NISActivity()
 #endif
 
     mUpdate = AddTask("WorldUpdate", 1.0f, 0.0f, Sim::TASK_FRAME_FIXED);
+#ifndef EA_BUILD_A124
     Sim::ProfileTask(mUpdate, "NIS");
+#endif
     mIsPrecipitationEnable = PrecipitationEnable;
 }
 
 NISActivity::~NISActivity() {
     Hermes::Handler::Destroy(mMsgMovieComplete);
+#ifdef EA_BUILD_A124
+    if (mDDayNISSkipped) {
+        new EPlayDDFlyInNIS();
+    }
+#endif
     RemoveTask(mUpdate);
     Unload();
     g_pEAXSound->NISFinished();
+#ifndef EA_BUILD_A124
 
     if (bStringHash("IntroNisFlyInDD") == mSceneHash) {
         SetSoundControlState(false, SNDSTATE_NIS_321, "DDAY flyin");
     }
+#endif
 
     for (int i = 0; i < 8; i++) {
         char channelName[32];
@@ -462,14 +477,18 @@ NISActivity::~NISActivity() {
     ForceAllSceneryDetailLevels = SCENERY_DETAIL_NONE;
 
     new ESndGameState(4, false);
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+    if (mDDayNISSkipped) {
+        new EPlayDDFlyInNIS();
+    } else {
+        MNISComplete(nullptr).Post(UCrc32(0x20d60dbf)); // magic
+    }
+#else
     if (mNISSkipped) {
         new EPlayEndNIS(mSkipToNIS);
     } else {
         MNISComplete(nullptr).Post(UCrc32(0x20d60dbf)); // magic
     }
-#else
-    // TODO PS2
 #endif
 }
 
@@ -777,7 +796,12 @@ void NISActivity::PrepareVehicles(int carListType) {
 
     if (carListType == CSpecialCarListAnimCandidate::ONE_COP || carListType == CSpecialCarListAnimCandidate::LOTS_OF_COPS) {
         // TODO magic
+        // La A124 no tiene DRIVER_NIS: los coches de las escenas se crean sin conductor.
+#ifdef EA_BUILD_A124
+        ISimable *iSim = ISimable::CreateInstance("PVehicle", VehicleParams(this, DRIVER_NONE, 0x9537acb7, startVec, startPos, VPF_SNAP_TO_GROUND, nullptr, nullptr));
+#else
         ISimable *iSim = ISimable::CreateInstance("PVehicle", VehicleParams(this, DRIVER_NIS, 0x9537acb7, startVec, startPos, VPF_SNAP_TO_GROUND, nullptr, nullptr));
+#endif
 
         IVehicle *iCar;
         if (iSim && iSim->QueryInterface(&iCar)) {
@@ -793,7 +817,11 @@ void NISActivity::PrepareVehicles(int carListType) {
         if (carListType == CSpecialCarListAnimCandidate::LOTS_OF_COPS) {
             for (int i = 1; i <= 7; i++) {
                 // TODO magic
+#ifdef EA_BUILD_A124
+                ISimable *iSim = ISimable::CreateInstance("PVehicle", VehicleParams(this, DRIVER_NONE, 0x5d6e3e54, startVec, startPos, VPF_SNAP_TO_GROUND, nullptr, nullptr));
+#else
                 ISimable *iSim = ISimable::CreateInstance("PVehicle", VehicleParams(this, DRIVER_NIS, 0x5d6e3e54, startVec, startPos, VPF_SNAP_TO_GROUND, nullptr, nullptr));
+#endif
 
                 IVehicle *iCar;
                 if (iSim && iSim->QueryInterface(&iCar)) {
@@ -811,8 +839,13 @@ void NISActivity::PrepareVehicles(int carListType) {
         }
     } else if (carListType == CSpecialCarListAnimCandidate::ONE_SPORT_COP) {
         // TODO magic
+#ifdef EA_BUILD_A124
+        ISimable *iSim = ISimable::CreateInstance(
+            "PVehicle", VehicleParams(this, DRIVER_NONE, 0x7a49cccb, startVec, startPos, VPF_SNAP_TO_GROUND, GetCustomCar("COP_CROSS"), nullptr));
+#else
         ISimable *iSim = ISimable::CreateInstance(
             "PVehicle", VehicleParams(this, DRIVER_NIS, 0x7a49cccb, startVec, startPos, VPF_SNAP_TO_GROUND, GetCustomCar("COP_CROSS"), nullptr));
+#endif
 
         IVehicle *iCar;
         if (iSim && iSim->QueryInterface(&iCar)) {
@@ -855,7 +888,11 @@ void NISActivity::PrepareVehicles(int carListType) {
         }
 
         for (int i = 0; i <= 7; i++) {
+#ifdef EA_BUILD_A124
+            ISimable *iSim = ISimable::CreateInstance("PVehicle", VehicleParams(this, DRIVER_NONE, specialCarList[i], startVec, startPos, VPF_SNAP_TO_GROUND, nullptr, nullptr));
+#else
             ISimable *iSim = ISimable::CreateInstance("PVehicle", VehicleParams(this, DRIVER_NIS, specialCarList[i], startVec, startPos, VPF_SNAP_TO_GROUND, nullptr, nullptr));
+#endif
 
             IVehicle *iCar;
             if (iSim && iSim->QueryInterface(&iCar)) {
@@ -920,7 +957,10 @@ static bool IsValidModelToNuke(const IModel *model) {
     if (!model) {
         return false;
     }
-    if (UTL::COM::Is<ISceneryModel>(model) || UTL::COM::Is<IPlaceableScenery>(model)) {
+    if (UTL::COM::Is<ISceneryModel>(model)) {
+        return true;
+    }
+    if (UTL::COM::Is<IPlaceableScenery>(model)) {
         return true;
     }
     if (!model->IsRootModel()) {
@@ -989,16 +1029,17 @@ void NISActivity::UpdateLoading() {
         }
     }
 
-    bool audioQueued = IsAudioStreamQueued();
+    bool AudioLoaded = IsAudioStreamQueued();
 
-    if (TheAnimPlayer.IsLoaded(mSceneHash) && IsCarListLoaded() && mAnimScene && audioQueued) {
+    if (TheAnimPlayer.IsLoaded(mSceneHash) && IsCarListLoaded() && mAnimScene && AudioLoaded) {
         if (mNISType != CAnimChooser::Arrest || TheICEManager.IsEditorOn() || loadStartTime < RealTimer.GetSeconds() - 2.0f) {
             mState = NISACTIVITY_READY_TO_PLAY;
+#ifndef EA_BUILD_A124
+            // La A124 no avisa aqui al sonido: su asm pasa de este store (1270) al `if' de Arrest (1273).
             if (mNISType != CAnimChooser::Moment) {
                 if (mDDayNIS) {
                     SetSoundControlState(true, SNDSTATE_NIS_INTRO, "NIS Load DDay");
                 } else if (mCareerNIS || mNISType == CAnimChooser::Intro) {
-#ifndef EA_BUILD_A124
                     if (mBlackListNIS) {
                         SetSoundControlState(true, SNDSTATE_NIS_BLK, "NIS Play BLK");
                     } else if (mCareerNIS) {
@@ -1006,17 +1047,11 @@ void NISActivity::UpdateLoading() {
                     } else {
                         SetSoundControlState(true, SNDSTATE_NIS_INTRO, "NIS Play Intro");
                     }
-#else
-                    if (mCareerNIS) {
-                        SetSoundControlState(true, SNDSTATE_NIS_STORY, "NIS Play Story");
-                    } else {
-                        SetSoundControlState(true, SNDSTATE_NIS_INTRO, "NIS Play Intro");
-                    }
-#endif
                 } else if (mNISType == CAnimChooser::Arrest) {
                     SetSoundControlState(true, SNDSTATE_NIS_ARREST, "NIS Play Arrest");
                 }
             }
+#endif
         }
 
         if (mNISType == CAnimChooser::Arrest) {
@@ -1055,11 +1090,14 @@ void NISActivity::OnMovieComplete(const MNotifyMovieFinished &message) {
 void NISActivity::Play() {
     EmitterSystem_OnStartNIS();
 
+#ifndef EA_BUILD_A124
+    // La A124 no apaga el preculler en las NIS (su Play pasa de EmitterSystem_OnStartNIS, 1323, a 1326).
     for (int i = 0; i < 1; i++) {
         if (mSceneHash == bStringHash(NisNamesToDisablePreculler[i])) {
             DisablePreculler();
         }
     }
+#endif
 
     mDefault_MaxTicksPerTimestep = MaxTicksPerTimestep;
     MaxTicksPerTimestep = 7.0f;
@@ -1157,7 +1195,7 @@ void NISActivity::UpdatePlaying(float dT) {
         }
     } else {
         CAnimScene *animScene = mAnimScene;
-        if (animScene && (animScene->GetTimeElapsed() <= animScene->GetTimeTotalLength() || TheICEManager.IsEditorOn())) {
+        if (animScene && (!animScene->IsFinished() || TheICEManager.IsEditorOn())) {
             if (!mAnimScene->IsPaused()) {
                 mAnimScene->UpdateTime(dT);
                 mAnimScene->AnimatedCars_Update(dT);
@@ -1231,13 +1269,21 @@ void NISActivity::Release() {
         wasInterrupted = true;
     } else if (mNISType == CAnimChooser::Moment) {
         new EBecomePlayerCar();
-    } else if (mNISType == CAnimChooser::Ending && !mRunningThroughICE) {
-        new EFadeScreenOn(
-#ifndef EA_BUILD_A124
-            false
-#endif
-        );
+#ifdef EA_BUILD_A124
     }
+
+    IPlayer *player = IPlayer::First(PLAYER_LOCAL);
+    if (player) {
+        IFeedback *ffb = player->GetFFB();
+        if (ffb) {
+            ffb->ResumeEffects();
+        }
+    }
+#else
+    } else if (mNISType == CAnimChooser::Ending && !mRunningThroughICE) {
+        new EFadeScreenOn(false);
+    }
+#endif
 
     FacePixelation::Disable();
 
@@ -1264,11 +1310,13 @@ void NISActivity::Release() {
         Sim::Activity::Release();
     }
 
+#ifndef EA_BUILD_A124
     for (int i = 0; i < 1; i++) {
         if (mSceneHash == bStringHash(NisNamesToDisablePreculler[i])) {
             EnablePreculler();
         }
     }
+#endif
 
     EmitterSystem_OnEndNis();
 
@@ -1331,7 +1379,7 @@ bool NISActivity::OnTask(HSIMTASK task, float dT) {
         JoyHandle(IPlayer::First(PLAYER_LOCAL));
         switch (mState) {
             case NISACTIVITY_READY_TO_PLAY:
-                if (mStartPlayingNow && !mPause && mSuspensionSettle >= 31) {
+                if (mStartPlayingNow && !mPause && mSuspensionSettle > 30) {
                     Play();
                 } else {
                     mSuspensionSettle++;
@@ -1362,8 +1410,10 @@ bool NISActivity::OnTask(HSIMTASK task, float dT) {
 bool NISActivity::SkipOverNIS() {
     if (!TheICEManager.IsEditorOn()) {
 #ifndef EA_BUILD_A124
-        if ((!mNonSkipableNIS || SkipMovies) && mState == NISACTIVITY_PLAYING && mNISType != CAnimChooser::Arrest &&
-            mNISType != CAnimChooser::Ending) {
+        if (mNonSkipableNIS && !SkipMovies) {
+            return false;
+        }
+        if (mState == NISACTIVITY_PLAYING && mNISType != CAnimChooser::Arrest && mNISType != CAnimChooser::Ending) {
             if (mSkipToNIS[0] != 0) {
                 if (mNISElapsedTime > mNISNoSkipTime) {
                     return false;
@@ -1371,18 +1421,24 @@ bool NISActivity::SkipOverNIS() {
                 mNISSkipped = true;
             }
 #else
-        if (true) {
-            // TODO PS2
+        if (mState == NISACTIVITY_PLAYING) {
+            if (mDDayNIS) {
+                mDDayNISSkipped = true;
+            }
 #endif
             if (mSequencer) {
                 mSequencer->Complete(Sim::GetTime(), true, nullptr);
             }
             mState = NISACTIVITY_COMPLETE;
+#ifdef EA_BUILD_A124
+            g_pEAXSound->QueueNISButtonThrough(mSceneHash, 0);
+#else
             Speech::Manager::ClearPlayback();
             Speech::Module *cop_speech = Speech::Manager::GetSpeechModule(1);
             if (cop_speech) {
                 cop_speech->ReleaseResource();
             }
+#endif
             ICECompleteEventTags();
             if (mAnimScene) {
                 mAnimScene->JumpToEnd();

@@ -17,8 +17,9 @@ class AIActionJackKnife : public AIAction {
     static AIAction *Construct(AIActionParams *params);
 
     AIActionJackKnife(AIActionParams *params, float score);
+  private:
     void MessageJackKnife(const MJackKnife &message);
-
+  public:
     // Virtual overrides
     // IUnknown
     ~AIActionJackKnife() override {
@@ -82,7 +83,16 @@ void AIActionJackKnife::OnBehaviorChange(const UCrc32 &mechanic) {
 float kActionJackKnifeSpeed = 50.0f;
 
 bool AIActionJackKnife::CanBeAttempted(float dT) {
-    if (!mIInput || !mIVehicle || !mArticulation || !mArticulation->GetTrailer()) {
+    if (!mIInput) {
+        return false;
+    }
+    if (!mIVehicle) {
+        return false;
+    }
+    if (!mArticulation) {
+        return false;
+    }
+    if (!mArticulation->GetTrailer()) {
         return false;
     }
     if (mForceJackKnife) {
@@ -103,15 +113,15 @@ bool AIActionJackKnife::CanBeAttempted(float dT) {
     const UMath::Vector3 &velocity = irb->GetLinearVelocity();
 
     float timetoimpact = AI::Math::TimeToImpactXZ(position, velocity, irb->GetRadius(), playerPosition, playerVelocity, playerIRB->GetRadius());
-    if (timetoimpact <= 4.25f && timetoimpact > 0.0f) {
-        // TODO this variable isn't scoped
-        float angletoplayer = AI::Math::AngleTo(position, forwardVector, playerPosition);
-        if (angletoplayer <= DEG2ANGLE(25.0f)) {
-            mAccelTime = 0.5f;
-            return true;
-        }
+    if (timetoimpact > 4.25f || timetoimpact <= 0.0f) {
+        return false;
     }
-    return false;
+    float angletoplayer = AI::Math::AngleTo(position, forwardVector, playerPosition);
+    if (angletoplayer > DEG2ANGLE(25.0f)) {
+        return false;
+    }
+    mAccelTime = 0.5f;
+    return true;
 }
 
 void AIActionJackKnife::Update(float dT) {
@@ -141,8 +151,15 @@ void AIActionJackKnife::Update(float dT) {
         return;
     }
     IVehicle *trailer = mArticulation->GetTrailer();
-    if (mArticulation->IsHitched() && trailer && mIVehicle->GetSpeed() < MPH2MPS(kActionJackKnifeSpeed / 5.0f)) {
-        mArticulation->SetHitch(false);
+    bool detach;
+    if (mArticulation->IsHitched() && trailer) {
+        detach = false;
+        if (mIVehicle->GetSpeed() < MPH2MPS(kActionJackKnifeSpeed / 5.0f)) {
+            detach = true;
+        }
+        if (detach) {
+            mArticulation->SetHitch(false);
+        }
     }
 }
 

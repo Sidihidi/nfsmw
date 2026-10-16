@@ -14,7 +14,11 @@ void GinsuSynthesis::PacketReleaseCallback(void *samples, void *clientdata) {
 
 // UNSOLVED, functional match
 void GinsuSynthesis::HandlePacketRelease(short *samples) {
-    if (this->mSynthData != nullptr) {
+    // La A124 no comprueba mSynthData en ningun sitio (lo anadieron despues).
+#ifndef EA_BUILD_A124
+    if (this->mSynthData != nullptr)
+#endif
+    {
         this->mCurrentCycle = this->mSynthData->SampleToCycle(this->mCurrentPos);
     }
 
@@ -22,7 +26,11 @@ void GinsuSynthesis::HandlePacketRelease(short *samples) {
     float jumpTime = 0.0f;
     int jumpDist = 0;
 
+#ifdef EA_BUILD_A124
+    if (this->mNoJumpRemaining < this->mPacketSize) {
+#else
     if (this->mNoJumpRemaining < this->mPacketSize && this->mSynthData != nullptr) {
+#endif
         float playbackCycle = this->mSynthData->SampleToCycle(this->mPlaybackPos);
         float playbackRate = static_cast<float>(this->mPacketSize) / this->mSynthData->CyclePeriod(playbackCycle);
         float currentRate = change / this->mSynthData->CyclePeriod(this->mCurrentCycle);
@@ -61,7 +69,10 @@ void GinsuSynthesis::HandlePacketRelease(short *samples) {
 
     int sampleCount = IntRound(jumpTime * static_cast<float>(this->mPacketSize));
 
-    if (this->mSynthData != nullptr) {
+#ifndef EA_BUILD_A124
+    if (this->mSynthData != nullptr)
+#endif
+    {
         this->mSynthData->GetSamples(this->mPlaybackPos, sampleCount, samples);
     }
 
@@ -77,7 +88,10 @@ void GinsuSynthesis::HandlePacketRelease(short *samples) {
         float cycle = 0.0f;
         short buff[256];
 
-        if (this->mSynthData != nullptr) {
+#ifndef EA_BUILD_A124
+        if (this->mSynthData != nullptr)
+#endif
+        {
             this->mSynthData->GetSamples(this->mPlaybackPos, this->mOverlapSize, dest);
 
             cycle = this->mSynthData->SampleToCycle(this->mPlaybackPos);
@@ -103,7 +117,10 @@ void GinsuSynthesis::HandlePacketRelease(short *samples) {
         this->mNoJumpRemaining = this->mNoJumpSize - this->mOverlapSize;
 
         if (count > 0) {
-            if (this->mSynthData != nullptr) {
+#ifndef EA_BUILD_A124
+            if (this->mSynthData != nullptr)
+#endif
+            {
                 this->mSynthData->GetSamples(this->mPlaybackPos, count, samples + sampleCount);
             }
 
@@ -145,13 +162,9 @@ GinsuSynthesis::GinsuSynthesis(void *memblock, int size) {
     char *overheadMem;
 
     this->mMaxPacketSize =
-#ifdef EA_BUILD_A124
-        (static_cast<unsigned int>(size - overhead) >> 3) << 1;
-#else
-        (static_cast<unsigned int>(size - overhead) >> 2) & 0x3ffffffe;
-#endif
+        static_cast<unsigned int>(size - overhead) / 8 * 2;
 
-    if (this->mMaxPacketSize > 0x4f) {
+    if (this->mMaxPacketSize >= 0x50) {
         this->mPacketData[0] = static_cast<short *>(memblock);
         this->mPacketData[1] = static_cast<short *>(memblock) + this->mMaxPacketSize;
 
@@ -214,8 +227,8 @@ int GinsuSynthesis::StartSynthesis(float startFreq) {
     SNDSAMPLEFORMAT ssf;
     ssf.samplerate = static_cast<unsigned short>(this->mSynthData->GetSampleRate());
     ssf.channels = 1;
-#ifdef EA_BUILD_A124
-    ssf.samplerep = 8;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ssf.samplerep = 8; // las dos PS2
 #else
     ssf.samplerep = 7;
 #endif
@@ -277,7 +290,11 @@ bool GinsuSynthesis::UpdateFrequency(float targetFreq, float latency) {
 }
 
 float GinsuSynthesis::GetCurrentPitch() {
+#ifdef EA_BUILD_A124
+    if (this->mSampleRate == 0) {
+#else
     if (this->mSampleRate == 0 || this->mSynthData == nullptr) {
+#endif
         return 0.0f;
     }
 

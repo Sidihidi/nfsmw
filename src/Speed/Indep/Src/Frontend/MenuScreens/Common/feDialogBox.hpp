@@ -11,8 +11,10 @@ enum eDialogTitle {
     dialog_alert = 1,
     dialog_info = 2,
     dialog_confirmation = 3,
+#ifndef EA_BUILD_A124 // la A124 acaba en dialog_confirmation (stabs)
     dialog_fatalerror = 4,
     dialog_countdown = 5,
+#endif
 };
 
 typedef enum {
@@ -56,7 +58,11 @@ class feDialogConfig {
     bool bBlurbIsUTF8;                // offset 0x238, size 0x1
     uint32 DismissedByOtherDialogMsg; // offset 0x23C, size 0x4
     dialog_handle DialogHandle;       // offset 0x240, size 0x4
+#ifdef EA_BUILD_A124
+    uint32 ControlMask; // offset 0x244, size 0x4 (stabs de la A124)
+#else
     float fCountdown;                 // offset 0x244, size 0x4
+#endif
 };
 
 // TODO
@@ -78,12 +84,14 @@ class DialogInterface {
 
   public:
     static dialog_handle ShowDialog(struct feDialogConfig *conf);
-    static dialog_handle ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *msg_fmt);
-    static dialog_handle ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash);
+    // Variadicas en todas las versiones: ShowMessage__15DialogInterfacePCcT112eDialogTitleT1e de la A124, el DWARF
+    // de GameCube (estripadas) y las tres copias de PC (0x598510).
+    static dialog_handle ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *msg_fmt, ...);
+    static dialog_handle ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash, ...);
     static dialog_handle ShowOk(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, ...);
     static dialog_handle ShowOk(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash, ...);
-    static dialog_handle ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt);
-    static dialog_handle ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash);
+    static dialog_handle ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, ...);
+    static dialog_handle ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash, ...);
     static dialog_handle ShowOneButton(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button_text_hash,
                                        uint32 button_pressed_message, uint32 cancel_message, const char *fmt, ...);
     static dialog_handle ShowOneButton(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button_text_hash,
@@ -143,5 +151,8 @@ class feDialogScreen : public MenuScreen {
     Timer tCountdownTimer;    // offset 0x280
 #endif
 };
+
+// Definido en feDialogBox.cpp; lo lee UIOnlineEA_Messenger::NotificationMessage (y feUIWidgetMenu.cpp).
+extern float g_KBDelaySeconds;
 
 #endif

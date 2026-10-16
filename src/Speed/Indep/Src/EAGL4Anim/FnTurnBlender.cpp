@@ -263,7 +263,7 @@ void FnTurnBlender::AlignCycleBeginEnd(int cIdx) {
             q.y = -q.y;
         }
 
-        QuatMult(q, mAlignQ, resultQ);
+        QuatMult(mAlignQ, q, resultQ);
         mAlignQ = resultQ;
         mCycleIdx = cIdx;
 
@@ -274,11 +274,11 @@ void FnTurnBlender::AlignCycleBeginEnd(int cIdx) {
 }
 
 void FnTurnBlender::AlignRootQ(float *sqt) const {
-    UMath::Vector4 q;
+    UMath::Vector4 result;
 
-    QuatMult(mAlignQ, *reinterpret_cast<const UMath::Vector4 *>(&sqt[4]), q);
+    QuatMult(*reinterpret_cast<const UMath::Vector4 *>(&sqt[4]), mAlignQ, result);
 
-    *reinterpret_cast<UMath::Vector4 *>(&sqt[4]) = q;
+    *reinterpret_cast<UMath::Vector4 *>(&sqt[4]) = result;
 }
 
 void FnTurnBlender::AlignVel(float *vel) const {
@@ -288,7 +288,7 @@ void FnTurnBlender::AlignVel(float *vel) const {
     v.y = 0.0f;
     v.z = vel[1];
     v.w = 1.0f;
-    QuatRotate(mAlignQ, v, r);
+    QuatTransformPoint(mAlignQ, v, r);
     vel[0] = r.x;
     vel[1] = r.z;
 }
@@ -311,12 +311,12 @@ bool FnTurnBlender::BlendBeginFacing(float *f) const {
     UMath::Vector4 xAxis = {0.0f, 1.0f, 0.0f, 1.0f};
     UMath::Vector4 xAxis1;
 
-    QuatRotate(q, xAxis, xAxis1);
+    QuatTransformPoint(q, xAxis, xAxis1);
 
     f[0] = xAxis1.x;
     f[1] = xAxis1.z;
 
-    printf("Facing: %g %g\n", xAxis1.x, xAxis1.z);
+    printf("Facing: %g %g\n", f[0], f[1]);
 
     return true;
 }
@@ -360,12 +360,12 @@ bool FnTurnBlender::BlendEndFacing(float *f) const {
     UMath::Vector4 xAxis = {0.0f, 1.0f, 0.0f, 1.0f};
     UMath::Vector4 xAxis1;
 
-    QuatRotate(q, xAxis, xAxis1);
+    QuatTransformPoint(q, xAxis, xAxis1);
 
     f[0] = xAxis1.x;
     f[1] = xAxis1.z;
 
-    printf("Facing: %g %g\n", xAxis1.x, xAxis1.z);
+    printf("Facing: %g %g\n", f[0], f[1]);
 
     return true;
 }

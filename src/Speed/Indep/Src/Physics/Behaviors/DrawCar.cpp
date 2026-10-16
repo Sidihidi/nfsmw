@@ -122,7 +122,7 @@ void DrawCar::ReleaseChildModels() {
 
 bool DrawCar::IsPartVisible(const UCrc32 &name) const {
     Parts::const_iterator iter = this->mParts.find(name);
-    return iter == this->mParts.end();
+    return iter == this->mParts.end() ? true : false;
 }
 
 void DrawCar::HidePart(const UCrc32 &name) {
@@ -138,7 +138,7 @@ void DrawCar::ShowPart(const UCrc32 &name) {
     Parts::iterator iter = this->mParts.find(name);
     if (iter != this->mParts.end()) {
         (*iter).second--;
-        if ((*iter).second < 1) {
+        if ((*iter).second <= 0) {
             this->mParts.erase(iter);
         }
     }
@@ -342,7 +342,7 @@ void DrawPerformanceCar::OnService(RenderConn::Pkt_Car_Service &pkt) {
         pkt.SetShiftStatus(this->mTransmission->GetShiftStatus());
         pkt.SetNOS(this->mEngine->IsNOSEngaged());
 
-        if (this->mTransmission->GetGear() < 2 || this->GetVehicle()->IsStaging()) {
+        if (this->mTransmission->GetGear() <= G_NEUTRAL || this->GetVehicle()->IsStaging()) {
             float rpm_ratio = UMath::Ramp(this->mEngine->GetRPM(), this->mEngine->GetMinRPM(), this->mEngine->GetMaxRPM());
             float max_power = this->mEngine->GetMaxHorsePower();
             float min_power = this->mEngine->GetMinHorsePower();

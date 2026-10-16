@@ -14,12 +14,13 @@ SpaceNode::SpaceNode(SpaceNode *parent) {
 
     bIdentity(&this->LocalMatrix);
 
-    this->Parent = nullptr;
     this->LocalVelocity = bVector3(0.0f, 0.0f, 0.0f);
     this->LocalAngularVelocity = bVector3(0.0f, 0.0f, 0.0f);
     this->WorldAngularVelocity = bVector3(0.0f, 0.0f, 0.0f);
 
+    this->Parent = nullptr;
     this->SetParent(parent);
+
     this->BlendingMatrices = nullptr;
 }
 
@@ -35,13 +36,15 @@ void SpaceNode::SetName(const char *name) {
 
 void SpaceNode::SetParent(SpaceNode *new_parent) {
     SpaceNode *current_parent = this->GetParent();
-    if (new_parent != current_parent) {
-        this->RemoveFromParent();
-        if (new_parent != nullptr) {
-            new_parent->AddChild(this);
-        }
+    if (new_parent == current_parent) {
+        return;
+    }
+    this->RemoveFromParent();
+    if (new_parent != nullptr) {
+        new_parent->AddChild(this);
     }
 }
+
 
 void SpaceNode::RemoveFromParent() {
     SpaceNode *parent = this->GetParent();

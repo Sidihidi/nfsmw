@@ -37,7 +37,7 @@ bool RemoveDepFile(const char *filename) {
     Attrib::AssetID assetID = Attrib::StringToAssetID(filename);
     FileMap::iterator iter = gFiles.find(assetID);
 
-    if ((*iter).second.mRefCount != 0) {
+    if ((*iter).second.mRefCount > 0) {
         return false;
     } else {
         gFiles.erase(iter);

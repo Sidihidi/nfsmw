@@ -1,90 +1,19 @@
-typedef struct {
-    unsigned int VideoFrameWidth;
-    unsigned int VideoFrameHeight;
-    int YStride;
-    int UVStride;
-    unsigned int HFragPixels;
-    unsigned int VFragPixels;
-    unsigned int HScale;
-    unsigned int HRatio;
-    unsigned int VScale;
-    unsigned int VRatio;
-    unsigned int ScalingMode;
-    unsigned int Interlaced;
-    unsigned int ExpandedFrameWidth;
-    unsigned int ExpandedFrameHeight;
-} CONFIG_TYPE;
+#include "postp.h"
 
-typedef struct {
-    int Vp3VersionNo;
-    int FrameType;
-    int PostProcessingLevel;
-    int FrameQIndex;
-    unsigned char *LastFrameRecon;
-    unsigned char *PostProcessBuffer;
-    unsigned char *FragInfo;
-    unsigned int FragInfoElementSize;
-    unsigned int FragInfoCodedMask;
-    int *FragQIndex;
-    int *FragmentVariances;
-    unsigned char *FragDeblockingFlag;
-    int *BoundingValuePtr;
-    int *FiltBoundingValue;
-    int *DeblockValuePtr;
-    int *DeblockBoundingValue;
-    CONFIG_TYPE Configuration;
-    unsigned int ReconYDataOffset;
-    unsigned int ReconUDataOffset;
-    unsigned int ReconVDataOffset;
-    unsigned int YPlaneFragments;
-    unsigned int UVPlaneFragments;
-    unsigned int UnitFragments;
-    unsigned int HFragments;
-    unsigned int VFragments;
-    int YStride;
-    int UVStride;
-    int *FiltBoundingValueAlloc;
-    int *DeblockBoundingValueAlloc;
-    int *FragQIndexAlloc;
-    int *FragmentVariancesAlloc;
-    unsigned char *FragDeblockingFlagAlloc;
-    unsigned int MVBorder;
-    unsigned char *IntermediateBufferAlloc;
-    unsigned char *IntermediateBuffer;
-    unsigned int DeInterlaceMode;
-    unsigned int AddNoiseMode;
-} POSTPROC_INSTANCE;
-
-typedef struct {
-    int YWidth;
-    int YHeight;
-    int YStride;
-    int UVWidth;
-    int UVHeight;
-    int UVStride;
-    char *YBuffer;
-    char *UBuffer;
-    char *VBuffer;
-} YUV_BUFFER_CONFIG;
-
-typedef enum {
-    MAINTAIN_ASPECT_RATIO = 0,
-    SCALE_TO_FIT = 1,
-    CENTER = 2,
-    OTHER = 3
-} SCALE_MODE;
-
-extern void UpdateUMVBorder(POSTPROC_INSTANCE *ppi);
-
-void (*VerticalBand_4_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*LastVerticalBand_4_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*VerticalBand_3_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*LastVerticalBand_3_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*HorizontalLine_1_2_Scale)(const unsigned char *, unsigned int, unsigned char *, unsigned int);
-void (*HorizontalLine_3_5_Scale)(const unsigned char *, unsigned int, unsigned char *, unsigned int);
-void (*HorizontalLine_4_5_Scale)(const unsigned char *, unsigned int, unsigned char *, unsigned int);
-void (*VerticalBand_1_2_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*LastVerticalBand_1_2_Scale)(unsigned char *, unsigned int, unsigned int);
+/* Definiciones provisionales (sin inicializar y sin -fno-common): en el objeto
+   de GameCube quedan como COMMON y el enlazador las funde con las de postproc.c. */
+void (*VerticalBand_4_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*LastVerticalBand_4_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*VerticalBand_3_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*LastVerticalBand_3_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*HorizontalLine_1_2_Scale)(const unsigned char *source, unsigned int sourceWidth, unsigned char *dest,
+                                 unsigned int destWidth);
+void (*HorizontalLine_3_5_Scale)(const unsigned char *source, unsigned int sourceWidth, unsigned char *dest,
+                                 unsigned int destWidth);
+void (*HorizontalLine_4_5_Scale)(const unsigned char *source, unsigned int sourceWidth, unsigned char *dest,
+                                 unsigned int destWidth);
+void (*VerticalBand_1_2_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*LastVerticalBand_1_2_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
 
 void HorizontalLine_Copy(const unsigned char *source, unsigned int sourceWidth,
                          unsigned char *dest, unsigned int destWidth) {
@@ -98,20 +27,18 @@ void HorizontalLine_4_5_Scale_C(const unsigned char *source, unsigned int source
                                 unsigned char *dest, unsigned int destWidth) {
     unsigned int i;
     unsigned int a, b, c;
-    const unsigned char *src = source;
     unsigned char *des = dest;
+    const unsigned char *src = source;
 
     for (i = 0; i < sourceWidth - 4; i += 4) {
         a = src[0];
         b = src[1];
         des[0] = (unsigned char)a;
         des[1] = (unsigned char)((a * 51 + 205 * b + 128) >> 8);
-
-        c = src[2];
+        c = src[2] * 154;
         a = src[3];
-        des[2] = (unsigned char)((b * 102 + 154 * c + 128) >> 8);
-        des[3] = (unsigned char)((c * 154 + 102 * a + 128) >> 8);
-
+        des[2] = (unsigned char)((b * 102 + c + 128) >> 8);
+        des[3] = (unsigned char)((c + 102 * a + 128) >> 8);
         b = src[4];
         des[4] = (unsigned char)((a * 205 + 51 * b + 128) >> 8);
 
@@ -123,12 +50,10 @@ void HorizontalLine_4_5_Scale_C(const unsigned char *source, unsigned int source
     b = src[1];
     des[0] = (unsigned char)a;
     des[1] = (unsigned char)((a * 51 + 205 * b + 128) >> 8);
-
-    c = src[2];
+    c = src[2] * 154;
     a = src[3];
-    des[2] = (unsigned char)((b * 102 + 154 * c + 128) >> 8);
-    des[3] = (unsigned char)((c * 154 + 102 * a + 128) >> 8);
-
+    des[2] = (unsigned char)((b * 102 + c + 128) >> 8);
+    des[3] = (unsigned char)((c + 102 * a + 128) >> 8);
     des[4] = (unsigned char)a;
 }
 
@@ -143,10 +68,10 @@ void VerticalBand_4_5_Scale_C(unsigned char *dest, unsigned int destPitch,
         b = des[destPitch];
         des[destPitch] = (unsigned char)((a * 51 + 205 * b + 128) >> 8);
 
-        c = des[destPitch * 2];
+        c = des[destPitch * 2] * 154;
         d = des[destPitch * 3];
-        des[destPitch * 2] = (unsigned char)((b * 102 + 154 * c + 128) >> 8);
-        des[destPitch * 3] = (unsigned char)((c * 154 + 102 * d + 128) >> 8);
+        des[destPitch * 2] = (unsigned char)((b * 102 + c + 128) >> 8);
+        des[destPitch * 3] = (unsigned char)((c + 102 * d + 128) >> 8);
 
         a = des[destPitch * 5];
         des[destPitch * 4] = (unsigned char)((d * 205 + 51 * a + 128) >> 8);
@@ -166,10 +91,10 @@ void LastVerticalBand_4_5_Scale_C(unsigned char *dest, unsigned int destPitch,
         b = des[destPitch];
         des[destPitch] = (unsigned char)((a * 51 + 205 * b + 128) >> 8);
 
-        c = des[destPitch * 2];
+        c = des[destPitch * 2] * 154;
         d = des[destPitch * 3];
-        des[destPitch * 2] = (unsigned char)((b * 102 + 154 * c + 128) >> 8);
-        des[destPitch * 3] = (unsigned char)((c * 154 + 102 * d + 128) >> 8);
+        des[destPitch * 2] = (unsigned char)((b * 102 + c + 128) >> 8);
+        des[destPitch * 3] = (unsigned char)((c + 102 * d + 128) >> 8);
 
         des[destPitch * 4] = (unsigned char)d;
 
@@ -181,8 +106,8 @@ void HorizontalLine_3_5_Scale_C(const unsigned char *source, unsigned int source
                                 unsigned char *dest, unsigned int destWidth) {
     unsigned int i;
     unsigned int a, b, c;
-    const unsigned char *src = source;
     unsigned char *des = dest;
+    const unsigned char *src = source;
 
     for (i = 0; i < sourceWidth - 3; i += 3) {
         a = src[0];
@@ -259,8 +184,8 @@ void HorizontalLine_1_2_Scale_C(const unsigned char *source, unsigned int source
                                 unsigned char *dest, unsigned int destWidth) {
     unsigned int i;
     unsigned int a, b;
-    const unsigned char *src = source;
     unsigned char *des = dest;
+    const unsigned char *src = source;
 
     for (i = 0; i < sourceWidth - 1; i += 1) {
         a = src[0];
@@ -500,7 +425,7 @@ void CenterImage(POSTPROC_INSTANCE *ppi, unsigned char *FrameBuffer,
 void ScaleOrCenter(POSTPROC_INSTANCE *ppi, unsigned char *FrameBuffer,
                    YUV_BUFFER_CONFIG *YuvConfig) {
     if (ppi->PostProcessingLevel)
-        UpdateUMVBorder(ppi);
+        UpdateUMVBorder(ppi, FrameBuffer);
 
     switch (ppi->Configuration.ScalingMode) {
     case MAINTAIN_ASPECT_RATIO:

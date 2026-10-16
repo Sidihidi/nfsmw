@@ -57,17 +57,17 @@ void EForceCarStop_MakeEvent_Callback(const void *staticData) {
                       gEventDynamicData.fhSimable);
 }
 
-int EForceCarStop_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) ==
+int EForceCarStop_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) ==
 #ifdef EA_BUILD_A124
         2
 #else
         1
 #endif
     ) {
-        new EForceCarStop((int) lua_tonumber(L, 1),
+        new EForceCarStop((int) lua_tonumber(luaState, 1),
 #ifdef EA_BUILD_A124
-                          (int) lua_tonumber(L, 2),
+                          (int) lua_tonumber(luaState, 2),
 #endif
                           gEventDynamicData.fhSimable);
     }

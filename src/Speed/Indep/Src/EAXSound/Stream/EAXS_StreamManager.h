@@ -67,4 +67,18 @@ class EAXS_StreamManager : public AudioMemBase {
 
 #define MAX_STREAM_CHANNELS 3; // Decl: 57
 
+#define STREAMBLOCK_SIZE 32768
+
+#ifdef EA_BUILD_A124
+// La A124 aun no tiene los bloques de mas (ni sus simbolos: el tamano de cada canal es una constante) y reserva los
+// canales sin el numero de linea (`new (nombre, 0)` en su InitializeStreams).
+#define INCREASE_MUSICSTREAM_BLOCKS 0
+#define INCREASE_NISSFXSTRM_BLOCKS 0
+#define STRMCHANNEL_LINE 0
+#else
+extern int INCREASE_MUSICSTREAM_BLOCKS;
+extern int INCREASE_NISSFXSTRM_BLOCKS;
+#define STRMCHANNEL_LINE __LINE__
+#endif
+
 #endif

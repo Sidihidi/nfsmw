@@ -4,13 +4,21 @@
 #include "PhysicsTunings.h"
 #include "PhysicsTypes.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/chassis.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/engine.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/induction.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/nos.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/pvehicle.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/tires.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/transmission.h"
+
+// Solo se usan por referencia en las declaraciones: las definiciones Gen
+// las incluye cada .cpp que las necesita (en el objetivo, las TU que solo
+// pasan por esta cabecera no internan estos nombres en su pool).
+namespace Attrib {
+namespace Gen {
+struct chassis;
+struct engine;
+struct induction;
+struct nos;
+struct pvehicle;
+struct tires;
+struct transmission;
+} // namespace Gen
+} // namespace Attrib
 
 namespace Physics {
 namespace Info {
@@ -26,10 +34,10 @@ struct Performance {
         Default();
     }
 
-    Performance(float topspeed, float handling, float accel) {
-        TopSpeed = topspeed;
-        Handling = handling;
-        Acceleration = accel;
+    Performance(float ts, float hand, float acc) {
+        TopSpeed = ts;
+        Handling = hand;
+        Acceleration = acc;
     }
 
     void Default() {

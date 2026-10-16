@@ -8,10 +8,10 @@ from and **how** that data was obtained. It is written for the other people
 working on the decompilation, so that anything useful here can be reused,
 checked or upstreamed.
 
-State of this document: **2026-09-18**. The fork branched from upstream at
-`59f184a0` ("5% linked! (#123)") and carries about 1,540 commits on top of it;
-upstream has 60 newer commits that are not merged here, so compare against
-`59f184a0` when a diff looks surprising.
+State of this document: **2026-09-30** (first written 2026-09-18). The fork branched from upstream at
+`59f184a0` ("5% linked! (#123)") and carries about 1,890 commits on top of it. Upstream's later work is not merged
+as history: it is integrated hunk by hunk, each hunk measured, the latest being `9ca26bc1` ("zTrack work (#144)").
+Compare against `59f184a0` when a diff looks surprising.
 
 ---
 
@@ -19,13 +19,19 @@ upstream has 60 newer commits that are not merged here, so compare against
 
 Five builds are compiled and measured, each against its own original binary:
 
-| build | platform / compiler | upstream `fd0c355` (2026-09-16) | this fork (2026-09-18) |
+| build | platform / compiler | upstream `fd0c355` (2026-09-16) | this fork (2026-10-16) |
 |---|---|---|---|
-| `GOWE69` | GameCube, SN ProDG GCC 2.95.3 | 55.55 % code, 11,074 functions | **97.07 %** code, 18,292 / 18,432 functions |
-| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **31.17 %**, 12,770 / 25,361 |
-| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **33.31 %**, 9,958 / 21,549 |
-| `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **1.96 %**, 2,213 / 57,575 |
-| `SPEED_EXE_1_3` | PC 1.3, MSVC 7.1 | 6.54 % | **9.99 %**, 5,788 / 46,134 |
+| `GOWE69` | GameCube, SN ProDG GCC 2.95.3 | 55.55 % code, 11,074 functions | **98.70 %** code, 18,391 / 18,432 functions (data 50.83 %) |
+| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **78.58 %**, 21,452 / 25,358 |
+| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **80.97 %**, 18,795 / 22,003 |
+| `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **21.89 %**, 21,236 / 57,575 (LTCG link) |
+| `SPEED_EXE_1_3` | PC 1.3, MSVC 7.1 | 6.54 % | **41.80 %**, 31,352 / 54,172 |
+
+Of the 41 GameCube entries still open, one is not a function: `pad_00_8000348C_init` is 20 bytes of alignment added
+when the ELF was converted to a DOL, outside every ELF section; it stays in the count rather than being dropped or
+mapped to another symbol. The `path` library was built with SN ProDG v1.83, which nobody publishes; the fork now
+replicates it (see "Replicating a compiler that is not public") and, with `-mps-float` like its sibling `snd`, all 194
+of its functions match.
 
 How the numbers are taken, so that they are comparable:
 
@@ -53,8 +59,11 @@ These rules explain the shape of many changes described below.
    more than a 100 % that only compiles on GameCube. There is **no
    compiler-steering inline asm** left in the game code (register pins, empty
    barriers and asm aliases were all removed). The inline asm that remains is
-   platform code that is asm in the original too — PS2 VU0 macros, GameCube
-   paired-single, GQR and cache instructions, the SN and Dolphin runtime — and
+   what the binary proves EA wrote: hardware that C cannot produce — PS2 VU0
+   macros, MMI and COP0, GameCube paired-single, GQR and cache instructions,
+   `frsqrte`/`fres`/`fsel`/`fabs`, the SN and Dolphin runtime — and the few FPU
+   sequences no C form can reproduce (lesson 90: `bSqrt` on GameCube,
+   `min.s`/`max.s`/`abs.s` and the float-to-int conversions on PS2), plus
    toolchain headers. When it is not obvious whether the original was asm, the
    line map settles it: an asm statement is one or a few source lines over the
    whole instruction sequence (see the line map, below). Four assembler sources
@@ -138,12 +147,16 @@ that was committed by mistake early on.
   - [Build and measurement changes](#build-and-measurement-changes)
     - [Five builds from one `configure.py`](#five-builds-from-one-configurepy)
     - [Per-library compilers and flags](#per-library-compilers-and-flags)
+    - [Replicating a compiler that is not public: SN v1.83 for `path`](#replicating-a-compiler-that-is-not-public-sn-v183-for-path)
+    - [Building SN's compiler from its GPL source](#building-sns-compiler-from-its-gpl-source)
+    - [How EA's inline asm is proven: the compiler as judge](#how-eas-inline-asm-is-proven-the-compiler-as-judge)
     - [The EE-GCC two-step wrapper (`tools/ee_gcc_pp.py`)](#the-ee-gcc-two-step-wrapper-toolsee_gcc_pppy)
     - [Section renaming (`section_rename`)](#section-renaming-section_rename)
     - [Build-graph fixes (`tools/project.py`)](#build-graph-fixes-toolsprojectpy)
     - [Small changes to upstream tools](#small-changes-to-upstream-tools)
     - [objdiff options and name mappings](#objdiff-options-and-name-mappings)
     - [Measuring five builds: `scripts/pctall.py`](#measuring-five-builds-scriptspctallpy)
+    - [Xbox 360 is measured on an LTCG link: `scripts/ltcg360.py`](#xbox-360-is-measured-on-an-ltcg-link-scriptsltcg360py)
     - [`config/<version>/`](#configversion)
   - [Tool catalogue](#tool-catalogue)
     - [Measurement and progress](#measurement-and-progress)
@@ -157,6 +170,7 @@ that was committed by mistake early on.
     - [Publishing](#publishing)
     - [Ghidra](#ghidra)
     - [Xbox 360 and PC names](#xbox-360-and-pc-names)
+    - [A PDB for the PC executable (`scripts/simbolos_pc.py`)](#a-pdb-for-the-pc-executable-scriptssimbolos_pcpy)
     - [Build infrastructure in `tools/`](#build-infrastructure-in-tools)
     - [Android port experiment (`port/`)](#android-port-experiment-port)
   - [Documentation added](#documentation-added)
@@ -194,6 +208,7 @@ that was committed by mistake early on.
 - [Open fronts (diagnosed, not done)](#open-fronts-diagnosed-not-done)
   - [PS2 prototype (A124): classes whose layout still differs](#ps2-prototype-a124-classes-whose-layout-still-differs)
   - [Leftovers that break the ground rules: removed](#leftovers-that-break-the-ground-rules-removed)
+  - [FPU asm: removed, proven to be EA's, restored (2026-09-23)](#fpu-asm-removed-proven-to-be-eas-restored-2026-09-23)
   - [Other builds](#other-builds)
 
 ---
@@ -247,6 +262,9 @@ The rule: nothing the binary can tell you is guessed.
      absent from the game. Weak copies stripped by the linker are listed with `Range: 0xFFFFFFFF`.
   6. When dump and mangled symbol disagree on a signature (`int`/`long`), the symbol wins. SN's
      precompiled libc and the Metrowerks units have no DWARF.
+  7. Array dimensions print reversed: Dolphin's `Mtx` (`[3][4]`) shows as `[4][3]` and mpg123's
+     `slen[2][16]` as `[16][2]`. `ePoly::UVs` read from the dump as `[2][4]` was `[4][2]` on every
+     platform; take dimensions from the PS2 stabs or from the code.
 - Type order inside a unit is an oracle too: classes with inline bodies first (definition order), each
   followed by the new types its fields use, then everything unreferenced in declaration order. A
   body-less type appears in every unit that includes its header: the same unit set as an inline whose
@@ -311,6 +329,10 @@ The rule: nothing the binary can tell you is guessed.
   real flags (2,520 match, 13 do not); `scripts/cotejo.py <Class>` sets A124 fields beside ours.
 - Transfer rule: GameCube is `-O1`, PS2 `-O2`. Locals, inlines, order and layout transfer; codegen does
   not. Where both agree, the source form is confirmed by two compilers.
+- The stabs do not record `volatile`: the A124 ELF has no `B` type descriptor at all, and a variable that
+  is volatile in the GameCube DWARF (`FrameCounter`) appears as plain `int32`. On PS2 the proof of a
+  volatile is the binary: a re-read whose value is not used, two loads in a row, or data an interrupt
+  handler touches.
 - Caveats: an alpha, so late members and statements are missing (the `EA_BUILD_A124` guards); covers
   `speed/indep`, not `GameCube/Src`. The `.mdebug` names the toolchains (game `GNU as v2.9-ee-991111b`,
   middleware SN packages per file): read it before hunting for compilers.
@@ -534,6 +556,13 @@ Target unless stated: SN ProDG 3.9.3 (`ngccc`, GCC 2.95.3 PowerPC), `-O1` with s
     definitions, not the initializer (44 B in zLua). An explicit instantiation (`template class
     ListNode<Foo>;`) emits `.globl` instead of `.weak` in the same `finish_file` slot, moving no byte:
     the defence against finding 38 (226,583 B in zPhysics).
+34a. **A synthesized `operator=` is inlined only below a size threshold.** cc1plus 2.95 builds it without
+    `DECL_INLINE` and expands it only while the function stays under `3 * max_insns` uids (240). Line notes
+    count, so a header that spreads one statement over four lines can push it over: `elRotateLightContext`'s
+    `*dst = *src;` was 244 uids and GameCube kept the call. The GameCube line map puts the four loads of
+    `bCopy(bVector4)` on one line (`bMath.hpp:1106`) and the four stores of `bFill` on another (1040, 350 call
+    sites, none on 1041-1043); written that way the copy is expanded and the function matches on all five builds.
+    When GameCube expands a synthesized method and we do not, count uids before reordering anything.
 
 ### Data placement, constant pool and linker
 
@@ -671,6 +700,459 @@ Target unless stated: SN ProDG 3.9.3 (`ngccc`, GCC 2.95.3 PowerPC), `-O1` with s
     order. `scripts/sinreturn.py` compiles the PS2 units with `-Wreturn-type` and lists such sites; most
     are empty accessors the original never expands, the ones that matter are header inlines with a body
     on another platform.
+58. **One pair of opcodes in hundreds of functions is one cause.** `scripts/patrones.py` adds up the
+    differing rows of every near-miss function of a PS2 build as (original opcode -> ours) pairs. At the
+    top were `sd -> sq` and `ld -> lq` (696 and 635 functions): we saved s-registers with 128 bits. Not
+    the flags (a small file with the same flags gives `sd`) but the unit: from one function on, EE-GCC
+    kept saving with `sq`. That function had two `bIdentity(bMatrix4 *)`, whose MMI seed asm (no inputs,
+    not volatile) GCC merged across calls, keeping a 128-bit value in a saved register. Making the seed
+    `volatile` was worth +523 (A124) and +510 (SLUS) functions. It is not exactly the original, which
+    hoists the seed yet never merges it; our compiler cannot do both.
+59. **Forms GameCube cannot tell apart.** GCC 2.95 for PowerPC compiles `if (x >= c) return; y = 1;`
+    and `if (x < c) y = 1;` alike, so a 100 % GameCube function does not prove its comparisons; the EE
+    emits `c.le.s` for one and `c.lt.s` for the other, and the orientation of an `if` (`beqz` against
+    `bnez`) the same way. The prototype says which form EA wrote. Rewrite the common source (no
+    `#ifdef`) and demand an identical GameCube object function by function (`scripts/gcmismo.py`). In two
+    passes, 120 functions; both raised all four non-GameCube builds, which is the proof. Caveats: at -O1
+    GameCube moves the `then` of a last `if (x) return A; return B;` to the end, so early returns are not
+    always neutral there; the DWARF's nested blocks and the line map decide.
+60. **An empty SourceList can hide code you already have.** The A124's `zOnline` (116 kB) is the online
+    subsystem; our SourceList was empty, like upstream's, because GameCube strips all of it at link time,
+    while `Src/Online/` already held 8,000 lines nobody compiled. `scripts/ficheros_mdebug.py` lists the
+    source files of every A124 unit in link order from the `.mdebug` and flags the ones a SourceList
+    lacks: +501 functions. The retail PS2 build has no network objects, so the online headers are
+    `EA_BUILD_A124`, not all of PS2 (doing it for PS2 cost SLUS three 100 % functions).
+61. **On PS2 the cheapest bytes are names, not code.** objdiff pairs by mangled name, so a target function
+    with no name can never match however exact our code is; 6,738 of SLUS's 21,555 functions (31 %, 814 kB)
+    had none, and 3,263 of the A124's. `tools/nombra_ps2.py` is the MIPS/ELF twin of
+    `tools/nombra_por_codigo.py`: per unit it compares the split original object with ours and names a
+    function when the words match whole and uniquely both ways, comparing only the opcode on relocated words
+    but demanding that named relocation targets agree, and checking that good proposals grow in order on both
+    sides. Two differences from the COFF one: `--aplicar` has to ADD lines, because splat's `func_XXXXXXXX`
+    names are not in `symbols.txt`, and a template name over 250 characters breaks the split, so it carries
+    `filename:func_XXXXXXXX`. Worth +704 SLUS and +407 A124 in one pass (36.47 -> 39.06 %, 34.95 -> 36.39 %),
+    all at 100 % the moment they are named; a second pass after re-splitting found 12 and 5 more. Re-run it
+    after every batch. Its relocation check used to take splat's `D_XXXXXXXX` and `jtbl_` labels for real
+    names, so it rejected every pair where our object points at the global by its true name; fixed, it named
+    228 more SLUS functions, all matching. With it, the call graph and the A124 as a reference (identical code
+    inside the same unit), one round took SLUS from 45.31 % to 50.62 % (+2,098 functions) without touching
+    code. Two checks keep it honest: a name must sit on a real entry point (one landed on the target of a
+    `beq` inside another function and cut it), and unit boundaries in `config.yml` move with the names (46 of
+    them had the first functions of a library in the previous unit).
+62. **The VU0 in the original is two families; do not mix them.** `UMath` (`UVectorMath.hpp`) loads the
+    destination too (three `lqc2`) and masks `.xyz`, to keep its `w`: those are the majority (210 `vadd.xyz`,
+    224 `vsub.xyz`, 289 `vmulx.xyz`, 216 dot products, 134 scale-adds, 80 `vopmula`/`vopmsub`) and they were
+    already written, correct down to `vsqrt` and `qmtc2.ni`. bWare (`bMath.hpp`, `bVector3`) uses two loads
+    and `.xyzw`; that family was missing (bSub 60 sites, bNormalize 67, bAdd 46, bScale 33, bScaleAdd 26).
+    Counting `lqc2` (6,966) and calling it all pending work overstates it sixfold: the mask tells you which
+    library a block belongs to. Validate a block by compiling a standalone file with `ee-gcc` and diffing the
+    disassembly before touching the tree; the `"o"` operand folds the offset (`lqc2 $vf2,16(a0)`) exactly like
+    the original, and plain `asm` is not CSEd.
+63. **A save convention no compiler in the tree reproduces is a ceiling, not a root cause.** SLUS's top
+    near-miss pair was `lq -> ld` / `sq -> sd` in 210 and 187 functions, and 212 of the 225 sit in one unit,
+    `zWorld2`. It is not the code: the original saves with `sq` an `s0` that only holds a 32-bit pointer, and
+    2.9-991111 cannot do that (measured: it uses `sq` only for the register that really holds a 128-bit value
+    and `sd` for the rest of the same function). Of the six EE compilers here, 2.9 saves everything with `sd`,
+    2.95.2-273a/-274 and 2.95.3-107/-114 save everything with `sq`, and only 2.95.3-136 gives the original's
+    mix (`sq` for s-registers, `sd` for `ra`, with `-frelax-128`) but swaps the frame slots; compiling the
+    whole unit with it is far worse (56 of 315 at 100 % against 168 of 408). So those ~400 differences are a
+    toolchain ceiling: leave them out of the root-cause tables instead of paying for them again.
+64. **`movn` against `movz` is the orientation of the ternary.** On the EE `X != 0 ? -1 : N` compiles to
+    `movz` and `X == 0 ? N : -1` to `movn`, whichever way the `if` is written; PowerPC does not distinguish
+    them, which is why the form that matches PS2 sits behind an `#ifdef`. Guards written while only measuring
+    the A124 say `EA_BUILD_A124`, but SLUS is the same EE-GCC and wants the same form:
+    `scripts/guardas_ps2.py` finds the blocks whose two branches are the same code with the comparison
+    complemented and the arms swapped and turns the guard into `EA_PLATFORM_PLAYSTATION2`, leaving GameCube on
+    the `#else` untouched. Only 3 of 1,212 `EA_BUILD_A124` sites qualified, which is the point: the rest
+    separate real code.
+65. **The PS2 platform files are empty, and writing them lands first time.** Every file under
+    `src/Speed/PSX2/` is zero lines and no SourceList includes them: 545 functions the original has and we
+    never compiled, with the biggest hole in `zEcstasy` (187 kB, 13.9 % in SLUS). Four oracles make
+    writing them transcription rather than guesswork, and the first five files landed 31 of 37 functions
+    at 100 %: `scripts/fn_de_fichero.py` lists the functions the `.mdebug` puts in a source file, in
+    emission order, with the size from `NFS.MAP` (address 0xffffffff means declared but never emitted, so
+    not work); `scripts/clase_stabs.py` gives a class's size, every field's name and offset and every
+    method's mangled arguments, which is what the DWARF gives on GameCube; `scripts/ps2dis.py`
+    disassembles by MAP range, because the `$L` labels make objdump cut in the wrong place; and the
+    GameCube twin (`src/Speed/GameCube/Src/Ecstasy/eMathE.cpp` and friends) is the C logic, which
+    transplants unchanged. Only the VU0/MMI blocks are PS2-specific. Signatures come from the mangled
+    name, where `T0` means "the type of argument 0" (`eRotateX__FP8bMatrix4T0Us` is `(bMatrix4*,
+    bMatrix4*, bAngle)`); this binutils' c++filt does not demangle GNU v2.
+66. **Field types: anchor the numbers, never guess them.** The type number a stab gives a field cannot be
+    resolved from the text (it is an ECOFF auxiliary-table index; searching for a `<n>=` definition
+    returns FALSE names, because the number is file-local and another class reuses it). But it is
+    consistent, so anchoring a handful names them everywhere: the basic ones fall out of comparing the
+    dump of `eSolid` with the declaration already in the tree (Version is uint8, Flags uint16, NameHash
+    uint32, NumPolys int16, NumBones int8, AABBMinX float), and the rest from `eRenderTarget` and
+    `eViewPlatInfo` against the GameCube twin. That is how `eRenderTarget` (45 fields, 2,704 B) was
+    written; the size checking out on its own -- 0xA88 of fields rounded to 16 by the aligned member gives
+    the 0xA90 the stabs state -- is the proof the layout is right. A class of 1 B with no fields is not a
+    mistake: `eStripData` is a view over the strip's quadword block, and its 15 methods come from the same
+    stab.
+67. **The instruction histogram finds the empty platform branches, and says when there are none left.**
+    `bSqrt` had an empty PS2 branch: it returned an uninitialised local, so every square root in bWare
+    gave garbage on both PS2 builds and GCC deleted whatever depended on it -- the same trap as
+    `bMin`/`bMax` (lesson 57), and invisible in a diff because the function simply is not there. Counting
+    mnemonics makes it obvious: the original has 96 `sqrt.s` and we emitted 34, all of them from
+    `VU0_sqrt`. The fix is one line of C, `sqrtf(x)`. (An earlier version of this lesson put it in asm
+    because `sqrtf` lets the scheduler fill a branch delay slot with the `sqrt.s` and the original does
+    not; measured later, that asm bought exactly ONE 12-byte function per PS2 build, so it was forcing
+    a scheduler decision and went back to C -- see lesson 69.) Worth +5 SLES and +4 SLUS with 177
+    functions improving, nearly all of it from filling the empty branch. Run
+    the histogram over every unit and the remaining gaps name themselves: `lq`/`sq` (the toolchain ceiling
+    of lesson 63), `.word` (jump tables), `syscall` (the SDK), and 172 `madda.s` that live in exactly two
+    hand-written asm routines. That is the useful negative result: no other systemic hole is left in
+    bWare's maths.
+68. **A non-void function with an empty body is always a hole, and there were 258 of them in headers.**
+    Lesson 67 found `bSqrt` by counting mnemonics per unit. The same count per FUNCTION
+    (`scripts/histofn.py`) turns a 5,000-instruction diff into one line: what is missing is 873 `lqc2` and
+    314 `sqc2`, and what is left over is 927 `mul.s` and 737 `sub.s`. That named the cause without reading
+    any disassembly: ten inline functions in `UVectorMath.hpp` -- the PS2 vector maths -- had the body
+    `{}` or `return 0.0f`. They compile without a warning, return garbage, and GCC deletes whatever
+    depends on them, so the callers are not wrong, they are ABSENT. 184 functions covering 200 kB hung off
+    those ten. The forms are not guessed: `scripts/vu0bloques.py` walks the original, collects the runs of
+    COP2 instructions and counts them, and the catalogue IS the list of bodies to write -- `vmulx.xyz` 179
+    times, `vadd.xyz` 100, `vsub.xyz` 98, the dot product 88, scale-add 82 -- each one matching,
+    instruction for instruction, the `Vector3` twin that was already written. `SphereVsBox` goes from
+    19.71 % to 81.00 %. The razor generalises: a function that RETURNS something and has an empty body can
+    never be right, while an empty `void` accessor often is (of 597 on GameCube the original only expanded
+    225, and 222 were constructors or destructors). `scripts/huecos.py` sweeps for exactly that and still
+    finds 248 in headers, where each one poisons every caller, plus 148 more in .cpp files that only lose
+    themselves.
+
+    Getting the count right took four normalisations, each one a measured false positive: local labels are
+    named differently on each side (`$LC875` against `lbl_803DECF0`), a call to a function in the SAME
+    object leaves no relocation in ours because the assembler resolves it (`_vfwrite` looked like 13
+    missing calls and is called 13 times), the same happens with DATA and is far worse (`cFEng::mInstance`
+    showed 831 missing references in `zFe`, every one of them false), and with `-g` the object carries the
+    line labels `$LM3549` as symbols, so objdump opens a block at each one and `UpdateHud` came out with
+    15 instructions out of 1,653.
+
+    The empty body is only the first of three shapes, and the histogram finds all three the same way. The
+    second is a function written as a COMPOSITION of others: `VU0_v4lengthxyz` was
+    `VU0_sqrt(VU0_v4lengthsquarexyz(a))` and `VU0_v4unit` was `VU0_rsqrt(...)` then a scale. They compile
+    and compute the right number, but they force the value out of VU0 and back in -- `qmfc2`, `mtc1`,
+    `swc1`, plus a real call to `VU0_rsqrt`, which is out of line -- and the original never leaves VU0
+    half way. Its form is one fused block, and the block for `lengthxyz` is the most repeated in the whole
+    game: 123 appearances, with 52 for `distancexyz` and 27 for `unitxyz`. The third is a function that
+    FORWARDS to another subsystem: all three `bMulMatrix` called Ecstasy's `eMulMatrix`/`eMulVector`, and
+    the original carries the VU0 inside. Transcribing them from the binary closed all three exactly, and
+    the three `vnop` in the two vector ones are not decoration -- in macro mode you must wait for the
+    accumulate chain before reading the destination register, and the matrix one does not need them
+    because the next three columns already do that waiting.
+
+    One erratum of the catalogue, which changes no conclusion: `vsqrt` comes out as `c2 0x203bd` because
+    this objdump cannot decode it, so it never appears in the printed forms. `vrsqrt` does decode. Between
+    the three shapes the PS2 VU0 gap went from 1,979 instructions in 184 functions to 1,486 in 169, and
+    what is left is no longer in the headers: it is in `zEagl4Anim`, `zWorld` and `zCamera`, where each
+    function has its own hand-written VU0.
+
+69. **Before keeping an asm block, measure its C alternative.** Every asm added or inherited has to pass
+    one test: write the C version and measure the affected builds. Identical to the byte means the asm was
+    scaffolding: `VU0_sqrt` copied `sqrt.s; nop; nop; mov.s $fD,$fD` from the binary -- the latency wait a
+    COMPILER inserts, not something a person types -- and `sqrtf()` came out exactly the same, so it
+    bought nothing. Losing a few bytes means the asm is forcing a scheduler decision: `bSqrt` with
+    `sqrtf()` loses one 12-byte function per PS2 build because the asm kept the root out of a delay slot,
+    and that is not a reason for asm either. What stays is what C cannot express at all: VU0 macro mode
+    (`lqc2`, `vmul`, `vrsqrt`...), the MMI instructions (`pminw`/`pmaxw`) and COP0 (the cycle counter),
+    which EE-GCC 2.9 has no intrinsics for -- and each of those lives only in the PS2 branch of a header
+    whose other platforms are plain C. A plain FPU or integer instruction never justifies asm: if the
+    original has it and we do not, the difference is in the shape of the source. One asm that DID need
+    fixing rather than removing: `bGetTicker` read the COP0 counter without `volatile`, so GCC deleted the
+    read wherever the value was unused (`UnloadChunks`, for a trace it never prints) while the original
+    keeps it. Adding `volatile` -- which a hardware counter needs anyway, since every read differs -- was
+    worth +23 SLES and +19 SLUS.
+
+70. **Where a method lives, and whether a feature exists at all, are both in the prototype's dump.** The
+    A124 `.mdebug` records, per unit, every out-of-line function AND every inline defined in the .cpp (at
+    address `ffffffff`: `cFrontendDatabase::IsDirty`, `GetRandomRace`), but not the inlines of headers
+    (`IsDDay` and `IsCareerMode` never appear). So a method missing from the records of the unit that
+    would define it is a header inline in the prototype: `IsFinalEpicChase` and
+    `GManager::GetHasPendingSMS` were, their callers expand the body, and making them inline under
+    `EA_BUILD_A124` fixed `MemoryCard::Tick` and `ShouldDoAutoSave`. The absence of a whole class is
+    proved by a string: every event returns its name from `GetEventName`, and "EReloadGame" is not in the
+    prototype's ELF while the retail one has it. Reloading the world with the race restarted --
+    `EReloadGame`, `Game_ReloadWorld`, the Lua binding "ReloadWorld", `GManager::PreBeginGameplay` and the
+    member `mRestartEventHash` -- came after the prototype, and the right guard is the whole feature, not
+    the member: the prototype's `GManager` constructor differed only in the `sw zero, 0x30C` that
+    initialised it (1,720 B). The same with `MemoryCard`: in the prototype it went from 8 of 42 functions
+    to 38 of 41 once `m_bCancelNextAutoSave` (prototype only) and `m_bAutoLoadDone` (both PS2 builds) left
+    the class together with every call site, and on SLUS to 26 of 26. The three that remain differ only in
+    the `__LINE__` passed to `new` (1079 in the prototype's file, 762 in ours): the same statement at
+    another line of another file, which no one source can satisfy for both builds.
+
+71. **On PS2, `enum > enum` is a function call.** The SGI STL that ships with EE-GCC defines `operator!=`,
+    `>`, `<=` and `>=` as GLOBAL templates in `stl_relops.h`, which arrives with `stl_algobase.h`,
+    `<list>`, `<utility>`... When both operands have the same enum (or bool, or class) type the template
+    is an exact match and beats the built-in operator, so the code changes: the result is computed as a
+    value and then tested (`slti`+`xori`+`beqz` instead of `blez`), and GCC no longer folds
+    `x != A && x != B` into an unsigned range check. GameCube's STLport has no such globals, so there both
+    shapes compile the same -- which is why the tree was full of the shape PS2 does not want: comparisons
+    against int literals or `static_cast<int>`, and the folded ranges themselves (`static_cast<unsigned>
+    (Status - LOADED) > 1`, marked "TODO weird"). The A124 `.mdebug` records every expansion: a `FILE`
+    label for `stl_relops.h` followed by `$LM` entries whose index is line 38 (`!=`), 43 (`>`), 48 (`<=`)
+    or 53 (`>=`), and our own PS2 objects carry an `.mdebug` too, so `scripts/relops.py` compares both
+    sides function by function and gives the source line of each expansion. The fixes are always the
+    natural source: the enum's own constant (`mCountdown > RACE_COUNTDOWN_NUMBER_GO`, `type >=
+    GRace::kRaceType_NumTypes`), the two inequalities instead of the folded range, and -- where the
+    original uses NO template -- `==` chains, early returns, `<` on both sides, or even the enum against
+    plain integer literals (`SFXCTL_AccelTrans::UpdateTRQ` only matches with `!= 0`, `>= 0` and `<= 4`: the
+    tidy version with the enum's constants is the one that drags the template in). The oracle decides. The same oracle showed
+    three globals typed as `int` that the DWARF declares as enums (`PrecullerMode`, `mToggleCarList`,
+    `ReverbZoneCrossMap`) and two units whose STL never gets included in our tree although the original's
+    did (`zFEng`, `zEagl4Anim`), so their comparisons cannot use the template until we find the header
+    that brought it in. `scripts/banco.py` compiles a SourceList outside the tree with some of its files
+    replaced and diffs the result for GameCube, the A124 and SLUS, which is how each change was proved not
+    to move GameCube before it touched the tree.
+
+72. **When a whole family of near-misses shares one inline, fix the inline.** Our PS2 objects' `.mdebug`
+    says which header lines each function expands, so `scripts/inlines.py global` can rank every
+    (header, line) by how many of the functions that expand it match. A line expanded by dozens of
+    functions of which NONE matches, while several sit at 97-99.9 %, points at the inline, not at the
+    functions. The first pass found three in the PS2 math. `bAbs(int)` is MMI in the original: `negu`
+    and `pmaxw c, a, -a`, which EE-GCC never generates from C (it gives `slt`/`movn` or a `bgez`
+    branch), so it now has the same kind of asm as `bMin` and `bMax`. `bMin(int)` had its asm operands
+    the wrong way round: the original is `pminw c, b, a` in every direct call and in every `bClamp`,
+    while GameCube, whose C form is `b < a ? b : a`, already matched with the same call sites -- so the
+    callers were right and the intrinsic was wrong. And `EAGL4Anim::FloatToInt` converts into `$f4` in 49
+    of the 49 conversions of `zEagl4Anim`, from seven different source registers: no register allocator
+    does that, so it is EA's asm with the register written in it. Each was measured with `banco.py
+    --sombra` on the three builds before it touched the tree (GameCube cannot move: the changes are in
+    the PS2 branch). The same report points at what is still open: the prototype's `FNEW` passes
+    `__LINE__`, and 23 FEng functions sit at 99.9x % because their `Clone` is not on the line its
+    `Decl:` comment gives.
+
+73. **The PS2 game was built with VU0 registers the compiler can allocate.** Our VU0 inlines wrote their
+    `vf` registers by hand, but the original's are not fixed: `bLength` of a `bVector3` loads into `vf1`
+    and sums into `vf2` in one function, and the other way round in the next. The A124 stabs explain it:
+    the inlines have 128-bit locals (`t`, `d`, `o`, `vfq`) whose register numbers are 79-83, and EE-GCC
+    numbers `vf0`-`vf4` exactly so. EE-GCC only puts a local there through the `"j"` asm constraint, and
+    only with `-mvu0-use-vf0-vfN`: without the option the constraint aborts with "fixed or forbidden
+    register ... spilled for class VU_REGS". The option was missing from our PS2 flags, and on its own,
+    before any source change, it already moves ordinary code: in the bench it gave +6 functions in zAI,
+    +3 in zPhysics, +2 in zWorld and +1 in zEcstasy, and cost none. `bLength` rewritten with 128-bit
+    locals (`u_long128`) and `"j"` operands, one asm statement per step so the scheduler can slide other instructions
+    between the load and the multiply as the original does, closed five more in the two sound units. The
+    rest of `bMath.hpp` followed the same way, every step its own statement as the original's line table
+    has them: +43 A124 and +48 SLUS functions. The old forms also wrote `vf1`-`vf4` without declaring them,
+    so the scheduler could slide one of those blocks between two statements of another inline and clobber
+    its register: wrong code, not just a mismatch. `bIdentity`'s MMI seed needs no asm at all: a 128-bit
+    constant in C (`u_long128 t = 0x3f800000`) gives `por` + `lui` per identity and lets the compiler hoist it
+    between the stores like the original. `UVectorMath.hpp` is the opposite case, lesson 62's other family:
+    across more than a thousand expansions each `VU0_*` uses the same registers every time and the stabs give
+    it no VU0 locals, so its `vf` stay written in the asm (`"j"` on four of them lost 39 functions). Porting
+    that family also found a real bug: `VU0_v3addscale` computed a + b·s where the original computes
+    (a + b)·s, so `UMath::Mean` returned a + b/2. `uint128` in the stabs is the compiler's own name for the
+    type; the source uses `u_long128`, from the SDK header that `bMath.hpp` already includes.
+
+74. **A milestone build pins every allocation to its line.** The A124 defines `MILESTONE_BUILD`, so `FNEW`
+    passes `__FILE__` and `__LINE__` and a function that allocates only matches with each `FNEW` on the
+    original's line. The lines come from three places: the immediates of the `FEngMalloc` calls, the A124's
+    `.mdebug` and GameCube's `debug_lines.txt`. Twenty-seven FEng files were re-laid out so every function
+    starts on the original's prologue line (the line of its `{`, or of the `:` in constructors) and every
+    statement with an `FNEW` sits on its line, filling the gaps with blank lines: the same tokens and
+    comments, checked file by file, and +33 A124 functions. Two side effects. The `Decl:` comments of some
+    FEng headers do not come from GameCube's DWARF and contradict the line map; the code follows the line
+    map. And `clang-format` would join the blank lines and split the one-line methods, so
+    `src/Speed/Indep/Src/FEng/.clang-format` disables it there.
+75. **When GameCube already matches, its line map still holds the order PS2 needs.** GameCube's scheduler
+    hides statement order that the EE does not: `MoviePlayer`'s constructor matched on GameCube with its
+    member stores in another order, while GameCube's `debug_lines.txt` and the A124's `.mdebug` both put
+    them in one line (an initializer list) with `m_DefaultMemDir` before the two function pointers; written
+    that way it matches all three. The same file had three more forms PowerPC cannot tell apart: `(x &
+    0x1FFC) << 17` and bWare's own `BMEMORY_ALIGNMENT_OFFSET(x)`, `((x >> 2) & 0x7ff) << 19` (one `rlwinm`
+    on GameCube, `sra`/`andi`/`sll` on the EE); `sound ? ON : OFF` against `!sound ? OFF : ON`, which
+    decides which of two constant 1s the EE materialises first for its `movz`/`movn`; and a `goto` chain
+    against the condition GameCube's line map puts on one line, which is the only form that also matches PC.
+    With those and the PS2 code the file lacked (two static bridges that switch the stack out of the EE
+    scratchpad, a 40-entry volume table per PS2 build, no `GamecubeMaybeAllocateFromCarLoader`), the whole
+    of `MoviePlayer.cpp` matches on both PS2 builds.
+76. **The register a stab gives an inline's parameter says which argument is which.** EAGL4's
+    `QuatMult(a, b, result)` matched on GameCube, and on both PS2 builds `AlignRootQ` differed only in the
+    order of its first two instructions, the two addresses passed in. The A124's stabs put `a` in the
+    register that holds `&sqt[4]` and `b` in the one that holds `mAlignQ`: the original calls
+    `QuatMult(sqt, mAlignQ, result)` with a body that mirrors ours, and our header had the parameters' roles
+    swapped (and named `q0`/`q1`, where GameCube's DWARF says `a`/`b`). The same arithmetic with the
+    original's roles and the four calls' arguments swapped matches both PS2 builds; GameCube is unchanged.
+77. **EE-GCC does not expand an inline whose body is a tail call, and the callee names the wrapper.**
+    `UMath::Rotate(Vector3, Vector4, Vector3)` and `RotateTranslate(Vector3, Vector4, Vector3, Vector3)` are
+    one-line wrappers that end in a call, so the original keeps a 16-byte copy of each in the units that
+    use them, and the A124's symbol table names the one `Constraint::React` calls. Our `React` called
+    `VU0_v3quatrotate_xlate` directly; with the wrapper (the overload GameCube's DWARF lists) it matches on
+    all three builds, and the A124 gains the copy. SLUS's inherited `symbols.txt` had `Rotate` 16 B late, on
+    top of `RotateTranslate`; objdiff scored it 100 % because both bodies are the same two instructions
+    with the target masked. The same class had its base in GameCube's DWARF (`struct Quaternion : public
+    Vector4`): with it, a dozen `reinterpret_cast`s went away and `Constraint::Resolve` and `Rotate` matched
+    once written with the DWARF's locals.
+78. **Loads the compiler reuses across inline calls are C, not asm.** `WWorldMath::PtDir4` (a 2D cross
+    product) was plain C in our tree, and neither PS2 build had a single `vmsubz` where the originals have
+    35 and 31. Its stabs give six `u_long128` locals in VU0 registers, and in `InTri` the second and third
+    calls reuse vectors the first one loaded, even when the load came from another source line. Written as
+    asm, our loads were repeated in every call (GCC keeps an asm's source position in the expression it
+    compares for reuse); written as plain `u_long128` loads, which the compiler places in VU0 registers
+    itself, they are reused exactly as in the original. Only the arithmetic is asm. With that form the VU0 block of `FindFaceInTriStrip` matches instruction for instruction on both
+    builds. The same functions also showed that the EE keeps the source order of a commutative `+`
+    (`cp.x + v / 128.0f`, not the other way round), which GameCube's `fmadds` hides.
+79. **A single instruction two slots out of place can be a statement split in two.**
+    `WorldMap::AddRoadBlocks` passed `img_num++` inside a call; GameCube's line map puts the increment on its
+    own line after the call, and written that way it matches all three builds. The same shape (one register
+    copy moved by two slots) is still open in `Speech::EventHistory::Init`, inside `UTL::Vector::insert`.
+80. **A flag the original only ever switches one way is an `if`, not a comparison.** Four PS2 near-misses
+    had `flag = a < b;` inside a block where the flag starts false (or true): `ResetCar::TrackState`,
+    `AIActionHeliPursuit::StraightLinePursuit`, `RoadblockFlow::Setup` and spchpick's
+    `iSPCH_ChooseSentenceIteratively`. The EE gives it away: the original either moves the constant under a
+    branch-likely (`bc1tl` with `addiu 1` in its slot) or keeps the old value with a `movz`/`movn`, where the
+    comparison form assigns both values. GameCube turns both forms into the same `cror`/`mfcr`, so its code
+    cannot decide, but its line map can: `ResetCar` has both comparisons on one line, so the original is
+    `if (a < b && c < d) flag = true;`. All four match on every build that has them.
+81. **The line map counts a constructor's initializers.** GCC gives every member initializer the line of the
+    constructor's opening brace, so the lines between the declaration and that brace are the initializer list,
+    one per line. `SuspensionTraffic`'s constructor starts on line 342 and all its zero stores sit on line 354:
+    eleven initializers, where our list had seven and assigned four members (`mRB`, `mRBComplex`, `mInput`,
+    `mNumWheelsOnGround`) in the body. GameCube matched both ways; the A124 matches only with the eleven, in
+    declaration order. Other statement orders came out of the same map on the same day (the best candidate's
+    five assignments in `WRoadNav::FindClosestSegmentInd`, 2,752 B; `race_route_bogus` before `Reverse()` in
+    `AStarSearch::Service`), and two ternaries (`pGoalNode`, and `nState`/`pSolution` when the node pool runs
+    out) that the map writes on one line with both values.
+82. **A literal GameCube hides, PS2 prints.** `CAnimCtrl::AdvanceAnimTime` scored 100 % on GameCube while
+    dividing two delays by 3; the original divides by 30 (they were multiplied by 30.0f a few lines earlier).
+    On GameCube the constant lives in the pool (`0x3d088889`, 1/30) and objdiff does not compare its value;
+    on the EE it is a `lui`/`ori` immediate, and both PS2 builds showed it as a four-instruction near-miss.
+    It was a behaviour bug, not a matching detail. PS2 near-misses whose only difference is a float immediate
+    point at a wrong literal on every build.
+83. **The A124 can be an older program, not only older headers.** Its path finder stores `AStarNode` as
+    pointers and floats with a virtual destructor (0x20 bytes, from the stabs) where the retail builds pack five
+    `short`s; its pool holds 2,048 nodes instead of 3,072 (`MAX_ASTAR_NODES`, a name GameCube's DWARF lists);
+    its `AStarSearch` constructor always adds the node in the opposite direction, checks the goal segment even
+    with no path and never clears a half-found GPS path; `WRoadNav::Reverse` has no exception for racers; and
+    it has no `DRIVER_NIS` (the stabs jump from `DRIVER_NONE = 4` to `DRIVER_REMOTE = 6`), so its scene cars
+    use `DRIVER_NONE` and `ai_behaviors` has eight rows. Written as `EA_BUILD_A124` variants, ten functions
+    of the A124's path finder and road navigator matched, plus `NISActivity::PrepareVehicles`, and none of
+    the other builds moved.
+84. **A dead block keeps its locals in the stabs and its space in the frame.** The A124's
+    `AStarSearch::Service` has thirty source lines without code between two statements: the stabs still list
+    their locals (`int handles[2]`, `const WRoadNode *nodes[2]`, a `bVector3` and a `UMath::Vector3`) in
+    blocks whose `$LBB`/`$LBE` share one address, and the frame is 0x20 bytes bigger than ours for them.
+    Without the body that ceiling stays (98.6 %). The converse also holds: a local the optimiser left
+    without a register does not appear in the stabs at all, so its absence proves nothing.
+85. **`while` and `if` + `do`/`while` are one loop on GameCube, two on the EE.** Our `Service` copied the
+    path in `if (a && b) { do { ... } while (...); }`, which GameCube matches; EE-GCC then tests `b` at the
+    top and jumps into the loop, while the A124 tests both at the bottom with a branch-likely. Written as
+    `while (a && b) { ... }`, it matches the A124 and still matches GameCube.
+86. **GameCube's `.data` keeps the place of globals that lost their names.** Between `bPathFinderPrints`
+    and `ASTAR_METRIC_SCALE` GameCube has three unnamed words; the DWARF lists `bAdmissibilityPrints`,
+    `AStarNodeHighWater` and `AStarSearchHighWater` there, and the A124's globals name all three. Declared in
+    the DWARF's order, our `.data` has the original's layout.
+87. **PC and Xbox 360 raise the game's limits.** Fifty-nine PC functions of `AIPursuit` sat at 99 % with every
+    member shifted by +0x28, then +0x50: each `IVehicle::List` is 0x60 bytes on PC, not 0x38. The proof is in the
+    list vtables of the split PC objects: the `GetMaxCapacity` they point to returns 20 where we returned 10 (`mov
+    eax, 0x14`). Across all units, every vehicle list of 10 is 20 on PC, the vehicle cache 18 is 28, and the model
+    limit 434 is 2296. Xbox 360 has the same limits: its `IncNumCopsDestroyed` reads every member 0x28 further, its
+    code uses 2296 wherever we used 434, and the data sizes in its own symbol file agree (`_mTable` 0x60, `_mLists`
+    0x3C0). The declarations take `#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)`; template names that
+    carry the capacity (`$09` = 10, `$0BE@` = 20) are renamed in the PC and Xbox 360 symbol files.
+88. **Upstream's PC alignment fix, with the macro that also aligns on Xbox 360.** Upstream makes `ALIGN_16` align
+    for real on PC and moves the `UMath::Vector3` members to `PS2ALIGN16`, which is empty on PC *and* on Xbox 360.
+    On Xbox 360 those members are aligned (`WRoadNav::GetOccludedPosition`, `AITarget::TrackInternal` and others
+    only match with that layout), so here they take `ALIGNVEC`: aligned on PS2 and Xbox 360, empty on GameCube and
+    PC. GameCube, PS2 and Xbox 360 compile exactly as before.
+89. **A compiler-numbered name is paired by pattern, not by number.** GCC 2.95 names a local class after a label
+    counter (`Compare__...IconSortPCvT1.26770`); the number changes with any earlier declaration in the unit, and
+    the mapping for it went stale seven times in a week. `tools/sufijo_local.py` resolves `*` patterns against the
+    object just built, and only against *defined* symbols: sixteen local classes that looked like mere names turned
+    out to be referenced but never emitted by our object.
+90. **An FPU `asm` stays only when the binary proves EA wrote it.** Every FPU `asm` was taken out and each was
+    rewritten with the C form that loses least; then each was put back only with proof that no C form can give the
+    original's code. `bSqrt` on GameCube: with `-ffast-math`, GCC 2.95 rewrites `-(a*b - c)` before it can match
+    `fnmsubs` (twelve forms, all five instructions per step instead of four), and the original's 269 `fnmsubs` all
+    sit next to an `frsqrte`. PS2 `min.s`/`max.s`/`abs.s`: the original never puts them in a branch delay slot (0
+    of 1,465), our C does (204 of 1,448); that is the scheduling barrier of an `asm`. `FloatToInt` converts in
+    `$f4` 100 % of the time, where compiled C uses `$f4` 1.9 %. Those are EA's own `asm` and they stay, clearly
+    marked; the loose `mfc1` we had written in `bScale` did not have that proof and stays in C.
+91. **On the EE a field's type decides the order of loads and stores.** A callback parameter stored as `uint32` or
+    as `void *` gives different orders through type-based alias analysis: the A124's streaming API takes `uint32`
+    and the retail builds take pointers.
+92. **An inline wrapper with a cast breaks its caller's tail call on the EE.** Written as out-of-line functions,
+    the caller keeps its tail call, as in the original.
+93. **GameCube's compiler inverts `if (x) return a; return b;` when a destructor runs** (`jump.c`, the "if (foo)
+    bar; else break;" rewrite); EE-GCC does not. The PS2 twin shows the order the source had.
+94. **The original never calls a message's destructor on PS2.** It calls `~Hermes::Message` directly, 127 times in
+    the A124: the message classes have implicit destructors. Written as `~MXxx() {}`, EE-GCC emits them out of line
+    and every sender calls them.
+95. **GameCube's game units were built with `-fkeep-inline-functions`.** In the DWARF of all 33 SourceLists every
+    `static inline` (217 of 217 in `zFe2`: `GXEnd`, `OSSetGQR2`...) has an out-of-line copy with range 0xFFFFFFFF,
+    emitted by the compiler and stripped by the linker; the libraries have none. Without the option GCC 2.95 never
+    emits the virtual overrides of local classes: the sixteen destructors and `Callback`s of `FEPlayerCarDB`'s local
+    classes were referenced from their vtables but never defined, whatever the source said.
+96. **The PS2 twin keeps what GameCube folds.** `-ffast-math`, `-fdelete-null-pointer-checks` and CSE remove code on
+    GameCube that still changes its schedule; the same function in the A124 or SLUS still has it. The camera movers
+    add `hcomp` to `Look` (folded to nothing on GameCube, yet without it the `stfs` order changes); the keyboard
+    screen indexes `HeldButtons[i]` inside `case 4`; `CreateCars` keeps an `if (career)`. The other way round, a
+    block only GameCube has (the headlight glass of `UpdateLightStateTextures`) is absent from both PS2 builds and
+    PC, and takes `#ifdef EA_PLATFORM_GAMECUBE`. Two "irreducible" GameCube functions fell this way.
+97. **PC was built with `/O2`, not `/Ox`.** `/O2` is `/Ox` plus `/GF` and `/Gy`, the Visual Studio .NET 2003 Release
+    default. Without `/Gy` every function shares one `.text` and objdiff sizes ours up to the next symbol, alignment
+    `int3`s included; `/GF` puts string literals in `??_C@` COMDATs as the original does. A bench over every PC unit
+    gave 57 more matching functions and no losses. Xbox 360 is not settled: `/Gy` there gains 57 and loses 7,
+    because its compiler puts more than the function in each COMDAT.
+98. **MSVC 7.1 puts an `int3` after a call that does not return.** A function that ends in `call
+    __CxxThrowException@8` or `call _exit` is followed by `0xCC`, and our compiler emits that byte as part of the
+    function; IDA's export ends the function at the call. `scripts/int3_noreturn.py` adds the byte to those 117
+    functions in the PC symbol file (`_luaD_throw` is left alone: Lua does not declare it `noreturn`).
+99. **Upstream's DWARF line extractor dropped the last source entry of each unit.** `tools/dwarf1_gcc_line_info.py`
+    read one line of the final `.debug_srcinfo` entry instead of reading up to its end: `symbols/debug_lines.txt`
+    was missing 21,119 lines in 267 of 316 units, which left some library functions without a line map. The
+    fixed tool reproduces the old file exactly and only adds lines, apart from one line of the committed file that
+    had been edited by hand (`0x0x8005CCB8` where the ELF says `0x8005C308`).
+100. **In FEng files a new comment line moves `FNEW`'s `__LINE__`.** Three comment lines in `FEngine.cpp` shifted
+     the rest of the file and three A124 functions stopped matching. Comments there go at the end of an existing
+     line; the file keeps its line count.
+101. **Both PS2 builds allocate STL containers from `gFastMem`.** Their `stl_alloc.h` is EA's: a `chunky_alloc`
+     whose `allocate` is `gFastMem.Alloc(n, "STL")`, expanded into every `_M_insert` and `_M_insert_aux`, and whose
+     `deallocate` is an out-of-line function (`deallocate__t12chunky_alloc1b0PvUi`, with its parameters in the
+     stabs). One header gave 38 A124 and 35 SLUS functions.
+102. **Whether an `asm` is `volatile` is part of the proof.** `bMin`/`bMax` of float on PS2 are EA's `min.s`/`max.s`,
+     but not volatile: the volatile version loses functions, the plain one with the local `f` the stabs list wins 39
+     and 43. The A124's float-to-int inline (`bMath.hpp` lines 72-78) converts in place in 232 of 265 expansions,
+     where compiled C does it in 12 of 739. vp6 writes 128-bit zeros with `sq $0`, which EE-GCC never emits (it goes
+     through `por`), and `DEBUG_break` is `break 0, 6`. Each was taken with its proof and measured over every unit.
+103. **The Xbox 360 build was linked with whole-program optimisation and without exceptions.** Functions such as
+     `bStrLen` and `bStringHash` have no call anywhere in the executable (they were inlined across units) and
+     `list::_Incsize` uses the constant 1 instead of its parameter; only 67 CRT functions carry exception data, where
+     our objects have 2,498. Compiling unit by unit cannot reproduce all of it.
+104. **A re-read of `p->field` right after storing it can depend on the number of pseudos, not on the source.** In
+     GCC 2.95's CSE the store is hashed before `this` gets a quantity, and the load only finds it when both land in
+     the same bucket (31 of them): adding unrelated code to a function makes the re-read appear or vanish.
+105. **An empty `~X() {}` is not the implicit destructor on the EE.** Declared, it keeps its vtable and is emitted
+     out of line with a body; the original's implicit one is `j base; nop` (8 bytes). Removing 81 empty destructors
+     of option classes matched them.
+106. **Code identical to ours is still unmatched while it has the wrong name.** 1,108 PC functions had code identical
+     to ours; 153 of them carried a false name from IDA or from upstream's symbol file (`Class::Method`,
+     `Method__7Class`) and were renamed by unique code identity inside their unit.
+107. **One 128-bit value in a saved register changes a whole unit.** In SLUS `zWorld2`, 133 near-misses saved `s0`
+     with `sd` where the original uses `sq`. EE-GCC saves a callee-saved register with `sq` for the rest of the unit
+     once a 128-bit value has lived in it; in the original that starts in `FindFaceInTriStrip`, which keeps
+     `PtDir4`'s result in `s0`. Ours extracted it with an `asm` `qmfc2.ni`; the original uses the `mtc1` of
+     `bVU0Float::operator float` and leaves the `qmfc2` to the compiler, so the GPR holds 128 bits. One change:
+     +195 functions.
+108. **A pragma one compiler honours and another ignores can be the original layout.** `CARP::Trigger` is
+     packed on GameCube and on MSVC, while PS2 reads its bit-field with `lw` + `srl`. `#pragma pack(1)` gives exactly
+     that: ProDG and MSVC honour it, EE-GCC 2.9 ignores it (`sizeof` 9 against 12 in a probe). No platform guard.
+109. **Shapes the EE tells apart and GameCube does not.** A `bool` accessor against the mask it wraps
+     (`IsQuickRaceMode()` against `GetGameMode() & 4`: `sra`+`andi 1` against `andi mask`); `a && b` with an early
+     return against two `if`s; a boolean computed in one statement (the GameCube line map puts `li 0` and `mfcr` on
+     one line); and the order of addends (`a + b*c` against `b*c + a`). GameCube compiles each pair identically, so
+     only the PS2 twin decides; in round 16 these shapes matched several hundred PS2 functions across areas.
+110. **A sibling game's symbols can name ours.** The Wii build of NFS Undercover (internally "NFS MW2") ships its full
+     symbol table and relocations: 27,941 named functions, 12,871 with the same name as in MW. Its named call graph,
+     matched against ours and confirmed by objdiff on the code (never by the graph alone), named 82 PC and 9 SLUS
+     functions at 100 %. The symbols come from the user's own disc and stay outside the repository.
+111. **The A124 prototype differs more than members.** `UCOM`'s `_IList` has no out-of-line destructor there (93
+     functions, 64 of them Lua message bindings), and its online code, online screens and PS2 pad driver are
+     versions SLUS does not have. A version guard with the A124's own asm as proof is the honest form.
+112. **PC's platform layer lives in zPlatform.** 1,255 functions of the PC exe between zPhysicsBehaviors and zSim are
+     the Direct3D 9 platform layer (texture records of 0x20 bytes, solid platform info, PC chunk loaders); the
+     game calls 37 IDirect3DDevice9 methods, 27 of ID3DXEffect and 32 effects with 132 shader programs.
 
 ## Traps: where tools lie
 
@@ -697,8 +1179,11 @@ control that has to change.
 - A unit marked `complete` counts 100 % without being compared: without a base object, and also with one
   that does not match. Our `Matching` flags are GameCube facts; on PS2 they counted 124 (A124) and 261
   (SLUS) functions that do not match, two of which our object does not even define. Measure with every
-  unit incomplete (`scripts/pctall.py` does), as upstream's all-NonMatching configuration does. A compiler
-  label (`$L121558`) used as a function name aborts the whole report, and only after the next re-split.
+  unit incomplete (`scripts/pctall.py` does), as upstream's all-NonMatching configuration does. The trap
+  is still there in the build log: the `Progress:` block of `build/versiones/<V>.log` is ninja's own
+  REPORT step, with the flags on, and it read 11,878 SLUS functions when pctall counted 11,637. The
+  figure is the line pctall prints, whose report is `build/versiones/<V>.json`. A compiler label
+  (`$L121558`) used as a function name aborts the whole report, and only after the next re-split.
 - A stale `report.json` has no `functions` key; the field is `fuzzy_match_percent`; `size` is a string.
 
 ### Build and staleness
@@ -720,6 +1205,12 @@ control that has to change.
 - `keep.lst` rots silently: `$LC` numbers shift when a literal is added earlier; moving a boundary
   renames `gap_` padding to `pad_`; an entry naming no symbol is silence. Run `scripts/lcfix.py` and
   `keepchk.py`, and read every `FALLO` line (they check values, not addresses).
+- The same happens to function-local statics: the `_name.N` of `DECLARE_CONTAINER_TYPE` (`UStandard.h`) at the
+  start of the `.data` of zMission and zOnline are zero, unreferenced and kept only by name in `keep.lst`, and
+  `N` comes from a counter global to cc1plus. One new inline body in a shared header (a `UTransform` constructor
+  in `UVectorMath.h`) moved it by 3 and the DOL came out 32 B short with no function changed. Those entries are
+  now `# @data UNIT OFFSET` directives that `scripts/lcfix.py zMission zOnline` resolves by position; run it
+  after any change to a shared header. A single CRLF line in `keep.lst` had blinded `lcfix.py` for eight rounds.
 - A `Matching` flag survives the source change that justified it: a promoted unit whose source
   regressed moved half the DOL while the report said all was well.
 - `scripts/frozen.py` fingerprints include `.debug`/`.line` sizes: "changed" with identical code.
@@ -739,6 +1230,12 @@ control that has to change.
   permutations swapped operands at 53-57 %). Verify semantics, run `fndiff` on the full unit, and
   reject small gains that pull the source away from the line map.
 - Ghidra's C is not the source form: compare against the asm and our object, not our source text.
+- In PS2 units built with SN's 2.95.3 that have no initialised global, the static initialiser is
+  `_GLOBAL_$I$src_<file>.cpp` plus six characters from GCC's `append_random_chars`, which this build
+  takes from the process id: three identical compiles of `pathreal.cpp` gave three names. A name in
+  `symbols.txt` copied from one of our builds matches until that object is rebuilt, so its "loss" in a
+  measurement is not a regression. `tools/sufijo_local.py` pairs them with the original's by unit and kind; the six
+  characters are letters *and* digits (a pattern with letters only missed five after a full PS2 rebuild).
 
 ### Reading and setup
 
@@ -752,7 +1249,12 @@ control that has to change.
 - Environment: Git Bash heredocs lose backslashes (write such scripts to files); `grep -c $'\r'` counts
   every line; `subprocess` with `text=True` adds `\r` to stdin (`git update-index` then ignores every
   path with exit code 0); scripts with a hard-coded repository root diff the main tree's objects from a
-  worktree; EE-GCC and the 2005 `cl.exe` fail on paths over 260 characters.
+  worktree; EE-GCC and the 2005 `cl.exe` fail on paths over 260 characters. Git Bash also turns an argument like
+  `--cl=/Gy` into a Windows path before a native program sees it: `cl.exe` takes it for an object file, compiles
+  without the option and the bench reports no change. Pass compiler options with a dash (`-Gy`).
+- EE-GCC's dependency files came from `DEPENDENCIES_OUTPUT`, which in GCC 2.95's preprocessor leaves out everything
+  included with `<...>`: changing the PS2 STL left six units per build with old objects and the measurement came out
+  short. The rule now sets `SUNPRO_DEPENDENCIES`, which lists every header (the same fix `-MD` was for ProDG).
 
 ## Working method
 
@@ -931,6 +1433,124 @@ The PS2 middleware uses a different compiler from the game:
   upstream). The fork uses decomp.me's Windows builds, installed under `build/compilers/PS2/`.
   `tools/project.py` maps the five SN ee-gcc versions to decomp.me compiler ids.
 
+- `snd` on PS2 is compiled with `-mvu0-use-vf0-vf31` (the game uses `-mvu0-use-vf0-vf15`). The option changes no
+  instruction by itself: with more free registers, loop.c's threshold for hoisting invariants out of loops that
+  contain calls goes up, and the original hoists constants and address high parts that we left inside. Measured on
+  the 134 `snd` units of each PS2 build: +6 functions, none lost.
+
+### Replicating a compiler that is not public: SN v1.83 for `path`
+
+**Why:** the GameCube DWARF says `GNU C++ 2.95.3 SN BUILD v1.76` for 288 units, `v1.72` for 13 (`rcmp`) and `v1.83`
+for 15: the `path` music library, from EA's package `GameCubeSN\3.9.3-4-non-proxy`. On PS2 the `.mdebug` gives
+`PlayStation2SN\3.0.2-4` for `path` and 3.0.2-1 or older for the rest. Neither compiler is public (decomp.me and
+archive.org stop at v1.76 and ee-gcc build 1.36). ProDG 3.7, 3.8.1 and 3.9.3 give byte-identical objects on the
+game, so the version alone explained nothing, except for `path`.
+**What differs:** one real GCC change. GCC's ChangeLog of 2000-06-23 (Geoffrey Keating): "alias.c
+(fixed_scalar_and_varying_struct_p): Don't examine struct vs. scalar-ness when -fno-strict-aliasing." It went into
+GCC 3.0, not into the 2.95 branch. SN's GPL source release of v1.79 (`orig/prodg/`) still applies the rule, so SN took
+the change between v1.79 and v1.83. With `-fno-strict-aliasing` (2.95's default, and the only setting used here) the
+change is the same as the function always returning NULL.
+**How:** `scripts/replica_v183.py` copies the official toolchains to `build/compilers/ProDG/3.9.3-v183r` and
+`build/compilers/PS2/ee-gcc2.95.3-136-v183r` and writes `xor eax,eax; ret` over the first three bytes of that function
+in `cc1` and `cc1plus`, which it finds by its body. It checks the SHA-1 of every file before and after, and writes
+nothing if one does not match. `configure.py` runs it and compiles `path` only with these toolchains
+(`GC_TOOLCHAIN` and `PS2_TOOLCHAIN`).
+**Evidence:** positive, `path` goes from 182 to 193 of 194 functions on GameCube and gains 6 on each PS2; the three
+`*(unsigned long *)&` casts that `pathserv.cpp` used to dodge the rule can be removed, after which the function
+matches on the three builds and the GameCube DOL still links byte for byte. Negative, the same replica applied to the
+v1.76 libraries loses 59 functions on GameCube and 28 on each PS2: it only fits the units the DWARF marks v1.83.
+
+### Replicating SN's assembler for its PS2 libc
+
+**Why:** SN's PS2 libc (newlib 1.8.1 built by SN, and the R5900 string functions written in assembly in
+`newlib/libc/machine/r5900/`) was assembled with SN's own assembler, Ps2EeAs, not with GNU as: `dli` comes out the
+way Ps2EeAs expands it. The Ps2EeAs we have (1.9.25.758) still differs in one thing: both pad short loops (the R5900
+short-loop erratum) with `nop` before the backward branch, but ours pads them to 7 instructions and the one that built
+the game's libc padded them to 6.
+**How:** `scripts/replica_snas.py` copies `build/compilers/PS2/ee-gcc2.95.3-136` to
+`build/compilers/PS2/ee-gcc2.95.3-136-snas` and changes the two constants of that check in `ee/bin/Ps2EeAs.exe`
+(6 to 5, two bytes), checking the SHA-1 before and after. `configure.py` runs it and gives the copy to the three SN
+libc libraries (`PS2_TOOLCHAIN["libc_sn"]`). Their C goes through `ee-gcc -S` and that Ps2EeAs
+(`tools/ee_gcc_pp.py --as`, rule `ee-gcc_snas`); the `.S` files through `ee-gcc -E` and Ps2EeAs (`tools/ee_as_S.py`).
+**Evidence:** the 13 `r5900` string functions match on both PS2 builds (3 of 13 with the official assembler), and the
+C units gain 16 functions on the A124 and 15 on SLUS (`mprec`, `_strtod_r`, `_strtol_r`, `_strtoul_r`, `exit`,
+`strstr`, `__sfvwrite`, `_malloc_r`, `__sfp`), with none lost.
+
+### Building SN's compiler from its GPL source
+
+SN's GPL source release of its GameCube compiler (`orig/prodg/`, "SN BUILD v1.79") builds with emoose/re4's recipe
+(`tools/sn-gcc` in that project: `-m32 -std=gnu89 -fpermissive -fcommon -fno-strict-aliasing`, CRLF to LF, the
+pregenerated parsers, a use-after-scope fix in `cp/decl.c`) as a Linux binary and, with mingw-w64 and SN's own
+MSVC/WinNT host configuration unchanged, as a Windows `.exe`. Against the official v1.76 it gives the same assembly on
+409 of 409 v1.76 units (28,163 symbols). Two things came out of it:
+- the `cc1plus.exe` in `build/compilers/ProDG/3.9.3` is not SN's as shipped: it carries the binary `$LC` patch of
+  `tools/patch-toolchain.py`, which can be written as a source patch;
+- v1.79 plus Keating's alias.c change gives the same objects as the three-byte replica above on the 27 units of `path`
+  and `rcmp`, and the 8 bytes of stack frame left in `path`'s `CreateStreamTrack` were not the compiler at all but
+  `-mps-float`: SN's `caller-save.c` reserves an 8-byte slot per FPR live across a call with it. `path` (like its
+  sibling `snd`) now has the flag on GameCube and is 194/194.
+
+**Using it (optional).** The normal build keeps the official binaries. `tools/sn-gcc/` holds the recipe, so that
+anyone with Linux or WSL can make the GameCube compilers from the source instead, with both binary patches written as
+readable source patches: `Makefile.linux` and `Makefile.mingw`, `patches/linux-host.patch` (emoose/re4's, CC0),
+`patches/dollar-lc.patch` (the `$LC` labels of `tools/patch-toolchain.py`, in cc1plus only, like the binary patch),
+`patches/keating-alias.patch` (the v1.83 change that `scripts/replica_v183.py` writes as three bytes), and a
+`README.md` with the origin of each piece. Nothing is downloaded: the source is read from `orig/prodg/` (extracted, or
+the zip) and is not copied into the repository.
+
+1. `python configure.py` and `ninja` once, so that `build/compilers/ProDG/3.9.3` exists.
+2. `bash tools/sn-gcc/build.sh` on Linux, or `wsl bash tools/sn-gcc/build.sh` from the repository root on Windows
+   (packages: `make patch python3 gcc-multilib gcc-mingw-w64-i686`; about 3 minutes on 4 cores). It builds the
+   generator programs with `gcc -m32`, then `cc1.exe`/`cc1plus.exe` with mingw-w64 and SN's own host configuration,
+   and installs two toolchains, each a copy of `ProDG/3.9.3` in which only those two files are replaced:
+   `build/compilers/ProDG/3.9.3-src` (v1.79 + `dollar-lc`, in place of `ProDG/3.9.3`) and
+   `build/compilers/ProDG/3.9.3-v183src` (v1.79 + `keating-alias` + `dollar-lc`, in place of `ProDG/3.9.3-v183r`
+   for `path`). The build is reproducible: the script prints the SHA-1s and says whether they are those of the
+   reference build (Ubuntu 24.04, mingw-w64 GCC 13-win32).
+3. `python configure.py --gc-toolchain-source` (alias `--gc-toolchain-fuente`), then `ninja`. The environment
+   variable `NFSMW_GC_TOOLCHAIN_SOURCE=1` does the same, and is how the option survives `scripts/pctall.py` and
+   `scripts/medir.py`, which run `configure.py` without arguments. Without either, nothing changes. If a `-src`
+   toolchain is missing, `configure.py` stops and says how to build it. Switching recompiles every ProDG unit of
+   GameCube (their command line changes).
+
+Measured on GOWE69 (2026-09-30), the two builds one after the other under a single lock of `scripts/medir.py`, so
+that the tree could not change in between:
+- the objdiff report is the same function by function: 18,387 of 18,432 functions and 3,891,328 of 3,946,048 bytes
+  of code matched with and without the option, and no function has another percentage or size;
+- the DOL links to SHA-1 `9619ba57c9919f95f7f2ac951a2166a3517f91e3` both ways (`build/GOWE69/ok` written);
+- the 436 objects compiled with ProDG are byte-identical once the version string is set aside ("SN BUILD v1.79"
+  for "v1.76", only in the DWARF producer), except `rcmp_mad_codec_chunk_types.o`, whose `_GLOBAL_.N...` symbol
+  carries a four-letter suffix that changes with every compilation (it comes from the process id), whatever the
+  compiler;
+- time: the whole `scripts/pctall.py GOWE69` run (configure, rebuild of the 436 ProDG units with ninja's default
+  parallelism, link, report) took 157 s with the option and 188 s without, and the compilations add up to 1,074 s
+  against 1,536 s; other jobs shared the machine. One unit at a time, best of three, alternating the compilers:
+  `zAI` 12.7 s against 18.1 s, `zPhysics` 9.4 against 12.9, `zSim` 9.1 against 14.2, `zEAXSound2` 9.1 against
+  16.0, and the same for small units (0.3 to 0.6 s): 41 s against 62 s in all (66 %), with identical objects;
+- with the option, `configure.py` prints "Missing scratch compiler mapping" once per unit (441 lines), because
+  `tools/project.py` maps only `ProDG/3.9.3` to a decomp.me compiler; the units then lack their decomp.me scratch
+  settings in `objdiff.json`, which the report does not use.
+
+### How EA's inline asm is proven: the compiler as judge
+
+The fork keeps inline asm only where the binary proves EA wrote it. With the compilers built from source (SN's for
+GameCube, and Sony/Cygnus's `ee-gcc 2.9-ee-991111` for the PS2 game, which reproduces the shipped one on 99.4 % of the
+game's functions once Sony's VU0 register bank is rebuilt from the tables in the official `.exe`), every asm statement
+was classified: 277 of 378 need an instruction no pattern of the machine description emits (VU0 arithmetic, MMI, COP0,
+`ei`/`di`, `frsqrte`, `fres`...), and 101 use an instruction the compiler has, but in a form it cannot produce: never
+in a delay slot (`reorg.c`'s `stop_search_p` never puts an asm there: 0 of 1,371 in the original, against 9 of about
+200 for the same instructions coming from C), a fixed register reload would not pick (`cvt.w.s` into `$f4` in 29 of 29
+expansions against 8 of 540 in C), a line of its own in the line map, and the locals the stabs or the DWARF give the
+block. Seventeen C forms were measured against the asm: all of them lose functions, none gains. One caveat: the R5900
+compiler does emit `nop` before the backward branch of loops of six instructions or fewer
+(`mips_r5900_lengthen_loops`), so not every `nop` is EA's.
+
+Added on 2026-10-01 with the same tests: `SNDI_ftoiround`/`SNDI_ftoiroundpositive` in `sndcmn.h` (`add.s` and
+`cvt.w.s` into `$f4` on one source line, in 8 of 8 expansions), `_HackFpToSi`/`_HackFpToUi` in the PS2
+`Platform.cpp` (they have no procedure in the `.mdebug`, and `HackPatchFloatToInt` copies their 16 bytes as data
+over libgcc's `fptosi`/`fptoui`), and the `nop` lines of `VRAMView` and `eWaitUntilRenderingDone` (eight source
+lines of eight `nop` each, like `WaitUntilVSync`).
+
 ### The EE-GCC two-step wrapper (`tools/ee_gcc_pp.py`)
 
 **Why:** the `2.9-ee-991111` driver preprocesses into a temporary `.ii` whose line markers name the
@@ -1025,7 +1645,14 @@ decides which objects the GameCube link uses.
    `jeff.exe`, dtk's XEX variant);
 2. runs `ninja -k 0`, retried up to three times because MSVC's `cl.exe` fails intermittently with
    C1083 under heavy parallel load;
-3. runs `objdiff-cli report generate` with the project options.
+3. on PC only, writes a copy of each object whose static functions contain MSVC 7.1 `$L<n>` labels
+   (jump-table targets and the `int3` after a call that does not return) to
+   `build/SPEED_EXE_1_3/sin_L/`, without those labels (`scripts/quita_L.py`). objdiff does not know
+   the size of a COFF symbol and measures up to the next symbol, so it cut `_luaD_growCI` at 18 bytes
+   instead of 56. Relocations that pointed at a label move to the section symbol with the offset
+   added, so the copy links to the same bytes. The split exe has no such labels. The build object is
+   not touched, and `scripts/bancopc.py` does the same;
+4. runs `objdiff-cli report generate` with the project options.
 
 The output is `build/versiones/<V>.json` and `<V>.log`, plus one line per build: matched code %,
 bytes, functions, complete units, **the number of objects that fail to compile**, and units without
@@ -1046,6 +1673,138 @@ three have happened:
 A figure counts only if its line says that 0 objects fail to compile. On GameCube, the SHA-1 of the
 linked DOL (`config/GOWE69/build.sha1`) is a second control.
 
+### Xbox 360 is measured on an LTCG link: `scripts/ltcg360.py`
+
+**Why:** the Xbox 360 executable was linked with whole-program optimisation (`cl /GL` + `link /LTCG`).
+Its Rich header lists 369 objects with product id 0x72 (`Utc1400_LTCG_CPP`), build 2110, plus the
+linker `Linker800` with the same build. The XEX lists `D3D9LTCG` among its static libraries. The
+compiler in `build/compilers/X360/14.00.2110` (cl 14.00.2110, link 8.00.2110) is that exact build.
+Linking two small test files with it writes 0x72 only when `/LTCG` is used; without `/GL` the same
+objects come out as 0x6e (`Utc1400_CPP`). LTCG inlines across units, propagates constant arguments
+and allocates registers for the whole program. A unit compiled on its own therefore cannot produce
+those functions. In the original, 333 of 672 cross-unit callees that carry a name (`bStringHash`,
+`bStrLen`, `operator new(size, name, line)`, `Sim::GetTime`…) are never called from another unit.
+
+**How:** for `EUROPEGERMILESTONE`, `scripts/pctall.py` runs `scripts/ltcg360.py` after ninja.
+
+1. Every unit that `build.ninja` compiles with the `msvc` rule is compiled again with the same flags
+   plus `/GL`, into `build/EUROPEGERMILESTONE/ltcg/il/`. A unit is only recompiled when ninja's
+   object is newer than its IL object.
+2. The tree does not define everything the program calls: functions not decompiled yet, and the CRT
+   and XDK libraries, which are not available. Each missing symbol is defined in a small COFF object
+   that the script writes itself, without `/GL`. LTCG cannot see into it and treats each one as an
+   ordinary external call. Every stub function gets its own address, so that the split can tell the
+   targets apart. `/FORCE:UNRESOLVED` does not work with `/LTCG` (LNK1120 stays fatal). The list of
+   missing symbols is kept in `ltcg/stubs.txt` and extended by relinking while LNK2001/LNK2019 remain.
+   Some of them, such as the `__savegprlr_N` helpers, only appear after code generation.
+3. The link is `link /LTCG /XEX:NO /NODEFAULTLIB /FORCE:MULTIPLE /OPT:NOREF /ENTRY:main /MAP`. It
+   takes about 1.5 minutes for the whole tree; a run whose stub list is already complete links once.
+4. The linked `.text` is split back into one COFF object per unit (`build/EUROPEGERMILESTONE/ltcg/obj/`,
+   same relative paths as `build/EUROPEGERMILESTONE/src/`). Each function goes to the object the
+   linker map assigns it. Its relocations are rebuilt: `REL24` for every `b`/`bl` that leaves the
+   function, `REFHI`+`PAIR`/`REFLO` for the `.reloc` HIGHADJ/LOW pairs, `ADDR32` for HIGHLOW. The
+   relocated fields are zeroed, as in an object from `cl`.
+5. objdiff compares those objects with the split original, as for every other build. The result is
+   the official `build/versiones/EUROPEGERMILESTONE.json`. The per-unit measurement is still reported
+   as a diagnostic in `EUROPEGERMILESTONE-fichero.json` and on its own output line.
+6. Both sides are normalised in the same way before the comparison (class `Normalizacion` in
+   `scripts/ltcg360.py`; a change of METHOD, decided by the user on 2026-10-07). LTCG places `.rdata`
+   constants and jump tables for the whole program, so identical code used to come out different:
+   - **Constant pool, compared by value.** After `lis rT, base@ha; addi rB, rT, base@l`, a load such
+     as `lfs fX, d(rB)` has a displacement that depends on where LTCG put each constant. On both sides
+     `d` is replaced by a number that identifies the value read from that side's own executable (size
+     and bytes; `orig/EUROPEGERMILESTONE/NFS.exe` for the original). One table of numbers serves both
+     sides and is one-to-one, so a different value gives a different instruction and the function
+     still fails. Only non-update loads (`lwz lbz lhz lha lfs lfd`) qualify. The base must come from a
+     relocated `lis`/`addi` in the same function, with no write to that register in between, and the
+     address must fall in `.rdata`. A `lwz` that reads an address of the image (a vtable or a table of
+     pointers such as `luaT_typenames`) is not a constant and is left alone.
+   - **Jump tables, compared by destination.** Each table word is an absolute address inside the
+     function. On both sides it is replaced by `b destination`, relative to the word itself, and objdiff
+     compares a branch by its target inside the function. A bare value would be drawn as `<illegal>`,
+     which objdiff treats as equal without comparing it. Our side takes the HIGHLOW entries of `.reloc`
+     that point inside the function. The original has no relocations, so the words taken are the
+     consecutive ones after a `bctr` that are aligned addresses inside the same function.
+   - Anything that cannot be resolved is left as it was and keeps failing. The normalised originals go
+     to `build/EUROPEGERMILESTONE/ltcg/orig/` and are the report's `target_path`. `build/<V>/obj` is not
+     touched, and the per-unit diagnostic and the other four versions do not change.
+
+   **Controls.** Before and after on the same link: +114 functions (38,348 bytes), 0 lost. A negative
+   control used a copy of the linked executable with one constant changed on purpose (the first `lfs`
+   of `RigidBody::ResolveWorldCollision`, 0.0 to 1.0). That function stops matching, and so do the
+   other 78 that load the same constant. The same copy also had the first jump-table entry of
+   `luaV_execute` pointed at the next case, and `luaV_execute` stops matching too.
+
+Check of the split: in every unit, objdiff's 100 % agreed with byte identity under the
+`nombra_por_codigo` normalisation in 4,795 of 4,796 named functions. The one exception was a function
+that objdiff scored lower.
+
+**Results (2026-10-07):**
+
+- Per-unit compile: 3.49 % of the code, 4,617 functions.
+- LTCG link: 4.28 % (360,336 bytes, 4,800 functions) before any renaming.
+- LTCG link with 334 new names: **4.68 %** (394,120 bytes, 5,134 functions).
+- Round 39: the STL with EA's allocator (`stlpc/xmemory`, also on Xbox 360), 4.77 % (5,209). Then 330 more
+  names from `scripts/nombra_grafo.py EUROPEGERMILESTONE --nuestros=<LTCG objects>` (`--validar 0.3`: 843 of
+  843 right), 5,539 functions. Then the normalisation of step 6, which adds 114 more:
+  **5.53 %** (465,096 bytes, 5,654 functions).
+- Round 40: `zSpeech` compiles for Xbox 360 and gets its own unit (`.text 0x824B65DC-0x824ECD50`; its 223 kB had
+  been split into `zTrack`), `bMemCpy` becomes the CRT `memcpy` on Xbox 360 (the executable has 140 calls to the CRT
+  `memcpy` and no `bMemCpy`), and 1,869 names: **7.92 %** (666,528 bytes, 7,592 functions). Linking `zSpeech` costs
+  three small functions (80 bytes) that LTCG now specialises or moves: one gains a caller with constant arguments,
+  one loses an `if` because every caller passes NULL, and a COMDAT moves to the unit that defines it first.
+- Round 41: the Xbox 360 split redone. The LTCG link is per file (369 objects in the Rich header), so units are
+  not given and have to be deduced: each original function was assigned to the only unit of ours with the same
+  skeleton, ranges were built per unit keeping everything that already matched in place, and one `.pdata` range
+  was emitted per `.text` range. It found `zEagl4Anim` inside `zDynamics`, a `zFeOverlay` unit, `zFe`/`zFe2`/`zFEng`
+  crossed, and `zMain`, `zLua`, `zGameplay` and `zFoundation` almost entirely in unmeasured `auto_` pieces. With
+  the names run to a fixed point: **13.48 %** (1,134,600 bytes, 12,344 functions), +4,671 functions without new
+  code. The Xbox 360 front end is the console one, not PC's: turning its `WIN32` guards into `WIN32||XENON` is
+  neutral or worse.
+- Round 42: the split method became `scripts/trocea360.py` (`etiquetas`, `splits`, `prueba`, `banco`, `nombra`,
+  `compara`, `aplica`). Two new naming tools: `scripts/nombra_vtable360.py` pairs each of our vtables with the
+  original's (by the `lis` of the constructor, or by `.rdata` content) and names a slot only on a unanimous vote with
+  identical code (2,906 of 2,937 known anchors right); `scripts/nombra_permuta360.py` fixes names swapped inside a
+  unit (closed cycles only). The XDK's STL was built without checked iterators: `/D_SECURE_SCL=0` makes
+  `_Tree::_Insert` return a one-word iterator as the original does (+107 functions). **17.62 %** (15,153 functions).
+- Round 48 (owner's decisions applied): `/D_SECURE_SCL=0` re-measured by full A/B (all 30 units recompiled with
+  `--cl=/D_SECURE_SCL=1`, which wins as the last `/D` on the MSVC command line): without it the link loses **1,135
+  functions / 258,216 B** and gains 3 checked-iterator helpers of 128 B with no caller — the flag is a fact of the
+  original XDK, now worth 10x what round 42 measured. The 18 AIVehicle vtables that round 47 left pending were
+  re-verified with its own criterion (unique address, 1:1, full slot agreement with the r46/47 function names as
+  anchors, zero contradictions) and the bag turned out to be **25** — the whole family (AIVehicle, Pid, Perp,
+  Racecar, Pursuit, CopCar, Empty, Human, Helicopter, Traffic); the 4 base-class ones agree with PC's own symbols,
+  the other 21 exist nowhere else. Applied as label renames, invisible to the link (bank +0/−0), plus the cascade
+  tail `SetFlags@tCubic2D` (+1 fn surviving LTCG). **17.72 %** (15,260 functions).
+
+The new names come from `tools/nombra_por_codigo.py --nuestros=build/EUROPEGERMILESTONE/ltcg/obj`. A
+name was applied only when its code fingerprint is unique on both sides of the unit: no other
+original function and no other function of ours has the same normalised code. Of 13,372 unnamed
+candidates, 2,714 had code identical to one of ours. Most were ambiguous:
+
+- 1,934 matched several of our functions;
+- 103 names were proposed for more than one address;
+- 229 were out of order and had no named call target in common;
+- 45 had a twin in the original.
+
+334 names remained, and all 334 score 100 % in the report.
+
+**Limits:**
+
+- LTCG decides with the whole program. With most of the game not written yet, it sees fewer callers
+  and specialises more: about 90 functions that matched per unit (8 kB) come out different. For
+  example, `bMatchNameWithWildcard` receives its first argument as a constant, because every caller
+  in our tree passes the same string.
+- About 110 small COMDAT functions (5 kB) are emitted once, in the first unit that uses them. The
+  original has a copy in a later unit.
+- The function order inside a unit follows LTCG's own order and is not reproduced. The comparison
+  is by name.
+- The `C4744` warning on `cSTICH_PlayBack::mQueuedSampleList` is the compiler's: two test files with
+  a static data member array of a class template reproduce it. It is not a difference in the source.
+- `Attrib::Alloc` is `inline __declspec(noinline)` on Xbox 360. It was a non-inline definition in
+  every unit, which the whole-program link rejected as a duplicate. The original has one copy.
+- PC is not LTCG. `speed.exe`'s Rich header has no 0x64 (`Utc1310_LTCG_CPP`, measured with the
+  7.1 compiler); all its objects are build 3077 without LTCG. Its per-unit measurement stands.
 ### `config/<version>/`
 
 These are the kinds of change; the data itself is not described here.
@@ -1105,6 +1864,11 @@ The most important tools have a second sentence.
 - `serie.py`: the real closure rate per work round, rebuilt from the round reports in `docs/analisis/`.
 - `frozen.py`: freezes a unit's objdiff diff, without line numbers, as a SHA-256 in `docs/congelado/`, and checks it later. It catches code changes that do not move the percentage. The fingerprint also covers the `.debug` and `.line` sizes, so a "changed" verdict can come from debug info alone: confirm with `tools/fnobj.py`.
 - `censorancios.py`: recompiles every promoted unit to a temporary directory and compares the ALLOC sections, relocations and symbol table with the object on disk, to find stale objects.
+- `tools/sufijo_local.py`: keeps objdiff name mappings valid when our name carries a compiler label number
+  (`...IconSort.26725`): a `*` pattern in `configure.py` is resolved against the object just built, only among
+  defined symbols, and `pctall.py` also pairs other local classes whose names differ only in that number.
+- `nombres_pc_upstream.py UP.json [--aplicar]`: takes a PC name from upstream's `symbols.json` only where our
+  compiled PC objects define it and the current name is not defined (+931 PC functions the first time).
 - `censoasm.py`: an exact census of the GCC inline asm left in the tree, with comments stripped. It classifies each use as a register pin, a scheduler barrier, real instructions, hand-placed data or a name alias.
 - `auditaportable.py`: a census of what keeps the code from being portable decompilation: GNU asm and attributes, statement expressions, `typeof` and builtins. It also flags heuristic candidates for upstream's forbidden patterns: member access by pointer offset, and casts to the type a variable already has.
 - `auditecho.py`: audits the "ceilings" documented in the playbook. Using the mnemonic multiset, it separates real allocator or scheduler walls from functions that still lack source.
@@ -1147,6 +1911,12 @@ The most important tools have a second sentence.
 - `swsweep.py`: sweeps the tree for two switch patterns: shared case bodies that the original duplicates, and the inverted last leaf.
 - `diffunidad.py`: writes the full objdiff JSON diff of whole units, for any version, into `build/diffs/<V>/` (tens of MB each). The pattern tools read it.
 - `tabla_op.py`: a table of "what we emit → what the original emits" for same-position opcode mismatches, with how consistent each mapping is. A 99–100 % mapping is a direct fix. It found the PS2 VU0 field masks (`vmul.xyzw` → `vmul.xyz`, ...).
+- `casi.py V [--unidad U] [--max-dif N] [--detalle N]`: triages near-misses by the number of differing rows, with the rows themselves. A function at 99.9 % adds no bytes (`matched_code` is all or nothing) but one that misses by two rows is worth its whole size.
+- `banco.py V SOURCELIST REL COPY SYMBOLS [--diff] [--sombra=DIR]`: compiles a SourceList outside the tree with one or more of its `.cpp` files replaced by copies (and optionally a shadow directory of headers), and compares the named functions with the original. It only writes to `build/banco/` and cleans up, so it works while another measurement holds the lock.
+- `ronda.py`: a bench of source variants over a frozen copy of the tree: whole SourceLists of one or several builds, in parallel, each variant compared function by function with the first. Several agents changing `src/` at once cannot mix into it.
+- `mismo_codigo.py A.o B.o`: compares two ELF objects function by function, raw bytes (so a different `.rodata` offset counts): whether a change is neutral in an object objdiff cannot measure.
+- `llamadas.py`: which functions call (or load the address of) a symbol, and how often, in our objects or in the originals of some SourceLists.
+- `pc_x360.py`: checks that PC and Xbox 360 still compile some SourceLists, from the live tree or a `ronda.py` variant.
 - `litcheck.py`: compares, per function, the multiset of constant-pool values with the target's. objdiff cannot see which constant an `lfs` loads. Its first pass flagged four functions, and all four had a wrong literal.
 - `litpos.py`: the same check position by position, which catches two constants swapped with each other.
 - `strseq.py`: compares the strings each function references by content. objdiff treats an `addi` to one string and an `addi` to another as identical, and NFSMW hashes names at runtime, so a wrong string fails silently.
@@ -1165,6 +1935,18 @@ The most important tools have a second sentence.
 - `tools/fnobj.py`: compares two objects function by function with `b`/`bl` displacements masked, because removing a function shifts every later branch. `--orig` checks the changed functions against the original.
 - `tools/abobj.py`: A/B of two builds of a unit when a change may add or remove strings. `.text` and its relocations must stay identical, and the `.rodata` string set must not move away from the original.
 - `tools/fnasm.py`: dumps the original's disassembly of named functions of a unit, from an objdiff diff.
+- `corridos.py VERSION UNIT...`: for PC or Xbox 360, per class, the functions whose member offsets differ from the
+  original's by a constant: a member of another size on that platform. One `objdiff-cli diff` per unit. It found
+  the PC/Xbox 360 list limits (lesson 87).
+- `capacidades.py [VERSION] [--nombres]`: the capacity of every template list (`FixedVector`, `Listable::List`)
+  in the original against ours, read from the `GetMaxCapacity` their vtables point to.
+- `bancopc.py VERSION UNIT LABEL [--sombra=DIR] [--sust=REL=COPY] [--base=LABEL] [--cl=OPTION]`: the PC and Xbox 360
+  bench. It compiles one SourceList outside the tree, with shadow headers and substituted `.cpp` files, compares it
+  with the split original and reports gains and losses against another run; `--cl` appends compiler options (with
+  a dash: lesson 97 was found this way). The control run matches the official report. `todas.py` runs it over every
+  unit in parallel (`--par` pairs each variant with a fresh control); `calor.py` and `corr.py` read its kept diffs
+  for member offsets shifted across classes; `sondapc.py` asks the PC or Xbox 360 compiler for a class's size and
+  member offsets; `pp_igual.py` proves a GameCube/PS2 change neutral by preprocessing with and without it.
 
 ### Register allocation and scheduling
 
@@ -1188,6 +1970,27 @@ The most important tools have a second sentence.
 - `firmas.py [--version V]`: functions the original defines under a mangled name our object lacks, while ours defines the same `Class::method` with another signature. objdiff pairs by name, so these read 0 % until the signature matches.
 - `argsusados.py <version> <unit> <symbol>`: the argument registers a PS2 function reads before writing them. It decides whether SLUS has a parameter its inherited A124 name lacks.
 - `sinreturn.py [--slus]`: compiles the PS2 units with `-Wreturn-type` and lists non-void functions that can end without a `return`, most reached first.
+- `patrones.py [--version V]`: adds up the differing rows of every near-miss function of a PS2 build as opcode pairs (original -> ours) and counts the functions that share each pair. A pair in hundreds of functions is one root cause.
+- `gcmismo.py <tag> <unit> [...]`: compiles GameCube units from the working tree and compares them, function by function with relocations, to the objects of the last GameCube build. It guards source-form changes that only PS2 can see.
+- `ficheros_mdebug.py [unit ...]`: the source files of every A124 unit in link order, from the `.mdebug`, and whether each SourceList includes them.
+- `banco.py V SOURCELIST REL[,REL] COPY[,COPY] SYM[,SYM]|@FILE [--diff] [--sombra=DIR] [--conservar]`: compiles a game SourceList outside the tree (in `build/banco/`) with some of its files replaced by copies, and diffs the given functions against the original object of GameCube, the A124 or SLUS. It touches neither `src/` nor the objects a measurement uses, so variants can be proved on the three builds while another measurement holds the lock. `@FILE` reads the symbols from a file (a whole unit does not fit in a Windows command line); one objdiff call covers them all, so a 500-function unit takes seconds. The overlay units (`zOnline`, `zFeOverlay`) get their `.text` renamed to `.over` as the build does. It deletes its SourceList copy, preprocessed file, object and JSON when it ends (`--conservar` keeps them): runs from several agents once filled the disk with 19.5 GB. A `--sombra` directory must hold the whole header directory, not one header: a header another header includes by a relative path is read from the tree.
+- `inlines.py global [MIN] | usos HEADER L0 [L1]`: which header inline is to blame for a family of A124 near-misses (lesson 72). `global` ranks every (header, line) that our PS2 objects expand by the fraction of those functions that match; `usos` lists the functions that expand some lines, with their percentage.
+- `relops.py lineas SYM[,SYM] | difieren`: the `stl_relops.h` oracle (lesson 71). `lineas` gives, for the original and for our object, every expansion of the global `operator!=`, `>`, `<=` or `>=` with the source line it follows; `difieren` lists the functions where the two sides do not expand the same operators.
+
+### PS2 names
+
+objdiff pairs functions by name, so every `func_XXXXXXXX` in a PS2 `symbols.txt` is a function that cannot score, whatever our code does. SLUS has no symbol table: most of its names were inherited from the A124 by address, and several landed on the wrong bytes.
+
+- `tools/nombra_ps2.py`: proposes names for unnamed PS2 functions whose code equals, with relocations masked, a function our object defines. Every proposal still needs a proof.
+- `nombra_symtab.py`: the names the A124's ELF symbol table has and `symbols.txt` lacks, mostly statics; it checks each address is a real entry before adding it.
+- `prueba_nombre.py V 0xADDR NAME [NAME...]`: the exact proof of a name, word by word, comparing registers in relocated words too (`bRandom__Fi` and `bRandom__Ff` differ only in the seed's register).
+- `grafo_nombres.py`: names for SLUS from the A124's call graph, through functions with the same name, size and call positions in both builds. No proposal is a proof on its own.
+- `eventos_vtable.py`: the event classes of `zMain` anchored by the string their `GetEventName` returns, and from it their vtable, destructor and constructor.
+- `restos_epilogo.py` and `restos_trozos.py`: names sitting on the 8-byte leftovers (an epilogue's `addiu $sp`, or one loose instruction and a `nop`) in front of their function; they move the name to the entry every caller jumps to.
+- `cortes.py V`: names that fall inside a function (on a branch target), which split it in two. Run it after every batch of names.
+- `aplica_nombres.py V list.tsv [--aplicar]`: applies proven `(address, name, reason)` lists to a PS2 `symbols.txt`, and first checks the batch is consistent: an address with two names or a name with two addresses is dropped, and a name that already sits elsewhere is moved (the old address goes back to `func_`). Statics that repeat across units get `allow_duplicated` on every line.
+- `orden_slus.py`: compares, unit by unit, the order of SLUS's functions with the A124's (named by its `.symtab`). Where sibling functions have the same code (destructors that differ only in their vtable), an inherited name can land on the neighbour; code comparison cannot see it, order can.
+- `vtable_dtors.py`: anchors PS2 destructors by their vtable (an EE-GCC vtable's first entry is the destructor, and the destructor stores its own vtable), and names the class from the other methods in that vtable.
 
 ### Readers of the original's debug data
 
@@ -1212,6 +2015,7 @@ GameCube DWARF-1 and line map:
 PS2 and Xbox 360:
 
 - `mdebug.py`: reads the `.mdebug` (ECOFF) of the A124 `NFS.ELF` from its SYMR table. Per function it gives locals with type and register, the `$LBB`/`$LBE` range of each inline, and the expansion order.
+- `arbol.py SYMBOL [OBJ] [--diff]`: the tree of blocks and locals in the A124's stabs for one function (register or stack for each local), ours next to it with `--diff`. It shows what the original declares in each scope; see lesson 84 for what the stabs leave out.
 - `ps2fn.py`: shows what a function does in the A124 build: its symbol in `NFS.MAP` and its ordered list of calls. The MIPS code is read, not copied.
 - `ps2map.py`: reads the A124 linker map. Per object, it sorts symbols by address, which gives the emission order of that build.
 - `x360ref.py`: a GameCube ↔ Xbox 360 cross-reference over the decrypted basefile: where a string is, which function contains it, and that function's asm.
@@ -1227,7 +2031,7 @@ PS2 and Xbox 360:
 - `prefijochk.py`: checks that no `.rodata` range contains two unit prefixes. The bWare prefix string marks the start of each unit's `.rodata`, and the ELF has 31 of them.
 - `prefijotu.py`: lists, in order, the shared vocabulary of strings that a unit lacks.
 - `keepchk.py`: checks that every `object:symbol` entry of `keep.lst` exists. A stale entry is stripped silently.
-- `lcfix.py`: re-resolves the `$LCn` entries of `keep.lst` by content. The number `n` shifts when a literal is added earlier in the unit, and then the wrong string is stripped silently. Read its `FALLO` lines, not only the `CORRIGE` ones.
+- `lcfix.py`: re-resolves the `$LCn` entries of `keep.lst` by content, and the `# @data UNIT OFFSET` ones by position in `.data`. The number `n` shifts when a literal is added earlier in the unit, and then the wrong string is stripped silently. Read its `FALLO` lines, not only the `CORRIGE` ones.
 - `lcmap.py`: pairs the `$LCn` pool that cc1plus emits with the extracted object's `lbl_XXXXXXXX` labels, relocation by relocation.
 - `lcpool.py`: shows the `$LC` pool that we emit and the original object does not have.
 - `deadstr.py`: finds strings that we emit and the target has, but the linker strips. `-strip-unused-data` removes most of a dead symbol (`size & ~7` bytes in 8-aligned sections).
@@ -1295,12 +2099,212 @@ Stock Ghidra reads little of the GameCube ELF. Two patches change that; both are
 
 ### Xbox 360 and PC names
 
+- `quita_solapadas.py IN OUT`: removes from the PC symbol file the IDA relocations that sit one byte before a real
+  one with the same target (1,748 of them, all in `mov dword ptr [reg+disp8], imm32`); objdiff zeroed four bytes of
+  the original for each.
+- `int3_noreturn.py IN OUT`: adds to the PC symbol file the `int3` MSVC emits after a final call to a `noreturn`
+  function (lesson 98).
+- `pdb.py FILE.pdb [resumen|publicos|modulos|json OUT]`: a dependency-free reader of Microsoft PDB files (MSF 7.00):
+  streams, DBI, sections, modules and public symbols, to bring PC names from a PDB.
+- `dtors_por_vtable.py`: names SLUS destructors from the vtables that point to them (55 in its first pass).
+- `nombra_grafo.py EUROPEGERMILESTONE|SPEED_EXE_1_3 [--aplicar] [--validar F] [--anclas-malas]`: names by code AND by
+  the call graph. The report compares with `functionRelocDiffs=none`, so a relocation's target does not count: an
+  unnamed original function matches as soon as it carries the name of one of ours with the same skeleton (the code
+  with relocated fields zeroed). The targets are used as evidence instead: a named target must agree, `__real@` and
+  `??_C@` targets are checked against the original's bytes, and an unnamed target takes the name the accepted pairs
+  call there, which also breaks COMDAT ties (the `reserve`/`push_back` of each `Vector<T>`). Hiding 30 % of the known
+  names and asking for them back gave 904/905 on Xbox 360 and 2,546/2,546 on PC; its first run named 828 functions on
+  Xbox 360 and 2,475 on PC. The other side of `functionRelocDiffs=none`: a WRONG name on identical code also scores
+  100 %; `--anclas-malas` lists names whose targets contradict each other. Re-run it after each batch.
+- `nombra_elim.py [--aplicar] [--solo-1a1] [--quitar MARK] [--tsv OUT]`: names PC functions by code, using the
+  linker's own rules. It looks at each unnamed function of the executable. Here "unnamed" means a name MSVC 7.1 cannot
+  emit: `sub_`, an IDA demangle, a GCC decoration imported from GameCube, or a name with an address glued on. It pairs
+  that function with one of ours that has the same skeleton (the bytes with the relocated fields zeroed). The candidate
+  must come from the SAME unit, and in that unit it must be the only one left after elimination. Three rules make the
+  difference with `nombra_grafo.py`:
+  - **First-definer rule.** MSVC places a COMDAT with the first object, in link order, that contributes it. An inline
+    or template function of ours can therefore only be in the first unit whose object defines it. This held for 944
+    of 957 known names with several definers.
+  - **Elimination.** A function of ours whose name is already in `symbols.json` is not a candidate anywhere.
+  - **Relocation targets compared by address.** IDA gives one address two names (`??3@YAXPAX@Z` and
+    `?Free@FastMem@@QAEXPAXIPBD@Z`), so comparing by name reported false contradictions.
+
+  It applies two rules:
+  - `elim-1:1`: one original function and one of ours share the skeleton.
+  - `elim-orden`: N and N identical copies. They are assigned in order: address in the executable against definition
+    order in our object. A pair is kept only when the function lies between its neighbouring anchors.
+
+  It also has these filters and checks:
+  - A function under 16 bytes that has relocations needs at least one confirmed target. A `push; call X; ret` wrapper
+    has the same skeleton for any X.
+  - Each pair is checked with `objdiff-cli diff` on a renamed COPY of the split object, and must score 100 %.
+  - Validation is mandatory. It hides 30 % of the known identical-code names and asks for them back. It refuses to
+    apply if `elim-1:1` falls under 99 % or `elim-orden` under 95 %. The first run got 2,755 of 2,756 and 359 of 375.
+  - Every applied name is logged in `config/SPEED_EXE_1_3/nombres_procedencia.tsv`: address, previous name, new name,
+    rule, mark, size, confirmed targets and date.
+  - The `elim-orden` names carry the mark `copia-ambigua`. The code is identical, but the name may be swapped with
+    another copy of the same code. `--quitar copia-ambigua` restores all of them at once.
+
+  First runs (2026-10-07):
+  - **First pass:** 2,110 + 5,195 names, PC 13,106 → 20,411 functions (+266 kB, 23.4 → 29.6 % of code).
+  - **Second pass, after the `zFeOverlay` unit below:** 510 + 214 more, of which 373 are in `zFeOverlay`; with the
+    unit, PC reaches 21,141 functions (30.4 % of code).
+  - **Third pass:** 22 + 29 more.
+  - **Validation on the third pass:** 3,998 of 3,998 and 1,454 of 1,458.
+
+  A wrong name on identical code still scores 100 % (the report uses `functionRelocDiffs=none`). That is why the
+  provenance log exists. Re-run the script after `nombra_grafo.py` each batch.
+- `nombra_corrige360.py [--aplicar]`: the Xbox 360 counterpart of `nombra_corrige.py`. It fixes wrong names from the
+  callers' evidence and requires objdiff at 100 % on the LTCG objects (validation: 1,446 right, 10 `??_E`/`??_G`
+  aliases or folded code). On Xbox 360, `nombra_grafo.py` treats the `ltcg_XXXXXXXX` targets of the LTCG split as
+  anonymous: they were 1,137 of the 1,291 "bad anchors".
+- `tablas_pc.py`: IDA left the jump tables MSVC places after a `switch` outside the function. Putting them back in
+  331 functions added 18,219 bytes and 2,337 relocations to the comparison, and 34 functions reached 100 % without
+  touching code.
+- EA's libraries are not built with the game's `/O2` on PC. `eathread` (its Win32 back end, 19 of 19 functions)
+  uses `/O1 /Oy-`, `path` uses `/O2 /Oy-` (+110 functions) and `spch` and `snd` use `/O1` as C++ (`/TP`; +37 for
+  `spch`). `path` compiles for PC once `eathread` has its Win32 back end. Round 41 added `snd` as 49 PC units
+  (`/O1 /TP`, +95 functions) and `csis` with its Win32 lock (`CreateMutexA`, `WaitForSingleObject`,
+  `ReleaseMutex`; +44), and the PC front-end renderer on D3D9 (`eViewPlatInterface::Render` with mask and stencil,
+  `GetVisibleStateSB`, `GetScreenPosition`, `ePoly`, the cube environment map and PC lights). Round 42 added the
+  DirectSound driver of `snd` (`library/pc/sdsound.c`, 15 of 19 functions; the `DSOUND_*` names are ours, no build
+  carries symbols for it) and showed that PC uses EA's STL where GameCube uses UTL: the `lightmaterials` map is a
+  `std::map` whose allocator pushes the string "STL".
+- `lado.py`, `huerfanos.py` and `rap.py` (GameCube): the line of each instruction, ours against the original
+  (`--lineas` lists the gaps, to compare with a sibling block elsewhere in the source); comparisons no branch reads,
+  following the branch graph; and a one-function compile with the real flags from `build.ninja`.
+- `fa.py`, `flip.py` and `ldlr.py` (PS2): switch off each `EA_BUILD_A124` guard of a function body and measure the
+  A124 (several guards inherited from other branches turned out to be false); find guards that belong to both PS2
+  builds; and find members whose alignment shows as `ldl`/`ldr` pairs.
+- PC now has the `zFeOverlay` unit. The executable links it after `zWorld2`, at 0x7A1760–0x7C3F39, inside what
+  `splits.json` called `unassigned_02`…`_07`; those four units keep their `.rdata` slices. Our SourceList builds with
+  MSVC unchanged. `zOnline` stays unassigned: its PC code (lobby, client and server) has no source in this tree.
+- `nombres_pc_upstream.py` now reads upstream's `symbols.json`, which writes addresses as hexadecimal strings. Before,
+  it matched nothing and reported "0 of 0" without an error.
+- Member access is part of the name on PC and Xbox 360: MSVC encodes public/protected/private in the decorated name
+  and GCC does not. Putting back the original access labels in 45 headers (witnesses: upstream's PC names and the
+  A124 stabs, which record access per member and agree on 335 of 366) gained 153 PC functions and left GameCube and PS2
+  byte-identical. The GameCube DWARF does not record member access (ProDG's `dwarfout.c` only writes it for bases).
+- `relleno_ps2.py V [--unidad U] [--aplicar]`: names `pad_01_<addr>_text` the PS2 `func_` that are not functions (dead
+  copies of the previous function's last instruction, outside every sized symbol and referenced by nobody). They still
+  count in the total; the name only says there is nothing to decompile.
+
 - `tools/nombra_por_codigo.py`: recovers function names in the Xbox 360 and PC executables, which have no symbols. For each unit, an original function without a name (`fn_`/`sub_`) takes the name of one of ours when their bytes are identical, unique in both directions, and in order. For relocated words it compares only the opcode on PowerPC, and it ignores those bytes on x86. `--aplicar` writes the names to `config/<V>/symbols.txt`. Why: objdiff pairs by name, so those builds hit a naming ceiling, not a code ceiling. The first passes took X360 from 1.33 % to 1.85 % and PC from 6.75 % to 9.16 %. It skips compiler-internal labels (`$L…`), one of which once broke a whole report. Re-run it after each batch of decompiled code.
+
+### A PDB for the PC executable (`scripts/simbolos_pc.py`)
+
+`python scripts/simbolos_pc.py [--prueba] [--sin-pdb] [--sin-tipos] [--sin-historia] [--raiz-fuente RAIZ]
+[--lld EXE] [--exe EXE] [--english]` turns what the project knows about `speed.exe` 1.3 into symbol files that debuggers and
+disassemblers read. Everything goes to `build/SPEED_EXE_1_3/simbolos/`, which is not committed. It reads the tree as
+it is; re-run it after each batch. The full guide, for users of the PDB as well as for whoever regenerates it, is
+`docs/PC_PDB.md` (in the working tree, and inside the PC PDB kit, `nfsmw-pc-pdb-kit.zip`).
+
+Inputs:
+- `config/SPEED_EXE_1_3/symbols.json`: names and function ranges.
+- `config/SPEED_EXE_1_3/nombres_procedencia.tsv`, plus the git history of `symbols.json`: where each name came from.
+- `build/SPEED_EXE_1_3/report.json`, and `splits.json` for what the report lacks: the unit and match percentage of
+  each function.
+- Our PC objects. They are already built with `/Z7`, and MSVC 7.1 stores line numbers there as classic COFF line
+  records (`.bf` base line plus `.file` symbols), not as CodeView.
+
+Line tables and CodeView are taken only from functions at 100 % whose bytes equal the executable's, with relocated
+fields masked. The code is identical, so each line's offset inside the function is valid in the original.
+
+Output files:
+
+| File | Contents | Use |
+|---|---|---|
+| `NfsMWCollectorsRelease.pdb` | publics, a procedure per named function, and lines. Matched functions also get the CodeView of our objects: prototype, parameters, locals, and the types, `S_UDT` and globals of 27 units. | Debuggers load it by itself (below). |
+| `speed.map` | MSVC linker map: `Publics by Value`, `Rva+Base`, `Lib:Object` = unit | IDA: File > Load file > Map file |
+| `simbolos_pc.json`, `.csv` | one row per symbol | scripts, spreadsheets |
+| `lineas_pc.json`, `.csv` | address → source file and line of the matched functions | tools without PDB support |
+| `ida_importa_simbolos_pc.py` | names, missing functions, comments, source lines (`add_sourcefile`/`set_source_linnum`) | IDA 7.4+: File > Script file |
+| `ImportaSimbolosPC.java` | the same for Ghidra, in Java (no Jython or PyGhidra needed); lines go to the source map (11.3+) | Script Manager, or `analyzeHeadless … -postScript ImportaSimbolosPC.java <folder>` |
+| `speed.exe.dd32` | x64dbg database: labels, function ranges, comments | copy to x64dbg's `db/` folder |
+
+Each row of `simbolos_pc.json` holds:
+- the decorated name, the undecorated name and the short name (from `build/compilers/Win32/7.1/undname.exe`);
+- the address, RVA, section, `section:offset` and size;
+- the unit, the SourceList and our source file and first line;
+- the match percentage and whether the bytes were verified;
+- where the name came from: `pdb`, `upstream`, `grafo`, `codigo`, `elim 1:1`, `copia-ambigua` or another rule of the
+  log, with the round that set it.
+
+IDA invents names for what it does not know (`sub_`, `dword_`, `aString`, `FID_conflict:`…). Rows with those names
+are kept but marked `real: false`, and they are left out of the map, the scripts and the PDB.
+
+How the PDB is built. Nothing is downloaded: the Android NDK's `ld.lld.exe` is copied as `lld-link.exe` (LLVM's COFF
+linker, which writes PDBs) and given synthetic objects:
+- one object per unit, whose `.text$<address>` pieces have 1-byte alignment and reproduce the executable's layout
+  exactly. The script checks the RVAs of `.text`, `.rdata` and `.data` after linking;
+- symbols at the original addresses;
+- a C13 `.debug$S` with line blocks;
+- the `.debug$T` and the CodeView records of our objects. Relocations are retargeted to the original function, or to
+  a named global. Records that cannot be retargeted are dropped, together with their scope.
+
+The PDB then receives the GUID and age of the executable's own `RSDS` record (`{9B4BA937-…}`, age 9,
+`NfsMWCollectorsRelease.pdb`), so the original executable needs no patch. An installed copy of the game was checked
+too: its `speed.exe` has the same record and the same `.text`, `.rdata` and `.data`, and only `.rsrc` differs. Put the
+PDB next to the executable or in the symbol path. Debuggers that use `dbghelp` (WinDbg, x64dbg, Visual Studio) then
+load it as a matched PDB. IDA can load it with File > Load file > PDB file; that path was not tested here.
+
+First run (2026-10-07):
+- 26,684 named functions and 11,725 named data symbols.
+- 21,851 functions at 100 %, of which 21,849 are byte-verified.
+- 20,660 functions with lines, 96,694 lines in 1,424 files.
+- 20,660 functions with prototype and locals; 40,105 named types.
+- `symchk` reports it matched with lines, globals and types.
+- `cdb -z speed.exe -y build\SPEED_EXE_1_3\simbolos` resolves names, prototypes and `dt` types.
+- `--prueba` drives the system `dbghelp.dll` against the original executable. It resolved 2,046 of 2,046 sampled names
+  and 2,066 of 2,066 sampled lines to the expected file and line.
+- Ghidra 12.1.2 headless, PDB analyzer only: 26,684 functions with prototypes, 49,330 data types and the source map
+  of 1,424 files. 181 classes trip its "failed to align" structure warning.
+- Ghidra 12.1.2 headless with `ImportaSimbolosPC.java` and no PDB: 38,429 names (2 rejected), 26,644 functions created,
+  96,619 source-map lines.
+
+The `ghidra-dwarf1` extension from `tools/ghidra/` makes every PE import fail (`DWARF1Analyzer.canAnalyze` throws a
+null pointer when the program is not ELF). Use a Ghidra without it for the PC executable.
+
+Without options, source paths in the PDB are absolute to the clone that generated it; `lineas_pc.json` keeps them
+relative. For a PDB meant to be shared, `--raiz-fuente C:\nfsmw` writes every source path under that neutral root,
+runs `lld-link` with relative paths and `/pdbsourcepath`, and rewrites in place the linker's `S_ENVBLOCK`, where
+`lld` stores its own absolute path. The result holds no path of the machine that built it. `--lld` names the linker
+(otherwise `LLD_LINK`, then the Android NDK, then `lld-link` on `PATH`, for example from an official LLVM release),
+and `--exe` points at an executable outside `orig/`. With `--solo-prueba`, the script only needs itself, the
+executable and the generated folder.
+
+`--english` (or `--lang en`) switches the whole output to English, for the community kit:
+- file names: `symbols_pc.json`/`.csv`, `lines_pc.json`/`.csv`, `ida_import_symbols_pc.py`, `ImportSymbolsPC.java`;
+- columns and values, including the name provenance (`call-graph`, `elimination-1to1`, `ambiguous-copy`, `confirmed`...);
+- messages, help and the IDA/Ghidra scripts;
+- the default folder, `build/SPEED_EXE_1_3/symbols/`.
+
+Every option also has an English alias (`--output`, `--check`, `--check-only`, `--no-pdb`, `--no-types`,
+`--no-history`, `--source-root`). Without `--english`, the output, the names and the options are the same as before.
+`--check-only` reads either language.
+
+The kit is all English. It holds the PDB and the other outputs generated with `--english --source-root C:\nfsmw`, and
+the inputs from `config/SPEED_EXE_1_3/`, which keep their paths. Its scripts are:
+- `make_pdb.py`, which runs `simbolos_pc.py --english`, and `simbolos_pc.py` itself;
+- `name_by_call_graph.py`, `name_by_elimination.py` and `name_corrections.py`: copies of `nombra_grafo.py`,
+  `nombra_elim.py` and `nombra_corrige.py` with English comments, help, messages and option aliases.
+
+The copies were checked two ways:
+- their syntax trees equal the originals once strings, comments and the alias function are set aside;
+- run on two identical copies of the tree, perturbed so that the tools had work (1,829 names removed or swapped),
+  both versions wrote byte-identical reports, `symbols.json` and provenance log.
+
+The kit and its English scripts live outside the repository. The kit holds nothing of the game and no compiler. Every non-trivial 16-byte block of the
+executable's `.text`, `.rdata` and `.data` was searched for in every file of the kit. No `.text` block occurs. The
+only `.rdata`/`.data` blocks that occur are identifier strings that are also symbol names, runs of consecutive
+integers, and the `RSDS` GUID.
 
 ### Build infrastructure in `tools/`
 
 - `tools/project.py`, `tools/ee_gcc_pp.py` and `tools/rename_section.py`: see "Build and measurement changes".
 - `tools/download_tool.py`, `tools/delink_to_config_json.py` and `tools/hasher.py`: small fixes, see above.
+- `tools/sn-gcc/`: the recipe that builds SN's GameCube compiler from its GPL source, with the `$LC` and
+  alias patches as readable `.patch` files. See "Building SN's compiler from its GPL source".
 - `tools/zlua_build.py`: builds `zLua.o` on its own with the command from `build.ninja` and prints the tail of the compiler output.
 - `tools/dwarf-compare.py` is upstream's and is unchanged. The fork uses it through `tools/dwarfclase.py`, after generating `symbols/Dwarf/` with upstream's `tools/split_dwarf_info.py`.
 
@@ -1310,6 +2314,22 @@ An early experiment, separate from the decompilation build:
 
 - `port/android/` is a Gradle/NDK app for arm64 that compiles decompiled code with clang. It started with `UMath` as a probe. It then built EA's `snd` library and drives the real game mixer (`MIX_audioslice`) through AAudio. 135 of the library's 139 units compile; the four left out are the GameCube DSP driver and codecs with PowerPC inline asm. The app also has small readers for the frontend packages (FEng), fonts and textures, drawn with a GLES2 quad renderer. `tests/` holds `static_assert` layout checks: the mixer definition used by the 64-bit port (`smixport.h`) must stay consistent with `smixer.c` and, compiled for 32 bits, must give the offsets measured on the GameCube asm. `tools/` holds font and texture extractors and a writer for a minimal FEng package.
 - `port/zzdata/` has Python readers for the GameCube disc's asset archives: the `ZDIR.BIN` index, the `ZZDATA` volumes, and EA's JDLZ and HUFF decompressors, ported from the decompiled `LZCompress.cpp`.
+
+- Since then (state on 2026-10-01): a GX display-list interpreter draws the game's own car and streamed track on
+  GLES2; the game's frontend (FEManager, its packages, fonts and strings) runs in the app; the game's vehicle physics
+  drives on the streamed track with collisions; and the app reads the game files from the user's own PC install
+  through the game's file manager, converting the attribute vault at load time. The riskiest part of a full port is
+  LP64: the data files keep 4-byte pointers. A generator derives each structure's 32-bit layout from the GameCube
+  DWARF and the A124 stabs, asks clang for the 64-bit one and emits checked converters; it reproduces the
+  hand-written ones byte for byte. Nothing under `src/` is edited for the port.
+- State on 2026-10-16: there are two ports, Android (arm64) and PS Vita (`port/vita/`, vitasdk, vitaGL). Both build
+  the game from `src/` as the PC variant (`EA_PLATFORM_WIN32`), so the PC decompilation feeds them directly: the PC
+  controls screen and input device, the PC time-of-day lighting, the PC rules for EA-XA and MicroTalk audio and the PC
+  sound-bank slot sizes all come from decompiled PC code. Middleware threads and file I/O use the GameCube back end
+  over small platform shims. On Android, Career mode runs from the prologue to the safe house with saving, and the
+  game is driven with touch controls or a pad. On the Vita, quick races run near 60 fps on real hardware, and in the
+  Vita3K emulator Career mode runs from the prologue into the second race. Remaining work per area is tracked in the
+  fork's port status document.
 
 The `assets/` folders under `port/` hold files extracted from the game for local tests. They are game data, and `port/` is not part of published snapshots.
 
@@ -1329,6 +2349,9 @@ The fork's documents are in Spanish, under `docs/`. Upstream's own documents (`g
 - `GHIDRA_NFSMW.md`: the Ghidra 12.1.2 headless analysis of the GameCube ELF: where the project and scripts are, the symbol export, and what Ghidra adds to the other oracles.
 - `X360_EXTRACTION.md`: the verified procedure for obtaining the decrypted Xbox 360 basefile that the dtk v0.1.2 split needs.
 - `PS3_PKG_EXTRACTION.md`: the pipeline used to extract a PS2-Classic ISO of a US retail PS2 version (SLUS-21267) from a PS3 PKG. Its helper scripts live in `tools/scratch/`.
+- `PC_PDB.md` (in English): the guide to the PDB for the PC executable. It covers what the PDB contains, how to use
+  it in WinDbg, Visual Studio, x64dbg, IDA and Ghidra, how to regenerate it, how it was derived, and its caveats. It
+  ships inside the PC PDB kit.
 - `docs/congelado/`: 95 JSON files, one per frozen unit, each with the SHA-256 of that unit's normalised objdiff diff. `scripts/frozen.py` writes and checks them. Debug-info changes alter the fingerprint, so many are stale.
 - `docs/analisis/`: 655 files, about 11 MB. It holds the per-round analysis reports, JSON censuses and dumps. Treat it as a diary: consult it, but take figures from `pctall.py`. `INDICE.md` flags two reports as refuted.
 
@@ -2770,6 +3793,12 @@ top of that base. Two data rules run through the unit:
 - `Ecstasy.cpp` defines `ePolySlotPool`, `WaitUntilRenderingDoneDisabled` and `CurrentBuffer*`, which upstream
   uses but never defines; its buffer names use EA's spelling `"Ecstacy::eFrameMallocBuffer0/1"`.
 - `Ecstasy.hpp`: `eSolid::EndianSwap`, and `ePoly` flag accessors guarded because the A124 lacks `flags`.
+  `ePoly` follows the PS2 stabs: `float UVs[4][2]` on every platform and `short UVsMask[4][2]` on PS2; on PS2
+  `GetFlags`/`GetFlailer` read `Vertices[0].pad`/`Vertices[1].pad`. The GameCube bytes do not change (the DWARF
+  dump prints the dimensions reversed), and the users of `UVs` were re-indexed in the same change.
+- PS2 `EcstasyE.cpp`: the counters and flags the VBlank and VIF interrupts touch are `volatile`, each with a
+  re-read in the binary as proof; `VRAMView` and `eWaitUntilRenderingDone` keep EA's `nop` lines (see
+  "How EA's inline asm is proven").
 - `EcstasyData.hpp`: `EndianSwap` bodies and `eDamageVertex`.
 - `eModel.cpp`: `NotifySolidUnloader`, at line map `:702`.
 - `eSprites.hpp`: `eSpriteManager` (0x1C).
@@ -3142,6 +4171,16 @@ globals — against the A124 stabs, then measured on every build.
   Upstream's portable `VU0_ExtractX/Y/ZAxis3FromQuat`, `VU0_quattom4` and
   `VU0_MATRIX4_mult` are compiled by the other builds (a merge had nested them
   inside the GameCube block).
+- **`Utility/UVectorMathCPU.hpp`** (PC, Xbox 360, also upstream) —
+  `VU0_v3scaleadd` computed `a + b * s`; the original computes `a * s + b` on
+  GameCube (`ps_muls0` on `a`, then `ps_add` with `b`) and on PS2 (`vmulx` on
+  `a`, then `vadd` with `b`). It was a logic bug in the CPU builds' physics,
+  found when the Android port's vehicle misbehaved. With the right form
+  `UMath::ScaleAdd`, `RigidBody::DistributeMass` and `RigidBody::Accelerate`
+  match on PC, and the five `GetWheelCenterPos` of the suspensions on Xbox 360. `VU0_v3crossprod` had the same kind
+  of bug: it wrote `dest.x` before reading `a.x`, and `SuspensionRacer` calls `Cross(c, forwardNormal, c)`; computed
+  into a temporary (as GameCube and PS2 read everything before writing) the `RigidBody` functions that expand it match
+  on PC and Xbox 360.
 
 ### Everything else
 - New zFoundation units: `ExpressionEvaluator.cpp` (the CARP expression VM,
@@ -3389,6 +4428,36 @@ the game's `sn_floor` 372 B: exactly six extra `lis`).
   `strtol`, `fvwrite`, `k_tan`.
 - `src/types.h` only adds an `__ANDROID__` branch from an Android port test.
 
+## PS2 runtime: libgcc, newlib and SN's libc (`src/Speed/PSX2/bWare/Src/ee/gcc/`)
+
+What the PS2 game links from its toolchain, per the A124's `NFS.MAP`, built from the public sources of that
+toolchain (each file keeps its copyright and licence header; `README.md` in that folder lists origins and licences).
+
+### Notable files
+- **`src/gcc/` and `objdir/gcc/`** — libgcc and the C++ runtime (`tinfo`, `exception`, `_eh`) of GCC
+  2.9-ee-991111. `objdir/` reproduces what the gcc build generates (`tconfig.h`, `tm.h`, `fp-bit.c`/`dp-bit.c`
+  and `#define L_x` + `#include libgcc2.c` wrappers). `_eh` needs `-fexceptions`, as `LIB2FUNCS_EH` in gcc's
+  Makefile passes it; without it this cc1 aborts in `__rethrow`.
+- **`src/newlib/`** — newlib 1.8.1 libm and libc as Sony's toolchain shipped them.
+- **`src/newlib/libc/machine/r5900/*.S`** — the 13 string functions (`memchr` … `strncpy`) are Cygnus' hand-written
+  R5900 assembly (MMI, quadword), copied unchanged: the original matches it instruction for instruction. Rule for
+  this fork: assembly that was written as assembly at the source enters as is, with its licence (see
+  `docs/asm-de-ea.md`). Preprocessed with `ee-gcc -E` and assembled with SN's Ps2EeAs (`tools/ee_as_S.py`).
+  `setjmp` is not there: the game's saves with `sq`/`swc1`, a later newlib.
+- **`sn/libc/`** — what SN added or changed in its libc, written from the binary in newlib style: `snprintf`,
+  `malloc`/`mlock`, the wide printf (`vfwprintf`, `vfwiprintf`), `wcslen`/`wmemchr` (hand-unrolled), `mbtowc_r`
+  with SN's 16-bit `wchar_t`.
+- **`src/libc/vfprintf.c` and `itoa.c`** — shared with GameCube; the PS2 deltas (FILE without `_data2`/`_flags2`,
+  64-bit `long` for `quad_t`/`u_long`, little-endian `EXTRACT_WORDS`) go under `EA_PLATFORM_PLAYSTATION2`.
+
+### How SN built it (measured)
+- With GCC's builtins on (the `PAD` table of `vfprintf` is copied inline with `ldl`/`sdl`) and `-fshort-wchar`
+  (the `L"..."` strings of the wide printf are 2 bytes per character): no `-fno-builtin` in its blocks.
+- C compiled to `.s` with `ee-gcc -S` and assembled with an older Ps2EeAs than ours: see "Replicating SN's
+  assembler for its PS2 libc".
+- Left: `fftoa`/`wfftoa` (scheduling), `sn_fmod` 99.3 %, and `copy_reg` of `_eh` and `_moddi3`, which the
+  distributed cc1 does not reproduce: the cc1 that built `libgcc.a` was another one.
+
 ## RealShape and RealFont (root `src/*.cpp`, `src/realshape.hpp`)
 
 Eight new units (upstream lists them under the splitter's names as sourceless
@@ -3536,6 +4605,41 @@ On PS2 that counted 124 (A124) and 261 (SLUS) functions that do not match, mostl
 `path` and `rcmp`; two of them do not even exist in our `sndfxbus.o`. `pctall.py` now marks every unit
 incomplete, as upstream's all-NonMatching configuration does, and the figures in this document are the
 corrected ones.
+
+## FPU asm: removed, proven to be EA's, restored (2026-09-23)
+
+Every FPU `asm` in the tree was taken out on 2026-09-23 and replaced with the C form that loses least, measured
+over every unit on a frozen tree: `bSqrt`'s `fmuls`/`fnmsubs` on GameCube, the PS2 `VU0_floatmin`/`VU0_floatmax`/
+`VU0_fabs` (`min.s`, `max.s`, `abs.s`), `FloatToInt` (`cvt.w.s` in `$f4`), `VU0_FloatToInt` (`$f8` and two `nop`), the
+`nop` in `bCopy(bMatrix4)` and the loose `mfc1` of `bScale`/`bScaleAdd`. What it cost:
+
+| build | functions lost | bytes | where |
+|---|---:|---:|---|
+| GameCube | 86 | 77,856 | every function that expands `bSqrt`: zEAXSound, zCamera, zEAXSound2, zWorld, zEcstasy... |
+| A124 | 168 | 119,172 | zPhysicsBehaviors 77, zAI 25, zPhysics 16, zCamera 9... |
+| SLUS | 172 | 114,396 | zPhysicsBehaviors 79, zAI 32, zPhysics 16, zCamera 9... |
+
+A dedicated round then tried to win them back with C that EA could have written and proved it cannot be done
+(lesson 90), so the maintainer restored exactly the `asm` that the binary proves EA wrote. The loose `mfc1` of
+`bScale`/`bScaleAdd`, which was ours, stays in C through `bVU0Float`. The PS2 `bAbs(float)` had the same fingerprint
+as `VU0_fabs` and was measured the same way: in C it loses 21 A124 and 18 SLUS functions, as EA's `abs.s` it loses
+none, so it takes the `asm` too. `bMin` and `bMax` of float gain 4 and lose 10-11 per build with `min.s`/`max.s`,
+so they stay in C.
+
+The C form of each of EA's `asm` is kept next to it, for the day a source form is found that gives the same code:
+
+| `asm` | where | C form | cost of the C form |
+|---|---|---|---|
+| `fmuls`/`fnmsubs` of `bSqrt` (GameCube) | `bWare/Inc/bMath.hpp` | `t1 = y0 * half; t2 = -(x * t0 - one);` (four orders tried) | 86 GameCube functions |
+| `min.s`/`max.s`/`abs.s` of `VU0_floatmin`/`VU0_floatmax`/`VU0_fabs` (PS2) | `Libs/Support/Utility/UVectorMath.h` | `a > b ? b : a`, `a < b ? b : a`, `fabsf(a)` | about 148 A124 and 152 SLUS functions |
+| `abs.s` of `bAbs(float)` (PS2) | `bWare/Inc/bMath.hpp` | `fabsf(a)` | 21 A124, 18 SLUS |
+| `cvt.w.s` in `$f4` of `FloatToInt` (PS2) | `Src/EAGL4Anim/AnimUtil.h` | `static_cast<int>(f)` | with the next two rows, 19 A124 and 20 SLUS |
+| `cvt.w.s` in `$f8` and two `nop` of `VU0_FloatToInt` (PS2) | `Libs/Support/Utility/UVectorMath.h` | `static_cast<int>(f)` | (above) |
+| the `nop` of `bCopy(bMatrix4)` (PS2) | `bWare/Inc/bMath.hpp` | none: C cannot emit a lone `nop` | (above) |
+| `min.s`/`max.s` of `bMin`/`bMax(float)`, not volatile (PS2) | `bWare/Inc/bMath.hpp` | `a > b ? b : a`, `a < b ? b : a` | 39 A124, 43 SLUS |
+| `cvt.w.s` + `mfc1` of the float-to-int inline, lines 72-78 (PS2; name not recorded) | `bWare/Inc/bMath.hpp` | `static_cast<int>(x)` | 26 A124, 27 SLUS |
+| `sq $0` for 128-bit zeros in vp6 (PS2) | `vp6/1.0.6/source/decode/cmn/decodembs.inl` | `memset` | 1 per PS2 build |
+| `break 0, 6` of `DEBUG_break` (PS2) | `realcore/6.24.00/source/debug/cmn/debugger.cpp` | none | 1 per PS2 build |
 
 ## Other builds
 

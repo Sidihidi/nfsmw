@@ -30,11 +30,11 @@ void ICEData::PlatEndianSwap() {
     }
 }
 
-void ICEData::GetEye(int n, ICE::Vector3 *p) {
+void ICEData::GetEye(int i, ICE::Vector3 *p) {
 
-    p->x = vEye[n][0];
-    p->y = vEye[n][1];
-    p->z = vEye[n][2];
+    p->x = vEye[i][0];
+    p->y = vEye[i][1];
+    p->z = vEye[i][2];
 
     if (bMirrorICEData) {
         p->y = -p->y;
@@ -167,19 +167,22 @@ void ICETrack::PlatEndianSwap() {
 
 int ICETrack::GetContext() {
 
-    if (Group == NULL) {
-        return 4;
+    if (Group != NULL) {
+        return Group->Context;
     }
 
-    return Group->Context;
+    return 4;
 }
 
 int ICETrack::GetKeyNumber(float f_parameter) {
 
     int n = NumKeys - 1;
 
-    while (n > 0 && Keys[n].fParameter > f_parameter) {
+    while (n > 0) {
 
+        if (Keys[n].fParameter <= f_parameter) {
+            break;
+        }
         n--;
     }
 

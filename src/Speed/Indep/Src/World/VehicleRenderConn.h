@@ -14,7 +14,11 @@
 class CarRenderInfo;
 
 // total size: 0x64
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class VehicleRenderConn : public Sim::Connection, public UTL::Collections::Listable<VehicleRenderConn, 20> {
+#else
 class VehicleRenderConn : public Sim::Connection, public UTL::Collections::Listable<VehicleRenderConn, 10> {
+#endif
   public:
     enum { Limit = 10 };
     enum eState {
@@ -123,7 +127,7 @@ class VehicleRenderConn : public Sim::Connection, public UTL::Collections::Lista
     void OnClose() override;
 
     Sim::ConnStatus OnStatusCheck() override {
-        return this->mState > S_Loading ? Sim::CONNSTATUS_READY : Sim::CONNSTATUS_CONNECTING;
+        return this->mState >= S_Loaded ? Sim::CONNSTATUS_READY : Sim::CONNSTATUS_CONNECTING;
     }
 
     virtual void OnRender(eView *view, int reflection) = 0;

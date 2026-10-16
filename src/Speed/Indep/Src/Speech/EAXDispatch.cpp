@@ -118,7 +118,8 @@ void EAXDispatch::PursuitEscalation() {
     Csis::Type_location location;
     bool result = MiscSpeech::GetLocation(ai->GetLastKnownRoad(), region, location);
     if (!result) {
-        if (!MiscSpeech::GetLocation(ai->GetPlayerRoadID(0), region, location)) {
+        result = MiscSpeech::GetLocation(ai->GetPlayerRoadID(0), region, location);
+        if (!result) {
             MiscSpeech::GetLocation(ai->GetPlayerRoadID(1), region, location);
         }
     }
@@ -127,24 +128,15 @@ void EAXDispatch::PursuitEscalation() {
     unsigned int dir = ai->GetLastKnownDirection();
     if (dir == 0) {
         dir = ai->GetPlayerDirection(0);
-        if (dir == 0) {
-            dir = ai->GetPlayerDirection(1);
-            if (dir == 0) {
-                dir = 1 << bRandom(4);
-            }
-        }
     }
-    data.direction = static_cast<Csis::Type_direction>(dir);
-    // Barrera: sin ella el planificador hunde el `stw data.direction` por
-    // detras de los dos `lis` de los argumentos (prioridad 4 contra 3) y
-    // `dir` deja de nacer en r0.
-    // r67 (juego-world-snd): IRREDUCIBLE. Sin esta barrera y la de BreakAway (zSpeech
-    // 39d1580dcbc5228a -> ea7cbfc609d2b519): aqui 5 filas (el stw de direction una
-    // ranura tarde) y en BreakAway 15. El DWARF tiene las mismas locales que la
-    // fuente. El mapa de lineas del original pone direction en la 218 y la llamada
-    // en la 220: UNA linea sin codigo entre las dos, justo donde va la barrera (en
-    // BreakAway, 284 y 286). Lo que hubiera ahi no deja ni bytes ni locales.
-    // r76: barrera fuera; el hueco del mapa de lineas puede ser una macro apagada.
+    if (dir == 0) {
+        dir = ai->GetPlayerDirection(1);
+    }
+    if (dir == 0) {
+        data.direction = static_cast<Csis::Type_direction>(1 << bRandom(4));
+    } else {
+        data.direction = static_cast<Csis::Type_direction>(dir);
+    }
     SCHEDULE_SPEECH(AnytimeEvents_DispPursuitEscalation, data, this);
 }
 
@@ -165,7 +157,8 @@ void EAXDispatch::BreakAway() {
     Csis::Type_location location;
     bool result = MiscSpeech::GetLocation(ai->GetLastKnownRoad(), region, location);
     if (!result) {
-        if (!MiscSpeech::GetLocation(ai->GetPlayerRoadID(0), region, location)) {
+        result = MiscSpeech::GetLocation(ai->GetPlayerRoadID(0), region, location);
+        if (!result) {
             MiscSpeech::GetLocation(ai->GetPlayerRoadID(1), region, location);
         }
     }
@@ -174,24 +167,15 @@ void EAXDispatch::BreakAway() {
     unsigned int dir = ai->GetLastKnownDirection();
     if (dir == 0) {
         dir = ai->GetPlayerDirection(0);
-        if (dir == 0) {
-            dir = ai->GetPlayerDirection(1);
-            if (dir == 0) {
-                dir = 1 << bRandom(4);
-            }
-        }
     }
-    data.direction = static_cast<Csis::Type_direction>(dir);
-    // Barrera: sin ella el planificador hunde el `stw data.direction` por
-    // detras de los dos `lis` de los argumentos (prioridad 4 contra 3) y
-    // `dir` deja de nacer en r0.
-    // r67 (juego-world-snd): IRREDUCIBLE. El mapa de lineas del original reasigna
-    // `result` (259, 261, 266) y encadena `dir` con ifs SUCESIVOS (274-281), no
-    // anidados. Escrito asi y sin barrera -> 06054b8f502f6448: las MISMAS 15 filas
-    // que la forma anidada sin barrera (dir r0 -> r10 y el stw de direction detras
-    // de los lis); el anidamiento no llega al planificador. Entre direction (284) y
-    // speaker_id (286) el original tiene una linea sin codigo.
-    // r76: barrera fuera; el hueco del mapa de lineas puede ser una macro apagada.
+    if (dir == 0) {
+        dir = ai->GetPlayerDirection(1);
+    }
+    if (dir == 0) {
+        data.direction = static_cast<Csis::Type_direction>(1 << bRandom(4));
+    } else {
+        data.direction = static_cast<Csis::Type_direction>(dir);
+    }
     data.speaker_id = mSpeakerID;
     data.location_region = region;
     data.location = location;
@@ -243,15 +227,15 @@ void EAXDispatch::Report911(Csis::Type_pursuit_type infraction) {
     data.direction = static_cast<Csis::Type_direction>(dir);
     dir = region;
     switch (static_cast<Csis::Type_location_region>(dir)) {
+    case Csis::Type_location_region_college_town:
+        data.address_group_type = Csis::Type_address_group_type_college_town;
+        break;
     case Csis::Type_location_region_coastal:
     case Csis::Type_location_region_coastal_extra:
         data.address_group_type = Csis::Type_address_group_type_coastal;
         break;
     case Csis::Type_location_region_city:
         data.address_group_type = Csis::Type_address_group_type_city;
-        break;
-    case Csis::Type_location_region_college_town:
-        data.address_group_type = Csis::Type_address_group_type_college_town;
         break;
     default:
         data.address_group_type = Csis::Type_address_group_type_generic_any_;
@@ -279,8 +263,13 @@ void EAXDispatch::RBReply(EAXCop *cop, signed char true_false, unsigned int type
     Csis::StaticRoadblock_DispRBReplyStruct data;
     data.speaker_id = mSpeakerID;
     data.code = GetRandomizedCode();
+#ifdef EA_PLATFORM_WIN32
+    if (type > 0) {
+        data.roadblock_type = static_cast<Csis::Type_roadblock_type>(type);
+#else
     if (type != 0) {
         data.roadblock_type = static_cast<Csis::Type_roadblock_type>(type);
+#endif
     } else if (ai->SpikesEnabled()) {
         data.roadblock_type = static_cast<Csis::Type_roadblock_type>(2);
     } else if (ai->NumRoadBlocks() > 1) {

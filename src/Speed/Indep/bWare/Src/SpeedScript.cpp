@@ -7,6 +7,9 @@
 #include "types.h"
 
 #include <stdarg.h>
+#ifdef EA_PLATFORM_XENON
+#include <string.h> // memcpy (X360 usa memcpy aqui, no bMemCpy)
+#endif
 
 bool IsWhiteSpace(char c) {
     if (c == ' ')
@@ -85,13 +88,35 @@ char *SpeedScript::GetPositionName() {
 }
 
 void SpeedScript::ResizeEntryTable(int new_size) {
+#ifdef EA_PLATFORM_XENON
+    // X360 usa bMalloc/memcpy/bFree (sin el if interno redundante); el resto usa new[]/bMemCpy/delete[].
+    // La guarda de overflow (cmplw/bgt + -1) es la que MSVC pone a new[]: reproducida a mano porque aqui el
+    // destino es bMalloc y no operator new.
+    int alloc_size;
+    if ((unsigned int)new_size <= (0xFFFFFFFFu / sizeof(SpeedScriptEntry))) {
+        alloc_size = new_size * sizeof(SpeedScriptEntry);
+    } else {
+        alloc_size = -1;
+    }
+    SpeedScriptEntry *new_table = static_cast<SpeedScriptEntry *>(bMalloc(alloc_size, 0, 0, 0));
+    if (this->EntryTable) {
+        memcpy(new_table, this->EntryTable, this->NumEntries * sizeof(SpeedScriptEntry));
+        bFree(this->EntryTable);
+    }
+#else
+#ifdef EA_BUILD_A124
+    // La A124 llama a operator new[](size, file, line) con su __FILE__ y la linea 198 del original (0xc6).
+    SpeedScriptEntry *new_table = new (__FILE__, 198) SpeedScriptEntry[new_size];
+#else
     SpeedScriptEntry *new_table = new SpeedScriptEntry[new_size];
+#endif
     if (this->EntryTable) {
         bMemCpy(new_table, this->EntryTable, this->NumEntries * sizeof(SpeedScriptEntry));
         if (this->EntryTable) {
             delete[] this->EntryTable;
         }
     }
+#endif
     this->EntryTable = new_table;
     this->MaxEntries = new_size;
 }
@@ -110,7 +135,7 @@ bool SpeedScript::ParseNextWord(char *word, const char *buffer, int buffer_size,
     int buffer_pos = *pbuffer_pos;
     bool currently_in_comment = false;
 
-    do {
+    while (true) {
         char c = buffer_pos < buffer_size ? buffer[buffer_pos] : '\0';
         if (c == '\r') {
             buffer_pos++;
@@ -132,29 +157,32 @@ bool SpeedScript::ParseNextWord(char *word, const char *buffer, int buffer_size,
             }
         }
         buffer_pos++;
-    } while (true);
+    }
 
     bool is_in_quotes = false;
     int word_length = 0;
 
-    for (; buffer_pos < buffer_size; buffer_pos++) {
+    while (buffer_pos < buffer_size) {
         char c = buffer[buffer_pos];
-        if ((c != '\0') && (is_in_quotes || !IsWhiteSpace(c))) {
-            if (c == '\"') {
-                if (is_in_quotes && (buffer[buffer_pos + 1] == '\"')) {
-                    word[word_length] = '\"';
-                    buffer_pos++;
-                    word_length++;
-                } else {
-                    is_in_quotes = !is_in_quotes;
-                }
-            } else {
-                word[word_length] = c;
-                word_length++;
-            }
-        } else {
+        if (c == '\0') {
             break;
         }
+        if (!is_in_quotes && IsWhiteSpace(c)) {
+            break;
+        }
+        if (c == '\"') {
+            if (is_in_quotes && (buffer[buffer_pos + 1] == '\"')) {
+                word[word_length] = '\"';
+                buffer_pos++;
+                word_length++;
+            } else {
+                is_in_quotes = !is_in_quotes;
+            }
+        } else {
+            word[word_length] = c;
+            word_length++;
+        }
+        buffer_pos++;
     }
     word[word_length] = '\0';
     *pbuffer_pos = buffer_pos;
@@ -189,7 +217,7 @@ void SpeedScript::Init(const char *name, const char *buffer, int buffer_size) {
             }
         }
         arg_buf_pos += len + 1;
-        if (this->NumEntries > 1) {
+        if (this->NumEntries >= 2) {
             SpeedScriptEntry *prev_entry = &entry[-1];
             if (!entry->IsCommand && prev_entry->IsCommand) {
                 if (bStrCmp(this->GetName(prev_entry), "INCLUDESCRIPT:") == 0) {

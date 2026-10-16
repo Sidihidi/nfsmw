@@ -235,58 +235,53 @@ const UData *UGroup::DataLocateTag(unsigned int typeIndexTag) const {
     const UData *result = DataBegin();
     if (result != 0) {
         if (fDataSorted) {
-            unsigned int tag = SearchTagArray(result, fDataCount, typeIndexTag);
-            if (tag != typeIndexTag)
+            if (SearchTagArray(result, fDataCount, typeIndexTag) != typeIndexTag)
                 result = DataEnd();
         } else {
             const UData *end = DataEnd();
-            do {
-                if (result >= end)
-                    break;
-                if (result->fTag == typeIndexTag)
-                    break;
+            while (result < end && result->Tag() != typeIndexTag) {
                 result++;
-            } while (true);
+            }
         }
     }
     return result;
 }
 
-void UGroup::ProcessBreadthFirst(UGroup::Processor &processor) const {
+void UGroup::ProcessBreadthFirst(UGroup::Processor &p) const {
     bool keepProcessing;
     unsigned int index;
 
-    keepProcessing = processor.StartGroup(this);
+    keepProcessing = p.StartGroup(this);
 
     index = 0;
     while (true) {
         if (!keepProcessing)
             break;
-        unsigned int skipData = processor.mSkipData;
-        processor.mSkipData = 0;
+        unsigned int skipData = p.mSkipData;
+        p.mSkipData = 0;
         if (skipData)
             break;
         if (index >= fDataCount)
             break;
-        keepProcessing = processor.ProcessData(this, DataBegin() + index);
+        keepProcessing = p.ProcessData(this, DataBegin() + index);
         index++;
     }
 
     if (keepProcessing) {
         index = 0;
         while (true) {
-            unsigned int skipGroups = processor.mSkipGroups;
-            processor.mSkipGroups = 0;
+            unsigned int skipGroups = p.mSkipGroups;
+            p.mSkipGroups = 0;
             if (skipGroups)
                 break;
             if (index >= fGroupCount)
                 break;
             const UGroup *g = GroupBegin() + index;
-            g->ProcessBreadthFirst(processor);
+            g->ProcessBreadthFirst(p);
             index++;
         }
     }
-    processor.EndGroup(this);
+    p.EndGroup(this);
 }
 
 void UGroup::ResolveOffsets(const UGroupResolverData &resolverData) const {

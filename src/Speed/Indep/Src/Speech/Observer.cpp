@@ -11,6 +11,11 @@
 #include "Speed/Indep/Src/Interfaces/Simables/IINput.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IRigidBody.h"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+#ifdef MILESTONE_BUILD
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+
+extern const int SPEECHFLOW_DISPLAY;
+#endif
 
 namespace UTL {
 namespace COM {
@@ -88,8 +93,22 @@ Observer::~Observer() {
 void Observer::Update() {
     int y;
     int x;
+#ifdef MILESTONE_BUILD
+    // Pantalla de depuracion de la A124 (cadenas de su .rodata).
+    x = -200;
+    y = -50;
+    if (SPEECHFLOW_DISPLAY) {
+        ScreenPrintf(x, y, 1.0f, "OBSERVER");
+        y += 15;
+    }
+#endif
     if (mState != kTransition) {
         if (mState == kCullCheck) {
+#ifdef MILESTONE_BUILD
+            if (SPEECHFLOW_DISPLAY) {
+                ScreenPrintf(x, y, 1.0f, "CullCheck");
+            }
+#endif
             CullCheck();
             return;
         }
@@ -99,9 +118,10 @@ void Observer::Update() {
 
 void Observer::CullCheck() {
     SoundAI *ai = SoundAI::Get();
-    if (ai->GetPursuitState() == SoundAI::kActive) {
-        Process();
+    if (ai->GetPursuitState() != SoundAI::kActive) {
+        return;
     }
+    Process();
 }
 
 bool Observer::IsTransitionable() {
@@ -115,13 +135,16 @@ void Observer::Reset() {
     mT_unstable = Timer(0);
     mT_airborne = Timer(0);
     mT_flipped = Timer(0);
+#ifndef EA_BUILD_A124 // la A124 acaba en mWeather (lineas 144-153 de su Observer.cpp)
     mT_trackingOutcome = Timer(0);
     mT_gasstationexpl = Timer(0);
+#endif
     mDotTrack = 0.0f;
     mOffroadHistory = 0;
     mTracking = 0;
     mPrevPursuitState = 2;
     mWeather = false;
+#ifndef EA_BUILD_A124
     mTunnel = false;
     mRamCop = 0;
     mAirborneHeight = 0.0f;
@@ -129,22 +152,23 @@ void Observer::Reset() {
     mGasStationPos = UMath::Vector3::kZero;
     mFwPlayer = UMath::Vector3::kZero;
     mFwRoad = UMath::Vector3::kZero;
+#endif
 }
 
-void Observer::Observe(int currobsrvation, int speaker, float score) {
+void Observer::Observe(int currobsrvation, int speaker, float f) {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
+#ifndef EA_BUILD_A124
     if (ai->GetPursuit() && (ai->GetFocus() != SoundAI::kPursuitFlow) && (ai->GetFocus() != SoundAI::kTerminal)) {
+#else
+    if ((ai->GetFocus() != SoundAI::kPursuitFlow) && (ai->GetFocus() != SoundAI::kTerminal) && ai->GetPursuit()) {
+#endif
         bool found = false;
         for (observations::iterator i = mObservations.begin(); i != mObservations.end(); i++) {
             SpeechObservation &curr = *i;
             if (curr.observation == currobsrvation) {
                 curr.time = WorldTimer;
                 curr.speakerID = speaker;
-                float force = curr.force;
-                if (force < score) {
-                    force = score;
-                }
-                curr.force = force;
+                curr.force = curr.force < f ? f : curr.force;
                 found = true;
             }
         }
@@ -152,7 +176,7 @@ void Observer::Observe(int currobsrvation, int speaker, float score) {
             SpeechObservation newObs;
             newObs.speakerID = speaker;
             newObs.time = WorldTimer;
-            newObs.force = score;
+            newObs.force = f;
             newObs.observation = static_cast<SpeechObservations>(currobsrvation);
             mObservations.push_back(newObs);
         }
@@ -162,8 +186,15 @@ void Observer::Observe(int currobsrvation, int speaker, float score) {
 
 void Observer::Process() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai->GetPursuit() && (((ai->GetFocus() != SoundAI::kPursuitFlow) || (ai->GetPursuit()->TimeUntilBusted() >= 0.5f)) &&
-                             (ai->GetFocus() != SoundAI::kTerminal))) {
+#ifndef EA_BUILD_A124
+    if (ai->GetPursuit()) {
+        if ((ai->GetFocus() == SoundAI::kPursuitFlow && ai->GetPursuit()->TimeUntilBusted() < 0.5f) ||
+            ai->GetFocus() == SoundAI::kTerminal) {
+            return;
+        }
+#else
+    if (ai->GetFocus() != SoundAI::kPursuitFlow && ai->GetFocus() != SoundAI::kTerminal && ai->GetPursuit()) {
+#endif
         observations::iterator i = mObservations.begin();
         while (i != mObservations.end()) {
             SpeechObservation &obs = *i;
@@ -182,9 +213,14 @@ void Observer::Process() {
             player->GetSimable()->GetRigidBody()->GetForwardVector(mFwPlayer);
         }
         AssessArrest();
-        if ((mTracking & Arrest) == 0) {
-            AssessLOS();
 #ifndef EA_BUILD_A124
+        if ((mTracking & Arrest) == 0)
+#endif
+        {
+            AssessLOS();
+#ifdef EA_BUILD_A124
+            AssessAirborne();
+#else
             AssessFlippage();
 #endif
             Assess180();
@@ -243,6 +279,7 @@ void Observer::AssessArrest() {
         if ((t_busted > 0.8f) && !Manager::IsQueued(kSPCH1_EventID_HeliBullhornArrest, 4) &&
             !Manager::IsCopSpeechPlaying(kSPCH1_EventID_HeliBullhornArrest) && !Manager::IsQueued(kSPCH1_EventID_BullhornArrest, 4) &&
             !Manager::IsCopSpeechPlaying(kSPCH1_EventID_BullhornArrest)) {
+#ifndef EA_BUILD_A124
             GRaceParameters *parms = GRaceStatus::Exists() ? GRaceStatus::Get().GetRaceParameters() : nullptr;
             bool isEpicPursuit = false;
             if (parms && parms->GetIsEpicPursuitRace()) {
@@ -253,8 +290,10 @@ void Observer::AssessArrest() {
                 isEpicCellCallQueued = true;
             }
 
+            // La A124 no tiene la persecucion epica ni marca Arrest.
             if (!isEpicCellCallQueued) {
                 mTracking |= Arrest;
+#endif
                 EAXCop *cop = ai->GetRandomActiveCop(0, true);
                 if (cop) {
                     cop_speech = Manager::GetSpeechModule(COPSPEECH_MODULE);
@@ -268,9 +307,11 @@ void Observer::AssessArrest() {
                         cop->BullhornArrest();
                     }
                 }
+#ifndef EA_BUILD_A124
             }
         } else {
             mTracking &= ~Arrest;
+#endif
         }
     }
 
@@ -296,9 +337,11 @@ void Observer::AssessArrest() {
 
 void Observer::AssessLOS() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
+#ifndef EA_BUILD_A124
     if (((ai->GetFocus() == SoundAI::kPursuitFlow) || (ai->GetFocus() == SoundAI::kLost)) && (mTracking & Lost)) {
         mTracking &= ~Lost;
     }
+#endif
 
     if ((ai->GetTimeInView() > 0.0f) && (mTracking & Lost)) {
         copList losList;
@@ -326,7 +369,55 @@ void Observer::AssessLOS() {
     }
 }
 
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+void Observer::AssessAirborne() {
+    SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
+    if (ai->NumCopsWithLOS() > 0) {
+        float pct_tractive_tires;
+        bool flipped = false;
+        IPlayer *player = IPlayer::First(PLAYER_LOCAL);
+        if (player) {
+            ISimable *simable = player->GetSimable();
+            IRigidBody *irb = simable->GetRigidBody();
+            ISuspension *suspension;
+            if (simable && simable->QueryInterface(&suspension) && suspension->GetNumWheels()) {
+                pct_tractive_tires = static_cast<float>(suspension->GetNumWheelsOnGround()) / suspension->GetNumWheels();
+                mT_airborne = pct_tractive_tires < 0.1f ? mT_airborne : WorldTimer;
+            } else {
+                mT_airborne = WorldTimer;
+            }
+            UMath::Vector3 upVec;
+            irb->GetUpVector(upVec);
+            if (upVec.y < 0.0f) {
+                flipped = true;
+            }
+            if (!flipped) {
+                mT_flipped = WorldTimer;
+            }
+        }
+
+        // Los stabs de la A124 no dan otro float que pct_tractive_tires (f1) y t_flipped (f3): el tiempo en el aire
+        // reutiliza la primera variable, que vive en f1 tambien en las comparaciones.
+        pct_tractive_tires = (WorldTimer - mT_airborne).GetSeconds();
+        float t_flipped = (WorldTimer - mT_flipped).GetSeconds();
+        if (pct_tractive_tires > 0.0f && !flipped) {
+            if (pct_tractive_tires >= ai->GetTune().HangTimeForCommentary()) {
+                EAXCop *cop = ai->FindClosestCop(true, true);
+                if (cop) {
+                    cop->SuspectAirborne(ai->GetPlayerSpeed() > 65.0f ? Csis::Type_intensity_High : Csis::Type_intensity_Normal);
+                }
+            }
+        } else if (flipped) {
+            if (t_flipped >= 1.0f) {
+                EAXCop *cop = ai->FindClosestCop(true, true);
+                if (cop) {
+                    cop->SuspectRollover(ai->GetPlayerSpeed() > 65.0f ? Csis::Type_intensity_High : Csis::Type_intensity_Normal);
+                }
+            }
+        }
+    }
+}
+#else
 void Observer::NotifyAirborne(float alt, float t) {
     SoundAI *ai = SoundAI::Get();
 
@@ -485,20 +576,9 @@ void Observer::AssessOutcome() {
             }
         }
 
-        if ((mTracking & Outcome) == 0) {
-            return;
-        }
-        if (t_busted >= 1.0f) {
-            return;
-        }
-
-        {
+        if (((mTracking & Outcome) != 0) && (t_busted < 1.0f)) {
             float t_tracking = (WorldTimer - mT_trackingOutcome).GetSeconds();
-            if (t_tracking < ai->GetTune().OutcomeTrackTime()) {
-                return;
-            }
-
-            {
+            if (t_tracking >= ai->GetTune().OutcomeTrackTime()) {
                 copList primvisual;
                 primvisual.reserve(ai->GetActors().size());
                 {
@@ -653,19 +733,19 @@ void Observer::AssessOutrun() {
 
 void Observer::AssessOffroad() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if ((ai->NumCopsWithLOS() > 0) && (ai->GetTimeInView() >= 2.0f)) {
-        unsigned int id = ai->GetPlayerOffroadID();
-        if (mCurrOffroadID != static_cast<int>(id)) {
-            EAXCop *cop = ai->FindClosestCop(true, true);
-            if (cop) {
-                mCurrOffroadID = static_cast<int>(id);
-                Csis::Type_offroad_moment_id speech_id;
-                if (MiscSpeech::GetSPAMLocation(id, speech_id)) {
-                    cop->Offroad(speech_id, (mOffroadHistory & speech_id) != 0);
-                }
+    if ((ai->NumCopsWithLOS() < 1) || (ai->GetTimeInView() < 2.0f)) {
+        return;
+    }
+    unsigned int id = ai->GetPlayerOffroadID();
+    if (mCurrOffroadID != static_cast<int>(id)) {
+        EAXCop *cop = ai->FindClosestCop(true, true);
+        if (cop) {
+            mCurrOffroadID = static_cast<int>(id);
+            Csis::Type_offroad_moment_id speech_id;
+            if (MiscSpeech::GetSPAMLocation(id, speech_id)) {
+                cop->Offroad(speech_id, (mOffroadHistory & speech_id) != 0);
             }
         }
-
     }
 }
 
@@ -675,14 +755,16 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
         return;
     }
 
+#ifndef EA_BUILD_A124
     static int spkrID911 = 0;
-    bool outcome_req = false;
+#endif
     mOutcomeIntensity = Csis::Type_intensity_High;
+    bool outcome_req = false;
 
     switch (speech->ID) {
     case kSPCH1_EventID_OffroadMoment: {
         Csis::AnytimeEvents_OffroadMomentStruct *data =
-            static_cast<Csis::AnytimeEvents_OffroadMomentStruct *>(speech->GetData(0));
+            static_cast<Csis::AnytimeEvents_OffroadMomentStruct *>(speech->GetData());
         if (data != 0) {
             unsigned int offroad_id = data->offroad_moment_id;
             if ((mOffroadHistory & offroad_id) == 0) {
@@ -693,7 +775,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
     }
     case kSPCH1_EventID_CollisionWorld: {
         Csis::AnytimeEvents_CollisionWorldStruct *data =
-            static_cast<Csis::AnytimeEvents_CollisionWorldStruct *>(speech->GetData(0));
+            static_cast<Csis::AnytimeEvents_CollisionWorldStruct *>(speech->GetData());
         outcome_req = true;
         if (data != 0 && data->world_object_type == 0x40) {
             mOutcomeIntensity = Csis::Type_intensity_Normal;
@@ -706,13 +788,15 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
         outcome_req = true;
         SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
         if (ai != 0 && ai->GetRBFlow() != 0) {
-            outcome_req = ai->GetRBFlow()->HasNailedSpikes() == 0;
+            if (ai->GetRBFlow()->HasNailedSpikes()) {
+                outcome_req = false;
+            }
         }
         break;
     }
     case kSPCH1_EventID_StrategyExecute: {
         Csis::RollingStrategy_StrategyExecuteStruct *data =
-            static_cast<Csis::RollingStrategy_StrategyExecuteStruct *>(speech->GetData(0));
+            static_cast<Csis::RollingStrategy_StrategyExecuteStruct *>(speech->GetData());
         outcome_req = true;
         if (data != 0) {
             mOutcomeIntensity = static_cast<Csis::Type_intensity>(data->intensity);
@@ -720,7 +804,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
         break;
     }
     case kSPCH1_EventID_Arrest: {
-        Csis::Arrest_ArrestStruct *data = static_cast<Csis::Arrest_ArrestStruct *>(speech->GetData(0));
+        Csis::Arrest_ArrestStruct *data = static_cast<Csis::Arrest_ArrestStruct *>(speech->GetData());
         outcome_req = true;
         if (data != 0) {
             mOutcomeIntensity = static_cast<Csis::Type_intensity>(data->intensity);
@@ -728,7 +812,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
         break;
     }
     case kSPCH1_EventID_BullhornArrest: {
-        Csis::Arrest_BullhornArrestStruct *data = static_cast<Csis::Arrest_BullhornArrestStruct *>(speech->GetData(0));
+        Csis::Arrest_BullhornArrestStruct *data = static_cast<Csis::Arrest_BullhornArrestStruct *>(speech->GetData());
         outcome_req = true;
         if (data != 0) {
             mOutcomeIntensity = static_cast<Csis::Type_intensity>(data->intensity);
@@ -737,7 +821,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
     }
     case kSPCH1_EventID_CollWorld_Flip: {
         Csis::AnytimeEvents_CollWorld_FlipStruct *data =
-            static_cast<Csis::AnytimeEvents_CollWorld_FlipStruct *>(speech->GetData(0));
+            static_cast<Csis::AnytimeEvents_CollWorld_FlipStruct *>(speech->GetData());
         outcome_req = true;
         if (data != 0) {
             mOutcomeIntensity = static_cast<Csis::Type_intensity>(data->intensity);
@@ -745,7 +829,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
         break;
     }
     case kSPCH1_EventID_IntentToRam: {
-        Csis::AnytimeEvents_IntentToRamStruct *data = static_cast<Csis::AnytimeEvents_IntentToRamStruct *>(speech->GetData(0));
+        Csis::AnytimeEvents_IntentToRamStruct *data = static_cast<Csis::AnytimeEvents_IntentToRamStruct *>(speech->GetData());
         if (data != 0) {
             if (data->speaker_id == 2) {
                 mTracking &= ~CarRam;
@@ -771,6 +855,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
             mTracking |= Lost;
         }
         break;
+#ifndef EA_BUILD_A124
     case kSPCH1_EventID_ReInitPursuit:
         if ((mTracking & Lost) != 0) {
             mTracking &= ~Lost;
@@ -799,6 +884,7 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
         }
         break;
     }
+#endif
     default:
         break;
     }
@@ -812,15 +898,24 @@ void Observer::MessageEventComplete(const MNotifySpeechStatus &message) {
 void Observer::MessageBlewPastCop(const MGamePlayMoment &message) {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
     if ((ai->GetFocus() == SoundAI::kStrategyFlow) &&
-        ((ai->GetPursuitState() == SoundAI::kActive) || (ai->GetPursuitState() == SoundAI::kSearching)) && (ai->NumCopsWithLOS() < 2)) {
+        ((ai->GetPursuitState() == SoundAI::kActive) || (ai->GetPursuitState() == SoundAI::kSearching))
+#ifndef EA_BUILD_A124
+        && (ai->NumCopsWithLOS() < 2)
+#endif
+    ) {
         unsigned int copID = message.GethSimable();
-        copMap::const_iterator i = ai->GetActors().begin();
-        while (i != ai->GetActors().end()) {
+        for (copMap::const_iterator i = ai->GetActors().begin(); i != ai->GetActors().end(); ++i) {
             EAXCop *cop = i->cop;
             ISimable *simable = ISimable::FindInstance(cop->GetHandle());
             if (simable && (simable->GetWorldID() == copID)) {
                 IVehicle *vehicle = nullptr;
                 if (simable->QueryInterface(&vehicle)) {
+#ifdef EA_BUILD_A124
+                    // La A124 no mira si el coche es de un control de carretera.
+                    if (ai->GetPlayerSpeed() > (MPS2MPH(vehicle->GetSpeed()) + 50.0f)) {
+                        cop->Spotted();
+                    }
+#else
                     float cop_speed = MPS2MPH(vehicle->GetSpeed());
                     if (ai->GetPlayerSpeed() > (cop_speed + 50.0f)) {
                         bool cop_in_rb = false;
@@ -836,9 +931,9 @@ void Observer::MessageBlewPastCop(const MGamePlayMoment &message) {
                             cop->Spotted();
                         }
                     }
+#endif
                 }
             }
-            ++i;
         }
     }
 }

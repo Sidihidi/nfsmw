@@ -29,20 +29,32 @@ inline void FnDeltaQFast::InitBuffers() {
     mBinSize = deltaQ->GetBinSize();
 
     if (deltaQ->mNumBones > 0) {
-        int qSize = deltaQ->mNumBones * sizeof(UMath::Vector4);
-        int mrSize = deltaQ->mNumBones * sizeof(DeltaQFastMinRangef);
+        int prevSize = deltaQ->mNumBones * sizeof(UMath::Vector4);
+        int rangeSize = deltaQ->mNumBones * sizeof(DeltaQFastMinRangef);
 
-        void *block = MemoryPoolManager::NewBlock(qSize + qSize + mrSize);
-        mMinRangesf = reinterpret_cast<DeltaQFastMinRangef *>(block);
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // PS2: 15 bytes de mas y las dos tablas de cuaterniones alineadas a 16 para lqc2/sqc2, como FnDeltaF3. La
+        // A124 pide `numBones << 6 | 15' de una vez, sin pasar por prevSize ni rangeSize.
+        mMinRangesf = reinterpret_cast<DeltaQFastMinRangef *>(
+            MemoryPoolManager::NewBlock(deltaQ->mNumBones * (2 * sizeof(UMath::Vector4) + sizeof(DeltaQFastMinRangef)) + 15));
 
-        mPrevQBlock = &reinterpret_cast<unsigned char *>(block)[mrSize];
+        mPrevQBlock = &reinterpret_cast<unsigned char *>(mMinRangesf)[rangeSize];
+        mPrevQs = reinterpret_cast<UMath::Vector4 *>(AlignSize16(reinterpret_cast<intptr_t>(mPrevQBlock)));
+
+        mNextQBlock = &reinterpret_cast<unsigned char *>(mPrevQs)[prevSize];
+        mNextQs = reinterpret_cast<UMath::Vector4 *>(mNextQBlock);
+#else
+        mMinRangesf = reinterpret_cast<DeltaQFastMinRangef *>(MemoryPoolManager::NewBlock(prevSize + prevSize + rangeSize));
+
+        mPrevQBlock = &reinterpret_cast<unsigned char *>(mMinRangesf)[rangeSize];
         mPrevQs = reinterpret_cast<UMath::Vector4 *>(mPrevQBlock);
 
-        mNextQBlock = &reinterpret_cast<unsigned char *>(mPrevQBlock)[qSize];
+        mNextQBlock = &reinterpret_cast<unsigned char *>(mPrevQBlock)[prevSize];
         mNextQs = reinterpret_cast<UMath::Vector4 *>(mNextQBlock);
+#endif
 
-        for (int i = 0; i < deltaQ->mNumBones; i++) {
-            minRanges[i].UnQuantize(mMinRangesf[i]);
+        for (int ibone = 0; ibone < deltaQ->mNumBones; ibone++) {
+            minRanges[ibone].UnQuantize(mMinRangesf[ibone]);
         }
     }
 }
@@ -85,11 +97,14 @@ inline void FnDeltaQFast::AddDelta(DeltaQFastPhysical *floorPhys, DeltaQFast *de
 
             unsigned char w = (floorDelta->mW0 << 4) + (floorDelta->mW1 << 2) | floorDelta->mW2;
             deltaf.w = mMinRangesf[ibone].mRange.w * DeltaQFastDelta::DeQuantize(w) + mMinRangesf[ibone].mMin.w;
-
+#ifdef EA_PLATFORM_PLAYSTATION2
+            VU0_v4add(prevQs[ibone], deltaf, prevQs[ibone]);
+#else
             prevQs[ibone].x += deltaf.x;
             prevQs[ibone].y += deltaf.y;
             prevQs[ibone].z += deltaf.z;
             prevQs[ibone].w += deltaf.w;
+#endif
 
             floorDelta++;
         }
@@ -111,11 +126,14 @@ inline void FnDeltaQFast::SubDelta(DeltaQFastPhysical *floorPhys, DeltaQFast *de
 
             unsigned char w = (floorDelta->mW0 << 4) + (floorDelta->mW1 << 2) | floorDelta->mW2;
             deltaf.w = mMinRangesf[ibone].mRange.w * DeltaQFastDelta::DeQuantize(w) + mMinRangesf[ibone].mMin.w;
-
+#ifdef EA_PLATFORM_PLAYSTATION2
+            VU0_v4sub(prevQs[ibone], deltaf, prevQs[ibone]);
+#else
             prevQs[ibone].x -= deltaf.x;
             prevQs[ibone].y -= deltaf.y;
             prevQs[ibone].z -= deltaf.z;
             prevQs[ibone].w -= deltaf.w;
+#endif
 
             floorDelta--;
         }
@@ -192,8 +210,8 @@ bool FnDeltaQFast::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
                 floorKey = i + 1;
             }
 
-            const unsigned int binLenPower = deltaQ->GetBinLengthPower();
-            const unsigned int binLenModMask = deltaQ->GetBinLengthModMask();
+            unsigned int binLenPower = deltaQ->GetBinLengthPower();
+            unsigned int binLenModMask = deltaQ->GetBinLengthModMask();
 
             int floorBinIdx = floorKey >> binLenPower;
             int floorDeltaIdx = floorKey & binLenModMask;
@@ -328,10 +346,14 @@ void FnDeltaQFast::UpdateNextQs(DeltaQFast *deltaQ, int ceilKey, int floorBinIdx
 
                 delta->UnQuantize(mMinRangesf[b], q);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                VU0_v4add(mPrevQs[b], q, mNextQs[b]);
+#else
                 mNextQs[b].x = q.x + mPrevQs[b].x;
                 mNextQs[b].y = q.y + mPrevQs[b].y;
                 mNextQs[b].z = q.z + mPrevQs[b].z;
                 mNextQs[b].w = q.w + mPrevQs[b].w;
+#endif
 
                 delta++;
             }
@@ -409,8 +431,8 @@ bool FnDeltaQFast::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneM
             floorKey = i + 1;
         }
 
-        const unsigned int binLenPower = deltaQ->GetBinLengthPower();
-        const unsigned int binLenModMask = deltaQ->GetBinLengthModMask();
+        unsigned int binLenPower = deltaQ->GetBinLengthPower();
+        unsigned int binLenModMask = deltaQ->GetBinLengthModMask();
 
         int floorBinIdx = floorKey >> binLenPower;
         int floorDeltaIdx = floorKey & binLenModMask;
@@ -547,10 +569,14 @@ void FnDeltaQFast::AddDeltaMask(DeltaQFastPhysical *floorPhys, DeltaQFast *delta
 
                 delta->UnQuantize(mMinRangesf[b], q);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                VU0_v4add(prevQs[b], q, prevQs[b]);
+#else
                 prevQs[b].x += q.x;
                 prevQs[b].y += q.y;
                 prevQs[b].z += q.z;
                 prevQs[b].w += q.w;
+#endif
             }
 
             delta++;
@@ -572,10 +598,14 @@ void FnDeltaQFast::SubDeltaMask(DeltaQFastPhysical *floorPhys, DeltaQFast *delta
 
                 delta->UnQuantize(mMinRangesf[b], q);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                VU0_v4sub(prevQs[b], q, prevQs[b]);
+#else
                 prevQs[b].x -= q.x;
                 prevQs[b].y -= q.y;
                 prevQs[b].z -= q.z;
                 prevQs[b].w -= q.w;
+#endif
             }
 
             delta--;

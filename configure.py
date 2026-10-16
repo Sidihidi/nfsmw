@@ -14,6 +14,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
@@ -27,6 +28,7 @@ from tools.project import (
     generate_build,
     is_windows,
 )
+from tools.sufijo_local import resolver as resolver_sufijos
 
 # Game versions
 DEFAULT_VERSION = 0
@@ -131,6 +133,15 @@ parser.add_argument(
     action="store_false",
     help="disable progress calculation",
 )
+parser.add_argument(
+    "--gc-toolchain-source",
+    "--gc-toolchain-fuente",
+    dest="gc_toolchain_source",
+    action="store_true",
+    help="GameCube: compile with SN's compiler built from its GPL source (ProDG/3.9.3-src and "
+    "ProDG/3.9.3-v183src, made by tools/sn-gcc/build.sh) instead of the official binaries; "
+    "the environment variable NFSMW_GC_TOOLCHAIN_SOURCE=1 does the same",
+)
 args = parser.parse_args()
 
 config = ProjectConfig()
@@ -170,7 +181,7 @@ elif version_num in [2, 3]:
     config.binutils_tag = "2.45"
 elif version_num in [4]:
     config.platform = Platform.WIN32
-    config.delink_tag = "v0.16.1"
+    config.delink_tag = "v0.16.4"
 
 config.objdiff_tag = "v3.8.0"  # r79: el nuestro es mas nuevo que el de upstream
 config.sjiswrap_tag = "v1.2.2"
@@ -188,6 +199,23 @@ config.check_sha_path = Path("config") / config.version / "build.sha1"
 compilers_path = (
     Path(config.compilers_path) if config.compilers_path else Path("build/compilers")
 )
+
+# Opcional (decision del usuario, 2026-09-30): GameCube con el compilador de SN hecho desde su fuente GPL
+# (orig/prodg) por tools/sn-gcc/build.sh, con los parches legibles en vez de los binarios. ProDG/3.9.3-src
+# sustituye a ProDG/3.9.3 (v1.79 + $LC: mismo ensamblador que el v1.76 en las 409 unidades v1.76) y
+# ProDG/3.9.3-v183src a la replica ProDG/3.9.3-v183r de path (+ el cambio de Keating). Sin la opcion no cambia
+# nada. La variable de entorno sirve para que pctall.py/medir.py, que llaman a configure.py sin argumentos, la
+# conserven.
+gc_toolchain_fuente = args.gc_toolchain_source or os.environ.get(
+    "NFSMW_GC_TOOLCHAIN_SOURCE", ""
+) not in ("", "0")
+if config.platform == Platform.GC_WII and gc_toolchain_fuente:
+    for _tc in ("ProDG/3.9.3-src", "ProDG/3.9.3-v183src"):
+        if not (compilers_path / _tc / "cc1plus.exe").is_file():
+            sys.exit(
+                f"--gc-toolchain-source: {compilers_path / _tc} is missing; build it with "
+                "tools/sn-gcc/build.sh (see tools/sn-gcc/README.md)"
+            )
 
 if config.platform == Platform.GC_WII:
     config.asflags = [
@@ -248,7 +276,7 @@ config.reconfig_deps = []
 # Base flags, common to most GC/Wii games.
 # Generally leave untouched, with overrides added below.
 if config.platform == Platform.GC_WII:
-    config.linker_version = "ProDG/3.9.3"
+    config.linker_version = "ProDG/3.9.3-src" if gc_toolchain_fuente else "ProDG/3.9.3"
 
     dolphinsdk_root = "src/Speed/GameCube/bWare/GameCube/dolphinsdk"
 
@@ -338,6 +366,12 @@ if config.platform == Platform.GC_WII:
     if config.non_matching:
         cflags_base_prodg.append("-DNON_MATCHING")
 
+    if gc_toolchain_fuente:
+        # El compilador construido desde la fuente (Fase 2: __builtin_frsqrte/fres,
+        # patron fnmsubs-minus y scheduling t1-antes-t2 de bSqrt): bMath.hpp lo usa
+        # para el bSqrt de GameCube en vez del asm (byte-identico; el oficial lo necesita).
+        cflags_base_prodg.append("-DSN_SOURCE_TOOLCHAIN")
+
     # Debug flags
     if args.debug:
         cflags_base_prodg.append("-DDEBUG=1")
@@ -411,12 +445,16 @@ if config.platform == Platform.GC_WII:
     # EA audio middleware: path (music pathing) and spch (speech) libraries.
     # Identified via DWARF1 CU map from NFSMWRELEASE.ELF (C:/packages/path,
     # D:/perforce/audio/libs/SPCH); built with the SN toolchain like snd.
+    # -mps-float como su hermana snd (y rcmp/vp6): caller-save.c de SN reserva con el 8 B de marco por cada FPR vivo
+    # tras una llamada; son los 8 B de CreateStreamTrack y PATH_createstreamimp (medido: path 194/194; en libc,
+    # compilada sin el, romperia 13 funciones con la misma huella).
     cflags_path = [
         *cflags_base_prodg,
         "-G8",
         "-O2",
         "-fno-strict-aliasing",
         "-ffast-math",
+        "-mps-float",
         "-I src/Speed/Indep/Libs/allocator/1.5.0",
         "-I src/Speed/Indep/Libs/csis/dev/include",
         "-I src/Speed/Indep/Libs/snd/9/include",
@@ -485,8 +523,13 @@ if config.platform == Platform.GC_WII:
         ("-O4,s" if f == "-O4,p" else f)
         for f in cflags_libsn_mw
     ]
+    # y -inline on: el original expande funciones `static inline` (MulDiv, CookAxis,
+    # SimThread_SetFilter, ZeroMem): con ellas Effect_PerformEnvelope casa y salen los
+    # siete bloques `asm { }` que tenia el fichero. Con -inline auto mwcc ademas mete
+    # CookValues en sus llamadores y bajan tres funciones.
     cflags_libsn_mw_steering = [
-        ("-fp_contract on" if f == "-fp_contract off" else f)
+        ("-fp_contract on" if f == "-fp_contract off"
+         else "-inline on" if f == "-inline off" else f)
         for f in cflags_libsn_mw_steering
     ] + ["-use_lmw_stmw on"]
     # Metrowerks library flags
@@ -528,12 +571,27 @@ elif config.platform == Platform.X360:
         "/GF",  # Eliminate Duplicate Strings
         # "/Gy",  # maybe?
         # "/Z7",  # /Zi enables debug info (pdb), /Zd for line numbers only (pdb), /Z7 generates debug info per obj file
-        "/EHsc",  # enable exception handling (and extern C notthrow?)
+        # "/EHsc",  # el original no usa excepciones (ronda 9): quitado, +67 -22 en ventana 7
+        # La STL de X360 tambien pide la memoria a FastMem con "STL" (lbl_82069D94 = "STL" en su .rdata): la xmemory
+        # de EA va delante de las cabeceras del XDK, como en PC. Fichero a fichero cambia el inline de list::_Incsize
+        # en LoadSMSInfo; sobre el enlace LTCG (la medida oficial) LoadSMSInfo sigue al 100 % y se ganan 9 (ronda 39).
+        "/I src/Speed/Indep/Libs/Support/stlpc",
         "/I src/Packages/xenonsdk/2.0.2135.2/installed/include/xbox",
         "/I src/Packages",
         "/I src",
         "/DEA_PLATFORM_XENON",
         "/D_USE_MATH_DEFINES",
+        # X36042: los iteradores de la STL del XDK son de UNA palabra en el original (sin _Mycont): _Tree::_Insert
+        # devuelve el iterador guardando solo el nodo (`stw r27, 0(r26)`) y con el _SECURE_SCL=1 por defecto de
+        # yvals.h guarda tambien el contenedor. Banco LTCG: +107 funciones (33,5 kB), y las 3 que bajan son nombres de
+        # la variante comprobada (_Unchecked_iterator_tag, iterator(nodo, contenedor)) que el original no tiene.
+        "/D_SECURE_SCL=0",
+        # X48: bBreak de X360 llama al DebugBreak del XDK (<xtl.h>); nuestra copia del SDK no trae ObjBase.h, que pide
+        # d3dx9.h, y NOD3D deja fuera las cabeceras de D3D (nadie del juego las incluye por <xtl.h>).
+        "/DNOD3D",
+        # X50: el proyecto del XDK define _XBOX (d3dx9.h toma XObjBase.h y no ObjBase.h con el); eMathE de Xenon
+        # y bTransposeMatrix llaman al D3DX del XDK como NFS.exe (D3DXMatrixMultiply 0x82679D40...).
+        "/D_XBOX",
         f"/I build/{config.version}/include",
         f"/DBUILD_VERSION={version_num}",
         f"/DVERSION_{config.version}",
@@ -617,6 +675,9 @@ elif config.platform == Platform.PS2:
         # su ELF no tiene `bMalloc__FiPCcii` -- el asignador de cuatro argumentos, con
         # fichero y linea, que solo existe en builds milestone -- y el de SLES si.
         *(["-DEA_BUILD_A124"] if version_num == 2 else []),
+        # Region: SLUS-21351 es la version americana (su BuildRegion::IsAmerica devuelve 1) y la A124 es un
+        # prototipo de la europea SLES-53558 (su IsEurope devuelve 1). Solo BuildRegion.cpp mira estas macros.
+        *(["-DEA_REGION_EUROPE"] if version_num == 2 else ["-DEA_REGION_AMERICA"]),
         "-D_NOTHREADS",  # TODO is this necessary?
         # r77 (PS2): `_STL` es el espacio de nombres propio con el que esta
         # configurado el STLport de GameCube, y el codigo compartido escribe
@@ -635,12 +696,15 @@ elif config.platform == Platform.PS2:
     # path (SN 2.95.3-136) lleva -G0, -ffast-math y -fno-exceptions/-fno-rtti como
     # el resto del middleware. Medido una a una: -G0 +10.460 B, -ffast-math +788 B
     # y sin excepciones +612 B en SLES (+8.860, +788 y +612 en SLUS).
+    # y -mvu0-use-vf0-vf31 como snd de PS2: sube el umbral de loop.c para sacar invariantes de bucles con llamadas
+    # (PATH_event; medido por el agente de bibliotecas de PS2 de la ronda 14).
     cflags_path = [
         *cflags_base_prodg,
         "-G0",
         "-ffast-math",
         "-fno-exceptions",
         "-fno-rtti",
+        "-mvu0-use-vf0-vf31",
         "-I src/Packages/eathread/1.1.0/include",
         "-I src/Speed/Indep/Libs/allocator/1.5.0",
         "-I src/Speed/Indep/Libs/csis/dev/include",
@@ -661,7 +725,7 @@ elif config.platform == Platform.PS2:
 
     config.context_defines = [
         "EA_PLATFORM_PLAYSTATION2",
-        "EA_REGION_AMERICA",
+        *(["EA_REGION_EUROPE"] if version_num == 2 else ["EA_REGION_AMERICA"]),
         *(["EA_BUILD_A124"] if version_num == 2 else []),
         "_NOTHREADS",
     ]
@@ -717,8 +781,15 @@ elif config.platform == Platform.PS2:
         "-I src/Speed/Indep/Libs/endian/0.5.2/include",
     ]
 
+    # snd 9.06.00-ps2 se compilo con los 32 registros de la VU0 asignables (-mvu0-use-vf0-vf31; el juego usa
+    # vf0-vf15). La opcion no cambia ninguna instruccion por si sola: sube el numero de registros libres, y con el
+    # el umbral de loop.c para sacar invariantes de los bucles con llamadas (constantes de una instruccion y partes
+    # altas de direcciones que el original saca y sin ella se quedan dentro). Medido en las 134 unidades de snd de
+    # las dos PS2: +6 funciones, ninguna perdida (sdriver.c: SNDDRV_thread y SNDDRV_updatevoices; SNDSTRMI_service,
+    # readsamples de mtdecf, SFILTER_unpackxalf y SFILTER_unpackxapf).
     cflags_snd = [
         *cflags_game,
+        "-mvu0-use-vf0-vf31",
         "-x c++",
         "-I src/Speed/Indep/Libs/csis/dev/include",
         "-I src/Speed/Indep/Libs/allocator/1.5.0",
@@ -750,18 +821,15 @@ elif config.platform == Platform.WIN32:
         "/wd4996",  # get rid of string deprecation warnings for now
         "/wd4355",  # gets rid of the warning 'this' used in base member initializer
         "/wd4716",  # functions not decompiled yet have empty bodies, as on Xbox 360
-        # "/Og",
-        # "/Os",
-        # "/Ob2",
-        # "/Oi",
-        # "/Oy",  # maybe
-        "/Ox",
-        # "/Ou",  # enable prescheduling
-        # "/Oz",  # enable inline asm scheduling
-        # "/GF",  # Eliminate Duplicate Strings
-        # "/Gy",  # maybe?
+        # /O2 = /Ox + /GF + /Gy (el Release por defecto de Visual Studio .NET 2003). Con /Ox a secas 53 funciones salian
+        # con el int3 de alineacion de la siguiente dentro de su tamano (sin /Gy van todas en una sola .text) y 4 con
+        # las cadenas fuera de sus COMDAT ??_C@; con /O2, +57 y ninguna perdida (banco de todas las unidades).
+        "/O2",
         "/Z7",  # /Zi enables debug info (pdb), /Zd for line numbers only (pdb), /Z7 generates debug info per obj file
         "/EHsc",  # enable exception handling (and extern C notthrow?)
+        # La STL de PC pide la memoria a FastMem con la etiqueta "STL" (como stlgc y stlps2): la xmemory de EA va
+        # delante de las cabeceras del compilador (src/Speed/Indep/Libs/Support/stlpc/xmemory). X360 tambien (su bloque).
+        "/I src/Speed/Indep/Libs/Support/stlpc",
         f"/I {compilers_path / config.linker_version / 'Include'}",
         "/I src/Packages",
         "/I src",
@@ -795,24 +863,39 @@ elif config.platform == Platform.WIN32:
         "/I src/Speed/Indep/Libs/endian/0.5.2/include",
     ]
 
+    # PC41: snd de PC con /O1 y como C++ (/TP), como spch: con /O1 /TP casan por codigo 103 funciones de snd (mapa por
+    # fichero de cmn y mix); con el /O2 del juego, 16. Las unidades de PC son las de config/SPEED_EXE_1_3.
+    # PC51: sin /EHsc. El tramo de snd del exe (0x819000-0x829000) no tiene ni un marco de excepciones (cero
+    # `mov fs:[0]`) y SFILTER_unpackmtfinit/mtpfinit/mtlfinit (new CMTBLKDecf) solo casan sin la limpieza del new.
     cflags_snd = [
-        *cflags_game,
+        *[f for f in cflags_game if f not in ("/O2", "/EHsc")],
+        "/O1",
+        "/TP",
         "/I src/Speed/Indep/Libs/snd/9/include",
     ]
 
     # r79: las bibliotecas path y spch son nuestras; upstream no las tiene en su
     # lista, asi que su bloque WIN32 no definia estos cflags y
     # `configure.py -v SPEED_EXE_1_3` moria con NameError.
+    # PC40: path de PC con /Oy- (marco de pila): con /O2 /Oy- casan 81 funciones de path por codigo; con /O2 a secas,
+    # 10, y con /O1, 9. Compila desde la ronda 40, cuando eathread tuvo su backend de Win32 (pathi.h:532).
+    # PC51: sin /EHsc, como snd: el tramo de path (0x828F90-0x8309F0) no tiene marcos de excepciones y PATHI_init
+    # (0x829C50, 206 B) solo casa sin la limpieza del new.
     cflags_path = [
-        *cflags_game,
+        *[f for f in cflags_game if f != "/EHsc"],
+        "/Oy-",
         "/I src/Speed/Indep/Libs/allocator/1.5.0",
         "/I src/Speed/Indep/Libs/csis/dev/include",
         "/I src/Speed/Indep/Libs/snd/9/include",
         "/I src/Speed/Indep/Libs/path/5.01.04/include",
     ]
 
+    # PC40: spch de PC con /O1 y como C++ (/TP), como snd: con /O1 casan por codigo 37 funciones de spch y 103 de snd;
+    # con el /O2 del juego, 8 y 16. En GameCube ya son C++ (iSPCH_InitBanks__Fv, SNDI_cos__Ff).
     cflags_spch = [
-        *cflags_game,
+        *[f for f in cflags_game if f != "/O2"],
+        "/O1",
+        "/TP",
         "/I src/Speed/Indep/Libs/allocator/1.5.0",
         "/I src/Speed/Indep/Libs/csis/dev/include",
         "/I src/Speed/Indep/Libs/snd/9/include",
@@ -839,6 +922,40 @@ def solo_ps2(*flags):
     return list(flags) if config.platform == Platform.PS2 else []
 
 
+def solo_win32(*flags):
+    """Opciones u objetos que solo existen en WIN32 (PC)."""
+    return list(flags) if config.platform == Platform.WIN32 else []
+
+
+def solo_a124(*objs):
+    """Unidades que solo enlaza el prototipo SLES-53558-A124 (dirtysock no esta en SLUS)."""
+    return list(objs) if config.version == "SLES-53558-A124" else []
+
+
+# El juego de PS2 se compilo con registros VU0 asignables: los stabs de la A124 dan
+# locales `uint128` (t, d, o, vfq...) en los registros 79-83, que son vf0-vf4, y
+# EE-GCC solo reparte esos registros con la restriccion "j" y esta opcion (sin ella
+# el "j" aborta con "fixed or forbidden register ... spilled for class VU_REGS").
+# La opcion sola, sin tocar la fuente, ya cambia el reparto del codigo normal:
+# medido en banco, +6 funciones en zAI y +2 en zWorld, ninguna perdida.
+vu0_ps2 = solo_ps2("-mvu0-use-vf0-vf15")
+
+# Las unidades del juego de GameCube se compilaron con -fkeep-inline-functions: el DWARF de las 33 SourceLists trae
+# una copia fuera de linea (Range 0xFFFFFFFF, estripada al enlazar) de TODAS sus static inline (217 de 217 en zFe2:
+# GXEnd, OSSetGQR2...; ninguna en las bibliotecas). Sin la opcion GCC 2.95 no emite los overrides virtuales de las
+# clases locales (las 16 funciones de FEPlayerCarDB en zFe2, 624 B).
+keep_inline_gc = solo_gc("-fkeep-inline-functions")
+
+# Y con -fdefault-single-float, opcion de SN ("Any real constant will default to type float rather than double"): un
+# literal sin sufijo es float. Prueba (GCD44, ronda 44): GenericNISControlScenario::HandleEventMessage carga con lfd
+# el double 0x3EB0C6F7A0000000 = (double)1e-6f donde las dos PS2 tienen el 1e-6 exacto, y AssignCopsInCircle,
+# OnTask (AIPursuit), ICEManager::GetSlope, GetGameCompletionStats, OnScreenRain, QueueWeatherStream y
+# GetWooshSample cargan un double en las PS2 y operan en float en GameCube. NO es -fshort-double: el DWARF de las 33
+# unidades da double de 8 B (struct __exception con arg2 en 0x10, bSymbolInfoPacket de 0x58). zBWare no la lleva:
+# _bOutput carga el 0.1 double exacto. Medido en banco: cero funciones distintas en las 33 unidades.
+single_float_gc = solo_gc("-fdefault-single-float")
+
+
 # PS2: el middleware NO se compilo con el ee-gcc del juego. El .mdebug del NFS.ELF
 # de SLES-53558-A124 guarda el directorio de compilacion de cada fichero: el juego
 # sale de mw\Speed (2.9-ee-991111b, el de config.linker_version) y las bibliotecas
@@ -860,27 +977,123 @@ PS2_TOOLCHAIN = {
     "eathread": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 2.8.1-8 (aun sin unidades en PS2)
     "realcore": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 2.8.1-9
     "spch": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 2.8.1-9 (con spchcsis.cpp)
-    "vp6": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 2.8.1-9 (PS2 es 1.0.3: sin unidades)
+    "vp6": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 2.8.1-9 (PS2 es 1.0.3: ver vp6_ps2)
     "snd": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 3.0.2-1
-    "realmemcard": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 3.0.2-1 (PS2 es 3.04.00: sin unidades)
-    "path": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 3.0.2-4
+    "realmemcard": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 3.0.2-1 (PS2 es 3.04.00: ver rmc_ps2)
+    # PlayStation2SN 3.0.2-4: la replica de scripts/replica_v183.py (ver GC_TOOLCHAIN)
+    "path": "PS2/ee-gcc2.95.3-136-v183r",
+    "csis": "PS2/ee-gcc2.95.3-136",  # PlayStation2SN 2.8.1-9
+    # La libc de SN (stdio, qsort, atexit...): el prologo guarda los s con sq y ra con sd. Se ensamblo con el
+    # Ps2EeAs de SN y no con el as de GNU: la replica de scripts/replica_snas.py (los bucles cortos a 6
+    # instrucciones y no a 7), con "ee_as": "Ps2EeAs" en sus libs de C (ee-gcc -S y Ps2EeAs).
+    "libc_sn": "PS2/ee-gcc2.95.3-136-snas",
+    # dirtysock de PS2: el prologo guarda los s con sq y ra con sd (la firma del middleware, ver arriba)
+    "dirtysock": "PS2/ee-gcc2.95.3-136",
+}
+
+
+# GameCube: path es "GNU C++ 2.95.3 SN BUILD v1.83" en el DWARF (paquete GameCubeSN 3.9.3-4 de EA) y el resto
+# v1.76 o anterior; en PS2 path es PlayStation2SN 3.0.2-4. Esos compiladores no son publicos. Lo que los separa de
+# los nuestros es el cambio de GCC del 2000-06-23 (alias.c: fixed_scalar_and_varying_struct_p no mira struct
+# frente a escalar con -fno-strict-aliasing), que SN adopto entre v1.79 (su fuente GPL aun aplica la regla) y
+# v1.83. scripts/replica_v183.py lo reproduce en copias de los oficiales, con SHA-1 comprobado. Medido: path +11
+# en GameCube y +7 en cada PS2 sin perdidas; en las bibliotecas v1.76 la misma replica pierde (-59 en GameCube).
+GC_TOOLCHAIN = {
+    "path": "ProDG/3.9.3-v183src" if gc_toolchain_fuente else "ProDG/3.9.3-v183r",
 }
 
 
 def toolchain_de(lib):
-    """toolchain_version de una biblioteca: en PS2, el ee-gcc de SN de su paquete."""
+    """toolchain_version de una biblioteca: en PS2, el ee-gcc de SN de su paquete; en GameCube, la replica de v1.83
+    para path."""
     if config.platform == Platform.PS2:
         return PS2_TOOLCHAIN.get(lib, config.linker_version)
+    if config.platform == Platform.GC_WII:
+        return GC_TOOLCHAIN.get(lib, config.linker_version)
     return config.linker_version
 
 
+# Las replicas se generan en local desde las toolchains oficiales (nada se descarga).
+if config.platform in (Platform.GC_WII, Platform.PS2):
+    import subprocess as _subprocess
+
+    _subprocess.run([sys.executable, "scripts/replica_v183.py"], check=True)
+    if config.platform == Platform.PS2:
+        _subprocess.run([sys.executable, "scripts/replica_snas.py"], check=True)
+
+
 # vp6: sin -fmove-all-movables ni -fforce-addr, y con -mps-float en vez de
-# -mps-nodf (ver la nota del bloque de la biblioteca).
-cflags_vp6 = [
-    f
-    for f in cflags_game
-    if f not in ("-G0", "-fmove-all-movables", "-fforce-addr", "-mps-nodf")
-] + ["-O2", *solo_gc("-mps-float")]
+# -mps-nodf (ver la nota del bloque de la biblioteca). En PS2 si lleva -G0, como
+# el resto del middleware de SN, y VP6_VERSION=103 (ver vp6_ps2).
+# PCM3: en PC el middleware (vp6, realcore, realmemcard y rcmp) NO va con el /O2
+# del juego: va a /O1 con marco de pila (/Oy-), como eathread. Medido fuera del
+# arbol contra los unassigned_* (pc3_lote2): a /O1 /Oy- casan las funciones con
+# marco y sin marco de la misma unidad (el dtor de EventQueue sin marco y su
+# operator= con el); a /O1 a secas faltan las de marco, y con el /O2 no casa
+# casi nada. vp6 lleva ademas /Oi (HorizontalLine_Copy expande memcpy a
+# rep movsd; sin el llama a memcpy) y /Dinline=__inline (DFrameR.c y
+# decodembs.c usan el `inline` de C99, que MSVC 7.1 en C no conoce; medido: el
+# define no cambia el objeto de las unidades C++ de la biblioteca). Estos
+# bloques solo existen en WIN32: en GC/PS2 las bibliotecas conservan los cflags
+# de siempre. PCM6: las unidades que MSVC no compilaba entran con puertas
+# WIN32 minimas medidas en banco (150 fn / 5.501 B al 100 %): defines por
+# objeto (filesys strcasecmp/__builtin_alloca + /FImalloc.h, abortmsg y
+# printstr vsnprintf, memcard_taskmanager strncasecmp; en sus Object) y
+# puertas en la fuente (hlafile/avplayer __attribute__, rcmp_mad_codec y
+# rcmp_vp6_codec constante con salto de linea). Sigue excluida locale.cpp de
+# realmemcard: con __declspec(align) compila, pero GetString (344 B) no tiene
+# pareja en el exe (solo casan GetWstrLength 25 B y el setter, ambiguo).
+if config.platform == Platform.WIN32:
+    cflags_vp6 = [f for f in cflags_game if f != "/O2"] + [
+        "/O1",
+        "/Oy-",
+        "/Oi",
+        "/Dinline=__inline",
+    ]
+    cflags_realcore_win32 = [f for f in cflags_game if f != "/O2"] + ["/O1", "/Oy-"]
+    cflags_realmemcard_win32 = [f for f in cflags_game if f != "/O2"] + [
+        "/O1",
+        "/Oy-",
+        "/I src/Packages/realmemcard/3.04.01-layer2/include/common",
+    ]
+    cflags_rcmp_win32 = [f for f in cflags_game if f != "/O2"] + ["/O1", "/Oy-"]
+else:
+    cflags_vp6 = [
+        f
+        for f in cflags_game
+        if f not in ("-G0", "-fmove-all-movables", "-fforce-addr", "-mps-nodf")
+    ] + ["-O2", *solo_gc("-mps-float"), *solo_ps2("-G0", "-DVP6_VERSION=103")]
+    cflags_realcore_win32 = cflags_realmemcard_win32 = cflags_rcmp_win32 = []
+
+
+# vp6 en PS2: las dos PS2 llevan la 1.0.3 del paquete, no la 1.0.6 de GameCube. Lo
+# dicen los stabs de la A124 (PB_INSTANCE sin OtherFrameRecon: 0x4954 bytes) y el
+# codigo de las dos: VP6_UseScratchpad escribe ScratchpadStart/End en 0x494C/0x4950
+# tanto en la A124 (0x4C0980) como en SLUS (0x477350). Las unidades se llaman como
+# en el .mdebug, Packages/vp6/1.0.3/..., y se compilan del arbol 1.0.6 con
+# VP6_VERSION=103, que activa las diferencias de version en la fuente. Lo que solo
+# existe en PS2 (scratchpad.c y los *systemdependant.c de ps2/) vive en 1.0.6/.../ps2.
+def vp6_ps2(unidad, fuente=None):
+    return Object(
+        NonMatching,
+        "Packages/vp6/1.0.3/source/decode/" + unidad,
+        source="Packages/vp6/1.0.6/source/decode/" + (fuente or unidad),
+    )
+
+
+# realmemcard en PS2: las dos PS2 llevan la 3.04.00 del paquete (Packages/realmemcard/3.04.00-layer2 en el .mdebug)
+# y GameCube la 3.04.01. Las unidades se llaman como en el .mdebug y se compilan del arbol 3.04.01 con
+# REALMEMCARD_VERSION=30400, que activa las diferencias de version en la fuente (firmas sin el nombre del tipo,
+# NAME_FILE, SetBootFlow...); lo que es de la plataforma (TitleId de cadena, puerto y ranura, directorios) va con
+# EA_PLATFORM_PLAYSTATION2. Los stabs de la A124 dan cada firma y cada campo.
+def rmc_ps2(unidad):
+    return Object(
+        NonMatching,
+        "Packages/realmemcard/3.04.00-layer2/source/lib/" + unidad,
+        source="Packages/realmemcard/3.04.01-layer2/source/lib/" + unidad,
+    )
+
+
 # eathread va a -O2 como el resto de bibliotecas de EA: el static-init de
 # eathread_thread (32 AtomicInt vacios) sale como li/mtctr/bdnz solo a -O2.
 cflags_eathread = [*[f for f in cflags_game if f != "-O1"], "-O2"]
@@ -916,7 +1129,7 @@ config.libs = [
     {
         "lib": "Game",
         "toolchain_version": config.linker_version,
-        "cflags": cflags_game,
+        "cflags": [*cflags_game, *vu0_ps2, *keep_inline_gc, *single_float_gc],
         "host": False,
         "progress_category": "game",  # str | List[str]
         "objects": [
@@ -926,13 +1139,21 @@ config.libs = [
             Object(NonMatching, "Speed/Indep/SourceLists/zAttribSys.cpp"),
             # r76b: bList::Sort 94,54 % (172/172 B). 13 formas medidas; el .lreg da
             # los numeros de allocno_compare y ninguna forma de fuente los cambia.
-            Object(NonMatching, "Speed/Indep/SourceLists/zBWare.cpp"),
+            # bWare sin -fdefault-single-float: el 0.1 de _bOutput es el double exacto (single_float_gc).
+            Object(NonMatching, "Speed/Indep/SourceLists/zBWare.cpp", cflags=[*cflags_game, *vu0_ps2, *keep_inline_gc]),
             Object(NonMatching, "Speed/Indep/SourceLists/zCamera.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zComms.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zDebug.cpp"),
             # r76b: Geometry::SphereVsBox 98,49 % (1896/1896 B).
             Object(NonMatching, "Speed/Indep/SourceLists/zDynamics.cpp"),
-            Object(NonMatching, "Speed/Indep/SourceLists/zEagl4Anim.cpp"),
+            # PS2: zEagl4Anim con los 32 registros de la VU0 (-mvu0-use-vf0-vf31, como snd): FnPoseBlender::Eval y
+            # EvalSQT solo sacan del bucle sus invariantes con el umbral de loop.c de vf31 (+2 en cada PS2).
+            Object(
+                NonMatching,
+                "Speed/Indep/SourceLists/zEagl4Anim.cpp",
+                cflags=cflags_game,
+                extra_cflags=[*solo_ps2("-mvu0-use-vf0-vf31"), *keep_inline_gc, *single_float_gc],
+            ),
             Object(NonMatching, "Speed/Indep/SourceLists/zEAXSound.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zEAXSound2.cpp"),
             Object(
@@ -943,7 +1164,7 @@ config.libs = [
                 # sin -mps-float el mode(PS) es ilegal y esas ~8 kB no se pueden
                 # escribir. Medido: no mueve ni un byte de lo que ya casa.
                 cflags=cflags_game,
-                extra_cflags=solo_gc("-mps-float"),
+                extra_cflags=[*solo_gc("-mps-float"), *vu0_ps2, *keep_inline_gc, *single_float_gc],
             ),
             Object(NonMatching, "Speed/Indep/SourceLists/zFe.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zFe2.cpp"),
@@ -958,7 +1179,7 @@ config.libs = [
                 # Unity TU original con -fforce-addr; los VU0_* requieren -mps-float
                 # (paired singles via inline asm) y -fvtable-thunks=1.
                 cflags=cflags_game,
-                extra_cflags=solo_gc("-mps-float", "-fvtable-thunks=1"),
+                extra_cflags=[*solo_gc("-mps-float", "-fvtable-thunks=1"), *vu0_ps2, *keep_inline_gc, *single_float_gc],
             ),
             Object(NonMatching, "Speed/Indep/SourceLists/zGameModes.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zGameplay.cpp"),
@@ -972,7 +1193,24 @@ config.libs = [
             Object(NonMatching, "Speed/Indep/SourceLists/zMain.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zMisc.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zMiscSmall.cpp"),
-            Object(NonMatching, "Speed/Indep/SourceLists/zMission.cpp"),
+            # r27: segunda unidad de pool puro. Tres piezas: (1) el corte le robaba a
+            # zPhysics los primeros 36 B de su .bss (statics value/_.tmp de funciones
+            # inline, acreditados por el DWARF del original) -- rango reclamado en
+            # splits.txt y pad en keep.lst; (2) MissionEdit.cpp es TODO file-static con
+            # las firmas de la A124 (AIEntityCreated lleva 4 parametros): el DWARF de
+            # GOWE69 lista las siete emitidas y descartadas (low_pc 0xFFFFFFFF) y
+            # ninguna otra unidad del juego las declara; (3) los $LC del pool van a
+            # keep.lst (mecanismo zOnline de la r26) y el .data@1 neutraliza el .data
+            # vacio. El symrename devuelve el nombre del _GLOBAL_.I que la instanciacion
+            # explicita de __node_alloc le roba al TU.
+            Object(
+                Matching,
+                "Speed/Indep/SourceLists/zMission.cpp",
+                section_rename=(
+                    ".data@1,"
+                    "sym:_GLOBAL_.I._S_round_up__Q24_STLt12__node_alloc2b0i0Ui=_GLOBAL_.I.DrawMissionComponents__Fv"
+                ),
+            ),
             Object(NonMatching, "Speed/Indep/SourceLists/zPhysics.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zPhysicsBehaviors.cpp"),
             Object(NonMatching, "Speed/Indep/SourceLists/zPlatform.cpp"),
@@ -988,10 +1226,20 @@ config.libs = [
             # through *zOnline.o(.over .rodata) / *zFEOverlay.o(.over .rodata),
             # so their code section is .over and not .text (see
             # config/GOWE69/ldscript.ld and the .over ranges in splits.txt).
+            # r26: el pool comun de 96 B ya sale de fuente (GAMECUBE|ruta de bware.hpp|bad_alloc|%f,%f,%f|
+            # %f,%f,%f,%f|STL) y trypromo da DOL exacto. El .data@1 neutraliza el .data VACIO de nuestro objeto
+            # (el original no lo tiene): a alineacion 8 ngcld desplaza el .data de zFEOverlay 4 B y rompe el DOL.
             Object(
-                NonMatching,
+                Matching,
                 "Speed/Indep/SourceLists/zOnline.cpp",
-                section_rename=".text=.over",
+                section_rename=(
+                    ".text=.over,.data@1,"
+                    # la instanciacion explicita de __node_alloc roba el nombre del _GLOBAL_.I:
+                    # el original lo llama __OSBusClock (la ultima variable no-estatica del TU, os.h:34).
+                    # Con la sonda de parseo de stlgc/stl/_alloc.h la instanciacion implicita de
+                    # allocate va primera en la cola y el nombre robado es allocate, no _S_round_up.
+                    "sym:_GLOBAL_.I.allocate__Q24_STLt12__node_alloc2b0i0Ui=_GLOBAL_.I.__OSBusClock"
+                ),
             ),
             # r76b: CustomizeParts::Setup 99,84 % (1708/1708) y
             # CustomizeMain::NotificationMessage 96,61 % (808/808). El pin de
@@ -1015,7 +1263,8 @@ config.libs = [
     {
         "lib": "rcmp",
         "toolchain_version": toolchain_de("rcmp"),
-        "cflags": [
+        # PCM3: en WIN32, el bloque /O1 /Oy- de arriba; en GC/PS2, los de la lista.
+        "cflags": cflags_rcmp_win32 if config.platform == Platform.WIN32 else [
             # Medido: esta biblioteca NO va con los flags del juego. -O2 (el bucle
             # de NEW_tBigYUVSwizzlerTexture solo sale con mtctr/bdnz a -O2),
             # -mps-float en vez de -mps-nodf (con nodf los guardados FPR salen
@@ -1059,7 +1308,7 @@ config.libs = [
             ),
             Object(Matching, "egami/rcmp/dev/source/decoder/cmn/maddec.cpp"),
             Object(Matching, "egami/rcmp/dev/source/decoder/cmn/maddeca.cpp"),
-            Object(NonMatching, "egami/rcmp/dev/source/decoder/cmn/madidct.cpp"),
+            Object(Matching, "egami/rcmp/dev/source/decoder/cmn/madidct.cpp"),
             Object(NonMatching, "egami/rcmp/dev/source/decoder/cmn/rcmp_vp6_codec.cpp"),
             # r76: barrera fuera. GetFirstFrame 98,78 % (656/656 B).
             # av/ sin -ffast-math: el original no reasocia las multiplicaciones por
@@ -1078,6 +1327,13 @@ config.libs = [
             Object(NonMatching, "egami/rcmp/dev/source/av/cmn/audioplayer.cpp", extra_cflags=["-fno-fast-math"]),
             Object(NonMatching, "egami/rcmp/dev/source/vd/gc/bigyuvswizzler.cpp"),
             Object(NonMatching, "egami/rcmp/dev/source/vd/gc/bigswizzler.cpp"),
+            # PS2: el analizador de cabeceras MPEG-2 del codec de Sony (decoder/cmn/getbits.cpp y gethdr.cpp en el
+            # .mdebug de la A124; GameCube no los tiene) y los trozos que reconoce.
+            *solo_ps2(
+                Object(NonMatching, "egami/rcmp/dev/source/decoder/cmn/getbits.cpp"),
+                Object(NonMatching, "egami/rcmp/dev/source/decoder/cmn/gethdr.cpp"),
+                Object(NonMatching, "egami/rcmp/dev/source/decoder/ps2/rcmp_ps2_sony_codec_chunk_types.cpp"),
+            ),
         ],
     },
     {
@@ -1131,7 +1387,55 @@ config.libs = [
             # r76: despineada en la r75 (9 pines). VP6_DecodeBlock y
             # VP6_PredictFilteredBlock ya no reproducen el objeto (163 B de diferencia
             # en .text, mismo tamano); el enlace usa el extraido.
-            Object(NonMatching, "Packages/vp6/1.0.6/source/decode/gc/criticalpath.c"),
+            # r25: DOL OK. Los 4 B que mide de mas el extraido son padding de
+            # alineacion del corte (gap_05_80412774_rodata), no dato: el linker
+            # los rellena solo al enlazar el nuestro (trypromo verificado).
+            Object(Matching, "Packages/vp6/1.0.6/source/decode/gc/criticalpath.c"),
+            # PC: el mismo haz de .inl de cmn en su propia unidad (speed.exe
+            # 0x806F24-0x80855B), sin las rutinas MMX/SSE2 de la plataforma, que
+            # no tienen fuente en el arbol. Medido en bancopc (MSVC 7.1, los
+            # cflags_vp6 de WIN32): casan byte a byte VP6_DecodeBool/128,
+            # bitread/bitread1/bitreadonly/bitShift, nDecodeBool,
+            # VP6_ExtractTokenN, VP6_DecodeBlockMode, VP6_DecodeMode,
+            # VP6_ReconstructBlock y VP6_DecodeMacroBlock.
+            *solo_win32(
+                Object(NonMatching, "Packages/vp6/1.0.6/source/decode/pc/criticalpath.c"),
+            ),
+            # PS2 (1.0.3), en el orden de la A124.
+            *solo_ps2(
+                vp6_ps2("ps2/scratchpad.c"),
+                vp6_ps2("cmn/allocator.cpp"),
+                vp6_ps2("cmn/pb_globals.c"),
+                vp6_ps2("cmn/postproc.c"),
+                vp6_ps2("cmn/quantize.c"),
+                vp6_ps2("cmn/simpledeblocker.c"),
+                vp6_ps2("cmn/vfwpbdll_if.c"),
+                vp6_ps2("cmn/vputil.c"),
+                vp6_ps2("ps2/doptsystemdependant.c"),
+                vp6_ps2("ps2/DSystemDependant.c"),
+                vp6_ps2("ps2/uoptsystemdependant.c"),
+                vp6_ps2("cmn/duck_mem.cpp"),
+                vp6_ps2("cmn/boolhuff.c"),
+                vp6_ps2("cmn/borders.c"),
+                vp6_ps2("cmn/clamp.c"),
+                vp6_ps2("cmn/deblock.c"),
+                vp6_ps2("cmn/decodembs.c"),
+                vp6_ps2("cmn/decodemode.c"),
+                vp6_ps2("cmn/decodemv.c"),
+                vp6_ps2("cmn/DeInterlace.c"),
+                vp6_ps2("cmn/dering.c"),
+                vp6_ps2("cmn/DFrameR.c"),
+                vp6_ps2("cmn/FrameIni.c"),
+                vp6_ps2("cmn/Huffman.c"),
+                vp6_ps2("cmn/loopfilter.c"),
+                vp6_ps2("cmn/reconstruct.c"),
+                vp6_ps2("cmn/scale.c"),
+                vp6_ps2("cmn/TokenEntropy.c"),
+                # El criticalpath de PS2 comparte los .inl de cmn con el de GameCube y lleva los suyos de
+                # ps2/ (filtro, IDCT y reconstruccion en MMI, el asm del original).
+                vp6_ps2("ps2/criticalpath.c"),
+                vp6_ps2("cmn/recon.c"),
+            ),
         ],
     },
     {
@@ -1187,13 +1491,13 @@ config.libs = [
             # r76: despineada. SNDDRV_audiocallback 99,56 % (400/400 B): el DWARF no
             # tiene `mixSource` y r4 es el parametro `context`. Tampoco tiene bloques
             # lexicos, asi que se fueron tambien las llaves que daban ambito al pin.
-            Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/gc/snddrv.c"),
+            Object(Matching, "Speed/Indep/Libs/snd/9/source/library/gc/snddrv.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/spktplay.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/spktctoh.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/splysdef.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/spoutlat.c"),
             # r76: barrera fuera. iSNDrandom 98,33 % (260/264 B).
-            Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/cmn/srandom.c"),
+            Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/srandom.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/sreallocbuf.cpp"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/srender.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/sresopat.c"),
@@ -1276,7 +1580,7 @@ config.libs = [
             # r76: despineada. SFILTER_splitter 99,53 % (256/256 B): el DWARF no tiene
             # `copySource` ni `copySize`; faltan las 3 cargas de argumento, que rs6000
             # emite r3->r4->r5 y el objetivo deja r3 para el final.
-            Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/mix/sfsplit.c"),
+            Object(Matching, "Speed/Indep/Libs/snd/9/source/library/mix/sfsplit.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/mix/sfsrc.c"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/cmn/sgettag.c"),
             Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/mix/shipass.c"),
@@ -1326,10 +1630,29 @@ config.libs = [
             Object(
                 Matching, "Speed/Indep/Libs/snd/9/source/library/mix/supxapf.cpp"
             ),
-            Object(
-                Matching,
-                "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/eaxadecf.cpp",
-                cflags=cflags_snd_nofastmath,
+            # PS2: decodexac va en ensamblador de EA (eaxadecf_ps2.s, ronda 18); GC sigue con el C.
+            *solo_gc(
+                Object(
+                    Matching,
+                    "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/eaxadecf.cpp",
+                    cflags=cflags_snd_nofastmath,
+                ),
+            ),
+            *solo_ps2(
+                Object(
+                    Matching,
+                    "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/eaxadecf.cpp",
+                    source="Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/eaxadecf_ps2.s",
+                ),
+            ),
+            # PCM3: en PC va el C como en GameCube, con los flags de snd de PC
+            # (/O1 /TP): casan sus 4 funciones de speed.exe (0x828B03-0x828CE9).
+            *solo_win32(
+                Object(
+                    NonMatching,
+                    "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/eaxadecf.cpp",
+                    cflags=cflags_snd_nofastmath,
+                ),
             ),
             Object(
                 Matching,
@@ -1368,6 +1691,58 @@ config.libs = [
             # PPCMtdec (0x80311BE4) and lbmpeg.cpp _GLOBAL_ ctor (0x80366298)
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/mtdecppc.cpp"),
             Object(Matching, "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/lbmpeg.cpp"),
+            # PS2: el driver de snd 9.06.00-ps2 (library/ps2/sdriver.c en el .mdebug de la A124; la unidad de
+            # config/ se llama cmn/sdriver.c). Usa sifcmd.h, sceSifCheckStatRpc y sceGsGetGParam del SDK del arbol.
+            *solo_ps2(
+                Object(
+                    NonMatching,
+                    "Speed/Indep/Libs/snd/9/source/library/cmn/sdriver.c",
+                    source="Speed/Indep/Libs/snd/9/source/library/ps2/sdriver.c",
+                ),
+            ),
+            # PS2: el resto de la plataforma de snd 9.06.00-ps2 (library/ps2/*.c, cmn/dma.cpp y mix/sfft16.c en el
+            # .mdebug de la A124; config/ los llama cmn/<fichero>). smemcpy.cpp y svecreal6.cpp son en PS2 los
+            # cmn/smemcpy.c y cmn/svecreal.cpp de GameCube (smemcpy lleva en PS2 el ensamblador de EA con las MMI).
+            *solo_ps2(
+                *[
+                    Object(
+                        NonMatching,
+                        f"Speed/Indep/Libs/snd/9/source/library/cmn/{f}.c",
+                        source=f"Speed/Indep/Libs/snd/9/source/library/ps2/{f}.c",
+                    )
+                    for f in (
+                        "sd3dpos",
+                        "sdasync",
+                        "sdfilter",
+                        "sdfx",
+                        "sdgetcf",
+                        "sdmaee",
+                        "sdmemlmt",
+                        "sdmemlu",
+                        "sdmemman",
+                        "sdoutlat",
+                        "sdpacket",
+                        "sdplapat",
+                        "sdrespat",
+                    )
+                ],
+                Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/cmn/dma.cpp"),
+                Object(
+                    NonMatching,
+                    "Speed/Indep/Libs/snd/9/source/library/cmn/sfft16.c",
+                    source="Speed/Indep/Libs/snd/9/source/library/mix/sfft16.c",
+                ),
+                Object(
+                    NonMatching,
+                    "Speed/Indep/Libs/snd/9/source/library/cmn/smemcpy.cpp",
+                    source="Speed/Indep/Libs/snd/9/source/library/cmn/smemcpy.c",
+                ),
+                Object(
+                    NonMatching,
+                    "Speed/Indep/Libs/snd/9/source/library/cmn/svecreal6.cpp",
+                    source="Speed/Indep/Libs/snd/9/source/library/cmn/svecreal.cpp",
+                ),
+            ),
         ],
     },
     {
@@ -1376,23 +1751,24 @@ config.libs = [
         "toolchain_version": toolchain_de("path"),
         # -fno-implement-inlines: barrido unidad a unidad (r30 §2.1);
         # condicion de la promocion de pathreal (532 -> 496 = objetivo).
-        "cflags": [*cflags_path, "-fno-implement-inlines"],
+        "cflags": [*cflags_path, *([] if config.platform == Platform.WIN32 else ["-fno-implement-inlines"])],
         "host": False,
         "progress_category": "libs",  # str | List[str]
         "objects": [
             Object(
                 Matching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathcontrol.cpp"
             ),
-            Object(NonMatching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathevent.cpp"
+            Object(Matching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathevent.cpp"
             ),
             Object(NonMatching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathinit.cpp"
             ),
-            Object(NonMatching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal.cpp"),
+            Object(Matching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal.cpp"),
             # r79: sin el primer de "%s  %s" (literal muerto de origen desconocido).
             Object(NonMatching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal6.cpp"),
             Object(Matching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathserv.cpp"),
-            # r76: barrera fuera. CreateStreamTrack 99,85 % (404/404 B).
-            Object(NonMatching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathsnd.cpp"),
+            # r76: barrera fuera. CreateStreamTrack 99,85 % (404/404 B). r25: ya al
+            # 100 % (code+data), DOL verificado con trypromo.
+            Object(Matching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathsnd.cpp"),
             Object(NonMatching, "Speed/Indep/Libs/path/5.01.04/source/cmn/pathtrack.cpp"
             ),
             # r79: sin el primer de "%s  %s" (literal muerto de origen desconocido).
@@ -1421,15 +1797,21 @@ config.libs = [
         "objects": [
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchbank.c"),
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchdata.c"),
-            Object(NonMatching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchevnt.c"),
+            # r25: promovida reclamando su .data (0x80451F00-08, los statics
+            # gAddEventStatus/gSPCHPlayStatus) del comodin auto_06_80451F00.
+            Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchevnt.c"),
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchinit.c"),
-            Object(NonMatching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchpick.c"),  # r76: despineada (iSPCH_ChooseSamples 412->408 B)
+            # r25: promovida reclamando su .data (multiple_80451F08) y su .bss
+            # (gEventChoice_804CC900) del comodin.
+            Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchpick.c"),
             # r76: barrera fuera. iSPCH_EACrandom 98,33 % (260/264 B).
-            Object(NonMatching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchrand.c"),
+            # r25: los 3 simbolos que "sobran" (iSPCH_AddRandToQueue y cia) no
+            # desplazan nada: DOL OK con trypromo.
+            Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchrand.c"),
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchrslv.c"),
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchrule.c"),
             # r76: las dos barreras fuera. iSPCH_GetSampleSizeData 87,65 % (136/136 B).
-            Object(NonMatching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchsamp.c"),
+            Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/spchsamp.c"),
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/sptick.c"),
             Object(Matching, "Speed/Indep/Libs/spch/dev/source/library/cmn/sputil.c"),
             Object(
@@ -1444,11 +1826,15 @@ config.libs = [
         # polimorficos (filesys, dvd_device, hd_device) SI emiten _GLOBAL_.D.
         # PS2 (SN 2.95.3-136) va con -G0 y no -G8: el original no direcciona nada
         # por $gp. Medido: +900 B en SLES y +180 B en SLUS.
-        "cflags": [f for f in cflags_game if f not in ("-G0", "-fforce-addr", "-fno-static-dtors")]
+        # PCM3: en WIN32, el bloque /O1 /Oy- de arriba (cflags_realcore_win32).
+        "cflags": cflags_realcore_win32 if config.platform == Platform.WIN32 else [f for f in cflags_game if f not in ("-G0", "-fforce-addr", "-fno-static-dtors")]
         + [
             "-G0" if config.platform == Platform.PS2 else "-G8",
             "-fstrength-reduce",
             "-fno-implement-inlines",
+            # GameCube compila realcore a -O2: FILEOPERATION::AddToQueue en la forma del DWARF solo casa asi
+            # (expand_end_loop solo enrolla el bucle con -O2), y las otras 42 unidades salen iguales a -O1 y a -O2.
+            *solo_gc("-O2"),
         ],
         "host": False,
         "progress_category": "libs",  # str | List[str]
@@ -1457,15 +1843,17 @@ config.libs = [
                 Matching,
                 "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/device.cpp",
             ),
-            # PS2: -frelax-128 porque FILEOPERATION guarda sus 64 bits en `long long`
-            # (128 bits en el ee-gcc de SN; el original usa `long`, ver
-            # PS2_TOOLCHAIN). Sin ella no compila; con ella, 184 -> 2.448 B y 14 -> 21
-            # funciones en SLES. Seis accesores de `value` (Complete, SizeOperation::
-            # Exec) dejan de casar: con el 991111 casaban porque alli mide 8 B.
+            # FILEOPERATION guarda sus 64 bits en int64_t/uint64_t (los tipos de los stabs;
+            # en el ee-gcc de SN `long long` es de 128 bits): ya no hace falta
+            # -frelax-128 (ventana 4, medido igual).
             Object(
                 NonMatching,  # r76: despineada (AddToQueue 252->248 B)
                 "Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/filesys.cpp",
-                extra_cflags=solo_ps2("-frelax-128"),
+                # PCM6 (WIN32): los nombres POSIX por sus de MSVC + el _alloca
+                # declarado; 34 fn al 100 % en banco.
+                extra_cflags=solo_win32(
+                    "/Dstrcasecmp=_stricmp", "/D__builtin_alloca=_alloca", "/FImalloc.h"
+                ),
             ),
             Object(
                 Matching,
@@ -1581,10 +1969,12 @@ config.libs = [
             Object(
                 Matching,
                 "Speed/Indep/Libs/realcore/6.24.00/source/debug/cmn/printstr.cpp",
+                extra_cflags=solo_win32("/Dvsnprintf=_vsnprintf"),  # PCM6
             ),
             Object(
                 Matching,
                 "Speed/Indep/Libs/realcore/6.24.00/source/debug/cmn/abortmsg.cpp",
+                extra_cflags=solo_win32("/Dvsnprintf=_vsnprintf"),  # PCM6
             ),
             Object(
                 Matching,
@@ -1629,12 +2019,40 @@ config.libs = [
                 Matching,
                 "Speed/Indep/Libs/realcore/6.24.00/source/debug/gc/printdrv.cpp",
             ),
+            # PS2: la plataforma de realcore 6.24.00 (source/*/ps2/*.cpp en el .mdebug de la A124). addtimer y
+            # ps2_initmtap solo los enlaza la A124; addtimer vive en system/cmn/ y config/ lo llama ps2/.
+            *solo_ps2(
+                *[
+                    Object(NonMatching, f"Speed/Indep/Libs/realcore/6.24.00/source/{f}.cpp")
+                    for f in (
+                        "system/ps2/threads",
+                        "system/ps2/signals",
+                        "system/ps2/inittmr",
+                        "system/ps2/videomode",
+                        "std/cmn/memfill",
+                        "std/cmn/memcopy",
+                        "file/ps2/host0_device",
+                        "file/ps2/cddvd_device",
+                        "input/ps2/ps2_initmtap",
+                        "input/ps2/ps2_effect",
+                        "input/ps2/ps2_interface",
+                        "input/ps2/ps2_pad",
+                        "input/ps2/ps2_device",
+                    )
+                ],
+                Object(
+                    NonMatching,
+                    "Speed/Indep/Libs/realcore/6.24.00/source/system/ps2/addtimer.cpp",
+                    source="Speed/Indep/Libs/realcore/6.24.00/source/system/cmn/addtimer.cpp",
+                ),
+            ),
         ],
     },
     {
         "lib": "realmemcard",
         "toolchain_version": toolchain_de("realmemcard"),
-        "cflags": [
+        # PCM3: en WIN32, el bloque /O1 /Oy- de arriba; en GC/PS2, los de la lista.
+        "cflags": cflags_realmemcard_win32 if config.platform == Platform.WIN32 else [
             # Esta biblioteca NO lleva -G0 (sus estaticos viven en .sdata y se
             # leen con @sda21) ni -fforce-addr (accede a los globales sin
             # materializar la direccion en un registro salvado).
@@ -1651,6 +2069,8 @@ config.libs = [
             "-fstrength-reduce",
             "-I src/Packages/realmemcard/3.04.01-layer2/include/common",
             "-fno-implement-inlines",
+            # En PS2, -G0 como el resto del middleware de SN, y la 3.04.00 (ver rmc_ps2).
+            *solo_ps2("-G0", "-DREALMEMCARD_VERSION=30400"),
         ],
         "host": False,
         "progress_category": "libs",  # str | List[str]
@@ -1663,7 +2083,8 @@ config.libs = [
                 Matching,
                 "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_interface_impl.cpp",
             ),
-            Object(NonMatching, "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_utilities.cpp",
+            # r25: promovida reclamando su .rodata (0x80414400-08) del comodin.
+            Object(Matching, "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_utilities.cpp",
             ),
             Object(
                 Matching,
@@ -1677,18 +2098,22 @@ config.libs = [
                 Matching,
                 "Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_memcard_taskmanager.cpp",
             ),
-            Object(NonMatching, "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_memvectors.cpp",
+            Object(Matching, "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_memvectors.cpp",
             ),
             Object(
                 Matching,
                 "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_taskmanager.cpp",
+                extra_cflags=solo_win32("/Dstrncasecmp=_strnicmp"),  # PCM6
             ),
-            # r76: despineada y sin un solo asm. OpenFile 99,48 % (692/692 B) y
-            # ReadFile 99,09 % (464/468 B). El parametro ya se llamaba `nBytesRead` en
-            # la cabecera y en el DWARF: aqui se habia renombrado y copiado con pin.
+            # gc_driver va a -O2 (el resto de la biblioteca, a -O1). ReadFile declara `readHead`
+            # dentro del cuerpo del `while`, como dice el DWARF (bloque 0x8038ED14-0x8038EDF0: justo
+            # el cuerpo rotado), y GCC solo rota un bucle con notas de bloque a -O2 (stmt.c,
+            # expand_end_loop). Medido: -O2 en toda la biblioteca solo pierde TrcSingletonAssert
+            # (gc_interface conserva una comparacion muerta, que es de -O1).
             Object(
-                NonMatching,
+                Matching,
                 "Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_driver.cpp",
+                extra_cflags=solo_gc("-O2"),
             ),
             Object(NonMatching, "Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_interface.cpp",
             ),
@@ -1702,9 +2127,628 @@ config.libs = [
             ),
             Object(Matching, "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/locale.cpp"),
             Object(Matching, "Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_memcard_interface_impl.cpp"),
+            # PS2 (3.04.00), en el orden de la A124.
+            *solo_ps2(
+                rmc_ps2("cmn/locale.cpp"),
+                rmc_ps2("cmn/memcard_interface.cpp"),
+                rmc_ps2("cmn/memcard_interface_impl.cpp"),
+                rmc_ps2("cmn/memcard_memvectors.cpp"),
+                rmc_ps2("cmn/memcard_taskmanager.cpp"),
+                rmc_ps2("ps2/ps2_memcard_interface_impl.cpp"),
+                rmc_ps2("ps2/ps2_memcard_taskmanager.cpp"),
+                rmc_ps2("ps2/ps2_sjis.cpp"),
+                rmc_ps2("cmn/memcard_utilities.cpp"),
+                rmc_ps2("ps2/ps2_initmtap.cpp"),
+                rmc_ps2("ps2/ps2_interface.cpp"),
+                rmc_ps2("ps2/ps2_internaltasks.cpp"),
+                rmc_ps2("ps2/ps2_public.cpp"),
+                rmc_ps2("ps2/ps2_tasks.cpp"),
+                rmc_ps2("ps2/ps2_trctasks.cpp"),
+                rmc_ps2("cmn/interfaceimp.cpp"),
+                rmc_ps2("ps2/ps2_blockcalculator.cpp"),
+            ),
         ],
     },
 ]
+
+
+def ps2_libc(fuente, carpeta="libc/"):
+    """Una unidad de Speed/PSX2/bware/sce/ee/gcc/ee compilada de la fuente de GameCube (src/libc)."""
+    return Object(NonMatching, "Speed/PSX2/bware/sce/ee/gcc/ee/" + fuente, source=carpeta + fuente)
+
+
+if config.platform == Platform.PS2:
+    config.libs.extend(
+        [
+            {
+                # csis (C:/audio/libs/csis/dev en el .mdebug), la misma fuente que GameCube. El cerrojo de
+                # PS2 es un semaforo del kernel con dueno y cuenta (gMutexOwner, gMutexLocks y gMutexHandle
+                # en los stabs de la A124). Flags: los de GameCube (sin -fforce-addr, que PS2 no lleva).
+                "lib": "csis",
+                "toolchain_version": toolchain_de("csis"),
+                "cflags": [*cflags_game, "-fno-implement-inlines"],
+                "host": False,
+                "progress_category": "libs",
+                "objects": [
+                    Object(NonMatching, "Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp"),
+                ],
+            },
+            {
+                # eathread de PS2 (r50): el backend source/ps2 escrito del asm troceado
+                # de la A124 y la SLUS (las dos traen las mismas unidades). Como el resto
+                # del middleware de SN: -G0 y -O2. El .cpp lleva -x c++ implicito.
+                "lib": "eathread",
+                "toolchain_version": toolchain_de("eathread"),
+                "cflags": [
+                    *cflags_base_prodg,
+                    "-G0",
+                    "-O2",
+                    "-I src/Packages/eathread/1.1.0/include",
+                ],
+                "host": False,
+                "progress_category": "libs",
+                "objects": [
+                    Object(
+                        NonMatching,
+                        "Packages/eathread/1.1.0/source/eathread_semaphore.cpp",
+                        extra_cflags=["-g0"],
+                    ),
+                    Object(
+                        NonMatching,
+                        "Packages/eathread/1.1.0/source/eathread_thread.cpp",
+                        extra_cflags=["-g0"],
+                    ),
+                ],
+            },
+            {
+                # dirtysock (libdirtysock.a en el mapa de la A124, d:\...\indep\libs\dirtysock):
+                # el middleware de red de EA, en C, con el ee-gcc de SN del middleware
+                # (prologo con sq para los s y sd para ra). Solo enlaza el prototipo: SLUS
+                # no tiene la biblioteca. hlbudapi.c escrito de su asm (ronda 43).
+                # Sin -g (ronda 44, medido): el original no trae ni un $Lscope (nm: 0) y con
+                # el -g2 de PS2 GCC saca la direccion de las funciones por su alias local
+                # ($Lscope103 en vez de _HLBOpCallback). El -g0 va el ultimo y anula -g2.
+                "lib": "dirtysock",
+                "toolchain_version": toolchain_de("dirtysock"),
+                "cflags": [
+                    *cflags_base_prodg,
+                    "-G0",
+                    "-O2",
+                    "-x c",
+                    "-I src/Speed/Indep/Libs/dirtysock/include",
+                ],
+                "host": False,
+                "progress_category": "libs",
+                "objects": [
+                    *solo_a124(
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/hlbudapi.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        # r45: buddyapi.c escrito de su asm (tanda 1: formas medida
+                        # del asm; el .mdebug no trae esta lib).
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/buddyapi.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        # r48: lobbyapi.c y weboffer.c escritos de su asm (tanda 1).
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapi.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/weboffer.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbytagfield.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        # r11-decomp: lobbyapilist.c (6 fn al 100 %) y lobbyapiutil.c (1 fn) escritas
+                        # de su asm (banco r52, informe 2026-10-13_m2-dirtysock).
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapilist.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiutil.c",
+                            extra_cflags=["-g0"],
+                        ),
+                        # retomada dirtysock-2: lobbyapiasync.c escrita de su asm
+                        # (14/20 fn al 100 % en banco r52; informe 2026-10-13_dirtysock-2).
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiasync.c",
+                            extra_cflags=["-g0"],
+                        ),
+                    ),
+                ],
+            },
+            {
+                # juice 1.5.2a (Speed/Indep/Libs/juice en el mapa de la A124): la biblioteca de
+                # automatizacion de EA, en C++. Al contrario que el middleware de SN, se compilo
+                # con el ee-gcc 2.9-ee-991111 del juego (guarda los s con sd, no con sq; con el
+                # 136 JuiceMutex no casa una funcion) y con RTTI (los __tf llaman a __rtti_user),
+                # sin excepciones (con ellas, el Unlock de JuiceMutex pierde la llamada en cola a
+                # SignalSema: 73 %) y sin -G0 (el __ti, la guarda del estatico local de
+                # JuiceRandom y sCurrentNetExtention van por $gp desde .sdata). Sin -g como
+                # dirtysock: el original no trae ni un $Lscope. Solo enlaza el prototipo: en SLUS
+                # el bloque de Juice queda anonimo, sin trocear.
+                "lib": "juice",
+                "toolchain_version": config.linker_version,
+                "cflags": [
+                    *cflags_base_prodg,
+                    "-O2",
+                    "-fno-exceptions",
+                ],
+                "host": False,
+                "progress_category": "libs",
+                "objects": [
+                    *solo_a124(
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceUtil.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceMutex.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceRandom.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceNetwork.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        # ronda 2 (informe 2026-10-13_p2juice2): Processor (la base, con el
+                        # vptr a +0x0C del ABI viejo) y los gestores derivados pequenos,
+                        # escritos de su asm modulo a modulo. JuiceMonitoring queda a 8/9
+                        # (el __tf de MonitoredVariable no se emite sin un ctor que el
+                        # original no tiene) y JuiceExceptionPS2 a 3/6 (LocateCaller
+                        # 96,1 %, GetExceptionType 95,2 %); las demas cierran enteras.
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceProcessor.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceOnlinePlayMgr.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceRemoteFileManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceDebugSystem.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceMonkey.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceRPCManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceScreenshotMgr.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceErrorManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceLogging.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceMonitoring.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuicePadConfigManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuicePad.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceCoverage.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceExceptionPS2.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceExtension.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceComChannel.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceThreadManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceSystemManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceScripting.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceCom.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/Juice.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceReplayManager.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                        Object(
+                            NonMatching,
+                            "Speed/Indep/Libs/juice/1.5.2a/source/ps2/JuiceDefaultScripting.cpp",
+                            extra_cflags=["-g0"],
+                        ),
+                    ),
+                ],
+            },
+            {
+                # La libc de SN para PS2 (Speed/PSX2/bware/sce/ee/gcc/ee): el mismo newlib 1.8 de SN que la de
+                # GameCube (src/libc), con las cabeceras de newlib del EE y el ee-gcc 2.95.3 de SN. Las
+                # funciones de cadena optimizadas con MMI (strcpy, memcpy...) no son de aqui. SN la compilo con las
+                # funciones internas de GCC (el PAD de vfprintf copia sus 16 B con ldl/sdl: memcpy en linea) y con
+                # wchar_t de 16 bits (-fshort-wchar: las L"..." de vfwprintf son de 2 B por caracter).
+                "lib": "libc_sn",
+                "toolchain_version": toolchain_de("libc_sn"),
+                "ee_as": "Ps2EeAs",
+                "cflags": [*cflags_libc, "-G0", "-fshort-wchar"],
+                "host": False,
+                "progress_category": "libc",
+                "objects": [
+                    ps2_libc("fclose.c"),
+                    ps2_libc("fflush.c"),
+                    ps2_libc("findfp.c"),
+                    ps2_libc("fopen.c"),
+                    ps2_libc("fprintf.c"),
+                    ps2_libc("fseek.c"),
+                    ps2_libc("fwalk.c"),
+                    ps2_libc("makebuf.c"),
+                    # lflush y __srefill: en GameCube el troceado llama wsetup a esa unidad.
+                    Object(NonMatching, "Speed/PSX2/bware/sce/ee/gcc/ee/refill.c", source="libc/wsetup.c"),
+                    ps2_libc("sprintf.c"),
+                    ps2_libc("stdio.c"),
+                    ps2_libc("vprintf.c"),
+                    ps2_libc("vsprintf.c"),
+                    # vfprintf.c con itoa.c dentro, y otra vez con INTEGER_ONLY (vfprintf_1.c): _vfiprintf_r.
+                    ps2_libc("vfprintf.c"),
+                    Object(NonMatching, "Speed/PSX2/bware/sce/ee/gcc/ee/vfiprintf.c", source="libc/vfprintf_1.c"),
+                    ps2_libc("atexit.c", ""),
+                    ps2_libc("qsort.c", ""),
+                    ps2_libc("strcasecmp.c"),
+                    ps2_libc("strcoll.c"),
+                    ps2_libc("strcspn.c"),
+                    ps2_libc("locale.c"),
+                    ps2_libc("closer.c"),
+                    ps2_libc("fstatr.c"),
+                    ps2_libc("lseekr.c"),
+                    ps2_libc("openr.c"),
+                    ps2_libc("readr.c"),
+                    ps2_libc("writer.c"),
+                    ps2_libc("math_support.c"),
+                ],
+            },
+            {
+                # La libm es la de la toolchain de Sony (/usr/local/sce/ee/gcc/build/ee/newlib/libm en el
+                # .mdebug de la A124): newlib tal cual, compilado con el ee-gcc 2.9-ee-991111 del juego
+                # (guarda los s con sd). Las que llevan div.s no casan: su ensamblador rellena con dos nop
+                # delante de cada div.s y el nuestro no.
+                "lib": "libm_sce",
+                "toolchain_version": config.linker_version,
+                "cflags": [*cflags_libc, "-G0", "-fno-builtin"],
+                "host": False,
+                "progress_category": "libc",
+                "objects": [
+                    ps2_libc("sf_ceil.c"),
+                    ps2_libc("sf_cos.c"),
+                    ps2_libc("sf_fabs.c"),
+                    ps2_libc("sf_floor.c"),
+                    ps2_libc("sf_isnan.c"),
+                    ps2_libc("sf_sin.c"),
+                    ps2_libc("sf_tan.c"),
+                    ps2_libc("e_exp.c"),
+                    ps2_libc("ef_rem_pio2.c"),
+                    ps2_libc("kf_cos.c"),
+                    ps2_libc("kf_rem_pio2.c"),
+                    ps2_libc("kf_sin.c"),
+                    ps2_libc("sf_scalbn.c"),
+                    ps2_libc("sf_copysign.c"),
+                ],
+            },
+        ]
+    )
+
+# r36: runtime de la toolchain de Sony en PS2 (fuente publica tal cual, bajo Speed/PSX2/bWare/Src/ee/gcc/).
+# - libgcc.a de gcc 2.9-ee-991111: los stabs del original dicen ../../src/gcc/libgcc2.c compilado desde
+#   /usr/local/sce/ee/gcc/build/gcc, y el libgcc.a de build/compilers casa al byte con el del juego. En src/gcc/ va la
+#   fuente de gcc; en objdir/ (el directorio de build de gcc y newlib; `build/` lo ignora git) lo que genera su build
+#   (tconfig.h, tm.h, fp-bit.c, dp-bit.c) y un fichero por objeto que el Makefile saca de un mismo fuente con
+#   -DL<nombre> o -DDEFINE_<x> (tools/ee_gcc_pp.py preprocesa por ruta de fuente: dos objetos del mismo fuente se
+#   pisarian el .i). _eh lleva -fexceptions, como LIB2FUNCS_EH en el Makefile de gcc (sin el, este cc1 aborta en
+#   __rethrow, jump.c:3791).
+# - libm.a (newlib 1.8.1 de la toolchain): -O2 -g, NEWLIB_CFLAGS (-DMALLOC_ALIGNMENT=16 -fno-builtin) y -G0.
+# - libc.a: la de SN (objetos .obj en el NFS.MAP), compilada de newlib 1.8.1 con el ee-gcc 2.95.3 de SN como
+#   libc_sn, con --enable-newlib-mb (MB_CAPABLE) y las variantes de mallocr.c (-DDEFINE_x) del Makefile de newlib.
+#   Lo que SN anadio o retoco (snprintf, el cerrojo de malloc, _tolower en strlwr/strncasecmp, wchar_t de 16 bits)
+#   va en sn/libc.
+RT_EE = "Speed/PSX2/bWare/Src/ee/gcc/"
+
+
+def ps2_rt(unidad, fuente, *extra):
+    """Una unidad Speed/PSX2/bware/sce/ee/gcc/<unidad> del runtime de PS2, con su fuente bajo RT_EE."""
+    return Object(
+        NonMatching,
+        "Speed/PSX2/bware/sce/ee/gcc/" + unidad + ".c",
+        source=RT_EE + fuente,
+        extra_cflags=list(extra),
+    )
+
+
+if config.platform == Platform.PS2:
+    config.libs.extend(
+        [
+            {
+                # LIBGCC2_CFLAGS e INCLUDES del Makefile de gcc (CROSS, INTERNAL_CFLAGS, TARGET_LIBGCC2_CFLAGS -G 0).
+                "lib": "libgcc_ee",
+                "toolchain_version": config.linker_version,
+                "cflags": [
+                    "-O2",
+                    "-DCROSS_COMPILE",
+                    "-DIN_GCC",
+                    "-DHAIFA",
+                    "-DUSE_CPPLIB=1",
+                    "-DMULTIBYTE_CHARS=1",
+                    "-g",
+                    "-I src/" + RT_EE + "lib/gcc-lib/ee/2.9-ee-991111/include",
+                    "-G0",
+                    "-g1",
+                    "-DIN_LIBGCC2",
+                    "-D__GCC_FLOAT_NOT_NEEDED",
+                    "-Dinhibit_libc",
+                    "-I src/" + RT_EE + "objdir/gcc",
+                    "-I src/" + RT_EE + "src/gcc",
+                    "-I src/" + RT_EE + "src/gcc/config",
+                    "-I src/" + RT_EE + "include",
+                ],
+                "host": False,
+                "progress_category": "libc",
+                "objects": [
+                    ps2_rt("__main", "objdir/gcc/__main.c"),
+                    ps2_rt("_divdi3", "objdir/gcc/_divdi3.c"),
+                    ps2_rt("_eh", "objdir/gcc/_eh.c", "-fexceptions"),
+                    ps2_rt("_fixdfdi", "objdir/gcc/_fixdfdi.c"),
+                    ps2_rt("_fixsfdi", "objdir/gcc/_fixsfdi.c"),
+                    ps2_rt("_fixunsdfdi", "objdir/gcc/_fixunsdfdi.c"),
+                    ps2_rt("_fixunssfdi", "objdir/gcc/_fixunssfdi.c"),
+                    ps2_rt("_floatdidf", "objdir/gcc/_floatdidf.c"),
+                    ps2_rt("_floatdisf", "objdir/gcc/_floatdisf.c"),
+                    # _moddi3, _udivdi3 y _umoddi3: el original reserva 16-32 B mas de pila para la union del
+                    # __udivmoddi4 en linea; es del compilador (el libgcc.a de build/compilers si casa).
+                    ps2_rt("_moddi3", "objdir/gcc/_moddi3.c"),
+                    ps2_rt("_muldi3", "objdir/gcc/_muldi3.c"),
+                    ps2_rt("_pure", "objdir/gcc/_pure.c"),
+                    ps2_rt("_udivdi3", "objdir/gcc/_udivdi3.c"),
+                    ps2_rt("_umoddi3", "objdir/gcc/_umoddi3.c"),
+                    ps2_rt("dp-bit", "objdir/gcc/dp-bit.c"),
+                    ps2_rt("fp-bit", "objdir/gcc/fp-bit.c"),
+                    ps2_rt("frame", "src/gcc/frame.c"),
+                    # La parte C++ de libgcc.a (cp/Make-lang.in); solo la A124 la enlaza.
+                    ps2_rt("tinfo", "src/gcc/cp/tinfo.cc"),
+                    ps2_rt("tinfo2", "src/gcc/cp/tinfo2.cc"),
+                    ps2_rt("exception", "src/gcc/cp/exception.cc", "-fexceptions"),
+                ],
+            },
+            {
+                # Las que no casan llevan div.s: el original no lo pone en ranura de retardo y lo precede de dos
+                # nop, cosa que ni este cc1 ni este as hacen; e_sqrt y s_rint, la pila de mas de _moddi3.
+                "lib": "libm_newlib",
+                "toolchain_version": config.linker_version,
+                "cflags": [
+                    "-O2",
+                    "-g",
+                    "-G0",
+                    "-fno-builtin",
+                    "-DMALLOC_ALIGNMENT=16",
+                    "-I src/" + RT_EE + "src/newlib/libm/common",
+                    "-I src/" + RT_EE + "ee/include",
+                    "-I src/" + RT_EE + "lib/gcc-lib/ee/2.9-ee-991111/include",
+                ],
+                "host": False,
+                "progress_category": "libc",
+                "objects": [
+                    ps2_rt("ee/" + f.split("/")[1], "src/newlib/libm/" + f + ".c")
+                    for f in [
+                        "math/w_exp",
+                        "math/w_log",
+                        "math/w_sqrt",
+                        "math/wf_acos",
+                        "math/wf_asin",
+                        "math/wf_atan2",
+                        "math/wf_cosh",
+                        "math/wf_exp",
+                        "math/wf_fmod",
+                        "math/wf_log",
+                        "math/wf_log10",
+                        "math/wf_pow",
+                        "math/wf_sinh",
+                        "math/e_log",
+                        "math/e_sqrt",
+                        "math/ef_acos",
+                        "math/ef_asin",
+                        "math/ef_atan2",
+                        "math/ef_cosh",
+                        "math/ef_exp",
+                        "math/ef_fmod",
+                        "math/ef_log",
+                        "math/ef_log10",
+                        "math/ef_pow",
+                        "math/ef_sinh",
+                        "math/ef_sqrt",
+                        "math/kf_tan",
+                        "math/sf_atan",
+                        "math/sf_tanh",
+                        "math/s_isnan",
+                        "common/s_finite",
+                        "common/s_matherr",
+                        "common/s_rint",
+                        "common/sf_expm1",
+                        "common/sf_finite",
+                    ]
+                ],
+            },
+            {
+                # Ensamblada con el Ps2EeAs de SN (la replica -snas): los nop de bucle corto y de alineacion
+                # que separaban mprec, strtod, strtol, exit, strstr, fvwrite y mallocr eran del ensamblador.
+                # Flags de SN como libc_sn (funciones internas y -fshort-wchar).
+                "lib": "libc_sn_newlib",
+                "toolchain_version": toolchain_de("libc_sn"),
+                "ee_as": "Ps2EeAs",
+                "cflags": [*cflags_libc, "-G0", "-fshort-wchar", "-DMALLOC_ALIGNMENT=16", "-DMB_CAPABLE"],
+                "host": False,
+                "progress_category": "libc",
+                "objects": [
+                    *[
+                        ps2_rt("ee/" + f.split("/")[1], "src/newlib/libc/" + f + ".c")
+                        for f in [
+                            "errno/errno",
+                            "stdio/puts",
+                            "stdlib/atoi",
+                            "stdlib/bsearch",
+                            "stdlib/rand",
+                            "string/strerror",
+                            "string/u_strerr",
+                            "ctype/_tolower",
+                            "reent/sbrkr",
+                            "stdio/flags",
+                            "stdlib/mprec",
+                            "stdlib/strtod",
+                            "stdlib/strtol",
+                            "stdlib/strtoul",
+                            "stdlib/exit",
+                            "string/strstr",
+                            "stdio/fvwrite",
+                        ]
+                    ],
+                    ps2_rt(
+                        "ee/mallocr",
+                        "src/newlib/libc/stdlib/mallocr.c",
+                        "-DINTERNAL_NEWLIB",
+                        "-DDEFINE_MALLOC",
+                    ),
+                    ps2_rt("ee/freer", "objdir/ee/newlib/libc/stdlib/freer.c", "-DINTERNAL_NEWLIB"),
+                    ps2_rt("ee/callocr", "objdir/ee/newlib/libc/stdlib/callocr.c", "-DINTERNAL_NEWLIB"),
+                    # Lo que SN escribio o retoco (sn/libc): sacado del binario, al estilo de newlib. mbtowc_r es el
+                    # de newlib con el wchar_t de 16 bits de SN; wcslen y wmemchr, desenrolladas a mano;
+                    # vfwprintf/vfwiprintf, su printf ancho.
+                    *[
+                        ps2_rt("ee/" + f, "sn/libc/" + f + ".c")
+                        for f in [
+                            "snprintf",
+                            "malloc",
+                            "mlock",
+                            "strlwr",
+                            "strncasecmp",
+                            "wcscpy",
+                            "wmemcpy",
+                            "wsetup",
+                            "wcslen",
+                            "wmemchr",
+                            "mbtowc_r",
+                            "vfwprintf",
+                            "vfwiprintf",
+                        ]
+                    ],
+                ],
+            },
+            {
+                # r36 cadenas: las funciones de cadena de la libc de SN en PS2 son el asm de Cygnus de newlib
+                # (newlib/libc/machine/r5900/*.S, MMI y quadword), el mismo instruccion a instruccion; van copiadas
+                # sin cambios (asm escrito en asm en origen: docs/asm-de-ea.md). Se preprocesan con ee-gcc -E y se
+                # ensamblan con el ensamblador de SN, Ps2EeAs (tools/ee_as_S.py): su `dli` es el del original y el
+                # del as de GNU no. El Ps2EeAs que tenemos (1.9.25) alarga los bucles de 6 instrucciones o menos
+                # a 7, y el que ensamblo la libc de SN los alargaba a 6: la toolchain de libc_sn es la replica
+                # de scripts/replica_snas.py y con ella casan las 13.
+                # setjmp no entra: el original guarda con sq/swc1 y este setjmp.S (newlib 1.8.1) con sw.
+                "lib": "libc_sn_r5900",
+                "toolchain_version": toolchain_de("libc_sn"),
+                "cflags": ["-Wa,-G0"],
+                "host": False,
+                "progress_category": "libc",
+                "objects": [
+                    ps2_rt("ee/" + f, "src/newlib/libc/machine/r5900/" + f + ".S")
+                    for f in [
+                        "memchr",
+                        "memcmp",
+                        "memcpy",
+                        "memmove",
+                        "memset",
+                        "strcat",
+                        "strchr",
+                        "strcmp",
+                        "strcpy",
+                        "strlen",
+                        "strncat",
+                        "strncmp",
+                        "strncpy",
+                    ]
+                ],
+            },
+        ]
+    )
+
 
 if config.platform == Platform.GC_WII:
     config.libs.extend(
@@ -1764,7 +2808,11 @@ if config.platform == Platform.GC_WII:
             },
             {
                 "lib": "libsn_mw_steering",
-                "toolchain_version": "GC/2.7",
+                # Medido (barrido MWCC 1.3-2.7 contra el objeto): con GC/2.7 Effect_Init da
+                # 45,55 %; con GC/2.0p1 da 97,10 % y ninguna de las 31 funciones al 100 %
+                # se mueve (.text 97,50 -> 99,06). SimThread_Init baja 95,0 -> 93,40 (no
+                # estaba cerrada). La familia 1.3-2.7 del prologo ya lo acotaba.
+                "toolchain_version": "GC/2.0p1",
                 "cflags": cflags_libsn_mw_steering,
                 "host": False,
                 "progress_category": "libs",
@@ -1873,15 +2921,14 @@ if config.platform == Platform.GC_WII:
                     Object(NonMatching, "ustrcpy.cpp"),
                     Object(NonMatching, "shptype.cpp"),
                     Object(NonMatching, "swizzlesize.cpp"),
-                    # r76: CERO asm en el fichero. Subscribe 98,96 % (392/392 B) y
-                    # Unsubscribe 99,02 % (232/232 B) con la inline real
-                    # gSystems.Push/Remove, que ademas retira dos escrituras por
-                    # desplazamiento; Init 99,91 % (264/264 B) al quitar el asm que
-                    # emitia un `stw`. Alloc y AllocFast siguen al 100 %.
+                    # csis va sin -fforce-addr, como las otras bibliotecas de EA (rcmp, vp6,
+                    # realmemcard, realcore, realgraph). Medido: con el flag, Init, Subscribe,
+                    # Unsubscribe y los dos Alloc del adaptador no casan (52/57); sin el y con
+                    # los campos de NullAllocatorFlags en el orden de TagValuePair, 57/57.
                     Object(
                         NonMatching,
                         "Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp",
-                        cflags=[*cflags_game, "-fno-implement-inlines"],
+                        cflags=[*[f for f in cflags_game if f != "-fforce-addr"], "-fno-implement-inlines"],
                     ),
                     Object(NonMatching, "dummy.c"),
                     Object(NonMatching, "prodg_fixes.cpp"),
@@ -2440,9 +3487,8 @@ if config.platform == Platform.GC_WII:
                     Object(Matching, "libc/strlen.c"),
                     Object(Matching, "libc/strncmp.c"),
                     Object(Matching, "libc/strncpy.c"),
-                    # r76: las dos compilaciones de vfprintf.c se despinaron en la r75
-                    # (18 pines). _vfprintf_r/_vfiprintf_r/add_separators ya no
-                    # reproducen el objeto (mismo tamano, distinto horario).
+                    # vfprintf.c empieza en strround (0x803152A0, el STT_FILE `vfprintf.c'): la compilacion con
+                    # coma flotante lleva delante las rutinas de itoa.c (#include "itoa.c"), que no es una unidad.
                     Object(NonMatching, "libc/vfprintf.c"),
                     Object(Matching, "libc/ctype_.c"),
                     Object(Matching, "libc/impure.c"),
@@ -2562,7 +3608,6 @@ if config.platform == Platform.GC_WII:
                     Object(Matching, "libc/strncat.c"),
                     # newlib la escribe en ensamblador (libc/machine/powerpc/setjmp.S).
                     Object(Matching, "libc/setjmp.c", source="libc/setjmp.s"),
-                    Object(Matching, "libc/itoa.c"),
                     Object(Matching, "libc/rand.c"),
                     Object(Matching, "libc/openr.c"),
                     Object(Matching, "libc/flags.c"),
@@ -2602,6 +3647,55 @@ if config.platform == Platform.GC_WII:
                 ],
             },
         ]
+    )
+
+# PC40: eathread de PC. EA::Thread con su backend de Win32 (Packages/eathread/1.1.0/source/win32). La biblioteca va
+# con /O1 /Oy- (tamano y marco de pila): asi salen byte a byte las 19 funciones del semaforo de speed.exe
+# (0x834D82-0x834FE9); con el /O2 del juego no casa ninguna.
+if config.platform == Platform.WIN32:
+    config.libs.append(
+        {
+            "lib": "eathread",
+            "toolchain_version": config.linker_version,
+            "cflags": [f for f in cflags_base_prodg if f != "/O2"]
+            + ["/O1", "/Oy-", "/I src/Packages/eathread/1.1.0/include"],
+            "progress_category": "libs",
+            "objects": [
+                Object(NonMatching, "Packages/eathread/1.1.0/source/eathread_semaphore.cpp"),
+            ],
+        }
+    )
+
+# PC41: csis de PC. La misma fuente con el cerrojo de Win32 (CreateMutexA, WaitForSingleObject, ReleaseMutex). Con /O1
+# casan por codigo 15 funciones sin nombre de speed.exe (0x830EAB-0x831D15) y System::Init, Lock y Unlock byte a byte;
+# con /O2, 4.
+if config.platform == Platform.WIN32:
+    config.libs.append(
+        {
+            "lib": "csis",
+            "toolchain_version": config.linker_version,
+            "cflags": [f for f in cflags_game if f != "/O2"] + ["/O1"],
+            "progress_category": "libs",
+            "objects": [
+                Object(NonMatching, "Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp"),
+            ],
+        }
+    )
+
+# PC42: el driver de DirectSound de snd de PC (speed.exe 0x820063-0x820D4C; library/pc/sdsound.c, nombre de
+# fichero nuestro). Los flags de snd de PC (/O1 /TP) con /Ob1: sin el, /O1 expande DSOUND_stopthread en DSOUND_close
+# y el exe la llama.
+if config.platform == Platform.WIN32:
+    config.libs.append(
+        {
+            "lib": "sndpc",
+            "toolchain_version": config.linker_version,
+            "cflags": [*cflags_snd, "/Ob1"],
+            "progress_category": "libs",
+            "objects": [
+                Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/pc/sdsound.c"),
+            ],
+        }
     )
 
 if config.platform == Platform.X360:
@@ -2691,18 +3785,184 @@ OBJDIFF_SYMBOL_MAPPINGS: Dict[str, Dict[str, str]] = {
     "main/Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_interface": {
         "__static_initialization_and_destruction_0_803906C0": "__static_initialization_and_destruction_0",
     },
-    # r36e: los bytes de este comparador son IDENTICOS; lo unico que cambia es
-    # el sufijo del contador de clase local, que sale de un contador de
-    # declaraciones de la unidad y no coincide entre los dos objetos. Medido:
-    # 139.776 -> 139.792 B y 766 -> 767 funciones. OJO, el numero CADUCA en
-    # cuanto cambie cualquier declaracion anterior de zGameplay, igual que los
-    # alias que resuelve scripts/mangfix.py. YA CADUCO UNA VEZ: la r36f cambio
-    # `PackedDecimal.h`, que zGameplay incluye, y el contador paso de .25193 a
-    # .25190. Revision 2026-09-14: ahora .25167; mismos 16 B y cero relocs.
-    # Si el informe da zGameplay al 99,988% con `fncmp` a cero, revisar esto.
+}
+
+# This generated name is version-local. DWARF identifies both thunks as the
+# destructor of GetSegmentCurveStep's static USpline; all 44 relocated bytes
+# and its registration agree with the original (2026-09-22_tanda2.md).
+OBJDIFF_GOWE69_SYMBOL_MAPPINGS: Dict[str, Dict[str, str]] = {
+    "main/Speed/Indep/SourceLists/zWorld2": {"__tcf_4": "__tcf_3"},
+    # r36e: los bytes de este comparador son IDENTICOS (16 B, sin relocs en el
+    # cuerpo y con las dos referencias del llamador correctas); lo unico que
+    # cambia es el sufijo de clase local, emitido por var_labelno
+    # (gcc/varasm.c), que cuenta las etiquetas anteriores de la unidad. El
+    # nuestro cambia con cualquier cabecera que zGameplay incluya (caduco siete
+    # veces entre el 2026-09-09 y el 2026-09-23), asi que va con `*`:
+    # tools/sufijo_local.py pone el numero del objeto recien compilado
+    # (configure.py y scripts/pctall.py).
     "main/Speed/Indep/SourceLists/zGameplay": {
         "Compare__Q38GManager48GatherVisibleIcons__8GManagerPP5GIconP7IPlayer.0_8IconSortPCvT1.35326":
-            "Compare__Q38GManager48GatherVisibleIcons__8GManagerPP5GIconP7IPlayer.0_8IconSortPCvT1.25167",
+            "Compare__Q38GManager48GatherVisibleIcons__8GManagerPP5GIconP7IPlayer.0_8IconSortPCvT1.*",
+    },
+    # datos-gc 2026-10-13 (receta de 2026-10-13_datos-gc-1.md §7): las guardas _.tmp_N de los
+    # estaticos locales solo emparejan por nombre exacto, y el sufijo .M (var_labelno) nuestro
+    # nunca coincide con el del slice. Con el contador _.tmp_ de la TU ya reproducido (el N es
+    # el de la misma funcion en los dos lados, medido contra el DWARF de la CU), el `*` resuelve
+    # nuestro sufijo actual (tools/sufijo_local.py). zSim: _13.._16 = ConnectionClass/SType de
+    # Pkt_Effect_Send/Pkt_Effect_Open (WorldConn), _20 = el `r` de Sim::GetRandom.
+    "main/Speed/Indep/SourceLists/zSim": {
+        "_.tmp_13.19646": "_.tmp_13.*",
+        "_.tmp_14.19654": "_.tmp_14.*",
+        "_.tmp_15.19665": "_.tmp_15.*",
+        "_.tmp_16.19673": "_.tmp_16.*",
+        "_.tmp_20.25454": "_.tmp_20.*",
+    },
+    # zSpeech: _18 tune (CanPlayback), _19 requests_in_queue (GameSpeech::Update), _24/_25
+    # fw0/startpos (Assess180), _26/_27 speed0/t_brake_start (AssessBraking), _35 t_currdir
+    # (SoundAI::CalcPlayerDirection).
+    # zPhysicsBehaviors: _10/_11 Car_Open, _14/_15 Heli_Open, _18/_19 VehicleFragment_Open
+    # (RenderConn) y _46/_47 Car_Open, _50/_51 Heli_Open (SoundConn).
+    "main/Speed/Indep/SourceLists/zPhysicsBehaviors": {
+        "_.tmp_10.18891": "_.tmp_10.*",
+        "_.tmp_11.18899": "_.tmp_11.*",
+        "_.tmp_14.19007": "_.tmp_14.*",
+        "_.tmp_15.19015": "_.tmp_15.*",
+        "_.tmp_18.19057": "_.tmp_18.*",
+        "_.tmp_19.19065": "_.tmp_19.*",
+        "_.tmp_46.37037": "_.tmp_46.*",
+        "_.tmp_47.37045": "_.tmp_47.*",
+        "_.tmp_50.37153": "_.tmp_50.*",
+        "_.tmp_51.37161": "_.tmp_51.*",
+    },
+    # zWorld: _21/_22 Pkt_Car_Service, _25/_26 Pkt_Heli_Service, _29/_30
+    # Pkt_VehicleFragment_Service, _35/_36 Pkt_Smackable_Service (RenderConn), _45
+    # sCarWorldPosition, _46 TheParameterMapsManager, _47 AutoParameterAccessors,
+    # _48/_49/_50 tCs/tCd/tI (CalcPartRotation).
+    "main/Speed/Indep/SourceLists/zWorld": {
+        "_.tmp_21.29914": "_.tmp_21.*",
+        "_.tmp_22.29922": "_.tmp_22.*",
+        "_.tmp_25.30030": "_.tmp_25.*",
+        "_.tmp_26.30038": "_.tmp_26.*",
+        "_.tmp_29.30080": "_.tmp_29.*",
+        "_.tmp_30.30088": "_.tmp_30.*",
+        "_.tmp_35.30143": "_.tmp_35.*",
+        "_.tmp_36.30151": "_.tmp_36.*",
+        "_.tmp_45.31752": "_.tmp_45.*",
+        "_.tmp_46.36152": "_.tmp_46.*",
+        "_.tmp_47.36160": "_.tmp_47.*",
+        "_.tmp_48.36849": "_.tmp_48.*",
+        "_.tmp_49.36851": "_.tmp_49.*",
+        "_.tmp_50.36853": "_.tmp_50.*",
+    },
+    # zMain: _5/_6 Pkt_Body_Send (WorldConn), _23 SmackableParams, _32/_33
+    # MNotifyEngineBlown/MEnterRaceOverFlow, _37 ExplosionParams, _39 MRestartRace, _41
+    # MEnterFreeRoam, _50 MEnterPostRaceFlow, _58/_59 MNotifyCellCall*, _66
+    # MNotifyOnlineRaceOver, _74/_75 MNotifySimTick/MNotifySpeechStatus, _80
+    # MPlayerEnterPursuit, _82 MPursuitOver, _83 MQuitToFrontEnd, _87/_88
+    # MSpawnCop/MSpawnTraffic, _95 instance (IOModule::GetIOModule).
+    "main/Speed/Indep/SourceLists/zMain": {
+        "_.tmp_5.12647": "_.tmp_5.*",
+        "_.tmp_6.12655": "_.tmp_6.*",
+        "_.tmp_23.29118": "_.tmp_23.*",
+        "_.tmp_32.30965": "_.tmp_32.*",
+        "_.tmp_33.30997": "_.tmp_33.*",
+        "_.tmp_37.39128": "_.tmp_37.*",
+        "_.tmp_39.39648": "_.tmp_39.*",
+        "_.tmp_41.40340": "_.tmp_41.*",
+        "_.tmp_50.41432": "_.tmp_50.*",
+        "_.tmp_58.41664": "_.tmp_58.*",
+        "_.tmp_59.41690": "_.tmp_59.*",
+        "_.tmp_66.41914": "_.tmp_66.*",
+        "_.tmp_74.42194": "_.tmp_74.*",
+        "_.tmp_75.42232": "_.tmp_75.*",
+        "_.tmp_80.42404": "_.tmp_80.*",
+        "_.tmp_82.42462": "_.tmp_82.*",
+        "_.tmp_83.42494": "_.tmp_83.*",
+        "_.tmp_87.42616": "_.tmp_87.*",
+        "_.tmp_88.42672": "_.tmp_88.*",
+        "_.tmp_95.54981": "_.tmp_95.*",
+    },
+    # zPhysics: _4.._9 los TypeName de VehicleBehaviors, _10/_11 Pkt_Body_Open
+    # (WorldConn), _24 temp_record (PVehicle::Construct), _25 tunings (GetTunings),
+    # _40/_41 Pkt_Smackable_Open (RenderConn). El pad inicial de 36 B (r27) no tiene
+    # simbolos en el ELF: queda penalizando, medido en el diario de la ronda.
+    "main/Speed/Indep/SourceLists/zPhysics": {
+        "_.tmp_4.13006": "_.tmp_4.*",
+        "_.tmp_5.13017": "_.tmp_5.*",
+        "_.tmp_6.13028": "_.tmp_6.*",
+        "_.tmp_7.13039": "_.tmp_7.*",
+        "_.tmp_8.13050": "_.tmp_8.*",
+        "_.tmp_9.13061": "_.tmp_9.*",
+        "_.tmp_10.23296": "_.tmp_10.*",
+        "_.tmp_11.23304": "_.tmp_11.*",
+        "_.tmp_24.28291": "_.tmp_24.*",
+        "_.tmp_25.28623": "_.tmp_25.*",
+        "_.tmp_40.31920": "_.tmp_40.*",
+        "_.tmp_41.31928": "_.tmp_41.*",
+    },
+    # zTrack: _14 = el estatico de DoTunnelBloom (ScreenEffects.cpp).
+    "main/Speed/Indep/SourceLists/zTrack": {
+        "_.tmp_14.27615": "_.tmp_14.*",
+    },
+    # zFe: _18 MNotifyRaceAbandoned, _19 el `scale` de FixedPoint::GetScale, _20
+    # MFlowReadyForOutro, _24/_25 los estaticos de MemoryCard::Init.
+    "main/Speed/Indep/SourceLists/zFe": {
+        "_.tmp_18.27407": "_.tmp_18.*",
+        "_.tmp_19.29590": "_.tmp_19.*",
+        "_.tmp_20.29613": "_.tmp_20.*",
+        "_.tmp_24.35754": "_.tmp_24.*",
+        "_.tmp_25.35757": "_.tmp_25.*",
+    },
+    # zAI: _0 VehicleParams, _3 MSetTrafficSpeed, _11.._20 los mensajes de policia
+    # (MUnspawnCop..MControlPathfinder), _34 patrolgoal (AICopManager::UpdatePatrols),
+    # _35 MJackKnife, _37 MPerpBusted, _38/_39 car_hash/heli_hash (AIPerpVehicle::Update),
+    # _40 variation (AIVehiclePursuit::UpdateSiren), _41 MNotifyPursuitLength.
+    "main/Speed/Indep/SourceLists/zAI": {
+        # El splitter renombro el value de VehicleParams con sufijo de direccion
+        # (value.10688_80456560) y asi no empareja por relocs con el nuestro; el sufijo
+        # nuestro es el var_labelno actual (sufijo_local avisa si deriva: `value.*` seria
+        # ambiguo con los otros seis value de la unidad).
+        "value.10688_80456560": "value.5847",
+        "_.tmp_0.10689": "_.tmp_0.*",
+        "_.tmp_3.16708": "_.tmp_3.*",
+        "_.tmp_11.18594": "_.tmp_11.*",
+        "_.tmp_12.18632": "_.tmp_12.*",
+        "_.tmp_13.18664": "_.tmp_13.*",
+        "_.tmp_14.18696": "_.tmp_14.*",
+        "_.tmp_15.18728": "_.tmp_15.*",
+        "_.tmp_16.18766": "_.tmp_16.*",
+        "_.tmp_17.18798": "_.tmp_17.*",
+        "_.tmp_18.18830": "_.tmp_18.*",
+        "_.tmp_19.18874": "_.tmp_19.*",
+        "_.tmp_20.18906": "_.tmp_20.*",
+        "_.tmp_34.31354": "_.tmp_34.*",
+        "_.tmp_35.32499": "_.tmp_35.*",
+        "_.tmp_37.35275": "_.tmp_37.*",
+        "_.tmp_38.35784": "_.tmp_38.*",
+        "_.tmp_39.35786": "_.tmp_39.*",
+        "_.tmp_40.36215": "_.tmp_40.*",
+        "_.tmp_41.37061": "_.tmp_41.*",
+    },
+    "main/Speed/Indep/SourceLists/zSpeech": {
+        "_.tmp_18.25790": "_.tmp_18.*",
+        "_.tmp_19.26706": "_.tmp_19.*",
+        "_.tmp_24.29387": "_.tmp_24.*",
+        "_.tmp_25.29389": "_.tmp_25.*",
+        "_.tmp_26.29401": "_.tmp_26.*",
+        "_.tmp_27.29403": "_.tmp_27.*",
+        "_.tmp_35.30961": "_.tmp_35.*",
+    },
+    # datos-gc 2026-10-14, misma receta: zLua _15 MNISComplete, _16
+    # MNotifySpeedTrap, _17 MNotifyRacePlacement, _18 MNotifyKnockedOut, _26
+    # MNotifyChallengePassed, _27 MNotifyFinished (las seis guardas duenyas del
+    # slice; el contador se reproduce con el prefijo GC de zLua.cpp).
+    "main/Speed/Indep/SourceLists/zLua": {
+        "_.tmp_15.29731": "_.tmp_15.*",
+        "_.tmp_16.29763": "_.tmp_16.*",
+        "_.tmp_17.29807": "_.tmp_17.*",
+        "_.tmp_18.29851": "_.tmp_18.*",
+        "_.tmp_26.30182": "_.tmp_26.*",
+        "_.tmp_27.30214": "_.tmp_27.*",
     },
 }
 
@@ -2715,6 +3975,42 @@ OBJDIFF_SYMBOL_MAPPINGS: Dict[str, Dict[str, str]] = {
 OBJDIFF_SHARED_SOURCES: Dict[str, str] = {}
 OBJDIFF_SHARED_SOURCE_MAPPINGS: Dict[str, Dict[str, str]] = {}
 
+# PC (PC49, ronda 49): los inicializadores dinamicos de MSVC 7.1 (`_$E<n>`, secciones .text$yc/.text$yd) y los
+# `__ehhandler$<funcion>` de EH (.text$x; los funclets `$L<n>` NO: su numero cambia con cualquier cabecera) van al final
+# del .text, en bloques por unidad, y cada SourceList tiene su rango ahi (config/SPEED_EXE_1_3/splits.json). El numero
+# `<n>` se repite de una unidad a otra: delink deja el nombre pelado en la PRIMERA funcion (por direccion) y anade
+# `__delink_<DIR>` a las demas. Sin este mapeo (de todas, tambien las peladas) objdiff no las empareja con el
+# `_$E<n>` de nuestro objeto.
+import re as _re_pc
+
+_PC_E_DELINK = _re_pc.compile(r"^(_\$E\d+|__ehhandler\$.+?)(?:__delink_[0-9A-F]{8})?$")
+
+
+def objdiff_pc_symbol_mappings() -> Dict[str, Dict[str, str]]:
+    with open(os.path.join("config", "SPEED_EXE_1_3", "symbols.json"), "r", encoding="utf-8") as r:
+        funcs = json.load(r)["functions"]
+    with open(os.path.join("config", "SPEED_EXE_1_3", "splits.json"), "r", encoding="utf-8") as r:
+        splits = json.load(r)
+    rangos = sorted((lo, hi, obj) for obj, v in splits.items() for lo, hi in v.get("function_ranges") or [])
+    out: Dict[str, Dict[str, str]] = {}
+    vistos = set()
+    for f in sorted(funcs, key=lambda f: f["start"]):
+        nombre = f["name"]
+        repetido = nombre in vistos
+        vistos.add(nombre)
+        if not nombre.startswith(("_$E", "__ehhandler$")):
+            continue
+        for lo, hi, obj in rangos:
+            if lo <= f["start"] < hi:
+                if obj.endswith(".obj"):
+                    unidad = "main/" + obj[: -len(".obj")]
+                    # tambien el pelado: objdiff solo empareja por nombre dentro de la MISMA seccion (.text frente a
+                    # nuestro .text$yc); el mapeo explicito no mira la seccion
+                    objetivo = "%s__delink_%08X" % (nombre, f["start"]) if repetido else nombre
+                    out.setdefault(unidad, {})[objetivo] = nombre
+                break
+    return out
+
 
 def apply_objdiff_symbol_mappings() -> None:
     path = Path("objdiff.json")
@@ -2724,9 +4020,40 @@ def apply_objdiff_symbol_mappings() -> None:
         data = json.load(r)
     changed = False
     units_by_name = {unit["name"]: unit for unit in data.get("units", [])}
+    pc_mappings = objdiff_pc_symbol_mappings() if config.version == "SPEED_EXE_1_3" else {}
     for unit in data.get("units", []):
         name = unit.get("name")
         extra = dict(OBJDIFF_SYMBOL_MAPPINGS.get(name, {}))
+        # PC49: los `_$E<n>` de PC solo con PC; con otra version se quitan (project.py conserva los mapeos).
+        extra.update(pc_mappings.get(name, {}))
+        viejos = unit.get("symbol_mappings") or {}
+        sobran = [t for t, b in viejos.items() if _PC_E_DELINK.match(t) and _PC_E_DELINK.match(t).group(1) == b
+                  and pc_mappings.get(name, {}).get(t) != b]
+        if sobran:
+            for t in sobran:
+                del viejos[t]
+            if viejos:
+                unit["symbol_mappings"] = viejos
+            else:
+                unit.pop("symbol_mappings", None)
+            changed = True
+        gc_mappings = OBJDIFF_GOWE69_SYMBOL_MAPPINGS.get(name, {})
+        if config.version == "GOWE69":
+            extra.update(gc_mappings)
+        elif gc_mappings:
+            # project.py preserves mappings between configurations. Remove
+            # only our GC associations, not unrelated user mappings.
+            mappings = dict(unit.get("symbol_mappings") or {})
+            for target, base in gc_mappings.items():
+                actual = mappings.get(target)
+                if actual == base or (base.endswith("*") and isinstance(actual, str)
+                                      and actual.startswith(base[:-1])):
+                    del mappings[target]
+                    changed = True
+            if mappings:
+                unit["symbol_mappings"] = mappings
+            else:
+                unit.pop("symbol_mappings", None)
         donor_name = OBJDIFF_SHARED_SOURCES.get(name) if config.version == "GOWE69" else None
         if donor_name:
             donor = units_by_name.get(donor_name, {})
@@ -2749,6 +4076,10 @@ def apply_objdiff_symbol_mappings() -> None:
             mappings.update(extra)
             unit["symbol_mappings"] = mappings
             changed = True
+        # Los `*` (sufijos que pone el compilador) se resuelven con el objeto que
+        # haya ahora; scripts/pctall.py los vuelve a resolver tras compilar.
+        if resolver_sufijos(unit):
+            changed = True
     if changed:
         with open(path, "w", encoding="utf-8") as w:
             json.dump(data, w, indent=2)
@@ -2763,5 +4094,3 @@ elif args.mode == "progress":
     calculate_progress(config)
 else:
     sys.exit("Unknown mode: " + args.mode)
-
-# fake commit

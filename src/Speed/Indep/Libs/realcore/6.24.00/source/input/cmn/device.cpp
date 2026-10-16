@@ -14,7 +14,11 @@ RealInput::Device::~Device() {
 void RealInput::Device::InitData() {
     mPlatform = 0;
     mType = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    MEM_fill(this, 0, 0x18);
+#else
     MEM_fill(this, 0, 0x14);
+#endif
     MEM_fill(&mStat, 0, 0xC);
 }
 

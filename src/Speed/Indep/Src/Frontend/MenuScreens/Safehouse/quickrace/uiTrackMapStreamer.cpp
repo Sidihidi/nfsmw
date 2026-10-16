@@ -9,6 +9,9 @@
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/ResourceLoader.hpp"
+#endif
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
 
@@ -70,23 +73,17 @@ static inline void TrackMapCubicSnap(tCubic2D *cubic) {
 
 static UITrackMapStreamer *pInstance = nullptr;
 
-UITrackMapStreamer::UITrackMapStreamer() {
-    bMapPackLoaded = false;
-    bLoadingMap = false;
-    pCurrentTrack = nullptr;
-    TrackMap = nullptr;
-    MapHash = 0;
-    TrackMapCubic2DInit(&ZoomCubic, 1, 1.0f);
-    TrackMapCubic2DInit(&PanCubic, 1, 1.0f);
-
+UITrackMapStreamer::UITrackMapStreamer()
+    : bMapPackLoaded(false), bLoadingMap(false), pCurrentTrack(nullptr), TrackMap(nullptr), MapHash(0), ZoomCubic(1, 1.0f),
+      PanCubic(1, 1.0f) {
     bUsingTrackForAnim = true;
     pInstance = this;
 
-    TrackMapCubicSetDuration(&ZoomCubic, 1.0f);
-    TrackMapCubicSetDuration(&PanCubic, 1.0f);
-    TrackMapCubicSetFlags(&ZoomCubic, 0);
-    TrackMapCubicSetFlags(&PanCubic, 0);
-    TrackMapCubicSetVal(&ZoomCubic, 1.0f, 1.0f);
+    ZoomCubic.SetDuration(1.0f);
+    PanCubic.SetDuration(1.0f);
+    ZoomCubic.SetFlags(0);
+    PanCubic.SetFlags(0);
+    ZoomCubic.SetVal(1.0f, 1.0f);
 
     MemPoolNum = 0;
 
@@ -97,8 +94,16 @@ UITrackMapStreamer::UITrackMapStreamer() {
 
     if (bUseTrackStreamerMem) {
         MemPoolNum = 7;
+#ifndef EA_BUILD_A124 // la A124 no apaga aqui el cambio de zona
         TheTrackStreamer.DisableZoneSwitching();
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 piden el doble (lui 0xc en la A124 y en SLUS)
+        int mem_needed = 12 * 0x10000;
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        int mem_needed = 48 * 0x10000;
+#else
         int mem_needed = 6 * 0x10000;
+#endif
 
         TheTrackStreamer.MakeSpaceInPool(mem_needed, MakeSpaceInPoolCallbackBridge, reinterpret_cast<int>(this));
     } else {
@@ -107,16 +112,24 @@ UITrackMapStreamer::UITrackMapStreamer() {
 }
 
 UITrackMapStreamer::~UITrackMapStreamer() {
+#ifdef EA_BUILD_A124
+    // La A124 espera a las cargas antes de soltar las texturas y refresca el streamer al final, sin tocar el cambio
+    // de zona.
     if (bUseTrackStreamerMem) {
-#ifndef EA_BUILD_A124
+        TheTrackStreamer.WaitForCurrentLoadingToComplete();
+    }
+
+    WaitForResourceLoadingComplete();
+#else
+    if (bUseTrackStreamerMem) {
         if (!bMakeSpaceInPoolComplete) {
             TheTrackStreamer.WaitForCurrentLoadingToComplete();
         }
-#endif
 
         TheTrackStreamer.EnableZoneSwitching();
         TheTrackStreamer.RefreshLoading();
     }
+#endif
 
     eWaitForStreamingTexturePackLoading(TRACK_MAP_PACK);
     eUnloadStreamingTexture(MapHash);
@@ -128,6 +141,12 @@ UITrackMapStreamer::~UITrackMapStreamer() {
     }
 
     pInstance = nullptr;
+#ifdef EA_BUILD_A124
+
+    if (bUseTrackStreamerMem) {
+        TheTrackStreamer.RefreshLoading();
+    }
+#endif
 }
 
 void UITrackMapStreamer::MakeSpaceInPoolCallback() {
@@ -323,11 +342,11 @@ void UITrackMapStreamer::SetPan(const bVector2 &pos) {
 }
 
 void UITrackMapStreamer::SetZoomSpeed(float sec) {
-    TrackMapCubicSetDuration(&ZoomCubic, sec);
+    ZoomCubic.SetDuration(sec);
 }
 
 void UITrackMapStreamer::SetPanSpeed(float sec) {
-    TrackMapCubicSetDuration(&PanCubic, sec);
+    PanCubic.SetDuration(sec);
 }
 
 void UITrackMapStreamer::ResetZoom(bool use_track) {

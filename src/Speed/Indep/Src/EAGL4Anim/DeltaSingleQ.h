@@ -8,6 +8,7 @@
 #include "AnimMemoryMap.h"
 #include "AnimUtil.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
+#include "Speed/Indep/Libs/Support/Utility/UVectorMath.h"
 
 namespace EAGL4Anim {
 
@@ -50,7 +51,7 @@ struct DeltaSingleQMinRange {
 
 // total size: 0x2
 struct DeltaSingleQPhysical {
-    void UnQuantize(int index, UMath::Vector4 &q) const {
+    void UnQuantize(int index, COORD4 &q) const {
         const float RangeScale8Bit = 2.0f / 255.0f;
 
         q.x = q.y = q.z = 0.0f;
@@ -76,7 +77,7 @@ struct DeltaSingleQDelta {
         return v * (1.0f / 15.0f);
     }
 
-    void UnQuantize(const DeltaSingleQMinRangef &minRangef, UMath::Vector4 &q) {
+    void UnQuantize(const DeltaSingleQMinRangef &minRangef, COORD4 &q) {
         q.x = q.y = q.z = 0.0f;
 
         if (minRangef.mIndex == 0) {
@@ -90,8 +91,15 @@ struct DeltaSingleQDelta {
         q.w = minRangef.mRange[1] * DeQuantize4Bit(mW) + minRangef.mMin[1];
     }
 
+    // mW es el nibble bajo en las dos plataformas: en el EE (little-endian) va
+    // declarado primero, y la A124 saca mV con `srl 4' y mW con `andi 0xf'.
+#ifdef EA_PLATFORM_PLAYSTATION2
+    unsigned char mW : 4; // offset 0x0, size 0x1
+    unsigned char mV : 4; // offset 0x0, size 0x1
+#else
     unsigned char mV : 4; // offset 0x0, size 0x1
     unsigned char mW : 4; // offset 0x0, size 0x1
+#endif
 };
 
 // total size: 0x10

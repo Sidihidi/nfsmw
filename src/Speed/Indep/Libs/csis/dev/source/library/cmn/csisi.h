@@ -19,7 +19,15 @@ extern bool gIsAllocatorCreated;
 extern bool gIsCoreAllocatorCreated;
 extern bool gIsInited;
 extern CListDStack gSystems;
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern int gMutexLocks;
+extern int gMutexHandle;
+extern int gMutexOwner;
+#elif defined(EA_PLATFORM_WIN32)
+extern HANDLE gMutexHandle;
+#else
 extern OSMutex gMutexHandle;
+#endif
 
 struct ClassData {
     void SendParameters(Parameter *pParameters);

@@ -16,7 +16,7 @@ void SNDMEMI_init(void *pheap, int size) {
 
     sndgs.mm->pheap = (char *)pheap;
     sndgs.mm->pheap += 0xF;
-    sndgs.mm->pheap = (char *)((sndptrint)sndgs.mm->pheap & ~0xF);
+    sndgs.mm->pheap = (char *)((sndptruint)sndgs.mm->pheap & ~0xF);
     sndgs.mm->endaddr = size - 0x20;
     sndgs.mm->lowmark = size;
 }
@@ -48,6 +48,19 @@ void *SNDMEMI_allocz(int size) {
     }
 
     for (i = 0; i > sndgs.mm->nummallocs; i--) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // r19 (stash c8e087b8): aritmetica de punteros, cierra PS2 al 100 %;
+        // en GC baja a 99,81 % y rompe el DOL.
+        pcurrec = sndgs.mm->r + i;
+        if (i == 0) {
+            freeaddr = i;
+            freespace = pcurrec->addr;
+        } else {
+            lowmark = reinterpret_cast<sndptruint>(&sndgs.mm->r[i + 1]);
+            freeaddr = reinterpret_cast<SNDMEMREC *>(lowmark)->addr + reinterpret_cast<SNDMEMREC *>(lowmark)->size;
+            freespace = pcurrec->addr - freeaddr;
+        }
+#else
         pcurrec = sndgs.mm->r;
         j = i * sizeof(SNDMEMREC);
         if (i == 0) {
@@ -58,6 +71,7 @@ void *SNDMEMI_allocz(int size) {
             freeaddr = reinterpret_cast<SNDMEMREC *>(lowmark)->addr + reinterpret_cast<SNDMEMREC *>(lowmark)->size;
             freespace = *reinterpret_cast<unsigned int *>((char *)pcurrec + j) - freeaddr;
         }
+#endif
 
         SNDMEMI_constrain(&freeaddr, &freespace);
         if (size <= freespace) {
@@ -77,10 +91,18 @@ void *SNDMEMI_allocz(int size) {
     }
 
 success:
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // r19 (stash c8e087b8): idem §loop.
+    pprevrec = sndgs.mm->r;
+    pcurrec = pprevrec + i;
+    pcurrec->addr = freeaddr;
+    pcurrec->size = size;
+#else
     pcurrec = reinterpret_cast<SNDMEMREC *>(i * sizeof(SNDMEMREC));
     pprevrec = sndgs.mm->r;
     reinterpret_cast<SNDMEMREC *>((char *)pprevrec + (sndptruint)pcurrec)->addr = freeaddr;
     reinterpret_cast<SNDMEMREC *>((char *)pprevrec + (sndptruint)pcurrec)->size = size;
+#endif
     sndgs.mm->nummallocs--;
     sndgs.mm->endaddr -= sizeof(SNDMEMREC);
 

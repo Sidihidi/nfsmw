@@ -22,25 +22,57 @@ struct bFunkPacketHeader {
     int16 ReturnCode;           // offset 0x18, size 0x2
     int16 MaxReturnSize;        // offset 0x1A, size 0x2
 
-    int GetType() {}
+    int GetType() const {}
 
-    int GetTotalSize() {}
+    int GetTotalSize() const {
+        return TotalSize;
+    }
 
-    int GetDataSize() {}
+    int GetDataSize() const {
+        return TotalSize - sizeof(bFunkPacketHeader);
+    }
 
-    uint8 *GetData() {}
+    uint8 *GetData() const {
+        return (uint8 *)(this + 1);
+    }
 
-    uint8 *GetData(int pos) {}
+    uint8 *GetData(int pos) const {
+        return (uint8 *)this + sizeof(bFunkPacketHeader) + pos;
+    }
 
-    void SetDataSize(int size) {}
+    void SetDataSize(int size) {
+        TotalSize = size + sizeof(bFunkPacketHeader);
+    }
 
-    void SetTotalSize(int size) {}
+    void SetTotalSize(int size) {
+        TotalSize = size;
+    }
 
-    void InitReturnPacketHeader(const bFunkPacketHeader *sync_packet, int return_code) {}
+    void InitReturnPacketHeader(const bFunkPacketHeader *sync_packet, int return_code) {
+        Type = 2;
+        FunctionNum = sync_packet->FunctionNum;
+        DestServer = sync_packet->SourceServer;
+        SourceServer = sync_packet->DestServer;
+        ReturnBufferAddress = sync_packet->ReturnBufferAddress;
+        ReturnCodeAddress = sync_packet->ReturnCodeAddress;
+        ReturnCode = return_code;
+        MaxReturnSize = sync_packet->MaxReturnSize;
+        if (return_code < 0) {
+            SetDataSize(0);
+        } else {
+            SetDataSize(return_code);
+        }
+    }
 
-    void SetChecksumParameters(int packet_id, uint16 checksum) {}
 
-    uint16 CalculateChecksum() {}
+    void SetChecksumParameters(int packet_id, uint16 checksum) {
+        PacketID = packet_id;
+        Checksum = checksum;
+    }
+
+    uint16 CalculateChecksum() const {
+        return CalculateChecksum(GetData(), GetDataSize());
+    }
 
     static uint16 CalculateChecksum(const void *data, int data_size);
 };
@@ -82,7 +114,9 @@ class bFunkServer : public bTNode<bFunkServer> {
     virtual ~bFunkServer();
     virtual bool CanDeliverPacket(uint32 server_hash);
     virtual bool DeliverPacket(bFunkPacket *packet);
-    virtual int Service() {}
+    virtual int Service() {
+        return 0;
+    }
 };
 
 // total size: 0x2E0
@@ -199,5 +233,8 @@ void bFunkCallASync(const char *server_name, int function_num, const void *data,
 int bFunkCallSync(const char *server_name, int function_num, const void *data, int size, void *return_data, int max_return_size);
 int bFunkDoesServerExist(const char *server_name);
 void bMonitorService();
+void bFunkService();
+// El monitor de SuperBender engancha aqui su envio de paquetes y su servicio (0, 0 para soltarlos).
+void bSetupMonitorFunctionHooks(void (*send_packet)(bFunkPacketHeader *, const void *, int), void (*service)());
 
 #endif

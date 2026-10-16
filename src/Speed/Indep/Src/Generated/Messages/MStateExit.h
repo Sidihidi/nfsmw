@@ -26,7 +26,6 @@ class MStateExit : public Hermes::Message {
 
     MStateExit() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MStateExit() {}
 };
 
 
@@ -34,9 +33,9 @@ class MStateExit : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MStateExit::HandleMessage_LuaBinding(const MStateExit &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MStateExit::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -308,6 +308,121 @@ struct PlayFrontEndSample {
     }
 };
 
+// La A124 tiene aqui un sonido en bucle del frontend en lugar de PlayFrontEndSample_RS (sus stabs y su
+// EAXFrontEnd::Update, que lo actualiza con SetVolume y SetPitch de FE_AEMS.h:366-389).
+#ifdef EA_BUILD_A124
+extern InterfaceId PlayFrontEndSample_loopId;
+extern ClassHandle gPlayFrontEndSample_loopHandle;
+
+typedef struct {
+    int id;      // offset 0x0, size 0x4
+    int volume;  // offset 0x4, size 0x4
+    int pitch;   // offset 0x8, size 0x4
+    int azimuth; // offset 0xC, size 0x4
+} PlayFrontEndSample_loopStruct;
+
+struct PlayFrontEndSample_loop {
+    Csis::Class *mpClass;
+    PlayFrontEndSample_loopStruct mData;
+
+    void SetId(int x) {
+        if (x < UISND_COMMON_UP) {
+            x = UISND_COMMON_UP;
+        } else if (x > 2000) {
+            x = 2000;
+        }
+        mData.id = x;
+    }
+
+    int GetId() {
+        return mData.id;
+    }
+
+    void SetVolume(int x) {
+        if (x < 0) {
+            x = 0;
+        } else if (x > 0x7FFF) {
+            x = 0x7FFF;
+        }
+        mData.volume = x;
+    }
+
+    int GetVolume() {
+        return mData.volume;
+    }
+
+    void SetPitch(int x) {
+        if (x < 0) {
+            x = 0;
+        } else if (x > 0x1FFF) {
+            x = 0x1FFF;
+        }
+        mData.pitch = x;
+    }
+
+    int GetPitch() {
+        return mData.pitch;
+    }
+
+    void SetAzimuth(int x) {
+        if (x < 0) {
+            x = 0;
+        } else if (x > 0xFFFF) {
+            x = 0xFFFF;
+        }
+        mData.azimuth = x;
+    }
+
+    int GetAzimuth() {
+        return mData.azimuth;
+    }
+
+    int GetRefCount() {
+        int refCount = 0;
+
+        if (mpClass) {
+            mpClass->GetRefCount(&refCount);
+        }
+
+        return refCount;
+    }
+
+    static void *operator new(unsigned int size) {
+        return Csis::System::Alloc(size);
+    }
+
+    static void operator delete(void *ptr) {
+        Csis::System::Free(ptr);
+    }
+
+    PlayFrontEndSample_loop(int id, int volume, int pitch, int azimuth) {
+        SetId(id);
+        SetVolume(volume);
+        SetPitch(pitch);
+        SetAzimuth(azimuth);
+
+        Csis::Result result =
+            static_cast<Csis::Result>(Csis::Class::CreateInstance(&Csis::gPlayFrontEndSample_loopHandle, &mData, &mpClass));
+        if (result < 0) {
+            Csis::gPlayFrontEndSample_loopHandle.Set(&Csis::PlayFrontEndSample_loopId);
+            Csis::Class::CreateInstance(&Csis::gPlayFrontEndSample_loopHandle, &mData, &mpClass);
+        }
+    }
+
+    ~PlayFrontEndSample_loop() {
+        if (mpClass) {
+            mpClass->Release();
+        }
+    }
+
+    void CommitMemberData() {
+        if (mpClass) {
+            mpClass->SetMemberData(&mData);
+        }
+    }
+};
+#endif
+
 struct PlayFrontEndSample_RS {
     Csis::Class *mpClass;
     PlayFrontEndSample_RSStruct mData;

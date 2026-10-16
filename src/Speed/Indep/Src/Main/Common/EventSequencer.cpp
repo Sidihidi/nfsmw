@@ -19,7 +19,7 @@ inline void *operator new(std::size_t, void *place, unsigned int) {
     return place;
 }
 
-static CARP::ExprValType StimulusFilterLookup(unsigned int name, unsigned int subindex, const void *context, const CARP::ExprValType *value) {
+static CARP::ExprValType StimulusFilterLookup(unsigned int name, unsigned int subindex, const void *context, const CARP::ExprValType *values) {
     CARP::ExprValType result;
     const CARP::StimulusFilter *sf = reinterpret_cast<const CARP::StimulusFilter *>(context);
     unsigned int index = SearchPackedBinaryTree<const CARP::QueryDesc, unsigned int>(sf->mNumQueries, sf->GetQueries(), name);
@@ -27,7 +27,7 @@ static CARP::ExprValType StimulusFilterLookup(unsigned int name, unsigned int su
     if (index < sf->mNumQueries) {
         const CARP::QueryDesc *qDesc = &sf->GetQueries()[index];
         if (subindex < qDesc->mCount) {
-            return value[qDesc->mIndex + subindex];
+            return values[qDesc->mIndex + subindex];
         }
 
         result.u = 0;
@@ -150,11 +150,11 @@ IEngine *Create(UTL::COM::Object *baseObject, IContext *context, const UData *da
 
 IEngine *Create(UTL::COM::Object *baseObject, IContext *context, UCrc32 name, float externalTime, float rate) {
     const UData *data = FindEngineData(UCrc32(name));
-    if (data == NULL) {
-        return NULL;
+    if (data != NULL) {
+        return Create(baseObject, context, data, externalTime, rate);
     }
 
-    return Create(baseObject, context, data, externalTime, rate);
+    return NULL;
 }
 
 const UGroup *PrepareBinary(const void *binData) {
@@ -238,38 +238,39 @@ void System::Flush() {
 }
 
 void System::Stop(float externalTime, bool flush, IContext *ifiringcontext) {
-    this->TerminateAction(gStopAction, this->GetActiveIndex(), externalTime, flush, ifiringcontext);
-
     if (this->mEngine->IsVerbose()) {}
+
+    this->TerminateAction(gStopAction, this->GetActiveIndex(), externalTime, flush, ifiringcontext);
 }
 
 void System::Complete(float externalTime, bool flush, IContext *ifiringcontext) {
+    if (this->mEngine->IsVerbose()) {}
+
     if (this->IsInAction()) {
         this->FireTimedEvents(this->mActionLast, this->mAction->mDuration);
     }
 
     this->TerminateAction(gEndAction, this->GetActiveIndex(), externalTime, flush, ifiringcontext);
-
-    if (this->mEngine->IsVerbose()) {}
 }
 
 void System::Pause(float externalTime, IContext *ifiringcontext) {
     if (this->IsPaused()) return;
 
+    if (this->mEngine->IsVerbose()) {}
+
     this->mPausedAt = externalTime;
     this->FireEventTag(gPauseAction, ifiringcontext);
-
-        if (this->mEngine->IsVerbose()) {}
 }
 
 void System::Resume(float externalTime, IContext *ifiringcontext) {
     if (!this->IsPaused()) return;
 
+    if (this->mEngine->IsVerbose()) {}
+
     this->mActionLast += externalTime - this->mPausedAt;
     this->mPausedAt = -1.0f;
 
     this->FireEventTag(gResumeAction, ifiringcontext);
-    if (this->mEngine->IsVerbose()) {}
 }
 
 void System::Reset(float externalTime, float rate, IContext *ifiringcontext) {
@@ -412,10 +413,10 @@ bool System::TerminateAction(unsigned int action, unsigned int index, float exte
     if (this->IsInAction()) {
         this->FireEventTag(action, ifiringcontext);
 
-        if (this->mAction->mDuration >= 0.0f) {
-            this->mQueueDuration -= this->mAction->mDuration;
-        } else {
+        if (this->mAction->mDuration < 0.0f) {
             this->mQueueDuration = 0.0f;
+        } else {
+            this->mQueueDuration -= this->mAction->mDuration;
         }
 
         this->mAction = NULL;
@@ -647,17 +648,13 @@ inline unsigned int Engine::NumSystems() const {
 }
 
 inline unsigned int Engine::GetSystemID(unsigned int index) const {
-    unsigned int systemID;
-
     if (this->mEngine == NULL) {
-        systemID = 0;
-    } else if (index >= this->mNumSystems) {
-        systemID = 0;
-    } else {
-        systemID = this->mEngine->GetSystemIDs()[index];
+        return 0;
     }
-
-    return systemID;
+    if (index < this->mNumSystems) {
+        return this->mEngine->GetSystemIDs()[index];
+    }
+    return 0;
 }
 
 inline System *Engine::GetSystemByIndex(unsigned int index) const {
@@ -695,11 +692,11 @@ inline void Engine::SetAllSystemsState(float externalTime, unsigned int state) {
 inline bool Engine::ProcessStimulus(unsigned int systemID, unsigned int stimulus, float externalTime, IContext *ifiringcontext, QueueMode mode) {
     System *system = this->FindSystem(systemID);
 
-    if (system == NULL) {
-        return false;
+    if (system != NULL) {
+        return system->ProcessStimulus(stimulus, externalTime, ifiringcontext, mode);
     }
 
-    return system->ProcessStimulus(stimulus, externalTime, ifiringcontext, mode);
+    return false;
 }
 
 inline bool Engine::ProcessStimulus(unsigned int stimulus, float externalTime, IContext *ifiringcontext, QueueMode mode) {

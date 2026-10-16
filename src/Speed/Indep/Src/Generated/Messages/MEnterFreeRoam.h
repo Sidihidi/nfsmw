@@ -26,7 +26,6 @@ class MEnterFreeRoam : public Hermes::Message {
 
     MEnterFreeRoam() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MEnterFreeRoam() {}
 };
 
 
@@ -34,9 +33,9 @@ class MEnterFreeRoam : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MEnterFreeRoam::HandleMessage_LuaBinding(const MEnterFreeRoam &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MEnterFreeRoam::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

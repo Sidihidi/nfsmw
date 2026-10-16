@@ -17,6 +17,10 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/InGameMovieScreen.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Loading/FELoadingTips.hpp"
 #include "Speed/Indep/Src/Gameplay/GManager.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/MoviePlayer/MoviePlayer.hpp"
+#include "Speed/Indep/Src/Frontend/NFSDebugMenu.h"
+#endif
 #include "Speed/Indep/Src/Interfaces/IFengHud.h"
 #include "Speed/Indep/Src/Interfaces/SimActivities/ICopMgr.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IAudible.h"
@@ -43,7 +47,7 @@
 
 extern int TrackCopCameraMover_IdleSim;
 
-int bSawLoadingScreen = 0;
+bool bSawLoadingScreen = false;
 
 float Tweak_GameSpeed = 1.0f;
 
@@ -92,6 +96,10 @@ QuickGame::~QuickGame() {
 }
 
 bool QuickGame::ShouldPauseInput() {
+#ifdef EA_BUILD_A124
+    // La A124 no mira si hay una NIS en curso.
+    return Sim::GetState() != Sim::STATE_ACTIVE;
+#else
     if (Sim::GetState() != Sim::STATE_ACTIVE) {
         return true;
     }
@@ -99,6 +107,7 @@ bool QuickGame::ShouldPauseInput() {
         return true;
     }
     return false;
+#endif
 }
 
 void QuickGame::RaceReset() {
@@ -209,6 +218,11 @@ struct CarBuilder {
     }
 };
 
+// r75-medianas: la unica divergencia (99,748 %) es el `mr r3, r11` sobrante:
+// el pseudo de la direccion del temporal WCollisionMgr (reg/v 120 en el .lreg)
+// cae en r11 por REG_ALLOC_ORDER (los volatiles van antes que r3) y reload
+// emite la copia para el this de la llamada; el objetivo lo tiene directo en
+// r3. El DWARF no lista ningun local WCollisionMgr (temporal anonimo ya).
 void QuickGame::CreateCars(const UMath::Vector3 &startLoc) {
     UMath::Vector3 initialPos = startLoc;
     UMath::Vector3 initialVec = mStartDirection;
@@ -250,8 +264,12 @@ void QuickGame::CreateCars(const UMath::Vector3 &startLoc) {
             unsigned int player_car = FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->GetSelectedCar(0);
 
             if (FEDatabase->IsCareerMode()) {
-                CareerSettings *career = FEDatabase->GetCareerSettings();
-                player_car = career->GetCurrentCar();
+                // prof y career son las locales del DWARF (sin registro). La PS2 comprueba career aunque ya leyo el
+                // coche: la lectura va por GetCareerSettings(), no por career, y -fdelete-null-pointer-checks no
+                // puede borrar el if.
+                UserProfile *prof = FEDatabase->CurrentUserProfiles[0];
+                player_car = FEDatabase->GetCareerSettings()->GetCurrentCar();
+                CareerSettings *career = prof->GetCareer();
 
                 if (career) {
                     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
@@ -330,23 +348,21 @@ float QuickGame::OnManageTime(float real_time_delta, float sim_speed) {
     }
 
     float target_speed = 1.0f;
-    float delta_speed;
+    float delta_speed = 0.0f;
     IPlayer *player1 = IPlayer::First(PLAYER_LOCAL);
 
     eView *view = eGetView(EVIEW_PLAYER1, false);
     Camera *camera = view ? view->GetCamera() : nullptr;
-    float camera_time;
-    if (camera) {
-        camera_time = camera->GetSimTimeMultiplier();
-        target_speed = camera_time;
-    }
+    // camera_time con ternario (una sola linea en el mapa de GC, como en la A124) y delta_speed a 0.0f
+    // al declararla (la A124 la guarda en fs3 desde la linea 485; en GameCube el inicializador muere).
+    float camera_time = camera ? camera->GetSimTimeMultiplier() : 1.0f;
 
     if (Sim::IsSplitScreen()) {
         return 1.0f;
     }
 
-    if (target_speed < 1.0f) {
-        target_speed = UMath::Max(target_speed, 0.01f);
+    if (camera_time < 1.0f) {
+        target_speed = UMath::Max(camera_time, 0.01f);
         delta_speed = 0.0f;
         mInGameBreaker = false;
     } else if (INIS::Exists()) {
@@ -457,6 +473,7 @@ bool QuickGame::IsStateDone() const {
         if (GRaceStatus::Exists() && GRaceStatus::Get().IsModelsLoading()) {
             return false;
         }
+#ifndef EA_BUILD_A124
 
         GRaceCustom *startupRace = GRaceDatabase::Get().GetStartupRace();
         if (!startupRace) {
@@ -471,11 +488,15 @@ bool QuickGame::IsStateDone() const {
                 GManager::Get().ClearFreeRoamPursuit();
             }
         }
+#endif
     } else if (mState == RACESTATE_LOADING_WAIT_FOR_USER_INPUT) {
+        // La A124 no espera aqui a los consejos de carga (su zSim no toca LoadingTips).
+#ifndef EA_BUILD_A124
         if (!LoadingTips::IsDoneShowingLoadingTips()) {
             LoadingTips::SetDoneLoading(true);
             return false;
         }
+#endif
     } else if (mState == RACESTATE_LOADING_NIS) {
         if (INIS::Exists() && !INIS::Get()->IsLoaded()) {
             return false;
@@ -485,6 +506,7 @@ bool QuickGame::IsStateDone() const {
     return true;
 }
 
+#ifndef EA_BUILD_A124
 bool QuickGame::CanSimulate() {
     if (TrackCopCameraMover_IdleSim) {
         return false;
@@ -513,6 +535,49 @@ bool QuickGame::CanSimulate() {
     return true;
 }
 
+#endif
+
+#ifdef EA_BUILD_A124
+// La A124 no tiene CanSimulate: OnManageState lleva las comprobaciones dentro (QuickGame.cpp:731-809 de la A124), con la
+// pausa del menu de depuracion y el estado del reproductor de peliculas.
+Sim::State QuickGame::OnManageState(Sim::State state) {
+    if (state == Sim::STATE_NONE) {
+        if (mState != RACESTATE_READY) {
+            return Sim::STATE_INITIALIZING;
+        }
+    } else if (state == Sim::STATE_INITIALIZING) {
+        if (mState < RACESTATE_READY) {
+            if (IsStateDone()) {
+                mState = static_cast<eState>(mState + 1);
+                OnBeginState();
+            }
+        } else {
+            return Sim::STATE_ACTIVE;
+        }
+    } else {
+        if (DebugMenuShouldPauseWorld()) {
+            return Sim::STATE_IDLE;
+        }
+        if (gMoviePlayer && gMoviePlayer->IsMoviePlaying()) {
+            return Sim::STATE_IDLE;
+        }
+        if (INIS::Exists() && (!INIS::Get()->IsLoaded() || INIS::Get()->InMovie())) {
+            return Sim::STATE_IDLE;
+        }
+        if (GRaceStatus::Exists() && GRaceStatus::Get().IsLoading()) {
+            return Sim::STATE_IDLE;
+        }
+        if (GManager::Exists() && GManager::Get().GetIsWarping()) {
+            return Sim::STATE_IDLE;
+        }
+        if (FEManager::Get() && FEManager::ShouldPauseSimulation(true)) {
+            return Sim::STATE_IDLE;
+        }
+        return Sim::STATE_ACTIVE;
+    }
+    return state;
+}
+#else
 Sim::State QuickGame::OnManageState(Sim::State state) {
     if ((state == Sim::STATE_INITIALIZING || state == Sim::STATE_NONE) && mState < RACESTATE_READY) {
         if (IsStateDone()) {
@@ -528,26 +593,26 @@ Sim::State QuickGame::OnManageState(Sim::State state) {
         }
     }
 }
+#endif
 
 void QuickGame::HandleSkipFEOptions() {
-    if (!SkipFE) {
-        return;
-    }
-    if (!GRaceDatabase::Get().GetStartupRace() && SkipFERaceID[0] != '\0') {
-        GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromName(SkipFERaceID);
-        if (parms) {
-            GRaceCustom *race = GRaceDatabase::Get().AllocCustomRace(parms);
-            race->SetReversed(SkipFETrackDirection == eDIRECTION_BACKWARD);
-            race->SetNumLaps(parms->GetIsLoopingRace() ? SkipFENumLaps : 1);
-            race->SetTrafficDensity(SkipFEDisableTraffic ? 0 : SkipFETrafficDensity);
-            race->SetNumOpponents(SkipFENumAICars);
-            race->SetDifficulty((GRace::Difficulty)SkipFEDifficulty);
-            if (SkipFEDisableCops) {
-                race->SetCopsEnabled(false);
+    if (SkipFE) {
+        if (!GRaceDatabase::Get().GetStartupRace() && SkipFERaceID[0] != '\0') {
+            GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromName(SkipFERaceID);
+            if (parms) {
+                GRaceCustom *race = GRaceDatabase::Get().AllocCustomRace(parms);
+                race->SetReversed(SkipFETrackDirection == eDIRECTION_BACKWARD);
+                race->SetNumLaps(parms->GetIsLoopingRace() ? SkipFENumLaps : 1);
+                race->SetTrafficDensity(SkipFEDisableTraffic ? 0 : SkipFETrafficDensity);
+                race->SetNumOpponents(SkipFENumAICars);
+                race->SetDifficulty((GRace::Difficulty)SkipFEDifficulty);
+                if (SkipFEDisableCops) {
+                    race->SetCopsEnabled(false);
+                }
+                FEDatabase->RaceMode = race->GetRaceType();
+                GRaceDatabase::Get().SetStartupRace(race, GRace::kRaceContext_QuickRace);
+                GRaceDatabase::Get().FreeCustomRace(race);
             }
-            FEDatabase->RaceMode = race->GetRaceType();
-            GRaceDatabase::Get().SetStartupRace(race, GRace::kRaceContext_QuickRace);
-            GRaceDatabase::Get().FreeCustomRace(race);
         }
     }
 }

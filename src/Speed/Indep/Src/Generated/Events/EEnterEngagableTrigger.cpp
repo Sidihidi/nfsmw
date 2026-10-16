@@ -31,9 +31,9 @@ void EEnterEngagableTrigger_MakeEvent_Callback(const void *staticData) {
     new EEnterEngagableTrigger(((EEnterEngagableTrigger::StaticData *) staticData)->fRaceActivity);
 }
 
-int EEnterEngagableTrigger_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EEnterEngagableTrigger((GRuntimeInstance *) lua_tostring(L, 1));
+int EEnterEngagableTrigger_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EEnterEngagableTrigger((GRuntimeInstance *) lua_tostring(luaState, 1));
     }
     return 0;
 }

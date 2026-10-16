@@ -106,10 +106,14 @@ CARSFX_TruckWoosh::CARSFX_TruckWoosh()
 CARSFX_TruckWoosh::~CARSFX_TruckWoosh() {}
 
 int CARSFX_TruckWoosh::GetController(int Index) {
+#ifdef EA_PLATFORM_PLAYSTATION2
     if (Index == 0) {
         return 0xF;
     }
     return -1;
+#else
+    return Index != 0 ? -1 : 0xF;
+#endif
 }
 
 void CARSFX_TruckWoosh::AttachController(SFXCTL *psfxctl) {
@@ -151,7 +155,8 @@ eDRIVE_BY_TYPE CARSFX_TruckWoosh::GetWooshSample() {
     bVector3 normalvel = bNormalize(this->m_vTrailerVel);
     float dotprod = bAbs(bDot(*pcar->GetForwardVector(), normalvel));
 
-    if (dotprod < 0.2f) {
+    // PS2 y speed.exe comparan en double; GameCube en float porque compila con -fdefault-single-float
+    if (dotprod < 0.2) {
         this->SetDMIX_Input(6, 0x7FFF);
         return this->GetPhysCar()->GetAttributes()->WooshType();
     }

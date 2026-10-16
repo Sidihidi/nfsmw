@@ -1,5 +1,6 @@
 #include "Ecstasy.hpp"
 #include "Speed/Indep/Src/Ecstasy/eStreamingPack.hpp"
+#include "Speed/Indep/Src/Misc/Profiler.hpp"
 #include "Speed/Indep/Src/Misc/ResourceLoader.hpp"
 #include "Speed/Indep/Src/Misc/SpeedChunks.hpp"
 #include "Speed/Indep/bWare/Inc/bChunk.hpp"
@@ -183,7 +184,11 @@ void eSolidNotifyTextureLoading(TexturePack *texture_pack, TextureInfo *texture_
                         eSolid *solid = index_entry->Solid;
 
                         if (solid) {
-                            solid->NotifyTextureLoading(texture_pack);
+                            if (solid->NotifyTextureLoading(texture_pack)) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+                                eSolidPlatNotifyTextureLoading(solid);
+#endif
+                            }
                         }
                     }
                 }
@@ -300,15 +305,14 @@ ePositionMarker *eSolid::GetPostionMarker(ePositionMarker *prev_marker) {
         return nullptr;
     }
     if (prev_marker) {
-        if (prev_marker >= position_marker_table) {
-            if (prev_marker < &position_marker_table[num_position_markers - 1]) {
-                next_marker = prev_marker + 1;
-                return next_marker;
-            }
+        if (prev_marker < position_marker_table || prev_marker >= &position_marker_table[num_position_markers - 1]) {
+            return nullptr;
         }
-        return nullptr;
+        next_marker = prev_marker + 1;
+    } else {
+        next_marker = position_marker_table;
     }
-    return position_marker_table;
+    return next_marker;
 }
 
 // UNSOLVED
@@ -612,6 +616,10 @@ eSolid *InternalLoaderSolidChunks(bChunk *chunk, eSolidListHeader *solid_list_he
         solid_is_valid = 0;
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    AutoKit(solid);
+#endif
+
     eSolidIndexEntry *index_entry = GetSolidIndexEntry(solid_list_header, solid->NameHash);
 
     if (!index_entry) {
@@ -750,22 +758,30 @@ int UnloaderSolidList(bChunk *chunk) {
 }
 
 void SolidLoadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *streaming_entry, eStreamingPack *streaming_pack) {
+    ProfileNode profile_node(nullptr, 0);
     if (chunk->GetID() != BCHUNK_SOLID_PACK) {
         EndianSwapChunkHeader(chunk);
-        EndianSwapChunkHeadersRecursive(chunk->GetFirstChunk(), chunk->GetLastChunk());
+        bChunk *first_chunk = chunk->GetFirstChunk();
+        bChunk *last_chunk = chunk->GetLastChunk();
+        EndianSwapChunkHeadersRecursive(first_chunk, last_chunk);
     }
     InternalLoaderSolidChunks(chunk, streaming_pack->SolidListHeader);
     NotifySolidLoader(streaming_pack->SolidListHeader);
 }
 
 void SolidUnloadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *streaming_entry, eStreamingPack *streaming_pack) {
+    ProfileNode profile_node(nullptr, 0);
     eSolid *solid = eFindSolid(streaming_entry->NameHash);
     if (solid) {
         InternalUnloaderSolidChunks(chunk, streaming_pack->SolidListHeader);
     }
 }
 
+#ifdef EA_BUILD_A124
+void eLoadStreamingSolid(uint32 *name_hash_table, int num_hashes, void (*callback)(uint32), uint32 param0, int memory_pool_num) {
+#else
 void eLoadStreamingSolid(uint32 *name_hash_table, int num_hashes, void (*callback)(void *), void *param0, int memory_pool_num) {
+#endif
     StreamingSolidPackLoader.LoadStreamingEntry(name_hash_table, num_hashes, callback, param0, memory_pool_num);
 }
 
@@ -777,7 +793,11 @@ void eWaitForStreamingSolidPackLoading(const char *filename) {
     StreamingSolidPackLoader.WaitForLoadingToFinish(filename);
 }
 
+#ifdef EA_BUILD_A124
+int eLoadStreamingSolidPack(const char *filename, void (*callback_function)(uint32), uint32 callback_param, int memory_pool_num) {
+#else
 int eLoadStreamingSolidPack(const char *filename, void (*callback_function)(void *), void *callback_param, int memory_pool_num) {
+#endif
     eStreamingPack *streaming_pack = StreamingSolidPackLoader.CreateStreamingPack(filename, callback_function, callback_param, memory_pool_num);
     return streaming_pack != nullptr;
 }
@@ -812,9 +832,15 @@ void SolidLoadingStreamingPackPhase2(eStreamingPackHeaderLoadingInfoPhase2 *load
     }
 }
 
+#ifdef EA_BUILD_A124
+int eUnloadStreamingSolidPack(const char *filename, void (*callback_func)(uint32), uint32 callback_param) {
+    return StreamingSolidPackLoader.DeleteStreamingPack(filename, callback_func, callback_param);
+}
+#else
 int eUnloadStreamingSolidPack(const char *filename) {
     return StreamingSolidPackLoader.DeleteStreamingPack(filename);
 }
+#endif
 
 void SolidUnloadingStreamingPack(eStreamingPack *streaming_pack) {
     InternalUnloaderSolidHeaderChunks(streaming_pack->HeaderChunks);
@@ -839,7 +865,7 @@ eSolid *eFindSolid(uint32 name_hash) {
 
 // UNSOLVED
 eSolid *eFindSolid(uint32 name_hash /* r31 */, eSolidListHeader *solid_list_header /* r30 */) {
-    if (SolidLoadedTable.IsLoaded(name_hash)) {
+    if (!SolidLoadedTable.IsLoaded(name_hash)) {
         return nullptr;
     }
     uint32 start_time = bGetTicker();
@@ -871,6 +897,13 @@ eSolid *eFindSolid(uint32 name_hash /* r31 */, eSolidListHeader *solid_list_head
 
 bChunkLoader bChunkLoaderSolidList(0x80134000, LoaderSolidList, UnloaderSolidList);
 
+// 16 paquetes en las dos PS2 (_GLOBAL_$I$ de zEcstasy) y 32 en GameCube.
+#ifdef EA_PLATFORM_PLAYSTATION2
+eStreamPackLoader StreamingSolidPackLoader(0x10, SolidLoadedStreamingEntryCallback, SolidUnloadedStreamingEntryCallback,
+                                           SolidLoadingStreamingPackPhase1, SolidLoadingStreamingPackPhase2,
+                                           SolidUnloadingStreamingPack);
+#else
 eStreamPackLoader StreamingSolidPackLoader(0x20, SolidLoadedStreamingEntryCallback, SolidUnloadedStreamingEntryCallback,
                                            SolidLoadingStreamingPackPhase1, SolidLoadingStreamingPackPhase2,
                                            SolidUnloadingStreamingPack);
+#endif

@@ -125,6 +125,18 @@ struct LobbyApiUserSetT {
 
 typedef LobbyApiUserSetT GameSession;
 
+// stabs de la A124 (0x20 B); UIOLLobbyRoom::MaybeUpdateServerUsageStats lee los contadores.
+struct LobbyApiServerStatT {
+    int iEnabled;
+    int iUpdate;
+    unsigned int uUsersInLobby;
+    unsigned int uUsersInRooms;
+    unsigned int uUsersInGames;
+    unsigned int uGamesInProgress;
+    unsigned int uGamesCreated;
+    unsigned int uGamesCompleted;
+};
+
 struct LobbyApiPartitionT {
     int iSize;
     char strParams[36];
@@ -267,6 +279,11 @@ class LobbyCore {
     struct LobbyCommand : bTNode<LobbyCommand> {
         LobbyCommand(int commandKind, const char *request, bool commandGroup, LobbyApiCallbackT *callback, void *callbackContext,
                      CommandCBFunc completionCallback, void *completionContext);
+        ~LobbyCommand() {
+            if (req) {
+                delete[] req;
+            }
+        }
 
         int kind;
         char *req;
@@ -280,6 +297,10 @@ class LobbyCore {
     };
 
     struct RaceResults {
+        RaceResults() {
+            Clear();
+        }
+        ~RaceResults() {}
         void Clear();
 
         char auth[64];
@@ -309,6 +330,7 @@ class LobbyCore {
     LobbyApiRefT *GetLobbyApiRef();
     void Suspend();
     void Resume(bool fullResume);
+    bool IsSuspended() { return mIsSuspended; }
     int RegisterGlobalCallback(LobbyApiCBTypeE type, LobbyApiCallbackT *func, void *context);
     void UnregisterGlobalCallback(LobbyApiCBTypeE type, LobbyApiCallbackT *func, void *context);
     static void LobbyPrintf(void *ref, const char *text);
@@ -357,5 +379,15 @@ class LobbyCore {
     bool sendCDKey;
     bool mIsSuspended;
 };
+
+extern "C" {
+int TagFieldGetStructure(const char *field, void *buffer, int bufferSize, const char *format);
+char *TagFieldFind(const char *record, const char *name);
+int TagFieldGetNumber(const char *field, int defaultValue);
+int TagFieldGetString(const char *field, char *buffer, int bufferSize, const char *defaultValue);
+// El segundo argumento es la referencia que DispList le pasa a la funcion de orden (su "sortref": el ranking la llama
+// con this); LobbyRanks.cpp lo declara como int sortcon.
+void DispListSort(DispListRef *list, void *sortref, int sortcon, int (*sortfn)(void *, int, void *, void *));
+}
 
 #endif

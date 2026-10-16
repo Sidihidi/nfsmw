@@ -10,7 +10,9 @@ struct damagespecs : Instance {
     struct _LayoutStruct {
         DamageScaleRecord DZ_LFRONT;         // offset 0x0, size 0x8
         DamageScaleRecord DZ_FRONT;          // offset 0x8, size 0x8
+#ifndef EA_BUILD_A124
         DamageScaleRecord DZ_BOTTOM;         // offset 0x10, size 0x8
+#endif
         DamageScaleRecord DZ_LEFT;           // offset 0x18, size 0x8
         DamageScaleRecord DZ_RREAR;          // offset 0x20, size 0x8
         DamageScaleRecord DZ_LREAR;          // offset 0x28, size 0x8
@@ -19,11 +21,15 @@ struct damagespecs : Instance {
         DamageScaleRecord DZ_TOP;            // offset 0x40, size 0x8
         DamageScaleRecord DZ_RFRONT;         // offset 0x48, size 0x8
         EA::Reflection::Float SHOCK_TIME;    // offset 0x50, size 0x4
+#ifndef EA_BUILD_A124
         EA::Reflection::Float HP_THRESHOLD;  // offset 0x54, size 0x4
         EA::Reflection::Float SUPPRESS_DIST; // offset 0x58, size 0x4
+#endif
         EA::Reflection::Float SHOCK_FORCE;   // offset 0x5c, size 0x4
         EA::Reflection::Float FORCE;         // offset 0x60, size 0x4
+#ifndef EA_BUILD_A124
         EA::Reflection::Float HIT_POINTS;    // offset 0x64, size 0x4
+#endif
     };
 
     typedef DamageScaleRecord TypeOf_DZ_BOTTOM;
@@ -100,10 +106,12 @@ struct damagespecs : Instance {
         Instance::operator=(rhs);
         return *this;
     }
+#ifndef EA_BUILD_A124
     bool DZ_BOTTOM(TAttrib<DamageScaleRecord> &result) const;
     bool DZ_BOTTOM(DamageScaleRecord &result) const;
     const DamageScaleRecord &DZ_BOTTOM() const;
     bool SET_DZ_BOTTOM(const DamageScaleRecord &input);
+#endif
 
     bool DZ_FRONT(TAttrib<DamageScaleRecord> &result) const;
     bool DZ_FRONT(DamageScaleRecord &result) const;
@@ -222,6 +230,7 @@ inline Key Gen::damagespecs::ClassKey() {
     return ClassName::damagespecs;
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::damagespecs::DZ_BOTTOM(TAttrib<DamageScaleRecord> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(DamageScaleRecord, 0xadd2023d);
 }
@@ -235,6 +244,7 @@ inline bool Gen::damagespecs::DZ_BOTTOM(DamageScaleRecord &result) const {
 inline bool Gen::damagespecs::SET_DZ_BOTTOM(const DamageScaleRecord &input) {
     ATTRIB_CODEGEN_SETLAYOUT(DZ_BOTTOM, input);
 }
+#endif
 
 inline bool Gen::damagespecs::DZ_FRONT(TAttrib<DamageScaleRecord> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(DamageScaleRecord, 0x1e21c772);
@@ -380,28 +390,44 @@ inline bool Gen::damagespecs::HIT_POINTS(TAttrib<EA::Reflection::Float> &result)
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x97f059b7);
 }
 inline const EA::Reflection::Float &Gen::damagespecs::HIT_POINTS() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUE(EA::Reflection::Float, 0x97f059b7);
+#else
     ATTRIB_CODEGEN_GETLAYOUT(HIT_POINTS);
+#endif
 }
 inline bool Gen::damagespecs::HIT_POINTS(EA::Reflection::Float &result) const {
     result = HIT_POINTS();
     return true;
 }
 inline bool Gen::damagespecs::SET_HIT_POINTS(const EA::Reflection::Float &input) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUE(EA::Reflection::Float, 0x97f059b7, input);
+#else
     ATTRIB_CODEGEN_SETLAYOUT(HIT_POINTS, input);
+#endif
 }
 
 inline bool Gen::damagespecs::HP_THRESHOLD(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x499cb7bd);
 }
 inline const EA::Reflection::Float &Gen::damagespecs::HP_THRESHOLD() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUE(EA::Reflection::Float, 0x499cb7bd);
+#else
     ATTRIB_CODEGEN_GETLAYOUT(HP_THRESHOLD);
+#endif
 }
 inline bool Gen::damagespecs::HP_THRESHOLD(EA::Reflection::Float &result) const {
     result = HP_THRESHOLD();
     return true;
 }
 inline bool Gen::damagespecs::SET_HP_THRESHOLD(const EA::Reflection::Float &input) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUE(EA::Reflection::Float, 0x499cb7bd, input);
+#else
     ATTRIB_CODEGEN_SETLAYOUT(HP_THRESHOLD, input);
+#endif
 }
 
 inline bool Gen::damagespecs::SHOCK_FORCE(TAttrib<EA::Reflection::Float> &result) const {
@@ -436,14 +462,22 @@ inline bool Gen::damagespecs::SUPPRESS_DIST(TAttrib<EA::Reflection::Float> &resu
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xc802a18d);
 }
 inline const EA::Reflection::Float &Gen::damagespecs::SUPPRESS_DIST() const {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_GETVALUE(EA::Reflection::Float, 0xc802a18d);
+#else
     ATTRIB_CODEGEN_GETLAYOUT(SUPPRESS_DIST);
+#endif
 }
 inline bool Gen::damagespecs::SUPPRESS_DIST(EA::Reflection::Float &result) const {
     result = SUPPRESS_DIST();
     return true;
 }
 inline bool Gen::damagespecs::SET_SUPPRESS_DIST(const EA::Reflection::Float &input) {
+#ifdef EA_BUILD_A124
+    ATTRIB_CODEGEN_SETVALUE(EA::Reflection::Float, 0xc802a18d, input);
+#else
     ATTRIB_CODEGEN_SETLAYOUT(SUPPRESS_DIST, input);
+#endif
 }
 
 }; // namespace Attrib

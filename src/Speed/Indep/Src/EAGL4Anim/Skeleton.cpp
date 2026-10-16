@@ -1,10 +1,7 @@
 #include "Skeleton.h"
+#include "System.h"
 
 namespace EAGL4Anim {
-
-typedef void (*MatrixMultiplier)(EAGL4::Transform *, const EAGL4::Transform *, const EAGL4::Transform *);
-
-extern MatrixMultiplier MatrixMultiply;
 
 void Skeleton::MirrorPose(float *pose, float *mirrorPose, bool local, const BoneMask *mask) {
 
@@ -86,6 +83,20 @@ void Skeleton::MirrorPose(float *pose, float *mirrorPose, bool local, const Bone
                 }
             }
         }
+
+        if (!local) {
+
+            UMath::Vector4 quat;
+
+            pd = mirrorPose;
+            quat = *reinterpret_cast<UMath::Vector4 *>(&pd[4]);
+            pd[4] = quat.z;
+            pd[5] = quat.w;
+            pd[6] = -quat.x;
+            pd[7] = -quat.y;
+            pd[8] = -pd[8];
+            pd[10] = -pd[10];
+        }
     } else {
 
         if (pose == mirrorPose) {
@@ -152,20 +163,20 @@ void Skeleton::MirrorPose(float *pose, float *mirrorPose, bool local, const Bone
                 pd[10] = -ps[10];
             }
         }
-    }
 
-    if (!local) {
+        if (!local) {
 
-        UMath::Vector4 quat;
+            UMath::Vector4 quat;
 
-        pd = mirrorPose;
-        quat = *reinterpret_cast<UMath::Vector4 *>(&pd[4]);
-        pd[4] = quat.z;
-        pd[5] = quat.w;
-        pd[6] = -quat.x;
-        pd[7] = -quat.y;
-        pd[8] = -pd[8];
-        pd[10] = -pd[10];
+            pd = mirrorPose;
+            quat = *reinterpret_cast<UMath::Vector4 *>(&pd[4]);
+            pd[4] = quat.z;
+            pd[5] = quat.w;
+            pd[6] = -quat.x;
+            pd[7] = -quat.y;
+            pd[8] = -pd[8];
+            pd[10] = -pd[10];
+        }
     }
 }
 

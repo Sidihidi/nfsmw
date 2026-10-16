@@ -307,9 +307,9 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
 
     // Overrides: IPursuit
     Attrib::Gen::pursuitlevels *GetPursuitLevelAttrib() const override;
-
+  private:
     Attrib::Gen::pursuitsupport *GetPursuitSupportAttrib() const;
-
+  public:
     // Overrides: IPursuit
     void LockInPursuitAttribs() override;
 
@@ -318,26 +318,26 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
 
     // Overrides: IPursuit
     void AddVehicleToContingent(IVehicle *ivehicle) override;
-
+  protected:
     // Overrides: IAttachable
     void OnAttached(IAttachable *pOther) override;
 
     // Overrides: IAttachable
     void OnDetached(IAttachable *pOther) override;
-
+  public:
     // Overrides: IPursuit
     void IncNumCopsDestroyed(IVehicle *ivehicle) override;
-
+  private:
     void TrackVehicleCounts();
-
+  public:
     // Overrides: IPursuit
     enum FormationType GetFormationType() const override;
-
+  private:
     void InitFormation(int numCops);
-
+  public:
     // Overrides: IPursuit
     void EndCurrentFormation() override;
-
+  private:
     void AssignCopOffset(int cop, Pursuers &assignCopList, const UMath::Vector3 &pursuitOffset, const UMath::Vector3 &inPositionOffset,
                          const UCrc32 &ipg, bool information);
 
@@ -354,7 +354,7 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
     void UpdateFormation(float dT);
 
     void UpdateOutOfFormationOffsets();
-
+  public:
     // Overrides: IPursuit
     bool IsPlayerPursuit() const override;
 
@@ -369,13 +369,13 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
 
     // Overrides: IPursuit
     bool ShouldEnd() const override;
-
+  private:
     void GetAdjustedCopCounts(CopCountRecord *counts, int &numcounts);
 
     void RemoveUnwantedVehicles();
 
     void FleeCopOfType(UCrc32 type, int fleecount);
-
+  public:
     // Overrides: IPursuit
     const char *CopRequest() override;
 
@@ -427,9 +427,9 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
 
     // Overrides: IPursuit
     void EndPursuitEnteringSafehouse() override;
-
+  private:
     void UpdateJerk(float dt);
-
+  public:
     // Overrides: IPursuit
     int GetNumCops() const override {
         return mIVehicleList.size();
@@ -679,7 +679,11 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
 
     // Overrides: IPursuit
     int GetNumCopsRemainingInWave() const override {
+#ifdef EA_BUILD_A124
+        return UMath::Max(mNumCopsRequiredToEvade - mNumFullyEngagedCopsEvaded, 0);
+#else
         return UMath::Max(mNumCopsRequiredToEvade - mNumFullyEngagedCopsEvaded, 1);
+#endif
     }
 
     // Overrides: IPursuit
@@ -697,10 +701,12 @@ class AIPursuit : public Sim::Activity, public IPursuit, public Debugable {
         return mMinDistanceToTarget;
     }
 
+#ifndef EA_BUILD_A124
     // Overrides: IPursuit
     void SetBustedTimerToZero() override {
         mBustedTimer = 0.0f;
     }
+#endif
 
     // Overrides: IPursuit
     bool GetEnterSafehouseOnDone() override {

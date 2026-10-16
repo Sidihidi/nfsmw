@@ -98,7 +98,7 @@ bool FnRawStateChan::EvalState(float time, State *s) {
 
         while (i < c->GetNumKeys()) {
 
-            k = c->GetKeyData(i);
+            k = c->GetKeyData(0) + i * c->GetKeySize();
 
             if (time < *reinterpret_cast<float *>(&k[c->GetKeySize()])) {
 
@@ -118,7 +118,7 @@ bool FnRawStateChan::EvalState(float time, State *s) {
 
         for (i = mKeyIdx - 1; i >= 0; i--) {
 
-            k = c->GetKeyData(i);
+            k = c->GetKeyData(0) + i * c->GetKeySize();
 
             if (time >= *reinterpret_cast<float *>(&k)) {
 
@@ -147,19 +147,20 @@ bool FnRawStateChan::FindTime(const StateTest &test, float startTime, float &res
 
     for (i = 0; i < c->GetNumKeys(); i++) {
 
-        k = c->GetKeyData(0);
-        keyTime = *reinterpret_cast<float *>(k + i * c->GetKeySize());
-        k += i * c->GetKeySize();
+        k = c->GetKeyData(0) + i * c->GetKeySize();
 
-        if (keyTime > startTime) {
+        keyTime = *reinterpret_cast<float *>(k);
 
-            Decode(k + 4, state);
+        if (keyTime <= startTime) {
+            continue;
+        }
 
-            if (test.Pass(reinterpret_cast<State *>(state))) {
+        Decode(k + 4, state);
 
-                resultTime = keyTime;
-                return true;
-            }
+        if (test.Pass(reinterpret_cast<State *>(state))) {
+
+            resultTime = keyTime;
+            return true;
         }
     }
 

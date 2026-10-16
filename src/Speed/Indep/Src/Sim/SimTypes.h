@@ -2,7 +2,7 @@
 #define SIMTYPES_H
 
 #include "Speed/Indep/Libs/Support/Utility/UCrc.h"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 #include "Speed/Indep/bWare/Inc/bDebug.hpp"
 #include "Speed/Indep/bWare/Inc/bTypes.hpp"
 
@@ -229,7 +229,9 @@ enum DriverClass {
     DRIVER_COP = 2,
     DRIVER_RACER = 3,
     DRIVER_NONE = 4,
+#ifndef EA_BUILD_A124
     DRIVER_NIS = 5,
+#endif
     DRIVER_REMOTE = 6,
 };
 

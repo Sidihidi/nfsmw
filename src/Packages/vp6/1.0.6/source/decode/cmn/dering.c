@@ -1,68 +1,7 @@
-typedef int INT32;
-typedef unsigned int UINT32;
+#include <stdlib.h>
 
-typedef struct {
-    unsigned int VideoFrameWidth;
-    unsigned int VideoFrameHeight;
-    int YStride;
-    int UVStride;
-    unsigned int HFragPixels;
-    unsigned int VFragPixels;
-    unsigned int HScale;
-    unsigned int HRatio;
-    unsigned int VScale;
-    unsigned int VRatio;
-    unsigned int ScalingMode;
-    unsigned int Interlaced;
-    unsigned int ExpandedFrameWidth;
-    unsigned int ExpandedFrameHeight;
-} CONFIG_TYPE;
-
-typedef struct {
-    int Vp3VersionNo;
-    int FrameType;
-    int PostProcessingLevel;
-    int FrameQIndex;
-    unsigned char *LastFrameRecon;
-    unsigned char *PostProcessBuffer;
-    unsigned char *FragInfo;
-    unsigned int FragInfoElementSize;
-    unsigned int FragInfoCodedMask;
-    int *FragQIndex;
-    int *FragmentVariances;
-    unsigned char *FragDeblockingFlag;
-    int *BoundingValuePtr;
-    int *FiltBoundingValue;
-    int *DeblockValuePtr;
-    int *DeblockBoundingValue;
-    CONFIG_TYPE Configuration;
-    unsigned int ReconYDataOffset;
-    unsigned int ReconUDataOffset;
-    unsigned int ReconVDataOffset;
-    unsigned int YPlaneFragments;
-    unsigned int UVPlaneFragments;
-    unsigned int UnitFragments;
-    unsigned int HFragments;
-    unsigned int VFragments;
-    int YStride;
-    int UVStride;
-    int *FiltBoundingValueAlloc;
-    int *DeblockBoundingValueAlloc;
-    int *FragQIndexAlloc;
-    int *FragmentVariancesAlloc;
-    unsigned char *FragDeblockingFlagAlloc;
-    unsigned int MVBorder;
-    unsigned char *IntermediateBufferAlloc;
-    unsigned char *IntermediateBuffer;
-    unsigned int DeInterlaceMode;
-    unsigned int AddNoiseMode;
-} POSTPROC_INSTANCE;
-
-extern void (*CopyBlock)(unsigned char *, unsigned char *, unsigned int);
-extern void (*DeringBlockWeak)(POSTPROC_INSTANCE *, const unsigned char *, unsigned char *,
-                               int, unsigned int, unsigned int *);
-extern void (*DeringBlockStrong)(POSTPROC_INSTANCE *, const unsigned char *, unsigned char *,
-                                 int, unsigned int, unsigned int *);
+#include "postp.h"
+#include "vputil.h"
 
 UINT32 DeringModifierV1[64];
 
@@ -297,7 +236,13 @@ void DeringFrame(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned char *Dst)
     unsigned char *SrcPtr, *DestPtr;
     INT32 Quality = pbi->FrameQIndex;
 
+    /* PC (speed.exe 0x8057AF/0x805BE3): MSVC 7.1 no canonicaliza `> 4` a `>= 5`
+     * como GCC, y el original compara contra 5 y contra 2. */
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo >= 5) {
+#else
     if (pbi->Vp3VersionNo > 4) {
+#endif
         Thresh1 = 384;
         Thresh2 = 2304;
         Thresh3 = 2880;
@@ -309,19 +254,30 @@ void DeringFrame(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned char *Dst)
         Thresh4 = 122880;
     }
 
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo >= 5)
+        QuantScale = DeringModifierV3;
+    else if (pbi->Vp3VersionNo >= 2)
+        QuantScale = DeringModifierV2;
+    else
+        QuantScale = DeringModifierV1;
+#else
     if (pbi->Vp3VersionNo > 4)
         QuantScale = DeringModifierV3;
     else if (pbi->Vp3VersionNo > 1)
         QuantScale = DeringModifierV2;
     else
         QuantScale = DeringModifierV1;
+#endif
 
-    Block = 0;
-    BlocksDown = pbi->VFragments;
     BlocksAcross = pbi->HFragments;
-    LineLength = pbi->YStride;
+    BlocksDown = pbi->VFragments;
+
     SrcPtr = Src + pbi->ReconYDataOffset;
     DestPtr = Dst + pbi->ReconYDataOffset;
+    LineLength = pbi->YStride;
+
+    Block = 0;
 
     for (row = 0; row < BlocksDown; row++) {
         for (col = 0; col < BlocksAcross; col++) {
@@ -357,8 +313,8 @@ void DeringFrame(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned char *Dst)
         DestPtr += 8 * LineLength;
     }
 
-    BlocksDown = BlocksDown / 2;
     BlocksAcross = BlocksAcross / 2;
+    BlocksDown = BlocksDown / 2;
     LineLength = LineLength / 2;
     SrcPtr = Src + pbi->ReconUDataOffset;
     DestPtr = Dst + pbi->ReconUDataOffset;
@@ -367,7 +323,11 @@ void DeringFrame(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned char *Dst)
         for (col = 0; col < BlocksAcross; col++) {
             int Variance = pbi->FragmentVariances[Block];
 
+#if defined(EA_PLATFORM_WIN32)
+            if (pbi->Vp3VersionNo < 5)
+#else
             if (pbi->Vp3VersionNo <= 4)
+#endif
                 Quality = pbi->FragQIndex[Block];
 
             if (pbi->PostProcessingLevel > 5 && Variance > Thresh4) {
@@ -401,7 +361,11 @@ void DeringFrame(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned char *Dst)
         for (col = 0; col < BlocksAcross; col++) {
             int Variance = pbi->FragmentVariances[Block];
 
+#if defined(EA_PLATFORM_WIN32)
+            if (pbi->Vp3VersionNo < 5)
+#else
             if (pbi->Vp3VersionNo <= 4)
+#endif
                 Quality = pbi->FragQIndex[Block];
 
             if (pbi->PostProcessingLevel > 5 && Variance > Thresh4) {
@@ -439,7 +403,11 @@ void DeringFrameInterlaced(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned 
     unsigned char *SrcPtr, *DestPtr;
     INT32 Quality = pbi->FrameQIndex;
 
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo >= 5) {
+#else
     if (pbi->Vp3VersionNo > 4) {
+#endif
         Thresh1 = 384;
         Thresh2 = 2304;
         Thresh3 = 2880;
@@ -451,6 +419,22 @@ void DeringFrameInterlaced(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned 
         Thresh4 = 122880;
     }
 
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo >= 5)
+        QuantScale = DeringModifierV3;
+    else if (pbi->Vp3VersionNo >= 2)
+        QuantScale = DeringModifierV2;
+    else
+        QuantScale = DeringModifierV1;
+
+    /* PC: mismo orden de asignaciones que en DeringFrame (speed.exe 0x805BE3). */
+    BlocksAcross = pbi->HFragments;
+    BlocksDown = pbi->VFragments / 2;
+    SrcPtr = Src + pbi->ReconYDataOffset;
+    DestPtr = Dst + pbi->ReconYDataOffset;
+    LineLength = pbi->YStride * 2;
+    Block = 0;
+#else
     if (pbi->Vp3VersionNo > 4)
         QuantScale = DeringModifierV3;
     else if (pbi->Vp3VersionNo > 1)
@@ -464,6 +448,7 @@ void DeringFrameInterlaced(POSTPROC_INSTANCE *pbi, unsigned char *Src, unsigned 
     LineLength = pbi->YStride * 2;
     SrcPtr = Src + pbi->ReconYDataOffset;
     DestPtr = Dst + pbi->ReconYDataOffset;
+#endif
 
     for (row = 0; row < BlocksDown; row++) {
         for (col = 0; col < BlocksAcross; col++) {

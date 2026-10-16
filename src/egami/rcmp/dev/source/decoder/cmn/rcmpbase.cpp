@@ -5,6 +5,14 @@ class RCMP_SYSTEM {
     void *(*AllocMemFunc)(const char *, int, int, int, int);
     void (*FreeMemFunc)(void *);
     int m_DefaultMemDir;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // r22: la A124 y SLUS traen dos miembros de scratchpad que GC no tiene.
+    // symbols/PS2/PS2_types.nothpp da 0x18 con m_ScratchpadAddr en 0xC,
+    // m_ScratchpadEnabled en 0x10 y la vptr en 0x14; el ctor original hace
+    // sw v1,20(a0) y pone a cero 0x0/0x4/0x10. Sin ellos la vptr cae en 0xC.
+    char *m_ScratchpadAddr;
+    bool m_ScratchpadEnabled;
+#endif
 
     RCMP_SYSTEM();
     virtual ~RCMP_SYSTEM() {}
@@ -30,6 +38,10 @@ RCMP_SYSTEM rcmp_sys;
 RCMP_SYSTEM::RCMP_SYSTEM() {
     AllocMemFunc = 0;
     FreeMemFunc = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // r22: el ctor original tambien pone a cero 0x10 (m_ScratchpadEnabled).
+    m_ScratchpadEnabled = false;
+#endif
 }
 
 struct Shape;

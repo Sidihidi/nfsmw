@@ -23,7 +23,36 @@ struct LobbyAccountT {
     bool spamFromEA;
     bool spamFromAll;
     char parentEmail[52];
+
+    // La A124 (stabs de zFe) declara este ctor, el dtor inline (LobbyAccount.hpp:32, copia fuera de linea
+    // _$_13LobbyAccountT en zFe) y un ctor por defecto privado. UICreateUserPart2::CreateAccount expande el ctor
+    // (LobbyAccount.hpp:107-121); los nombres de parametro son los de sus stabs (name y male no sobreviven, siguen el
+    // mismo patron de nombre de campo).
+    LobbyAccountT(const char *name, const char *password, const char *email, int birthDay, int birthMonth, int birthYear,
+                  bool male, bool spamFromEA, bool spamFromAll, const char *parentEmail);
+    ~LobbyAccountT() {}
+
+  private:
+    LobbyAccountT();
 };
+
+inline LobbyAccountT::LobbyAccountT(const char *name, const char *password, const char *email, int birthDay, int birthMonth,
+                                    int birthYear, bool male, bool spamFromEA, bool spamFromAll, const char *parentEmail)
+    : birthDay(birthDay) //
+    , birthMonth(birthMonth) //
+    , birthYear(birthYear) //
+    , male(male) //
+    , spamFromEA(spamFromEA) //
+    , spamFromAll(spamFromAll) {
+    bStrNCpy(this->name, name ? name : "", 16);
+    this->name[16] = '\0';
+    bStrNCpy(this->password, password ? password : "", 16);
+    this->password[16] = '\0';
+    bStrNCpy(this->email, email ? email : "", 50);
+    this->email[50] = '\0';
+    bStrNCpy(this->parentEmail, parentEmail ? parentEmail : "", 50);
+    this->parentEmail[50] = '\0';
+}
 
 extern "C" {
 void TagFieldSetString(char *record, int recordLength, const char *name, const char *value);
@@ -54,12 +83,9 @@ struct CreateRoomParamsT {
 
 struct LobbyRooms {
     static LobbyRooms &Instance();
-    void SetRoomUpdateCB(RoomUpdateCBFunc func, void *context) {
-        lobbyMutex.Lock("LobbyRooms::SetRoomUpdateCB");
-        roomUpdateCB = func;
-        roomUpdateContext = context;
-        lobbyMutex.Unlock("LobbyRooms::SetRoomUpdateCB");
-    }
+    // Cuerpo en LobbyAccount.cpp (inline, tal cual): usa lobbyMutex, que es static de LobbyLogin.cpp y zFe (que
+    // incluye esta cabecera en la A124) no lo ve.
+    void SetRoomUpdateCB(RoomUpdateCBFunc func, void *context);
     int32 CreateRoom(CreateRoomParamsT &roomParams, CommandCBFunc createRoomCB, void *context) {
         int32 rc = -1;
         if (roomParams.name[0] && !currentRoomName[0] &&
@@ -141,16 +167,17 @@ struct LobbyRooms {
 
 struct LobbyAccount {
     static LobbyAccount &Instance();
+    ~LobbyAccount() { Reset(); }
     int32 CreateAccount(const LobbyAccountT &accountData, CommandCBFunc func, void *context);
     int32 RequestLostUsername(const char *email, CommandCBFunc func, void *context);
     int32 RequestLostPassword(const char *username, CommandCBFunc func, void *context);
     int32 CreatePersona(const char *name, CommandCBFunc func, void *context);
     void CancelPersonaCreation(const int32 &commandID);
     int32 DeletePersona(const char *name, CommandCBFunc func, void *context);
+    void AbortCommand(int); // stabs de zFe de la A124 (sin simbolo: no se define)
 
   private:
     LobbyAccount() { pendingPersona[0] = '\0'; }
-    ~LobbyAccount() {}
     int32 Init();
     void Reset();
     static void CperCB(LobbyApiRefT *pRef, LobbyApiMsgT *pMsg, void *pData);

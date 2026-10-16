@@ -63,7 +63,7 @@ class FnDeltaQ : public FnAnimMemoryMap {
     int mBinSize;                   // offset 0x18, size 0x4
     int mPrevKey;                   // offset 0x1C, size 0x4
     void *mPrevQBlock;              // offset 0x20, size 0x4
-    UMath::Vector4 *mPrevQs;        // offset 0x24, size 0x4
+    COORD4 *mPrevQs;                // offset 0x24, size 0x4
     unsigned char *mConstBoneIdxs;  // offset 0x28, size 0x4
     DeltaQPhysical *mConstPhysical; // offset 0x2C, size 0x4
 };

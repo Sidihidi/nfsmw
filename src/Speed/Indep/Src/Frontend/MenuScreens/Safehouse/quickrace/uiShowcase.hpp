@@ -17,6 +17,9 @@ class Showcase : public MenuScreen {
     static const char *FromPackage;
     static uint32 FromArgs;
     static uint32 FromIndex;
+#ifdef EA_BUILD_A124 // la A124 guarda el coche del jugador para volver del showcase (stabs)
+    static uint32 FromCarHandle;
+#endif
     static uint32 BlackListNumber;
     static int32 FromFilter;
 #ifndef EA_BUILD_A124

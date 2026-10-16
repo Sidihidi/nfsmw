@@ -149,6 +149,10 @@ class GenericAccessor : private Instance {
         ATTRIB_CODEGEN_GETVALIDATTRIB(StringKey, 0x104e9d16, index, val);
     }
 
+    const StringKey &BEHAVIOR_ORDER(unsigned int index) const {
+        ATTRIB_CODEGEN_GETVALUEINDEXED(StringKey, 0x104e9d16, index);
+    }
+
     unsigned int Num_BEHAVIOR_ORDER() const {
         ATTRIB_CODEGEN_GETLENGTH(0x104e9d16);
     }

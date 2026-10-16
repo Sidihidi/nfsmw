@@ -23,4 +23,10 @@ class ControllerUnplugged : public MenuScreen {
     JoystickPort port; // offset 0x2C, size 0x4
 };
 
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+// SLUS: Setup lo pone a true con el mando 1 desenchufado y el destructor lo baja; SteeringWheelDevice::ReadInput
+// (zMain) no reactiva el volante mientras esta puesto. El nombre no esta en ningun simbolo.
+extern bool bControllerUnpluggedScreenUp;
+#endif
+
 #endif

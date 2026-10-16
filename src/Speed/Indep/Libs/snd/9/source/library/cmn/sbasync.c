@@ -33,6 +33,12 @@ void SNDBANKI_abortload() {
         iSNDserverremoveclient(SNDBANKI_asyncservice);
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndbas.pi->iopcpuxferremaining != 0) {
+        SNDPLATFORM_memfree(0x100, reinterpret_cast<sndptruint>(sndbas.pi->piopcpuram));
+    }
+#endif
+
     sndgs.banklist[sndbas.pi->bhandle].phdr = NULL;
     sndgs.banklist[sndbas.pi->bhandle].locked = 0;
     sndbas.pi = NULL;
@@ -45,14 +51,32 @@ void SNDBANKI_asyncresolve() {
     int i = 0;
 
     pbl->phdr = pb;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    pbl->piopram = sndbas.pi->piopcpuram;
+
+    if (pb->iopcpusize != 0) {
+        firstoffset = 0;
+        for (i = 0; i < pb->numpatches; i++) {
+            if (pb->patch[i] != NULL) {
+                SNDBANKI_asyncresolvepatch(0x100, reinterpret_cast<TAGGEDPATCH *>((sndptrint)&pb->patch[i] + (sndptrint)pb->patch[i]), (char *)pbl->piopram,
+                                           &firstoffset);
+            }
+        }
+    }
+#endif
     pbl->pspuram = sndbas.pi->pspuram;
 
     if (pb->spusize != 0) {
-        firstoffset = i;
-        for (; i < pb->numpatches; i++) {
+        firstoffset = 0;
+        for (i = 0; i < pb->numpatches; i++) {
             if (pb->patch[i] != NULL) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+                SNDBANKI_asyncresolvepatch(8, reinterpret_cast<TAGGEDPATCH *>((sndptrint)&pb->patch[i] + (sndptrint)pb->patch[i]), (char *)pbl->pspuram,
+                                           &firstoffset);
+#else
                 SNDBANKI_asyncresolvepatch(0x200, reinterpret_cast<TAGGEDPATCH *>((sndptrint)&pb->patch[i] + (sndptrint)pb->patch[i]), (char *)pbl->pspuram,
                                            &firstoffset);
+#endif
             }
         }
     }
@@ -62,13 +86,10 @@ void SNDBANKI_asyncresolve() {
 
 void SNDBANKI_asynccompletereads() {
     SNDASYNCLOADBUFFER *psalb;
-    int curbuf = sndbas.pi->readscompleted & 3;
+    int curbuf = sndbas.pi->readscompleted % 4;
     int bytesread;
 
-    if (sndbas.pi->readsissued <= sndbas.pi->readscompleted)
-        return;
-
-    do {
+    while (sndbas.pi->readsissued > sndbas.pi->readscompleted) {
         psalb = &sndbas.pi->salb[curbuf];
         if (psalb->state != 1 || FILESYS_opstatus(psalb->fileop) != 1)
             break;
@@ -84,19 +105,16 @@ void SNDBANKI_asynccompletereads() {
         if (++curbuf > 3) {
             curbuf = 0;
         }
-    } while (sndbas.pi->readsissued > sndbas.pi->readscompleted);
+    }
 }
 
 void SNDBANKI_asyncissuereads() {
     SNDASYNCLOADBUFFER *psalb;
-    int curbuf = sndbas.pi->readsissued & 3;
+    int curbuf = sndbas.pi->readsissued % 4;
     int maxsize = 0xFFFFFF;
     int readoffset;
 
-    if (sndbas.pi->readscompleted <= sndbas.pi->readsissued - 4)
-        return;
-
-    do {
+    while (sndbas.pi->readscompleted > sndbas.pi->readsissued - 4) {
         readoffset = sndbas.pi->readsissued * sndbas.pi->loadbufsize;
         if (sndbas.pi->pbank != NULL) {
             maxsize = sndbas.pi->totalbanksize - readoffset;
@@ -117,7 +135,7 @@ void SNDBANKI_asyncissuereads() {
         if (++curbuf > 3) {
             curbuf = 0;
         }
-    } while (sndbas.pi->readscompleted > sndbas.pi->readsissued - 4);
+    }
 }
 
 void SNDBANKI_asyncxferhdr() {
@@ -125,13 +143,10 @@ void SNDBANKI_asyncxferhdr() {
         return;
 
     SNDASYNCLOADBUFFER *psalb;
-    int curbuf = sndbas.pi->processesissued & 3;
+    int curbuf = sndbas.pi->processesissued % 4;
     int maxsize;
 
-    if (sndbas.pi->processescompleted >= sndbas.pi->readscompleted)
-        return;
-
-    do {
+    while (sndbas.pi->processescompleted < sndbas.pi->readscompleted) {
         psalb = &sndbas.pi->salb[curbuf];
         if (sndbas.pi->hdrxferremaining < sndbas.pi->loadbufsize) {
             maxsize = sndbas.pi->hdrxferremaining;
@@ -153,19 +168,23 @@ void SNDBANKI_asyncxferhdr() {
         if (++curbuf > 3) {
             curbuf = 0;
         }
-    } while (sndbas.pi->processescompleted < sndbas.pi->readscompleted);
+    }
 }
 
 void SNDBANKI_asynccompletedownload() {
     SNDASYNCLOADBUFFER *psalb;
-    int curbuf = sndbas.pi->processescompleted & 3;
+    int curbuf = sndbas.pi->processescompleted % 4;
 
     if (sndbas.pi->processesissued <= sndbas.pi->processescompleted)
         return;
 
     do {
         psalb = &sndbas.pi->salb[curbuf];
+#ifdef EA_PLATFORM_PLAYSTATION2
+        if ((SNDPLATFORM_downloadcompleteNew(psalb->cmnRequestHandle) && psalb->cmnRequestHandle.handle > 0) == 0)
+#else
         if (SNDPLATFORM_downloadcomplete(psalb->dlhandle) == 0 || psalb->dlhandle <= 0)
+#endif
             break;
 
         psalb->state = 0;
@@ -178,11 +197,16 @@ void SNDBANKI_asynccompletedownload() {
 }
 
 void SNDBANKI_asyncissuedownloads() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndbas.pi->iopcpuxferremaining <= 0 && sndbas.pi->spuxferremaining <= 0)
+        return;
+#else
     if (sndbas.pi->spuxferremaining <= 0)
         return;
+#endif
 
     SNDASYNCLOADBUFFER *psalb;
-    int curbuf = sndbas.pi->processescompleted & 3;
+    int curbuf = sndbas.pi->processescompleted % 4;
     int xfersize;
 
     if (sndbas.pi->processesissued >= sndbas.pi->processescompleted + 4)
@@ -192,19 +216,46 @@ void SNDBANKI_asyncissuedownloads() {
         psalb = &sndbas.pi->salb[curbuf];
         if (psalb->state != 2)
             break;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        if (sndbas.pi->iopcpuxferremaining <= 0 && sndbas.pi->spuxferremaining <= 0) {
+#else
         if (sndbas.pi->spuxferremaining <= 0) {
+#endif
             psalb->state = 0;
             break;
         }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+        if (sndbas.pi->iopcpuxferremaining > 0) {
+            xfersize = sndbas.pi->loadbufsize - sndbas.pi->dloffset;
+            if (xfersize > sndbas.pi->iopcpuxferremaining) {
+                xfersize = sndbas.pi->iopcpuxferremaining;
+            }
+
+            psalb->cmnRequestHandle = SNDPLATFORM_downloadNew(0x100, &psalb->ploadbuf[sndbas.pi->dloffset],
+                                                              &sndbas.pi->piopcpuram[sndbas.pi->iopcpudownloaded], xfersize, LOW, ASYNC);
+            psalb->state = 3;
+            sndbas.pi->iopcpudownloaded += xfersize;
+            sndbas.pi->iopcpuxferremaining -= xfersize;
+            sndbas.pi->dloffset += xfersize;
+        }
+
+        if (sndbas.pi->spuxferremaining > 0 && sndbas.pi->iopcpuxferremaining <= 0 && sndbas.pi->dloffset < sndbas.pi->loadbufsize) {
+#else
         if (sndbas.pi->dloffset < sndbas.pi->loadbufsize) {
+#endif
             xfersize = sndbas.pi->loadbufsize - sndbas.pi->dloffset;
             if (xfersize > sndbas.pi->spuxferremaining) {
                 xfersize = sndbas.pi->spuxferremaining;
             }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            psalb->cmnRequestHandle = SNDPLATFORM_downloadNew(8, &psalb->ploadbuf[sndbas.pi->dloffset],
+                                                              &sndbas.pi->pspuram[sndbas.pi->spudownloaded], xfersize, LOW, ASYNC);
+#else
             psalb->dlhandle =
                 SNDPLATFORM_download(0x200, &psalb->ploadbuf[sndbas.pi->dloffset], &sndbas.pi->pspuram[sndbas.pi->spudownloaded], xfersize);
+#endif
             psalb->state = 3;
             sndbas.pi->spudownloaded += xfersize;
             sndbas.pi->spuxferremaining -= xfersize;
@@ -234,6 +285,10 @@ void SNDBANKI_asyncserver() {
 
     if (sndbas.pi->hdrxferremaining > 0)
         return;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndbas.pi->iopcpuxferremaining > 0)
+        return;
+#endif
     if (sndbas.pi->spuxferremaining > 0)
         return;
 
@@ -291,6 +346,10 @@ void SNDBANKI_asyncservice() {
     sndbas.pi->pbank = reinterpret_cast<BANKVER5 *>(psalb->ploadbuf);
     sndbas.pi->hdrxferremaining = sndbas.pi->pbank->hdrsize;
     sndbas.pi->totalbanksize = sndbas.pi->pbank->hdrsize;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    sndbas.pi->iopcpuxferremaining = sndbas.pi->pbank->iopcpusize;
+    sndbas.pi->totalbanksize = sndbas.pi->totalbanksize + sndbas.pi->pbank->iopcpusize;
+#endif
     sndbas.pi->spuxferremaining = sndbas.pi->pbank->spusize;
     sndbas.pi->totalbanksize = sndbas.pi->totalbanksize + sndbas.pi->pbank->spusize;
 
@@ -301,8 +360,25 @@ void SNDBANKI_asyncservice() {
         return;
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndbas.pi->iopcpuxferremaining != 0) {
+        sndbas.pi->piopcpuram = reinterpret_cast<char *>(SNDPLATFORM_memalloc(0x100, sndbas.pi->iopcpuxferremaining + 0x40));
+        if (sndbas.pi->piopcpuram == NULL) {
+            sndbas.pi->aborting = true;
+            sndbas.lasterror = -6;
+            return;
+        }
+    } else {
+        sndbas.pi->piopcpuram = NULL;
+    }
+#endif
+
     if (sndbas.pi->spuxferremaining != 0) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        sndbas.pi->pspuram = reinterpret_cast<char *>(SNDPLATFORM_memalloc(8, sndbas.pi->spuxferremaining + 0x40));
+#else
         sndbas.pi->pspuram = reinterpret_cast<char *>(SNDPLATFORM_memalloc(0x200, sndbas.pi->spuxferremaining + 0x40));
+#endif
         if (sndbas.pi->pspuram == NULL) {
             sndbas.pi->aborting = true;
             sndbas.lasterror = -6;
@@ -334,6 +410,9 @@ int SNDBANK_asyncloadi(char *filename, int fileoffset, void *pmem, int memsize, 
     sndbas.pi->dloffset = 0;
     sndbas.pi->totalbanksize = 0;
     sndbas.pi->hdrxferremaining = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    sndbas.pi->iopcpudownloaded = 0;
+#endif
     sndbas.pi->spudownloaded = 0;
     sndbas.pi->pbank = NULL;
     sndbas.pi->readsissued = 0;
@@ -341,7 +420,7 @@ int SNDBANK_asyncloadi(char *filename, int fileoffset, void *pmem, int memsize, 
     sndbas.pi->processesissued = 0;
     sndbas.pi->processescompleted = 0;
     sndbas.pi->closeop = 0;
-    sndbas.pi->loadbufsize = (unsigned int)(memsize - 460) >> 2;
+    sndbas.pi->loadbufsize = (unsigned int)(memsize - sizeof(SNDBANKASYNCINSTANCE) - 0x140) >> 2;
 
     if (sndbas.pi->loadbufsize > 0x6000) {
         sndbas.pi->loadbufsize = 0x6000;
@@ -352,8 +431,11 @@ int SNDBANK_asyncloadi(char *filename, int fileoffset, void *pmem, int memsize, 
     for (i = 0; i < 4; i++) {
         psalb = &sndbas.pi->salb[i];
         psalb->dlhandle = -1;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        psalb->cmnRequestHandle.handle = -1;
+#endif
         psalb->state = 0;
-        psalb->ploadbuf = (char *)(((sndbas.pi->loadbufsize + 0x40) * i + (sndptrint)pmem + 0x10C) & ~0x3F);
+        psalb->ploadbuf = (char *)(((sndbas.pi->loadbufsize + 0x40) * i + (sndptrint)pmem + sizeof(SNDBANKASYNCINSTANCE) + 0x80) & ~0x3F);
     }
 
     for (i = 0; i < sndgs.sso.set.maxbanks; i++) {

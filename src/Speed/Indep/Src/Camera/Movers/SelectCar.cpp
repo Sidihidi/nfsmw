@@ -8,6 +8,9 @@ extern bool CarGuysCamera;
 static const float kSelectCarPi = 3.1415926f;
 
 SelectCarCameraMover::SelectCarCameraMover(int view_id) : CameraMover(view_id, CM_SELECT_CAR) {
+    ControlMode = 1;
+    LookingAtParts = 0;
+
     CurrentCameraData.OrbitVAngle = 0.0f;
     CurrentCameraData.OrbitHAngle = 0.0f;
     CurrentCameraData.Radius = 0.0f;
@@ -23,10 +26,6 @@ SelectCarCameraMover::SelectCarCameraMover(int view_id) : CameraMover(view_id, C
     OrbitHSpeed = 0.0f;
 
     CurrentAnimationTime = 0.0f;
-
-    ControlMode = 1;
-    LookingAtParts = 0;
-
     TotalAnimationTime = 1.0f;
     Damping = 10.0f;
     Periods = 2;
@@ -52,9 +51,9 @@ void SelectCarCameraMover::Update(float dT) {
         if (ControlMode == 1) {
             float the_frame_rate = dT * 60.0f;
 
-            CurrentCameraData.OrbitHAngle = OrbitHSpeed * the_frame_rate + CurrentCameraData.OrbitHAngle;
+            CurrentCameraData.OrbitHAngle += OrbitHSpeed * the_frame_rate;
 
-            float possibleNewOrbitV = OrbitVSpeed * the_frame_rate + CurrentCameraData.OrbitVAngle;
+            float possibleNewOrbitV = CurrentCameraData.OrbitVAngle + OrbitVSpeed * the_frame_rate;
 
             if (!CarGuysCamera) {
                 if (possibleNewOrbitV > 110.0f) {
@@ -67,7 +66,7 @@ void SelectCarCameraMover::Update(float dT) {
             CurrentCameraData.OrbitVAngle = possibleNewOrbitV;
 
             float zoom_rate = the_frame_rate * 0.125f;
-            float possibleNewRadius = RadiusSpeed * zoom_rate + CurrentCameraData.Radius;
+            float possibleNewRadius = CurrentCameraData.Radius + RadiusSpeed * zoom_rate;
 
             if (!CarGuysCamera) {
                 if (possibleNewRadius > 6.65f) {
@@ -265,7 +264,7 @@ void SelectCarCameraMover::SetDesiredOrientation(bVector3 &orbit, float roll, fl
     GoalAnimCameraData.Radius = orbit.z;
     GoalAnimCameraData.RollAngle = roll;
     GoalAnimCameraData.FOV = fov;
-    GoalAnimCameraData.LookAt = lookAt;
+    bFill(&GoalAnimCameraData.LookAt, lookAt.x, lookAt.y, lookAt.z);
 
     Damping = damping;
     Periods = periods;

@@ -7,30 +7,44 @@ namespace Attrib {
 namespace Gen {
 
 struct fuelcell_effect : Instance {
+#ifndef EA_BUILD_A124
     struct _LayoutStruct {
         EA::Reflection::Bool doTest; // offset 0x0, size 0x1
     };
+#endif
 
     typedef RefSpec TypeOf_NGEmitter;
+#ifndef EA_BUILD_A124
     typedef EA::Reflection::Bool TypeOf_doTest;
+#endif
 
     static Key ClassKey();
     USE_ATTRIB_ALLOC("Attrib::Gen::fuelcell_effect");
     fuelcell_effect(Key collectionKey, unsigned int msgPort, UTL::COM::IUnknown *owner)
         : Instance(FindCollection(ClassKey(), collectionKey), msgPort, owner) {
+#ifndef EA_BUILD_A124
         SetDefaultLayout(sizeof(_LayoutStruct));
+#endif
     }
     fuelcell_effect(const Collection *collection, unsigned int msgPort, UTL::COM::IUnknown *owner) : Instance(collection, msgPort, owner) {
+#ifndef EA_BUILD_A124
         SetDefaultLayout(sizeof(_LayoutStruct));
+#endif
     }
     fuelcell_effect(const Instance &src) : Instance(src) {
+#ifndef EA_BUILD_A124
         SetDefaultLayout(sizeof(_LayoutStruct));
+#endif
     }
     fuelcell_effect(const fuelcell_effect &src) : Instance(src) {
+#ifndef EA_BUILD_A124
         SetDefaultLayout(sizeof(_LayoutStruct));
+#endif
     }
     fuelcell_effect(const RefSpec &refspec, unsigned int msgPort, UTL::COM::IUnknown *owner) : Instance(refspec, msgPort, owner) {
+#ifndef EA_BUILD_A124
         SetDefaultLayout(sizeof(_LayoutStruct));
+#endif
     }
     ~fuelcell_effect() {}
     Instance &GetBase() {
@@ -77,15 +91,19 @@ struct fuelcell_effect : Instance {
     unsigned int Num_NGEmitter() const;
     bool SET_NGEmitter(const RefSpec &input, unsigned int index);
 
+#ifndef EA_BUILD_A124
     bool doTest(TAttrib<EA::Reflection::Bool> &result) const;
     bool doTest(EA::Reflection::Bool &result) const;
     const EA::Reflection::Bool &doTest() const;
     bool SET_doTest(const EA::Reflection::Bool &input);
+#endif
 
   private:
+#ifndef EA_BUILD_A124
     unsigned int GetLayoutSize() {
         return sizeof(_LayoutStruct);
     }
+#endif
     fuelcell_effect &ConvertFromInstance(Instance &src) {}
     const fuelcell_effect &ConvertFromInstance(const Instance &src) {}
 };
@@ -126,6 +144,7 @@ inline bool Gen::fuelcell_effect::SET_NGEmitter(const RefSpec &input, unsigned i
     ATTRIB_CODEGEN_SETVALUEINDEXED(RefSpec, 0xb0d98a89, input, index);
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::fuelcell_effect::doTest(TAttrib<EA::Reflection::Bool> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Bool, 0xaee3be58);
 }
@@ -140,6 +159,7 @@ inline bool Gen::fuelcell_effect::SET_doTest(const EA::Reflection::Bool &input) 
     ATTRIB_CODEGEN_SETLAYOUT(doTest, input);
 }
 
+#endif
 }; // namespace Attrib
 
 #endif

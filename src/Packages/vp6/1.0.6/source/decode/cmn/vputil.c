@@ -1,14 +1,7 @@
-typedef int INT32;
-typedef unsigned char UINT8;
-typedef unsigned int UINT32;
-typedef unsigned short UINT16;
-typedef short INT16;
+#include "codec_common.h"
 
 #define VP6_FILTER_WEIGHT 128
 #define VP6_FILTER_SHIFT 7
-
-extern void fillidctconstants(void);
-extern void UtilMachineSpecificConfig(void);
 
 static int BilinearFilters[8][2] = {
     { 128, 0 },
@@ -23,20 +16,23 @@ static int BilinearFilters[8][2] = {
 
 static int FData[88];
 
-void (*ReconIntra)(INT16 *, UINT8 *, UINT16 *, UINT32);
-void (*ReconInter)(INT16 *, UINT8 *, UINT8 *, INT16 *, UINT32);
-void (*ReconInterHalfPixel2)(INT16 *, UINT8 *, UINT8 *, UINT8 *, INT16 *, UINT32);
-void (*idct[65])(INT16 *, INT16 *, INT16 *);
+void (*ReconIntra)(INT16 *TmpDataBuffer, UINT8 *ReconPtr, UINT16 *ChangePtr, UINT32 LineStep);
+void (*ReconInter)(INT16 *TmpDataBuffer, UINT8 *ReconPtr, UINT8 *RefPtr, INT16 *ChangePtr, UINT32 LineStep);
+void (*ReconInterHalfPixel2)(INT16 *TmpDataBuffer, UINT8 *ReconPtr, UINT8 *RefPtr1, UINT8 *RefPtr2,
+                             INT16 *ChangePtr, UINT32 LineStep);
+void (*idct[65])(INT16 *InputData, INT16 *QuantMatrix, INT16 *OutputData);
 void (*ClearSysState)(void);
-void (*ReconBlock)(INT16 *, INT16 *, UINT8 *, UINT32);
-void (*SubtractBlock)(UINT8 *, INT16 *, UINT32);
-void (*UnpackBlock)(UINT8 *, INT16 *, UINT32);
-void (*AverageBlock)(UINT8 *, UINT8 *, UINT16 *, UINT32);
-void (*CopyBlock)(UINT8 *, UINT8 *, UINT32);
-void (*Copy12x12)(const UINT8 *, UINT8 *, UINT32, UINT32);
-void (*idctc[65])(INT16 *, INT16 *, INT16 *);
-void (*FilterBlockBil_8)(UINT8 *, UINT8 *, UINT8 *, UINT32, INT32, INT32);
-void (*FilterBlock)(UINT8 *, UINT8 *, UINT16 *, UINT32, INT32, INT32, INT32);
+void (*ReconBlock)(INT16 *SrcBlock, INT16 *ReconRefPtr, UINT8 *DestBlock, UINT32 LineStep);
+void (*SubtractBlock)(UINT8 *SrcBlock, INT16 *DestPtr, UINT32 LineStep);
+void (*UnpackBlock)(UINT8 *ReconPtr, INT16 *ReconRefPtr, UINT32 ReconPixelsPerLine);
+void (*AverageBlock)(UINT8 *ReconPtr1, UINT8 *ReconPtr2, UINT16 *ReconRefPtr, UINT32 ReconPixelsPerLine);
+void (*CopyBlock)(UINT8 *src, UINT8 *dest, UINT32 srcstride);
+void (*Copy12x12)(const UINT8 *src, UINT8 *dest, UINT32 srcstride, UINT32 deststride);
+void (*idctc[65])(INT16 *InputData, INT16 *QuantMatrix, INT16 *OutputData);
+void (*FilterBlockBil_8)(UINT8 *ReconPtr1, UINT8 *ReconPtr2, UINT8 *ReconRefPtr, UINT32 PixelsPerLine, INT32 ModX,
+                         INT32 ModY);
+void (*FilterBlock)(UINT8 *ReconPtr1, UINT8 *ReconPtr2, UINT16 *ReconRefPtr, UINT32 PixelsPerLine, INT32 ModX,
+                    INT32 ModY, BOOL UseBicubic);
 
 
 void ClearSysState_C(void) {

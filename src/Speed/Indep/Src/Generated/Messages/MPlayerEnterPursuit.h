@@ -26,7 +26,6 @@ class MPlayerEnterPursuit : public Hermes::Message {
 
     MPlayerEnterPursuit() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MPlayerEnterPursuit() {}
 };
 
 
@@ -34,9 +33,9 @@ class MPlayerEnterPursuit : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MPlayerEnterPursuit::HandleMessage_LuaBinding(const MPlayerEnterPursuit &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MPlayerEnterPursuit::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -47,25 +47,27 @@ void EAXAITunerCar::UpdatAIDriveBy(float t) {
             bVector3 vVelDiff = bSub(*GetPhysCar()->GetVelocity(), *ClosestPlayer->GetVelocity());
             float fRelativeVel = bLength(vVelDiff);
 
-            if (fRelativeVel >= 15.0f) {
-                stDriveByInfo TmpDriveByPackage;
+            if (fRelativeVel < 15.0f) {
+                return;
+            }
 
-                TmpDriveByPackage.eDriveByType = DRIVE_BY_AI_CAR;
-                TmpDriveByPackage.pEAXCar = this;
-                TmpDriveByPackage.UniqueID = (uintptr_t) this;
-                TmpDriveByPackage.ClosingVelocity = fRelativeVel;
-                bCopy(&TmpDriveByPackage.vLocation, GetPhysCar()->GetPosition());
+            stDriveByInfo TmpDriveByPackage;
 
-                if (GetPhysCar()->mContext == 2) {
-                    MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero,
-                                    GetPhysCar()->mWorldID, 0)
-                        .Send(UCrc32("BlewByCop"));
-                }
+            TmpDriveByPackage.eDriveByType = DRIVE_BY_AI_CAR;
+            TmpDriveByPackage.pEAXCar = this;
+            TmpDriveByPackage.UniqueID = (uintptr_t) this;
+            TmpDriveByPackage.ClosingVelocity = fRelativeVel;
+            bCopy(&TmpDriveByPackage.vLocation, GetPhysCar()->GetPosition());
 
-                CSTATE_Base *ReturnedObj = EAXSound::GetStateMgr(eMM_DRIVEBY)->GetFreeState(&TmpDriveByPackage);
-                if (ReturnedObj != nullptr) {
-                    ReturnedObj->Attach(&TmpDriveByPackage);
-                }
+            if (GetPhysCar()->mContext == 2) {
+                MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero,
+                                GetPhysCar()->mWorldID, 0)
+                    .Send(UCrc32("BlewByCop"));
+            }
+
+            CSTATE_Base *ReturnedObj = EAXSound::GetStateMgr(eMM_DRIVEBY)->GetFreeState(&TmpDriveByPackage);
+            if (ReturnedObj != nullptr) {
+                ReturnedObj->Attach(&TmpDriveByPackage);
             }
         }
     }

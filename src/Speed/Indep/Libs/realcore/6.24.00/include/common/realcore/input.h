@@ -10,15 +10,12 @@
 
 namespace RealInput {
 
+// Los valores de RealInput (DWARF de GameCube y stabs de la A124); el enum de 8 plataformas era el de AEMS.
 enum Platform {
-    PLATFORM_WIN = 0,
-    PLATFORM_MAC = 1,
-    PLATFORM_PS2 = 2,
-    PLATFORM_XBOX = 3,
-    PLATFORM_GC = 4,
-    PLATFORM_XENON = 5,
-    PLATFORM_PSP = 6,
-    PLATFORM_MAX = 7,
+    PLATFORM_PC = 0,
+    PLATFORM_PS2 = 1,
+    PLATFORM_XBOX = 2,
+    PLATFORM_GC = 3,
 };
 
 enum RiResult {
@@ -43,11 +40,26 @@ struct Device;
 void FreeMemSize(void *pBlock, int size);
 
 struct Effect {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2: los dos motores del DualShock (stabs de la A124: Info mide 0x8 y el enum Constants da sus maximos).
+    enum Constants {
+        MAX_MAGNITUDE_LEFT = 255,
+        MAX_MAGNITUDE_RIGHT = 1,
+    };
+
+    struct Info {
+        int32_t mMagnitudeLeft;
+        int32_t mMagnitudeRight;
+
+        Info();
+    };
+#else
     struct Info {
         unsigned int mFullStop;
 
         Info();
     };
+#endif
 
     enum Status {
         STATUS_STOPPED = 0,
@@ -82,6 +94,9 @@ struct Device {
         unsigned int mJoypadID;
         unsigned int mControllerID;
         unsigned int mPortNum;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        unsigned int mSlotNum; // la ranura del multitap (stabs de la A124: Info mide 0x18)
+#endif
     };
 
     struct Capabilities {
@@ -120,6 +135,18 @@ struct Device {
 
     virtual Data *GetData() {
         return &this->mData;
+    }
+
+    int32_t IsKeyboard() {
+        return mInfo.mType == TYPE_KEYBOARD;
+    }
+
+    int32_t IsMouse() {
+        return mInfo.mType == TYPE_MOUSE;
+    }
+
+    int32_t IsPad() {
+        return mInfo.mType == TYPE_PAD;
     }
 
     Capabilities *GetCapabilities() {
@@ -215,6 +242,9 @@ void *AllocateMemSize(const char *name, int size, int align, int alignoffset, in
 struct ConfigOptions {
     ConfigOptions()
         : mAllocator(nullptr)
+#ifdef EA_PLATFORM_PLAYSTATION2
+        , mIOPModulePath(nullptr)
+#endif
         , mpEnumDevicesCallback(nullptr)
         , mEnumDevicesCallbackUserData(0)
         , mEventQueueSize(0x20)
@@ -222,6 +252,9 @@ struct ConfigOptions {
     }
 
     EA::Allocator::IAllocator *mAllocator;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    char *mIOPModulePath; // los modulos de la IOP (stabs de la A124: ConfigOptions mide 0x18)
+#endif
     int (*mpEnumDevicesCallback)(Device *, unsigned int, Interface *);
     unsigned int mEnumDevicesCallbackUserData;
     unsigned int mEventQueueSize;
@@ -240,6 +273,63 @@ struct Interface {
     virtual Event *GetEvent();
     virtual ~Interface() {}
 };
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Los mandos de PS2 (los enum salen de los stabs de la A124): botones, tipo de mando conectado y los limites del pad.
+enum Ps2DigitalPresses {
+    SC_DSELECT = 0,
+    SC_DL3 = 1,
+    SC_DR3 = 2,
+    SC_DSTART = 3,
+};
+
+enum Ps2AnalogPresses {
+    SC_ARIGHT = 4,
+    SC_ALEFT = 5,
+    SC_AUP = 6,
+    SC_ADOWN = 7,
+    SC_ATRI = 8,
+    SC_ACIRCLE = 9,
+    SC_ACROSS = 10,
+    SC_ASQUARE = 11,
+    SC_AL1 = 12,
+    SC_AR1 = 13,
+    SC_AL2 = 14,
+    SC_AR2 = 15,
+};
+
+enum Ps2ConnectTypes {
+    CT_NOTCONNECTED = 0,
+    CT_UNSUPPORTED = 1,
+    CT_STANDARD = 2,
+    CT_DUALSHOCK = 3,
+    CT_DUALSHOCKANALOG = 4,
+    CT_DUALSHOCK2 = 5,
+};
+
+enum Ps2PadDefines {
+    PD_NUM_PORTS = 2,
+    PD_NUM_SLOTS = 4,
+    PD_ALSTICKXMIN = 0,
+    PD_ALSTICKXMAX = 255,
+    PD_ALSTICKYMIN = 0,
+    PD_ALSTICKYMAX = 255,
+    PD_ARSTICKXMIN = 0,
+    PD_ARSTICKXMAX = 255,
+    PD_ARSTICKYMIN = 0,
+    PD_ARSTICKYMAX = 255,
+    PD_TRIGGERMAX = 255,
+    PD_BUTTONMAX = 255,
+};
+
+enum Ps2KeyStates {
+    KS_SHIFT = 1,
+    KS_CTRL = 2,
+    KS_ALT = 4,
+};
+
+void InitPS2MultiTap();
+#endif
 
 struct ITimer {
     static unsigned int GetTime();

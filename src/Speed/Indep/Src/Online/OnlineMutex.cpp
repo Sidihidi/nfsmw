@@ -5,6 +5,7 @@
 class OnlineMutex : public NetworkMutex {
   public:
     OnlineMutex(const char *mutexname);
+    ~OnlineMutex() {}
 
     void Lock(const char *logtext);
     void Unlock(const char *logtext);

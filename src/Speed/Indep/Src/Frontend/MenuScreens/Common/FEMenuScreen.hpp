@@ -27,7 +27,15 @@ class MenuScreen {
         return maybe;
     }
 
+#ifdef EA_BUILD_A124
+    void HandleGameSessionJoinDialog(int result);
+#endif
+
     void BaseNotify(u32 Message, FEObject *pObject, u32 Param1, u32 Param2);
+
+#ifdef EA_BUILD_A124
+    static void ChallengeAcceptGameCB(struct LobbyApiMsgT *msg, void *context);
+#endif
 
     const char *FEngGetEditedString();
 

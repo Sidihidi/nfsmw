@@ -165,10 +165,9 @@ void Effects::OnTaskSimulate(float dT) {
     if (this->mScrape.IsPaused()) {
         return;
     }
-    if ((this->mScrapeTimeOut -= dT) >= 0.0f) {
-        return;
+    if ((this->mScrapeTimeOut -= dT) < 0.0f) {
+        this->mScrape.Pause(true);
     }
-    this->mScrape.Pause(true);
 }
 
 void Effects::OnBehaviorChange(const UCrc32 &mechanic) {

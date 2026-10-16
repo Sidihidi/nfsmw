@@ -5,8 +5,8 @@
 namespace EAGL4Anim {
 
 bool FnPhaseChan::GetLength(float &timeLength) const {
-    PhaseChan *phaseChan = reinterpret_cast<PhaseChan *>(mpAnim);
-    timeLength = static_cast<float>(phaseChan->mNumFrames);
+    PhaseChan *a = reinterpret_cast<PhaseChan *>(mpAnim);
+    timeLength = static_cast<float>(a->mNumFrames);
     return true;
 }
 

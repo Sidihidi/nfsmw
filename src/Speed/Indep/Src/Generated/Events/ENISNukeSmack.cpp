@@ -23,9 +23,9 @@ void ENISNukeSmack_MakeEvent_Callback(const void *staticData) {
     new ENISNukeSmack(((ENISNukeSmack::StaticData *) staticData)->fPositionX, ((ENISNukeSmack::StaticData *) staticData)->fPositionY, ((ENISNukeSmack::StaticData *) staticData)->fPositionZ, ((ENISNukeSmack::StaticData *) staticData)->fRadius);
 }
 
-int ENISNukeSmack_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 4) {
-        new ENISNukeSmack(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
+int ENISNukeSmack_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 4) {
+        new ENISNukeSmack(lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), lua_tonumber(luaState, 4));
     }
     return 0;
 }

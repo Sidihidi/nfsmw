@@ -1,0 +1,49 @@
+fnmsubs-minus.patch -- SFmode (minus c (mult a b)) emits fnmsubs (SN-F1).
+
+With -ffast-math, combine.c (simplify_rtx, NEG case) rewrites
+(neg (minus (mult a b) c)) as (minus c (mult a b)) before the
+recognizer sees it, and that folded form has no pattern in SN's
+rs6000.md: the bSqrt Newton step `t2 = -(x*t0 - one)' (or its folded
+`t2 = one - x*t0') then comes out as fmul+fsub instead of fnmsubs.
+The dossier (docs/asm-de-ea.md, bSqrt) measures that loss; the PoC
+(frsqrte-fres.patch) left these sites pending.
+
+What it does: one named SFmode define_insn (`b_fnmsubs_minus_sf2') for
+(minus:SF c (mult:SF a b)) emitting `fnmsubs %0,%1,%2,%3' under
+TARGET_POWERPC && TARGET_HARD_FLOAT && TARGET_FUSED_MADD, mirroring
+the existing fnmsubs (neg (minus (mult ...) ...)).  Operand 3
+is the minuend, 1/2 the multiplier/multiplicand, so the template keeps
+the same operand order.  Named (not anonymous like the stock fused
+patterns) so the Fase 2 scheduling hook in rs6000.c can recognize it
+by CODE_FOR.  Like the existing fused madd/sub patterns, it
+needs no flag_fast_math gate: plain C `a*b + c' already fuses whenever
+TARGET_FUSED_MADD.  Inserts after the fmsub POWER block (before
+fnmadds), so it does not overlap frsqrte-fres.patch; build.sh takes the
+union of patches for generators.
+
+--- a/gcc/config/rs6000/rs6000.md
++++ b/gcc/config/rs6000/rs6000.md
+@@ -3646,6 +3646,23 @@
+   "! TARGET_POWERPC && TARGET_HARD_FLOAT && TARGET_FUSED_MADD"
+   "{fms|fmsub} %0,%1,%2,%3"
+   [(set_attr "type" "dmul")])
++
++;; Fused negative multiply-subtract from its -ffast-math folded form
++;; (SN-F1): combine rewrites (neg (minus (mult a b) c)) as
++;; (minus c (mult a b)), which has no pattern.  Plain C
++;; `t2 = one - x * t0' (or `-(x * t0 - one)', folded to the same)
++;; then selects fnmsubs, closing the bSqrt Newton step with
++;; __builtin_frsqrte + mulsf3 + this + fmadds.  Operand 3 is the
++;; minuend so the template keeps the fnmsubs operand order.  Named for
++;; the Fase 2 scheduling hook (CODE_FOR_b_fnmsubs_minus_sf2).
++(define_insn "b_fnmsubs_minus_sf2"
++  [(set (match_operand:SF 0 "gpc_reg_operand" "=f")
++	(minus:SF (match_operand:SF 3 "gpc_reg_operand" "f")
++		  (mult:SF (match_operand:SF 1 "gpc_reg_operand" "%f")
++			   (match_operand:SF 2 "gpc_reg_operand" "f"))))]
++  "TARGET_POWERPC && TARGET_HARD_FLOAT && TARGET_FUSED_MADD"
++  "fnmsubs %0,%1,%2,%3"
++  [(set_attr "type" "fp")])
+ 
+ (define_insn ""
+   [(set (match_operand:SF 0 "gpc_reg_operand" "=f")

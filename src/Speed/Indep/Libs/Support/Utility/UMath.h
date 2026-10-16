@@ -11,11 +11,6 @@
 #include "UVectorMath.hpp"
 #elif defined(EA_PLATFORM_GAMECUBE) && !GAMECUBE_USE_CPU
 #include "UVectorMathGC.hpp"
-#elif defined(__ANDROID__)
-// Port Android: CPU.hpp tiene TODO en C portable; las funciones que alli son
-// TODO (VU0_sqrt, VU0_rsqrt, VU0_v3lengthsquare) se resuelven como stubs
-// portables en port/.../platform_stubs.cpp del proyecto Android.
-#include "UVectorMathCPU.hpp"
 #else
 #include "UVectorMathCPU.hpp"
 #endif
@@ -24,6 +19,7 @@
 extern "C" void MATRIX4_multxrot(const UMath::Matrix4 *m4, float xbangle, UMath::Matrix4 *resultm);
 extern "C" void MATRIX4_multyrot(const UMath::Matrix4 *m4, float ybangle, UMath::Matrix4 *resultm);
 extern "C" void MATRIX4_multzrot(const UMath::Matrix4 *m4, float zbangle, UMath::Matrix4 *resultm);
+extern "C" void MATRIX4_vect3mult3(const UMath::Vector3 *v, const UMath::Matrix4 *m4, UMath::Vector3 *result);
 
 namespace UMath {
 // TODO apply these
@@ -46,27 +42,25 @@ typedef float Angle; // Decl: UMath.h:43
 namespace UMath {
 
 inline float Sina(const Angle a) {
-    return VU0_Sin(a * TWOPI);
+    return VU0_Sin(a);
 }
 
 inline float Cosa(const Angle a) {
-    return VU0_Cos(a * TWOPI);
+    return VU0_Cos(a);
 }
 
 inline float Sinr(const float r) {
-    return VU0_Sin(RAD2ANGLE(r) * TWOPI);
+    return VU0_Sin(RAD2ANGLE(r));
 }
 
 inline float Cosr(const float r) {
-    return VU0_Cos(RAD2ANGLE(r) * TWOPI);
+    return VU0_Cos(RAD2ANGLE(r));
 }
 
+// Tambien en PS2: el original multiplica el asinf por 1/2pi (VU0_ASin) y luego por 2pi (ANGLE2RAD), en las dos
+// PS2 igual que en GameCube (AIVehiclePid::OnSteering, WRoadNav::CookieTrailCurvature).
 inline float ASinr(const float x) {
-#ifndef EA_PLATFORM_PLAYSTATION2
     return ANGLE2RAD(VU0_ASin(x));
-#else
-    return asinf(x);
-#endif
 }
 
 float Ceil(const float x);
@@ -88,11 +82,7 @@ inline float DistanceSquare(const Vector3 &a, const Vector3 &b) {
 }
 
 inline float DistanceSquarexz(const Vector3 &a, const Vector3 &b) {
-#ifdef EA_PLATFORM_PLAYSTATION2
-    return VU0_v3distancesquare(a, b);
-#else
     return VU0_v3distancesquarexz(a, b);
-#endif
 }
 
 inline void Clear(Vector3 &r) {
@@ -103,6 +93,17 @@ inline void Clear(Vector3 &r) {
     *reinterpret_cast<uint32 *>(&r.x) = 0;
     *reinterpret_cast<uint32 *>(&r.y) = 0;
     *reinterpret_cast<uint32 *>(&r.z) = 0;
+#endif
+}
+
+inline void Clear(Vector4 &r) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    *reinterpret_cast<u_long128 *>(&r) = 0;
+#else
+    r.x = 0.0f;
+    r.y = 0.0f;
+    r.z = 0.0f;
+    r.w = 0.0f;
 #endif
 }
 
@@ -122,13 +123,9 @@ inline void Copy(const Vector4 &a, Vector4 &r) {
     VU0_v4Copy(a, r);
 }
 
-#ifdef EA_PLATFORM_XENON
-void Transpose(const Matrix4 &m, Matrix4 &r);
-#else
 inline void Transpose(const Matrix4 &m, Matrix4 &r) {
     VU0_MATRIX4_transpose(m, r);
 }
-#endif
 
 inline void Transpose(const Vector4 &q, Vector4 &r) {
     VU0_qtranspose(q, r);
@@ -162,6 +159,12 @@ inline void RotateTranslate(const Vector4 *a, const Matrix4 &m, Vector4 *r, int 
     VU0_MATRIX4_vect4mult(a, m, r, count);
 }
 
+// El DWARF de GameCube la lista detras de las de matriz (UMath.h:1282). En PS2 no se expande: su cuerpo es una llamada
+// de cola, y el original tiene una copia fuera de linea en cada unidad que la usa (zDynamics).
+inline void RotateTranslate(const Vector3 &a, const Vector4 &q, const Vector3 &t, Vector3 &r) {
+    VU0_v3quatrotate_xlate(q, a, t, r);
+}
+
 inline void Init(Matrix4 &m) {
     VU0_MATRIX4Init(m);
 }
@@ -174,13 +177,9 @@ inline void Init(Matrix4 &m, const float xx, const float yy, const float zz) {
     VU0_MATRIX4Init(m, xx, yy, zz);
 }
 
-#if EA_PLATFORM_XENON
-void Mult(const Vector4 &a, const Vector4 &b, Vector4 &r);
-#else
 inline void Mult(const Vector4 &a, const Vector4 &b, Vector4 &r) {
     VU0_qmul(b, a, r);
 }
-#endif
 
 inline void Mult(const Matrix4 &a, const Matrix4 &b, Matrix4 &r) {
     VU0_MATRIX4_mult(a, b, r);
@@ -343,21 +342,21 @@ inline void SetYRot(Matrix4 &r, float a) {
     VU0_MATRIX4setyrot(r, a);
 }
 
-#ifdef EA_PLATFORM_XENON
-void Rotate(const Vector3 &a, const Vector4 &q, Vector3 &r);
-#else
+inline void SetZRot(Matrix4 &r, float a) {
+    VU0_MATRIX4setzrot(r, a);
+}
+
 inline void Rotate(const Vector3 &a, const Vector4 &q, Vector3 &r) {
     VU0_v3quatrotate(q, a, r);
 }
-#endif
 
 inline void RotateInXZ(const float a, const Vector3 &src, Vector3 &out) {
     float xp = src.x * Cosa(a) - src.z * Sina(a);
     float zp = src.x * Sina(a) + src.z * Cosa(a);
 
     out.x = xp;
-    out.y = src.y;
     out.z = zp;
+    out.y = src.y;
 }
 
 inline void Rotate(const Vector3 &a, const Matrix4 &m, Vector3 &r) {
@@ -406,13 +405,9 @@ inline void Crossxyz(const UMath::Vector4 &a, const UMath::Vector4 &b, UMath::Ve
     VU0_v4crossprodxyz(a, b, r);
 }
 
-#ifdef EA_PLATFORM_XENON
-void UnitCross(const Vector3 &a, const Vector3 &b, Vector3 &r);
-#else
 inline void UnitCross(const Vector3 &a, const Vector3 &b, Vector3 &r) {
     VU0_v3unitcrossprod(a, b, r);
 }
-#endif
 
 inline void UnitCrossxyz(const Vector4 &a, const Vector4 &b, Vector4 &r) {
     VU0_v4unitcrossprodxyz(a, b, r);
@@ -514,6 +509,10 @@ inline int Clamp(const int a, const int amin, const int amax) {
     return a < amin ? amin : (a > amax ? amax : a);
 }
 
+template <typename T> inline T Clamp(const T a, const T amin, const T amax) {
+    return a < amin ? amin : (a > amax ? amax : a);
+}
+
 inline float Clamp(const float a, const float amin, const float amax) {
     return VU0_floatmax(amin, VU0_floatmin(a, amax));
 }
@@ -552,8 +551,6 @@ inline float Cross(const Vector2 &a, const Vector2 &b) {
 inline float CrossXZ(const Vector4 &a, const Vector4 &b) {
     return a.x * b.z - b.x * a.z;
 }
-
-float VU0_v4lengthxz(const UMath::Vector4 &a);
 
 inline float LengthXZ(const Vector4 &a) {
     return VU0_v4lengthxz(a);
@@ -599,16 +596,14 @@ inline size_t Max(const size_t a, const size_t b) {
 // Credits: Brawltendo
 // Limits the input value to the range [a,l]
 inline float Limit(const float a, const float l) {
-    if (a * l <= 0.f) {
-        return a;
-    } else {
+    if (a * l > 0.f) {
         if (a > 0.f) {
             return Min(a, l);
-
         } else {
             return Max(a, l);
         }
     }
+    return a;
 }
 
 } // namespace UMath

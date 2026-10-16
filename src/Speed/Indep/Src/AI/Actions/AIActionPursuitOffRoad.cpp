@@ -74,10 +74,11 @@ template <typename T> void time_delay_filter<T>::reset(float init) {
 
 template <typename T> float time_delay_filter<T>::get_sample(time_type delay) const {
     if (delay <= offset) {
-
+#ifndef EA_BUILD_A124
         if (offset < 0.0001f) {
             return lastsample;
         }
+#endif
         return traits.lerp(at(0), lastsample, (offset - delay) / offset);
     }
     unsigned int o = static_cast<unsigned int>(bFloor((delay - offset) / resolution())) + 1;
@@ -92,9 +93,9 @@ template <typename T> void time_delay_filter<T>::add_sample(float sample, time_t
 
     for (unsigned int i = 0; i < count; i++) {
 
-        float frac = (static_cast<float>(i + 1) * resolution() - offset) / dt;
+        float l = (resolution() * static_cast<float>(i + 1) - offset) / dt;
         cursor = (cursor + 1) & 15;
-        samples[cursor] = traits.lerp(lastsample, sample, frac);
+        samples[cursor] = traits.lerp(lastsample, sample, l);
     }
     offset = offset + (dt - static_cast<float>(count) * resolution());
     lastsample = sample;
@@ -212,23 +213,29 @@ bool AIActionPursuitOffRoad::ShouldDoIt() {
 }
 
 bool AIActionPursuitOffRoad::CanBeAttempted(float dT) {
-    if (mIVehicleAI && mIPursuitAI && mITransmission && mIRigidBody) {
-        if (mIPursuitAI->GetChicken()) {
-            return false;
-        }
-        if (!ShouldDoIt()) {
-            return false;
-        }
-        return true;
+    if (!mIVehicleAI || !mIPursuitAI) {
+        return false;
     }
-    return false;
+    if (!mITransmission) {
+        return false;
+    }
+    if (!mIRigidBody) {
+        return false;
+    }
+    if (mIPursuitAI->GetChicken()) {
+        return false;
+    }
+    if (!ShouldDoIt()) {
+        return false;
+    }
+    return true;
 }
 
 bool AIActionPursuitOffRoad::IsFinished() {
-    if (mIVehicleAI->GetTarget()->IsValid()) {
-        return ShouldDoIt() == false;
+    if (!mIVehicleAI->GetTarget()->IsValid()) {
+        return true;
     }
-    return true;
+    return ShouldDoIt() == false;
 }
 
 void AIActionPursuitOffRoad::BeginAction(float dT) {
@@ -417,15 +424,13 @@ void AIActionPursuitOffRoad::UpdateSeek(UMath::Vector3 &seek) {
             UMath::Vector3 driveside;
             UMath::Normalize(enddir);
             const float inc_quantum = 5.0f;
-            if (incdelta > inc_quantum) {
-                do {
-                    drivenav->IncNavPosition(inc_quantum, enddir, 0.0f);
-                    drivepos = drivenav->GetPosition();
-                    drivedir = drivenav->GetForwardVector();
-                    UMath::Normalize(drivedir);
-                    UMath::Sub(blendedpos, drivepos, endoff);
-                    incdelta = UMath::Dot(endoff, drivedir);
-                } while (incdelta > inc_quantum);
+            while (incdelta > inc_quantum) {
+                drivenav->IncNavPosition(inc_quantum, enddir, 0.0f);
+                drivepos = drivenav->GetPosition();
+                drivedir = drivenav->GetForwardVector();
+                UMath::Normalize(drivedir);
+                UMath::Sub(blendedpos, drivepos, endoff);
+                incdelta = UMath::Dot(endoff, drivedir);
             }
             float lanedelta = UMath::Max(0.1f, incdelta);
             driveside = UMath::Vector3Make(drivedir.z, 0.0f, -drivedir.x);
@@ -455,7 +460,11 @@ void AIActionPursuitOffRoad::UpdateSeek(UMath::Vector3 &seek) {
         drivenav->SetLaneType(WRoadNav::kLaneCop);
         drivenav->SetCookieTrail(true);
         drivenav->ResetCookieTrail();
+#ifdef EA_BUILD_A124
+        mIVehicleAI->ResetDriveToNav(blendedpos);
+#else
         mIVehicleAI->ResetDriveToNav(SELECT_VALID_LANE);
+#endif
     }
 }
 
@@ -497,6 +506,7 @@ void AIActionPursuitOffRoad::Update(float dT) {
         max_speed = bMin(max_speed, targetai->GetTopSpeed() * speedmult);
         max_accel = targetai->GetAcceleration(speed) * accelmult;
 
+#ifndef EA_BUILD_A124
         UMath::Vector3 forward;
         mIRigidBody->GetForwardVector(forward);
         const float Gravity = -9.81f;
@@ -507,6 +517,7 @@ void AIActionPursuitOffRoad::Update(float dT) {
         if (targetai->QueryInterface(&targetengine) && targetengine->IsNOSEngaged()) {
             max_accel *= 0.2f;
         }
+#endif
 
         mLimiter.update(speed, max_speed, max_accel, dT);
         max_speed = mLimiter.get_speed_limit();

@@ -58,7 +58,7 @@ class HudElement {
     void Toggle(HudFeaturesType hud_features);
 
     bool IsElementVisible() { // Decl: speed/indep/src/frontend/hud/FeHudElement.hpp:58
-        return (CurrentHudFeatures & Mask) != 0;
+        return (CurrentHudFeatures & Mask) != 0 ? true : false;
     }
 };
 

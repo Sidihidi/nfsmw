@@ -97,13 +97,13 @@ class Cache : public AudioMemBase {
         }
 
         bool exists = false;
-        VoiceIDs::iterator it = mSpeakers->begin();
-        while (it != mSpeakers->end()) {
-            if (*it == spkrID) {
+        VoiceIDs::iterator i = mSpeakers->begin();
+        while (i != mSpeakers->end()) {
+            if (*i == spkrID) {
                 exists = true;
                 break;
             }
-            it++;
+            i++;
         }
 
         if (!exists) {
@@ -130,12 +130,17 @@ class Cache : public AudioMemBase {
     static void LoadedSampleDataCB(int param, int error_status);
     void *Alloc(int size, unsigned int key);
     void Free(void *ptr);
+#ifdef EA_BUILD_A124
+    void Defrag();
+#endif
     SpeechSampleData *MakeSpaceFor(SPCHType_SampleRequestData *data, bool cached);
     void TossSample(SpeechSampleData *data);
+  private:
     void FlushUncached();
     void FlushLRU();
     void FlushAllUnlocked();
     void FlushInactiveSpeakers();
+  public:
     void DebugPrintAllocations();
     void Dump();
     void Init(int size);
@@ -146,6 +151,10 @@ class Cache : public AudioMemBase {
     VoiceIDs *mSpeakers;   // offset 0x4, size 0x4
     void *mCache;          // offset 0x8, size 0x4
     int mCacheSize;        // offset 0xC, size 0x4
+#ifdef EA_BUILD_A124
+    // El prototipo aun guardaba un buffer para desfragmentar (stabs: 0x10); Defrag ya estaba vacio.
+    void *mDefragBuf;
+#endif
     int mInitialMemFree;   // offset 0x10, size 0x4
     SlotPool *mEventPool;  // offset 0x14, size 0x4
     SpchSampleMap mIndex;  // offset 0x18, size 0x14

@@ -66,11 +66,11 @@ LocalPlayer::LocalPlayer(Sim::Param params)
       mHudTask(nullptr),        //
       mSpeech(nullptr),         //
       mInGameBreaker(false)
-// La guarda tiene que ser la MISMA que la del miembro en LocalPlayer.hpp:139, que es
-// `#ifndef EA_PLATFORM_PLAYSTATION2`. Con `EA_BUILD_A124` colaba de casualidad, porque
-// el prototipo era la unica build de PS2 que lo definia; en cuanto SLUS dejo de
-// definirlo, el inicializador quedo vivo sobre un campo que en PS2 no existe.
-#ifndef EA_PLATFORM_PLAYSTATION2
+// La guarda tiene que ser la MISMA que la del miembro en LocalPlayer.hpp: solo el
+// prototipo A124 no lo tiene (sus stabs acaban en mGameBreakerCharge, tamano 0x110).
+// SLUS SI: su Construct hace new de 0x120 y su constructor pone a cero el 0x110; la
+// guarda de plataforma que hubo aqui salia de un error de compilacion, no de SLUS.
+#ifndef EA_BUILD_A124
       ,
       mLastPursuit(nullptr)
 #endif
@@ -104,16 +104,17 @@ void LocalPlayer::SetHud(ePlayerHudType ht) {
     if (ht == PHT_NONE) {
         ReleaseHud();
         return;
-    } else if (mSettingIndex < 0) {
+    }
+    if (mSettingIndex < 0) {
         return;
     }
     const char *hud_name = HudResourceManager::GetHudFengName(ht);
     if (!hud_name) {
         ReleaseHud();
-    } else {
-        ReleaseHud();
-        mHud = ::new ("FEngHUD", __LINE__) FEngHud(ht, hud_name, this, mSettingIndex);
+        return;
     }
+    ReleaseHud();
+    mHud = ::new ("FEngHUD", 0) FEngHud(ht, hud_name, this, mSettingIndex);
 }
 
 void LocalPlayer::OnAttached(IAttachable *pOther) {
@@ -148,10 +149,12 @@ void LocalPlayer::OnDetached(IAttachable *pOther) {
 }
 
 LocalPlayer::~LocalPlayer() {
+#ifndef EA_BUILD_A124
     if (mFFB) {
         mFFB->ResetEffects();
         mFFB = nullptr;
     }
+#endif
     SetGameBreaker(false);
     if (mHudTask) {
         Sim::Object::RemoveTask(mHudTask);
@@ -175,7 +178,7 @@ bool LocalPlayer::CanDoGameBreaker() {
     if (Sim::GetUserMode() != Sim::USER_SINGLE) {
         return false;
     }
-    ISimable *isimable = static_cast<IEntity *>(this)->GetSimable();
+    ISimable *isimable = GetSimable();
     if (!isimable) {
         return false;
     }
@@ -215,7 +218,7 @@ bool LocalPlayer::ToggleGameBreaker() {
 }
 
 bool LocalPlayer::CanRechargeNOS() const {
-    return mInGameBreaker == 0;
+    return mInGameBreaker == 0 ? true : false;
 }
 
 void LocalPlayer::ResetGameBreaker(bool full) {
@@ -268,7 +271,7 @@ void LocalPlayer::UpdateHud(float dT) {
 
     ProfileNode profile_node;
 
-    ISimable *isimable = static_cast<IEntity *>(this)->GetSimable();
+    ISimable *isimable = GetSimable();
 
     if (!isimable) {
         return;
@@ -550,7 +553,7 @@ void LocalPlayer::UpdateHud(float dT) {
             iraceinformation->SetNumRacers(raceStatus.GetRacerCount());
             iraceinformation->SetNumLaps(raceStatus.GetRaceParameters()->GetNumLaps());
 
-            playerInfo = raceStatus.GetRacerInfo(static_cast<IEntity *>(this)->GetSimable());
+            playerInfo = raceStatus.GetRacerInfo(GetSimable());
 
             if (playerInfo) {
 
@@ -603,7 +606,7 @@ void LocalPlayer::UpdateHud(float dT) {
             ileaderboard->SetNumRacers(raceStatus.GetRacerCount());
             ileaderboard->SetNumLaps(raceStatus.GetRaceParameters()->GetNumLaps());
 
-            playerInfo = GRaceStatus::Get().GetRacerInfo(static_cast<IEntity *>(this)->GetSimable());
+            playerInfo = GRaceStatus::Get().GetRacerInfo(GetSimable());
 
             for (int i = 0; i < 4; i++) {
 
@@ -650,7 +653,7 @@ void LocalPlayer::UpdateHud(float dT) {
 
             Sim::IActivity *pursuit_activity = UTL::COM::QueryInterface<Sim::IActivity>(ipursuit);
 
-#ifndef EA_PLATFORM_PLAYSTATION2
+#ifndef EA_BUILD_A124
             if (pursuit_activity && pursuit_activity->GetInstanceHandle() != mLastPursuit) {
 
                 icts->SetCostToState(0);
@@ -729,7 +732,7 @@ void LocalPlayer::DoRadar(bool inPursuit, bool isCoolingDown) {
     iradar->SetInPursuit(inPursuit);
     iradar->SetIsCoolingDown(isCoolingDown);
 
-    ISimable *isimable = static_cast<IEntity *>(this)->GetSimable();
+    ISimable *isimable = GetSimable();
 
     if (!isimable) {
         iradar->SetTarget(IRadarDetector::RADAR_TARGET_NONE, 0.0f, 0.0f);
@@ -911,6 +914,44 @@ bool LocalPlayer::CanDoFFB() const {
 }
 
 void LocalPlayer::DoFFB() {
+#ifdef EA_BUILD_A124
+    // La A124 aun no tiene CanDoFFB: primero el volante, luego los ajustes, y pausa si el coche esta animado o hay
+    // una NIS (su asm, lineas 1053-1111 de su LocalPlayer.cpp).
+    if (mWheelDevice && mWheelDevice->IsConnected()) {
+        mWheelDevice->UpdateForces(this);
+        return;
+    }
+    if (!mFFB) {
+        return;
+    }
+    PlayerSettings *settings = GetSettings();
+    if (!settings || !settings->Rumble || !bRumbleEnabled) {
+        return;
+    }
+
+    ISimable *isimable = GetSimable();
+
+    IInput *iinput;
+    IVehicle *ivehicle;
+    ISuspension *isuspension;
+    IEngine *iengine;
+    ITransmission *itransmission;
+
+    if (!isimable || !isimable->QueryInterface(&iinput) || !isimable->QueryInterface(&ivehicle)) {
+        return;
+    }
+    if (ivehicle->IsAnimating()) {
+        mFFB->PauseEffects();
+        return;
+    }
+    if (!isimable->QueryInterface(&isuspension) || !isimable->QueryInterface(&iengine) || !isimable->QueryInterface(&itransmission)) {
+        return;
+    }
+    if (INIS::Get()) {
+        mFFB->PauseEffects();
+        return;
+    }
+#else
     if (!mFFB) {
         return;
     }
@@ -923,7 +964,7 @@ void LocalPlayer::DoFFB() {
         return;
     }
 
-    ISimable *isimable = static_cast<IEntity *>(this)->GetSimable();
+    ISimable *isimable = GetSimable();
 
     IInput *iinput;
     IVehicle *ivehicle;
@@ -935,11 +976,16 @@ void LocalPlayer::DoFFB() {
         !isimable->QueryInterface(&iengine) || !isimable->QueryInterface(&itransmission)) {
         return;
     }
+#endif
     mFFB->ResumeEffects();
     mFFB->BeginUpdate();
     for (unsigned int i = 0; i < isuspension->GetNumWheels(); i++) {
         ISpikeable *ispikeable;
+#ifdef EA_BUILD_A124
+        bool blown = isimable->QueryInterface(&ispikeable) && ispikeable->GetTireDamage(i) == TIRE_DAMAGE_BLOWN; // solo reventada
+#else
         bool blown = isimable->QueryInterface(&ispikeable) && ispikeable->GetTireDamage(i);
+#endif
 
         // TODO hash
         const SimSurface &surface = isuspension->IsWheelOnGround(i) ? (blown ? SimSurface(0xd929e923) : isuspension->GetWheelRoadSurface(i))
@@ -1010,21 +1056,40 @@ ISteeringWheel *LocalPlayer::GetSteeringDevice() {
 void LocalPlayer::SetControllerPort(int port) {
     if (port != mControllerPort) {
         mControllerPort = port;
+#ifdef EA_BUILD_A124
+        // La A124 no reinicia los efectos de la vibracion al cambiar de mando.
+        mFFB = nullptr;
+#else
         if (mFFB) {
             mFFB->ResetEffects();
             mFFB = nullptr;
         }
+#endif
         mWheelDevice = nullptr;
         if (mControllerPort >= 0) {
             InputDevice *device = IOModule::GetIOModule().GetDevice(mControllerPort);
             if (device) {
+#ifdef EA_BUILD_A124
+                // La A124 solo pregunta si hay interfaz (stabs: una sola local `pUnk'); si no, el puntero sigue a nulo.
+                IUnknown *pUnk = device->GetInterfaces();
+                if (pUnk) {
+                    pUnk->QueryInterface(&mFFB);
+                }
+                pUnk = device->GetSecondaryDevice();
+                if (pUnk) {
+                    pUnk->QueryInterface(&mWheelDevice);
+                }
+#else
                 mFFB = UTL::COM::QueryInterface<IFeedback>(device->GetInterfaces());
                 mWheelDevice = UTL::COM::QueryInterface<ISteeringWheel>(device->GetSecondaryDevice());
+#endif
             }
         }
+#ifndef EA_BUILD_A124
         if (mFFB) {
             mFFB->ResetEffects();
         }
+#endif
     }
 }
 
@@ -1039,6 +1104,16 @@ void LocalPlayer::OnCollision(const COLLISION_INFO &cinfo) {
     }
     PlayerSettings *settings = GetSettings();
     if (mFFB && settings && settings->Rumble && bRumbleEnabled) {
-        mFFB->ReportCollision(cinfo, UTL::COM::ComparePtr(bodyA, static_cast<IEntity *>(this)->GetSimable()));
+        mFFB->ReportCollision(cinfo, UTL::COM::ComparePtr(bodyA, GetSimable()));
     }
+#ifdef EA_BUILD_A124
+    // Solo el prototipo informa a Juice de los choques: del reporte (lineas 1266-1312 del original) en la A124 solo
+    // queda la llamada a GetSimable. La A124 lee gJuiceEnabled como palabra (4 B), no como el bool de JuiceHooks.h.
+    extern int gJuiceEnabled;
+    if (gJuiceEnabled && cinfo.type == COLLISION_INFO::OBJECT && GetSettingsIndex() == 0) {
+        if (!UTL::COM::ComparePtr(bodyA, GetSimable())) {
+            GetSimable();
+        }
+    }
+#endif
 }

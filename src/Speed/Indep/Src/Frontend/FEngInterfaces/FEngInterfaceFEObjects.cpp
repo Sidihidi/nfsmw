@@ -26,18 +26,25 @@ FEObject *FEngFindObject(const char *pkg_name, unsigned int obj_hash) {
     return nullptr;
 }
 
-FEGroup *FEngFindGroup(const char *pkg_name, unsigned int obj_hash) {
-    FEObject *obj = FEngFindObject(pkg_name, obj_hash);
-    if (obj == nullptr || obj->Type != FE_Group) {
-        return nullptr;
+FEGroup *FEngFindGroup(const char *pkg_name, unsigned int grp_hash) {
+    FEObject *obj = FEngFindObject(pkg_name, grp_hash);
+    if (obj != nullptr && obj->Type == FE_Group) {
+        return static_cast<FEGroup *>(obj);
     }
-    return static_cast<FEGroup *>(obj);
+    return nullptr;
 }
 
 void FEngSetInvisible(FEObject *obj) {
     if (obj != nullptr) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Las PS2 emiten los OR por separado (or 0x400001 y or 0x2000000, banco 100% en A124 y SLUS);
+        // GameCube los pliega y casa con la forma combinada.
+        obj->Flags |= 1 | FF_DirtyCode;
+        obj->Flags |= FF_Dirty;
+#else
         obj->Flags |= 1;
         obj->Flags |= FF_DirtyCode | FF_Dirty;
+#endif
         if (obj->Type == FE_Group) {
             FEGroup *group = static_cast<FEGroup *>(obj);
             FEObject *child = group->GetFirstChild();
@@ -51,8 +58,14 @@ void FEngSetInvisible(FEObject *obj) {
 }
 
 void FEngSetVisible(FEObject *obj) {
+#ifdef EA_PLATFORM_WIN32
+    // Como FEngHidePCObjects::Callback: 0x40 en PC, 0x8 en las demas.
+    if (obj != nullptr && !(obj->Flags & 0x40)) {
+#else
     if (obj != nullptr && !(obj->Flags & 8)) {
-        obj->Flags = (obj->Flags & ~1) | FF_DirtyCode | FF_Dirty;
+#endif
+        obj->Flags = (obj->Flags & ~1) | FF_DirtyCode;
+        obj->Flags |= FF_Dirty;
         if (obj->Type == FE_Group) {
             FEGroup *group = static_cast<FEGroup *>(obj);
             FEObject *child = group->GetFirstChild();
@@ -91,10 +104,10 @@ void FEngSetScript(const char *pkg_name, uint32 obj_hash, uint32 script_hash, bo
 }
 
 FEScript *FEngGetScript(FEObject *object, uint32 script_hash) {
-    if (object == nullptr) {
-        return nullptr;
+    if (object != nullptr) {
+        return object->FindScript(script_hash);
     }
-    return object->FindScript(script_hash);
+    return nullptr;
 }
 
 FEScript *FEngGetScript(const char *pkg_name, unsigned int obj_hash, unsigned int script_hash) {
@@ -210,7 +223,7 @@ void FEngGetTopLeft(FEObject *object, float &x, float &y) {
                     characters = pStr->GetString();
                 }
                 float width = size.x * pFont->GetTextWidth(characters, object->Flags);
-                float height = size.y * pFont->GetTextHeight(characters, pStr->Leading, object->Flags, pStr->MaxWidth, (pStr->Format >> 4) & 1);
+                float height = size.y * pFont->GetTextHeight(characters, pStr->Leading, object->Flags, pStr->MaxWidth, pStr->Format & FESTRING_FORMAT_WORDWRAP);
                 x = pos.x + pFont->CalculateXOffset(pStr->Format, width);
                 y = pos.y + pFont->CalculateYOffset(pStr->Format, height);
             }
@@ -281,8 +294,8 @@ void FEngGetBottomRight(FEObject *object, float &x, float &y) {
         case FE_Movie:
         case FE_ColoredImage:
         case FE_MultiImage:
-            x = size.x * 0.5f + pos.x;
-            y = size.y * 0.5f + pos.y;
+            x = pos.x + size.x * 0.5f;
+            y = pos.y + size.y * 0.5f;
             break;
         case FE_String: {
             FEngFont *pFont = FindFont(object->Handle);
@@ -490,7 +503,6 @@ void FEngSetScaleX(FEObject *object, float x) {
     FEObjData *data = object->GetObjData();
     float scale = x;
     float size = data->Size.x;
-
     switch (object->Type) {
         case FE_Model:
         case FE_List:
@@ -502,13 +514,29 @@ void FEngSetScaleX(FEObject *object, float x) {
         case FE_MultiImage: {
             TextureInfo *pTex = GetTextureInfo(object->Handle, 1, 0);
             scale = x * static_cast<float>(pTex->Width);
+#ifdef EA_PLATFORM_GAMECUBE
+            // r54: el original de GC comparte el stfs con String/Group (fallthrough);
+            // el ngccc de la epoca fundia los dos stores del break y el 3.9.3 no, asi
+            // que GC lleva el fallthrough y las PS2 su break duplicado (r32-fe): las
+            // cuatro formas medidas al 100/99,3 en su plataforma.
+#else
+            data->Size.x = scale;
+            break;
+#endif
         }
+        // r32-fe: el GOWE69 comparte UN stfs entre Image (fallthrough) y
+        // String/Group, pero el SLES-A124/SLUS original DUPLICA el store (el
+        // swc1 fv1 va en el delay-slot del b del caso Image): con el
+        // fallthrough nuestras PS2 pierden el 100 % (95,3, 224 vs 232 B) y con
+        // el break el GC queda a 96,0. Ninguna forma casa en las cinco a la
+        // vez -- se queda el break (PS2 100 %) y el GC a 96,0 (solo r30/r31
+        // de asignacion de registros + los dos store que el ngccc de la epoca
+        // si sabia fundir y el nuestro no).
         case FE_String:
         case FE_Group:
             data->Size.x = scale;
             break;
     }
-
     const float SizeEpsilon = 1e-06f;
     if (scale + SizeEpsilon < size || scale - SizeEpsilon > size) {
         object->Flags |= FF_DirtyCode;
@@ -522,7 +550,6 @@ void FEngSetScaleY(FEObject *object, float y) {
     FEObjData *data = object->GetObjData();
     float scale = y;
     float size = data->Size.y;
-
     switch (object->Type) {
         case FE_Model:
         case FE_List:
@@ -534,13 +561,21 @@ void FEngSetScaleY(FEObject *object, float y) {
         case FE_MultiImage: {
             TextureInfo *pTex = GetTextureInfo(object->Handle, 1, 0);
             scale = y * static_cast<float>(pTex->Height);
+#ifdef EA_PLATFORM_GAMECUBE
+            // r54: el original de GC comparte el stfs con String/Group (fallthrough);
+            // el ngccc de la epoca fundia los dos stores del break y el 3.9.3 no, asi
+            // que GC lleva el fallthrough y las PS2 su break duplicado (r32-fe): las
+            // cuatro formas medidas al 100/99,3 en su plataforma.
+#else
+            data->Size.y = scale;
+            break;
+#endif
         }
         case FE_String:
         case FE_Group:
             data->Size.y = scale;
             break;
     }
-
     const float SizeEpsilon = 1e-06f;
     if (scale + SizeEpsilon < size || scale - SizeEpsilon > size) {
         object->Flags |= FF_DirtyCode;
@@ -668,6 +703,17 @@ bool FEngTestForIntersection(float xPos, float yPos, FEObject *obj) {
     FEngGet2DExtentsForMouse(obj, Rect, FEVector2());
     FixInvertedRect(Rect);
     if (xPos >= Rect.left && xPos <= Rect.right && yPos >= Rect.top && yPos <= Rect.bottom) {
+        return true;
+    }
+    return false;
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); las dos PS2 la tienen
+bool FEngTestForIntersection(const float xPos, const float yPos, const bVector2 &top_left, const bVector2 &size) {
+    FERect rect(top_left.x, top_left.y, top_left.x + size.x, top_left.y + size.y);
+
+    FixInvertedRect(rect);
+    if (xPos >= rect.left && xPos <= rect.right && yPos >= rect.top && yPos <= rect.bottom) {
         return true;
     }
     return false;

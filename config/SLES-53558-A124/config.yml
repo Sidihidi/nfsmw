@@ -221,7 +221,7 @@ segments:
     - [0x3cd050, asmtu, Packages/vp6/1.0.3/source/decode/cmn/reconstruct.c]
     - [0x3cd2d8, asmtu, Packages/vp6/1.0.3/source/decode/cmn/scale.c]
     - [0x3ce3f0, asmtu, Packages/vp6/1.0.3/source/decode/cmn/TokenEntropy.c]
-    - [0x3ce4e0, asmtu, Packages/vp6/1.0.3/source/decode/cmn/criticalpath.c]
+    - [0x3ce4e0, asmtu, Packages/vp6/1.0.3/source/decode/ps2/criticalpath.c]
     - [0x3d1800, asmtu, Packages/vp6/1.0.3/source/decode/cmn/recon.c]
     - [0x3d19a8, asmtu, Speed/Indep/Libs/path/5.01.04/source/cmn/pathcontrol.cpp]
     - [0x3d1e08, asmtu, Speed/Indep/Libs/path/5.01.04/source/cmn/pathevent.cpp]
@@ -773,7 +773,7 @@ segments:
     - [0x48f8c0, .rodata, Packages/vp6/1.0.3/source/decode/cmn/decodemv.c]
     - [0x48f918, .rodata, Packages/vp6/1.0.3/source/decode/cmn/FrameIni.c]
     - [0x48f978, .rodata, Packages/vp6/1.0.3/source/decode/cmn/TokenEntropy.c]
-    - [0x490070, .rodata, Packages/vp6/1.0.3/source/decode/cmn/criticalpath.c]
+    - [0x490070, .rodata, Packages/vp6/1.0.3/source/decode/ps2/criticalpath.c]
     - [0x490310, .rodata, Speed/Indep/Libs/path/5.01.04/source/cmn/pathcontrol.cpp]
     - [0x490320, .rodata, Speed/Indep/Libs/path/5.01.04/source/cmn/pathevent.cpp]
     - [0x490348, .rodata, Speed/Indep/Libs/path/5.01.04/source/cmn/pathinit.cpp]
@@ -934,22 +934,22 @@ segments:
       name: Speed/Indep/SourceLists/zOnline.cpp
       linker_section_order: .over
       linker_section: .over
-    - start: 0x4b3bd8
+    - start: 0x4b09b0
       type: .rodata
       name: Speed/Indep/SourceLists/zOnline.cpp
       linker_section_order: .over
       linker_section: .rodata
     - start: 0x4b3d98
-      type: asmtu
+      type: .rodata
       name: .over_1
       linker_section_order: .over
-      linker_section: .over
+      linker_section: .rodata
     - start: 0x4b50c0
       type: asmtu
       name: Speed/Indep/SourceLists/zFeOverlay.cpp
       linker_section_order: .over
       linker_section: .over
-    - start: 0x4da098
+    - start: 0x4d7d48
       type: .rodata
       name: Speed/Indep/SourceLists/zFeOverlay.cpp
       linker_section_order: .over
@@ -1020,7 +1020,7 @@ segments:
     - [0x54d4a0, .data, Packages/vp6/1.0.3/source/decode/cmn/deblock.c]
     - [0x54d7a0, .data, Packages/vp6/1.0.3/source/decode/cmn/dering.c]
     - [0x54daa0, .data, Packages/vp6/1.0.3/source/decode/cmn/loopfilter.c]
-    - [0x54dea0, .data, Packages/vp6/1.0.3/source/decode/cmn/criticalpath.c]
+    - [0x54dea0, .data, Packages/vp6/1.0.3/source/decode/ps2/criticalpath.c]
     - [0x54df60, .data, Speed/Indep/Libs/path/5.01.04/source/cmn/pathinit.cpp]
     - [0x54dfd0, .data, Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal.cpp]
     - [0x54dfd8, .data, Speed/Indep/Libs/path/5.01.04/source/cmn/author.cpp]

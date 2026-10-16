@@ -127,9 +127,9 @@ int SNDBANKI_playtimbre(int bhandle, int patnum, void *psampledata, SNDPLAYOPTS 
             builtinvol = 0;
         }
 
+        builtinvol = builtinvol * velocity / 127;
         pv->bendrange = pph->bendrange * 100;
         pv->pitchbend = bend;
-        builtinvol = builtinvol * velocity / 127;
         pv->paenvelope = (ENVELOPE *)pph->penvelope;
         pv->envvol = pph->initialenvvol << 16;
         pv->envduration = pv->paenvelope->duration;

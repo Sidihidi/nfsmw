@@ -23,14 +23,18 @@ class FEResponse {
     static bool HasString(u32 ResponseID) {
         return (ResponseID - 0x200u < 5) && (ResponseID != 0x203);
     }
-    static bool SpawnsPackage(u32 ResponseID) {}
+    static bool SpawnsPackage(u32 ResponseID) {
+        return ResponseID == 0x2C1 || HasString(ResponseID);
+    }
     static bool PostsMessage(u32 ResponseID) {}
     static bool IsConditional(u32 ResponseID) {}
 
     bool HasString() const {
         return HasString(ResponseID);
     }
-    bool SpawnsPackage() const {}
+    bool SpawnsPackage() const {
+        return SpawnsPackage(ResponseID);
+    }
     void SetID(u32 ID) {
         ResponseID = ID;
     }

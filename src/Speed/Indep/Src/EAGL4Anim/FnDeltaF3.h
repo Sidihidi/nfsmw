@@ -79,10 +79,10 @@ class FnDeltaF3 : public FnAnimMemoryMap {
   protected:
     int mPrevKey;                 // offset 0x10, size 0x4
     void *mPrevVBlock;            // offset 0x14, size 0x4
-    UMath::Vector4 *mPrevValues;  // offset 0x18, size 0x4 TODO COORD4 typedef
+    COORD4 *mPrevValues;          // offset 0x18, size 0x4
     int mNextKey;                 // offset 0x1C, size 0x4
     void *mNextVBlock;            // offset 0x20, size 0x4
-    UMath::Vector4 *mNextValues;  // offset 0x24, size 0x4
+    COORD4 *mNextValues;          // offset 0x24, size 0x4
     const BoneMask *mBoneMask;    // offset 0x28, size 0x4
     DeltaF3MinRange *mMinRangesf; // offset 0x2C, size 0x4
 };

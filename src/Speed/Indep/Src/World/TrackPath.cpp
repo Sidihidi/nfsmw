@@ -19,13 +19,13 @@ bool DoLinesIntersect(const bVector2 &a, const bVector2 &b, const bVector2 &c, c
 
     float r = ((a.y - c.y) * (d.x - c.x) - (a.x - c.x) * (d.y - c.y)) / den;
 
-    if (!(0.0f <= r && r <= 1.0f)) {
+    if (r < 0.0f || r > 1.0f) {
         return false;
     }
 
     float s = ((a.y - c.y) * (b.x - a.x) - (a.x - c.x) * (b.y - a.y)) / den;
 
-    if (!(0.0f <= s && s <= 1.0f)) {
+    if (s < 0.0f || s > 1.0f) {
         return false;
     }
 
@@ -40,8 +40,10 @@ void TrackPathManager::Clear() {
     this->MostCachedZones = 0;
     this->pBarriers = nullptr;
     this->NumBarriers = 0;
+#ifndef EA_BUILD_A124
     zoneB[0] = nullptr;
     zoneB[1] = nullptr;
+#endif
 }
 
 int TrackPathManager::Loader(bChunk *chunk) {
@@ -95,6 +97,7 @@ int TrackPathManager::Loader(bChunk *chunk) {
 int TrackPathManager::Unloader(bChunk *chunk) {
     if (chunk->GetID() == BCHUNK_TRACK_PATH_MANAGER) {
         this->Clear();
+        void NotifyGameZonesChanged();
         NotifyGameZonesChanged();
         return 1;
     }
@@ -109,16 +112,16 @@ int TrackPathManager::Unloader(bChunk *chunk) {
 }
 
 void TrackPathManager::DisableAllBarriers() {
-    for (int i = 0; i < this->NumBarriers; i++) {
-        TrackPathBarrier *barrier = this->GetBarrier(i);
+    for (int n = 0; n < this->NumBarriers; n++) {
+        TrackPathBarrier *barrier = this->GetBarrier(n);
         barrier->Enabled = 0;
     }
 }
 
 void TrackPathManager::EnableBarriers(const char *group_name) {
     unsigned int group_name_hash = bStringHash(group_name);
-    for (int i = 0; i < this->NumBarriers; i++) {
-        TrackPathBarrier *barrier = this->GetBarrier(i);
+    for (int n = 0; n < this->NumBarriers; n++) {
+        TrackPathBarrier *barrier = this->GetBarrier(n);
         if (barrier->HasGroup(group_name_hash)) {
             barrier->Enabled = 1;
 
@@ -156,7 +159,7 @@ TrackPathZone *TrackPathManager::FindZone(const bVector2 *position, eTrackPathZo
     if (position == nullptr) {
         cache_valid = false;
     } else if (bBoundingBoxIsInside(&zone_info->CachedBBoxMin, &zone_info->CachedBBoxMax, position, 0.0f)) {
-        cache_valid = zone_info->NumCachedZones < 9;
+        cache_valid = zone_info->NumCachedZones <= 8;
     } else {
         const float cached_radius = 64.0f;
         TrackPathZone *first_zone = zone_info->pFirstZone;
@@ -179,7 +182,7 @@ TrackPathZone *TrackPathManager::FindZone(const bVector2 *position, eTrackPathZo
             }
         }
 
-        cache_valid = zone_info->NumCachedZones < 9;
+        cache_valid = zone_info->NumCachedZones <= 8;
         this->MostCachedZones = bMax(this->MostCachedZones, zone_info->NumCachedZones);
     }
 
@@ -195,9 +198,16 @@ TrackPathZone *TrackPathManager::FindZone(const bVector2 *position, eTrackPathZo
         }
 
         for (TrackPathZone *zone = first_zone; zone < last_zone; zone = zone->GetMemoryImageNext()) {
-            if ((position == nullptr) || (bBoundingBoxIsInside(&zone->BBoxMin, &zone->BBoxMax, position, 0.0f) && zone->IsPointInside(position))) {
+            if (position == nullptr) {
                 found_zone = zone;
                 break;
+            }
+
+            if (bBoundingBoxIsInside(&zone->BBoxMin, &zone->BBoxMax, position, 0.0f)) {
+                if (zone->IsPointInside(position)) {
+                    found_zone = zone;
+                    break;
+                }
             }
         }
     } else {
@@ -210,9 +220,11 @@ TrackPathZone *TrackPathManager::FindZone(const bVector2 *position, eTrackPathZo
 
         for (int index = first_zone_index; index < zone_info->NumCachedZones; index++) {
             TrackPathZone *zone = zone_info->CachedZones[index];
-            if (bBoundingBoxIsInside(&zone->BBoxMin, &zone->BBoxMax, position, 0.0f) && zone->IsPointInside(position)) {
-                found_zone = zone;
-                break;
+            if (bBoundingBoxIsInside(&zone->BBoxMin, &zone->BBoxMax, position, 0.0f)) {
+                if (zone->IsPointInside(position)) {
+                    found_zone = zone;
+                    break;
+                }
             }
         }
     }
@@ -225,6 +237,38 @@ void TrackPathManager::ResetZoneVisitInfos() {
         zone->SetVisitInfo(0);
     }
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Solo en las PS2 (GameCube y PC no la tienen): el segmento de la zona mas paralelo a in0-in1, sin contar el mismo.
+void TrackPathZone::GetOpposite(bVector2 *in0, bVector2 *in1, bVector2 *opp0, bVector2 *opp1) {
+    float cosMax = 0.0f;
+    int pointIndex = 0;
+    bVector2 original = *in0 - *in1;
+
+    bNormalize(&original, &original);
+    for (int n = 0; n < NumPoints; n++) {
+        bVector2 *p0 = &Points[n % NumPoints];
+        bVector2 *p1 = &Points[(n + 1) % NumPoints];
+
+        if ((in0->x == p0->x && in0->y == p0->y && in1->x == p1->x && in1->y == p1->y) ||
+            (in1->x == p0->x && in1->y == p0->y && in0->x == p1->x && in0->y == p1->y)) {
+            continue;
+        }
+
+        bVector2 compare = *p0 - *p1;
+
+        bNormalize(&compare, &compare);
+        float cosAngle = bAbs(bDot(&compare, &original));
+
+        if (cosMax < cosAngle) {
+            cosMax = cosAngle;
+            pointIndex = n;
+        }
+    }
+    *opp0 = Points[pointIndex % NumPoints];
+    *opp1 = Points[(pointIndex + 1) % NumPoints];
+}
+#endif
 
 bool TrackPathZone::IsPointInside(const bVector2 *point) {
     return bIsPointInPoly(point, this->Points, this->NumPoints);
@@ -243,13 +287,17 @@ float TrackPathZone::GetSegmentNextTo(bVector2 *point, bVector2 *s0, bVector2 *s
     int Closest0 = -1;
     int Closest1 = -1;
     float d0 = 99999.0f;
-    float len;
+    float len = -1.0f;
 
     for (int n = 0; n < this->NumPoints; n++) {
         bVector2 *p0 = &this->Points[n % this->NumPoints];
         bVector2 *p1 = &this->Points[(n + 1) % this->NumPoints];
         bVector2 r = *p0 - *point;
+#ifdef EA_BUILD_A124
+        bVector2 v(p0->y - p1->y, p1->x - p0->x); // la A124 toma la normal del otro lado
+#else
         bVector2 v(p1->y - p0->y, p0->x - p1->x);
+#endif
 
         bNormalize(&v, &v);
         len = bDot(&v, &r);
@@ -270,5 +318,9 @@ float TrackPathZone::GetSegmentNextTo(bVector2 *point, bVector2 *s0, bVector2 *s
 
     *s0 = this->Points[Closest0];
     *s1 = this->Points[Closest1];
+#ifdef EA_BUILD_A124
+    return len; // la A124 devuelve la ultima distancia calculada, no la del segmento elegido
+#else
     return d0;
+#endif
 }

@@ -6,14 +6,20 @@
 #include "Speed/Indep/bWare/Inc/bSlotPool.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#include "Speed/Indep/Src/Speech/SoundAI.h"
+#endif
 
-extern void *bMalloc(int size, int allocation_params);
-extern void bFree(void *ptr);
+// r75: fuera 2 extern duplicados (bMalloc, bFree); bWare.hpp ya los declara.
+// (bMemoryPrintAllocations se queda: no esta en ningun cabecero alcanzable).
 extern void bMemoryPrintAllocations(int pool_num, int from_allocation, int to_allocation);
 extern Timer WorldTimer;
 int SpeechMemoryPool = 3;
 bool SPEECH_CACHE_STATS = false;
+#ifndef EA_BUILD_A124
 int PRINT_SPEECH_CACHE_IO = 0;
+#endif
 int flushcount_uncached = 0;
 int flushcount_lru = 0;
 int flushcount_inactive_spkrs = 0;
@@ -40,6 +46,10 @@ Speech::Cache gSpeechCache;
 
 namespace Speech {
 
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/EAXSound/SpeechSampleData.inl"
+#endif
+
 struct SpeechLoadCBData {
     Module *object;
     SpeechSampleData *data;
@@ -49,6 +59,9 @@ Cache::Cache()
     : mSpeakers(0), //
       mCache(0), //
       mCacheSize(0), //
+#ifdef EA_BUILD_A124
+      mDefragBuf(0), //
+#endif
       mInitialMemFree(0), //
       mIndex(0) {}
 
@@ -91,8 +104,7 @@ void Cache::Dump() {
 
     unsigned int index = mIndex.GetNextValidIndex(0);
     while (mIndex.ValidIndex(index)) {
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
-        SpeechSampleData::Destruct(sample);
+        SpeechSampleData::Destruct(mIndex.GetPtrAtIndex(index));
         index = mIndex.GetNextValidIndex(index + 1);
     }
 
@@ -124,11 +136,7 @@ bool Cache::IsCached(SPCHType_SampleRequestData *data, bool check_preparedness) 
         return false;
     }
 
-    if (!check_preparedness) {
-        return true;
-    }
-
-    return sample->ready;
+    return check_preparedness ? sample->ready : true;
 }
 
 unsigned long long Cache::CreateKey(int bank, int offset) {
@@ -192,7 +200,13 @@ SpeechSampleData *Cache::LoadSample(Module *module, SPCHType_SampleRequestData *
     unsigned int baseoffset;
     SpeechLoadCBData *CBdata;
 
+#if defined(EA_BUILD_A124)
+    if (static_cast<float>(data->numBytes) > 15360.0f) {
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    if (static_cast<float>(data->numBytes) > 10240.0f) {
+#else
     if (static_cast<float>(data->numBytes) > 5529.6f) {
+#endif
         return 0;
     }
 
@@ -211,7 +225,11 @@ SpeechSampleData *Cache::LoadSample(Module *module, SPCHType_SampleRequestData *
     baseoffset = module->GetBankOffset(data->bankNum);
     sample->dataoffset = baseoffset + data->sampleOffset;
 
+#ifdef EA_BUILD_A124
+    CBdata = new SpeechLoadCBData; // la A124 llama a __builtin_new
+#else
     CBdata = new SpeechLoadCBData[1];
+#endif
     CBdata->data = sample;
     CBdata->object = module;
 
@@ -232,8 +250,17 @@ void *Cache::Alloc(int size, unsigned int key) {
     void *memptr = nullptr;
     if (size <= bLargestMalloc(SpeechMemoryPool)) {
         const char *allocname = "Speech::Cache::Alloc";
+        // La A124 pide el bloque con 0x400 (ori 0x400 en su Alloc); SLUS y GameCube, con 0x1000.
+#ifdef EA_BUILD_A124
+        memptr = bMalloc(size, allocname, 0, (SpeechMemoryPool & 0xf) | 0x400);
+#else
         memptr = bMalloc(size, allocname, 0, (SpeechMemoryPool & 0xf) | 0x1000);
+#endif
+#ifdef EA_BUILD_A124
+    } else if (PRINT_SND_IO_DEBUG) { // la A124 mira el aviso de E/S de sonido (declarado en SpeechManager.cpp)
+#else
     } else if (SPEECH_CACHE_STATS) {
+#endif
         DebugPrintAllocations();
     }
     return memptr;
@@ -245,6 +272,10 @@ void Cache::Free(void *mem) {
     }
 }
 
+#ifdef EA_BUILD_A124
+void Cache::Defrag() {}
+
+#endif
 SpeechSampleData *Cache::MakeSpaceFor(SPCHType_SampleRequestData *data, bool cached) {
     short attempt;
     unsigned int key;
@@ -273,6 +304,9 @@ SpeechSampleData *Cache::MakeSpaceFor(SPCHType_SampleRequestData *data, bool cac
             break;
         case 3:
             FlushAllUnlocked();
+#ifdef EA_BUILD_A124
+            Defrag();
+#endif
             break;
         default:
             attempt = -1;
@@ -292,17 +326,30 @@ SpeechSampleData *Cache::MakeSpaceFor(SPCHType_SampleRequestData *data, bool cac
 }
 
 void Cache::TossSample(SpeechSampleData *data) {
+#ifdef EA_BUILD_A124
+    if (PRINT_SND_IO_DEBUG) { // la A124 mira el aviso de E/S de sonido, aqui y abajo
+#else
     if (SPEECH_CACHE_STATS) {
+#endif
         Attrib::Gen::speech speech(Manager::mHashMap.GetHash(data->eventID), 0, 0);
     }
 
     unsigned int index = mIndex.GetNextValidIndex(0);
     while (mIndex.ValidIndex(index)) {
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
+#ifdef EA_PLATFORM_WIN32
+        if (sample == data && !sample->lock) {
+            SpeechSampleData::Destruct(sample);
+#else
         if (sample == data && !data->lock) {
             SpeechSampleData::Destruct(data);
-            mIndex.RemoveIndex(index);
+#endif
+            mIndex.DeleteIndex(index);
+#ifdef EA_BUILD_A124
+            if (PRINT_SND_IO_DEBUG) {
+#else
             if (SPEECH_CACHE_STATS) {
+#endif
                 Attrib::Gen::speech speech(Manager::mHashMap.GetHash(data->eventID), 0, 0);
             }
             return;
@@ -314,13 +361,15 @@ void Cache::TossSample(SpeechSampleData *data) {
 void Cache::FlushUncached() {
     unsigned int index = mIndex.GetNextValidIndex(0);
     while (mIndex.ValidIndex(index)) {
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         if (!sample->lock && sample->ready && !sample->cached) {
+#ifndef EA_BUILD_A124
             if (PRINT_SPEECH_CACHE_IO) {
                 Attrib::Gen::speech speech(Manager::mHashMap.GetHash(sample->eventID), 0, 0);
             }
+#endif
             SpeechSampleData::Destruct(sample);
-            mIndex.RemoveIndex(index);
+            mIndex.DeleteIndex(index);
         }
         index = mIndex.GetNextValidIndex(index + 1);
     }
@@ -336,11 +385,11 @@ void Cache::FlushLRU() {
     unsigned int postlargest = 0;
 
     while (mIndex.ValidIndex(index)) {
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         if (!sample->lock) {
             if (sample->ready && sample->cached && sample->age < 2) {
                 SpeechSampleData::Destruct(sample);
-                mIndex.RemoveIndex(index);
+                mIndex.DeleteIndex(index);
             }
         }
         index = mIndex.GetNextValidIndex(index + 1);
@@ -358,14 +407,13 @@ void Cache::FlushAllUnlocked() {
     unsigned int postlargest = 0;
 
     while (mIndex.ValidIndex(index)) {
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         if (!sample->lock && sample->ready && sample->cached) {
             SpeechSampleData::Destruct(sample);
-            mIndex.RemoveIndex(index);
+            mIndex.DeleteIndex(index);
         }
 
-        index++;
-        index = mIndex.GetNextValidIndex(index);
+        index = mIndex.GetNextValidIndex(index + 1);
     }
 
     bLargestMalloc(SpeechMemoryPool);
@@ -380,7 +428,7 @@ void Cache::FlushInactiveSpeakers() {
     unsigned int postlargest = 0;
 
     while (mIndex.ValidIndex(index)) {
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         if (!sample->lock && sample->ready && sample->cached) {
             bool inactive = true;
             for (VoiceIDs::iterator i = mSpeakers->begin(); i != mSpeakers->end(); i++) {
@@ -391,12 +439,11 @@ void Cache::FlushInactiveSpeakers() {
 
             if (inactive) {
                 SpeechSampleData::Destruct(sample);
-                mIndex.RemoveIndex(index);
+                mIndex.DeleteIndex(index);
             }
         }
 
-        index++;
-        index = mIndex.GetNextValidIndex(index);
+        index = mIndex.GetNextValidIndex(index + 1);
     }
 
     bLargestMalloc(SpeechMemoryPool);
@@ -413,7 +460,7 @@ void Cache::DebugPrintAllocations() {
             break;
         }
         SpchSampleMap *map = &mIndex;
-        SpeechSampleData *sample = mIndex.GetPtrAtValidIndex(index);
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         Attrib::Gen::speech speech(Manager::mHashMap.GetHash(sample->eventID), 0, 0);
         index = map->GetNextValidIndex(index + 1);
     }
@@ -422,6 +469,98 @@ void Cache::DebugPrintAllocations() {
 void Cache::Validate() {
 }
 
+#ifdef EA_BUILD_A124 // solo el prototipo pinta en pantalla el estado de la cache de voz
+void Cache::DebugPrints() {
+    int poolallocs = 0;
+    int poolfree = 0;
+    int poollargest_free = 0;
+    int dummy = 0;
+    const char *dbgstring = "Speech cache data";
+
+    int totalcachedsamples = 0;
+    int totalcachedbytes = 0;
+    static int mostfreqspkr = 0;
+    static int maxage = 0;
+    int numlocked = 0;
+    static unsigned int maxsize = 0;
+    static int avgsamplesz = 0;
+    unsigned int blip_size = 0;
+    unsigned int blip_count = 0;
+    unsigned int index;
+
+    for (index = mIndex.GetNextValidIndex(0); mIndex.ValidIndex(index); index = mIndex.GetNextValidIndex(index + 1)) {
+        SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
+        bool cached = sample->cached;
+
+        if (sample->lock) {
+            numlocked++;
+        }
+
+        if (cached) {
+            totalcachedbytes += sample->size;
+            totalcachedsamples++;
+            if (sample->size > maxsize) {
+                maxsize = sample->size;
+            }
+        }
+
+        if (sample->age > maxage && sample->speakerID > 10) {
+            maxage = sample->age;
+            mostfreqspkr = sample->speakerID;
+        }
+
+        if (sample->speakerID > 10 && cached) {
+            blip_size += sample->size;
+            blip_count++;
+        }
+    }
+
+    avgsamplesz = totalcachedsamples > 0 ? totalcachedbytes / totalcachedsamples : avgsamplesz;
+    float pct_cached_blips = static_cast<float>(blip_size) / 307200.0f;
+    float pct_samples_blips = totalcachedsamples ? static_cast<float>(blip_count) / static_cast<float>(totalcachedsamples) : 0.0f;
+
+    bMemoryGetStatistics(SpeechMemoryPool, poolallocs, dummy, dummy, dummy, poolfree, poollargest_free, dbgstring);
+
+    if (!UTL::Collections::Singleton<SoundAI>::Get()) {
+        return;
+    }
+
+    const UMath::Vector2 &coords = UTL::Collections::Singleton<SoundAI>::Get()->GetTune().CacheDisplayCoords();
+    int x = static_cast<int>(coords.x);
+    int y = static_cast<int>(coords.y);
+
+    ScreenPrintf(x, y, "SPEECH CACHE (%d/%d)", mIndex.Size(), mIndex.Capacity());
+    y += 15;
+    ScreenPrintf(x, y, "Free: %d", poolfree);
+    y += 15;
+    ScreenPrintf(x, y, "MaxFreeBlock: %d", poollargest_free);
+    y += 15;
+    ScreenPrintf(x, y, "Total: %d", poolallocs);
+    y += 15;
+    ScreenPrintf(x, y, "Flush:%d/%d/%d/%d", flushcount_uncached, flushcount_inactive_spkrs, flushcount_lru, flushcount_all);
+    y += 15;
+    ScreenPrintf(x, y, "#Bytes: %d", totalcachedbytes);
+    y += 15;
+    ScreenPrintf(x, y, "#Locked: %d", numlocked);
+    y += 15;
+    ScreenPrintf(x, y, "Max cache_sz: %d", maxsize);
+    y += 15;
+    ScreenPrintf(x, y, "Avg cache_sz: %d", avgsamplesz);
+    y += 15;
+    ScreenPrintf(x, y, "Popular: %d x %d", mostfreqspkr, maxage);
+    y += 30;
+    ScreenPrintf(x, y, "PctCacheBlips: %.1f", pct_cached_blips * 100.0f);
+    y += 15;
+    ScreenPrintf(x, y, "PctSampleBlips: %.1f", pct_samples_blips * 100.0f);
+    y += 15;
+    ScreenPrintf(x, y, "#Blips: %d", blip_count);
+
+    if (mIndex.Size() != poolallocs - 1) {
+        DebugPrintAllocations();
+    }
+}
+#else
 void Cache::DebugPrints() {}
+#endif
 
 } // namespace Speech

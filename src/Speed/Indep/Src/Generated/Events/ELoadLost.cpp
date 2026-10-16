@@ -43,8 +43,8 @@ void ELoadLost_MakeEvent_Callback(const void *staticData) {
     new ELoadLost(gEventDynamicData.fhSimable);
 }
 
-int ELoadLost_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int ELoadLost_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new ELoadLost(gEventDynamicData.fhSimable);
     }
     return 0;

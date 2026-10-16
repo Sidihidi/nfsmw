@@ -128,7 +128,7 @@ void DebugWorldCameraMover::JoyHandler() {
         case 0x3F:
         case 0x43:
             data = -data;
-            this->TurnVInc = (short)(data * 20000.0f);
+            this->TurnVInc = bFloatToInt(data * 20000.0f);
             break;
         case 0x41:
         case 0x45:
@@ -136,7 +136,7 @@ void DebugWorldCameraMover::JoyHandler() {
             // fallthrough
         case 0x42:
         case 0x46:
-            this->TurnHInc = (short)(data * -20000.0f);
+            this->TurnHInc = bFloatToInt(data * -20000.0f);
             break;
         case 0x47:
             if (data != 0.0f) {
@@ -200,14 +200,14 @@ void DebugWorldCameraMover::Update(float dT) {
     JoyHandler();
 
     bVector3 eyelook(Look - Eye);
-    unsigned short hAngle = bFixATan(static_cast<int>(eyelook.x * 65536.0f), static_cast<int>(eyelook.y * 65536.0f));
+    unsigned short hAngle = bFixATan(bFloatToInt(eyelook.x * 65536.0f), bFloatToInt(eyelook.y * 65536.0f));
 
     if (*reinterpret_cast<int *>(&this->TurnHInc) != 0 || this->HeightInc != 0.0f) {
         hAngle += static_cast<unsigned short>(static_cast<float>(this->TurnHInc) * dT);
 
         bVector2 *horiz = reinterpret_cast<bVector2 *>(&eyelook);
         float xylen = bLength(horiz);
-        unsigned short pitch = bFixATan(static_cast<int>(xylen * 65536.0f), static_cast<int>(eyelook.z * 65536.0f));
+        unsigned short pitch = bFixATan(bFloatToInt(xylen * 65536.0f), bFloatToInt(eyelook.z * 65536.0f));
         pitch += static_cast<unsigned short>(static_cast<float>(this->TurnVInc) * dT);
 
         if (static_cast<unsigned short>(pitch - 0x3ff7) <= 0x4008) {
@@ -227,9 +227,9 @@ void DebugWorldCameraMover::Update(float dT) {
         }
         Eye = Eye + bVector3(0.0f, 0.0f, hi);
 
-        Look.x = Eye.x + bCos(pitch) * (bCos(hAngle) * 20.0f);
-        Look.y = Eye.y + bCos(pitch) * (bSin(hAngle) * 20.0f);
-        Look.z = Eye.z + bSin(pitch) * 20.0f;
+        Look.x = bCos(pitch) * 20.0f * bCos(hAngle) + Eye.x;
+        Look.y = bCos(pitch) * 20.0f * bSin(hAngle) + Eye.y;
+        Look.z = bSin(pitch) * 20.0f + Eye.z;
     }
 
     if (this->ForwardInc != 0.0f) {
@@ -282,3 +282,30 @@ void DebugWorldCameraMover::Update(float dT) {
     }
     pCamera->SetCameraMatrix(m, dT);
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Fuera de linea solo en PS2: el original la emite en esta unidad (zCamera, 292 B) y JoyHandler la llama (mdebug:
+// GetValue 0x180998 en zCamera; en GC no existe y JoyHandler la inlina). Con los `return' explicitos la cola es
+// `j bMemCpy' (100 %); sin ellos sale `jal + b' (85.5 %).
+template <> void tGraph<float>::GetValue(float *pValue, float x) {
+    if (NumEntries > 1) {
+        if (x <= GraphData[0].x) {
+            bMemCpy(pValue, &GraphData[0].y, sizeof(float));
+            return;
+        } else if (x >= GraphData[NumEntries - 1].x) {
+            bMemCpy(pValue, &GraphData[NumEntries - 1].y, sizeof(float));
+            return;
+        } else {
+            for (int i = 0; i < NumEntries - 1; ++i) {
+                if (x >= GraphData[i].x && x < GraphData[i + 1].x) {
+                    const float blend = (x - GraphData[i].x) / (GraphData[i + 1].x - GraphData[i].x);
+                    Blend(pValue, &GraphData[i + 1].y, &GraphData[i].y, blend);
+                    return;
+                }
+            }
+        }
+    } else if (NumEntries > 0) {
+        bMemCpy(pValue, &GraphData[0].y, sizeof(float));
+    }
+}
+#endif

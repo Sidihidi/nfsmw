@@ -41,9 +41,9 @@ GCharacter::~GCharacter() {
 }
 
 void GCharacter::OnAttached(IAttachable *pOther) {
-    IVehicle *vehicle = nullptr;
-    if (pOther->QueryInterface(&vehicle)) {
-        mVehicle = vehicle;
+    IVehicle *ivehicle = nullptr;
+    if (pOther->QueryInterface(&ivehicle)) {
+        mVehicle = ivehicle;
     }
 }
 
@@ -58,9 +58,9 @@ void GCharacter::OnDetached(IAttachable *pOther) {
 
     IVehicleAI *vehicleAI = nullptr;
     if (simable->QueryInterface(&vehicleAI)) {
-        WRoadNav *roadNav = vehicleAI->GetDriveToNav();
-        if (roadNav != nullptr) {
-            roadNav->CancelPathFinding();
+        WRoadNav *driveTo = vehicleAI->GetDriveToNav();
+        if (driveTo != nullptr) {
+            driveTo->CancelPathFinding();
         }
     }
 
@@ -107,15 +107,15 @@ void GCharacter::ReleaseVehicle() {
         return;
     }
 
-    ISimable *simable = nullptr;
+    ISimable *simableToKill = nullptr;
     if (IsFlagClear(kCharFlag_UsingStockCar)) {
-        mVehicle->QueryInterface(&simable);
+        mVehicle->QueryInterface(&simableToKill);
     }
 
     Detach(mVehicle);
 
-    if (simable != nullptr) {
-        simable->Kill();
+    if (simableToKill != nullptr) {
+        simableToKill->Kill();
     }
 }
 
@@ -191,10 +191,14 @@ bool GCharacter::IsNoLongerUseful() const {
 bool GCharacter::AttemptSpawn() {
     if (mState == kCharState_Unspawned) {
         const char *carName = CarType();
+#ifndef EA_BUILD_A124
         const char *lowMemName = CarTypeLowMem();
+#ifdef EA_PLATFORM_GAMECUBE
         if (lowMemName != nullptr && lowMemName[0] != 0) {
             carName = lowMemName;
         }
+#endif
+#endif
 
         bool isCop = bStrCmp(carName, "copmidsize") == 0;
         DriverClass driverClass = DRIVER_TRAFFIC;

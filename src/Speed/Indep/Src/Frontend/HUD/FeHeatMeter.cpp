@@ -4,6 +4,9 @@
 #include "Speed/Indep/Src/FEng/FEString.h"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 void FEngSetMultiImageRot(FEMultiImage *image, float angle_degrees);
 bool FEngIsScriptSet(FEObject *obj, unsigned int script_hash);
@@ -19,11 +22,19 @@ HeatMeter::HeatMeter(UTL::COM::Object *pOutter, const char *pkg_name, int player
     RegisterGroup(0xC46A80A9);
     mpDataHeatMultiplier = FEngFindObject(GetPackageName(), 0x7F91DA62);
     mpDataHeatMeterIcon = FEngFindObject(GetPackageName(), 0x6F85ED55);
+#ifdef EA_BUILD_A124
+    // La A124 busca tambien el icono de aviso (linea 16 de su FeHeatMeter.cpp; SLUS y GameCube no).
+    mpDataHeatMeterIconWarning = FEngFindObject(GetPackageName(), 0x10E50F5E);
+#endif
     mpHeatMeterBar = RegisterMultiImage(0x862824C9);
     mpHeatMeterBar2 = RegisterMultiImage(0x4B2CBE1B);
 }
 
 void HeatMeter::Update(IPlayer *player) {
+#ifdef EA_BUILD_A124
+    // La A124 solo actualiza si el calor cambio (linea 25 de su FeHeatMeter.cpp).
+    if (mHeatChanged) {
+#endif
     mHeatChanged = false;
     float heatToUse = mVehicleHeat;
     if (mPursuitHeat > 0.0f) {
@@ -76,30 +87,52 @@ void HeatMeter::Update(IPlayer *player) {
             if (!FEngIsScriptSet(mpDataHeatMeterIcon, FEHASH_WARNING)) {
                 FEngSetScript(mpDataHeatMeterIcon, FEHASH_WARNING, true);
             }
+#ifdef EA_BUILD_A124
+            // La A124 enciende tambien el icono de aviso (lineas 108-117 y 125-126 de su FeHeatMeter.cpp).
+            if (!FEngIsScriptSet(mpDataHeatMeterIconWarning, FEHASH_WARNING)) {
+                FEngSetScript(mpDataHeatMeterIconWarning, FEHASH_WARNING, true);
+            }
+#endif
         } else {
             if (!FEngIsScriptSet(mpDataHeatMeterIcon, FEHASH_ACTIVATE)) {
                 FEngSetScript(mpDataHeatMeterIcon, FEHASH_ACTIVATE, true);
             }
+#ifdef EA_BUILD_A124
+            if (!FEngIsScriptSet(mpDataHeatMeterIconWarning, FEHASH_HIDE)) {
+                FEngSetScript(mpDataHeatMeterIconWarning, FEHASH_HIDE, true);
+            }
+#endif
         }
     } else {
         if (!FEngIsScriptSet(mpDataHeatMeterIcon, 0x1744B3)) {
             FEngSetScript(mpDataHeatMeterIcon, 0x1744B3, true);
         }
+#ifdef EA_BUILD_A124
+        if (!FEngIsScriptSet(mpDataHeatMeterIconWarning, FEHASH_HIDE)) {
+            FEngSetScript(mpDataHeatMeterIconWarning, FEHASH_HIDE, true);
+        }
+#endif
     }
+#ifdef EA_BUILD_A124
+    }
+#endif
 }
 
 void HeatMeter::SetVehicleHeat(float heat) {
     if (mVehicleHeat == heat) {
         return;
     }
-    mVehicleHeat = heat;
     mHeatChanged = true;
+    mVehicleHeat = heat;
+#ifdef EA_BUILD_A124
+    JuiceStatsDB::Instance()->SetHeat(static_cast<int>(heat));
+#endif
 }
 
 void HeatMeter::SetPursuitHeat(float heat) {
     if (mPursuitHeat == heat) {
         return;
     }
-    mPursuitHeat = heat;
     mHeatChanged = true;
+    mPursuitHeat = heat;
 }

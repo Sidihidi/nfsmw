@@ -14,6 +14,30 @@ struct Performance;
 }
 }
 
+// total size: 0x1C
+struct RankingDataT {
+    uint32 points;            // offset 0x0, size 0x4
+    uint32 wins;              // offset 0x4, size 0x4
+    uint32 losses;            // offset 0x8, size 0x4
+    uint32 disconnects;       // offset 0xC, size 0x4
+    uint32 topspeed;          // offset 0x10, size 0x4
+    uint32 fastestFinishTime; // offset 0x14, size 0x4
+    uint32 totalNOS;          // offset 0x18, size 0x4
+
+    RankingDataT();
+    ~RankingDataT() {}
+    void Clear();
+};
+
+// Clear() va antes que el constructor: la A124 lo expande dentro de RankingDataT() (siete ceros, del ultimo al primero).
+inline void RankingDataT::Clear() {
+    points = wins = losses = disconnects = topspeed = fastestFinishTime = totalNOS = 0;
+}
+
+inline RankingDataT::RankingDataT() {
+    Clear();
+}
+
 struct PlayerDataT {
     struct Stats {
         struct OnlineModeStats {
@@ -29,7 +53,13 @@ struct PlayerDataT {
             uint32 fastestFinishTime;
             uint32 winPercentage;
 
+#ifdef EA_BUILD_A124
+            // La A124 lo define tras Stats() (playerdata.hpp:306): Stats() lo llama fuera de linea y solo pone a
+            // cero los cinco primeros campos.
+            OnlineModeStats();
+#else
             OnlineModeStats() { Clear(); }
+#endif
             ~OnlineModeStats() {}
 
             void Clear() {
@@ -148,6 +178,15 @@ struct PlayerDataT {
     }
     ~PlayerDataT() {}
 };
+
+#ifdef EA_BUILD_A124
+inline PlayerDataT::Stats::OnlineModeStats::OnlineModeStats()
+    : points(0) //
+    , clientWins(0) //
+    , clientLosses(0) //
+    , hostWins(0) //
+    , hostLosses(0) {}
+#endif
 
 struct LobbyUsers {
     struct OnlineUsersData : bTNode<OnlineUsersData> {

@@ -1,4 +1,7 @@
 #include <cstddef>
+
+#include "../extern/endian.h"
+
 namespace Snd {
 
 struct UTALKSTATE_CODA {
@@ -170,7 +173,7 @@ static unsigned int getbits(UTALKSTATE_CODA *state, int count)
     result = state->shiftreg & bitmask[count];
     state->shiftreg >>= count;
     state->bitcount -= count;
-    if (state->bitcount <= 7) {
+    if (state->bitcount < 8) {
         state->shiftreg |= *state->dataptr++ << state->bitcount;
         state->bitcount += 8;
     }
@@ -181,7 +184,7 @@ void discardbits(UTALKSTATE_CODA *state, int count)
 {
     state->shiftreg >>= count;
     state->bitcount -= count;
-    if (state->bitcount <= 7) {
+    if (state->bitcount < 8) {
         state->shiftreg |= *state->dataptr++ << state->bitcount;
         state->bitcount += 8;
     }
@@ -279,6 +282,18 @@ static void reftolpc(float *ref, float *lpc)
     }
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// En PS2 el filtro de sintesis es el ensamblador de EA de smtflt59 (simbolo sin decorar en el NFS.ELF de la A124).
+extern "C" void mtfilter5900(int count, float *lpc, float *output, float *data);
+
+static void filter(UTALKSTATE_CODA *state, int index, int count)
+{
+    float lpc[12];
+
+    reftolpc(state->coeff, lpc);
+    mtfilter5900(count, lpc, state->output, &state->data[index]);
+}
+#else
 static void filter(UTALKSTATE_CODA *state, int index, int count)
 {
     float lpc[12];
@@ -375,6 +390,7 @@ static void filter(UTALKSTATE_CODA *state, int index, int count)
         data += 12;
     }
 }
+#endif
 
 void CMTBLKDecf::initmut(unsigned char *data, UTALKSTATE_CODA *state, int doWholeInit)
 {
@@ -477,7 +493,9 @@ CMTBLKDecf::CMTBLKDecf()
 
 int CMTBLKDecf::Feed(void *pSampleData, int sampleDataSize, int numSamples)
 {
-    if (pSampleData == 0 || mRemainingSamples != 0)
+    if (pSampleData == 0)
+        return -1;
+    if (mRemainingSamples != 0)
         return -1;
     mRemainingSamples = numSamples;
     mSampleDataSize = sampleDataSize;
@@ -493,36 +511,6 @@ int CMTBLKDecf::Feed(void *pSampleData, int sampleDataSize, int numSamples)
         initmut((unsigned char *)pSampleData, &mutstate, mdoWholeInit);
     }
     return 0;
-}
-
-inline void CopyU(short &dst, short &src)
-{
-    ((unsigned char *)&dst)[0] = ((unsigned char *)&src)[0];
-    ((unsigned char *)&dst)[1] = ((unsigned char *)&src)[1];
-}
-
-inline void PutUB(short &dst, short &src)
-{
-    CopyU(dst, src);
-}
-
-inline void Reverse(short &dst, short &src)
-{
-    ((unsigned char *)&dst)[0] = ((unsigned char *)&src)[1];
-    ((unsigned char *)&dst)[1] = ((unsigned char *)&src)[0];
-}
-
-inline void PutUL(short &dst, short &src)
-{
-    Reverse(dst, src);
-}
-
-inline void PutU(bool bigendian, short &dst, short &src)
-{
-    if (bigendian)
-        PutUB(dst, src);
-    else
-        PutUL(dst, src);
 }
 
 int CMTBLKDecf::Decode(float **pDstBuf, int numSamples)

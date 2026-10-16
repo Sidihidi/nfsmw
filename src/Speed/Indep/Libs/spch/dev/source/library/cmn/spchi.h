@@ -181,13 +181,13 @@ inline unsigned char VoxEvent_GetNumContexts(VoxEvent *event) {
 
 inline unsigned char VoxEvent_GetFilterPriorityFlag(VoxEvent *event) {
     unsigned char flag;
-    flag = event->flags & 0x2;
+    flag = (event->flags >> 1) & 1;
     return flag;
 }
 
 inline unsigned char VoxEvent_GetKeepTillExpiresFlag(VoxEvent *event) {
     unsigned char flag;
-    flag = event->flags & 0x4;
+    flag = (event->flags >> 2) & 1;
     return flag;
 }
 
@@ -205,13 +205,13 @@ inline unsigned char VoxEvent_GetFilterLengthFlag(VoxEvent *event) {
 
 inline unsigned char VoxEvent_GetFollowGroupFlag(VoxEvent *event) {
     unsigned char flag;
-    flag = event->flags & 0x10;
+    flag = (event->flags >> 4) & 1;
     return flag;
 }
 
 inline unsigned char VoxEvent_GetInterruptFlag(VoxEvent *event) {
     unsigned char flag;
-    flag = event->flags & 0x20;
+    flag = (event->flags >> 5) & 1;
     return flag;
 }
 

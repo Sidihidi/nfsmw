@@ -43,6 +43,7 @@
 
 #include "UTypes.h"
 #include <cmath>
+#include <stdio.h>
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -136,9 +137,19 @@ inline struct UMath::Vector4 RQuat(float x, float y, float z, float w) {
     UMath::Vector4 q;
 }
 
-inline void Coord3AsString(const UMath::Vector3 &c, char *str) {}
+// Las dos cadenas estan en la .rodata de todas las unidades de juego de SLUS y de GameCube (GCC 2.95 las emite
+// aunque nadie llame a la funcion) y en ninguna de la A124, que tiene los cuerpos vacios.
+inline void Coord3AsString(const UMath::Vector3 &c, char *str) {
+#ifndef EA_BUILD_A124
+    sprintf(str, "%f,%f,%f", c.x, c.y, c.z);
+#endif
+}
 
-inline void Coord4AsString(const UMath::Vector4 &c, char *str) {}
+inline void Coord4AsString(const UMath::Vector4 &c, char *str) {
+#ifndef EA_BUILD_A124
+    sprintf(str, "%f,%f,%f,%f", c.x, c.y, c.z, c.w);
+#endif
+}
 
 inline float V3LengthSquared(const UMath::Vector4 &p) {}
 
@@ -153,6 +164,8 @@ inline float PTOrd(const UMath::Vector4 &vert, const UMath::Vector4 &p0, const U
 #define kIdentityMatrix4 UMath::Matrix4::kIdentity // Decl: 295
 #define kIdentityMatrix3 UMath::Matrix3::kIdentity // Decl: 296
 
+void BuildRotTrans(UMath::Matrix4 &result, const UMath::Matrix3 &rot, const UMath::Vector3 &trans);
+
 // Decl: Carbon: 304, GC MW: 304
 // total size: 0x40
 class UTransform {
@@ -165,7 +178,9 @@ class UTransform {
 
     // UTransform(const RQUAT &q) {}
 
-    // UTransform(const UMath::Matrix3 &m, const UMath::Vector3 &t) {}
+    UTransform(const UMath::Matrix3 &m, const UMath::Vector3 &t) {
+        BuildRotTrans(fTransform, m, t);
+    }
 
     // UTransform(const RQUAT &q, const UMath::Vector4 &t) {}
 
@@ -363,11 +378,13 @@ void VU0_MATRIX4_vect3mult(const UMath::Vector3 &v, const UMath::Matrix4 &m, UMa
 void VU0_MATRIX4_vect4mult(const UMath::Vector4 &v, const UMath::Matrix4 &m, UMath::Vector4 &result);
 void VU0_MATRIX4_vect4mult(const UMath::Vector4 *v, const UMath::Matrix4 &m, UMath::Vector4 *result, int count);
 void VU0_MATRIX4setyrot(UMath::Matrix4 &dest, const float yangle);
+void VU0_MATRIX4setzrot(UMath::Matrix4 &dest, const float zangle);
 void VU0_Matrix4ToEuler(const UMath::Matrix4 &m, UMath::Vector3 &e);
 
 void VU0_ExtractXAxis3FromQuat(const RQUAT &quat, UMath::Vector3 &result);
 void VU0_ExtractYAxis3FromQuat(const RQUAT &quat, UMath::Vector3 &result);
 void VU0_ExtractZAxis3FromQuat(const RQUAT &quat, UMath::Vector3 &result);
+void VU0_fastqslerp(const RQUAT &b, const RQUAT &a, RQUAT &result, const float t);
 void VU0_quattom4(const RQUAT &quat, UMath::Matrix4 &result);
 
 void VU0_MATRIX4_mult(const UMath::Matrix4 &m1, const UMath::Matrix4 &m2, UMath::Matrix4 &result);
@@ -394,21 +411,39 @@ inline void VU0_MATRIX3x4dotprod(const UMath::Vector3 &a, const UMath::Matrix4 &
     r.z = VU0_v3dotprod(a, UMath::Vector4To3(b.v2));
 }
 
+#ifndef EA_PLATFORM_PLAYSTATION2
+// El angulo va en vueltas (1.0f es la vuelta entera) y el 2*pi se multiplica aqui dentro: el mapa de lineas de
+// GameCube pone esa multiplicacion en estas dos lineas (UVectorMath.h:889 y 890), no en los llamadores. En PS2 son
+// funciones de verdad, con un polinomio en la VU0 (UVectorMath.cpp).
 // Decl: Carbon: 811, GC MW: ~889
 inline float VU0_Sin(float x) {
-    return sinf(x);
+    return sinf(x * (float)M_TWOPI);
 }
 // Decl: Carbon: 812, GC MW: ~889
 inline float VU0_Cos(float x) {
-    return cosf(x);
+    return cosf(x * (float)M_TWOPI);
 }
+#endif
 
 #define VU0_prefetch(_a) ; // Decl: 961
 
 // Decl: Carbon: 963
-inline int VU0_FloatToInt(const float floatvalue) {}
+inline int VU0_FloatToInt(const float floatvalue) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Lineas 933-947 del original: la conversion sale siempre en $f8 y con dos nop antes del mfc1 (VU0_Sin y
+    // VU0_Cos), asi que es un asm de EA con el registro escrito, como el FloatToInt de EAGL4Anim.
+    // Su forma en C y lo que cuesta: docs/asm-de-ea.md.
+    int ret;
 
-// these might not use inline asm
+    asm("cvt.w.s $f8, %1\n\tnop\n\tnop\n\tmfc1 %0, $f8" : "=r"(ret) : "f"(floatvalue) : "$f8");
+    return ret;
+#else
+    return static_cast<int>(floatvalue);
+#endif
+}
+
+// asm de EA en PS2: el original nunca pone min.s/max.s/abs.s en una ranura de salto (0 de 1.465), como un asm
+// volatile; su forma en C y lo que cuesta, en docs/asm-de-ea.md.
 // Decl: Carbon: 968, GC MW: 1048, PS2 MW: 1003
 inline float VU0_floatmin(const float a, const float b) {
 #ifdef EA_PLATFORM_PLAYSTATION2

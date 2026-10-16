@@ -3,6 +3,9 @@
 #include "LobbyGames.hpp"
 #include "LobbyGameSessions.hpp"
 
+#include "Speed/Indep/Src/Misc/BuildRegion.hpp"
+#include "Speed/Indep/Src/Misc/ISOCodes.hpp"
+
 void *operator new(size_t size, const char *file, int line, int allocationParams);
 void *operator new[](size_t size, const char *file, int line, int allocationParams);
 
@@ -27,16 +30,8 @@ void LobbyApiCancelCB(LobbyApiRefT *lobbyRef);
 void LobbyApiDebug(LobbyApiRefT *lobbyRef, LobbyApiMsgT *msg);
 }
 
-struct BuildRegion {
-    static char *GetAbbreviation();
-    static char *GetSkuCode();
-    static char *GetSlusCode();
-};
-
-struct ISOCodes {
-    static char *GetCountryISOCode();
-    static char *GetLanguageISOCode();
-};
+LobbyCore::RaceResults LobbyCore::raceResults;
+LobbyCore *pLobbyCoreInstance;
 
 extern int BuildVersionChangelistNumber;
 void GetGameVersionNumberString(char *buffer, int bufferSize);
@@ -57,6 +52,7 @@ LobbyCore::~LobbyCore() { Reset(); }
 
 LobbyCore &LobbyCore::Instance() {
     static LobbyCore theLobby;
+    pLobbyCoreInstance = &theLobby;
     return theLobby;
 }
 
@@ -216,8 +212,8 @@ void LobbyCore::AbortAllCommands_HaveMutex() {
 }
 
 void LobbyCore::SetDisconnectCallback(DisconnectCBFunc func, void *context) {
-    disconnectContext = context;
     disconnectCB = func;
+    disconnectContext = context;
 }
 
 char *LobbyCore::GetServerConfig() {

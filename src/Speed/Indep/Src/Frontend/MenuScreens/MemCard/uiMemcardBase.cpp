@@ -4,6 +4,9 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/career/uiRepSheetRivalFlow.hpp"
 #include "Speed/Indep/Src/Generated/Events/EQuitToFE.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EPauseForMemcard.hpp"
+#endif
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
 #include "Speed/Indep/Src/FEng/FEObject.h"
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
@@ -43,17 +46,14 @@ UIMemcardKeyboard::UIMemcardKeyboard(ScreenConstructorData *sd) : MenuScreen(sd)
 
 void UIMemcardKeyboard::Setup() {
     const u32 Hahs_FADEIN = FEHASH_FADEIN;
-    unsigned int ok = gButtonIDs[0];
 
-    FEngSetScript(GetPackageName(), ok, Hahs_FADEIN, true);
+    FEngSetScript(GetPackageName(), gButtonIDs[0], Hahs_FADEIN, true);
 
-    unsigned int cancel = gButtonIDs[1];
+    FEngSetScript(GetPackageName(), gButtonIDs[1], Hahs_FADEIN, true);
+    FEngSetVisible(GetPackageName(), gButtonIDs[0]);
+    FEngSetVisible(GetPackageName(), gButtonIDs[1]);
 
-    FEngSetScript(GetPackageName(), cancel, Hahs_FADEIN, true);
-    FEngSetVisible(GetPackageName(), ok);
-    FEngSetVisible(GetPackageName(), cancel);
-
-    FEngSetCurrentButton(GetPackageName(), cancel);
+    FEngSetCurrentButton(GetPackageName(), gButtonIDs[1]);
 }
 
 void UIMemcardKeyboard::ShowKeyboard() {
@@ -84,7 +84,9 @@ UIMemcardBase::UIMemcardBase(ScreenConstructorData *sd) : UIMemcardKeyboard(sd),
     m_bDelayedFailed = false;
     m_bInButtonAnimation = false;
     m_pChild = nullptr;
+#ifndef EA_PLATFORM_PLAYSTATION2 // las dos PS2 se quedan con la lista que deja el constructor de bTList
     m_Items.InitList();
+#endif
     m_SimPausedForMemcard = false;
 }
 
@@ -93,7 +95,7 @@ UIMemcardBase::~UIMemcardBase() {
     MemoryCard::GetInstance()->FEngLinkObjects(nullptr);
 
     if (gMemcardSetup.mOp & MCE_PostOnDestroy) {
-        gMemcardSetup.Complete(0);
+        gMemcardSetup.Complete(gMemcardSetup.mLastMessage);
     }
 }
 
@@ -130,7 +132,9 @@ void UIMemcardBase::InitCompleteDoList() {
 
     MemoryCard::GetInstance()->RequestTask(7, nullptr);
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PC tampoco (speed.exe 0x559D60)
     cFEng::Get()->QueuePackageMessage(FEHashUpper("SHOW LOADER"), GetPackageName(), nullptr);
+#endif
 }
 
 void UIMemcardBase::InitComplete() {
@@ -140,27 +144,32 @@ void UIMemcardBase::InitComplete() {
         cFEng::Get()->QueueGameMessage(0x461A18EE, GetPackageName(), 0xff);
         return;
     }
-
+#ifndef EA_BUILD_A124 // la A124 no limpia el texto
     SetMessageBlurbText(" ");
-
-
+#endif
+#if !(defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)) // PC (speed.exe 0x562C42) y las PS2 no esconden el "Button"
     FEngSetInvisible(GetPackageName(), FEHashUpper("Button"));
-
+#endif
 
 
 
 
 
     m_pDisplayMsg->Flags |= 0x80;
-
-    if ((gMemcardSetup.mOp & MCE_SendInitComplete) != 0) {
-
+#ifdef EA_BUILD_A124 // la A124 avisa tambien en la serie de desafios y enciende la tarjeta solo con el rival
+    if ((gMemcardSetup.GetExtraOptions() & MCE_SendInitComplete) != 0 || (gMemcardSetup.GetExtraOptions() & MCE_ChallengeSeries) != 0) {
+#else
+    if ((gMemcardSetup.GetExtraOptions() & MCE_SendInitComplete) != 0) {
+#endif
         cFEng::Get()->QueueGameMessage(0x5AFE12F4, gMemcardSetup.mFromScreen, 0xff);
     }
 
-
-    if ((gMemcardSetup.mOp & MCE_RivalFlow) != 0 ||
-        ((gMemcardSetup.mOp & MCE_ChallengeSeries) != 0 && gMemcardSetup.GetCommand() == MCO_AutoSave)) {
+#ifdef EA_BUILD_A124
+    if ((gMemcardSetup.GetExtraOptions() & MCE_RivalFlow) != 0) {
+#else
+    if ((gMemcardSetup.GetExtraOptions() & MCE_RivalFlow) != 0 ||
+        ((gMemcardSetup.GetExtraOptions() & MCE_ChallengeSeries) != 0 && gMemcardSetup.GetCommand() == MCO_AutoSave)) {
+#endif
 
         cFEng::Get()->QueuePackageMessage(FEHashUpper("MEMCARD_ON"), GetPackageName(), nullptr);
     }
@@ -172,7 +181,11 @@ void UIMemcardBase::InitComplete() {
 
         case MCO_LoadList:
         case MCO_CarLotLoad:
-            if (FEDatabase->bProfileLoaded && (gMemcardSetup.mOp & MCE_Player2) == 0) {
+#ifdef EA_BUILD_A124 // la A124 no mira el segundo jugador
+            if (FEDatabase->bProfileLoaded) {
+#else
+            if (FEDatabase->bProfileLoaded && (gMemcardSetup.GetExtraOptions() & MCE_Player2) == 0) {
+#endif
 
 
 
@@ -193,16 +206,16 @@ void UIMemcardBase::InitComplete() {
 
 
 
-
-
-
-
-
-
-
         case MCO_BootList:
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) // speed.exe 0x562D8F
+            if (MemoryCard::IsCardAvailable() && IsMemcardEnabled != 0) {
+                InitCompleteDoList();
+            } else {
+                MemcardExit(0x8867412D);
+            }
+#else
             MemcardExit(0x8867412D);
-
+#endif
             break;
 
 
@@ -237,20 +250,34 @@ void UIMemcardBase::InitComplete() {
 
 
         case MCO_Save:
+#ifdef EA_BUILD_A124 // la A124: sin nombre de perfil sale; con el rival guarda sin preguntar
+            if (FEDatabase->GetUserProfile(0)->IsProfileNamed()) {
+                bStrCpy(m_FileName, FEDatabase->GetUserProfile(0)->GetProfileName());
+                if ((gMemcardSetup.GetExtraOptions() & MCE_RivalFlow) != 0) {
+                    HideAllButtons();
+                    DoSaveFlow(MCSF_DoSave);
+                } else {
+                    DoSaveFlow(MCSF_PromptForConfirm);
+                }
+            } else {
+                cFEng::Get()->QueueGameMessage(0x461A18EE, GetPackageName(), 0xff);
+            }
+#else
             bStrCpy(m_FileName, FEDatabase->GetUserProfile(0)->GetProfileName());
             DoSaveFlow(MCSF_PromptForConfirm);
+#endif
             break;
 
         case MCO_CheckCard:
             MemoryCard::GetInstance()->CheckCard(0);
             break;
 
-
-
-
-
-
-
+#ifdef EA_PLATFORM_PLAYSTATION2
+        case MCO_ShowTRCMessage:
+            ShowMessage(MemoryCard::GetInstance()->GetPendingMessage());
+            MemoryCard::GetInstance()->ReleasePendingMessage();
+            break;
+#endif
 
 
 
@@ -266,7 +293,7 @@ void UIMemcardBase::InitComplete() {
 
 
         case MCO_EnableAutoSave:
-            if ((gMemcardSetup.mOp & MCE_Online) != 0) {
+            if ((gMemcardSetup.GetExtraOptions() & MCE_Online) != 0) {
 
                 MemoryCard::GetInstance()->SetAutoSaveEnabled(true);
 
@@ -278,12 +305,16 @@ void UIMemcardBase::InitComplete() {
             break;
 
         case MCO_AutoSaveError:
+#ifndef EA_BUILD_A124 // la A124 no marca la pausa aqui ni en el caso siguiente
             m_SimPausedForMemcard = true;
+#endif
             HandleAutoSaveError();
             break;
 
         case MCO_AutoSaveOverwrite:
+#ifndef EA_BUILD_A124
             m_SimPausedForMemcard = true;
+#endif
             HandleAutoSaveOverwriteMessage();
             break;
 
@@ -293,12 +324,14 @@ void UIMemcardBase::InitComplete() {
 
                 if (MemoryCard::GetInstance()->ShouldDoAutoSave(false)) {
 
-
-
-
+#ifdef EA_PLATFORM_WIN32 // speed.exe 0x562E93: el aviso de autoguardado con el nombre del perfil
+                    FEPrintf(m_pDisplayMsg, GetLocalizedString(0x50D23EBD), FEDatabase->GetUserProfile(0)->GetProfileName());
+#endif
                     SetScreenVisible(true, 0);
                     SetStringCheckingCard();
+#ifndef EA_BUILD_A124 // la A124 no copia el nombre del perfil
                     bStrCpy(m_FileName, FEDatabase->GetUserProfile(0)->GetProfileName());
+#endif
                     MemoryCard::GetInstance()->StartAutoSave(true);
 
                 } else {
@@ -318,10 +351,9 @@ void UIMemcardBase::InitComplete() {
 
 
 
-
+#if !(defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32))
         case 0xF0:
             if (MemoryCard::IsCardAvailable() && IsMemcardEnabled != 0) {
-
                 InitCompleteDoList();
 
             } else {
@@ -330,12 +362,13 @@ void UIMemcardBase::InitComplete() {
                 MemcardExit(0x8867412D);
             }
             break;
+#endif
     }
 }
 
 void UIMemcardBase::ExitComplete() {
 
-    gMemcardSetup.SendTermMessage(0);
+    gMemcardSetup.SendTermMessage(gMemcardSetup.mLastMessage);
 
 
     if (FEDatabase->IsCareerManagerMode() && TheGameFlowManager.IsInFrontend()) {
@@ -369,19 +402,20 @@ void UIMemcardBase::ExitComplete() {
     }
 
 
-    if ((gMemcardSetup.mOp & MCE_RivalFlow) != 0) {
+    if ((gMemcardSetup.GetExtraOptions() & MCE_RivalFlow) != 0) {
 
         uiRepSheetRivalFlow::Get()->Next();
 
-    } else if ((gMemcardSetup.mOp & MCE_ChallengeSeries) != 0) {
-
-
-
-        if (TheGameFlowManager.IsInFrontend()) {
-
+    } else if ((gMemcardSetup.GetExtraOptions() & MCE_ChallengeSeries) != 0) {
+#ifdef EA_BUILD_A124 // la A124 sale al FE desde el guardado automatico y lo mira primero
+        if (gMemcardSetup.GetCommand() == MCO_AutoSave) {
+            new EQuitToFE(static_cast<eGarageType>(1), nullptr);
+        } else
+#else
+        if (TheGameFlowManager.IsInFrontend())
+#endif
+        {
             cFEng::Get()->QueuePackagePop(1);
-
-
             if (FEDatabase->bProfileLoaded) {
 
                 FEDatabase->ResetGameMode();
@@ -389,10 +423,10 @@ void UIMemcardBase::ExitComplete() {
 
                 cFEng::Get()->QueuePackageSwitch(gMemcardSetup.mToScreen, 0, 0, false);
             }
-
+#ifndef EA_BUILD_A124
         } else {
-
             new EQuitToFE(static_cast<eGarageType>(1), nullptr);
+#endif
         }
 
     } else {
@@ -404,13 +438,13 @@ void UIMemcardBase::ExitComplete() {
 
             case MCF_Modal:
                 if (m_SimPausedForMemcard) {
-
+#ifndef EA_BUILD_A124
                     m_SimPausedForMemcard = false;
                     cFEng::Get()->QueuePackagePop(cFEng::Get()->IsPackagePushed("SMS_Mailboxes.fng") ? 1 : 0);
-
-
+#else
+                    new EUnPause(); // la A124 quita la pausa con el evento y baja la bandera al final
+#endif
                 } else {
-
                     cFEng::Get()->QueuePackagePop(1);
                 }
 
@@ -431,17 +465,18 @@ void UIMemcardBase::ExitComplete() {
         }
     }
 
-
+#ifndef EA_BUILD_A124
     if (m_SimPausedForMemcard) {
         m_SimPausedForMemcard = false;
     }
+#endif
 
 
+    eSndAudioMode eaudiomode = g_pEAXSound->SetAudioModeFromMemoryCard(
+        static_cast<eSndAudioMode>(FEDatabase->GetOptionsSettings()->TheAudioSettings.AudioMode));
 
-    eSndAudioMode mode = g_pEAXSound->SetAudioModeFromMemoryCard(static_cast<eSndAudioMode>(FEDatabase->GetAudioSettings()->AudioMode));
-
-    FEDatabase->GetAudioSettings()->AudioMode = mode;
-    g_pEAXSound->UpdateVolumes(FEDatabase->GetAudioSettings(), -1.0f);
+    FEDatabase->GetOptionsSettings()->TheAudioSettings.AudioMode = eaudiomode;
+    g_pEAXSound->UpdateVolumes(&FEDatabase->GetOptionsSettings()->TheAudioSettings, -1.0f);
 
 
 
@@ -474,7 +509,7 @@ void UIMemcardBase::ExitComplete() {
 
 
 
-    gMemcardSetup.Complete(0);
+    gMemcardSetup.Complete(gMemcardSetup.mLastMessage);
 
 
     if (MemoryCard::GetInstance()->InBootSequence()) {
@@ -487,14 +522,21 @@ void UIMemcardBase::ExitComplete() {
 
         MemoryCard::GetInstance()->EndBootSequence();
     }
-
-
+#ifdef EA_BUILD_A124
+    if (m_SimPausedForMemcard) m_SimPausedForMemcard = false;
+#endif
     cFEng::Get()->QueueGameMessage(0x7E998E5E, nullptr, 0xff);
 
     MemoryCard::GetInstance()->SetMemcardScreenShowing(false);
+#ifdef EA_PLATFORM_GAMECUBE
     MemoryCard::GetInstance()->SetMemcardScreenExiting(false);
+#endif
 
-    if (MemoryCard::GetInstance()->IsMonitorOn()) {
+    // El prototipo no sabe si el monitor esta encendido: lo apaga siempre.
+#ifndef EA_BUILD_A124
+    if (MemoryCard::GetInstance()->IsMonitorOn())
+#endif
+    {
         MemoryCard::GetInstance()->SetMonitor(false);
     }
 }
@@ -803,7 +845,7 @@ void UIMemcardBase::HandleButtonPressed(u32 msg, FEObject *obj, u32 param1, u32 
 
 
 
-
+                gMemcardSetup.ClearMethod();
                 gMemcardSetup.SetMethod(MCF_Modal);
             }
 
@@ -876,7 +918,7 @@ void UIMemcardBase::HandleButtonPressed(u32 msg, FEObject *obj, u32 param1, u32 
 void UIMemcardBase::HideAllButtons() {
     m_bAnyButtonVisible = false;
 
-    for (int i = 0; i <= 2; i++) {
+    for (int i = 0; i < 3; i++) {
         ShowButton(i, false, nullptr);
     }
 
@@ -919,8 +961,14 @@ void UIMemcardBase::SetButtonText(short *b1, short *b2, short *b3) {
         ShowButton(2, false, nullptr);
     } else if (b1 != nullptr) {
         m_nMsgOptions = 1;
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) // PC como PS2: un solo boton, el central
+        ShowButton(0, false, nullptr);
+        active = 1;
+        ShowButton(1, true, b1);
+#else
         ShowButton(0, true, b1);
         ShowButton(1, false, nullptr);
+#endif
         ShowButton(2, false, nullptr);
     }
 
@@ -944,6 +992,20 @@ void UIMemcardBase::SetMessage(short *pMsg) {
 }
 
 void UIMemcardBase::ShowOK(unsigned int language_main, unsigned int flag) {
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) // PC como PS2: el OK en el boton central
+    SetMessageBlurbText(language_main);
+
+    gMemcardSetup.SetPrompt(flag);
+
+    ShowButton(0, false, nullptr);
+    ShowButton(1, true, nullptr);
+    FEngSetLanguageHash(GetPackageName(), gButtonTextIDs[1], LANGUAGE_COMMON_OK);
+    FEngSetCurrentButton(GetPackageName(), gButtonIDs[1]);
+
+    ShowButton(2, false, nullptr);
+    m_ExpectingInput = true;
+    SetScreenVisible(true, 1);
+#else
     cFEng::Get()->QueuePackageMessage(FEHashUpper("HIDE LOADER"), GetPackageName(), nullptr);
 
     SetMessageBlurbText(language_main);
@@ -958,10 +1020,13 @@ void UIMemcardBase::ShowOK(unsigned int language_main, unsigned int flag) {
     ShowButton(2, false, nullptr);
     m_ExpectingInput = true;
     SetScreenVisible(true, 1);
+#endif
 }
 
 void UIMemcardBase::ShowYesNo(unsigned int language_main, unsigned int flag) {
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // el indicador de carga es de GameCube
     cFEng::Get()->QueuePackageMessage(FEHashUpper("HIDE LOADER"), GetPackageName(), nullptr);
+#endif
 
     SetMessageBlurbText(language_main);
 
@@ -993,12 +1058,14 @@ void UIMemcardBase::SetScreenVisible(bool visible, int nButtons) {
         MemoryCard::GetInstance()->SetMemcardScreenInitialized(m_bVisible);
     }
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PC tampoco manda el N_BUTTONS
     if (visible) {
         char script[32];
 
         bSPrintf(script, "%d_BUTTONS", nButtons);
         cFEng::Get()->QueuePackageMessage(FEHashUpper(script), GetPackageName(), nullptr);
     }
+#endif
 }
 
 void UIMemcardBase::SetIcon(unsigned int icon) {
@@ -1014,13 +1081,30 @@ void UIMemcardBase::TranslateButton(FEObject *obj) {
     if (obj->NameHash == gButtonIDs[0]) {
         MemoryCard::GetInstance()->MessageDone(RealmcIface::CHOICE_OPTION1);
     } else if (obj->NameHash == gButtonIDs[1]) {
-
-        MemoryCard::GetInstance()->MessageDone(RealmcIface::CHOICE_OPTION2);
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+        if (m_nMsgOptions == 1) {
+            MemoryCard::GetInstance()->MessageDone(RealmcIface::CHOICE_OPTION1);
+        } else
+#endif
+        {
+            MemoryCard::GetInstance()->MessageDone(RealmcIface::CHOICE_OPTION2);
+        }
     } else if (obj->NameHash == gButtonIDs[2]) {
         MemoryCard::GetInstance()->MessageDone(RealmcIface::CHOICE_OPTION3);
     }
 
     m_ExpectingInput = false;
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); las dos PS2 la tienen
+void UIMemcardBase::SetupPromptBootloadOK() {
+    char fmt[512];
+    char msg[512];
+
+    ShowOK(0x253FF67A, MCP_OK);
+    GetLocalizedString(fmt, 512, 0x253FF67A);
+    bSPrintf(msg, fmt, m_FileName);
+    SetMessageBlurbText(msg);
 }
 
 void UIMemcardBase::SetupPromptNoProfileFound() {
@@ -1049,6 +1133,15 @@ void UIMemcardBase::SetupPromptSaveConfirm() {
 
     ShowYesNo(0x39B3CCBA, MCP_ConfirmSave);
 
+    bSPrintf(text, fmt, m_FileName, m_FileName);
+    SetMessageBlurbText(text);
+}
+
+void UIMemcardBase::SetupAutoSaveOverwritePrompt() {
+    char text[512];
+    const char *fmt = GetLocalizedString(0xBA7A8C09);
+
+    ShowYesNo(0xBA7A8C09, MCP_AutoSaveOverwrite);
     bSPrintf(text, fmt, m_FileName, m_FileName);
     SetMessageBlurbText(text);
 }
@@ -1086,6 +1179,9 @@ void UIMemcardBase::SetupPromptForSave() {
 }
 
 void UIMemcardBase::SetupPromptCorruptProfile() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ShowOK(0x821E4E41, MCP_CorruptProfile); // MC_CORRUPT_PROFILE_PS2
+#else
     char text[512];
     const char *fmt;
 
@@ -1094,25 +1190,40 @@ void UIMemcardBase::SetupPromptCorruptProfile() {
     fmt = GetLocalizedString(0x821E4444);
     bSPrintf(text, fmt, m_FileName);
     SetMessageBlurbText(text);
+#endif
 }
 
 void UIMemcardBase::SetupPromptAutoSaveEnableFailedNoCard() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ShowOK(0x9E85C5A5, MCP_ConfirmAutoSaveEnableFailed);
+#else
     ShowOK(0x9E85BBA8, MCP_ConfirmAutoSaveEnableFailed);
+#endif
 }
 
 void UIMemcardBase::Setup() {
+#ifdef EA_PLATFORM_PLAYSTATION2 // titulo propio de PS2 y sin el texto de la tarjeta
+    FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0x61183184);
+#elif defined(EA_PLATFORM_WIN32) // PC: su titulo, tampoco el texto de la tarjeta (speed.exe 0x5442D0)
+    FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0x774E4F02);
+#else
     FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0x774E4DD9);
     FEngSetLanguageHash(m_pDisplayMsg, 0x99054304);
+#endif
 
     MemoryCard::GetInstance()->FEngLinkObjects(this);
     SetIcon(0x6948E2B3);
 }
 
 void UIMemcardBase::SetStringCheckingCard() {
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PC: solo lo de abajo (MSVC la expande)
     SetScreenVisible(true, 0);
     SetMessageBlurbText(0x99054304);
 
     cFEng::Get()->QueuePackageMessage(FEHashUpper("0_BUTTONS"), GetPackageName(), nullptr);
+#elif defined(EA_BUILD_A124)
+    SetMessageBlurbText(" ");
+#endif
 
     HideAllButtons();
 
@@ -1120,8 +1231,16 @@ void UIMemcardBase::SetStringCheckingCard() {
 }
 
 void UIMemcardBase::ShowKeyboard() {
+#ifdef EA_PLATFORM_WIN32 // PC deja a la vista el boton 1 y cambia su texto (speed.exe 0x544310)
+    ShowButton(1, true, nullptr);
+    FEngSetLanguageHash(GetPackageName(), gButtonTextIDs[1], 0x4F876B6F);
+    FEngSetCurrentButton(GetPackageName(), gButtonIDs[1]);
+    ShowButton(0, false, nullptr);
+    ShowButton(2, false, nullptr);
+#else
     SetScreenVisible(false, 0);
     HideAllButtons();
+#endif
 
     UIMemcardKeyboard::ShowKeyboard();
 }
@@ -1184,14 +1303,20 @@ void UIMemcardBase::DoSaveFlow(int flow) {
             FEDatabase->GetUserProfile(0)->SetProfileName(m_FileName, true);
             MemoryCard::GetInstance()->Save(m_FileName);
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
             SetStringCheckingCard();
+#endif
 
             break;
 
         case MCSF_AutoSaveWarning:
             cFEng::Get()->QueuePackageMessage(0x001C8ACE, GetPackageName(), nullptr);
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+            ShowOK(GetAutoSaveWarning(), MCP_AutoSaveWarning);
+#else
             ShowOK(GetAutoSaveWarning(), MCP_AutoSaveWarning2);
+#endif
 
             break;
 
@@ -1210,19 +1335,19 @@ void UIMemcardBase::SetMessageBlurbText(short *pText) {
 }
 
 void UIMemcardBase::SetMessageBlurbText(char *pText) {
-    unsigned short wText[2048];
+    wchar_t wText[1024];
 
     FEPrintf(m_pDisplayMsg, pText);
     if (m_pDisplayMsgShadow != nullptr) {
         FEPrintf(m_pDisplayMsgShadow, pText);
     }
 
-    bStrCpy(wText, pText);
-    FindScreenSize(reinterpret_cast<const wchar_t *>(wText));
+    bStrCpy(reinterpret_cast<unsigned short *>(wText), pText);
+    FindScreenSize(wText);
 }
 
 void UIMemcardBase::SetMessageBlurbText(unsigned int textHash) {
-    unsigned short wText[2048];
+    wchar_t wText[1024];
 
     FEngSetLanguageHash(m_pDisplayMsg, textHash);
     if (m_pDisplayMsgShadow != nullptr) {
@@ -1230,8 +1355,8 @@ void UIMemcardBase::SetMessageBlurbText(unsigned int textHash) {
     }
     char *pText = GetLocalizedString(textHash);
 
-    bStrCpy(wText, pText);
-    FindScreenSize(reinterpret_cast<const wchar_t *>(wText));
+    bStrCpy(reinterpret_cast<unsigned short *>(wText), pText);
+    FindScreenSize(wText);
 }
 
 void UIMemcardBase::FindScreenSize(const wchar_t *msg) {
@@ -1253,16 +1378,27 @@ void UIMemcardBase::FindScreenSize(const wchar_t *msg) {
 }
 
 unsigned int UIMemcardBase::GetAutoSaveWarning() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return LANGUAGE_MC_AUTOSAVE_WARNING_PS2;
+#elif defined(EA_PLATFORM_WIN32)
+    return LANGUAGE_MC_AUTOSAVE_WARNING_PC;
+#else
     return LANGUAGE_MC_AUTOSAVE_WARNING_NGC;
+#endif
 }
 
 unsigned int UIMemcardBase::GetAutoSaveWarning2() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return LANGUAGE_MC_AUTOSAVE_WARNING2_PS2;
+#elif defined(EA_PLATFORM_WIN32)
+    return LANGUAGE_MC_AUTOSAVE_WARNING2_PC;
+#else
     return 0x2386F454;
+#endif
 }
 
 void UIMemcardBase::ShowMessage(MemoryCardMessage *msg) {
-    ShowMessage(reinterpret_cast<const wchar_t *>(msg->mMsg), msg->mnOptions, reinterpret_cast<const wchar_t *>(msg->mOptions[0]),
-                reinterpret_cast<const wchar_t *>(msg->mOptions[1]), reinterpret_cast<const wchar_t *>(msg->mOptions[2]));
+    ShowMessage(msg->mMsg, msg->mnOptions, msg->mOptions[0], msg->mOptions[1], msg->mOptions[2]);
     MemoryCard::GetInstance()->ReleasePendingMessage();
 }
 
@@ -1303,7 +1439,9 @@ void UIMemcardBase::ShowMessage(const wchar_t *msg, unsigned int nOptions, const
 
     SetScreenVisible(true, nOptions);
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     cFEng::Get()->QueuePackageMessage(FEHashUpper(nOptions == 0 ? "SHOW LOADER" : "HIDE LOADER"), GetPackageName(), nullptr);
+#endif
 }
 
 void UIMemcardBase::ActivateChild() {
@@ -1322,14 +1460,25 @@ void UIMemcardBase::PopChild() {
 }
 
 void UIMemcardBase::HandleAutoSaveError() {
+#ifdef EA_BUILD_A124
+    // La A124 pausa la simulacion aqui y siempre pasa a modal.
+    new EPauseForMemcard();
+    m_SimPausedForMemcard = true;
+#endif
     if (!MemoryCard::GetInstance()->IsCheckingCardForAutoSave() && !MemoryCard::GetInstance()->IsCheckingCardForOverwrite()) {
 
+#ifdef EA_BUILD_A124
+        gMemcardSetup.ClearMethod();
+        gMemcardSetup.ClearCommand();
+        gMemcardSetup.SetMethod(MCF_Modal);
+#else
         if (gMemcardSetup.GetCommand() != MCO_AutoSave) {
-
+            gMemcardSetup.ClearMethod();
             gMemcardSetup.SetMethod(MCF_Modal);
         }
 
         gMemcardSetup.ClearCommand();
+#endif
         gMemcardSetup.SetCommand(MCO_Save);
     }
 
@@ -1339,8 +1488,17 @@ void UIMemcardBase::HandleAutoSaveError() {
 
         MemoryCard::GetInstance()->ReleasePendingMessage();
 
-        SetupAutoSaveConfirmPrompt();
+#ifdef EA_BUILD_A124
         MemoryCard::GetInstance()->SetCardRemovedWithAutoSaveEnabled(false);
+        ShowYesNo(0xA0B43E9F, MCP_ConfirmAutoSave);
+#else
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) // PS2 y PC preguntan con el de tarjeta quitada o el de autoguardado
+        ShowYesNo(MemoryCard::GetInstance()->WasCardRemovedWithAutoSaveEnabled() ? 0xA0B43E9F : 0xF1F3B4BA, MCP_ConfirmAutoSave);
+#else
+        SetupAutoSaveConfirmPrompt();
+#endif
+        MemoryCard::GetInstance()->SetCardRemovedWithAutoSaveEnabled(false);
+#endif
 
     } else {
 
@@ -1353,11 +1511,17 @@ void UIMemcardBase::HandleAutoSaveError() {
 }
 
 void UIMemcardBase::HandleAutoSaveOverwriteMessage() {
+#ifdef EA_BUILD_A124
+    new EPauseForMemcard();
+    m_SimPausedForMemcard = true;
+    bStrCpy(m_FileName, FEDatabase->GetUserProfile(0)->GetProfileName());
+    SetupAutoSaveOverwritePrompt();
+#else
     bStrCpy(m_FileName, FEDatabase->GetUserProfile(0)->GetProfileName());
 
     MemoryCard::GetInstance()->EndAutoSave();
 
-#ifndef EA_BUILD_A124
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // solo GameCube (speed.exe 0x544510)
     FEDatabase->bAutoSaveOverwriteConfirmed = true;
 #endif
 
@@ -1366,6 +1530,7 @@ void UIMemcardBase::HandleAutoSaveOverwriteMessage() {
 
     MemoryCard::GetInstance()->ShowMessages(true);
     DoSaveFlow(MCSF_DisableAutoSave);
+#endif
 }
 
 static unsigned int sOpName[] = {0x841C21AF, 0xE85326E2};
@@ -1402,21 +1567,17 @@ UIMemcardList::UIMemcardList(ScreenConstructorData *sd)
 UIMemcardList::~UIMemcardList() {}
 
 MenuScreen *CreateMemcardListFiles(ScreenConstructorData *sd) {
-    UIMemcardList *pScreen = new ("UIMemcardList", 0) UIMemcardList(sd);
+    UIMemcardList *pRes = new ("UIMemcardList", 0) UIMemcardList(sd);
 
-    static_cast<UIMemcardMain *>(MemoryCard::GetInstance()->GetScreen())->SetPopupWindow(pScreen);
+    static_cast<UIMemcardMain *>(MemoryCard::GetInstance()->GetScreen())->SetPopupWindow(pRes);
 
-    return pScreen;
+    return pRes;
 }
 
 void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
     switch (msg) {
 
-
-
-
         case 0x35F8620B: {
-
 
             m_SaveGameList.SetSelected(m_SaveGameList.Slots.GetHead());
             m_SaveGameList.HighlightSelected();
@@ -1435,7 +1596,6 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
             break;
         }
 
-
         case 0xC98356BA:
             if (m_Initialized == 0) {
 
@@ -1443,13 +1603,9 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
 
                 UIMemcardBase *pParent = MemoryCard::GetInstance()->GetScreen();
 
-
-
-
                 UIMemcardBase::Item *pNode = pParent->m_Items.GetHead();
 
                 while (pNode != pParent->m_Items.EndOfList()) {
-
 
                     const char *pName = pNode->m_Name + MemoryCard::GetInstance()->GetPrefixLength();
 
@@ -1460,11 +1616,6 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
 
                     pNode = pNode->GetNext();
                 }
-
-
-
-
-
 
 
                 FEngSetScript("MC_List.fng", 0x47FF4E7C, FEHASH_CALL, true);

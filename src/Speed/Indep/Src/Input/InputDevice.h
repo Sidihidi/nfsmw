@@ -77,7 +77,10 @@ public:
     virtual void PollDevice() = 0;
     virtual int GetNumDeviceScalar() = 0;
     virtual void StartVibration() = 0;
+    // La A124 no tiene StopVibration: su vtable pasa de StartVibration a GetInterfaces.
+#ifndef EA_BUILD_A124
     virtual void StopVibration() = 0;
+#endif
 
     virtual UTL::COM::IUnknown *GetInterfaces() {
         return nullptr;

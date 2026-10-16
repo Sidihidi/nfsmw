@@ -65,7 +65,12 @@ inline void bNullPrintf(char terminal_channel, const char *format, ...) {}
 #define BMEMORY_DEFAULT_ALLOCATION_PARAMS 0
 #define MEMTHROW
 #define BDELETE delete
+#ifdef EA_BUILD_A124
+// La A124 pasa 0 como linea en los tres ficheros que usan BNEW (move a2, zero); la version de venta pasa __LINE__.
+#define BNEW new (__FILE__, 0)
+#else
 #define BNEW new (__FILE__, __LINE__)
+#endif
 #define BTEMPNEW new (__FILE__, __LINE__, BMEMORY_ALLOCATE_FROM_TOP)
 #define USE_SLOTALLOC(POOL)                                                                                                                          \
     void *operator new(size_t size) {                                                                                                                \
@@ -135,6 +140,8 @@ inline void *Alloc(unsigned int bytes, int memtype, const char *name) {
 #ifdef MILESTONE_BUILD
 void *operator new(size_t size, const char *file, int line);
 void *operator new[](size_t size, const char *file, int line);
+// __nw__FUiPCcii (A124 0x35bc78): DebugMenuAllocate la llama con el pool de FEng.
+void *operator new(size_t size, const char *file, int line, int allocation_params);
 #else
 // TODO move the milestone path into a cpp file?
 inline void *operator new(size_t size, const char *file, int line) {
@@ -154,6 +161,14 @@ inline void *operator new[](size_t size, const char *file, int line) {
 }
 #endif
 
+#ifdef EA_PLATFORM_WIN32
+// Los operator delete a juego con los new con nombre de arriba: en PC estan fuera de linea (speed.exe 0x652B40 y
+// 0x652B50) y los funcletes de excepciones del original los llaman (548 y 6 veces) para liberar el objeto si su
+// constructor lanza. Sin ellos MSVC no expande en linea los constructores que siguen a un `new ("Nombre", 0)`.
+void operator delete(void *ptr, const char *file, int line);
+void operator delete[](void *ptr, const char *file, int line);
+#endif
+
 inline char *bGetPlatformName() {
 #ifdef EA_PLATFORM_GAMECUBE
     return "GAMECUBE";
@@ -171,10 +186,18 @@ inline char *bGetPlatformName() {
 void bEndianSwap64(void *value);
 void bEndianSwap32(void *value);
 void bEndianSwap16(void *value);
+#ifdef NATIVE_ENDIAN_BIG
 void bPlatEndianSwap(bVector2 *value);
 void bPlatEndianSwap(bVector3 *value);
 void bPlatEndianSwap(bVector4 *value);
 void bPlatEndianSwap(bMatrix4 *value);
+#else
+// En little endian no hay nada que girar: en PS2 ni existen como funcion.
+inline void bPlatEndianSwap(bVector2 *value) {}
+inline void bPlatEndianSwap(bVector3 *value) {}
+inline void bPlatEndianSwap(bVector4 *value) {}
+inline void bPlatEndianSwap(bMatrix4 *value) {}
+#endif
 
 void bInitSharedStringPool(int size);
 void bCloseSharedStringPool();
@@ -233,13 +256,88 @@ inline bool bStrEqual(const char *s1, const char *s2) {
     return bStrICmp(s1, s2) == 0;
 }
 
-#ifdef MILESTONE_BUILD
+// El DWARF del original lista bStrDup justo detras de bStrEqual (antes de bToUpper/bToLower/bIsDigit), con la
+// local `char *s2`. Es la funcion que mete la ruta de bware.hpp en el pool comun de .rodata de las 33 unidades
+// de juego: su BNEW expande __FILE__ DENTRO de bWare.hpp (d:/mw/speed/indep/bware/inc/bware.hpp, segundo
+// literal del pool, detras de GAMECUBE y delante de bad_alloc). La ruta va como literal fijo porque es la del
+// build de EA (la nuestra no existe en el binario), con la misma convencion que hlafile.cpp:278 y filesys.cpp.
+inline char *bStrDup(const char *s1) {
+#ifdef EA_BUILD_A124
+    // El prototipo A124 se compilo desde el workspace p4_apex (prefijo PSX2 de 0x439800); las de venta
+    // (GC y SLUS) desde d:/mw/speed (0x803A4234 y 0x3c3300).
+    char *s2 = new ("d:/p4_apex1666_d1001856/mw/speed/indep/bware/inc/bware.hpp", __LINE__) char[bStrLen(s1) + 1];
+#else
+    char *s2 = new ("d:/mw/speed/indep/bware/inc/bware.hpp", __LINE__) char[bStrLen(s1) + 1];
+#endif
+    bStrCpy(s2, s1);
+    return s2;
+}
+
+// <new> parsea detras de bStrDup y delante de UVectorMath.h: su declaracion de la clase bad_alloc es la que
+// pone el tercer literal del pool (cc1plus emite el nombre en cuanto la clase queda completa; medido: un TU
+// con solo #include <new> ya emite "bad_alloc"). En el original entra por esta cadena porque en las 33
+// unidades bad_alloc va DELANTE de los %f de Coord3AsString (UVectorMath.h, un fichero posterior).
+// Guardado a no-Win32: el include en MSVC cambia los objetos de PC (medido: 24 unidades se mueven y el
+// informe de objdiff deja de emparejar); las PS2 y GC no lo noten porque sus <new> son de la propia cadena.
+#ifndef EA_PLATFORM_WIN32
+#include <new>
+#endif
+
+// SLUS tambien lee bCodeineVersion (0x538438: MyRebootIOP, bReleasePutString, Joylog::StopReplaying): en PS2 existe
+// aunque la build no sea milestone.
+#if defined(MILESTONE_BUILD) || defined(EA_PLATFORM_PLAYSTATION2)
 extern float bCodeineVersion;
+#endif
+void bWareInit();
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern int bSonyToolConnected;
+extern int bSuperBenderConnected;
+
+// El depurador SuperBender de PS2 (bware/src/psx2/SuperBenderPSX2.cpp y bFunkPlat.cpp); el enum sale de los stabs de la
+// A124.
+enum eSuperBenderDebuggerLevel {
+    SB_DEBUGGER_LEVEL_NONE = 0,
+    SB_DEBUGGER_LEVEL_MID = 1,
+    SB_DEBUGGER_LEVEL_FULL = 2,
+};
+
+void bEnableInterrupts();
+void bFigureOutPSX2Platform();
+// bware/src/psx2/SuperBenderPSX2.cpp: la linea de ordenes que manda el depurador (OnlineManager::Initialize de la A124).
+int SuperBenderGetCommandLineArgc();
+char **SuperBenderGetCommandLineArgv();
+
+// psx2/src/RebootIOP.cpp, que en las unidades va detras de Platform.cpp.
+int bIsThereACDInTheDrive();
+void InitializeDVD();
+void RebootIOP();
+void LoadStartupIRXModules();
+void LoadNetworkIRXModules(bool connect_super_bender);
+void LoadRemainingIRXModules();
 #endif
 
 inline int bIsCodeineConnected() {
-#ifdef MILESTONE_BUILD
+#if defined(MILESTONE_BUILD) || defined(EA_PLATFORM_PLAYSTATION2)
     return bCodeineVersion > 0.0f;
+#else
+    return 0;
+#endif
+}
+
+// bware.hpp:96 y 97 en la A124, y en este orden en el DWARF de GC (entre bIsCodeineConnected y bIsPlatGameCube):
+// MyRebootIOP lee bSonyToolConnected y NCSelector::Act (uiOnlineLogin.cpp) bSuperBenderConnected.
+inline int bIsPlatDTL_T10000() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return bSonyToolConnected;
+#else
+    return 0;
+#endif
+}
+
+inline int bIsPlatSuperBender() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return bSuperBenderConnected;
 #else
     return 0;
 #endif
@@ -278,5 +376,24 @@ inline void bEndianSwap(short *value) {
 }
 
 void bAssertFailMsg(char *fmt, const char *filename, int line_number, ...);
+
+// Xbox 360: el juego llama a memcpy y memset de la CRT del XDK (0x826FC570 y 0x826FCDF0) y su ejecutable no trae el
+// bMemCpy ni el bMemSet de bWare. Al final del fichero para no mover el __LINE__ de los BNEW de arriba.
+// bMemCmp es el memcmp intrinseco (/Oi): bucle lbz/subf./cntlzw en los operator== de FEDatabase.cpp (0x822E9B08).
+#ifdef EA_PLATFORM_XENON
+#include <cstring>
+#define bMemCpy(dest, src, numbytes) memcpy(dest, src, numbytes)
+#define bMemSet(dest, pattern, size) memset(dest, pattern, size)
+#define bMemCmp(s1, s2, numbytes) memcmp(s1, s2, numbytes)
+#endif
+
+// Xbox 360: los trozos que se cargan de disco (texturas de la GPU) van alineados a 4 kB; GC, PS2 y PC, a 128 B.
+// NFS.exe pasa 0x40000 (BMEMORY_ALIGNMENT(0x1000)) donde los demas pasan 0x2000: TrackStreamer::InitMemoryPool
+// (0x824F3060), bGetFile, CarLoader::DefragmentPool, eStreamPackLoader::CreateStreamingPack...
+#ifdef EA_PLATFORM_XENON
+#define BCHUNK_ALIGNMENT 0x1000
+#else
+#define BCHUNK_ALIGNMENT 128
+#endif
 
 #endif

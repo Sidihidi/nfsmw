@@ -87,6 +87,10 @@ class ScreenEffectDB {
         MyView = view;
     }
 
+    eView *GetMyView() {
+        return MyView;
+    }
+
     float GetIntensity(ScreenEffectType type) {
         return SE_data[type].intensity;
     }
@@ -96,6 +100,13 @@ class ScreenEffectDB {
         *G = (unsigned int)SE_data[type].g;
         *B = (unsigned int)SE_data[type].b;
         *A = (unsigned int)SE_data[type].a;
+    }
+
+    void SetRGBA(ScreenEffectType type, float R, float G, float B, float A) {
+        SE_data[type].r = R;
+        SE_data[type].g = G;
+        SE_data[type].b = B;
+        SE_data[type].a = A;
     }
 
     float GetDATA(ScreenEffectType type, int index) {

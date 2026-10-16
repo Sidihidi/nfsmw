@@ -37,6 +37,21 @@ enum RainWindType {
     NUMWINDTYPES = 2,
 };
 
+enum RainStatus {
+    IN_AIR = 0,
+    ON_GROUND = 1,
+    IN_LIMBO = 2,
+    NUM_STATUS_TYPES = 3,
+};
+
+enum OnScreenRainStatus {
+    OS_WARBLING = 0,
+    OS_DRIBBLING = 1,
+    OS_OFF_SCREEN = 2,
+    OS_IN_LIMBO = 3,
+    OS_NUM_STATUS_TYPES = 4,
+};
+
 enum ChangingStatus {
     STEADY = 0,
     CHANGE = 1,
@@ -232,16 +247,28 @@ class FogQuery {
     float DistFogPower;         // offset 0x10, size 0x4
     unsigned int DistFogColour; // offset 0x14, size 0x4
 
-    // La A124 lo declara sobre eView (CalculateFogInfo__8FogQueryP5eViewi); View viene de Xbox 360.
+    // Sobre eView en las dos PS2 (CalculateFogInfo__8FogQueryP5eViewi; SLUS pasa su view tal cual a
+    // GetXYviewCar) y en el DWARF de GameCube; View viene de Xbox 360.
     int CalculateFogInfo(
-#ifdef EA_BUILD_A124
-        eView *view,
-#else
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
         struct View *view,
+#else
+        eView *view,
 #endif
         int InFE);
 };
 
+// Definidos en WeatherMan.cpp (la niebla fija de FogControlOverRide).
+extern float BaseFogFalloff;
+extern float BaseFogFalloffX;
+extern float BaseFogFalloffY;
+extern float BaseWeatherFog;
+extern float BaseWeatherFogStart;
+extern int BaseWeatherFogColourR;
+extern int BaseWeatherFogColourG;
+extern int BaseWeatherFogColourB;
+
+int GetXYviewCar(eView *view, float *x, float *y);
 int AmIinATunnel(eView *view, int CheckOverPass);
 int AmIinATunnelSlow(eView *view, int CheckOverPass);
 void SetRainBase();

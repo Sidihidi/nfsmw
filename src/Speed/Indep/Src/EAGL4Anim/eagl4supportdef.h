@@ -64,4 +64,10 @@ struct FunctionEntry {
 
 }; // namespace EAGL4Internal
 
+// En el original esta aqui, no en AnimUtil.h: EulF3 (RawPoseChannel.h) la expande desde eagl4supportdef.h
+// (lineas 318 y 319 en la A124), y el DWARF de GameCube la declara junto a RadToDeg, detras de COORD32.
+inline float DegToRad(float deg) {
+    return deg * 0.017453294f;
+}
+
 #endif

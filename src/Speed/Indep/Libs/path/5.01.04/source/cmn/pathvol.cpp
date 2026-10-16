@@ -16,7 +16,7 @@ int PATH_volume(int tracks, signed char scale)
     if (scale < 0)
         scale = 0;
 
-    if (tracks == PATH_ALL)
+    if (tracks == -1) // PATH_ALL; the PS2 binary compares with `addiu -1`, not the 0xFFFFFFFF constant
         volscale = scale;
 
     for (int p = 0; p < PATH_MAX_PROJECTS; p++)
@@ -157,8 +157,7 @@ void PATHI_setfadevolume(PATHTRACK *track)
     switch (fadeinfo.id)
     {
     case PATH_FADE_EQPOWER:
-        pct = pct * pct;
-        vol = 1.0f - pct;
+        vol = 1.0f - pct * pct;
         break;
     case PATH_FADE_LINEAR:
         vol = 1.0f - pct;
@@ -177,7 +176,7 @@ void PATHI_setfadevolume(PATHTRACK *track)
 
     if (vol >= 0.0f && vol <= 1.0f)
     {
-        vol = range * vol + lowvol;
+        vol = lowvol + range * vol;
         track->trackimp->SetVolume(vol * track->volscale * 0.01f);
     }
 }
@@ -215,8 +214,7 @@ void PATHI_setsfxfadevolume(PATHTRACK *track)
     switch (fadeinfo.id)
     {
     case PATH_FADE_EQPOWER:
-        pct = pct * pct;
-        vol = 1.0f - pct;
+        vol = 1.0f - pct * pct;
         break;
     case PATH_FADE_LINEAR:
         vol = 1.0f - pct;
@@ -235,7 +233,7 @@ void PATHI_setsfxfadevolume(PATHTRACK *track)
 
     if (vol >= 0.0f && vol <= 1.0f)
     {
-        vol = range * vol + lowvol;
+        vol = lowvol + range * vol;
         track->trackimp->SetFXSendLevel(track->sfxbus, vol);
     }
 }
@@ -273,8 +271,7 @@ void PATHI_setdrylevelfadevolume(PATHTRACK *track)
     switch (fadeinfo.id)
     {
     case PATH_FADE_EQPOWER:
-        pct = pct * pct;
-        vol = 1.0f - pct;
+        vol = 1.0f - pct * pct;
         break;
     case PATH_FADE_LINEAR:
         vol = 1.0f - pct;
@@ -293,7 +290,7 @@ void PATHI_setdrylevelfadevolume(PATHTRACK *track)
 
     if (vol >= 0.0f && vol <= 1.0f)
     {
-        vol = range * vol + lowvol;
+        vol = lowvol + range * vol;
         track->trackimp->SetDryLevel(vol);
     }
 }
@@ -331,8 +328,7 @@ void PATHI_setpitchfadevolume(PATHTRACK *track)
     switch (fadeinfo.id)
     {
     case PATH_FADE_EQPOWER:
-        pct = pct * pct;
-        vol = 1.0f - pct;
+        vol = 1.0f - pct * pct;
         break;
     case PATH_FADE_LINEAR:
         vol = 1.0f - pct;
@@ -351,7 +347,7 @@ void PATHI_setpitchfadevolume(PATHTRACK *track)
 
     if (vol >= 0.0f && vol <= 1.0f)
     {
-        vol = range * vol + lowvol;
+        vol = lowvol + range * vol;
         track->trackimp->SetPitchMult(vol);
     }
 }
@@ -389,8 +385,7 @@ void PATHI_setstretchfadevolume(PATHTRACK *track)
     switch (fadeinfo.id)
     {
     case PATH_FADE_EQPOWER:
-        pct = pct * pct;
-        vol = 1.0f - pct;
+        vol = 1.0f - pct * pct;
         break;
     case PATH_FADE_LINEAR:
         vol = 1.0f - pct;
@@ -409,7 +404,7 @@ void PATHI_setstretchfadevolume(PATHTRACK *track)
 
     if (vol >= 0.0f && vol <= 1.0f)
     {
-        vol = range * vol + lowvol;
+        vol = lowvol + range * vol;
         track->trackimp->SetStretchMult(vol);
     }
 }

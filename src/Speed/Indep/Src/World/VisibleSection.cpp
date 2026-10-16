@@ -253,7 +253,13 @@ static bool MyIsPointInPoly(const bVector2 *point, const bVector2 *points, int n
 
     for (int i = 0; i < num_points; i++) {
         if (((points[i].y <= y && y < points[j].y) || (points[j].y <= y && y < points[i].y)) &&
+#ifdef EA_PLATFORM_XENON
+            // X360: la copia desenrollada 1 del fmuls casa con este orden (99.94 %); la copia 2
+            // emite los operandos al reves la elija la fuente que se elija (3 variantes probadas).
+            x < ((y - points[i].y) * (points[j].x - points[i].x)) / (points[j].y - points[i].y) + points[i].x) {
+#else
             x < ((points[j].x - points[i].x) * (y - points[i].y)) / (points[j].y - points[i].y) + points[i].x) {
+#endif
             inside = !inside;
         }
 
@@ -284,14 +290,13 @@ float VisibleSectionBoundary::GetDistanceOutside(const bVector2 *point, float ma
     {
         int point_number = 0;
         while (point_number < NumPoints) {
-            int next = point_number + 1; // TODO get rid of the temporary
             bVector2 *point1 = GetPoint(point_number);
-            bVector2 *point2 = GetPoint(next - (next / NumPoints) * NumPoints);
+            bVector2 *point2 = GetPoint((point_number + 1) % NumPoints);
             float distance = bDistToLine(point, point1, point2);
             if (distance < closest_distance) {
                 closest_distance = distance;
             }
-            point_number = next;
+            point_number++;
         }
     }
 
@@ -345,10 +350,10 @@ void DrivableScenerySection::SortVisibleSections() {
     } while (did_something);
 }
 
-LoadingSection *VisibleSectionManager::FindLoadingSection(int section_number) {
+LoadingSection *VisibleSectionManager::FindLoadingSection(int drivable_section_number) {
     for (LoadingSection *loading_section = LoadingSectionList.GetHead(); loading_section != LoadingSectionList.EndOfList();
          loading_section = loading_section->GetNext()) {
-        if (loading_section->HasDrivableSection(section_number)) {
+        if (loading_section->HasDrivableSection(drivable_section_number)) {
             return loading_section;
         }
     }
@@ -407,7 +412,6 @@ VisibleSectionManager::VisibleSectionManager() {
     bMemSet(UserInfoTable, 0, sizeof(UserInfoTable));
     NumAllocatedUserInfo = 0;
 
-    bNode *head = UnallocatedUserInfoList.GetHead();
     for (int n = 0; n < 512; n++) {
         UnallocatedVisibleSectionUserInfo *unallocated_info = reinterpret_cast<UnallocatedVisibleSectionUserInfo *>(&UserInfoStorageTable[n]);
         UnallocatedUserInfoList.AddTail(unallocated_info);
@@ -416,6 +420,14 @@ VisibleSectionManager::VisibleSectionManager() {
     VisibleBitTables = nullptr;
     bMemSet(EnabledGroups, 0, sizeof(EnabledGroups));
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Solo las PS2 destruyen TheVisibleSectionManager al salir (su _GLOBAL_$D lo llama); la lista de libres apunta a
+// UserInfoStorageTable, asi que se vacia sin borrar sus nodos antes de que lo intente el destructor de la lista.
+VisibleSectionManager::~VisibleSectionManager() {
+    UnallocatedUserInfoList.InitList();
+}
+#endif
 
 VisibleSectionUserInfo *VisibleSectionManager::AllocateUserInfo(int section_number) {
     VisibleSectionUserInfo *info = GetUserInfo(section_number);

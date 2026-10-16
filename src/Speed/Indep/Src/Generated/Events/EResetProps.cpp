@@ -18,8 +18,8 @@ void EResetProps_MakeEvent_Callback(const void *staticData) {
     new EResetProps();
 }
 
-int EResetProps_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EResetProps_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EResetProps();
     }
     return 0;

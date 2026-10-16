@@ -61,8 +61,8 @@ void CARSFX_BottomOut::LandJumpPlay(float Intensity, bool HardLanding) {
 #ifdef EA_BUILD_A124
     if (this->m_pStichLandJump != nullptr) {
         delete this->m_pStichLandJump;
-        this->m_pStichLandJump = nullptr;
     }
+    this->m_pStichLandJump = nullptr;
 #else
     int Index = -1;
 
@@ -83,7 +83,7 @@ void CARSFX_BottomOut::LandJumpPlay(float Intensity, bool HardLanding) {
     if (HardLanding) {
         GEN_RND_OFFSET(sampleOffset, fIntensity, 89, 1, 4);
     } else {
-        GEN_RND_OFFSET(sampleOffset, fIntensity, 93, 4, 4);
+        GEN_RND_OFFSET(sampleOffset, fIntensity, 93, 2, 4);
     }
 #else
     if (HardLanding) {

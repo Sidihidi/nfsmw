@@ -21,7 +21,11 @@ int DBGPRNT_NIS; // size: 0x4, address: 0xFFFFFFFF, Decl: 40
 
 DEFINE_CREATABLE(0x50, SFXObj_NISStream, SndBase);
 
+#ifdef EA_BUILD_A124
+uintptr_t uNIS_STRINGHASHMAP[66][3];
+#else
 uintptr_t uNIS_STRINGHASHMAP[68][3];
+#endif
 
 #define INIT_NIS_ENTRY(index, scene, name)                                                                                                           \
     uNIS_STRINGHASHMAP[index][1] = scene;                                                                                                            \
@@ -29,6 +33,74 @@ uintptr_t uNIS_STRINGHASHMAP[68][3];
     uNIS_STRINGHASHMAP[index][0] = bStringHash(name)
 
 void GenerateNISAnimHashMap() {
+#ifdef EA_BUILD_A124 // el prototipo tiene la llegada al dia D y no las salidas de las listas negras 6 y 7
+    INIT_NIS_ENTRY(0, Csis::Type_NIS_Scene_Start_generic, "GenericStart");
+    INIT_NIS_ENTRY(1, Csis::Type_NIS_Scene_Start_IntroNis01, "IntroNis01");
+    INIT_NIS_ENTRY(2, Csis::Type_NIS_Scene_Start_IntroNis02, "IntroNis02");
+    INIT_NIS_ENTRY(3, Csis::Type_NIS_Scene_Start_IntroNis03, "IntroNis03");
+    INIT_NIS_ENTRY(4, Csis::Type_NIS_Scene_Start_IntroNis04, "IntroNis04");
+    INIT_NIS_ENTRY(5, Csis::Type_NIS_Scene_Start_IntroNis05, "IntroNis05");
+    INIT_NIS_ENTRY(6, Csis::Type_NIS_Scene_Start_IntroNis06, "IntroNis06");
+    INIT_NIS_ENTRY(7, Csis::Type_NIS_Scene_Start_IntroNis07, "IntroNis07");
+    INIT_NIS_ENTRY(8, Csis::Type_NIS_Scene_Start_IntroNis08, "IntroNis08");
+    INIT_NIS_ENTRY(9, Csis::Type_NIS_Scene_Start_IntroNis09, "IntroNis09");
+    INIT_NIS_ENTRY(10, Csis::Type_NIS_Scene_Start_IntroNis10, "IntroNis10");
+    INIT_NIS_ENTRY(11, Csis::Type_NIS_Scene_Start_flythrough, "Flythrough");
+    INIT_NIS_ENTRY(12, Csis::Type_NIS_Scene_Start_dday, "IntroNisDD");
+    INIT_NIS_ENTRY(13, Csis::Type_NIS_Scene_Start_dday, "IntroNisFlyInDD");
+    INIT_NIS_ENTRY(14, Csis::Type_NIS_Scene_Start_toll, "IntroNisToll01");
+    INIT_NIS_ENTRY(15, Csis::Type_NIS_Scene_Start_safehouse, "GarageEnter");
+    INIT_NIS_ENTRY(16, Csis::Type_NIS_Scene_Start_safehouse, "GarageExit");
+    INIT_NIS_ENTRY(17, Csis::Type_NIS_Scene_Start_e3, "OPMRivalIntro");
+    INIT_NIS_ENTRY(18, Csis::Type_NIS_Blacklist_Black01, "IntroNisBL01");
+    INIT_NIS_ENTRY(19, Csis::Type_NIS_Blacklist_Black02, "IntroNisBL02");
+    INIT_NIS_ENTRY(20, Csis::Type_NIS_Blacklist_Black03, "IntroNisBL03");
+    INIT_NIS_ENTRY(21, Csis::Type_NIS_Blacklist_Black04, "IntroNisBL04");
+    INIT_NIS_ENTRY(22, Csis::Type_NIS_Blacklist_Black05, "IntroNisBL05");
+    INIT_NIS_ENTRY(23, Csis::Type_NIS_Blacklist_Black06, "IntroNisBL06");
+    INIT_NIS_ENTRY(24, Csis::Type_NIS_Blacklist_Black07, "IntroNisBL07");
+    INIT_NIS_ENTRY(25, Csis::Type_NIS_Blacklist_Black08, "IntroNisBL08");
+    INIT_NIS_ENTRY(26, Csis::Type_NIS_Blacklist_Black09, "IntroNisBL09");
+    INIT_NIS_ENTRY(27, Csis::Type_NIS_Blacklist_Black10, "IntroNisBL10");
+    INIT_NIS_ENTRY(28, Csis::Type_NIS_Blacklist_Black11, "IntroNisBL11");
+    INIT_NIS_ENTRY(29, Csis::Type_NIS_Blacklist_Black12, "IntroNisBL12");
+    INIT_NIS_ENTRY(30, Csis::Type_NIS_Blacklist_Black13, "IntroNisBL13");
+    INIT_NIS_ENTRY(31, Csis::Type_NIS_Blacklist_Black14, "IntroNisBL14");
+    INIT_NIS_ENTRY(32, Csis::Type_NIS_Blacklist_Black15, "IntroNisBL15");
+    INIT_NIS_ENTRY(33, Csis::Type_NIS_Blacklist_Black16, "IntroNisBL16");
+    INIT_NIS_ENTRY(34, Csis::Type_NIS_Scene_End_Arrest_F02, "ArrestF02");
+    INIT_NIS_ENTRY(35, Csis::Type_NIS_Scene_End_Arrest_F06, "ArrestF06");
+    INIT_NIS_ENTRY(36, Csis::Type_NIS_Scene_End_Arrest_F07, "ArrestF07");
+    INIT_NIS_ENTRY(37, Csis::Type_NIS_Scene_End_Arrest_F14, "ArrestF14");
+    INIT_NIS_ENTRY(38, Csis::Type_NIS_Scene_End_Arrest_F18, "ArrestF18");
+    INIT_NIS_ENTRY(39, Csis::Type_NIS_Scene_End_Arrest_F23, "ArrestF23");
+    INIT_NIS_ENTRY(40, Csis::Type_NIS_Scene_End_Arrest_M01, "ArrestM01");
+    INIT_NIS_ENTRY(41, Csis::Type_NIS_Scene_End_Arrest_M04, "ArrestM04");
+    INIT_NIS_ENTRY(42, Csis::Type_NIS_Scene_End_Arrest_M06, "ArrestM06");
+    INIT_NIS_ENTRY(43, Csis::Type_NIS_Scene_End_Arrest_M07, "ArrestM07");
+    INIT_NIS_ENTRY(44, Csis::Type_NIS_Scene_End_Arrest_M14, "ArrestM14");
+    INIT_NIS_ENTRY(45, Csis::Type_NIS_Scene_End_Arrest_M16, "ArrestM16");
+    INIT_NIS_ENTRY(46, Csis::Type_NIS_Scene_End_Arrest_M19, "ArrestM19");
+    INIT_NIS_ENTRY(47, Csis::Type_NIS_Scene_End_Arrest_M23, "ArrestM23");
+    INIT_NIS_ENTRY(48, Csis::Type_NIS_Scene_End_Arrest_F02, "ArrestF02b");
+    INIT_NIS_ENTRY(49, Csis::Type_NIS_Scene_End_Arrest_F06, "ArrestF06b");
+    INIT_NIS_ENTRY(50, Csis::Type_NIS_Scene_End_Arrest_F07, "ArrestF07b");
+    INIT_NIS_ENTRY(51, Csis::Type_NIS_Scene_End_Arrest_F14, "ArrestF14b");
+    INIT_NIS_ENTRY(52, Csis::Type_NIS_Scene_End_Arrest_F18, "ArrestF18b");
+    INIT_NIS_ENTRY(53, Csis::Type_NIS_Scene_End_Arrest_F23, "ArrestF23b");
+    INIT_NIS_ENTRY(54, Csis::Type_NIS_Scene_End_Arrest_M01, "ArrestM01b");
+    INIT_NIS_ENTRY(55, Csis::Type_NIS_Scene_End_Arrest_M04, "ArrestM04b");
+    INIT_NIS_ENTRY(56, Csis::Type_NIS_Scene_End_Arrest_M06, "ArrestM06b");
+    INIT_NIS_ENTRY(57, Csis::Type_NIS_Scene_End_Arrest_M07, "ArrestM07b");
+    INIT_NIS_ENTRY(58, Csis::Type_NIS_Scene_End_Arrest_M14, "ArrestM14b");
+    INIT_NIS_ENTRY(59, Csis::Type_NIS_Scene_End_Arrest_M16, "ArrestM16b");
+    INIT_NIS_ENTRY(60, Csis::Type_NIS_Scene_End_Arrest_M19, "ArrestM19b");
+    INIT_NIS_ENTRY(61, Csis::Type_NIS_Scene_End_Arrest_M23, "ArrestM23b");
+    INIT_NIS_ENTRY(62, Csis::Type_NIS_Scene_End_end01, "EndingNis01");
+    INIT_NIS_ENTRY(63, Csis::Type_NIS_Scene_End_end02, "EndingNis02");
+    INIT_NIS_ENTRY(64, Csis::Type_NIS_Scene_End_end03, "EndingNis03");
+    INIT_NIS_ENTRY(65, Csis::Type_NIS_Scene_End_end04, "EndingNis04");
+#else
     INIT_NIS_ENTRY(0, Csis::Type_NIS_Scene_Start_generic, "GenericStart");
     INIT_NIS_ENTRY(1, Csis::Type_NIS_Scene_Start_IntroNis01, "IntroNis01");
     INIT_NIS_ENTRY(2, Csis::Type_NIS_Scene_Start_IntroNis02, "IntroNis02");
@@ -97,6 +169,7 @@ void GenerateNISAnimHashMap() {
     INIT_NIS_ENTRY(65, Csis::Type_NIS_Scene_End_end02, "EndingNis02");
     INIT_NIS_ENTRY(66, Csis::Type_NIS_Scene_End_end03, "EndingNis03");
     INIT_NIS_ENTRY(67, Csis::Type_NIS_Scene_End_end04, "EndingNis04");
+#endif
 }
 
 int GetCsisEventIndex(unsigned int hashid) {
@@ -131,8 +204,8 @@ void SFXObj_NISStream::InitSFX() {
     m_bNISAudioStreamReady = false;
     m_bNISButtonThroughReady = false;
     m_bBackupStreamCleared = true;
-    g_pEAXSound->GetSndGameMode();
     g_pEAXSound->SetSFXBaseObject(this, eMM_MAIN, 5, 0);
+    g_pEAXSound->GetSndGameMode();
 }
 
 bool SFXObj_NISStream::QueueNISStream(Attrib::Key anim_id, int camera_track_number, void (*setmstimecb)(uint32, int), bool bbuttonthrough) {
@@ -230,7 +303,7 @@ bool SFXObj_NISStream::QueueNISStream(unsigned int anim_id, int camera_track_num
 
     SFXObj_Pathfinder *ppf = static_cast<SFXObj_Pathfinder *>(g_pEAXSound->GetSFXBase_Object(0x40010010));
 
-    if (CSISindex < 18) {
+    if (CSISindex <= 17) {
         if (CSISindex == 24) {
             bbuttonthrough = true;
             CSISindex = 23;
@@ -267,7 +340,7 @@ bool SFXObj_NISStream::QueueNISStream(unsigned int anim_id, int camera_track_num
                 ppf->SetNISPlaying(true);
             }
         }
-    } else if (CSISindex < 36) {
+    } else if (CSISindex <= 35) {
         g_laststartanimid = anim_id;
         g_bWasLastNISaStart = true;
 
@@ -338,7 +411,9 @@ void SFXObj_NISStream::StartNIS() {
     if (this->m_bNISAudioStreamReady) {
         bool bresult = Speech::Manager::GetSpeechModule(0)->PlayStream(2);
         SNDSYS_service();
+#ifndef EA_BUILD_A124 // la A124 acaba en SNDSYS_service (llamada de cola) sin bajar la bandera
         this->m_bNISAudioStreamReady = false;
+#endif
     }
 }
 
@@ -384,6 +459,12 @@ void SFXObj_NISStream::PlayNISStream() {
 
     EAXS_StreamChannel *pch = Speech::Manager::GetSpeechModule(0)->GetStreamChannel();
     m_mslengthofstream = pch->GetTimeRemaining();
+#ifdef EA_BUILD_A124
+    // La A124 arranca aqui el stream cuando la NIS se salta con un boton.
+    if (m_bIsButtonThrough) {
+        Speech::Manager::GetSpeechModule(0)->PlayStream(2);
+    }
+#endif
 }
 
 void SFXObj_NISStream::Destroy() {}

@@ -26,32 +26,38 @@
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
+// r75-medianas: el DWARF del original (bloques inline de GenerateIndex) declara
+// neg, man, exp --en ese orden-- con neg en r0, man en r31 y exp en r27.
 inline PackedDecimal::PackedDecimal(float value) {
-    int exponent = 0;
-    int mantissa = 0;
-    bool negative = false;
+    bool neg;
+    int man;
+    int exp;
+
+    exp = 0;
+    man = 0;
+    neg = false;
 
     if (value < 0.0f) {
-        negative = true;
+        neg = true;
         value = -value;
     }
     if (value > 0.0f) {
         while (value < (float)FloatingPoint<short, 10, 3, 5, 11>::GetNormalizedLower()) {
             value *= 10.0f;
-            exponent--;
+            exp--;
         }
-        mantissa = (int)value;
-        while (mantissa >= FloatingPoint<short, 10, 3, 5, 11>::GetNormalizedUpper()) {
-            mantissa /= 10;
-            exponent++;
+        man = (int)value;
+        while (man >= FloatingPoint<short, 10, 3, 5, 11>::GetNormalizedUpper()) {
+            man /= 10;
+            exp++;
         }
     }
-    if (negative) {
-        mantissa = -mantissa;
+    if (neg) {
+        man = -man;
     }
 
-    mExp = exponent;
-    mMan = mantissa;
+    mExp = exp;
+    mMan = man;
 }
 
 class Minimap {
@@ -81,13 +87,21 @@ GRaceDatabase::GRaceDatabase() {
     mStartupRaceContext = kRaceContext_QuickRace;
     mRaceScoreInfo = NULL;
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     DVDErrorTask(NULL, 0);
+#endif
     BuildBinList();
+#ifndef EA_PLATFORM_PLAYSTATION2
     DVDErrorTask(NULL, 0);
+#endif
     BuildRaceList();
+#ifndef EA_PLATFORM_PLAYSTATION2
     DVDErrorTask(NULL, 0);
+#endif
     BuildScoreList();
+#ifndef EA_PLATFORM_PLAYSTATION2
     DVDErrorTask(NULL, 0);
+#endif
 }
 
 void GRaceDatabase::Init() {
@@ -106,9 +120,9 @@ unsigned int GRaceDatabase::StoreBinList(GRaceBin *list) {
     Attrib::Key collectionKey = mGameplayClass->GetFirstCollection();
 
     while (collectionKey != 0) {
-        Attrib::Gen::gameplay instanceObj(collectionKey, 0, NULL);
+        Attrib::Gen::gameplay element(collectionKey, 0, NULL);
 
-        if (CollectionIsRaceBin(instanceObj)) {
+        if (CollectionIsRaceBin(element)) {
             if (list != NULL) {
                 new (&list[count]) GRaceBin(collectionKey);
             }
@@ -122,23 +136,23 @@ unsigned int GRaceDatabase::StoreBinList(GRaceBin *list) {
 }
 
 unsigned int GRaceDatabase::SerializeBins(unsigned char *dest) {
-    unsigned char *start = dest;
+    unsigned char *destStart = dest;
 
     *(unsigned int *)dest = mBinCount;
     dest += 4;
 
-    for (unsigned int i = 0; i < mBinCount; i++) {
-        *(unsigned short *)dest = (unsigned short)mBins[i].GetBinNumber();
+    for (unsigned int onBin = 0; onBin < mBinCount; onBin++) {
+        *(unsigned short *)dest = (unsigned short)mBins[onBin].GetBinNumber();
         dest += 2;
 
-        unsigned short *lenSlot = (unsigned short *)dest;
+        unsigned short *serializedSize = (unsigned short *)dest;
         dest += 2;
 
-        *lenSlot = mBins[i].Serialize(dest);
-        dest += *lenSlot;
+        *serializedSize = mBins[onBin].Serialize(dest);
+        dest += *serializedSize;
     }
 
-    return dest - start;
+    return dest - destStart;
 }
 
 unsigned int GRaceDatabase::DeserializeBins(unsigned char *src) {
@@ -166,8 +180,8 @@ unsigned int GRaceDatabase::DeserializeBins(unsigned char *src) {
 }
 
 void GRaceDatabase::RefreshBinProgress() {
-    for (unsigned int i = 0; i < mBinCount; i++) {
-        mBins[i].RefreshProgress();
+    for (unsigned int onBin = 0; onBin < mBinCount; onBin++) {
+        mBins[onBin].RefreshProgress();
     }
 }
 
@@ -177,11 +191,11 @@ void GRaceDatabase::BuildRaceList() {
     mRaceCountDynamic = 0;
 
     unsigned int indexAllocParams = GetVirtualMemoryAllocParams();
-    mRaceIndex = (GRaceIndexData *)bMalloc(raceCount * sizeof(GRaceIndexData), indexAllocParams);
+    mRaceIndex = (GRaceIndexData *)bMalloc(raceCount * sizeof(GRaceIndexData), "Gameplay race index", 0, indexAllocParams);
 
     unsigned int parmsCount = mRaceCountStatic;
     unsigned int parmsAllocParams = GetVirtualMemoryAllocParams();
-    mRaceParameters = (GRaceParameters *)bMalloc(parmsCount * sizeof(GRaceParameters), parmsAllocParams);
+    mRaceParameters = (GRaceParameters *)bMalloc(parmsCount * sizeof(GRaceParameters), "Gameplay race tracking", 0, parmsAllocParams);
 
     for (unsigned int i = 0; i < 4; i++) {
         mRaceCustom[i] = NULL;
@@ -196,11 +210,13 @@ unsigned int GRaceDatabase::StoreRaceList(GRaceParameters *list) {
     Attrib::Key collectionKey = mGameplayClass->GetFirstCollection();
 
     while (collectionKey != 0) {
+#ifndef EA_PLATFORM_PLAYSTATION2
         DVDErrorTask(NULL, 0);
+#endif
 
-        Attrib::Gen::gameplay instanceObj(collectionKey, 0, NULL);
+        Attrib::Gen::gameplay element(collectionKey, 0, NULL);
 
-        if (CollectionIsRaceActivity(instanceObj)) {
+        if (CollectionIsRaceActivity(element)) {
             if (list != NULL) {
                 new (&list[count]) GRaceParameters(collectionKey, &mRaceIndex[count]);
             }
@@ -214,7 +230,7 @@ unsigned int GRaceDatabase::StoreRaceList(GRaceParameters *list) {
 }
 
 bool GRaceDatabase::CollectionIsRaceActivity(Attrib::Gen::gameplay &instanceObj) {
-    Attrib::Gen::gameplay raceObj(Attrib::Hash::gameplay::key_race, 0, NULL);
+    Attrib::Gen::gameplay templateObj(Attrib::Hash::gameplay::key_race, 0, NULL);
 
     if (instanceObj.Template()) {
         return false;
@@ -225,7 +241,7 @@ bool GRaceDatabase::CollectionIsRaceActivity(Attrib::Gen::gameplay &instanceObj)
     while (parentKey != 0) {
         Attrib::Gen::gameplay parentObj(parentKey, 0, 0);
 
-        if (parentObj.GetCollection() == raceObj.GetCollection()) {
+        if (parentObj.GetCollection() == templateObj.GetCollection()) {
             return true;
         }
 
@@ -249,8 +265,8 @@ bool GRaceDatabase::CollectionIsRaceBin(Attrib::Gen::gameplay &instanceObj) {
 }
 
 void GRaceDatabase::NotifyVaultUnloading(GVault *vault) {
-    for (unsigned int i = 0; i < GetRaceCount(); i++) {
-        GRaceParameters *parms = GetRaceParameters(i);
+    for (unsigned int onRace = 0; onRace < GetRaceCount(); onRace++) {
+        GRaceParameters *parms = GetRaceParameters(onRace);
 
         if (parms->GetParentVault() == vault) {
             parms->NotifyParentVaultUnloading();
@@ -263,8 +279,8 @@ void GRaceDatabase::NotifyVaultUnloading(GVault *vault) {
 }
 
 void GRaceDatabase::NotifyVaultLoaded(GVault *vault) {
-    for (unsigned int i = 0; i < GetRaceCount(); i++) {
-        GRaceParameters *parms = GetRaceParameters(i);
+    for (unsigned int onRace = 0; onRace < GetRaceCount(); onRace++) {
+        GRaceParameters *parms = GetRaceParameters(onRace);
 
         if (parms->GetParentVault() == vault) {
             parms->NotifyParentVaultLoaded();
@@ -302,11 +318,11 @@ GRaceParameters *GRaceDatabase::GetRaceFromHash(unsigned int hash) {
     return nullptr;
 }
 
-GRaceParameters *GRaceDatabase::GetRaceFromKey(unsigned int collectionKey) {
+GRaceParameters *GRaceDatabase::GetRaceFromKey(unsigned int key) {
     for (unsigned int onRace = 0; onRace < GetRaceCount(); onRace++) {
         GRaceParameters *parms = GetRaceParameters(onRace);
 
-        if (parms->GetCollectionKey() == collectionKey) {
+        if (parms->GetCollectionKey() == key) {
             return parms;
         }
     }
@@ -339,9 +355,9 @@ GRaceCustom *GRaceDatabase::AllocCustomRace(GRaceParameters *parms) {
 
     parms->BlockUntilLoaded();
 
-    unsigned int slot = mRaceCountDynamic++;
+    int index = mRaceCountDynamic++;
 
-    return mRaceCustom[slot] = new GRaceCustom(*parms);
+    return mRaceCustom[index] = new ("GRaceCustom") GRaceCustom(*parms);
 }
 
 void GRaceDatabase::FreeCustomRace(GRaceCustom *custom) {
@@ -361,10 +377,10 @@ void GRaceDatabase::DestroyCustomRace(GRaceCustom *custom) {
         delete custom;
     }
 
-    for (unsigned int i = 0; i < 4; i++) {
-        if (mRaceCustom[i] == custom) {
-            if (i < mRaceCountDynamic - 1) {
-                mRaceCustom[i] = mRaceCustom[mRaceCountDynamic - 1];
+    for (unsigned int onCustom = 0; onCustom < 4; onCustom++) {
+        if (mRaceCustom[onCustom] == custom) {
+            if (onCustom < mRaceCountDynamic - 1) {
+                mRaceCustom[onCustom] = mRaceCustom[mRaceCountDynamic - 1];
             }
             mRaceCountDynamic--;
             mRaceCustom[mRaceCountDynamic] = NULL;
@@ -390,9 +406,11 @@ void GRaceDatabase::SetStartupRace(GRaceCustom *custom, GRace::Context context) 
     mStartupRace = custom;
     mStartupRaceContext = (Context)context;
 
+#ifndef EA_BUILD_A124
     if (custom != NULL && context == GRace::kRaceContext_Career) {
         custom->SetupTimeOfDay();
     }
+#endif
 }
 
 GRaceCustom *GRaceDatabase::GetStartupRace() {
@@ -404,7 +422,7 @@ Context GRaceDatabase::GetStartupRaceContext() {
 }
 
 void GRaceDatabase::BuildScoreList() {
-    mRaceScoreInfo = (GRaceSaveInfo *)bMalloc(mRaceCountStatic * sizeof(GRaceSaveInfo), 0x800);
+    mRaceScoreInfo = (GRaceSaveInfo *)bMalloc(mRaceCountStatic * sizeof(GRaceSaveInfo), "Gameplay score index", 0, 0x800);
     ClearRaceScores();
 }
 
@@ -490,6 +508,10 @@ void GRaceDatabase::ClearRaceScores() {
             bool challengeUnlocked = parms->GetInitiallyUnlockedChallenge();
 
             if (parms->GetIsBossRace()) {
+#ifdef EA_BUILD_A124
+                quickUnlocked = false;
+                onlineUnlocked = false;
+#endif
                 challengeUnlocked = false;
             }
 
@@ -542,20 +564,20 @@ void GRaceDatabase::ResetCareerCompleteFlag(unsigned int eventHash) {
     info->mFlags &= ~kCompleted_ContextCareer;
 }
 
-void GRaceDatabase::LoadBestScores(GRaceSaveInfo *entries, unsigned int numEntries) {
+void GRaceDatabase::LoadBestScores(GRaceSaveInfo *saveInfo, unsigned int numEntries) {
     bMemSet(mRaceScoreInfo, 0, mRaceCountStatic * sizeof(GRaceSaveInfo));
 
     unsigned int numLoaded = 0;
     GRaceSaveInfo *dst = mRaceScoreInfo;
 
     for (unsigned int i = 0; i < numEntries && numLoaded != mRaceCountStatic; i++) {
-        if (entries->mRaceHash != 0 && GetRaceFromHash(entries->mRaceHash) != NULL) {
-            bMemCpy(dst, entries, sizeof(GRaceSaveInfo));
+        if (saveInfo->mRaceHash != 0 && GetRaceFromHash(saveInfo->mRaceHash) != NULL) {
+            bMemCpy(dst, saveInfo, sizeof(GRaceSaveInfo));
             numLoaded++;
             dst++;
         }
 
-        entries++;
+        saveInfo++;
     }
 }
 
@@ -670,7 +692,12 @@ bool GRaceParameters::GetInitiallyUnlockedChallenge() const {
 
 bool GRaceParameters::GetIsDDayRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_DDayRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_DDayRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->DDayRace();
@@ -678,7 +705,12 @@ bool GRaceParameters::GetIsDDayRace() const {
 
 bool GRaceParameters::GetIsBossRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_BossRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_BossRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->BossRace();
@@ -694,7 +726,12 @@ bool GRaceParameters::GetIsMarkerRace() const {
 
 bool GRaceParameters::GetIsPursuitRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_PursuitRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_PursuitRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->PursuitRace();
@@ -702,7 +739,12 @@ bool GRaceParameters::GetIsPursuitRace() const {
 
 bool GRaceParameters::GetIsLoopingRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_LoopingRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_LoopingRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->IsLoopingRace();
@@ -710,7 +752,12 @@ bool GRaceParameters::GetIsLoopingRace() const {
 
 bool GRaceParameters::GetRankPlayersByPoints() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_RankPlayersByPoints) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_RankPlayersByPoints) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->RankPlayersByPoints();
@@ -726,7 +773,12 @@ bool GRaceParameters::GetRankPlayersByDistance() const {
 
 bool GRaceParameters::GetCopsEnabled() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_CopsInRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_CopsInRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->CopsInRace();
@@ -750,7 +802,12 @@ bool GRaceParameters::GetNeverInQuickRace() const {
 
 bool GRaceParameters::GetIsChallengeSeriesRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_ChallengeSeriesRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_ChallengeSeriesRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->ChallengeSeriesRace();
@@ -758,7 +815,7 @@ bool GRaceParameters::GetIsChallengeSeriesRace() const {
 
 bool GRaceParameters::GetIsCollectorsEditionRace() const {
     if (mIndex != nullptr) {
-        return (mIndex->mFlags & GRaceIndexData::kRaceFlag_CollectorsEditionRace) != 0;
+        return (mIndex->mFlags & GRaceIndexData::kRaceFlag_CollectorsEditionRace) ? true : false;
     }
     EnsureLoaded();
     return mRaceRecord->CollectorsEditionRace();
@@ -943,9 +1000,9 @@ GRaceParameters::GRaceParameters(unsigned int collectionKey, GRaceIndexData *ind
     GenerateIndex(index);
     mIndex = index;
 
-    const char *vaultName = mRaceRecord->gameplayvault();
-    if (vaultName != NULL) {
-        mChildVault = GManager::Get().FindVault(vaultName);
+    const char *childVaultName = mRaceRecord->gameplayvault();
+    if (childVaultName != NULL) {
+        mChildVault = GManager::Get().FindVault(childVaultName);
         mRaceRecord->Num_Children();
     }
 
@@ -989,90 +1046,26 @@ void GRaceParameters::GenerateIndex(GRaceIndexData *index) {
     index->mRegion = GetRegion();
 
     index->mFlags = 0;
-
-#ifndef EA_BUILD_A124
-    unsigned int *pflags = &index->mFlags;
-#endif
-    unsigned int flags = 0;
-    if (GetInitiallyUnlockedQuickRace()) {
-        flags |= GRaceIndexData::kRaceFlag_AvailableQR;
-    }
-    index->mFlags = flags;
-    if (GetInitiallyUnlockedOnline()) {
-        flags |= GRaceIndexData::kRaceFlag_AvailableOnline;
-    }
-    index->mFlags = flags;
-    if (GetInitiallyUnlockedChallenge()) {
-        flags |= GRaceIndexData::kRaceFlag_InitiallyUnlocked;
-    }
-    index->mFlags = flags;
-    if (GetCanBeReversed()) {
-        flags |= GRaceIndexData::kRaceFlag_CanBeReversed;
-    }
-    index->mFlags = flags;
-    if (GetIsDDayRace()) {
-        flags |= GRaceIndexData::kRaceFlag_DDayRace;
-    }
-    index->mFlags = flags;
-    if (GetIsBossRace()) {
-        flags |= GRaceIndexData::kRaceFlag_BossRace;
-    }
-    index->mFlags = flags;
-    if (GetIsMarkerRace()) {
-        flags |= GRaceIndexData::kRaceFlag_MarkerRace;
-    }
-    index->mFlags = flags;
-    if (GetIsPursuitRace()) {
-        flags |= GRaceIndexData::kRaceFlag_PursuitRace;
-    }
-    index->mFlags = flags;
-    if (GetIsLoopingRace()) {
-        flags |= GRaceIndexData::kRaceFlag_LoopingRace;
-    }
-    index->mFlags = flags;
-    bool rank = GetRankPlayersByPoints();
-    unsigned int f = flags;
-    if (rank) {
-        f |= GRaceIndexData::kRaceFlag_RankPlayersByPoints;
-    }
-#ifdef EA_BUILD_A124
-    // En la A124 este paso es como los demas: `sh` a 0x4 sin puntero aparte (0x2EB3FC).
-    index->mFlags = f;
-#else
-    *pflags = f;
-#endif
-    flags = index->mFlags;
-    if (GetRankPlayersByDistance()) {
-        flags |= GRaceIndexData::kRaceFlag_RankPlayersByDistance;
-    }
-    index->mFlags = flags;
-    if (GetCopsEnabled()) {
-        flags |= GRaceIndexData::kRaceFlag_CopsInRace;
-    }
-    index->mFlags = flags;
-    if (GetScriptedCopsInRace()) {
-        flags |= GRaceIndexData::kRaceFlag_ScriptedCopsInRace;
-    }
-    index->mFlags = flags;
-    if (GetTimeOfDay() > 0.8f) {
-        flags |= GRaceIndexData::kRaceFlag_Unknown13;
-    }
-    index->mFlags = flags;
-    if (GetNeverInQuickRace()) {
-        flags |= GRaceIndexData::kRaceFlag_NeverInQuickRace;
-    }
-    index->mFlags = flags;
-    if (GetIsChallengeSeriesRace()) {
-        flags |= GRaceIndexData::kRaceFlag_ChallengeSeriesRace;
-    }
-    index->mFlags = flags;
+    index->mFlags |= GetInitiallyUnlockedQuickRace() ? GRaceIndexData::kRaceFlag_AvailableQR : 0;
+    index->mFlags |= GetInitiallyUnlockedOnline() ? GRaceIndexData::kRaceFlag_AvailableOnline : 0;
+    index->mFlags |= GetInitiallyUnlockedChallenge() ? GRaceIndexData::kRaceFlag_InitiallyUnlocked : 0;
+    index->mFlags |= GetCanBeReversed() ? GRaceIndexData::kRaceFlag_CanBeReversed : 0;
+    index->mFlags |= GetIsDDayRace() ? GRaceIndexData::kRaceFlag_DDayRace : 0;
+    index->mFlags |= GetIsBossRace() ? GRaceIndexData::kRaceFlag_BossRace : 0;
+    index->mFlags |= GetIsMarkerRace() ? GRaceIndexData::kRaceFlag_MarkerRace : 0;
+    index->mFlags |= GetIsPursuitRace() ? GRaceIndexData::kRaceFlag_PursuitRace : 0;
+    index->mFlags |= GetIsLoopingRace() ? GRaceIndexData::kRaceFlag_LoopingRace : 0;
+    index->mFlags |= GetRankPlayersByPoints() ? GRaceIndexData::kRaceFlag_RankPlayersByPoints : 0;
+    index->mFlags |= GetRankPlayersByDistance() ? GRaceIndexData::kRaceFlag_RankPlayersByDistance : 0;
+    index->mFlags |= GetCopsEnabled() ? GRaceIndexData::kRaceFlag_CopsInRace : 0;
+    index->mFlags |= GetScriptedCopsInRace() ? GRaceIndexData::kRaceFlag_ScriptedCopsInRace : 0;
+    index->mFlags |= GetTimeOfDay() > 0.8f ? GRaceIndexData::kRaceFlag_Unknown13 : 0;
+    index->mFlags |= GetNeverInQuickRace() ? GRaceIndexData::kRaceFlag_NeverInQuickRace : 0;
+    index->mFlags |= GetIsChallengeSeriesRace() ? GRaceIndexData::kRaceFlag_ChallengeSeriesRace : 0;
     // La A124 no tiene ni la carrera de la Collector's Edition ni el bloque de la hora del dia: tras el `sh` de
     // ChallengeSeries (0x2EB4A4) va directa a bMemSet.
 #ifndef EA_BUILD_A124
-    if (GetIsCollectorsEditionRace()) {
-        flags |= GRaceIndexData::kRaceFlag_CollectorsEditionRace;
-    }
-    index->mFlags = flags;
+    index->mFlags |= GetIsCollectorsEditionRace() ? GRaceIndexData::kRaceFlag_CollectorsEditionRace : 0;
 
     if (GetTimeOfDay() >= 0.8f) {
         index->mFlags |= GRaceIndexData::kRaceFlag_Unknown13;
@@ -1184,13 +1177,13 @@ unsigned int GRaceParameters::GetChallengeType() const {
 
     EnsureLoaded();
 
-    const char *name = mRaceRecord->MilestoneName();
+    const char *milestoneName = mRaceRecord->MilestoneName();
 
-    if (name == nullptr || name[0] == 0) {
+    if (milestoneName == nullptr || milestoneName[0] == 0) {
         return 0;
     }
 
-    return Attrib::StringHash32(name);
+    return Attrib::StringHash32(milestoneName);
 }
 
 GRace::Type GRaceParameters::GetRaceType() const {
@@ -1201,7 +1194,7 @@ GRace::Type GRaceParameters::GetRaceType() const {
     EnsureLoaded();
 
     static struct {
-        const char *mName;
+        const char *mTypeName;
         GRace::Type mType;
     } typeTable[] = {
         {"circuit", GRace::kRaceType_Circuit},
@@ -1217,11 +1210,11 @@ GRace::Type GRaceParameters::GetRaceType() const {
         {"milestonejump", GRace::kRaceType_JumpToMilestone},
     };
 
-    const char *name = mRaceRecord->EventIconType();
+    const char *eventType = mRaceRecord->EventIconType();
 
-    for (int i = 0; i <= 10; i++) {
-        if (bStrCmp(name, typeTable[i].mName) == 0) {
-            return typeTable[i].mType;
+    for (int onType = 0; onType < 11; onType++) {
+        if (bStrCmp(eventType, typeTable[onType].mTypeName) == 0) {
+            return typeTable[onType].mType;
         }
     }
 
@@ -1236,7 +1229,7 @@ GRace::Region GRaceParameters::GetRegion() const {
     EnsureLoaded();
 
     static struct {
-        const char *mName;
+        const char *mRegionName;
         GRace::Region mRegion;
     } regionTable[] = {
         {"college", GRace::kRaceRegion_College},
@@ -1244,11 +1237,11 @@ GRace::Region GRaceParameters::GetRegion() const {
         {"city", GRace::kRaceRegion_City},
     };
 
-    const char *name = mRaceRecord->Region();
+    const char *regionName = mRaceRecord->Region();
 
-    for (int i = 0; i <= 2; i++) {
-        if (bStrCmp(name, regionTable[i].mName) == 0) {
-            return regionTable[i].mRegion;
+    for (int onRegion = 0; onRegion < 3; onRegion++) {
+        if (bStrCmp(regionName, regionTable[onRegion].mRegionName) == 0) {
+            return regionTable[onRegion].mRegion;
         }
     }
 
@@ -1268,7 +1261,7 @@ void GRaceParameters::ExtractDirection(Attrib::Gen::gameplay &collection, UMath:
     UMath::Vector3 initialVec = {0.0f, 0.0f, 1.0f};
 
     UMath::Init(rotMat, 1.0f, 1.0f, 1.0f);
-    MATRIX4_multyrot(&rotMat, -(collection.Rotation() + rotate) / 360.0f, &rotMat);
+    UMath::MultYRot(rotMat, -(collection.Rotation() + rotate) / 360.0f, rotMat);
     UMath::Rotate(initialVec, rotMat, initialVec);
 
     dir = initialVec;
@@ -1290,25 +1283,20 @@ bool GRaceParameters::GetIsAvailable(GRace::Context context) const {
     }
 
     switch (context) {
-    case kRaceContext_Career: {
-        bool isAvailable = false;
-
-        if (GRaceDatabase::Get().CheckRaceScoreFlags(GetEventHash(), GRaceDatabase::kUnlocked_Career)) {
-            isAvailable = GRaceDatabase::Get().CheckRaceScoreFlags(GetEventHash(), GRaceDatabase::kCompleted_ContextCareer) == 0;
-        }
-
-        return isAvailable;
-    }
+    case kRaceContext_Career:
+        return GRaceDatabase::Get().IsCareerRaceUnlocked(GetEventHash()) && !GRaceDatabase::Get().IsCareerRaceComplete(GetEventHash());
     case kRaceContext_QuickRace:
         if (GetNeverInQuickRace()) {
             return false;
         }
-        return GRaceDatabase::Get().CheckRaceScoreFlags(GetEventHash(), GRaceDatabase::kUnlocked_QuickRace);
+        return GRaceDatabase::Get().IsQuickRaceUnlocked(GetEventHash());
     case kRaceContext_Online:
-        return GRaceDatabase::Get().CheckRaceScoreFlags(GetEventHash(), GRaceDatabase::kUnlocked_Online);
+        return GRaceDatabase::Get().IsOnlineRaceUnlocked(GetEventHash());
     default:
-        return false;
+        break;
     }
+
+    return false;
 }
 
 bool GRaceParameters::GetIsSunsetRace() const {
@@ -1344,11 +1332,18 @@ bool GRaceParameters::GetIsMiddayRace() const {
 }
 
 void GRaceParameters::SetupTimeOfDay() {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // speed.exe 0x5FD210 and X360 0x82363AD0: the TimeOfDay of PC/360 takes the race's own time
+    if (GetTimeOfDay() >= 0.0f) {
+        SetCurrentTimeOfDay(GetTimeOfDay());
+    }
+#else
     if (GetIsSunsetRace()) {
         SetCurrentTimeOfDay(0.9f);
     } else if (GetIsMiddayRace()) {
         SetCurrentTimeOfDay(0.0f);
     }
+#endif
 }
 
 int GRaceParameters::GetTrafficDensity() const {
@@ -1360,11 +1355,11 @@ int GRaceParameters::GetTrafficDensity() const {
 GRace::Difficulty GRaceParameters::GetDifficulty() const {
     EnsureLoaded();
 
-    int level = mRaceRecord->DifficultyLevel();
+    int difficulty = mRaceRecord->DifficultyLevel();
 
-    if (level <= 33) {
+    if (difficulty < 34) {
         return GRace::kRaceDifficulty_Easy;
-    } else if (level <= 66) {
+    } else if (difficulty < 67) {
         return GRace::kRaceDifficulty_Medium;
     }
 
@@ -1400,7 +1395,9 @@ bool GRaceParameters::GetCanBeReversed() const {
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_CanBeReversed) != 0;
     }
 
+#ifndef EA_BUILD_A124
     EnsureLoaded();
+#endif
 
     return false;
 }
@@ -1424,136 +1421,136 @@ int GRaceParameters::GetNumOpponents() const {
 void GRaceParameters::GetStartPosition(UMath::Vector3 &pos) const {
     EnsureLoaded();
 
-    UMath::Vector3 result = UMath::Vector3::kZero;
+    UMath::Vector3 startPos = UMath::Vector3::kZero;
+    const GCollectionKey &raceStartSpec = mRaceRecord->racestart();
 
-    unsigned int startKey = mRaceRecord->racestart();
-    if (startKey != 0) {
-        Attrib::Gen::gameplay start(startKey, 0, NULL);
+    if (raceStartSpec.GetCollectionKey() != 0) {
+        Attrib::Gen::gameplay startMarkerCollection(raceStartSpec.GetCollectionKey(), 0, NULL);
 
-        ExtractPosition(start, result);
+        ExtractPosition(startMarkerCollection, startPos);
     }
 
-    pos = result;
+    pos = startPos;
 }
 
 void GRaceParameters::GetStartDirection(UMath::Vector3 &dir) const {
     EnsureLoaded();
 
-    UMath::Vector3 result = UMath::Vector3::kZero;
+    UMath::Vector3 startDir = UMath::Vector3::kZero;
+    const GCollectionKey &raceStartSpec = mRaceRecord->racestart();
 
-    unsigned int startKey = mRaceRecord->racestart();
-    if (startKey != 0) {
-        Attrib::Gen::gameplay start(startKey, 0, NULL);
+    if (raceStartSpec.GetCollectionKey() != 0) {
+        Attrib::Gen::gameplay startMarkerCollection(raceStartSpec.GetCollectionKey(), 0, NULL);
 
-        ExtractDirection(start, result, 0.0f);
+        ExtractDirection(startMarkerCollection, startDir, 0.0f);
     }
 
-    dir = result;
+    dir = startDir;
 }
 
 bool GRaceParameters::HasFinishLine() const {
     EnsureLoaded();
 
-    return mRaceRecord->racefinish() != 0;
+    const GCollectionKey &raceFinishSpec = mRaceRecord->racefinish();
+
+    return raceFinishSpec.GetCollectionKey() != 0;
 }
 
 void GRaceParameters::GetFinishPosition(UMath::Vector3 &pos) const {
     EnsureLoaded();
 
-    UMath::Vector3 result = UMath::Vector3::kZero;
+    UMath::Vector3 finishPos = UMath::Vector3::kZero;
+    const GCollectionKey &raceFinishSpec = mRaceRecord->racefinish();
 
-    unsigned int finishKey = mRaceRecord->racefinish();
-    if (finishKey != 0) {
-        Attrib::Gen::gameplay finish(finishKey, 0, NULL);
+    if (raceFinishSpec.GetCollectionKey() != 0) {
+        Attrib::Gen::gameplay finishTriggerCollection(raceFinishSpec.GetCollectionKey(), 0, NULL);
 
-        ExtractPosition(finish, result);
+        ExtractPosition(finishTriggerCollection, finishPos);
     }
 
-    pos = result;
+    pos = finishPos;
 }
 
 void GRaceParameters::GetFinishDirection(UMath::Vector3 &dir) const {
     EnsureLoaded();
 
-    UMath::Vector3 result = UMath::Vector3::kZero;
+    UMath::Vector3 finishDir = UMath::Vector3::kZero;
+    const GCollectionKey &raceFinishSpec = mRaceRecord->racefinish();
 
-    unsigned int finishKey = mRaceRecord->racefinish();
-    if (finishKey != 0) {
-        Attrib::Gen::gameplay finish(finishKey, 0, NULL);
+    if (raceFinishSpec.GetCollectionKey() != 0) {
+        Attrib::Gen::gameplay finishTriggerCollection(raceFinishSpec.GetCollectionKey(), 0, NULL);
 
-        ExtractDirection(finish, result, 0.0f);
+        ExtractDirection(finishTriggerCollection, finishDir, 0.0f);
     }
 
-    dir = result;
+    dir = finishDir;
 }
 
 void GRaceParameters::GetCheckpointPosition(unsigned int index, UMath::Vector3 &pos) const {
-    if (mParentVault != NULL && !mParentVault->IsLoaded()) {
-        mParentVault->LoadSyncTransient();
+    EnsureLoaded();
+
+    UMath::Vector3 checkPos = UMath::Vector3::kZero;
+    const GCollectionKey &raceCheckSpec = mRaceRecord->Checkpoint(index);
+
+    if (raceCheckSpec.GetCollectionKey() != 0) {
+        Attrib::Gen::gameplay checkTriggerCollection(raceCheckSpec.GetCollectionKey(), 0, NULL);
+
+        ExtractPosition(checkTriggerCollection, checkPos);
     }
 
-    if (mChildVault != NULL && !mChildVault->IsLoaded()) {
-        mChildVault->LoadSyncTransient();
-    }
-
-    UMath::Vector3 result = UMath::Vector3::kZero;
-
-    unsigned int checkpointKey = mRaceRecord->Checkpoint(index);
-    if (checkpointKey != 0) {
-        Attrib::Gen::gameplay checkpoint(checkpointKey, 0, NULL);
-
-        ExtractPosition(checkpoint, result);
-    }
-
-    pos = result;
+    pos = checkPos;
 }
 
 void GRaceParameters::GetCheckpointDirection(unsigned int index, UMath::Vector3 &dir) const {
     EnsureLoaded();
 
-    UMath::Vector3 result = UMath::Vector3::kZero;
+    UMath::Vector3 checkDir = UMath::Vector3::kZero;
+    const GCollectionKey &raceCheckSpec = mRaceRecord->Checkpoint(index);
 
-    unsigned int checkpointKey = mRaceRecord->Checkpoint(index);
-    if (checkpointKey != 0) {
-        Attrib::Gen::gameplay checkpoint(checkpointKey, 0, NULL);
+    if (raceCheckSpec.GetCollectionKey() != 0) {
+        Attrib::Gen::gameplay checkTriggerCollection(raceCheckSpec.GetCollectionKey(), 0, NULL);
 
-        ExtractDirection(checkpoint, result, 0.0f);
+        ExtractDirection(checkTriggerCollection, checkDir, 0.0f);
     }
 
-    dir = result;
+    dir = checkDir;
 }
 
 GMarker *GRaceParameters::GetShortcut(unsigned int index) const {
     EnsureLoaded();
 
-    return GRuntimeInstance::FindObject<GMarker>(mRaceRecord->Shortcuts(index));
+    const GCollectionKey &shortcut = mRaceRecord->Shortcuts(index);
+
+    return GRuntimeInstance::FindObject<GMarker>(shortcut.GetCollectionKey());
 }
 
 GMarker *GRaceParameters::GetBarrierExemption(unsigned int index) const {
     EnsureLoaded();
 
-    return GRuntimeInstance::FindObject<GMarker>(mRaceRecord->BarrierExemptions(index));
+    const GCollectionKey &exemption = mRaceRecord->BarrierExemptions(index);
+
+    return GRuntimeInstance::FindObject<GMarker>(exemption.GetCollectionKey());
 }
 
 const char *GRaceParameters::GetBarrierName(unsigned int index) const {
     EnsureLoaded();
 
-    const char *name = mRaceRecord->Barriers(index);
+    const char *barrierName = mRaceRecord->Barriers(index);
 
-    if (name != NULL && *name == '*') {
-        name++;
+    if (barrierName != NULL && *barrierName == '*') {
+        barrierName++;
     }
 
-    return name;
+    return barrierName;
 }
 
 bool GRaceParameters::GetBarrierIsFlipped(unsigned int index) const {
     EnsureLoaded();
 
-    const char *name = mRaceRecord->Barriers(index);
+    const char *barrierName = mRaceRecord->Barriers(index);
 
-    if (name != NULL) {
-        return *name == '*';
+    if (barrierName != NULL) {
+        return *barrierName == '*';
     }
 
     return false;
@@ -1622,6 +1619,10 @@ void GRaceCustom::CreateRaceActivity() {
                 }
             } else {
                 for (unsigned int onCopy = currOpponents; onCopy < (unsigned int)mNumOpponents; onCopy++) {
+                    // El original calcula tambien el cociente (muerto): el doble beql+break
+                    // viene de / y % sobre el mismo divisor (un solo divu, sin mflo).
+                    unsigned int opponentSet = onCopy / currOpponents;
+                    (void)opponentSet;
                     opponentKey[onCopy] = opponentKey[onCopy % currOpponents];
                 }
             }
@@ -1670,11 +1671,11 @@ void GRaceCustom::GetCheckpointDirection(unsigned int index, UMath::Vector3 &dir
     }
 
     UMath::Vector3 checkDir = UMath::Vector3::kZero;
+    const GCollectionKey &raceCheckSpec = mRaceRecord->Checkpoint(index);
 
-    unsigned int raceCheckSpec = mRaceRecord->Checkpoint(index);
-    if (raceCheckSpec != 0) {
+    if (raceCheckSpec.GetCollectionKey() != 0) {
 
-        Attrib::Gen::gameplay checkTriggerCollection(raceCheckSpec, 0, NULL);
+        Attrib::Gen::gameplay checkTriggerCollection(raceCheckSpec.GetCollectionKey(), 0, NULL);
 
         ExtractDirection(checkTriggerCollection, checkDir, mReversed ? 180.0f : 0.0f);
     }
@@ -1717,22 +1718,22 @@ void GRaceCustom::SetNumOpponents(int numOpponents) {
 }
 
 void GRaceCustom::SetDifficulty(GRace::Difficulty difficulty) {
-    int level;
+    int difficultyPct;
     switch (difficulty) {
     case GRace::kRaceDifficulty_Easy:
-        level = 33;
+        difficultyPct = 33;
         break;
     case GRace::kRaceDifficulty_Medium:
-        level = 66;
+        difficultyPct = 66;
         break;
     case GRace::kRaceDifficulty_Hard:
-        level = 100;
+        difficultyPct = 100;
         break;
     default:
-        level = 0;
+        difficultyPct = 0;
         break;
     }
-    SetAttribute<int>(Attrib::Hash::gameplay::DifficultyLevel, (int) level, 0);
+    SetAttribute<int>(Attrib::Hash::gameplay::DifficultyLevel, (int) difficultyPct, 0);
 }
 
 void GRaceCustom::SetCatchUp(bool catchUpEnabled) {
@@ -1755,9 +1756,9 @@ void GRaceCustom::SetForceHeatLevel(int level) {
 GRaceBin::GRaceBin(unsigned int collectionKey) : mBinRecord(collectionKey, 0, 0), mChildVault(NULL) {
     bMemSet(&mStats, 0, sizeof(BinStats));
 
-    const char *vaultName = mBinRecord.gameplayvault();
-    if (vaultName != NULL) {
-        mChildVault = GManager::Get().FindVault(vaultName);
+    const char *childVaultName = mBinRecord.gameplayvault();
+    if (childVaultName != NULL) {
+        mChildVault = GManager::Get().FindVault(childVaultName);
         mChildVault->SetRaceBin();
     }
 }
@@ -1791,11 +1792,11 @@ unsigned int GRaceBin::GetBossRaceCount() const {
 }
 
 unsigned int GRaceBin::GetBossRaceHash(unsigned int index) const {
-    unsigned int raceKey = mBinRecord.BossRaces(index);
+    const GCollectionKey &bossRace = mBinRecord.BossRaces(index);
 
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromKey(raceKey);
+    GRaceParameters *raceParms = GRaceDatabase::Get().GetRaceFromKey(bossRace.GetCollectionKey());
 
-    return parms != nullptr ? parms->GetEventHash() : 0;
+    return raceParms != nullptr ? raceParms->GetEventHash() : 0;
 }
 
 unsigned int GRaceBin::GetWorldRaceCount() const {
@@ -1803,11 +1804,11 @@ unsigned int GRaceBin::GetWorldRaceCount() const {
 }
 
 unsigned int GRaceBin::GetWorldRaceHash(unsigned int index) const {
-    unsigned int raceKey = mBinRecord.WorldRaces(index);
+    const GCollectionKey &worldRace = mBinRecord.WorldRaces(index);
 
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromKey(raceKey);
+    GRaceParameters *raceParms = GRaceDatabase::Get().GetRaceFromKey(worldRace.GetCollectionKey());
 
-    return parms != nullptr ? parms->GetEventHash() : 0;
+    return raceParms != nullptr ? raceParms->GetEventHash() : 0;
 }
 
 unsigned int GRaceBin::GetBaselineUnlockCount() const {
@@ -1823,26 +1824,31 @@ unsigned int GRaceBin::GetBarrierCount() const {
 }
 
 const char *GRaceBin::GetBarrierName(unsigned int index) const {
-    const char *name = mBinRecord.Barriers(index);
+    const char *barrierName = mBinRecord.Barriers(index);
 
-    if (name != nullptr && name[0] == '*') {
-        name++;
+    if (barrierName != nullptr && barrierName[0] == '*') {
+        barrierName++;
     }
 
-    return name;
+    return barrierName;
 }
 
 bool GRaceBin::GetBarrierIsFlipped(unsigned int index) const {
-    const char *name = mBinRecord.Barriers(index);
+    const char *barrierName = mBinRecord.Barriers(index);
 
-    if (name != nullptr) {
-        return name[0] == '*';
+    if (barrierName != nullptr) {
+        return barrierName[0] == '*';
     }
 
     return false;
 }
 
 void GRaceBin::EnableBarriers() {
+#ifdef EA_BUILD_A124 // la A124 no pone barreras con todo desbloqueado
+    if (UnlockAllThings) {
+        return;
+    }
+#endif
     for (unsigned int i = 0; i < GetBarrierCount(); i++) {
         const char *barrierName = GetBarrierName(i);
         EnableBarrierSceneryGroup(barrierName, GetBarrierIsFlipped(i));

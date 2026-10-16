@@ -56,13 +56,13 @@ inline unsigned int RotateNTo32(unsigned long long v, unsigned int amount) {
 
 // TODO why no inline?
 #ifdef EA_PLATFORM_XENON
-__declspec(noinline)
+inline __declspec(noinline)
 #else
 inline
 #endif
 void *Alloc(std::size_t bytes, const char *name) {
     AllocationAccounting(bytes, true);
-    if (bytes != 0) {
+    if (bytes > 0) {
         return AttribAlloc::Allocate(bytes, name);
     } else {
         return nullptr;
@@ -71,24 +71,16 @@ void *Alloc(std::size_t bytes, const char *name) {
 
 inline void Free(void *ptr, std::size_t bytes, const char *name) {
     AllocationAccounting(bytes, false);
-    if (ptr && bytes != 0) {
+    if (ptr && bytes > 0) {
         AttribAlloc::Free(ptr, bytes, name);
     }
-}
-
-// TODO move these to AttribPrivate.h?
-inline void TableFreeFunc(void *ptr, std::size_t bytes) {
-    AttribAlloc::Free(ptr, bytes, "Attrib::CollectionHashMap");
-}
-
-inline void *TableAllocFunc(std::size_t bytes) {
-    return AttribAlloc::Allocate(bytes, "Attrib::CollectionHashMap");
 }
 
 class Instance;
 class Attribute;
 class Class;
 class Definition;
+class TypeDesc;
 class DatabasePrivate;
 class ClassPrivate;
 class Collection;
@@ -104,110 +96,27 @@ class ITypeHandler {
     virtual void Release(void *obj) = 0;
 };
 
-// total size: 0x14
-class TypeDesc {
-  public:
-    static ITypeHandler *Lookup(Type t);
-    static Type NameToType(const char *name);
-
-    USE_ATTRIB_ALLOC("Attrib::TypeDesc");
-
-    TypeDesc() : mType(0), mName(""), mSize(0), mIndex(0), mHandler(nullptr) {}
-
-    TypeDesc(const TypeDesc &src)
-        : mType(src.mType),   //
-          mName(src.mName),   //
-          mSize(src.mSize),   //
-          mIndex(src.mIndex), //
-          mHandler(src.mHandler) {}
-
-    TypeDesc(unsigned int t) : mType(t), mName(nullptr), mSize(0), mIndex(0), mHandler(Lookup(t)) {}
-
-    TypeDesc(const char *name, std::size_t size, std::size_t index)
-        : mType(NameToType(name)), mName(name), mSize(size), mIndex(index), mHandler(Lookup(mType)) {}
-
-    Type GetType() const {
-        return mType;
-    }
-
-    const char *GetName() const {
-        return mName;
-    }
-
-    unsigned int GetSize() const {
-        return mSize;
-    }
-
-    unsigned short GetIndex() const {
-        return mIndex;
-    }
-
-    ITypeHandler *GetHandler() const {
-        return mHandler;
-    }
-
-    bool operator<(const TypeDesc &rhs) const {
-        return mType < rhs.mType;
-    }
-
-  private:
-    Type mType;             // offset 0x0, size 0x4
-    const char *mName;      // offset 0x4, size 0x4
-    unsigned int mSize;     // offset 0x8, size 0x4
-    unsigned int mIndex;    // offset 0xC, size 0x4
-    ITypeHandler *mHandler; // offset 0x10, size 0x4
-};
-
-// c36attx e4: `TypeDescPtrVec`, `TypeTable`, `CollectionList` y `ClassList`
-// se han ido con `DatabasePrivate` a AttribDatabase.cpp: debug_lines situa
-// ~TypeTable en attribdatabase.cpp:36 y el objetivo emite ~ClassTable ANTES
-// que ~TypeTable, o sea que ClassTable se define primero.
-// total size: 0x8
-class Database {
-  public:
-    static ExportManager &GetExportPolicies();
-
-    Class *GetClass(Key k) const;
-    bool AddClass(Class *c);
-    void RemoveClass(const Class *c);
-    void Delete(const Collection *c);
-    void Delete(const Class *c);
-    void CollectGarbage();
-    unsigned int GetNumIndexedTypes() const;
-    const TypeDesc &GetIndexedTypeDesc(uint16_t index) const;
-    const TypeDesc &GetTypeDesc(Type t) const;
-    void DumpContents(Key classFilter) const;
-
-    static Database &Get() {
-        return *sThis;
-    }
-
-    void operator delete(void *ptr, std::size_t bytes) {
-        Free(ptr, bytes, "Attrib::Database");
-    }
-
-    static bool IsInitialized() {
-        return sThis != nullptr;
-    }
-
-    friend class DatabasePrivate;
-    friend class DatabaseExportPolicy;
-
-  private:
-    Database(DatabasePrivate &privates);
-    virtual ~Database();
-
-    static Database *sThis;
-
-    DatabasePrivate &mPrivates; // offset 0x0, size 0x4
-};
-
 // c36attx e1: `class Array` y `class Node` VIVEN EN AttribHashMap.h en el
 // original (debug_lines: attribhashmap.h:44-215 para Array y :385-466 para
 // Node; attribsys.h solo llega a Definition::GetFlag en :572). Aqui basta la
 // declaracion adelantada: Attribute e Instance solo los usan por PUNTERO.
 class Array;
 class Node;
+
+// `Private` es de esta cabecera, no de AttribPrivate.h: los `_LayoutStruct`
+// de las clases Gen lo usan en TU que solo incluyen attribsys.h (en el DWARF
+// de zAI/zTrack no hay attribprivate.h y si las clases generadas).
+class Private {
+  public:
+    unsigned int GetLength() const;
+
+    const Array *ToArray() const {
+        return reinterpret_cast<const Array *>(mData);
+    }
+
+  private:
+    unsigned char mData[8];
+};
 
 #define USER_ATTRIB_MIN(A, B) (((A) < (B)) ? (A) : (B))
 
@@ -579,20 +488,41 @@ class Class {
             return AdjustHashTableSize(entries);
         }
 
+        // Las dos ramas llevan la MISMA mascara. El `0x1FFFFFFC' que habia en
+        // la segunda era la SALIDA de GameCube, no la fuente: alli GCC estrecha
+        // la mascara porque conoce el rango del valor, y EE-GCC no lo hace.
+        // Con 0xFFFFFFFC en las dos, GameCube sigue emitiendo 0x1FFFFFFC y PS2
+        // emite 0xFFFFFFFC, que es lo que tiene cada original.
         static std::size_t GrowRequest(std::size_t currententries, bool collisionoverrun) {
             if (collisionoverrun) {
                 return (currententries * 20 / 16 + 3) & 0xFFFFFFFC;
             } else {
-                return (currententries * 20 / 16 + 3) & 0x1FFFFFFC;
+                return (currententries * 20 / 16 + 3) & 0xFFFFFFFC;
             }
         }
 
+        // El nombre solo existe en MILESTONE_BUILD: fuera, el literal no
+        // puede llegar al parseo o se interna en cada TU (en el ELF de GC
+        // hay 0 copias; en A124, 1). AttribAlloc ya descarta el nombre en
+        // las demas versiones, asi que el codigo no cambia.
         static void *Alloc(std::size_t bytes) {
-            return TableAllocFunc(bytes);
+            return AttribAlloc::Allocate(bytes,
+#ifdef MILESTONE_BUILD
+                                          "Attrib::CollectionHashMap"
+#else
+                                          nullptr
+#endif
+            );
         }
 
         static void Free(void *ptr, std::size_t bytes) {
-            TableFreeFunc(ptr, bytes);
+            AttribAlloc::Free(ptr, bytes,
+#ifdef MILESTONE_BUILD
+                              "Attrib::CollectionHashMap"
+#else
+                              nullptr
+#endif
+            );
         }
     };
 
@@ -621,14 +551,7 @@ class Class {
         return mRefCount > 0;
     }
 
-    void Release() const {
-        if (mRefCount >= 2) {
-            mRefCount--;
-        } else {
-            mRefCount = 0;
-            Database::Get().Delete(this);
-        }
-    }
+    void Release() const;
 
     Key GetKey() const {
         return mKey;
@@ -650,6 +573,104 @@ class Class {
     Key mKey;                   // offset 0x0, size 0x4
     mutable uint32_t mRefCount; // offset 0x4, size 0x4
     ClassPrivate &mPrivates;    // offset 0x8, size 0x4
+};
+
+// c36attx e4: `TypeDescPtrVec`, `TypeTable`, `CollectionList` y `ClassList`
+// se han ido con `DatabasePrivate` a AttribDatabase.cpp: debug_lines situa
+// ~TypeTable en attribdatabase.cpp:36 y el objetivo emite ~ClassTable ANTES
+// que ~TypeTable, o sea que ClassTable se define primero.
+// total size: 0x8
+class Database {
+  public:
+    static ExportManager &GetExportPolicies();
+
+    Class *GetClass(Key k) const;
+    bool AddClass(Class *c);
+    void RemoveClass(const Class *c);
+    void Delete(const Collection *c);
+    void Delete(const Class *c);
+    void CollectGarbage();
+    unsigned int GetNumIndexedTypes() const;
+    const TypeDesc &GetIndexedTypeDesc(uint16_t index) const;
+    const TypeDesc &GetTypeDesc(Type t) const;
+    void DumpContents(Key classFilter) const;
+
+    static Database &Get() {
+        return *sThis;
+    }
+
+    void operator delete(void *ptr, std::size_t bytes) {
+        Free(ptr, bytes, "Attrib::Database");
+    }
+
+    static bool IsInitialized() {
+        return sThis != nullptr;
+    }
+
+    friend class DatabasePrivate;
+    friend class DatabaseExportPolicy;
+
+  private:
+    Database(DatabasePrivate &privates);
+    virtual ~Database();
+
+    static Database *sThis;
+
+    DatabasePrivate &mPrivates; // offset 0x0, size 0x4
+};
+
+// total size: 0x14
+class TypeDesc {
+  public:
+    static ITypeHandler *Lookup(Type t);
+    static Type NameToType(const char *name);
+
+    USE_ATTRIB_ALLOC("Attrib::TypeDesc");
+
+    TypeDesc() : mType(0), mName(""), mSize(0), mIndex(0), mHandler(nullptr) {}
+
+    TypeDesc(const TypeDesc &src)
+        : mType(src.mType),   //
+          mName(src.mName),   //
+          mSize(src.mSize),   //
+          mIndex(src.mIndex), //
+          mHandler(src.mHandler) {}
+
+    TypeDesc(unsigned int t) : mType(t), mName(nullptr), mSize(0), mIndex(0), mHandler(Lookup(t)) {}
+
+    TypeDesc(const char *name, std::size_t size, std::size_t index)
+        : mType(NameToType(name)), mName(name), mSize(size), mIndex(index), mHandler(Lookup(mType)) {}
+
+    Type GetType() const {
+        return mType;
+    }
+
+    const char *GetName() const {
+        return mName;
+    }
+
+    unsigned int GetSize() const {
+        return mSize;
+    }
+
+    unsigned short GetIndex() const {
+        return mIndex;
+    }
+
+    ITypeHandler *GetHandler() const {
+        return mHandler;
+    }
+
+    bool operator<(const TypeDesc &rhs) const {
+        return mType < rhs.mType;
+    }
+
+  private:
+    Type mType;             // offset 0x0, size 0x4
+    const char *mName;      // offset 0x4, size 0x4
+    unsigned int mSize;     // offset 0x8, size 0x4
+    unsigned int mIndex;    // offset 0xC, size 0x4
+    ITypeHandler *mHandler; // offset 0x10, size 0x4
 };
 
 // total size: 0xC
@@ -751,6 +772,15 @@ class Blob {
     uint32_t mSize;    // offset 0x0, size 0x4
     const void *mData; // offset 0x4, size 0x4
 };
+
+inline void Class::Release() const {
+    if (mRefCount > 1) {
+        mRefCount--;
+    } else {
+        mRefCount = 0;
+        Database::Get().Delete(this);
+    }
+}
 
 const Key key_default = 0xeec2271a;
 const Key h64_default = 0xeec2271a;

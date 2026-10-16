@@ -7,6 +7,76 @@
 
 namespace EAGL4Anim {
 
+inline void RawPoseChannel::EvalInterpFrame(float t, int frame0, int frame1, float *outputPose, const BoneMask *boneMask) {
+    int count;
+    int *s;
+    float *d0;
+    float *d1;
+    float *out;
+    int *end;
+    void (*func)(float w, float *&data0, float *&data1, float *output);
+
+    s = GetInterpSig();
+    d0 = GetFrame(frame0);
+    d1 = GetFrame(frame1);
+    out = outputPose;
+    end = reinterpret_cast<int *>(GetAnimData());
+
+    if (!boneMask) {
+
+        while (s < end) {
+
+            int j;
+
+            count = *s++;
+
+            for (j = 0; j < count; j++) {
+                func = reinterpret_cast<void (*)(float, float *&, float *&, float *)>(*s++);
+                func(t, d0, d1, &out[4]);
+            }
+
+            out += 12;
+        }
+    } else {
+
+        int j;
+        int i = 0;
+
+        while (s < end) {
+
+            count = *s++;
+
+            if (boneMask->GetBone(i)) {
+
+                for (j = 0; j < count; j++) {
+                    func = reinterpret_cast<void (*)(float, float *&, float *&, float *)>(*s++);
+                    func(t, d0, d1, &out[4]);
+                }
+            } else {
+
+                for (j = 0; j < count; j++) {
+
+                    func = reinterpret_cast<void (*)(float, float *&, float *&, float *)>(*s++);
+
+                    if (func == EulF3Interp || func == TranF3Interp) {
+
+                        d0 += 3;
+                        d1 += 3;
+
+                    } else if (func == QuatF4Interp) {
+
+                        d0 += 4;
+                        d1 += 4;
+                    }
+                }
+            }
+
+            out += 12;
+            i++;
+        }
+    }
+}
+
 void RawPoseChannel::InitAnimMemoryMap(AnimMemoryMap *anim) {
     RawPoseChannel *rawChan = reinterpret_cast<RawPoseChannel *>(anim);
     int i;

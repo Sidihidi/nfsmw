@@ -13,9 +13,14 @@ EAudioWorldTest::~EAudioWorldTest() {
     const float TEST_DURATION = 0.4f;
     const float TEST_MAX_DISTANCE = 20.0f;
 
+#ifdef EA_BUILD_A124
+    // La A124 no exigia estar en carrera, solo que el sonido estuviera activo.
+    if (IsSoundEnabled) {
+#else
     if (TheGameFlowManager.GetState() == GAMEFLOW_STATE_RACING) {
 
         if (IsSoundEnabled) {
+#endif
 
             for (int n = 0; n < SndCamera::NumPlayers; n++) {
 
@@ -51,13 +56,15 @@ EAudioWorldTest::~EAudioWorldTest() {
                     cardir.x = -SndCamera::GetNormCarDir3(n)->y;
                     cardir.y = SndCamera::GetNormCarDir3(n)->z;
 
-                    if (bAbs(UMath::Dot(cardir, cInfo.fNormal)) >= 0.2f) {
-
+                    if (bAbs(UMath::Dot(cardir, cInfo.fNormal)) < 0.2f) {
+                    } else {
                         MAudioReflection(n, cInfo.fDist, false).Send("FRONT_BARRIER");
                     }
                 }
             }
+#ifndef EA_BUILD_A124
         }
+#endif
     }
 }
 

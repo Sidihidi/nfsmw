@@ -22,7 +22,6 @@ class MGeneric : public Hermes::Message {
 
     MGeneric() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MGeneric() {}
 };
 
 #endif

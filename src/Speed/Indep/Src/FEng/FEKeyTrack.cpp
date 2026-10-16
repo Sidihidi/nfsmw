@@ -1,6 +1,8 @@
 #include "Speed/Indep/Src/FEng/FEKeyTrack.h"
 #include "Speed/Indep/Src/FEng/FERefList.h"
 #include "Speed/Indep/Src/FEng/ObjectPool.h"
+#include "Speed/Indep/Src/FEng/FEKeyInterpolators.h"
+#include "Speed/Indep/Src/FEng/FETypeNode.h"
 #include "types.h"
 
 ObjectPool<FEKeyNode, 256> FEKeyNode::NodePool;
@@ -84,4 +86,168 @@ FEKeyNode *FEKeyTrack::GetDeltaKeyAt(i32 tTime) {
     };
 
     return pKey;
+}
+
+void FEKeyTrack::InsertKey(FEKeyNode *pNewKey) {
+    FEKeyNode *pKey = GetFirstDeltaKey();
+
+    if (pKey && pNewKey->tTime < pKey->tTime) {
+        DeltaKeys.AddHead(pNewKey);
+        return;
+    }
+
+    while (pKey && pKey->GetNext() && pKey->GetNext()->GetKeyData()->tTime <= pNewKey->GetKeyData()->tTime) {
+        pKey = pKey->GetNext();
+    }
+    DeltaKeys.AddNode(pKey, pNewKey);
+}
+
+FEKeyNode *FEKeyTrack::CreateKeyAt(i32 tTime) {
+    FEKeyNode *pKey = GetFirstDeltaKey();
+
+    while (pKey && pKey->GetKeyData()->tTime < tTime) {
+        pKey = pKey->GetNext();
+    }
+
+    if (pKey && pKey->GetKeyData()->tTime == tTime) {
+        return pKey;
+    }
+
+    pKey = new FEKeyNode;
+    pKey->GetKeyData()->tTime = tTime;
+    InsertKey(pKey);
+    return pKey;
+}
+
+bool FEKeyTrack::GenerateNewKeyAt(i32 tTime) {
+    FEKeyNode *pKey = GetKeyAt(tTime);
+
+    if (!pKey || pKey->GetKeyData()->tTime == tTime) {
+        return false;
+    }
+
+    switch (ParamType) {
+        case PT_Bool:
+            break;
+        case PT_Int: {
+            i32 Val;
+            FEKeyInterp(this, tTime, &Val);
+            return SetKeyValueAt(tTime, Val);
+        }
+        case PT_Vector2: {
+            FEVector2 Val;
+            FEKeyInterp(this, tTime, &Val);
+            return SetKeyValueAt(tTime, Val);
+        }
+        case PT_Vector3: {
+            FEVector3 Val;
+            FEKeyInterp(this, tTime, &Val);
+            return SetKeyValueAt(tTime, Val);
+        }
+        case PT_Quaternion: {
+            FEQuaternion Val;
+            FEKeyInterp(this, tTime, &Val);
+            return SetKeyValueAt(tTime, Val);
+        }
+        case PT_Color: {
+            FEColor Val;
+            FEKeyInterp(this, tTime, &Val);
+            return SetKeyValueAt(tTime, Val);
+        }
+    }
+    return false;
+}
+
+bool FEKeyTrack::SetKeyValueAt(i32 tTime, i32 &Val) {
+    FEKeyNode *pKey;
+    bool bCreated = false;
+
+    if (tTime == -1) {
+        BaseKey.Val = Val;
+    } else {
+        pKey = GetKeyAt(tTime);
+        if (pKey->GetKeyData()->tTime != tTime) {
+            bCreated = true;
+            pKey = CreateKeyAt(tTime);
+        }
+        pKey->Val = Val - reinterpret_cast<i32 &>(BaseKey.Val);
+    }
+    InterpAction &= 0x7F;
+    return bCreated;
+}
+
+bool FEKeyTrack::SetKeyValueAt(i32 tTime, FEVector3 &Val) {
+    FEKeyNode *pKey;
+    bool bCreated = false;
+
+    if (tTime == -1) {
+        BaseKey.Val = Val;
+    } else {
+        pKey = GetKeyAt(tTime);
+        if (pKey->GetKeyData()->tTime != tTime) {
+            bCreated = true;
+            pKey = CreateKeyAt(tTime);
+        }
+        pKey->Val = Val - reinterpret_cast<FEVector3 &>(BaseKey.Val);
+    }
+    InterpAction &= 0x7F;
+    return bCreated;
+}
+
+bool FEKeyTrack::SetKeyValueAt(i32 tTime, FEVector2 &Val) {
+    FEKeyNode *pKey;
+    bool bCreated = false;
+
+    if (tTime == -1) {
+        BaseKey.Val = Val;
+    } else {
+        pKey = GetKeyAt(tTime);
+        if (pKey->GetKeyData()->tTime != tTime) {
+            bCreated = true;
+            pKey = CreateKeyAt(tTime);
+        }
+        pKey->Val = Val - reinterpret_cast<FEVector2 &>(BaseKey.Val);
+    }
+    InterpAction &= 0x7F;
+    return bCreated;
+}
+
+bool FEKeyTrack::SetKeyValueAt(i32 tTime, FEColor &Val) {
+    FEKeyNode *pKey;
+    bool bCreated = false;
+
+    if (tTime == -1) {
+        BaseKey.Val = Val;
+    } else {
+        pKey = GetKeyAt(tTime);
+        if (pKey->GetKeyData()->tTime != tTime) {
+            bCreated = true;
+            pKey = CreateKeyAt(tTime);
+        }
+        pKey->Val = Val - reinterpret_cast<FEColor &>(BaseKey.Val);
+    }
+    InterpAction &= 0x7F;
+    return bCreated;
+}
+
+bool FEKeyTrack::SetKeyValueAt(i32 tTime, FEQuaternion &Val) {
+    FEKeyNode *pKey;
+    bool bCreated = false;
+
+    if (tTime == -1) {
+        BaseKey.Val = Val;
+    } else {
+        pKey = GetKeyAt(tTime);
+        if (pKey->tTime != tTime) {
+            bCreated = true;
+            pKey = CreateKeyAt(tTime);
+        }
+        {
+            FEQuaternion RefQuat = *static_cast<FEQuaternion *>(BaseKey.GetKeyData()->Val);
+            RefQuat.Conjugate();
+            pKey->Val = Val * RefQuat;
+        }
+    }
+    InterpAction &= 0x7F;
+    return bCreated;
 }

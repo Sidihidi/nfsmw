@@ -28,9 +28,9 @@ void ENISBurnout_MakeEvent_Callback(const void *staticData) {
     new ENISBurnout(((ENISBurnout::StaticData *) staticData)->fSpeed, gEventDynamicData.fhSimable);
 }
 
-int ENISBurnout_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ENISBurnout(lua_tonumber(L, 1), gEventDynamicData.fhSimable);
+int ENISBurnout_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ENISBurnout(lua_tonumber(luaState, 1), gEventDynamicData.fhSimable);
     }
     return 0;
 }

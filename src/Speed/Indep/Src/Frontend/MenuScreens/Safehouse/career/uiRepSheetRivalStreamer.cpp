@@ -9,10 +9,59 @@ struct FEObject;
 
 void FEngSetTextureHash(FEImage *image, unsigned int hash);
 unsigned int FEngHashString(const char *format, ...);
-void eLoadStreamingTexture(unsigned int *textures, int count, void (*callback)(void *), void *param, int pool);
 struct TextureInfo;
 TextureInfo *GetTextureInfo(unsigned int hash, int, int);
 
+#ifdef EA_BUILD_A124
+uiRepSheetRivalStreamer *uiRepSheetRivalStreamer::pInstance;
+
+uiRepSheetRivalStreamer::uiRepSheetRivalStreamer(const char *name, bool in_game)
+    : MemPoolNum(0), pkg_name(name), bTexPackLoaded(false), bInGame(in_game), bLoading(false), TagHash(0), RivalHash(0) {
+    pInstance = this;
+    if (bInGame) {
+        MemPoolNum = 7;
+        TheTrackStreamer.MakeSpaceInPool(0x60000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<int>(this));
+    } else {
+        eLoadStreamingTexturePack("Global\\Rivals.bin", PackLoadCallback, reinterpret_cast<uint32>(this), 0);
+    }
+}
+
+uiRepSheetRivalStreamer::~uiRepSheetRivalStreamer() {
+    if (bInGame) {
+        TheTrackStreamer.WaitForCurrentLoadingToComplete();
+    }
+    WaitForResourceLoadingComplete();
+    UnloadAllTextures();
+    eUnloadStreamingTexturePack("Global\\Rivals.bin");
+    if (MemPoolNum == 7) {
+        TheTrackStreamer.RefreshLoading();
+    }
+}
+
+void uiRepSheetRivalStreamer::MakeSpaceInPoolCallback() {
+    eLoadStreamingTexturePack("Global\\Rivals.bin", PackLoadCallback, reinterpret_cast<uint32>(this), 0);
+}
+
+void uiRepSheetRivalStreamer::Init(uint32 the_bin, FEImage *the_rival, FEImage *the_tag, FEImage *the_bg) {
+    Tag = the_tag;
+    Bin = the_bin;
+    BG = the_bg;
+    Rival = the_rival;
+    FEngSetInvisible(reinterpret_cast<FEObject *>(Rival));
+    FEngSetInvisible(reinterpret_cast<FEObject *>(Tag));
+    FEngSetInvisible(reinterpret_cast<FEObject *>(BG));
+    if (!bLoading) {
+        eUnloadStreamingTexture(LoadedTextures, NumLoadedTextures);
+        eWaitForStreamingTexturePackLoading("Global\\Rivals.bin");
+        LoadedTextures[0] = LoadedTextures[1] = LoadedTextures[2] = 0;
+        bLoading = true;
+        uint32 temp[3];
+        memset(temp, 0, sizeof(temp));
+        int count = CalcTexturesToLoad(temp, the_bin);
+        eLoadStreamingTexture(temp, count, TexturesLoadedCallback, Bin, MemPoolNum);
+    }
+}
+#else
 uiRepSheetRivalStreamer::uiRepSheetRivalStreamer(const char *name, bool in_game) {
     pkg_name = name;
     MemPoolNum = 0;
@@ -28,7 +77,11 @@ uiRepSheetRivalStreamer::uiRepSheetRivalStreamer(const char *name, bool in_game)
     if (bInGame) {
         MemPoolNum = 7;
         TheTrackStreamer.DisableZoneSwitching();
+#ifdef EA_PLATFORM_PLAYSTATION2
+        TheTrackStreamer.MakeSpaceInPool(0x60000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<int>(this));
+#else
         TheTrackStreamer.MakeSpaceInPool(0x30000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<int>(this));
+#endif
     } else {
         eLoadStreamingTexturePack("Global\\Rivals.bin", TexturePackLoadedCallbackBridge, this, 0);
     }
@@ -87,33 +140,108 @@ void uiRepSheetRivalStreamer::UnloadTextures() {
     NumLoadedTextures = 0;
     LoadedBin = -1;
 }
+#endif
 
 int uiRepSheetRivalStreamer::CalcTexturesToLoad(unsigned int *temp, int bin) {
-    int count = 0;
+    int index = 0;
     if (Rival != nullptr) {
         if (bInGame) {
-            temp[count++] = FEngHashString("RIVAL_%02d_IG", bin);
+            temp[index++] = FEngHashString("RIVAL_%02d_IG", bin);
         } else {
-            temp[count++] = FEngHashString("RIVAL_%02d", bin);
+            temp[index++] = FEngHashString("RIVAL_%02d", bin);
         }
     }
     if (Tag != nullptr) {
         if (bInGame) {
-            temp[count++] = FEngHashString("RIVAL_%02d_IG_GRAF", bin);
+            temp[index++] = FEngHashString("RIVAL_%02d_IG_GRAF", bin);
         } else {
-            temp[count++] = FEngHashString("RIVAL_%02d_GRAF", bin);
+            temp[index++] = FEngHashString("RIVAL_%02d_GRAF", bin);
         }
     }
     if (BG != nullptr) {
         if (bInGame) {
-            temp[count++] = FEngHashString("RIVAL_%02d_IG_BG", bin);
+            temp[index++] = FEngHashString("RIVAL_%02d_IG_BG", bin);
         } else {
-            temp[count++] = FEngHashString("RIVAL_%02d_BG", bin);
+            temp[index++] = FEngHashString("RIVAL_%02d_BG", bin);
         }
     }
-    return count;
+    return index;
 }
 
+#ifdef EA_BUILD_A124
+void uiRepSheetRivalStreamer::UnloadAllTextures() {
+    if (Rival) {
+        FEngSetInvisible(reinterpret_cast<FEObject *>(Rival));
+    }
+    if (Tag) {
+        FEngSetInvisible(reinterpret_cast<FEObject *>(Tag));
+    }
+    if (BG) {
+        FEngSetInvisible(reinterpret_cast<FEObject *>(BG));
+    }
+
+    if (TagHash) {
+        eUnloadStreamingTexture(TagHash);
+    }
+    if (RivalHash) {
+        eUnloadStreamingTexture(RivalHash);
+    }
+    if (BGHash) {
+        eUnloadStreamingTexture(BGHash);
+    }
+}
+
+void uiRepSheetRivalStreamer::PackLoadCallback(uint32 screenPtr) {
+    reinterpret_cast<uiRepSheetRivalStreamer *>(screenPtr)->SetPackLoaded();
+}
+
+void uiRepSheetRivalStreamer::TexturesLoadedCallback(uint32 bin) {
+    pInstance->SetTexturesLoaded(bin);
+}
+
+void uiRepSheetRivalStreamer::SetPackLoaded() {
+    if (eIsStreamingTexturePackLoaded("Global\\Rivals.bin")) {
+        bTexPackLoaded = true;
+        bLoading = true;
+        uint32 temp[3];
+        memset(temp, 0, sizeof(temp));
+        int count = CalcTexturesToLoad(temp, Bin);
+        eLoadStreamingTexture(temp, count, TexturesLoadedCallback, Bin, MemPoolNum);
+    }
+}
+
+void uiRepSheetRivalStreamer::SetTexturesLoaded(int bin) {
+    if (bin != Bin) {
+        uint32 temp[3];
+        memset(temp, 0, sizeof(temp));
+        int count = CalcTexturesToLoad(temp, bin);
+        eUnloadStreamingTexture(temp, count);
+        bLoading = true;
+        count = CalcTexturesToLoad(temp, Bin);
+        eLoadStreamingTexture(temp, count, TexturesLoadedCallback, Bin, MemPoolNum);
+        return;
+    }
+    NumLoadedTextures = CalcTexturesToLoad(LoadedTextures, bin);
+    bLoading = false;
+    int index = 0;
+    if (Rival != nullptr) {
+        cFEng::Get()->QueuePackageMessage(0xC0942E85, pkg_name, nullptr);
+        GetTextureInfo(LoadedTextures[0], 0, 0);
+        FEngSetTextureHash(Rival, LoadedTextures[index++]);
+        FEngSetVisible(reinterpret_cast<FEObject *>(Rival));
+    }
+    if (Tag != nullptr) {
+        cFEng::Get()->QueuePackageMessage(0x8C9D4547, pkg_name, nullptr);
+        FEngSetTextureHash(Tag, LoadedTextures[index++]);
+        FEngSetVisible(reinterpret_cast<FEObject *>(Tag));
+    }
+    if (BG != nullptr) {
+        cFEng::Get()->QueuePackageMessage(0xD22B95D0, pkg_name, nullptr);
+        FEngSetTextureHash(BG, LoadedTextures[index]);
+        FEngSetVisible(reinterpret_cast<FEObject *>(BG));
+    }
+}
+#else
 void uiRepSheetRivalStreamer::TexturesLoadedCallback() {
     int idx;
     LoadingInProgress = false;
@@ -140,3 +268,4 @@ void uiRepSheetRivalStreamer::TexturesLoadedCallback() {
         FEngSetVisible(reinterpret_cast<FEObject *>(BG));
     }
 }
+#endif

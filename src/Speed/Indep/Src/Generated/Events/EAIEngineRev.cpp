@@ -34,9 +34,9 @@ void EAIEngineRev_MakeEvent_Callback(const void *staticData) {
                      ((EAIEngineRev::StaticData *) staticData)->fPatterPlay);
 }
 
-int EAIEngineRev_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new EAIEngineRev(gEventDynamicData.fhSimable, (unsigned int) lua_tonumber(L, 1), (unsigned int) lua_tonumber(L, 2));
+int EAIEngineRev_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new EAIEngineRev(gEventDynamicData.fhSimable, (unsigned int) lua_tonumber(luaState, 1), (unsigned int) lua_tonumber(luaState, 2));
     }
     return 0;
 }

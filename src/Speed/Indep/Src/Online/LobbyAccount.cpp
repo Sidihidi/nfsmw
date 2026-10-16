@@ -1,6 +1,16 @@
 #include "LobbyCore.hpp"
 #include "LobbyAccount.hpp"
 
+#include "Speed/Indep/Src/Misc/ISOCodes.hpp"
+
+// Movido de LobbyAccount.hpp tal cual: usa lobbyMutex (static de LobbyLogin.cpp, visible aqui dentro de zOnline).
+inline void LobbyRooms::SetRoomUpdateCB(RoomUpdateCBFunc func, void *context) {
+    lobbyMutex.Lock("LobbyRooms::SetRoomUpdateCB");
+    roomUpdateCB = func;
+    roomUpdateContext = context;
+    lobbyMutex.Unlock("LobbyRooms::SetRoomUpdateCB");
+}
+
 LobbyRooms::LobbyRooms()
     : roomList(nullptr) //
     , roomUpdateCB(nullptr) //

@@ -40,10 +40,14 @@ void FastMem::Init() {
 }
 
 void *FastMem::Alloc(std::size_t bytes, const char *kind) {
-    void *mem;
+    void *result;
     if (bytes > 0x400) {
-        mem = CoreAlloc(bytes, kind);
-        bMemSet(mem, 0, bytes);
+        result = CoreAlloc(bytes, kind);
+#ifdef EA_PLATFORM_WIN32
+        bMemSet(result, 0, bytes); // PC llama a bMemSet; las PS2, a bMemZero (bMemZero__FPvUi)
+#else
+        bMemZero(result, bytes);
+#endif
     } else {
         std::size_t listIndex = (bytes - 1) >> 4;
         if (mFreeLists[listIndex] == 0) {
@@ -55,11 +59,15 @@ void *FastMem::Alloc(std::size_t bytes, const char *kind) {
             }
         }
         FreeBlock *block = mFreeLists[listIndex];
-        mem = block;
+        result = block;
         mFreeLists[listIndex] = block->mNext;
-        bMemSet(mem, 0, bytes);
+#ifdef EA_PLATFORM_WIN32
+        bMemSet(result, 0, bytes);
+#else
+        bMemZero(result, bytes);
+#endif
     }
-    return mem;
+    return result;
 }
 
 void FastMem::Free(void *ptr, std::size_t bytes, const char *kind) {
@@ -74,7 +82,11 @@ void FastMem::Free(void *ptr, std::size_t bytes, const char *kind) {
 }
 
 void *FastMem::CoreAlloc(std::size_t bytes, const char *kind) {
+#ifdef MILESTONE_BUILD // A124 y X360 (NFS.exe 0x82341238)
+    return bMalloc(bytes, kind, 0, 0);
+#else
     return bMalloc(bytes, 0);
+#endif
 }
 
 void FastMem::CoreFree(void *ptr) {

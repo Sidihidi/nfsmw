@@ -43,6 +43,7 @@ void SIControlSteering(s32 chan, u32 control, s32 level);
 u32 OSGetTick(void);
 
 #include <string.h>
+#include <stdlib.h>
 double pow(double x, double y);
 double sin(double x);
 
@@ -347,6 +348,22 @@ s32 LGDestroyForceEffect(u32 id);
 /* degrees -> 0..255 */
 #define DEG2BYTE(a) ((((a) % 360) << 8) / 360)
 
+/* rounded (n*m)/d.  Un `static inline` de verdad, no una macro: el original lo
+ * expande en Effect_PerformEnvelope y Effect_Update (y la unidad se compila con
+ * -inline on).  Con la macro, mwcc funde `out` y `mag` en PerformEnvelope. */
+static inline s32 MulDiv(s32 n, s32 m, s32 d) /* nombre adivinado: el original la expande en linea y no deja simbolo */
+{
+    s32 h;
+
+    h = d / 2;
+    if (n < 0) {
+        h = -h;
+    }
+    m = n * m;
+    m += h;
+    return m / d;
+}
+
 /* ------------------------------------------------------------------ */
 
 static void SteeringResetCallback(s32 chan, s32 err)
@@ -436,78 +453,34 @@ static void HandleTriggers(LGSTATUS *out, SISteeringStatus *raw, LGCALIB *cal)
     }
 }
 
-/* CookValues -- 260 B, 260/260, 9 filas, 99,077 %. LA MAS BARATA DE LAS SEIS.
- * OJO CON LA CIFRA: report.json dice 95,77 % y esta RANCIO. Lo que hay aqui es
- * el `cook_lo` de scratchpad/codex_20260908_iter4_steering, que mide 99,077 %.
- * El aviso de r60b de que "cook_lo no esta en el arbol" es FALSO.
- * LAS 9 FILAS SON UNA SOLA TRANSPOSICION r4<->r6: el objetivo pone _mn en r4 y
- * _v en r6, nosotros al reves. Mismas instrucciones, mismo orden, mismo tamano.
- *     objetivo                   nuestro
- *     lbz   r4, 0x3(r31)  _mn    lbz   r6, 0x3(r31)
- *     extsb r6, r5        _v     extsb r4, r5
- *     extsb r4, r4               extsb r6, r6
- *     cmpw  r6, r4               cmpw  r4, r6
- *     mr    r4, r6               mr    r6, r4
- * r48: AUTOCAL manual _v-primero fija la fila 7 pero 95,76 % igual, _mn-primero
- * 95,53 % peor, (_dz+_mn) 95,84 %. iter4/iter5: cook_bytes 15 filas, cook_extsb
- * 22 y 264 B, range_subf 21, scale_subf y cook_order OBJETO IDENTICO a la base.
- * r63, MEDIDO Y NEGATIVO, tres barridos con sello de sha1:
- *   - LAS 24 PERMUTACIONES del orden de las asignaciones iniciales (_v, _mn,
- *     _dz, _mx detras de _bits) dan UN SOLO OBJETO, 1962b7d1, byte a byte. Esto
- *     REFUTA para este caso la linea de `nfsmw-catalogo-metrowerks` que dice que
- *     el orden de las asignaciones dentro de una rama le mueve: aqui MWCC lo
- *     normaliza entero.
- *   - 13 FORMAS Y TIPOS: `register` en _mn, quitar `register` de _v, `long` en
- *     _v y en _mn, _bits declarado el primero, _dz a int, _mn con doble cast, _v
- *     leido de raw en vez de _bits. OCHO dan el objeto IDENTICO; las cinco que
- *     mueven empeoran (15, 19, 19, 21 filas y una que crece a 268 B).
- *   - LOS 63 SUBCONJUNTOS de {r3..r9} de tamano 1, 2 y 3 con `asm { li rN, 0 }`:
- *     minimo 9 filas, el de la base. `li r6,0` mueve _mn de r6 a r7 sin cambiar
- *     el tamano; `li r4,0` da 17 filas; `li r3,0` 32; `li r5,0` 20; r7..r12 son
- *     el objeto de la base.
- * LA PISTA QUE QUEDA, y es la unica: con `asm { li r4, 0 }` MWCC reparte _mn
- * ANTES que _bits (carga cal->min la primera, en r7). O sea que EL ORDEN DE
- * REPARTO DE ESTA FUNCION SI SE PUEDE VOLTEAR; lo que no se ha encontrado es
- * como voltearlo dejando los registros en r4/r5/r6.
- * r68 (directo): VEDA CON PRUEBA DE IMPOSIBILIDAD (sin compilar: se deduce de
- * lo medido). _v[9->29] (5 refs) y _mn[8->29] (6 refs) se solapan casi
- * enteros: TIENEN que ir a regs distintos, y el unico orden posible es quien
- * asigne primero se lleva r4 (libre entonces; r5 lo ocupa _bits). Para que _mn
- * coja r4 tiene que asignar ANTES que _v, y para eso su pri tendria que
- * superar la de _v con los mismos usos (hasta tiene UN ref mas y aun asi va
- * despues: el orden de MWCC no es por refs). Tocar usos rompe tamano (260
- * clavado) o arbol. Un tercero no puede separarlos (cualquier ocupante de r4
- * en la ventana 8-29 bloquea a LOS DOS, y si muere antes de uno muere antes
- * de los dos por el solape). Los clobbers emiten (MWCC no tiene fantasma de
- * coste cero como GCC) y los 63 medidos no dan r4/r6. Aparcado: 9 filas.
- */
+/* Un eje del volante auto-calibrado, en linea en CookValues.  Con la macro
+ * AUTOCAL mwcc intercambiaba r4/r6 (_mn/_v); como funcion en linea solo queda
+ * una fila: el objetivo re-extiende el byte crudo (`extsb r0,r5`) donde
+ * nosotros copiamos `mr r0,r6`. */
+static inline int CookAxis(s8 raw, s8 *pmin, s8 *pmax, s8 dz) /* nombre adivinado: el original la expande en linea y no deja simbolo */
+{
+    int mn;
+    int v;
+    int mx;
+    int r;
+    int t;
+
+    v = raw;
+    mn = *pmin;
+    mx = *pmax;
+    if (v < mn) { *pmin = raw; mn = v; }
+    if (v > mx) { mx = raw; *pmax = raw; }
+    r = (mx - mn) - dz * 2;
+    if (r == 0) r = 1;
+    t = ((v - (mn + dz)) * 255) / r - 127;
+    if (t < -128) t = -128;
+    if (t > 127) t = 127;
+    return t;
+}
+
 static void CookValues(LGSTATUS *out, SISteeringStatus *raw, LGCALIB *cal)
 {
-    {
-        int _mn;
-        register int _v;
-        register int _mx;
-        s8 _dz;
-        int _r;
-        int _t;
-        register u32 _bits;
-        _bits = (u8)raw->steering;
-        _v = (s8)_bits;
-        _mn = cal->min.steering;
-        _dz = cal->dead.steering;
-        _mx = cal->max.steering;
-        if (_v < _mn) { cal->min.steering = (s8)_bits; _mn = _v; }
-        if (_v > _mx) {
-            cal->max.steering = (s8)_bits;
-            asm { extsb _mx, _bits }
-        }
-        _r = (_mx - _mn) - _dz * 2;
-        if (_r == 0) _r = 1;
-        _t = ((_v - (_mn + _dz)) * 255) / _r - 127;
-        if (_t < -128) _t = -128;
-        if (_t > 127) _t = 127;
-        out->steering = _t;
-    }
+    out->steering = CookAxis(raw->steering, &cal->min.steering, &cal->max.steering, cal->dead.steering);
 
     HandlePedals(out, raw, cal);
     HandleTriggers(out, raw, cal);
@@ -809,36 +782,27 @@ static void VDevice_Init(VDEVICE *vd)
     }
 }
 
+/* El orden de las constantes de .sdata2 del original (@956 1/128, @957 g, @958
+ * 0.5, @959 128, @961 el sesgo del int->float) es el de estas dos sentencias:
+ * primero pow(), luego 0.5 + 128 * x.  Asi la conversion natural reutiliza una
+ * sola ranura de pila, sin union ni asm. */
 static void VDevice_RecalcGammaTable(void)
 {
     s32 i;
-    register float v;
+    float v;
+    float x;
     float g;
-    register double converted;
-    register double number, bias;
-    register float value;
-    union { double d; u32 w[2]; } slot;
 
     g = 0.6666667f;
     for (i = 0; i < LG_GAMMA_SIZE; i++) {
         if (i < 0) {
-            slot.w[1] = (u32)(-i) ^ 0x80000000;
-            slot.w[0] = 0x43300000;
-            number = slot.d;
-            bias = 4503601774854144.0;
-            asm { fsubs value, number, bias }
-            v = -(0.5f + 128.0f * (float)pow(value / 128.0f, g));
+            x = (float)pow((float)-i / 128.0f, g);
+            v = -(0.5f + 128.0f * x);
         } else {
-            slot.w[1] = (u32)i ^ 0x80000000;
-            slot.w[0] = 0x43300000;
-            number = slot.d;
-            bias = 4503601774854144.0;
-            asm { fsubs value, number, bias }
-            v = 0.5f + 128.0f * (float)pow(value / 128.0f, g);
+            x = (float)pow((float)i / 128.0f, g);
+            v = 0.5f + 128.0f * x;
         }
-        asm { fctiwz converted, v }
-        slot.d = converted;
-        g_iGammaLookup[i] = (u8)slot.w[1];
+        g_iGammaLookup[i] = (u8)(s32)v;
     }
 }
 
@@ -983,88 +947,51 @@ static s32 VDevice_GetFreeEffect(VDEVICE *vd)
     return id;
 }
 
-/* Effect_Init -- 276 B, 276/276, 23 filas, 95,000 %.
- * OJO CON LA CIFRA: report.json dice 88,62 % y esta RANCIO -- ese 88,62 % es la
- * version SIN NINGUNA de las dos mitades de iter4. El aviso de r60b de que "hay
- * dos mitades medidas por separado que nadie combino" es FALSO: aqui estan las
- * dos (el `clear_value` de effect_clear y el slot/exponent/fsubs de
- * effect_seed), y r63 recompilo las cuatro combinaciones:
- *     las dos (esto)  1962b7d1  23 filas  95,000 %   <- el optimo
- *     solo clear      b4bc4c0a  22 filas  92,478 %
- *     solo seed       8c47f1c4  32 filas  91,145 %
- *     ninguna         8c54714d  31 filas  88,623 %   <- lo que dice report.json
- * r63, MEDIDO Y NEGATIVO: los 12 registros bloqueados (mejor 26 filas con r5;
- * r6..r12 dan el objeto de la base; r14/r15 dan 29) y los 23 pragmas legales
- * (mejor: `optimization_level 2`, que es el que ya tiene, y `opt_lifetimes off`
- * / `opt_common_subs off` / `global_optimizer off`, todos objeto equivalente).
- * `scheduling off` 23->46 filas, `peephole off` 276->300 B, `use_lmw_stmw off`
- * 276->284 B.
- */
-#pragma optimization_level 2
-static void Effect_Init(EFFECT *e)
+/* El borrado en linea del original: bucle de ocho palabras mas la cola de bytes.  Con mwcc 2.7 Effect_Init no casa
+ * en ninguna forma sin asm (con el 2.0p1 esta forma llega al 97 %); se queda en C natural. */
+static inline void ZeroMem(void *dst, u32 n) /* nombre adivinado: el original la expande en linea y no deja simbolo */
 {
-    u32 k;
     u32 *p;
-    u32 n;
     u8 *q;
-    s32 i;
-    s16 *sine;
-    s16 *ramp;
-    s32 off;
-    s32 phase;
-    register u32 exponent;
-    register double number, bias;
-    register float angle;
-    union { double d; u32 w[2]; } slot;
-    register u32 clear_value;
+    u32 k;
 
-    p = (u32 *)e - 1;
-    n = (u32)sizeof(EFFECT);
-    k = (u32)sizeof(EFFECT) >> 5;
-    asm { li clear_value, 0 }
+    p = (u32 *)dst - 1;
+    k = n >> 5;
     do {
-        p[1] = clear_value;
-        p[2] = clear_value;
-        p[3] = clear_value;
-        p[4] = clear_value;
-        p[5] = clear_value;
-        p[6] = clear_value;
-        p[7] = clear_value;
-        p[8] = clear_value;
+        p[1] = 0;
+        p[2] = 0;
+        p[3] = 0;
+        p[4] = 0;
+        p[5] = 0;
+        p[6] = 0;
+        p[7] = 0;
+        p[8] = 0;
         p += 8;
     } while (--k);
-    n = n & 3;
+    n &= 3;
     q = (u8 *)p + 3;
     if (n != 0) {
         do {
             *++q = 0;
         } while (--n);
     }
+}
 
+static void Effect_Init(EFFECT *e)
+{
+    s32 i;
+    float x;
+
+    ZeroMem(e, sizeof(EFFECT));
     if (!g_bWaveTablesInitialized) {
-        sine = g_iQuarterSineTable;
-        ramp = g_iRampUpTable;
-        off = 0;
-        phase = 0;
-        i = 0;
-        asm { lis exponent, 0x4330 }
-        do {
-            slot.w[0] = exponent;
-            slot.w[1] = (u32)i ^ 0x80000000;
-            number = slot.d;
-            bias = 4503601774854144.0;
-            asm { fsubs angle, number, bias }
-            *(s16 *)((u32)sine + off) =
-                (s16)(1024.0f * (float)sin(PI * angle / 128.0f));
-            i++;
-            *(s16 *)((u32)ramp + off) = (s16)(phase / 63);
-            phase += 0x400;
-            off += 2;
-        } while (i < LG_TABLE_SIZE);
+        for (i = 0; i < LG_TABLE_SIZE; i++) {
+            x = (float)sin(PI * (float)i / 128.0f);
+            g_iQuarterSineTable[i] = (s16)(1024.0f * x);
+            g_iRampUpTable[i] = (s16)((i * 1024) / 63);
+        }
         g_bWaveTablesInitialized = 1;
     }
 }
-#pragma optimization_level 4
 
 static s32 Effect_UpdateEffect(EFFECT *e, const LGEFFECT *params)
 {
@@ -1191,18 +1118,8 @@ static s32 Effect_Update(EFFECT *e, u32 dt)
         level = Effect_PerformEnvelope(e, &e->e.u.constant.env, e->e.u.constant.magnitude);
         Effect_PolarToRect(level, e->e.u.constant.direction, &e->force);
     } else if (e->flags & EF_RAMP) {
-        {
-            int d = e->e.duration;
-            int start = *(volatile s16 *)&e->e.u.ramp.start;
-            int n = e->e.u.ramp.end - start;
-            int m = e->elapsed;
-            rampv = d / 2;
-            if (n < 0) rampv = -rampv;
-            n *= m;
-            n += rampv;
-            rampv = n / d;
-            Effect_PolarToRect(start + rampv, e->e.u.ramp.direction, &e->force);
-        }
+        rampv = MulDiv(e->e.u.ramp.end - e->e.u.ramp.start, e->elapsed, e->e.duration);
+        Effect_PolarToRect(e->e.u.ramp.start + rampv, e->e.u.ramp.direction, &e->force);
     } else if (e->flags & EF_PERIODIC) {
         dt <<= 24;
         dt /= e->e.u.periodic.period;
@@ -1289,40 +1206,23 @@ static s32 Effect_Update(EFFECT *e, u32 dt)
     return 1;
 }
 
-/* Effect_PerformEnvelope -- 196 B objetivo, 192 NUESTROS, 31 filas, 93,265 %.
- * VEDA FIRME (r60b). Le falta el `mr r5, r9`: el objetivo tiene `out` y `mag` en
- * registros DISTINTOS y MWCC nos los funde. r22 (10 formas), r51 (14 mas) e
- * iter5 (`asm { mr out, mag }` con los dos operandos `register`, y con registro
- * fisico en hard4/hard6) ya lo dieron por agotado.
- * r63, MEDIDO Y NEGATIVO, y cierra el ultimo eje que quedaba apuntado: los 12
- * registros bloqueados (`asm { li rN, 0 }`) NUNCA LLEGAN A 196 B -- r3 da 33
- * filas, r6/r7 dan 35, r4/r5/r8/r9 se quedan en 31 como la base, r10..r12 dan el
- * objeto de la base, y r14/r15 crecen la funcion a 208 B. Y los 23 pragmas
- * legales, todos neutros o peores (`scheduling off` sigue en 192 B).
- * O sea: bloquear registros no puede FORZAR una copia, solo prohibir un color.
- * Para esta funcion hace falta una forma de fuente donde `out` y `mag`
- * INTERFIERAN de verdad.
- */
 static s32 Effect_PerformEnvelope(EFFECT *e, LGENVELOPE *env, s32 level)
 {
-    s32 mag;
     s32 neg;
+    s32 mag;
     s32 out;
     s32 sustain;
-    s32 v;
 
-    out = mag = level < 0 ? -level : level;
+    out = mag = abs(level);
     neg = (u32)level >> 31;
 
     if (e->elapsed < env->attackTime) {
-        MULDIV(v, e->elapsed, mag - env->attackLevel, env->attackTime)
-        out = env->attackLevel + v;
+        out = env->attackLevel + MulDiv(e->elapsed, mag - env->attackLevel, env->attackTime);
     } else if (e->e.duration != -1) {
         sustain = e->e.duration - env->fadeTime;
         if (e->elapsed > sustain) {
             if (e->elapsed < e->e.duration) {
-                MULDIV(v, e->elapsed - sustain, env->fadeLevel - mag, env->fadeTime)
-                out = mag + v;
+                out = mag + MulDiv(e->elapsed - sustain, env->fadeLevel - mag, env->fadeTime);
             } else {
                 out = env->fadeLevel;
             }
@@ -1414,26 +1314,20 @@ static s32 Effect_UpdateDamper(EFFECT *e, LGCONDITION *c)
     return v;
 }
 
-/* SimThread_Init -- 324 B, 324/324, 9 filas, 94,691 %.
- * r63 -- EL PRAGMA QUE FALTABA, PROBADO, Y NEGATIVO. Era el ensayo cabeza de
- * serie de la familia E y contesta por las seis:
- *   - `#pragma scheduling off/on` ACOTADO A ESTA FUNCION: 9 filas -> 50. La
- *     planificacion de MWCC aqui ya es casi la buena, asi que apagarla es
- *     catastrofico. El eje de planificacion queda agotado por arriba y por
- *     abajo.
- *   - Y NO SE DERRAMA: con la funcion destrozada a 50 filas, `fncmp` sigue
- *     dando 30 exactas y las mismas 3 solo-alias, antes y despues. Ese era el
- *     observable que pedia el encargo.
- *   - Los otros 22 pragmas legales: `optimization_level 3` objeto identico (el
- *     nivel efectivo ya es 3), `opt_lifetimes off` 17 filas, `peephole off` 43,
- *     `opt_common_subs off` y `global_optimizer off` 324->336 B,
- *     `optimization_level 0/1/2` 428/416/344 B. Ninguno mejora.
- *   - Los 12 registros bloqueados (`asm { li rN, 0 }`): mejor 11 filas (r8)
- *     contra 9 de la base; r9..r12 dan el objeto de la base; r14/r15 dan 15.
- * Con esto, los tres ejes de MWCC --fuente (r47/r48/r62), pragma (r63) y
- * reparto (r63)-- estan barridos en esta funcion. Las 9 filas que quedan son
- * 2 de ranura (el `lfs` del bucle de `ia[]`) y un empate desnudo r5/r6.
- */
+/* Carga los coeficientes del filtro FIR; en linea dos veces en SimThread_Init.
+ * Queda una sola diferencia: el `lfs` de 4096.0f va antes del `li r3,0/mtctr`
+ * (el objetivo lo pone despues). */
+static inline void SimThread_SetFilter(SIMTHREAD *st, s32 *coeffs) /* nombre adivinado: el original la expande en linea y no deja simbolo */
+{
+    s32 i;
+
+    for (i = 0; i < LG_FILTER_TAPS; i++) {
+        st->coeff[i] = coeffs[i];
+        st->hist[i] = 0;
+    }
+    st->histIndex = 0;
+}
+
 static void SimThread_Init(SIMTHREAD *st, VDEVICE *vd)
 {
     static float a[LG_FILTER_TAPS] = {
@@ -1459,20 +1353,12 @@ static void SimThread_Init(SIMTHREAD *st, VDEVICE *vd)
     st->filtered = 0;
     st->lastTime = OSTicksToMilliseconds(OSGetTick());
 
-    for (i = 0; i < LG_FILTER_TAPS; i++) {
-        st->coeff[i] = impulse[i];
-        st->hist[i] = 0;
-    }
-    st->histIndex = 0;
+    SimThread_SetFilter(st, impulse);
 
     for (n = 0; n < LG_FILTER_TAPS; n++) {
         ia[n] = (s32)(4096.0f * a[n]);
     }
-    for (i = 0; i < LG_FILTER_TAPS; i++) {
-        st->coeff[i] = ia[i];
-        st->hist[i] = 0;
-    }
-    st->histIndex = 0;
+    SimThread_SetFilter(st, ia);
 }
 
 /* SimThread_Step -- 924 B objetivo, 920 NUESTROS, 68 filas, 95,671 %. La mas

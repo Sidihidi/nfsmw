@@ -14,8 +14,8 @@ void E911Call_MakeEvent_Callback(const void *staticData) {
     new E911Call();
 }
 
-int E911Call_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int E911Call_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new E911Call();
     }
     return 0;

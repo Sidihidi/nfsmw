@@ -40,10 +40,12 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
         pph->timestretchsize[i] = 0;
     }
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     for (i = 0; i < 6; i++) {
         pph->pcodebookdata[i] = 0;
         pph->ploopstatedata[i] = 0;
     }
+#endif
 
     stc[1] = 0;
     stc[2] = 127;
@@ -82,9 +84,16 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
     stc[36] = 0;
     stc[37] = 1;
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+    // speed.exe 0x823F6F: los mismos tres de PS2 (stp[0] 0, stp[2] 1, stp[4] 22050)
+    stp[0] = 0;
+    stp[2] = 1;
+    stp[4] = 22050;
+#else
     stp[0] = 2;
     stp[2] = 1;
     stp[4] = 24000;
+#endif
     stp[5] = 0;
     stp[6] = -1;
     stp[7] = -1;
@@ -100,8 +109,17 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
     stp[38] = 0;
     stp[35] = 0;
     stp[39] = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    stp[32] = 5;
+    stp[12] = 8;
+#elif defined(EA_PLATFORM_WIN32)
+    // speed.exe 0x823FD3/0x823FDD: EA-XA (10) y rendermode 0 (sin el DSP de GameCube)
+    stp[32] = 10;
+    stp[12] = 0;
+#else
     stp[32] = 7;
     stp[12] = 0x200;
+#endif
 
     moretags = 0;
 
@@ -202,6 +220,7 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
     pph->sampleoffset[5] = stp[35];
     azoffsets[5] = stp[39];
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     pph->pcodebookdata[0] = pstp[15];
     pph->pcodebookdata[1] = pstp[16];
     pph->ploopstatedata[0] = pstp[13];
@@ -226,6 +245,7 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
         pph->pcodebookdata[5] = pstp[45];
         pph->ploopstatedata[5] = pstp[42];
     }
+#endif
 
     for (i = 0; i < pph->numchan; i++) {
         if (Snd::gFoldDownTarget == Snd::FOLDDOWNTARGET_STEREO && pph->numchan == 2) {

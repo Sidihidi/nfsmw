@@ -11,6 +11,9 @@
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 Timer MessengerCreationTimer(0);
 
@@ -33,7 +36,9 @@ cFEng::cFEng() {
 }
 
 void cFEng::PushErrorPackage(const char *pPackageName, int pArg, u32 ControlMask) {
+#ifndef EA_BUILD_A124
     if (FEDatabase == nullptr) {
+#endif
         if (cFEng::Get()->IsPackagePushed(pPackageName)) {
             return;
         }
@@ -41,22 +46,28 @@ void cFEng::PushErrorPackage(const char *pPackageName, int pArg, u32 ControlMask
         FEPackage *pPackage = mFEng->PushPackage(pPackageName, FE_PACKAGE_PRIORITY_ERROR, ControlMask);
         pPackage->SetErrorScreen(true);
         mFEng->ToggleErrorScreenMode(true);
-        if (!FEManager::IsPaused() || bWasPaused) {
+        if (FEManager::IsPaused() && !bWasPaused) {
+            bWasPaused = false;
+        } else {
             bWasPaused = true;
             FEManager::RequestPauseSimulation(pPackageName);
             PauseAllSystems();
         }
+#ifndef EA_BUILD_A124
     } else {
         FEPackageManager::Get()->SetPackageDataArg(pPackageName, pArg);
         FEPackage *pPackage = mFEng->PushPackage(pPackageName, FE_PACKAGE_PRIORITY_ERROR, ControlMask);
         pPackage->SetErrorScreen(true);
         mFEng->ToggleErrorScreenMode(true);
-        if (!FEManager::IsPaused() || bWasPaused) {
+        if (FEManager::IsPaused() && !bWasPaused) {
+            bWasPaused = false;
+        } else {
             bWasPaused = true;
             FEManager::RequestPauseSimulation(pPackageName);
             PauseAllSystems();
         }
     }
+#endif
 }
 
 void cFEng::PopErrorPackage() {
@@ -85,9 +96,13 @@ void cFEng::PopErrorPackage(int port) {
     mFEng->QueuePackagePop();
     mFEng->ToggleErrorScreenMode(false);
     FEManager *feManager = FEManager::Get();
+#ifdef EA_BUILD_A124
+    feManager->ClearControllerError(port);
+#else
     if (port != -1) {
         feManager->ClearControllerError(port);
     }
+#endif
     if (bWasPaused) {
         if (!feManager->WaitingForControllerError()) {
             ResumeAllSystems(true);
@@ -130,6 +145,9 @@ void cFEng::QueuePackagePush(const char *pPackageName, int pArg, u32 ControlMask
     if (!cFEngJoyInput::Get()->IsJoyEnabled(JOYSTICK_PORT_ALL)) {
         cFEngJoyInput::Get()->JoyEnable(JOYSTICK_PORT_ALL, true);
     }
+#ifdef EA_BUILD_A124
+    Juice::GameHook::Instance()->AssetHit("MENU_POP-UP", pPackageName);
+#endif
 }
 
 void cFEng::QueuePackagePop(int numPackagesToPop) {
@@ -166,6 +184,9 @@ void cFEng::QueuePackageSwitch(const char *pPackageName, int pArg, u32 ControlMa
     if (cFEngJoyInput::Get() && !cFEngJoyInput::Get()->IsJoyEnabled(JOYSTICK_PORT_ALL)) {
         cFEngJoyInput::Get()->JoyEnable(JOYSTICK_PORT_ALL, true);
     }
+#ifdef EA_BUILD_A124
+    Juice::GameHook::Instance()->AssetHit("MENU_SCREENS", pPackageName);
+#endif
 }
 
 void cFEng::PushNoControlPackage(const char *pPackageName, FE_PACKAGE_PRIORITY pPriority) {
@@ -178,7 +199,7 @@ void cFEng::PopNoControlPackage(const char *pPackageName) {
 }
 
 void cFEng::Service() {
-    mFEng->Update(static_cast<long>(RealTimeElapsed * 1000.0f), IsGameFlowInGame() && WorldTimeElapsed > 0.0f);
+    mFEng->Update(static_cast<int>(RealTimeElapsed * 1200.0f), IsGameFlowInGame() && WorldTimeElapsed > 0.0f);
 }
 
 void cFEng::ServiceFengOnly() {
@@ -225,13 +246,13 @@ FEPackage *cFEng::FindPackage(const char *pPackageName) {
     if (FEPackageData::IsInScreenConstructor()) {
         return FEPackageManager::Get()->FindPackage(pPackageName);
     }
-    FEPackage *package = FindPackageActive(pPackageName);
-    if (package != nullptr) {
-        return package;
+    FEPackage *packagePtr = FindPackageActive(pPackageName);
+    if (packagePtr != nullptr) {
+        return packagePtr;
     }
-    package = FindPackageIdle(pPackageName);
-    if (package != nullptr) {
-        return package;
+    packagePtr = FindPackageIdle(pPackageName);
+    if (packagePtr != nullptr) {
+        return packagePtr;
     }
     return nullptr;
 }
@@ -252,7 +273,14 @@ bool cFEng::IsPackageInControl(const char *pPackageName) {
     return false;
 }
 
-void cFEng::PrintLoadedPackages() {}
+void cFEng::PrintLoadedPackages() {
+#ifdef EA_BUILD_A124 // la A124 recorre los paquetes; lo que imprimia de cada uno no deja codigo
+    if (mFEng->GetPackageList() != nullptr) {
+        for (FEPackage *pkg = mFEng->GetPackageList()->GetFirstPackage(); pkg != nullptr; pkg = pkg->GetNext()) {
+        }
+    }
+#endif
+}
 
 void cFEng::QueueMessage(uint32 pMessage, const char *pPackageName, FEObject *to, uint32 controlMask) {
     if (pPackageName != nullptr) {
@@ -291,6 +319,10 @@ void cFEng::QueueSoundMessage(uint32 pMessage, const char *pPackageName) {
     if (package != nullptr) {
         mFEng->QueueMessage(pMessage, nullptr, package, reinterpret_cast<FEObject *>(-5), 0);
     }
+}
+
+void cFEng::EnablePackageControl(FEPackage *pkg, bool bProcess) {
+    mFEng->SetProcessInput(pkg, bProcess);
 }
 
 void cFEng::MakeLoadedPackagesDirty() {

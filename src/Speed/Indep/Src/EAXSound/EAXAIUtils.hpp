@@ -59,12 +59,15 @@ struct SndAIStateManager : public AudioMemBase {
 
     virtual ~SndAIStateManager();
     SndAIStateManager();
-
+  private:
     void SwitchState(SND_AI_STATE NewState);
+  public:
     void Initialize(SFXCTL_Physics *_m_pPhysicsCTL);
     void Update(float t);
     void UpdateState(float t);
+  private:
     void GeneratePotentialStates(bool *ArrayList);
+  public:
     SND_AI_STATE GetState() {
         return this->CurState;
     }

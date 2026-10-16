@@ -126,7 +126,13 @@ void *LuaRuntime::Alloc(unsigned int size) {
 
         mMemPoolUsed = (mMemPoolUsed + size + 7) & ~7;
 
+        // El prototipo deja 8 KB de margen y la version de venta 12 KB:
+        // GameCube y SLUS estan al 100 % con 12288 y SLES carga 0x2000.
+#ifdef EA_BUILD_A124
+        if (mMemPoolUsed + 8192 > mMemPoolSize) {
+#else
         if (mMemPoolUsed + 12288 > mMemPoolSize) {
+#endif
             mNeedToResetHeap = true;
         }
 
@@ -277,6 +283,81 @@ void LuaRuntime::FreeEmergencyAllocations() {
     }
 
     mEmergencyBlocks.clear();
+}
+
+// STRIPPED en GameCube (el DWARF la declara con Range 0xFFFFFFFF); las dos PS2 la tienen
+const char *LuaRuntime::GetLuaTypeName(int typeNum) {
+    switch (typeNum) {
+    case LUA_TNIL:
+        return "NIL";
+    case LUA_TBOOLEAN:
+        return "BOOL";
+    case LUA_TLIGHTUSERDATA:
+        return "LUD";
+    case LUA_TNUMBER:
+        return "NUMBER";
+    case LUA_TSTRING:
+        return "STRING";
+    case LUA_TTABLE:
+        return "TABLE";
+    case LUA_TFUNCTION:
+        return "FUNC";
+    case LUA_TUSERDATA:
+        return "UD";
+    case LUA_TTHREAD:
+        return "THREAD";
+    }
+    return "(?)";
+}
+
+// STRIPPED en GameCube; las dos PS2 la tienen. Las trazas que imprimia no se compilan: quedan las llamadas a Lua.
+// Locales del DWARF de GameCube.
+void LuaRuntime::DebugPrintTable(lua_State *state, const char *suffix) {
+    bool printComma = false;
+
+    lua_pushnil(state);
+    while (lua_next(state, -2) != 0) {
+        for (int stackPos = -2; stackPos < 0; stackPos++) {
+            const char *prefix;
+
+            switch (lua_type(state, stackPos)) {
+            case LUA_TNIL:
+                break;
+            case LUA_TBOOLEAN:
+                break;
+            case LUA_TLIGHTUSERDATA:
+                break;
+            case LUA_TNUMBER: {
+                float number = lua_tonumber(state, stackPos);
+                int numAsInt = static_cast<int>(number);
+                float checkConv = static_cast<float>(numAsInt);
+
+                break;
+            }
+            case LUA_TSTRING:
+                break;
+            case LUA_TTABLE:
+                DebugPrintTable(state, "");
+                break;
+            case LUA_TFUNCTION:
+                break;
+            case LUA_TUSERDATA:
+                prefix = "";
+                lua_getmetatable(state, stackPos);
+                if (lua_type(state, -1) == LUA_TTABLE) {
+                    lua_rawget(state, LUA_REGISTRYINDEX);
+                    if (lua_isstring(state, -1)) {
+                        prefix = lua_tostring(state, -1);
+                    }
+                }
+                lua_pop(state, 1);
+                break;
+            case LUA_TTHREAD:
+                break;
+            }
+        }
+        lua_pop(state, 1);
+    }
 }
 
 int LuaRuntime::PackIdentifier(const char *src, unsigned char *dest) {

@@ -19,7 +19,7 @@ EAccelerate::~EAccelerate() {
     HSIMABLE hSimable;
     ISimable *isimable;
 
-    if (!fPALOnly || GetFoundationVideoMode() == 2) {
+    if (!fPALOnly || (GetFoundationVideoMode() ^ 2) == 0) {
 
         hSimable = (HSIMABLE) fhSimable;
         isimable = ISimable::FindInstance(hSimable);
@@ -61,10 +61,10 @@ void EAccelerate_MakeEvent_Callback(const void *staticData) {
                     gEventDynamicData.fhSimable, gEventDynamicData.fTrigger);
 }
 
-int EAccelerate_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 6) {
-        new EAccelerate(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), (int) lua_tonumber(L, 4), (int) lua_tonumber(L, 5),
-                        (int) lua_tonumber(L, 6), gEventDynamicData.fhSimable, gEventDynamicData.fTrigger);
+int EAccelerate_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 6) {
+        new EAccelerate(lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), (int) lua_tonumber(luaState, 4), (int) lua_tonumber(luaState, 5),
+                        (int) lua_tonumber(luaState, 6), gEventDynamicData.fhSimable, gEventDynamicData.fTrigger);
     }
     return 0;
 }

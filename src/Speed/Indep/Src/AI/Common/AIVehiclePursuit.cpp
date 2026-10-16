@@ -54,11 +54,10 @@ void AIVehiclePursuit::ResetInternals() {
     mInPosition = false;
 
     mPursuitOffset = UMath::Vector3::kZero;
+    mWithinEngagementRadius = false;
 
     mTimeSinceTargetSeen = 99.0f;
     mVisibiltyTestTimer = 0.25f;
-
-    mWithinEngagementRadius = false;
 
     mT_siren[0] = mT_siren[1] = mT_siren[2] = WorldTimer;
     mSirenState = Sound::SIREN_OFF;
@@ -153,6 +152,24 @@ AITarget *AIVehiclePursuit::PursuitRequest() {
 void AIVehiclePursuit::Update(float dT) {
     ProfileNode profile_node;
     AIVehicle::Update(dT);
+#ifdef EA_BUILD_A124
+    // La A124 actualiza la sirena al final, tambien cuando no hay persecucion.
+    if (!mInPursuit || !GetTarget()->IsValid()) {
+        mVisibiltyTestTimer = 0.25f;
+        mTimeSinceTargetSeen = 0.25f;
+    } else {
+        mVisibiltyTestTimer += dT;
+        mTimeSinceTargetSeen += dT;
+        if (mVisibiltyTestTimer >= 0.25f) {
+            mVisibiltyTestTimer -= 0.25f;
+            if (CanSeeTarget(GetTarget())) {
+                mTimeSinceTargetSeen = -0.25f;
+            }
+        }
+    }
+    UpdateSiren(dT);
+    return;
+#endif
     UpdateSiren(dT); // TODO
 
     if (!mInPursuit || !GetTarget()->IsValid()) {
@@ -176,7 +193,9 @@ void AIVehiclePursuit::UpdateSiren(float dT) {
     SoundAI *soundAI = UTL::Collections::Singleton<SoundAI>::Get();
     IVehicle *vehicle = GetVehicle();
     bool is_dday = false;
+#ifndef EA_BUILD_A124
     bool in_roadblock = false;
+#endif
     bool do_cycle = true;
 
     if (GRaceStatus::Get().GetRaceParameters()) {
@@ -184,6 +203,7 @@ void AIVehiclePursuit::UpdateSiren(float dT) {
         is_dday = GRaceStatus::Get().GetRaceParameters()->GetIsDDayRace();
     }
 
+#ifndef EA_BUILD_A124 // la A124 aun no pone la sirena larga en los controles de carretera
     const IRoadBlock::List &blocks = IRoadBlock::GetList();
     for (IRoadBlock::List::const_iterator iter = blocks.begin(); iter != blocks.end(); ++iter) {
         IRoadBlock *rb = *iter;
@@ -195,6 +215,7 @@ void AIVehiclePursuit::UpdateSiren(float dT) {
             }
         }
     }
+#endif
 
     if (soundAI && pursuit && mInPursuit && soundAI->GetPursuitSpecs().IsValid()) {
         const Attrib::Gen::pursuitlevels &pl = soundAI->GetPursuitSpecs();
@@ -237,27 +258,33 @@ void AIVehiclePursuit::UpdateSiren(float dT) {
             bool past6 = t0 < 6.0f;
             if (!past6 && mSirenInit) {
                 mT_siren[1] = WorldTimer;
-                if (high) {
-                    mSirenState = Sound::SIREN_YELP;
-                } else {
-                    mSirenState = Sound::SIREN_WAIL;
-                }
+                mSirenState = high ? Sound::SIREN_YELP : Sound::SIREN_WAIL;
             }
             mSirenInit = past6;
             if (past6) {
                 if (!high) {
                     mSirenState = Sound::SIREN_YELP;
-                } else if (t0 < 3.0f) {
-                    mSirenState = Sound::SIREN_SCREAM;
                 } else {
-                    mSirenState = Sound::SIREN_YELP;
+#ifdef EA_PLATFORM_WIN32
+                    mSirenState = t0 < 5.0f ? Sound::SIREN_SCREAM : Sound::SIREN_YELP; // PC: 5.0f (exe de PC)
+#else
+                    mSirenState = t0 < 3.0f ? Sound::SIREN_SCREAM : Sound::SIREN_YELP;
+#endif
                 }
             } else {
+#ifdef EA_BUILD_A124 // la A124 pregunta si la frase esta en la cola
+                if ((pursuit->IsCollapseActive() || pursuit->IsFinisherActive() ||
+                     Speech::Manager::IsQueued(kSPCH1_EventID_ReInitPursuit, 4) ||
+                     Speech::Manager::IsQueued(kSPCH1_EventID_Spotted, 4) ||
+                     Speech::Manager::IsQueued(kSPCH1_EventID_BullhornArrest, 4) ||
+                     Speech::Manager::IsQueued(kSPCH1_EventID_Bullhorn, 4)) &&
+#else
                 if ((pursuit->IsCollapseActive() || pursuit->IsFinisherActive() ||
                      Speech::Manager::IsCopSpeechPlaying(kSPCH1_EventID_ReInitPursuit) ||
                      Speech::Manager::IsCopSpeechPlaying(kSPCH1_EventID_Spotted) ||
                      Speech::Manager::IsCopSpeechPlaying(kSPCH1_EventID_BullhornArrest) ||
                      Speech::Manager::IsCopSpeechPlaying(kSPCH1_EventID_Bullhorn)) &&
+#endif
                     mInFormation) {
                     if (high) {
                         float t2 = (WorldTimer - mT_siren[2]).GetSeconds();
@@ -280,6 +307,11 @@ void AIVehiclePursuit::UpdateSiren(float dT) {
                     } else if (t1 > pl.SirenWailPeriod()) {
                         mSirenState = Sound::SIREN_YELP;
                     }
+#ifdef EA_BUILD_A124
+                    else {
+                        mSirenState = high ? Sound::SIREN_YELP : Sound::SIREN_WAIL; // la A124 vuelve segun la intensidad
+                    }
+#endif
                 }
             }
         }
@@ -288,7 +320,9 @@ void AIVehiclePursuit::UpdateSiren(float dT) {
         mSirenState = Sound::SIREN_OFF;
     }
 
+#ifndef EA_BUILD_A124
     if (in_roadblock) {
         mSirenState = Sound::SIREN_WAIL;
     }
+#endif
 }

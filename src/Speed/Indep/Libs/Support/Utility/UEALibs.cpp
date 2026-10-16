@@ -56,13 +56,13 @@ void v3sub(int num, const UMath::Vector3 *src, const UMath::Vector3 *vtosub, UMa
     }
 }
 
-void v3add(int num, const UMath::Vector3 *src, const UMath::Vector3 *vtosub, UMath::Vector3 *results) {
+void v3add(int num, const UMath::Vector3 *src, const UMath::Vector3 *vtoadd, UMath::Vector3 *results) {
     if (num <= 0) return;
 
     while (num != 0) {
-        results->x = src->x + vtosub->x;
-        results->y = src->y + vtosub->y;
-        results->z = src->z + vtosub->z;
+        results->x = src->x + vtoadd->x;
+        results->y = src->y + vtoadd->y;
+        results->z = src->z + vtoadd->z;
         src++;
         results++;
         num--;

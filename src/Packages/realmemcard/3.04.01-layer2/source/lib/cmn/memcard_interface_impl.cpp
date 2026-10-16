@@ -6,31 +6,35 @@ namespace RealmcIface {
 void MemcardInterfaceImpl::MessageDone(MessageChoices choice) {
     this->mUserChoice = choice;
 
-    Realmc::UserMessage userMessage = Realmc::UMSG_NONE;
+    Realmc::UserMessage msg = Realmc::UMSG_NONE;
 
     switch (choice) {
     case CHOICE_NONE:
-        userMessage = Realmc::UMSG_NONE;
         break;
     case CHOICE_OPTION1:
-        userMessage = Realmc::UMSG_OPTION1;
+        msg = Realmc::UMSG_OPTION1;
         break;
     case CHOICE_OPTION2:
-        userMessage = Realmc::UMSG_OPTION2;
+        msg = Realmc::UMSG_OPTION2;
         break;
     case CHOICE_OPTION3:
-        userMessage = Realmc::UMSG_OPTION3;
+        msg = Realmc::UMSG_OPTION3;
         break;
     case CHOICE_OPTION4:
-        userMessage = Realmc::UMSG_OPTION4;
+        msg = Realmc::UMSG_OPTION4;
         break;
     }
 
-    this->mIMemcard->SendMessage(userMessage, 0);
+    this->mIMemcard->SendMessage(msg, 0);
 }
 
 MemcardTask MemcardInterfaceImpl::Update(unsigned int elapsedTime) {
+#if REALMEMCARD_VERSION < 30401
+    // La 3.04.00 solo vigila la tarjeta del autoguardado cuando no hay tarea.
+    if (this->mActiveTask == TASK_NONE && this->mAutosaveEnabled) {
+#else
     if (this->mAutosaveEnabled) {
+#endif
         this->_CheckForCardRemoval();
     }
 
@@ -112,7 +116,9 @@ void MemcardInterfaceImpl::_ClearMessage() {
         this->mMessageShowing = false;
     }
 
+#if REALMEMCARD_VERSION >= 30401
     this->mIMemcard->SendMessage(Realmc::UMSG_NONE, 0);
+#endif
 }
 
 RealmcIface::TaskResult MemcardInterfaceImpl::_TranslateTaskResult(Realmc::TaskResult result) {
@@ -215,9 +221,15 @@ void MemcardInterfaceImpl::TaskManagerFindEntries(const char *entryNamePattern, 
     this->mTaskManager->FindEntries(entryNamePattern, titleInfo);
 }
 
+#if REALMEMCARD_VERSION < 30401
+void MemcardInterfaceImpl::TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo) {
+    this->mTaskManager->Load(entryName, header, body, contentName, titleInfo);
+}
+#else
 void MemcardInterfaceImpl::TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName, const TitleInfo *titleInfo) {
     this->mTaskManager->Load(entryName, header, body, contentName, typeName, titleInfo);
 }
+#endif
 
 void MemcardInterfaceImpl::TaskManagerSave(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo, const TitleInfo *titleInfo) {
     this->mTaskManager->Save(entryName, header, body, saveInfo, titleInfo);

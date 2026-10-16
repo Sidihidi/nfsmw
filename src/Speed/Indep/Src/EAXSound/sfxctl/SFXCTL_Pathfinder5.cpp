@@ -6,6 +6,7 @@
 #include "Speed/Indep/Src/EAXSound/PF_iallocatorimpl.h"
 #include "path/PathToSnd.h"
 #include "Speed/Indep/Src/Misc/Config.h"
+#include "Speed/Indep/Src/Misc/bFile.hpp"
 
 extern char *g_DataPaths[];
 extern EAXS_StreamManager *gpEAXS_StrmMgr;
@@ -14,6 +15,24 @@ SFXCTL_Pathfinder *g_pSFXCTL_Pathfinder;
 stPFParms *SFXCTL_Pathfinder::m_pPFParms[4] = {nullptr, nullptr, nullptr, nullptr};
 int SFXCTL_Pathfinder::m_curinteractive = 0;
 
+#ifdef EA_BUILD_A124
+// La A124 solo tiene 17 eventos por proyecto (sin INITSWAP/SWAP1/SWAP2): la tabla
+// es [4][17][2] y el codigo usa paso 0x88 y cota 17.
+int PFXMAP[4][17][2] = {
+    {{409, 0}, {106, 1}, {306, 2}, {213, 3}, {0, 4},   {393, 5},      {383, 6},
+     {399, 7}, {412, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
+     {48398670, 14}, {38561910, 15}, {29704135, 16}},
+    {{310, 0}, {108, 1}, {236, 2}, {186, 3}, {0, 4},   {290, 5},      {278, 6},
+     {300, 7}, {313, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
+     {48398670, 14}, {38561910, 15}, {29704135, 16}},
+    {{355, 0}, {73, 1},  {236, 2}, {134, 3}, {0, 4},   {335, 5},      {323, 6},
+     {345, 7}, {358, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
+     {48398670, 14}, {38561910, 15}, {29704135, 16}},
+    {{342, 0}, {66, 1},  {272, 2}, {166, 3}, {0, 4},   {322, 5},      {312, 6},
+     {332, 7}, {345, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
+     {48398670, 14}, {38561910, 15}, {29704135, 16}},
+};
+#else
 int PFXMAP[4][21][2] = {
     {{409, 0}, {106, 1}, {306, 2}, {213, 3}, {0, 4},   {393, 5},      {383, 6},
      {399, 7}, {412, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
@@ -28,6 +47,7 @@ int PFXMAP[4][21][2] = {
      {332, 7}, {345, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
      {48398670, 14}, {38561910, 15}, {29704135, 16}, {40792706, 17}, {43038428, 18}, {32566195, 19}, {33020764, 20}},
 };
+#endif
 
 SndBase::TypeInfo SFXCTL_Pathfinder::s_TypeInfo = {(int)0x01010000, "SFXCTL_Pathfinder", &SFXCTL::s_TypeInfo, SFXCTL_Pathfinder::CreateObject};
 
@@ -53,7 +73,7 @@ SFXCTL_Pathfinder::SFXCTL_Pathfinder()
 }
 
 SFXCTL_Pathfinder::~SFXCTL_Pathfinder() {
-    for (int n = 0; n <= 3; ++n) {
+    for (int n = 0; n < 4; ++n) {
         if (m_pPFParms[n]) {
             this->DestroyTrack(m_pPFParms[n]);
             m_pPFParms[n] = nullptr;
@@ -72,7 +92,7 @@ void SFXCTL_Pathfinder::AttachController(SFXCTL *psfxctl) {}
 
 void SFXCTL_Pathfinder::UpdateParams(float t) {
     (void)t;
-    for (int n = 0; n <= 3; ++n) {
+    for (int n = 0; n < 4; ++n) {
         if (!m_pPFParms[n]) {
             continue;
         }
@@ -112,7 +132,11 @@ int SFXCTL_Pathfinder::CrossMapNodeParam(int pid, int np) {
         break;
     }
 
+#ifdef EA_BUILD_A124
+    for (int n = 0; n < 17; ++n) {
+#else
     for (int n = 0; n < 21; ++n) {
+#endif
         if (PFXMAP[nproj][n][0] == np) {
             return n;
         }
@@ -142,7 +166,20 @@ void SFXCTL_Pathfinder::EventReleaseCallback(void *eventID, PATHEVENTRESULT resu
 
 void SFXCTL_Pathfinder::EventActionCallback(const int trackhandle, const int cbID, const int parm) {
     (void)trackhandle;
-
+#ifdef EA_BUILD_A124
+    // La A124 solo atiende cbID==2 (236 B: sin case 3; case 0/1 explicitos para el range-check).
+    (void)parm;
+    switch (cbID) {
+        case 0:
+        case 1:
+        default:
+            break;
+        case 2:
+            MControlPathfinder(false, 0, 0, 0).Send(UCrc32("InteractiveDone"));
+            MNotifyMusicFlow(0).Send(UCrc32("InteractiveDone"));
+            break;
+    }
+#else
     switch (cbID) {
         case 1:
         default:
@@ -159,6 +196,7 @@ void SFXCTL_Pathfinder::EventActionCallback(const int trackhandle, const int cbI
             }
             break;
     }
+#endif
 }
 
 void SFXCTL_Pathfinder::InitSFX() {
@@ -177,7 +215,7 @@ int SFXCTL_Pathfinder::InitPFParms(stPFParms *pstparms, int pathid, int trackid)
     int inst;
     int error;
     unsigned int voice = pathproj | 0x10000000u;
-    unsigned int track = voice | (1u << trackid);
+    unsigned int track = voice | (1L << trackid);
 
     m_pPFParms[this->m_projrefcnt] = pstparms;
     m_pPFParms[this->m_projrefcnt]->projnum = this->m_projrefcnt;
@@ -202,7 +240,19 @@ void SFXCTL_Pathfinder::CreateTrack(int index) {
     {
         char musname[64];
         bStrCat(musname, g_DataPaths[SNDPATH_PATHFINDER], m_pPFParms[index]->musfile);
-        int result = PATH_createstreamtrack(m_pPFParms[index]->PATH_TRACK, musname, 2500);
+#ifdef EA_BUILD_A124
+        // La A124 no crea la pista si el fichero no existe (bFileSize<=0) y usa 500 en vez de 2500.
+        if (bFileSize(musname) <= 0) {
+            return;
+        }
+#endif
+        int result = PATH_createstreamtrack(m_pPFParms[index]->PATH_TRACK, musname,
+#ifdef EA_BUILD_A124
+            500
+#else
+            2500
+#endif
+        );
         if (result < 0) {
             return;
         }

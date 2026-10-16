@@ -222,26 +222,28 @@ float GetPercent(const Attrib::Gen::pvehicle &vehicle, Type type) {
     if (max_level == 0) {
         return 0.0f;
     }
-    int level = GetLevel(vehicle, type);
-    if (level == max_level) {
+    int cur_level = GetLevel(vehicle, type);
+    if (cur_level == max_level) {
         return 1.0f;
     }
-    return (float)level / (float)max_level;
+    return (float)cur_level / (float)max_level;
 }
 
 int GetLevel(const Attrib::Gen::pvehicle &vehicle, Type type) {
     Attrib::Attribute attrib;
     const tPartMap *t = FindPartMap(type);
-    if (t == nullptr || !vehicle.Lookup(t->currentkey, attrib)) {
+    if (t == nullptr) {
         return 0;
     }
-    int level = attrib.Get<int>(0);
-    return level;
+    if (vehicle.Lookup(t->currentkey, attrib)) {
+        return attrib.Get<int>(0);
+    }
+    return 0;
 }
 
 void GetPackage(const Attrib::Gen::pvehicle &vehicle, Package &package) {
     package.Default();
-    for (int i = 0; i <= 6; i++) {
+    for (int i = 0; i < 7; i++) {
         package.Part[i] = GetLevel(vehicle, (Type)i);
         if (GetJunkman(vehicle, (Type)i)) {
             package.Junkman |= 1 << i;
@@ -253,11 +255,13 @@ bool SetPackage(Attrib::Gen::pvehicle &vehicle, const Package &package) {
     Attrib::Gen::pvehicle newvehicle(vehicle);
 
     Clear(newvehicle);
+#ifndef EA_BUILD_A124
     if (!Validate(newvehicle)) {
         return false;
     }
+#endif
 
-    for (int i = 0; i <= 6; i++) {
+    for (int i = 0; i < 7; i++) {
         if (!SetLevel(newvehicle, (Type)i, package.Part[i])) {
             return false;
         }
@@ -271,19 +275,26 @@ bool SetPackage(Attrib::Gen::pvehicle &vehicle, const Package &package) {
         }
     }
 
+#ifndef EA_BUILD_A124
     if (!Validate(newvehicle)) {
         return false;
     }
+#endif
 
     vehicle = newvehicle;
     return true;
 }
 
 bool GetJunkman(const Attrib::Gen::pvehicle &vehicle, Type type) {
+#ifdef EA_PLATFORM_WIN32
+    // PC emite shl/test/setne; el resto, shr/and (r21: la forma << cuesta +4 B en GC).
+    return ((1 << type) & vehicle.junkman_current()) != 0;
+#else
     if (vehicle.junkman_current() >> type & 1) {
         return true;
     }
     return false;
+#endif
 }
 
 bool CanInstallJunkman(const Attrib::Gen::pvehicle &vehicle, Type type) {
@@ -389,7 +400,7 @@ bool ApplyPreset(Attrib::Gen::pvehicle &vehicle, const Attrib::Gen::presetride &
     Attrib::Gen::pvehicle newvehicle(vehicle);
     Clear(newvehicle);
 
-    for (int i = 0; i <= 6; i++) {
+    for (int i = 0; i < 7; i++) {
         const tPartMap *part = FindPartMap((Type)i);
         if (part == nullptr) {
             continue;
@@ -473,7 +484,7 @@ bool Validate(const Attrib::Gen::pvehicle &vehicle, Type type) {
 }
 
 bool Validate(const Attrib::Gen::pvehicle &vehicle) {
-    for (int i = 0; i <= 6; i++) {
+    for (int i = 0; i < 7; i++) {
         if (!Validate(vehicle, (Type)i)) {
             return false;
         }
@@ -484,11 +495,13 @@ bool Validate(const Attrib::Gen::pvehicle &vehicle) {
 int GetMaxLevel(const Attrib::Gen::pvehicle &vehicle, Type type) {
     Attrib::Attribute attrib;
     const tPartMap *t = FindPartMap(type);
-    if (t == nullptr || !vehicle.Lookup(t->countkey, attrib)) {
+    if (t == nullptr) {
         return 0;
     }
-    int level = attrib.Get<int>(0);
-    return level;
+    if (vehicle.Lookup(t->countkey, attrib)) {
+        return attrib.Get<int>(0);
+    }
+    return 0;
 }
 
 bool SetMaximum(Attrib::Gen::pvehicle &vehicle) {

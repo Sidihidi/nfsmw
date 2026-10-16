@@ -10,6 +10,12 @@
 struct LobbyApiRefT;
 struct LobbyLoginRefT;
 struct LobbyAccount;
+struct LobbyApiMsgT;
+
+extern "C" {
+// Firma por el uso de la A124 (LobbyLogin::GetLastResponse: a0 = lobbylogin, a1 = &Msg).
+void LobbyLoginGetLastResponse(LobbyLoginRefT *, LobbyApiMsgT *);
+}
 
 enum LobbyLoginAlertE {
     LOBBYLOGIN_ALERT_ERROR = 0,
@@ -83,6 +89,11 @@ class LobbyLogin {
     bool DoContextSelPers(const char *persona);
     LobbyLoginContextE GetContext();
     LobbyLoginStatusE GetStatus();
+    // Inline en la A124 (LobbyLogin.hpp:31, copia fuera de linea GetLastResponse__10LobbyLoginR12LobbyApiMsgT en zFe;
+    // UIOnlineLogin::DoLobbyLoginProcessing la llama).
+    static void GetLastResponse(LobbyApiMsgT &Msg) {
+        LobbyLoginGetLastResponse(Instance().lobbylogin, &Msg);
+    }
     LobbyLoginNameListT &GetPersonaList();
     bool IsAlertSet();
     LobbyLoginAlertT *GetAlert(LobbyLoginContextE context);

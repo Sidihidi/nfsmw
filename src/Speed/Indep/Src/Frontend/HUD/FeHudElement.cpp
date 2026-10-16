@@ -15,13 +15,13 @@ HudElement::HudElement(const char *pkg_name, HudFeaturesType mask)
       mCurrentlySetVisible(false) {}
 
 FEString *HudElement::RegisterString(unsigned int hash) {
-    FEString *string = FEngFindString(pPackageName, hash);
+    FEString *str = FEngFindString(pPackageName, hash);
 
-    if (string != nullptr) {
-        Objects.AddTail(string);
+    if (str != nullptr) {
+        Objects.AddTail(str);
     }
 
-    return string;
+    return str;
 }
 
 FEImage *HudElement::RegisterImage(unsigned int hash) {
@@ -71,22 +71,15 @@ FEGroup *HudElement::RegisterGroup(unsigned int hash) {
 }
 
 void HudElement::Toggle(HudFeaturesType hud_features) {
-    HudFeaturesType mask = Mask;
-    int is_visible = 0;
-
     CurrentHudFeatures = hud_features;
+    bool onoff = (hud_features & Mask) != 0;
+    for (bPNode *n = Objects.GetHead(); n != Objects.EndOfList(); n = n->GetNext()) {
+        FEObject *obj = static_cast<FEObject *>(n->GetObject());
 
-    if ((hud_features & mask) != 0) {
-        is_visible = 1;
-    }
-
-    for (bPNode *node = static_cast<bPNode *>(Objects.GetHead()); node != Objects.EndOfList(); node = static_cast<bPNode *>(node->GetNext())) {
-        FEObject *object = static_cast<FEObject *>(node->GetpObject());
-
-        if (is_visible != 0) {
-            FEngSetVisible(object);
+        if (onoff) {
+            FEngSetVisible(obj);
         } else {
-            FEngSetInvisible(object);
+            FEngSetInvisible(obj);
         }
     }
 }

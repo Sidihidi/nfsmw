@@ -14,8 +14,8 @@ class TimeExtension : public HudElement, public ITimeExtension {
     ~TimeExtension() override {} // Decl: speed/indep/src/frontend/hud/FeTimeExtension.hpp:14
 
     void Update(IPlayer *player) override;
-    void SetPlayerLapTime(float lapTime) override {
-        mPlayerLapTime = lapTime;
+    void SetPlayerLapTime(float time) override {
+        mPlayerLapTime = time;
     }
     void RequestTimeExtensionMessage(IPlayer *iplayer, float timeToShow) override;
 

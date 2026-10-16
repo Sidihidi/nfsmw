@@ -33,9 +33,9 @@ void EDynamicRegion_MakeEvent_Callback(const void *staticData) {
                        gEventDynamicData.fVelocity, gEventDynamicData.fhSimable);
 }
 
-int EDynamicRegion_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EDynamicRegion((int) lua_tonumber(L, 1), gEventDynamicData.fPosition, gEventDynamicData.fVector, gEventDynamicData.fVelocity,
+int EDynamicRegion_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EDynamicRegion((int) lua_tonumber(luaState, 1), gEventDynamicData.fPosition, gEventDynamicData.fVector, gEventDynamicData.fVelocity,
                            gEventDynamicData.fhSimable);
     }
     return 0;

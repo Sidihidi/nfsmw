@@ -79,18 +79,16 @@ void SFXObj_Helicopter::ProcessUpdate() {
                 this->m_HeliAemsData.hELI_Distance = -this->m_HeliAemsData.hELI_Distance;
             }
 
-            if (this->m_pCsisHeli == nullptr) {
-                return;
+            if (this->m_pCsisHeli != nullptr) {
+                this->m_pCsisHeli->SetHELI_Azmuth(nazim);
+                this->m_pCsisHeli->SetHELI_Distance(this->m_HeliAemsData.hELI_Distance);
+                this->m_pCsisHeli->SetHELI_Volume(this->GetDMixOutput(1, DMX_VOL));
+                this->m_pCsisHeli->SetHELI_FX_Dry(this->GetDMixOutput(1, DMX_VOL));
+                this->m_pCsisHeli->SetHELI_Speed(this->m_HeliAemsData.hELI_Speed);
+                this->m_pCsisHeli->SetHELI_Pitch_Offset(this->GetDMixOutput(2, DMX_PITCH));
+                this->m_pCsisHeli->SetHELI_Rotation(this->m_HeliAemsData.hELI_Rotation);
+                this->m_pCsisHeli->CommitMemberData();
             }
-
-            this->m_pCsisHeli->SetHELI_Azmuth(nazim);
-            this->m_pCsisHeli->SetHELI_Distance(this->m_HeliAemsData.hELI_Distance);
-            this->m_pCsisHeli->SetHELI_Volume(this->GetDMixOutput(1, DMX_VOL));
-            this->m_pCsisHeli->SetHELI_FX_Dry(this->GetDMixOutput(1, DMX_VOL));
-            this->m_pCsisHeli->SetHELI_Speed(this->m_HeliAemsData.hELI_Speed);
-            this->m_pCsisHeli->SetHELI_Pitch_Offset(this->GetDMixOutput(2, DMX_PITCH));
-            this->m_pCsisHeli->SetHELI_Rotation(this->m_HeliAemsData.hELI_Rotation);
-            this->m_pCsisHeli->CommitMemberData();
         } else if (this->m_pCsisHeli != nullptr) {
             this->m_pCsisHeli->SetHELI_Volume(0);
             this->m_pCsisHeli->SetHELI_FX_Dry(0);

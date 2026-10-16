@@ -93,7 +93,9 @@ struct RaceParameters {
     bool IsSkidPad() {}
     bool IsFreeRoam() {}
     bool IsExploreMode() {}
-    bool IsGetAway() {}
+    bool IsGetAway() {
+        return RaceType == RACE_TYPE_GET_AWAY;
+    }
     bool IsLapKnockout() {}
     bool IsRollingStart() {}
     bool IsGamebreakerOn() {}
@@ -165,5 +167,12 @@ struct RunTimePlayerSettings {
 };
 
 extern RaceParameters TheRaceParameters;
+
+#ifdef EA_BUILD_A124
+class Race;
+
+// La carrera en curso del prototipo (lo lee el gestor online); la A124 la define junto a TheRaceParameters.
+extern Race *pCurrentRace;
+#endif
 
 #endif

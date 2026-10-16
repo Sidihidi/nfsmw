@@ -30,8 +30,14 @@ enum e3DPlayerMix {
 };
 
 enum AEMS_SHIFTING_SAMPLES {
+#ifdef EA_BUILD_A124
+    // El prototipo los numera al reves (stabs de la A124; SLUS y GameCube, como abajo).
+    AEMS_SHIFTING_UP = 0,
+    AEMS_SHIFTING_DOWN = 1,
+#else
     AEMS_SHIFTING_UP = 1,
     AEMS_SHIFTING_DOWN = 0,
+#endif
     AEMS_BREAKING = 2,
     MAX_NUM_SHIFTING_SAMPLES = 3,
 };

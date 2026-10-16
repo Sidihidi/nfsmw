@@ -24,6 +24,16 @@ uint32 CalcLanguageHash(const char *prefix, GRaceParameters *pRaceParams) {
     return FEHashUpper(buffer);
 }
 
+#ifdef EA_BUILD_A124
+// Solo la A124 la tiene (RaceDB.cpp:55-60 en su .mdebug).
+void OnlineRaceParameters::Default() {
+    TrackDirection = 0;
+    NumLaps = 3;
+    CopDensity = 0;
+    IsLapKO = false;
+}
+#endif
+
 void RaceSettings::Default() {
     NumOpponents = 3;
     AISkill = 1;
@@ -31,11 +41,18 @@ void RaceSettings::Default() {
     TrafficDensity = 1;
     CatchUp = true;
     CopsOn = false;
+#ifdef EA_BUILD_A124
+    TrackDirection = 1;
+#else
     TrackDirection = 0;
+#endif
     NumLaps = 2;
     IsLapKO = false;
     for (int i = 0; i < 2; i++) {
         SelectedCar[i] = 0;
+#ifdef EA_BUILD_A124
+        CarSelectFilterBits[i] = 0xf0001;
+#endif
     }
     RegionFilterBits = 3;
 }
@@ -252,7 +269,7 @@ GotAttribKey:
                     Timer rank_time(rankingsData.RapSheetRanks(static_cast<unsigned int>(i)));
                     rank_found = Timer(player_value) >= rank_time;
                 } else {
-                    rank_found = player_value >= static_cast<int>(rankingsData.RapSheetRanks(static_cast<unsigned int>(i)));
+                    rank_found = player_value >= bFloatToInt(rankingsData.RapSheetRanks(static_cast<unsigned int>(i)));
                 }
 
                 if (rank_found) {
@@ -267,7 +284,11 @@ GotAttribKey:
 }
 
 uint32 HighScoresDatabase::GetPreviouslyPursuedCarNameHash() const {
+#ifdef EA_BUILD_A124
+    return PreviouslyPursuedCarFEKey; // la A124 guarda ahi el hash del nombre (PreviouslyPursuedCarNameHash en sus stabs)
+#else
     return GetFECarNameHashFromFEKey(PreviouslyPursuedCarFEKey);
+#endif
 }
 
 void HighScoresDatabase::GetCareerCST(RAP_CTS_ITEM item, int &quantity, unsigned int &value) const {
@@ -320,11 +341,10 @@ void HighScoresDatabase::Default() {
 }
 
 void TopEvadedPursuitDetail::GeneratePursuitID() {
-    char *c = PursuitName + 3;
-
     PursuitName[0] = 'M';
     PursuitName[1] = 'W';
     PursuitName[2] = '-';
+    char *c = PursuitName + 3;
 
     {
         int i = 0;
@@ -339,10 +359,15 @@ void TopEvadedPursuitDetail::GeneratePursuitID() {
             }
             i++;
             c++;
-        } while (i <= 10);
+#ifdef EA_BUILD_A124
+        } while (i < 12);
+    }
+#else
+        } while (i < 11);
     }
 
     PursuitName[11] = '\0';
+#endif
 }
 
 void CareerPursuitScores::IncValue(ePursuitDetailTypes type, int amount) {

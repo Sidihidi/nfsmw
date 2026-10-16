@@ -374,7 +374,7 @@ void CARSFX_GinsuEngine::SetEngineParams() {
         TmpVol = (TmpVol * 0x7FFF) >> 15;
 
         int nFXDryVol = this->m_pTunnelCtl->m_AEMSDryVol;
-        int nFXWetVol = (this->m_pTunnelCtl->m_AEMSWetVol * nDMixOut) >> 15;
+        int nFXWetVol = (nDMixOut * this->m_pTunnelCtl->m_AEMSWetVol) >> 15;
         this->m_pcsisCarCtrl->SetVOL_ENG(TmpVol - 0x7FFF);
         this->m_pcsisCarCtrl->SetVOL_EXH(TmpVol - 0x7FFF);
 
@@ -386,12 +386,16 @@ void CARSFX_GinsuEngine::SetEngineParams() {
         this->m_pcsisCarCtrl->SetTORQUE(static_cast<int>(this->m_pEngineCtl->GetEngTorque() * 10.24f));
         this->m_pcsisCarCtrl->SetCOMMON_PARAMETERS_ROTATION(this->m_pEngineCtl->m_Rotation);
         this->m_pcsisCarCtrl->SetCOMMON_PARAMETERS_AZIMUTH(this->GetDMixOutput(0, DMX_AZIM));
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
         this->m_pcsisCarCtrl->SetFX_DRY(nFXDryVol - 0x7FFF);
         this->m_pcsisCarCtrl->SetFX_AMOUNT(nFXWetVol);
         this->m_pcsisCarCtrl->SetFILTERS_FILTER(
-            bMin(this->GetDMixOutput(5, DMX_FREQ), this->m_pEngineCtl->m_DistanceFltr));
-        this->m_pcsisCarCtrl->SetFILTERS_FILTER_RND(this->m_pHybridEngCtl->m_bAEMSLPF ? 0x2AF8 : 0);
+            bMin(this->m_pEngineCtl->m_DistanceFltr, this->GetDMixOutput(5, DMX_FREQ)));
+        if (this->m_pHybridEngCtl->m_bAEMSLPF) {
+            this->m_pcsisCarCtrl->SetFILTERS_FILTER_RND(0x2AF8);
+        } else {
+            this->m_pcsisCarCtrl->SetFILTERS_FILTER_RND(0);
+        }
         this->m_pcsisCarCtrl->SetFILTERS_FILTER_Trig(0);
 #endif
         this->m_pcsisCarCtrl->CommitMemberData();

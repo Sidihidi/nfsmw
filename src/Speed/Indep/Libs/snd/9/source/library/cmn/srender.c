@@ -31,7 +31,7 @@ int SNDI_validrendermode(int *prenderindex, SNDIPATCHHEADER *pph) {
 
         if (validrendermode != 0) {
             (*prenderindex)++;
-            return validrendermode;
+            break;
         }
     }
 

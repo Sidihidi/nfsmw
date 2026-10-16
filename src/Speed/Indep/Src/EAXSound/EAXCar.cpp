@@ -23,13 +23,8 @@ EAXCar::EAXCar()
     this->t_DeltaTime = 0.0f;
     this->m_IsDriveCamera = 0;
     this->m_pPhysicsCTL = nullptr;
-#ifdef EA_BUILD_A124
     this->m_fAudioRPM = 0.0f;
     this->m_EngUGL = AEMS_LEVEL2;
-#else
-    this->m_EngUGL = AEMS_LEVEL2;
-    this->m_fAudioRPM = 0.0f;
-#endif
     this->m_TurboUGL = AEMS_LEVEL0;
     this->m_NOSUGL = AEMS_LEVEL0;
     this->m_TireUGL = AEMS_LEVEL0;
@@ -63,7 +58,7 @@ int UpgradeIntervals(int phys_cur_upgrade, int phys_num_upgrades, int aud_num_up
             }
         } else {
             NumEngine = base_upgrade + curupgade_offset;
-            if (NumEngine > 2) {
+            if (NumEngine >= 3) {
                 aud_engine_upgrade = 2;
             } else if (NumEngine > 0) {
                 aud_engine_upgrade = 1;

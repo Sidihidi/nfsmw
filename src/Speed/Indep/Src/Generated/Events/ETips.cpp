@@ -15,9 +15,9 @@ void ETips_MakeEvent_Callback(const void *staticData) {
     new ETips(((ETips::StaticData *)staticData)->fPlayerIndex, ((ETips::StaticData *)staticData)->fTipNum);
 }
 
-int ETips_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ETips((int)lua_tonumber(L, 1), (int)lua_tonumber(L, 2));
+int ETips_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ETips((int)lua_tonumber(luaState, 1), (int)lua_tonumber(luaState, 2));
     }
     return 0;
 }

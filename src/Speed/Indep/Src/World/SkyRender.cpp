@@ -31,16 +31,32 @@ bMatrix4 SkydomeLocalReflectedWorld;
 
 float MainSkyScale = 1.0f;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+#ifdef EA_BUILD_A124
+static const float EnvSkyScale = 0.0065f; // la A124 todavia tiene el de las demas plataformas
+#else
+static const float EnvSkyScale = 0.002f;
+#endif
+
+static const float RefSkyScale = 0.06f;
+
+static const float RVMSkyScale = 0.03f;
+#else
 static const float EnvSkyScale = 0.0065f;
 
 static const float RefSkyScale = 0.035f;
 
 static const float RVMSkyScale = 0.0095f;
+#endif
 
 eModel SkySpecularModel;
 bMatrix4 SkySpecularLocalWorld;
 
+#ifdef EA_BUILD_A124
+static const float SKY_ENVMAP_HEIGHT_ADJUST = 60.0f; // 0x42700000 en StuffSpecular de la A124
+#else
 static const float SKY_ENVMAP_HEIGHT_ADJUST = 50.0f;
+#endif
 static const float SKY_ENVMAP_HEIGHT_ADJUST2 = -50.0f;
 static const float SKY_REFLECTION_HEIGHT_ADJUST = 130.0f;
 
@@ -167,6 +183,7 @@ void InitSkyHash(void (*callback)(intptr_t), intptr_t callback_param) {
     }
 }
 
+#ifndef EA_PLATFORM_XENON // Xenon: NotifySkyLoader es de plataforma (Speed/Xenon/Src/Ecstasy/eViewPlat.cpp)
 void NotifySkyLoader() {
     SkyInitModel(&SkydomeModel, &SkydomeLocalWorld, STRINGHASH_SKYDOME);
     SkyInitModel(&SkySpecularModel, &SkySpecularLocalWorld, STRINGHASH_SKY_SPECULAR);
@@ -174,6 +191,7 @@ void NotifySkyLoader() {
     SkydomeLocalReflectedWorld = SkydomeLocalWorld;
     SkydomeLocalReflectedWorld.v2.z = -1.0f;
 }
+#endif
 
 void UnloadSkyTextures() {
     if (bSkyTexturesLoaded) {
@@ -241,16 +259,16 @@ void StuffSkyLayer(eView *view, SKY_LAYER layer) {
 
     if (layer == SKY_LAYER_BLUE) {
         ScaleFactor = 1.1f;
-    } else if (layer != SKY_LAYER_CLOUDS) {
-        if (layer == SKY_LAYER_OVERCAST) {
-            MoveMent = 1;
-            ScaleFactor = 0.8f;
-        } else if (layer == SKY_LAYER_REFLECTION) {
-            ScaleFactor = RefSkyScale;
-            MoveMent = 1;
-            SkydomeLocalWorld->v2.z = -1.0f;
-            heightAdjust = SKY_REFLECTION_HEIGHT_ADJUST;
-        }
+    } else if (layer == SKY_LAYER_CLOUDS) {
+        // las nubes se quedan con la escala de siempre
+    } else if (layer == SKY_LAYER_OVERCAST) {
+        ScaleFactor = 0.8f;
+        MoveMent = 1;
+    } else if (layer == SKY_LAYER_REFLECTION) {
+        ScaleFactor = RefSkyScale;
+        MoveMent = 1;
+        SkydomeLocalWorld->v2.z = -1.0f;
+        heightAdjust = SKY_REFLECTION_HEIGHT_ADJUST;
     }
 
     if (view_id >= EVIEW_FIRST_ENVMAP && view_id <= EVIEW_LAST_ENVMAP) { // TODO
@@ -298,7 +316,7 @@ void StuffSkyLayer(eView *view, SKY_LAYER layer) {
         view->Render(&SkydomeModel, SkydomeLocalWorld, nullptr, 0x20000, nullptr);
     }
 }
-
+#ifndef EA_PLATFORM_XENON // X360: sus vistas especulares no tienen nombre (EcstasyData.hpp) y StuffSpecular no aparece en su NFS.exe (ningun llamante de eCreateRotationZ la parece)
 // UNSOLVED
 void StuffSpecular(eView *view) {
     ProfileNode profile_node;
@@ -323,10 +341,10 @@ void StuffSpecular(eView *view) {
     GetSunPos(view, &SunPos.x, &SunPos.y, &SunPos.z);
     SunPos.z = 0.0f;
     SkydomeLocalWorld->v2.z = -1.0f;
-    SkydomeLocalWorld->v0.x *= 0.035f;
-    SkydomeLocalWorld->v1.y *= 0.035f;
-    SkydomeLocalWorld->v2.z *= 0.035f;
-    SkydomeLocalWorld->v3.z += 50.0f;
+    SkydomeLocalWorld->v0.x *= RefSkyScale;
+    SkydomeLocalWorld->v1.y *= RefSkyScale;
+    SkydomeLocalWorld->v2.z *= RefSkyScale;
+    SkydomeLocalWorld->v3.z += SKY_ENVMAP_HEIGHT_ADJUST;
 
     {
         bVector3 MySunDir = SunPos - CamPosWORLD;
@@ -343,6 +361,15 @@ void StuffSpecular(eView *view) {
 
         eCreateRotationZ(&LocalRot, static_cast<unsigned short>(matAng + SpecularOffset));
         eMulMatrix(SkydomeLocalWorld, &LocalRot, SkydomeLocalWorld);
+#ifdef EA_BUILD_A124
+        if (GetCurrentTimeOfDay() == eTOD_SUNSET) {
+            SPECtextable[0].SetOldNameHash(bStringHash("SKY_REFSKYSPECULARB"));
+            SPECtextable[0].SetNewNameHash(bStringHash("SKY_REFSKYSPECULAR_SUNSET"));
+            SPECtextable[0].InvalidateTexture();
+            SkySpecularModel.AttachReplacementTextureTable(SPECtextable, 2, 0);
+        }
+        view->Render(&SkySpecularModel, SkydomeLocalWorld, nullptr, 0, nullptr);
+#else
         view->Render(&SkySpecularModel, SkydomeLocalWorld, nullptr, 0, nullptr);
 
         bMatrix4 *SkydomeLocalWorld2 = eFrameMallocMatrix(1);
@@ -351,15 +378,16 @@ void StuffSpecular(eView *view) {
         SkydomeLocalWorld2->v3.x = CamPosWORLD.x;
         SkydomeLocalWorld2->v3.y = CamPosWORLD.y;
         SkydomeLocalWorld2->v3.z = CamPosWORLD.z;
-        SkydomeLocalWorld2->v0.x *= 0.035f;
-        SkydomeLocalWorld2->v1.y *= 0.035f;
-        SkydomeLocalWorld2->v2.z *= 0.035f;
-        SkydomeLocalWorld2->v3.z += -50.0f;
+        SkydomeLocalWorld2->v0.x *= RefSkyScale;
+        SkydomeLocalWorld2->v1.y *= RefSkyScale;
+        SkydomeLocalWorld2->v2.z *= RefSkyScale;
+        SkydomeLocalWorld2->v3.z += SKY_ENVMAP_HEIGHT_ADJUST2;
         eMulMatrix(SkydomeLocalWorld2, &LocalRot, SkydomeLocalWorld2);
         view->Render(&SkySpecularModel, SkydomeLocalWorld2, nullptr, 0, nullptr);
+#endif
     }
 }
-
+#endif
 float MinSkySpecular = 32.0f;
 float MaxSkySpecular = 200.0f;
 

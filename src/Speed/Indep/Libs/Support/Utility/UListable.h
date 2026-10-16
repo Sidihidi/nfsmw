@@ -43,7 +43,9 @@ template <typename T, int U> class Listable {
         List() {
             this->reserve(U);
         }
+#ifdef EA_PLATFORM_XENON
         ~List() override {}
+#endif
 
         // List &operator=(List &);
     };
@@ -98,8 +100,12 @@ template <typename T, int ListSize, typename Enum, std::size_t EnumMax> class Li
 
     class List : public _Storage<pointer, ListSize> {
       public:
+        const static int Limit = ListSize;
+
         List() {}
+#ifdef EA_PLATFORM_XENON
         ~List() override {}
+#endif
 
         // List &operator=(List &);
     };

@@ -237,8 +237,19 @@ inline int StrNICmp(const char *s1, const char *s2, int n) {
     return bStrNICmp(s1, s2, n);
 }
 
-inline void Invert(Matrix4 *dst, const Matrix4 *src) {
+// Devuelve VOID: las dos PS2 traen su copia suelta de 8 B `j bStrNCpy; nop` (con `char *` serian 28 B).
+inline void StrNCpy(char *to, const char *from, int n) {
+    bStrNCpy(to, from, n);
+}
+
+// InvertTransformationMatrix y RotateZ, con su nombre del DWARF de GameCube: GameCube los expande y las dos PS2 llaman
+// a su copia suelta de 8 B (EE-GCC no expande un inline que acaba en una llamada); X360 deja la suya de 4 B en zCamera.
+inline void InvertTransformationMatrix(Matrix4 *dst, const Matrix4 *src) {
     eInvertTransformationMatrix(reinterpret_cast<bMatrix4 *>(dst), reinterpret_cast<const bMatrix4 *>(src));
+}
+
+inline void RotateZ(Matrix4 *dst, const Matrix4 *src, unsigned short angle) {
+    eRotateZ(reinterpret_cast<bMatrix4 *>(dst), const_cast<bMatrix4 *>(reinterpret_cast<const bMatrix4 *>(src)), angle);
 }
 
 }; // namespace ICE

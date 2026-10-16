@@ -28,18 +28,27 @@ void CSTATEMGR_AICar::UpdateParams(float t) {
 void CSTATEMGR_AICar::DebugDisplayAIConnections() {}
 
 void CSTATEMGR_AICar::EnterWorld(eSndGameMode esgm) {
+#ifdef EA_PLATFORM_XENON
+    // NFS.exe pide 0x94 y 0x96 (li r29) donde GC, PS2 y PC piden 0x91 y 0x92.
+    int SFXIDs = 0x94;
+#else
     int SFXIDs = 0x91;
+#endif
 #ifdef EA_BUILD_A124
-    int numopponents = IVehicle::Count(VEHICLE_AIRACERS) < 5 ? IVehicle::Count(VEHICLE_AICOPS) : VEHICLE_AICOPS;
+    int numopponents = IVehicle::Count(VEHICLE_AIRACERS) <= MAX_NUM_AI_ENGINES_ATTACHED ? IVehicle::Count(VEHICLE_AIRACERS) : MAX_NUM_AI_ENGINES_ATTACHED;
 #else
     // Upstream escribe bMin(suma, 4) con su bMin (`a < b`); con el nuestro (`b < a`)
-    // el mismo codigo sale con los argumentos al reves.
-    int numopponents = bMin(4, IVehicle::Count(VEHICLE_AIRACERS) + IVehicle::Count(VEHICLE_REMOTE));
+    // el mismo codigo sale con los argumentos al reves. SLUS compara con 3.
+    int numopponents = bMin(MAX_NUM_AI_ENGINES_ATTACHED, IVehicle::Count(VEHICLE_AIRACERS) + IVehicle::Count(VEHICLE_REMOTE));
 #endif
     int SFXCTRLS = 0xC0;
 
     if (bUsingGinsu) {
+#ifdef EA_PLATFORM_XENON
+        SFXIDs = 0x96;
+#else
         SFXIDs = 0x92;
+#endif
     }
 
     for (int n = 0; n < numopponents; n++) {

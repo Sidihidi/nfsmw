@@ -19,7 +19,7 @@ inline char GetScenerySectionLetter(int section_number) {
 
 inline bool IsRegularScenerySection(int section_number) {
     char section_letter = GetScenerySectionLetter(section_number);
-    return section_letter >= 'A' && section_letter < 'U';
+    return section_letter >= 'A' && section_letter <= 'T';
 }
 
 inline int GetScenerySubsectionNumber(int section_number) {
@@ -50,7 +50,7 @@ inline bool IsScenerySectionDrivable(int section_number) {
     }
 
     int subsection_number = GetScenerySubsectionNumber(section_number);
-    return subsection_number > 0 && subsection_number < ScenerySectionLODOffset;
+    return subsection_number >= 1 && subsection_number < ScenerySectionLODOffset;
 }
 
 inline int GetDrivableSectionNumber(int lod_section_number) {
@@ -94,16 +94,12 @@ class VisibleSectionBoundary : public bTNode<VisibleSectionBoundary> {
     }
 
     void EndianSwap() {
-#ifndef EA_BUILD_A124
         bPlatEndianSwap(&SectionNumber);
         bPlatEndianSwap(&NumPoints);
         bPlatEndianSwap(&BBoxMin);
         bPlatEndianSwap(&BBoxMax);
-#endif
         for (int i = 0; i < NumPoints; i++) {
-#ifndef EA_BUILD_A124
             bPlatEndianSwap(&Points[i]);
-#endif
         }
     }
 
@@ -215,7 +211,7 @@ class VisibleTextureSection : public bTNode<VisibleTextureSection> {
     int16 NumSuperSections;         // offset 0x10C, size 0x2
     int16 SuperSections[32];        // offset 0x10E, size 0x40
 
-    ~VisibleTextureSection();
+    ~VisibleTextureSection() {}
     bool IsVisibleFromSection(int16 section_number);
     bool IsSuperSection();
     void AddVisibleTextureSection(int16 section_number);
@@ -236,7 +232,7 @@ class LoadingSection : public bTNode<LoadingSection> {
     int16 ExtraSections[8];     // offset 0x3C, size 0x10
 
     LoadingSection();
-    ~LoadingSection();
+    ~LoadingSection() {}
     void SetName(const char *name);
     char *GetName() {
         return Name;
@@ -276,7 +272,7 @@ class SuperScenerySection : public bTNode<SuperScenerySection> {
     int16 Sections[16]; // offset 0xE, size 0x20
 
     SuperScenerySection(int section_number);
-    ~SuperScenerySection();
+    ~SuperScenerySection() {}
     int GetSectionNumber();
     void AddSection(int section_number);
     void RemoveSection(int section_number);
@@ -318,7 +314,7 @@ struct UsedInSectionInfo : public bTNode<UsedInSectionInfo> {
     float BandwidthScore;                  // offset 0x630, size 0x4
     const char *PlacementReason;           // offset 0x634, size 0x4
 
-    ~UsedInSectionInfo();
+    ~UsedInSectionInfo() {}
     char *GetName();
     void AddUsedInSection(int16 section_number);
     bool IsUsedInSection(int16 section_number);
@@ -379,7 +375,7 @@ struct OverrideSectionObject : public bTNode<OverrideSectionObject> {
     int16 Touched;       // offset 0xA, size 0x2
     char ObjectName[64]; // offset 0xC, size 0x40
 
-    ~OverrideSectionObject();
+    ~OverrideSectionObject() {}
     static int SortFunction(OverrideSectionObject *before, OverrideSectionObject *after);
 };
 

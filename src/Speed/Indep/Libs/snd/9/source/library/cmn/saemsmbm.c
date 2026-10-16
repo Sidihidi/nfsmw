@@ -101,5 +101,6 @@ int SNDAEMS_asyncloadmodulebankmem(void *pModuleBank, char *streamFileName, int 
 }
 
 int SNDAEMS_asyncloadmodulebankmemdone() {
+    SNDI_CHECKINSTALLED();
     return (int)(sndaems.asyncloading == false);
 }

@@ -9,6 +9,9 @@
 #include "Speed/Indep/Src/Generated/Events/EPerfectShift.hpp"
 #include "Speed/Indep/Src/Generated/Events/EPlayerShift.hpp"
 #include "Speed/Indep/Src/Interfaces/IAttributeable.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
+#endif
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ICheater.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IEngine.h"
@@ -176,9 +179,9 @@ class EngineRacer : protected VehicleBehavior,
     float GetNOSFlowRate() const override {
         return this->mNOSInfo.FLOW_RATE();
     }
-    void ChargeNOS(float charge) override {
+    void ChargeNOS(float amount) override {
         if (this->HasNOS()) {
-            this->mNOSCapacity = UMath::Clamp(this->mNOSCapacity + charge, 0.0f, 1.0f);
+            this->mNOSCapacity = UMath::Clamp(this->mNOSCapacity + amount, 0.0f, 1.0f);
         }
     }
 
@@ -236,7 +239,7 @@ class EngineRacer : protected VehicleBehavior,
         return (GearID)mGear;
     }
     bool IsGearChanging() const override {
-        return this->mGearShiftTimer > 0.0f;
+        return this->mGearShiftTimer > 0.0f ? true : false;
     }
     bool Shift(GearID gear) override {
         return this->DoGearChange(gear, false);
@@ -244,6 +247,9 @@ class EngineRacer : protected VehicleBehavior,
     float GetSpeedometer() const override;
     float GetMaxSpeedometer() const override;
     float GetShiftPoint(GearID from_gear, GearID to_gear) const override;
+#ifdef EA_BUILD_A124
+    Rpm GetOptimalShiftRange(GearID to_gear) const override;
+#endif
 
     ShiftStatus GetShiftStatus() const override {
         return this->mShiftStatus;
@@ -449,7 +455,12 @@ EngineRacer::~EngineRacer() {
 
 float EngineRacer::GetHorsePower() const {
     float engine_torque = this->GetEngineTorque(this->mRPM);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    float hp = NM2HP(engine_torque * this->mThrottle, this->mRPM); // PC: un 1/5252 de mas (exe de PC y de X360: lbl_820B8288 = 1/5252)
+    return hp / 5252.0f;
+#else
     return NM2HP(engine_torque * this->mThrottle, this->mRPM);
+#endif
 }
 
 void EngineRacer::OnBehaviorChange(const UCrc32 &mechanic) {
@@ -472,8 +483,13 @@ void EngineRacer::Sabotage(float time) {
 
 bool EngineRacer::Blow() {
     if (!this->mBlown) {
+#ifdef EA_PLATFORM_WIN32
+        this->mSabotage = 0.0f;
+        this->mBlown = true;
+#else
         this->mBlown = true;
         this->mSabotage = 0.0f;
+#endif
         new EEngineBlown(this->GetOwner()->GetInstanceHandle());
         return true;
     }
@@ -510,9 +526,13 @@ float EngineRacer::GetEngineTorque(Rpm rpm) const {
     float result = FTLB2NM(ftlbs);
     result *= 1.0f + this->mInductionBoost;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    result *= this->mNOSBoost;
+#else
     if (this->GetVehicle()->GetDriverClass() != DRIVER_REMOTE) {
         result *= this->mNOSBoost;
     }
+#endif
 
     return result;
 }
@@ -529,10 +549,11 @@ GearID EngineRacer::GuessGear(Mps speed) const {
 
         float shift_at = this->GetShiftPoint(this_gear, next_gear);
         float this_rpm = this->GuessRPM(speed, this_gear);
-        if (this_rpm <= shift_at) {
+        if (this_rpm > shift_at) {
+            result = next_gear;
+        } else {
             break;
         }
-        result = next_gear;
     }
 
     return result;
@@ -687,7 +708,7 @@ static const bool Tweak_UseSportShift = true; // TODO use
 // static const float Tweak_SportShiftTime; // TODO value and use
 
 bool EngineRacer::SportShift(GearID gear) {
-    if (gear == this->mGear || gear <= G_NEUTRAL || this->IsGearChanging())
+    if (gear == this->mGear || gear < G_FIRST || this->IsGearChanging())
         return false;
 
     ShiftPotential potential = this->GetShiftPotential();
@@ -758,7 +779,7 @@ float EngineRacer::GetDifferentialAngularVelocity(bool locked) const {
     if (this->FrontWheelDrive()) {
         float w_vel = (this->mSuspension->GetWheelAngularVelocity(0) + this->mSuspension->GetWheelAngularVelocity(1)) * 0.5f;
         if (!locked) {
-            if (UMath::Abs(w_vel) > 0.0f)
+            if (UMath::Abs(w_vel) > UMath::Abs(into_gearbox))
                 into_gearbox = w_vel;
         } else {
             into_gearbox = in_reverse ? UMath::Min(w_vel, 0.0f) : UMath::Max(w_vel, 0.0f);
@@ -842,14 +863,14 @@ float EngineRacer::GetMaxSpeedometer() const {
     if (num_ratios > 0) {
         float limiter = MPH2MPS(this->mEngineInfo.SPEED_LIMITER(0));
         float max_speedometer = this->CalcSpeedometer(this->mEngineInfo.RED_LINE(), num_ratios - 1);
+
         if (limiter > 0.0f) {
-            return UMath::Min(max_speedometer, limiter);
-        } else {
-            return max_speedometer;
+            max_speedometer = UMath::Min(max_speedometer, limiter);
         }
-    } else {
-        return 0.0f;
+        return max_speedometer;
     }
+
+    return 0.0f;
 }
 
 // Credits: Brawltendo
@@ -1053,9 +1074,18 @@ float EngineRacer::DoThrottle() {
 
 // Credits: Brawltendo
 void EngineRacer::DoShifting(float dT) {
+#ifdef EA_BUILD_A124
+    if (this->GetVehicle()->GetForceStop() & 8) {
+        this->mGear = G_NEUTRAL;
+        this->mGearShiftTimer = 0.0f;
+    } else if ((this->mIInput != nullptr) && this->mIInput->IsAutomaticShift()) {
+        this->AutoShift();
+    }
+#else
     if ((this->mIInput != nullptr) && this->mIInput->IsAutomaticShift()) {
         this->AutoShift();
     }
+#endif
 
     if (this->mGearShiftTimer > 0.0f) {
         this->mGearShiftTimer -= dT;
@@ -1142,11 +1172,11 @@ void EngineRacer::OnTaskSimulate(float dT) {
             idle_limit *= 3.0f;
         }
 
-        float idle_w = RPM2RPS(idle_limit) + min_w;
-        if (this->mAngularVelocity > idle_w || this->mTransmissionVelocity > idle_w || this->mThrottle >= 0.1f) {
-            this->mClutch.Engage(Tweak_1stGearClutchEngageTime);
-        } else {
+        float idle_w = min_w + RPM2RPS(idle_limit);
+        if (this->mAngularVelocity <= idle_w && this->mTransmissionVelocity <= idle_w && this->mThrottle < 0.1f) {
             this->mClutch.Disengage();
+        } else {
+            this->mClutch.Engage(Tweak_1stGearClutchEngageTime);
         }
     } else if (this->mGear == G_NEUTRAL) {
         this->mClutch.Disengage();
@@ -1171,7 +1201,7 @@ void EngineRacer::OnTaskSimulate(float dT) {
     float trans_acceleration = (this->mTransmissionVelocity - old_clutchv) / dT;
     float overrev_torque = 0.0f;
     if (this->mGear != G_NEUTRAL && this->mClutch.GetState() == Clutch::ENGAGED && braking_torque * axle_w * gear_direction > overrev_torque) {
-        braking_torque = -braking_torque;
+        braking_torque *= -1.0f;
     }
 
     float total_engine_torque = engine_torque * this->mThrottle + braking_torque * (1.0f - this->mThrottle);
@@ -1337,13 +1367,24 @@ float EngineRacer::GetShiftPoint(GearID from_gear, GearID to_gear) const {
     return 0.0f;
 }
 
+#ifdef EA_BUILD_A124
+// En el prototipo es parte de ITransmission (la version de venta solo la tiene EngineDragster, en linea).
+Rpm EngineRacer::GetOptimalShiftRange(GearID to_gear) const {
+    return this->GetGearRatio(to_gear) * this->mTranyInfo.OPTIMAL_SHIFT();
+}
+#endif
+
 static const float EngineHeatUpRedLine = 0.45f;
 static const float EngineHeatCoolDown = -0.1f;
 static const float EngineHeatBlownThreshold = 1.0f;
 static const float EngineHeatBlownFlag = 1.0f;
 static const float EngineHeatPenaltyThreshold = 0.6f;
 static const float EngineHeatTorquePenalty = 0.75f;
+#ifdef EA_BUILD_A124
+static const float PerfectShiftSplit = 0.6f;
+#else
 static const float PerfectShiftSplit = 3.0f;
+#endif
 static const float ShiftClutchPenalty = 0.0f;
 static const bool bUseReverseInDrag = false;
 static const float PerfectShiftBoost = 0.75f;
@@ -1388,10 +1429,15 @@ class EngineDragster : public EngineRacer, public IDragEngine, public IDragTrans
 
     // IDragTransmission
     float GetShiftBoost() const override {
+#ifdef EA_BUILD_A124
+        // La A124 devuelve el empuje tal cual (0x25c) cuando lo hay.
+        return this->mBoost > 0.0f ? this->mBoost : 1.0f;
+#else
         if (!this->IsGearChanging() && this->mBoost > 0.0f) {
             return UMath::Lerp(1.0f, 2.0f, this->mBoost / PerfectShiftSplit * this->mPerfectShiftTime);
         }
         return 1.0f;
+#endif
     }
 
     // IDragEngine
@@ -1404,14 +1450,16 @@ class EngineDragster : public EngineRacer, public IDragEngine, public IDragTrans
 
     // EngineRacer
     bool UseRevLimiter() const override {
-        return this->GetVehicle()->IsStaging() != false;
+        return this->GetVehicle()->IsStaging() != false ? true : false;
     }
 
     // Inlines
 
+#ifndef EA_BUILD_A124
     float GetOptimalShiftRange(GearID to_gear) const {
         return this->GetGearRatio(to_gear) * this->GetTransmissionData().OPTIMAL_SHIFT();
     }
+#endif
 
   private:
 #ifdef EA_BUILD_A124
@@ -1431,6 +1479,9 @@ EngineDragster::EngineDragster(const BehaviorParams &bp)
     : EngineRacer(bp),              //
       IDragEngine(bp.fowner),       //
       IDragTransmission(bp.fowner), //
+#ifdef EA_BUILD_A124
+      mShiftBonus(0.0f), //
+#endif
       mPotentialBonus(0.0f),        //
       mPerfectShiftTime(0.0f),      //
       mBoost(0.0f),                 //
@@ -1447,6 +1498,9 @@ Behavior *EngineDragster::Construct(const BehaviorParams &parms) {
 void EngineDragster::Reset() {
     EngineRacer::Reset();
 
+#ifdef EA_BUILD_A124
+    this->mShiftBonus = 0.0f;
+#endif
     this->mPotentialBonus = 0.0f;
     this->mPerfectShiftTime = 0.0f;
     this->mBoost = 0.0f;
@@ -1477,7 +1531,13 @@ void EngineDragster::OnBehaviorChange(const UCrc32 &mechanic) {
 
 Nm EngineDragster::GetEngineTorque(Rpm rpm) const {
     Nm result = EngineRacer::GetEngineTorque(rpm);
+#ifdef EA_BUILD_A124
+    if (this->mBoost > 0.0f) {
+        result *= this->mBoost;
+    }
+#else
     result *= this->GetShiftBoost();
+#endif
 
     if (this->mHeat > 0.0f && result > 0.0f && this->GetGear() > G_FIRST) {
         float penalty = UMath::Ramp(this->mHeat, 0.0f, EngineHeatPenaltyThreshold);
@@ -1492,6 +1552,21 @@ void EngineDragster::OnTaskSimulate(float dT) {
     EngineRacer::OnTaskSimulate(dT);
     this->ComputeEngineHeat(dT);
 
+#ifdef EA_BUILD_A124
+    if (this->mPerfectShiftTime > 0.0f && !this->IsGearChanging()) {
+        float boost = this->mShiftBonus * this->mPerfectShiftTime / PerfectShiftSplit;
+        if (boost > 0.0f) {
+            this->mBoost = boost + 1.0f;
+        }
+
+        this->mPerfectShiftTime -= dT;
+        if (this->mPerfectShiftTime <= 0.0f) {
+            this->mPerfectShiftTime = 0.0f;
+            this->mShiftBonus = 0.0f;
+            this->mBoost = 0.0f;
+        }
+    }
+#else
     if (this->mBoost > 0.0f && !this->IsGearChanging()) {
         this->mPerfectShiftTime -= dT;
         if (this->mPerfectShiftTime <= 0.0f) {
@@ -1499,6 +1574,7 @@ void EngineDragster::OnTaskSimulate(float dT) {
             this->mBoost = 0.0f;
         }
     }
+#endif
 
     float red_line = this->GetRedline();
     float max_rmp = this->GetMaxRPM();
@@ -1523,12 +1599,44 @@ ShiftStatus EngineDragster::OnGearChange(GearID gear) {
         switch (gear) {
             case G_FIRST:
             case G_NEUTRAL:
-                return EngineRacer::OnGearChange(gear);
+                break;
             default:
                 return SHIFT_STATUS_NONE;
         }
+        return EngineRacer::OnGearChange(gear);
     }
 
+#ifdef EA_BUILD_A124
+    GearID oldgear = this->GetGear();
+    ShiftPotential potential = this->GetShiftPotential();
+    ShiftStatus status = EngineRacer::OnGearChange(gear);
+    if (status != SHIFT_STATUS_NONE) {
+        if (gear > oldgear && oldgear > G_NEUTRAL) {
+            if (!this->GetOwner()->IsPlayer()) {
+                IVehicleAI *ai = this->GetVehicle()->GetAIVehiclePtr();
+                if (ai && bRandom(1.0f) < UMath::Lerp(0.0f, PerfectShiftBoost, ai->GetSkill())) {
+                    this->mPotentialBonus = 1.0f;
+                } else {
+                    this->mPotentialBonus = 0.0f;
+                }
+            }
+
+            if (this->mPotentialBonus > 0.0f && this->mPerfectShiftTime <= 0.0f) {
+                this->mPerfectShiftTime = PerfectShiftSplit;
+                this->mShiftBonus = this->mPotentialBonus;
+                new EPerfectShift(this->GetOwner()->GetInstanceHandle(), this->mShiftBonus);
+                return SHIFT_STATUS_PERFECT;
+            } else if (this->mPotentialBonus < 0.0f) {
+                new EMissShift(this->GetOwner()->GetInstanceHandle(), this->mShiftBonus);
+                return SHIFT_STATUS_MISSED;
+            } else if (potential == SHIFT_POTENTIAL_GOOD) {
+                return SHIFT_STATUS_GOOD;
+            }
+        }
+    }
+
+    return status;
+#else
     if (!Tweak_AllowAIPerfectShift && !this->GetOwner()->IsPlayer()) {
         return EngineRacer::OnGearChange(gear);
     }
@@ -1555,6 +1663,7 @@ ShiftStatus EngineDragster::OnGearChange(GearID gear) {
     }
 
     return status;
+#endif
 }
 
 ShiftPotential EngineDragster::UpdateShiftPotential(GearID gear, Rpm rpm) {
@@ -1562,7 +1671,9 @@ ShiftPotential EngineDragster::UpdateShiftPotential(GearID gear, Rpm rpm) {
         return EngineRacer::UpdateShiftPotential(gear, rpm);
     }
 
+#ifndef EA_BUILD_A124
     rpm = this->GetRPM();
+#endif
     if (EngineRacer::UpdateShiftPotential(gear, rpm) == SHIFT_POTENTIAL_DOWN) {
         return SHIFT_POTENTIAL_DOWN;
     }
@@ -1572,11 +1683,17 @@ ShiftPotential EngineDragster::UpdateShiftPotential(GearID gear, Rpm rpm) {
     }
 
     int have_traction = 1;
+#ifdef EA_BUILD_A124
+    for (int i = 0; i < 4; ++i) {
+        have_traction &= static_cast<int>(this->mSuspension->IsWheelOnGround(i) && this->mSuspension->GetWheelSlip(i) < 4.0f);
+    }
+#else
     if (gear == G_FIRST) {
         for (int i = 0; i < 4; ++i) {
             have_traction &= static_cast<int>(this->mSuspension->IsWheelOnGround(i) && this->mSuspension->GetWheelSlip(i) < 4.0f);
         }
     }
+#endif
 
     if (gear < GetTopGear() && gear > G_NEUTRAL && have_traction) {
         GearID nextgear = (GearID)(gear + 1);
@@ -1630,13 +1747,14 @@ void EngineDragster::ComputeEngineHeat(float t) {
         return;
     }
 
-    if (this->IsBlown()) {
-        return;
-    }
-
-    if (this->GetGear() != G_FIRST || mBoost <= 0.0f) {
+    // La A124 mira mShiftBonus (0x250 en su ComputeEngineHeat) donde la version final mira mBoost.
+#ifdef EA_BUILD_A124
+    if (!this->IsBlown() && !(this->GetGear() == G_FIRST && mShiftBonus > 0.0f)) {
+#else
+    if (!this->IsBlown() && !(this->GetGear() == G_FIRST && mBoost > 0.0f)) {
+#endif
         float delta = this->mOverrev > 0.0f ? EngineHeatUpRedLine : EngineHeatCoolDown;
-        this->mHeat = bMax(0.0f, delta * t + this->mHeat);
+        this->mHeat = bMax(0.0f, this->mHeat + delta * t);
         if (this->mHeat >= EngineHeatBlownThreshold && Blow()) {
             this->mHeat = EngineHeatBlownFlag;
         }

@@ -1,72 +1,7 @@
-typedef int INT32;
-typedef unsigned int UINT32;
-typedef unsigned char UINT8;
+#include "postp.h"
 
-typedef struct {
-    unsigned int VideoFrameWidth;
-    unsigned int VideoFrameHeight;
-    int YStride;
-    int UVStride;
-    unsigned int HFragPixels;
-    unsigned int VFragPixels;
-    unsigned int HScale;
-    unsigned int HRatio;
-    unsigned int VScale;
-    unsigned int VRatio;
-    unsigned int ScalingMode;
-    unsigned int Interlaced;
-    unsigned int ExpandedFrameWidth;
-    unsigned int ExpandedFrameHeight;
-} CONFIG_TYPE;
-
-typedef struct {
-    int Vp3VersionNo;
-    int FrameType;
-    int PostProcessingLevel;
-    int FrameQIndex;
-    unsigned char *LastFrameRecon;
-    unsigned char *PostProcessBuffer;
-    unsigned char *FragInfo;
-    unsigned int FragInfoElementSize;
-    unsigned int FragInfoCodedMask;
-    int *FragQIndex;
-    int *FragmentVariances;
-    unsigned char *FragDeblockingFlag;
-    int *BoundingValuePtr;
-    int *FiltBoundingValue;
-    int *DeblockValuePtr;
-    int *DeblockBoundingValue;
-    CONFIG_TYPE Configuration;
-    unsigned int ReconYDataOffset;
-    unsigned int ReconUDataOffset;
-    unsigned int ReconVDataOffset;
-    unsigned int YPlaneFragments;
-    unsigned int UVPlaneFragments;
-    unsigned int UnitFragments;
-    unsigned int HFragments;
-    unsigned int VFragments;
-    int YStride;
-    int UVStride;
-    int *FiltBoundingValueAlloc;
-    int *DeblockBoundingValueAlloc;
-    int *FragQIndexAlloc;
-    int *FragmentVariancesAlloc;
-    unsigned char *FragDeblockingFlagAlloc;
-    unsigned int MVBorder;
-    unsigned char *IntermediateBufferAlloc;
-    unsigned char *IntermediateBuffer;
-    unsigned int DeInterlaceMode;
-    unsigned int AddNoiseMode;
-} POSTPROC_INSTANCE;
-
+/* Sin prototipo, como en el original: en GameCube las llamadas llevan crclr. */
 extern void *memcpy();
-
-extern unsigned char LimitVal_VP31[768];
-
-extern void (*FilterHoriz_Simple)(POSTPROC_INSTANCE *, unsigned char *, INT32, INT32 *);
-extern void (*FilterVert_Simple)(POSTPROC_INSTANCE *, unsigned char *, INT32, INT32 *);
-extern INT32 *(*SetupDeblockValueArray)(POSTPROC_INSTANCE *, INT32);
-extern UINT32 *DeblockLimitValuesV2;
 
 static const UINT32 DeblockLimitValuesV1[64] = {
     30, 25, 20, 20, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10,
@@ -146,13 +81,20 @@ void SimpleDeblockFrame(POSTPROC_INSTANCE *ppi, unsigned char *SrcBuffer,
     INT32 RowStart = 0;
     INT32 NextRow;
     INT32 FLimit;
-    INT32 QIndex = ppi->FrameQIndex;
+    INT32 QIndex;
     INT32 *BoundingValuePtr;
     INT32 LineLength = 0;
     INT32 FragsAcross = ppi->HFragments;
     INT32 FragsDown = ppi->VFragments;
 
+    QIndex = ppi->FrameQIndex;
+
+    /* PC (speed.exe 0x80647B): el original compara contra 2, no contra 1. */
+#if defined(EA_PLATFORM_WIN32)
+    if (ppi->Vp3VersionNo >= 2)
+#else
     if (ppi->Vp3VersionNo > 1)
+#endif
         FLimit = DeblockLimitValuesV2[QIndex];
     else
         FLimit = DeblockLimitValuesV1[QIndex];
@@ -192,16 +134,13 @@ void SimpleDeblockFrame(POSTPROC_INSTANCE *ppi, unsigned char *SrcBuffer,
         RowStart += NextRow;
 
         for (m = 1; m < FragsDown; m++) {
-            unsigned char *DestBufferMinus2 = DestBuffer - 2;
             memcpy(DestBuffer + RowStart, SrcBuffer + RowStart, LineLength * 8);
 
             FilterVert_Simple(ppi, DestBuffer + RowStart, LineLength, BoundingValuePtr);
 
             for (n = 1; n < FragsAcross; n++) {
-                FilterHoriz_Simple(ppi, DestBufferMinus2 + (8 * n + RowStart), LineLength,
-                                   BoundingValuePtr);
-                FilterVert_Simple(ppi, DestBuffer + RowStart + 8 * n, LineLength,
-                                  BoundingValuePtr);
+                FilterHoriz_Simple(ppi, DestBuffer + (8 * n + RowStart) - 2, LineLength, BoundingValuePtr);
+                FilterVert_Simple(ppi, DestBuffer + RowStart + 8 * n, LineLength, BoundingValuePtr);
             }
 
             RowStart += NextRow;

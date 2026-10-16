@@ -21,22 +21,21 @@ CostToState::CostToState(UTL::COM::Object *pOutter, const char *pkg_name, int pl
 }
 
 void CostToState::Update(IPlayer *player) {
-    if (mDataCostToState == nullptr) {
-        return;
-    }
-
-    if (mNumFramesLeftToShow >= 1) {
-        mNumFramesLeftToShow = mNumFramesLeftToShow - 1;
-        FEngSetLanguageHash(mDataTitle, 0x3DD874C5);
-        FEPrintf(mDataCostToState, "%$d", mCostToState);
-        if (!mCostToStateOn) {
-            mCostToStateOn = true;
-            FEngSetScript(GetPackageName(), FEHashUpper("CTS_GROUP"), FEHashUpper("APPEAR"), true);
-        }
-    } else {
-        if (mCostToStateOn) {
-            mCostToStateOn = false;
-            FEngSetScript(GetPackageName(), FEHashUpper("CTS_GROUP"), FEHashUpper("LEAVE"), true);
+    // Sin return temprano: las dos PS2 hacen de cola (j) las dos llamadas a FEngSetScript.
+    if (mDataCostToState != nullptr) {
+        if (mNumFramesLeftToShow > 0) {
+            mNumFramesLeftToShow = mNumFramesLeftToShow - 1;
+            FEngSetLanguageHash(mDataTitle, 0x3DD874C5);
+            FEPrintf(mDataCostToState, "%$d", mCostToState);
+            if (!mCostToStateOn) {
+                mCostToStateOn = true;
+                FEngSetScript(GetPackageName(), FEHashUpper("CTS_GROUP"), FEHashUpper("APPEAR"), true);
+            }
+        } else {
+            if (mCostToStateOn) {
+                mCostToStateOn = false;
+                FEngSetScript(GetPackageName(), FEHashUpper("CTS_GROUP"), FEHashUpper("LEAVE"), true);
+            }
         }
     }
 }

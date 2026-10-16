@@ -290,8 +290,8 @@ void SuspensionTrailer::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float l
     this->ApplyTorque(ebt);
 
     float slip_angle = UMath::Atan2a(lat_vel, UMath::Abs(fwd_vel));
-    this->mLongitudeForce = this->mAppliedTorque / this->mRadius;
     this->mSlip = this->mAV * this->mRadius - fwd_vel;
+    this->mLongitudeForce = this->mAppliedTorque / this->mRadius;
 
     this->mLateralForce = (this->mLoad * this->mSpecs->GRIP_SCALE().At(this->mAxleIndex)) * TrailerCorneringForce.GetValue(UMath::Abs(slip_angle));
     if (0.0f < lat_vel) {
@@ -302,8 +302,8 @@ void SuspensionTrailer::Tire::UpdateLoaded(float lat_vel, float fwd_vel, float l
         if (this->mAxleIndex == 1) {
             this->mLateralForce *= 0.75f;
         }
-        this->mAV = 0.0f;
         this->mSlipping = true;
+        this->mAV = 0.0f;
     } else {
         if (this->mAxleIndex == 1) {
             this->mLateralForce *= 1.5f;
@@ -550,7 +550,7 @@ void SuspensionTrailer::DoWheelForces(State &state) {
         float penetration = wheel.GetNormal().w;
         float upness = UMath::Clamp(UMath::Dot(vUp, groundNormal), 0.0f, 1.0f);
         const float oldCompression = wheel.GetCompression();
-        float newCompression = rideheight_specs[axle] * upness + penetration;
+        float newCompression = penetration + rideheight_specs[axle] * upness;
         float max_compression = travel_specs[axle];
 
         if (wheel.GetCompression() == 0.0f) {

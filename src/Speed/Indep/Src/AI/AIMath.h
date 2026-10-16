@@ -27,13 +27,11 @@ class FloatSpring {
 
     float Integrate(float newvalue, float dT) {
         float v = mV;
-        float dX = (-v * mD * dT);
-        dX += (newvalue - mX) * mC * dT + v;
+        float dX = v + (newvalue - mX) * mC * dT;
+        mV = dX + -v * mD * dT;
+        mX += mV * dT;
 
-        mV = dX;
-        mX += dX * dT;
-
-        return dX;
+        return mV;
     }
 
   private:

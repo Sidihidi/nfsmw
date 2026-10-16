@@ -36,31 +36,6 @@ typedef unsigned int type_operator_new;
 #define ONLINE_SUPPORT (0) // TODO get rid of this
 
 
-#elif defined(__ANDROID__)
-// Port Android: mismos tipos que GC pero con long de 64 bits del LP64 del NDK
-// (colisiona con stdint del sysroot si usamos long long). Sin dolphin/types.h.
-#include <stdint.h>
-#define ALIGN_16 __attribute__((aligned(16)))
-#ifndef __ANDROID__
-// Android: stdint.h de LP64 ya define int64_t/uint64_t correctamente
-typedef signed char int8_t;
-typedef short int16_t;
-typedef int int32_t;
-typedef long long int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
-#endif
-typedef unsigned char Bool;
-typedef signed char int8;
-typedef unsigned char uint8;
-typedef short int16;
-typedef unsigned short uint16;
-typedef int int32;
-typedef unsigned int uint32;
-typedef long int int64;
-typedef unsigned long int uint64;
 #elif defined(EA_PLATFORM_XENON)
 
 #include <cstddef>
@@ -159,7 +134,7 @@ typedef bool Bool;
 #define ATTRIBUTE_ALIGN(num) __declspec(align(num))
 #endif
 
-#define ALIGN_16
+#define ALIGN_16 ATTRIBUTE_ALIGN(16)
 
 #define EA_PACKED
 
@@ -268,7 +243,13 @@ typedef short int i16;
 typedef unsigned char u8;
 typedef signed char i8;
 
+// La version de venta (SLUS) NO tiene online y el prototipo A124 si: en SLUS
+// kRaceContext_Career vale 2, o sea que falta la entrada kRaceContext_Online.
+#ifdef EA_BUILD_A124
 #define ONLINE_SUPPORT (1)
+#else
+#define ONLINE_SUPPORT (0)
+#endif
 
 #endif
 
@@ -295,8 +276,6 @@ typedef signed char i8;
 #ifdef CLANGD_DAMNIT
 typedef unsigned int uintptr_t;
 typedef int intptr_t;
-#elif defined(__ANDROID__)
-// Port Android: stdint.h ya define uintptr_t/intptr_t de 64 bits (LP64)
 #else
 #define uintptr_t unsigned int
 #define intptr_t int

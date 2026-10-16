@@ -62,9 +62,9 @@ class VisualLookEffect {
     void Trigger(float length, bool useWorldTime, bool stopIfHeatFalls, bool stopAfterLength) {
         if (length == 0.0f) {
             length = this->AttribEffect->length();
-            if (length == 0.0f) {
-                return;
-            }
+        }
+        if (length == 0.0f) {
+            return;
         }
         this->StartTime = useWorldTime ? WorldTimer.GetSeconds() : RealTimer.GetSeconds();
         this->PulseLength = length;
@@ -181,7 +181,9 @@ class VisualLookEffectTarget {
 // UNSOLVED float assignment order
 IVisualTreatment::IVisualTreatment()
     : MiddayVisualLook(0xEEC2271A, 0, nullptr),                                                                                            //
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
       SunsetVisualLook(0xCEDA4E4F, 0, nullptr),                                                                                            //
+#endif
       UvesVisualLook(0x681BEF75, 0, nullptr),                                                                                              //
       CopCamVisualLook(0xEE6074A3, 0, nullptr),                                                                                            //
       UvesPulse(new ("VisualLookEffect", 0) VisualLookEffect(new Attrib::Gen::visuallookeffect(0x334F1E4D, 0, nullptr))),                  //
@@ -194,7 +196,11 @@ IVisualTreatment::IVisualTreatment()
     this->RadialBlur = 0.0f;
     this->NosRadialBlurAmount = 0.0f;
     this->PursuitBreakerBlend = 0.0f;
+#ifdef EA_BUILD_A124
+    this->CurrentTarget = 0.0f; // la A124 lo arranca a cero (su Reset si pone -1)
+#else
     this->CurrentTarget = -1.0f;
+#endif
     this->DesaturationTarget = -1.0f;
     this->State = HEAT_LOOK;
     this->HeatMeter = 0.0f;
@@ -277,17 +283,21 @@ void IVisualTreatment::BlendVisualLookAttribute(bMatrix4 &result, float defaultU
     bMemSet(&result, 0, sizeof(bMatrix4));
 
     float zero;
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     if (GetCurrentTimeOfDay() == eTOD_MIDDAY) {
+#endif
         zero = 0.0f;
         if (defaultUves != zero) {
             AddBlend(&result, (bMatrix4 *)&(MiddayVisualLook.*funcPtr)(), defaultUves);
         }
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     } else {
         zero = 0.0f;
         if (defaultUves != zero) {
             AddBlend(&result, (bMatrix4 *)&(SunsetVisualLook.*funcPtr)(), defaultUves);
         }
     }
+#endif
 
     if (uves != zero) {
         AddBlend(&result, (bMatrix4 *)&(UvesVisualLook.*funcPtr)(), uves);
@@ -299,11 +309,15 @@ void IVisualTreatment::BlendVisualLookAttribute(float &result, float defaultUves
     result = 0.0f;
 
     if (defaultUves != 0.0f) {
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
         if (GetCurrentTimeOfDay() == eTOD_MIDDAY) {
+#endif
             result += (this->MiddayVisualLook.*funcPtr)() * defaultUves;
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
         } else {
             result += (this->SunsetVisualLook.*funcPtr)() * defaultUves;
         }
+#endif
     }
 
     if (uves != 0.0f) {
@@ -316,11 +330,15 @@ void IVisualTreatment::BlendVisualLookAttribute(bVector4 &result, float defaultU
     bMemSet(&result, 0, sizeof(bVector4));
 
     if (defaultUves != 0.0f) {
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
         if (GetCurrentTimeOfDay() == eTOD_MIDDAY) {
+#endif
             AddBlend(&result, (bVector4 *)(&(MiddayVisualLook.*funcPtr)()), defaultUves);
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
         } else {
             AddBlend(&result, (bVector4 *)(&(SunsetVisualLook.*funcPtr)()), defaultUves);
         }
+#endif
     }
 
     if (uves != 0.0f) {
@@ -336,10 +354,11 @@ void IVisualTreatment::UpdateVisualLook() {
         this->PulseBrightness = 0.0f;
         this->RadialBlur = 0.0f;
     } else if (this->State == FE_LOOK) {
-        currVisualLook = &this->SunsetVisualLook;
-        if (GetCurrentTimeOfDay() == eTOD_MIDDAY) {
-            currVisualLook = &this->MiddayVisualLook;
-        }
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+        currVisualLook = GetCurrentTimeOfDay() == eTOD_MIDDAY ? &this->MiddayVisualLook : &this->SunsetVisualLook;
+#else
+        currVisualLook = &this->MiddayVisualLook;
+#endif
 
         this->PulseBrightness = 0.0f;
         this->RadialBlur = 0.0f;
@@ -370,7 +389,7 @@ void IVisualTreatment::UpdateHeat(eView *view, float targetHeat
                                   bool isBeingPursued
 #endif
 ) {
-    targetHeat = static_cast<float>(static_cast<int>(targetHeat));
+    targetHeat = static_cast<float>(bFloatToInt(targetHeat));
 
     if (UTL::Collections::Singleton<INIS>::Exists()) {
 #ifndef EA_BUILD_A124
@@ -478,27 +497,30 @@ void IVisualTreatment::Update(eView *view) {
         }
     }
 
+#ifdef EA_BUILD_A124
+    float heatMeter = 0.0f;
+    if (iperp != nullptr) {
+        heatMeter = iperp->GetHeat();
+    }
+    HeatMeter = heatMeter;
+
+    if (State == HEAT_LOOK) {
+        UpdateHeat(view, heatMeter);
+    } else {
+#else
     if (State == HEAT_LOOK) {
         float heatMeter = 0.0f;
-#ifndef EA_BUILD_A124
         bool isBeingPursed = false;
-#endif
 
         if (iperp != nullptr) {
             heatMeter = iperp->GetHeat();
-#ifndef EA_BUILD_A124
             isBeingPursed = iperp->IsBeingPursued();
-#endif
         }
 
-        UpdateHeat(view, heatMeter
-#ifndef EA_BUILD_A124
-                   ,
-                   isBeingPursed
-#endif
-        );
+        UpdateHeat(view, heatMeter, isBeingPursed);
         HeatMeter = heatMeter;
     } else {
+#endif
         UpdateVisualLook();
     }
 

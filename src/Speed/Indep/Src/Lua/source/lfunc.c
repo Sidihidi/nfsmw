@@ -96,7 +96,12 @@ void luaF_freeproto(lua_State *L, Proto *f) {
     luaM_freearray(L, f->lineinfo, f->sizelineinfo, int, LUAALLOC_INT);
     luaM_freearray(L, f->locvars, f->sizelocvars, struct LocVar, LUAALLOC_LOCVAR);
     luaM_freearray(L, f->upvalues, f->sizeupvalues, TString *, LUAALLOC_TSTRINGPTR);
+#ifdef EA_PLATFORM_XENON
+    // X360 libera el Proto con su etiqueta de asignacion (0xE), no con la de puntero.
+    luaM_freelem(L, f, LUAALLOC_PROTO);
+#else
     luaM_freelem(L, f, LUAALLOC_PROTOPTR);
+#endif
 }
 
 void luaF_freeclosure(lua_State *L, Closure *c) {

@@ -27,8 +27,6 @@ class MNotifyKnockedOut : public Hermes::Message {
 
     MNotifyKnockedOut(HSIMABLE _Racer) : Hermes::Message(_GetKind(), _GetSize(), 0), fRacer(_Racer) {}
 
-    ~MNotifyKnockedOut() {}
-
     HSIMABLE GetRacer() const {
         return fRacer;
     }
@@ -46,9 +44,9 @@ class MNotifyKnockedOut : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyKnockedOut::HandleMessage_LuaBinding(const MNotifyKnockedOut &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyKnockedOut::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

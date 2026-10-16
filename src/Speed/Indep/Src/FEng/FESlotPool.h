@@ -5,7 +5,22 @@
 #include "Speed/Indep/Src/FEng/FEngStandard.h"
 #include "types.h"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static const u16 FEngSlotsPerBlock = 32; // size: 0x2, Decl: speed/indep/src/feng/FESlotPool.h:22
+
 
 // File: speed/indep/src/feng/FESlotPool.h
 // total size: 0x18
@@ -18,34 +33,25 @@ class FESlotNode : public FEMinNode {
     u8 *pData;      // offset 0x14, size 0x4, Decl: speed/indep/src/feng/FESlotPool.h:33
 
   public:
-    FESlotNode(u16 Size) : SlotSize(Size), SlotsUsed(0), pData(nullptr) { // Decl: speed/indep/src/feng/FESlotPool.h:36
+    FESlotNode(u16 Size) // Decl: speed/indep/src/feng/FESlotPool.h:36
+        : SlotSize(Size), SlotsUsed(0), pData(nullptr) {
         pData = FNEW u8[Size * FEngSlotsPerBlock];
         FEngMemSet(SlotMask, 0, sizeof(SlotMask));
     }
-
-    ~FESlotNode() override { // Decl: speed/indep/src/feng/FESlotPool.h:41
-        if (pData) {
-            delete[] pData;
-        }
-    }
+    ~FESlotNode() override { if (pData) { delete[] pData; } } // Decl: speed/indep/src/feng/FESlotPool.h:41
 
     u8 *AllocBlock();
     void FreeBlock(u8 *pSlot);
 
-    bool Contains(u8 *pSlot) { // Decl: speed/indep/src/feng/FESlotPool.h:46
-        return pSlot >= pData && pSlot < pData + (SlotSize * FEngSlotsPerBlock);
-    }
-    bool IsEmpty() { // Decl: speed/indep/src/feng/FESlotPool.h:47
-        return SlotsUsed == 0;
-    }
-    bool IsFull() { // Decl: speed/indep/src/feng/FESlotPool.h:48
-        return SlotsUsed == FEngSlotsPerBlock;
-    }
+    bool Contains(u8 *pSlot) { return pSlot >= pData && pSlot < pData + (SlotSize * FEngSlotsPerBlock); } // Decl: speed/indep/src/feng/FESlotPool.h:46
+    bool IsEmpty() { return SlotsUsed == 0; } // Decl: speed/indep/src/feng/FESlotPool.h:47
+    bool IsFull() { return SlotsUsed == FEngSlotsPerBlock; } // Decl: speed/indep/src/feng/FESlotPool.h:48
 
-    FESlotNode *GetNext() { // Decl: speed/indep/src/feng/FESlotPool.h:50
-        return static_cast<FESlotNode *>(FEMinNode::GetNext());
-    }
+    FESlotNode *GetNext() { return static_cast<FESlotNode *>(FEMinNode::GetNext()); } // Decl: speed/indep/src/feng/FESlotPool.h:50
 };
+
+
+
 
 // total size: 0x20
 // Decl: speed/indep/src/feng/FESlotPool.h:58
@@ -61,14 +67,21 @@ class FESlotPool : public FEMinNode {
     u8 *Alloc();
     bool Free(u8 *pSlot);
 
-    bool IsEmpty() { // Decl: speed/indep/src/feng/FESlotPool.h:72
-        return Slots.GetNumElements() == 0;
-    }
 
-    FESlotPool *GetNext() { // Decl: speed/indep/src/feng/FESlotPool.h:75
-        return static_cast<FESlotPool *>(FEMinNode::GetNext());
-    }
+
+    bool IsEmpty() { return Slots.GetNumElements() == 0; } // Decl: speed/indep/src/feng/FESlotPool.h:72
+
+
+    FESlotPool *GetNext() { return static_cast<FESlotPool *>(FEMinNode::GetNext()); } // Decl: speed/indep/src/feng/FESlotPool.h:75
 };
+
+
+
+
+
+
+
+
 
 // total size: 0x10
 // Decl: speed/indep/src/feng/FESlotPool.h:88

@@ -26,8 +26,9 @@ struct EngineMix {
 };
 
 struct SFXCTL_HybridMotor : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:
@@ -42,9 +43,10 @@ struct SFXCTL_HybridMotor : public SFXCTL {
     Graph DecelCrossfadeMix;                // offset 0x44, size 0x8
     bVector2 CrossFadesPoints[5];           // offset 0x4C, size 0x28
     int m_EngVolRedLine;                    // offset 0x74, size 0x4
-    // La A124 no tiene mPrevDeltaRPM ni mPrevPhyDeltaRPM (stabs: m_GinsuLPFVal en 0x78, m_EngineMix en 0xBC,
-    // tamano 0xD4): su UpdateMixerOutputs no tiene la logica de redline.
-#ifndef EA_BUILD_A124
+    // Las dos PS2 no tienen mPrevDeltaRPM ni mPrevPhyDeltaRPM (stabs de la A124: m_GinsuLPFVal en 0x78,
+    // m_EngineMix en 0xBC, tamano 0xD4; SLUS hace el mismo new de 0xD4 y coloca igual el constructor):
+    // su UpdateMixerOutputs no tiene la logica de redline.
+#ifndef EA_PLATFORM_PLAYSTATION2
     int mPrevDeltaRPM;                      // offset 0x78, size 0x4
 #endif
     float m_GinsuLPFVal;                    // offset 0x7C, size 0x4
@@ -55,7 +57,7 @@ struct SFXCTL_HybridMotor : public SFXCTL {
     float m_CurAudDeltaRPMVal;             // offset 0xB4, size 0x4
     float PrevRPM;                          // offset 0xB8, size 0x4
     float m_GinsuScaledRPM;                // offset 0xBC, size 0x4
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     float mPrevPhyDeltaRPM;               // offset 0xC0, size 0x4
 #endif
     EngineMix m_EngineMix;                  // offset 0xC4, size 0x10

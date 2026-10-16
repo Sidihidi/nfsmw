@@ -5,6 +5,11 @@
 #pragma once
 #endif
 
+// Las 10 unidades del original que parsean SpeechFlow traen justo antes VehicleParams y UTIL_InterprolateIndex
+// (DWARF de GC); en zEAXSound y zEAXSound2 deja "VehicleParams" delante de "Attrib::Gen::speechtune", como el original.
+#include "Speed/Indep/Src/Physics/PVehicle.h"
+#include "Speed/Indep/Src/Sim/Util.h"
+
 class EAXCop;
 
 namespace Speech {
@@ -32,7 +37,7 @@ class SpeechFlow {
         ChangeStateTo(kTransition);
         mBusy = 0;
     }
-    virtual bool IsBusy() { return mBusy != 0; }
+    virtual bool IsBusy() { return mBusy != 0 ? true : false; }
     virtual void OnCopAdded(EAXCop *cop);
     virtual void OnCopRemoved(EAXCop *cop);
 

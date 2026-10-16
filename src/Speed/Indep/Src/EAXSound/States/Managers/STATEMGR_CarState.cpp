@@ -9,16 +9,22 @@
 #include "Speed/Indep/Src/Misc/Profiler.hpp"
 #include "Speed/Indep/Src/Sim/Simulation.h"
 
-CSTATEMGR_CarState::MappingList CSTATEMGR_CarState::FinalMapping;           // size: 0x0, Decl: 14
-CSTATEMGR_CarState::EngineList CSTATEMGR_CarState::FinalEngines;            // size: 0x0, Decl: 15
-CSTATEMGR_CarState::EngineList CSTATEMGR_CarState::FinalCopV8Engines;       // size: 0x0, Decl: 16
-CSTATEMGR_CarState::EngToCarMapList CSTATEMGR_CarState::EngineToCarMapping; // size: 0x0, Decl: 18
+CSTATEMGR_CarState::MappingList CSTATEMGR_CarState::FinalMapping;           // Decl: 14
+CSTATEMGR_CarState::EngineList CSTATEMGR_CarState::FinalEngines;            // Decl: 15
+CSTATEMGR_CarState::EngineList CSTATEMGR_CarState::FinalCopV8Engines;       // Decl: 16
+CSTATEMGR_CarState::EngToCarMapList CSTATEMGR_CarState::EngineToCarMapping; // Decl: 18
 
 bool CSTATEMGR_CarState::CopsCanBeInGame = true; // Decl: 20
 
 CSTATEMGR_CarState::CSTATEMGR_CarState() {
+#ifdef EA_PLATFORM_WIN32
+    // PC inicializa m_CarContext antes que m_fConnectDistance.
+    this->m_CarContext = Sound::CONTEXT_AIRACER;
+    this->m_fConnectDistance = 135.0f;
+#else
     this->m_fConnectDistance = 135.0f;
     this->m_CarContext = Sound::CONTEXT_AIRACER;
+#endif
     this->CopsCanBeInGame = true;
 }
 
@@ -78,12 +84,20 @@ void CSTATEMGR_CarState::UpdateParams(float t) {
 }
 
 // size: 0x10, address: 0x803DD468, Decl: 231
+#ifdef EA_BUILD_A124
+static const Attrib::Key V8CopEngines[3] = {
+    Attrib::Hash::engineaudio::key_maz_rx8,
+    Attrib::Hash::engineaudio::key_por_911_a,
+    Attrib::Hash::engineaudio::key_por_car_gt,
+};
+#else
 static const Attrib::Key V8CopEngines[4] = {
     Attrib::Hash::engineaudio::key_corvette_z06,
     Attrib::Hash::engineaudio::key_for_mus_b,
     Attrib::Hash::engineaudio::key_for_mus_c,
     Attrib::Hash::engineaudio::key_hum_h1,
 };
+#endif
 
 bool sort_engine_priority(unsigned int firstkey, unsigned int secondkey) {
     Attrib::Gen::engineaudio First(firstkey, 0, nullptr);
@@ -116,8 +130,13 @@ void CSTATEMGR_CarState::ResolveCarBanks() {
     EnginesThatCanUpgradeToV8.clear();
     EnginesThatAreV8.clear();
 
-    bool CopsCanBeInGame = !FEDatabase->IsQuickRaceMode();
+#ifdef EA_BUILD_A124
     ForcePrintResolveInfo = false;
+    CopsCanBeInGame = true;
+#else
+    ForcePrintResolveInfo = false;
+    bool CopsCanBeInGame = !FEDatabase->IsQuickRaceMode();
+#endif
 
     if (DEBUG_CAR_BANK_TEST_CASE == -1) {
         int NumEnginesWeWantToLoad;
@@ -126,7 +145,11 @@ void CSTATEMGR_CarState::ResolveCarBanks() {
             CarSoundConn *pconn = *iter;
             EAX_CarState *eax_car = pconn->GetState();
 
-            if ((eax_car->GetContext() != Sound::CONTEXT_AIRACER && eax_car->GetContext() != Sound::CONTEXT_COP) || pconn->mConnected) {
+            if (eax_car->GetContext() != Sound::CONTEXT_AIRACER && eax_car->GetContext() != Sound::CONTEXT_COP) {
+                continue;
+            }
+
+            if (pconn->mConnected) {
                 continue;
             }
             Attrib::Gen::engineaudio *AIEngine = eax_car->GetEngineInfo();
@@ -146,14 +169,14 @@ void CSTATEMGR_CarState::ResolveCarBanks() {
 
         NumEnginesWeWantToLoad = static_cast<int>(AIEnginesWeWantToLoad.size() + FinalEngines.size());
         if (!CopsCanBeInGame) {
-            if (NumEnginesWeWantToLoad <= 4) {
+            if (NumEnginesWeWantToLoad <= MAX_NUM_AI_ENGINES_ATTACHED) {
                 goto LoadRemainingEngines;
             }
         } else {
-            if (NumEnginesWeWantToLoad <= 3) {
+            if (NumEnginesWeWantToLoad <= MAX_NUM_AI_ENGINES_ATTACHED - 1) {
                 goto LoadRemainingEngines;
             }
-            if (NumEnginesWeWantToLoad <= 4 && EnginesThatAreV8.size() != 0) {
+            if (NumEnginesWeWantToLoad <= MAX_NUM_AI_ENGINES_ATTACHED && EnginesThatAreV8.size() != 0) {
                 goto LoadRemainingEngines;
             }
         }
@@ -190,7 +213,11 @@ void CSTATEMGR_CarState::ResolveCarBanks() {
             AIEnginesWeWantToLoad.erase(found);
             LastV8Used++;
         } else {
+#ifdef EA_BUILD_A124
+            int V8ToLoad = g_pEAXSound->Random(3);
+#else
             int V8ToLoad = g_pEAXSound->Random(4);
+#endif
             unsigned int copengkey = V8CopEngines[V8ToLoad];
             if (DEBUG_PRINT_CAR_BANK_RESOLVE) {
                 Attrib::Gen::engineaudio first(copengkey, 0, nullptr);
@@ -221,7 +248,7 @@ void CSTATEMGR_CarState::ResolveCarBanks() {
             }
             LastV8Used++;
 
-            if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= 4) {
+            if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= MAX_NUM_AI_ENGINES_ATTACHED) {
                 goto LoadRemainingEngines;
             }
             goto BeginRule2;
@@ -247,7 +274,7 @@ BeginRule3: {
                 AIEnginesWeWantToLoad.erase(first);
                 AIEnginesWeWantToLoad.erase(second);
 
-                if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= 4) {
+                if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= MAX_NUM_AI_ENGINES_ATTACHED) {
                     goto LoadRemainingEngines;
                 }
                 goto BeginRule3;
@@ -277,7 +304,7 @@ BeginRule4: {
                 unsigned int *first = std::find(AIEnginesWeWantToLoad.begin(), AIEnginesWeWantToLoad.end(), AIEnginesWeWantToLoad[n]);
                 AIEnginesWeWantToLoad.erase(first);
 
-                if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= 4) {
+                if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= MAX_NUM_AI_ENGINES_ATTACHED) {
                     goto LoadRemainingEngines;
                 }
                 goto BeginRule4;
@@ -296,7 +323,7 @@ BeginRule4: {
         unsigned int *first = std::find(AIEnginesWeWantToLoad.begin(), AIEnginesWeWantToLoad.end(), AIEnginesWeWantToLoad[n]);
         AIEnginesWeWantToLoad.erase(first);
 
-        if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= 4) {
+        if (FinalEngines.size() + AIEnginesWeWantToLoad.size() <= MAX_NUM_AI_ENGINES_ATTACHED) {
             goto LoadRemainingEngines;
         }
         goto BeginRule4;
@@ -320,7 +347,11 @@ LoadRemainingEngines:
         CarSoundConn *pconn = *iter;
         EAX_CarState *eax_car = pconn->GetState();
 
-        if ((eax_car->GetContext() != Sound::CONTEXT_AIRACER && eax_car->GetContext() != Sound::CONTEXT_COP) || pconn->mConnected) {
+        if (eax_car->GetContext() != Sound::CONTEXT_AIRACER && eax_car->GetContext() != Sound::CONTEXT_COP) {
+            continue;
+        }
+
+        if (pconn->mConnected) {
             continue;
         }
 

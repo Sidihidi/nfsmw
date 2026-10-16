@@ -2,6 +2,8 @@
 
 int SNDfxlevel(int shandle, int bus, int level) {
     int setvoice;
+
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
 
     if (voice >= 0) {

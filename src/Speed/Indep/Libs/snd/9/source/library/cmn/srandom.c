@@ -20,41 +20,34 @@ void SNDI_randomseed(unsigned int seed) {
 }
 
 unsigned int iSNDrandom() {
-    unsigned int carry;
-    unsigned int sum = SNDIrandseed[5] + SNDIrandseed[4];
+    unsigned int ax;
+    unsigned int c;
 
-    carry = sum < SNDIrandseed[5] || sum < SNDIrandseed[4];
-    SNDIrandseed[4] = sum;
-    sum = sum + SNDIrandseed[3] + carry;
-    carry = sum < SNDIrandseed[3];
-    SNDIrandseed[3] = sum;
-    sum = sum + SNDIrandseed[2] + carry;
-    carry = sum < SNDIrandseed[2];
-    SNDIrandseed[2] = sum;
-    sum = sum + SNDIrandseed[1] + carry;
-    carry = sum < SNDIrandseed[1];
-    SNDIrandseed[1] = sum;
-    sum = sum + SNDIrandseed[0] + carry;
-    SNDIrandseed[0] = sum;
+    ax = SNDIrandseed[5] + SNDIrandseed[4];
+    c = ax < SNDIrandseed[5] || ax < SNDIrandseed[4];
+    SNDIrandseed[4] = ax;
+    ax = ax + SNDIrandseed[3] + c;
+    c = ax < SNDIrandseed[3];
+    SNDIrandseed[3] = ax;
+    ax = ax + SNDIrandseed[2] + c;
+    c = ax < SNDIrandseed[2];
+    SNDIrandseed[2] = ax;
+    ax = ax + SNDIrandseed[1] + c;
+    c = ax < SNDIrandseed[1];
+    SNDIrandseed[1] = ax;
+    ax = ax + SNDIrandseed[0] + c;
+    SNDIrandseed[0] = ax;
 
-    if (++SNDIrandseed[5] != 0) {
-        return sum;
+    if (++SNDIrandseed[5] == 0) {
+        if (++SNDIrandseed[4] == 0) {
+            if (++SNDIrandseed[3] == 0) {
+                if (++SNDIrandseed[2] == 0) {
+                    if (++SNDIrandseed[1] == 0) {
+                        ax = ++SNDIrandseed[0];
+                    }
+                }
+            }
+        }
     }
-    if (++SNDIrandseed[4] != 0) {
-        return sum;
-    }
-    if (++SNDIrandseed[3] != 0) {
-        return sum;
-    }
-    if (++SNDIrandseed[2] != 0) {
-        return sum;
-    }
-    if (++SNDIrandseed[1] != 0) {
-        return sum;
-    }
-
-    unsigned int result = SNDIrandseed[0] + 1;
-
-    SNDIrandseed[0] = result;
-    return result;
+    return ax;
 }

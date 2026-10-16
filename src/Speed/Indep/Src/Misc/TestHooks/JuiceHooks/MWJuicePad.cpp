@@ -97,11 +97,11 @@ void MWJuicePad::PressButton(int port, MWJuicePadButtonType buttonType) {
         SimulateFEButton(port, FEActionMapping[buttonType], 1.0f);
         return;
     }
-    ActionID buttonID = BEActionMapping[buttonType];
+    ActionID button = BEActionMapping[buttonType];
     if (INIS::Exists() && buttonType == JUICE_ACCEPT) {
-        buttonID = HUDACTION_SKIPNIS;
+        button = HUDACTION_SKIPNIS;
     }
-    SimulateBEButton(port, buttonID, 1.0f);
+    SimulateBEButton(port, button, 1.0f);
 }
 
 void MWJuicePad::ReleaseAllButtons(MWJPadReleaseType type) {
@@ -138,49 +138,49 @@ void MWJuicePad::PollInput() {
             if (action.Data() > 0.0f && mInputQueue->IsConnected()) {
                 switch (action.ID()) {
                 case 0x19:
-                    Juice::JuicePad::Instance()->SetButton(255.0f, 1);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_DPADUP, 255.0f);
                     break;
                 case 0x1a:
-                    Juice::JuicePad::Instance()->SetButton(255.0f, 2);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_DPADDOWN, 255.0f);
                     break;
                 case 0x1b:
-                    Juice::JuicePad::Instance()->SetButton(255.0f, 3);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_DPADLEFT, 255.0f);
                     break;
                 case 0x1c:
-                    Juice::JuicePad::Instance()->SetButton(255.0f, 4);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_DPADRIGHT, 255.0f);
                     break;
                 case 0x21:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 5);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTON1, action.Data());
                     break;
                 case 0x22:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 8);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTON4, action.Data());
                     break;
                 case 0x24:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 15);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONSTART, action.Data());
                     break;
                 case 0x25:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 16);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONSELECT, action.Data());
                     break;
                 case 0x26:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 13);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONR2, action.Data());
                     break;
                 case 0x27:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 11);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONL3, action.Data());
                     break;
                 case 0x28:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 14);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONR3, action.Data());
                     break;
                 case 0x29:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 7);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTON3, action.Data());
                     break;
                 case 0x2a:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 6);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTON2, action.Data());
                     break;
                 case 0x2b:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 9);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONL1, action.Data());
                     break;
                 case 0x2c:
-                    Juice::JuicePad::Instance()->SetButton(action.Data(), 12);
+                    Juice::JuicePad::Instance()->SetButton(Juice::JUICEPAD_BUTTONR1, action.Data());
                     break;
                 }
             }

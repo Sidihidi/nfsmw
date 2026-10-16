@@ -23,8 +23,11 @@ extern unsigned int iCurrentViewBin;
 
 namespace Showcase {
 extern const char* FromPackage;
-extern int FromArgs;
-extern int BlackListNumber;
+extern unsigned int FromArgs;
+#ifdef EA_BUILD_A124
+extern unsigned int FromCarHandle;
+#endif
+extern unsigned int BlackListNumber;
 } // namespace Showcase
 
 uiRepSheetRivalBio::uiRepSheetRivalBio(ScreenConstructorData* sd)
@@ -40,9 +43,11 @@ uiRepSheetRivalBio::uiRepSheetRivalBio(ScreenConstructorData* sd)
         cFEng::Get()->QueuePackageMessage(0xb21a45f, GetPackageName(), nullptr);
     } else {
         cFEng::Get()->QueuePackageMessage(0xaf922178, GetPackageName(), nullptr);
+#ifndef EA_BUILD_A124 // la A124 sigue pintando el coche del garaje
         if (!bIsInGame) {
             GarageMainScreen::GetInstance()->DisableCarRendering();
         }
+#endif
     }
     Setup();
 }
@@ -56,6 +61,19 @@ void uiRepSheetRivalBio::NotificationMessage(u32 msg, FEObject* obj, u32 param1,
         }
     {
         char buf[64];
+#ifdef EA_BUILD_A124 // la A124 no tiene el coche de la demo del E3 ni monta el coche en el visor
+        bSNPrintf(buf, 64, "BL%d", iCurrentViewBin);
+        FECarRecord* pCar = FEDatabase->GetPlayerCarStable(0)->CreateNewPresetCar(buf);
+        if (pCar == nullptr) {
+            break;
+        }
+        Showcase::FromArgs = 0;
+        Showcase::FromCarHandle = FEDatabase->GetCareerSettings()->GetCurrentCar();
+        Showcase::FromPackage = GetPackageName();
+        Showcase::BlackListNumber = iCurrentViewBin;
+        cFEng::Get()->QueuePackageSwitch("Showcase.fng", reinterpret_cast< int >(pCar), 0, false);
+        break;
+#else
         if (iCurrentViewBin == 1) {
             bSNPrintf(buf, 64, "E3_DEMO_BMW");
         } else {
@@ -74,6 +92,7 @@ void uiRepSheetRivalBio::NotificationMessage(u32 msg, FEObject* obj, u32 param1,
         Showcase::BlackListNumber = iCurrentViewBin;
         cFEng::Get()->QueuePackageSwitch("Showcase.fng", reinterpret_cast< int >(pCar), 0, false);
         break;
+#endif
     }
     case 0xc519bfc3:
         if (FEDatabase->IsPostRivalMode()) {
@@ -102,7 +121,9 @@ void uiRepSheetRivalBio::NotificationMessage(u32 msg, FEObject* obj, u32 param1,
         if (bIsInGame) {
             cFEng::Get()->QueuePackageSwitch("InGameReputationOverview.fng", 1, 0, false);
         } else {
+#ifndef EA_BUILD_A124
             GarageMainScreen::GetInstance()->EnableCarRendering();
+#endif
             cFEng::Get()->QueuePackageSwitch("SafeHouseReputationOverview.fng", 0, 0, false);
         }
         break;
@@ -111,11 +132,19 @@ void uiRepSheetRivalBio::NotificationMessage(u32 msg, FEObject* obj, u32 param1,
 
 void uiRepSheetRivalBio::RefreshHeader() {
     char buf[32];
+#ifdef EA_BUILD_A124 // la A124 compone el rotulo con el numero detras
+    if (bIsInGame) {
+        FEngSNPrintf(buf, 32, "%s %d", GetLocalizedString(0x2e3919e9), iCurrentViewBin);
+    } else {
+        FEngSNPrintf(buf, 32, "%s %d", GetLocalizedString(0xcace5999), iCurrentViewBin);
+    }
+#else
     if (bIsInGame) {
         FEngSNPrintf(buf, 32, GetLocalizedString(0x96ca2471), iCurrentViewBin);
     } else {
         FEngSNPrintf(buf, 32, GetLocalizedString(0x3a64de21), iCurrentViewBin);
     }
+#endif
     FEPrintf(GetPackageName(), 0x242657ce, "%s", buf);
     const char* pkgName;
     pkgName = GetPackageName();

@@ -43,7 +43,7 @@ static cMapJoyEventToFEPad MapJoyEventToFEPad[16] = {
 cFEngJoyInput *cFEngJoyInput::mInstance = nullptr;
 
 cFEngJoyInput::cFEngJoyInput() {
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
         mActionQ[i] = new ActionQueue(i, 0x82d21520, "FEng", false);
         mActionQ[i]->Enable(true);
         mActionQ[i]->IsConnected();
@@ -51,7 +51,7 @@ cFEngJoyInput::cFEngJoyInput() {
 }
 
 void cFEngJoyInput::FlushActions() {
-    for (int port = 0; port < 2; port++) {
+    for (int port = 0; port < NUM_JOYSTICK_PORTS; port++) {
         if (mActionQ[port] != nullptr) {
             mActionQ[port]->Flush();
         }
@@ -63,7 +63,7 @@ void cFEngJoyInput::FlushActions() {
 
 void cFEngJoyInput::JoyDisable(JoystickPort port, bool do_flush) {
     if (port == JOYSTICK_PORT_ALL) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
             mActionQ[i]->Enable(false);
             if (do_flush) {
                 mActionQ[i]->Flush();
@@ -83,7 +83,7 @@ bool cFEngJoyInput::IsJoyPluggedIn(JoystickPort port) {
 
 void cFEngJoyInput::JoyEnable(JoystickPort port, bool do_flush) {
     if (port == JOYSTICK_PORT_ALL) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
             if (!mActionQ[i]->IsEnabled()) {
                 mActionQ[i]->Enable(true);
                 if (do_flush) {
@@ -103,7 +103,7 @@ void cFEngJoyInput::JoyEnable(JoystickPort port, bool do_flush) {
 
 bool cFEngJoyInput::IsJoyEnabled(JoystickPort port) {
     if (port == JOYSTICK_PORT_ALL) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
             if (!mActionQ[i]->IsEnabled()) {
                 return false;
             }
@@ -118,7 +118,7 @@ bool cFEngJoyInput::IsJoyEnabled(JoystickPort port) {
 
 void cFEngJoyInput::SetRequiredJoy(JoystickPort port, bool required) {
     if (port == JOYSTICK_PORT_ALL) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < NUM_JOYSTICK_PORTS; i++) {
             mActionQ[i]->SetRequired(required);
         }
         return;
@@ -126,12 +126,24 @@ void cFEngJoyInput::SetRequiredJoy(JoystickPort port, bool required) {
     mActionQ[port]->SetRequired(required);
 }
 
+#ifndef EA_BUILD_A124
+bool cFEngJoyInput::IsRequiredJoy(JoystickPort port) {
+    if (port == JOYSTICK_PORT1 || port == JOYSTICK_PORT2) {
+        return mActionQ[port]->IsRequired();
+    }
+    return false;
+}
+#endif
+
 bool cFEngJoyInput::CheckUnplugged() {
     bool unplugged = false;
     if (!TheGameFlowManager.IsInGame() && !FEManager::Get()->IsAllowingControllerError()) {
         SetRequiredJoy(JOYSTICK_PORT_ALL, false);
     } else {
         bool is_splitscreen = FEDatabase->IsSplitScreenMode();
+#ifdef EA_BUILD_A124
+        bool bIsSplit = Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN || is_splitscreen;
+#else
         bool bIsSplit;
         if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
             bIsSplit = true;
@@ -140,6 +152,7 @@ bool cFEngJoyInput::CheckUnplugged() {
         } else {
             bIsSplit = true;
         }
+#endif
         JoystickPort player_port2 = static_cast<JoystickPort>(-1);
         JoystickPort player_port1 = static_cast<JoystickPort>(FEDatabase->GetPlayersJoystickPort(0));
         if (player_port1 == static_cast<JoystickPort>(-1)) {
@@ -163,12 +176,17 @@ bool cFEngJoyInput::CheckUnplugged() {
             feManager->WantControllerError(player_port2);
             unplugged = true;
         }
+#ifdef EA_BUILD_A124
+        else if (!bIsSplit && !cFEng::Get()->IsPackagePushed("ControllerUnplugged.fng")) {
+            feManager->ClearControllerError(player_port2);
+        }
+#endif
     }
     return unplugged;
 }
 
 void cFEngJoyInput::HandleJoy() {
-    for (int port = 0; port < 2; port++) {
+    for (int port = 0; port < NUM_JOYSTICK_PORTS; port++) {
         if (mActionQ[port] != nullptr) {
             while (!mActionQ[port]->IsEmpty()) {
                 ActionRef aRef = mActionQ[port]->GetAction();
@@ -201,7 +219,7 @@ void cFEngJoyInput::HandleJoy() {
                     for (int j = 0; j < 16; j++) {
                         if (mActionQ[port]->IsConnected()) {
                             if (MapJoyEventToFEPad[j].Event == aRef.ID()) {
-                                MapJoyEventToFEPad[j].State[port] = static_cast<int>(aRef.Data() + 0.5f);
+                                MapJoyEventToFEPad[j].State[port] = bFloatToInt(aRef.Data() + 0.5f);
                                 if (!gKeyboardManager.IsCapturing()) {
                                     if (aRef.ID() == FRONTENDACTION_BUTTON2) {
                                         if (aRef.Data() == 1.0f) {

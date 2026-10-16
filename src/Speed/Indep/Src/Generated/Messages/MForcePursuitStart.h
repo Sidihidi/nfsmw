@@ -26,8 +26,6 @@ class MForcePursuitStart : public Hermes::Message {
 
     MForcePursuitStart(int _MinHeatLevel) : Hermes::Message(_GetKind(), _GetSize(), 0), fMinHeatLevel(_MinHeatLevel) {}
 
-    ~MForcePursuitStart() {}
-
     int GetMinHeatLevel() const {
         return fMinHeatLevel;
     }
@@ -45,9 +43,9 @@ class MForcePursuitStart : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MForcePursuitStart::HandleMessage_LuaBinding(const MForcePursuitStart &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MForcePursuitStart::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

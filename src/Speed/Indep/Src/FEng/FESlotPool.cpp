@@ -1,6 +1,17 @@
 #include "Speed/Indep/Src/FEng/FESlotPool.h"
 #include "Speed/Indep/Src/FEng/FEngStandard.h"
 
+
+
+
+
+
+
+
+
+
+
+
 u8 *FESlotNode::AllocBlock() {
     if (SlotsUsed == FEngSlotsPerBlock) {
         return nullptr;
@@ -27,17 +38,23 @@ void FESlotNode::FreeBlock(u8 *pSlot) {
     SlotMask[Index >> 3] &= ~static_cast<u8>(1 << (Index & 7));
 }
 
+
+
+
 u8 *FESlotPool::Alloc() {
     FESlotNode *pNode = static_cast<FESlotNode *>(Slots.GetHead());
+
     while (pNode && pNode->IsFull()) {
         pNode = pNode->GetNext();
     }
     if (!pNode) {
+
         pNode = FNEW FESlotNode(SlotSize);
         Slots.AddHead(pNode);
     }
     return pNode->AllocBlock();
 }
+
 
 bool FESlotPool::Free(u8 *pSlot) {
     FESlotNode *pNode = static_cast<FESlotNode *>(Slots.GetHead());
@@ -58,6 +75,11 @@ bool FESlotPool::Free(u8 *pSlot) {
     return true;
 }
 
+
+
+
+
+
 u8 *FEMultiPool::Alloc(u32 Size) {
     if (Size == 0) {
         return nullptr;
@@ -67,11 +89,17 @@ u8 *FEMultiPool::Alloc(u32 Size) {
         pPool = pPool->GetNext();
     }
     if (!pPool) {
+
         pPool = FNEW FESlotPool(Size);
         Pools.AddHead(pPool);
     }
     return pPool->Alloc();
 }
+
+
+
+
+
 
 void FEMultiPool::Free(u8 *pSlot) {
     if (!pSlot) {

@@ -245,17 +245,13 @@ void SlotPool::VerifyPoolIntegrity() {}
 
 void *SlotPool::Malloc() {
     if (!FreeSlots && (Flags & SLOTPOOL_FLAG_OVERFLOW_IF_FULL)) {
-        int num_extra_slots = NumSlots;
-        if (num_extra_slots < 0) {
-            num_extra_slots += 3;
-        }
-        ExpandSlotPool((num_extra_slots >> 2) + 1);
+        ExpandSlotPool(NumSlots / 4 + 1);
     }
     SlotPoolEntry *slot = static_cast<SlotPoolEntry *>(FastMalloc());
     if (slot && (Flags & SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY)) {
         int num_words = SlotSize >> 2;
         for (int n = 0; n < num_words; n++) {
-            slot[n].Next = nullptr;
+            reinterpret_cast<int *>(slot)[n] = 0;
         }
     }
     return slot;
@@ -296,28 +292,18 @@ void *SlotPool::Malloc(int num_slots, void **last_slot) {
         if ((Flags & SLOTPOOL_FLAG_OVERFLOW_IF_FULL) == 0) {
             return nullptr;
         }
-        n = NumSlots;
-        if (n < 0) {
-            n += 3;
-        }
-        int num_extra_slots = (n >> 2) + 1;
+        int num_extra_slots = NumSlots / 4 + 1;
         if (num_extra_slots < num_slots) {
             num_extra_slots = num_slots;
         }
         ExpandSlotPool(num_extra_slots);
     }
     first_slot = FreeSlots;
-    n = 0;
     slot = first_slot;
-    if (!first_slot) {
-        return nullptr;
-    }
-    while (n < num_slots - 1) {
+    n = 0;
+    while (slot && n < num_slots - 1) {
         slot = slot->Next;
         n++;
-        if (!slot) {
-            return nullptr;
-        }
     }
     if (!slot) {
         return nullptr;
@@ -335,8 +321,8 @@ void *SlotPool::Malloc(int num_slots, void **last_slot) {
     if (Flags & SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY) {
         for (SlotPoolEntry *slot = first_slot; slot; slot = slot->Next) {
             int num_words = SlotSize >> 2;
-            for (int n = 1; n < num_words; n++) {
-                slot[n].Next = nullptr;
+            for (int n = sizeof(SlotPoolEntry) / sizeof(int); n < num_words; n++) {
+                reinterpret_cast<int *>(slot)[n] = 0;
             }
         }
     }

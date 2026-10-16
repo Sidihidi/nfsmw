@@ -4,46 +4,23 @@
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
 #include "Speed/Indep/Src/Misc/BuildRegion.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
+#include "Speed/Indep/bWare/Inc/bMemory.hpp"
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/file.h"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system/systask.h"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system/threads.h"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system/timer.h"
 
 #include "dolphin.h"
+#include <libsn.h>
 #include "Speed/Indep/Src/Frontend/FEngFrontend.hpp"
 
-// Definidas fuera de esta unidad: GetVideoMode en 0x80209A74, SetVideoMode en
-// 0x80209A80 y GetBuildRegionVideoMode en 0x80209A94. El nombre del enum sale
-// del manglado, SetVideoMode__F10VIDEO_MODE.
+// Definidas en EcstasyE.cpp de GameCube, que no tiene cabecera que las declare.
 extern Bool bEURGB60;
+int eSetDisplaySystem(int video_mode);
 
-void SetVideoMode(VIDEO_MODE mode);
-VIDEO_MODE GetBuildRegionVideoMode();
-void eSetDisplaySystem(int mode);
-
-// realcore todavia no decompilado; prototypes sueltos de la API de sistema.
-struct FILESYSOPTS {
-    int nType;         // +0x00
-    void *pAllocator;  // +0x04
-    int nMinAlign;     // +0x08
-    int nAsyncThreads; // +0x0C
-    int pad[8];        // +0x10
-    int nFlags;        // +0x30
-};
-
-void bWareInit();
-void THREAD_init();
-void TIMER_init(int);
-int FILE_getopts(FILESYSOPTS *opts);
-int FILE_setopts(FILESYSOPTS *opts);
-int FILE_init(void *mem, int size);
-void ASYNCFILE_init(int numAsync, int arg);
-int SYNCTASK_add(void (*task)(void *, int), int priority, int period, void *arg);
-extern "C" void snProfInit(int id, void *data, int size);
-
-namespace EA {
-namespace Allocator {
-class IAllocator;
-}
-}
-
-extern EA::Allocator::IAllocator &gMemoryAllocator;
+// Definida en realcore (file/cmn/hlafile.cpp); realcore/file.h todavia no la declara.
+void ASYNCFILE_init(int requests, int memtype);
 
 int snProfilerEnable = 1;
 
@@ -109,9 +86,9 @@ static inline void OSSetGQR7GC(unsigned int type, unsigned int scale) {
 }
 
 void InitPlatform() {
-    static char profdata[0x2000];
+    static unsigned long profdata[2048];
 
-    FILESYSOPTS opts;
+    FILESYSOPTS fso;
 
     bWareInit();
     OSInit();
@@ -124,13 +101,13 @@ void InitPlatform() {
     TIMER_init(100);
     unsigned long diskGameCode = *(unsigned long *)DVDGetCurrentDiskID();
     g_GC_Disk_GameName = diskGameCode;
-    opts.nType = 0x38;
-    FILE_getopts(&opts);
-    opts.nFlags = 1;
-    opts.pAllocator = static_cast<void *>(&gMemoryAllocator);
-    opts.nMinAlign = 0x20;
-    opts.nAsyncThreads = 0x40;
-    FILE_setopts(&opts);
+    fso.size = sizeof(fso);
+    FILE_getopts(&fso);
+    fso.allocator = &gMemoryAllocator;
+    fso.DiscType = 1;
+    fso.MaxOpenFiles = 0x20;
+    fso.MaxFileOps = 0x40;
+    FILE_setopts(&fso);
     FILE_init(0, 0);
     ASYNCFILE_init(0x10, 0);
     SYNCTASK_add(DVDErrorTask, 2, 0, 0);
@@ -142,7 +119,7 @@ void InitPlatform() {
     OSSetGQR7GC(0x6, 0x6);
 
     if (snProfilerEnable != 0) {
-        snProfInit(0x278D, profdata, 0x2000);
+        snProfInit(_4KHZ, profdata, sizeof(profdata));
     }
 }
 

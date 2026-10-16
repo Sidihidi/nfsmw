@@ -23,9 +23,9 @@ void EHidePart_MakeEvent_Callback(const void *staticData) {
     new EHidePart(((EHidePart::StaticData *) staticData)->fPartName, gEventDynamicData.fhModel);
 }
 
-int EHidePart_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EHidePart(UCrc32(lua_tostring(L, 1)), gEventDynamicData.fhModel);
+int EHidePart_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EHidePart(UCrc32(lua_tostring(luaState, 1)), gEventDynamicData.fhModel);
     }
     return 0;
 }

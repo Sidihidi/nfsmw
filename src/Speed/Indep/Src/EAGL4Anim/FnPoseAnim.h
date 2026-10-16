@@ -36,9 +36,9 @@ class FnPoseAnim : public FnAnimMemoryMap {
     // NOTE: no user-declared destructor; the synthesized one does not reset the vptr.
 
     static void PatchVtbl(FnPoseAnim *poseAnim) {
-        FnPoseAnim fn;
+        FnPoseAnim tmp;
 
-        *reinterpret_cast<void **>(poseAnim) = *reinterpret_cast<void **>(&fn);
+        *reinterpret_cast<void **>(poseAnim) = *reinterpret_cast<void **>(&tmp);
     }
 
     FnPoseAnim();

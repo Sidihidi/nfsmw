@@ -17,6 +17,14 @@ void CleanParticlesOnRaceRestart();
 void KillSkidsOnRaceRestart();
 
 ERestartRace::ERestartRace() : Event(0x10) {
+#ifdef EA_BUILD_A124
+    // La A124 no mira Exists() ni las carreras de desafio y no ajusta la dificultad adaptativa.
+    if (GRaceStatus::Get().GetActivelyRacing()) {
+        g_pEAXSound->ReStartRace(true);
+    } else {
+        g_pEAXSound->ReStartRace(false);
+    }
+#else
     if (GRaceStatus::Exists() && GRaceStatus::Get().GetActivelyRacing()) {
         if (!GRaceStatus::IsChallengeRace()) {
             g_pEAXSound->ReStartRace(true);
@@ -28,6 +36,7 @@ ERestartRace::ERestartRace() : Event(0x10) {
     }
 
     GRaceStatus::Get().UpdateAdaptiveDifficulty(GRaceStatus::kAdaptiveGain_FromRestart, NULL);
+#endif
 
     FEngHud::bIsRestartingRace = true;
 
@@ -54,7 +63,11 @@ ERestartRace::~ERestartRace() {
     }
 
     if (ITrafficMgr::Exists()) {
+#ifdef EA_BUILD_A124
+        ITrafficMgr::Get()->FlushAllTraffic(false); // `move a1, zero` en la A124; SLUS y GameCube pasan true
+#else
         ITrafficMgr::Get()->FlushAllTraffic(true);
+#endif
     }
 
     ResetCameraShakers();

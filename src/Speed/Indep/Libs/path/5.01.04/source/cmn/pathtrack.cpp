@@ -46,21 +46,18 @@ int PATH_createstreamtrack(int trackhandle, char *musfilename, int latency)
    en el DWARF (comprobado compilando una), asi que el original la escribio de
    otra forma. Dentro del bloque de `byterate` la conversion desplaza el
    planificador (95,368 %); delante de `trackimp = 0` reproduce el objeto
-   EXACTO. Es una reconstruccion del TIPO de sentencia, no de su texto. */
+   EXACTO. Es una reconstruccion del TIPO de sentencia, no de su texto.
+
+   RETIRADA el 2026-09-30 (decision del usuario: veracidad antes que completar): esa conversion iba en una local
+   `buffersize` que el DWARF no tiene. Los 8 B de marco eran `-mps-float` (caller-save.c de SN reserva 8 B por cada
+   FPR vivo tras una llamada; f31 guarda el parametro float), no la conversion ni el compilador v1.83: con el flag
+   en cflags_path esta funcion y CreateStreamTrack casan sin la local inventada (fabrica de compiladores, 30-sep). */
 IPathTrack *PATH_createstreamimp(int trackhandle, int maxrequests, float buffertime)
 {
     IPathTrack *trackimp;
 
     if (!PATHI_lock())
         return 0;
-
-    {
-        /* muerta: solo reserva el area X del marco -- ver la nota de arriba */
-        int buffersize = (int)buffertime;
-
-        if (buffersize < 0)
-            buffersize = 0;
-    }
 
     trackimp = 0;
 
@@ -124,13 +121,18 @@ int PATHI_inittrack(int trackhandle, char *musfilename)
     char *p;
     char c;
 
-    if (!(trackhandle & PATH_ALL_TRACKS) || !(trackhandle & PATH_ALL_PROJECTS) ||
-        !(trackhandle & PATH_ALL_VOICES))
+    if (!(trackhandle & PATH_ALL_TRACKS))
+        return PATHERR_INV_PARAM;
+
+    if (!(trackhandle & PATH_ALL_PROJECTS))
+        return PATHERR_INV_PARAM;
+
+    if (!(trackhandle & PATH_ALL_VOICES))
         return PATHERR_INV_PARAM;
 
     for (trackID = 0; trackID < PATH_MAX_TRACKS; trackID++)
     {
-        if (!((trackhandle >> trackID) & 1))
+        if (!(trackhandle & (1L << trackID)))
             continue;
         break;
     }
@@ -170,7 +172,7 @@ int PATHI_inittrack(int trackhandle, char *musfilename)
     track->newestrequesthandle = -1;
     track->loadingsubbank = -1;
     track->fileop = PATH_UNLIKELY_VALUE;
-    track->mainvoice = ((trackhandle & PATH_ALL_VOICES) == 0x10000000);
+    track->mainvoice = ((voiceID & PATH_ALL_VOICES) == 0x10000000);
 
     strcpy(track->musicfilename, musfilename);
 
@@ -184,9 +186,8 @@ int PATHI_inittrack(int trackhandle, char *musfilename)
 
     for (i = 0; i < PATH_MAX_VOICES; i++)
     {
-        if (((voiceID >> (i + 28)) & 1) == 0)
-            continue;
-        break;
+        if (voiceID & (1L << (i + 28)))
+            break;
     }
 
     sprintf(track->trackname, "%x%s", i + 1, p);
@@ -196,16 +197,16 @@ int PATHI_inittrack(int trackhandle, char *musfilename)
     {
         c = (c && *p) ? (char)(*p | 0x20) : (char)0;
 
-        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
-            continue;
-
-        c = 0;
-        if (p >= &track->trackname[12])
+        if ((c < 'a' || c > 'z') && (c < '0' || c > '9'))
         {
-            *p = 0;
-            break;
+            c = 0;
+            if (p >= &track->trackname[12])
+            {
+                *p = 0;
+                break;
+            }
+            *p = ' ';
         }
-        *p = ' ';
     }
     track->trackname[11] = 0;
 
@@ -217,7 +218,7 @@ int PATHI_inittrack(int trackhandle, char *musfilename)
 PATHTRACK *PATHI_gettrackptr(unsigned int trackhandle)
 {
     unsigned int p;
-    int t;
+    unsigned int t;
     unsigned int voices = trackhandle & PATH_ALL_VOICES;
     unsigned int projects = trackhandle & PATH_ALL_PROJECTS;
     unsigned int tracks = trackhandle & PATH_ALL_TRACKS;

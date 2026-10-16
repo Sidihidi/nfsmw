@@ -24,7 +24,12 @@ EEnterBin::EEnterBin(int pBinIndex) : Event(0x10), fBinIndex(pBinIndex) {
                     bin->GetChildVault()->LoadSyncTransient();
                 }
 
+#ifdef EA_BUILD_A124
+                // La A124 no trae esta llamada en el binario original
+                // (SLUS/GC/PC si; en X360 la funcion no existe).
+#else
                 ClearAllNewStatus();
+#endif
 
                 for (unsigned int onUnlock = 0; onUnlock < bin->GetBaselineUnlockCount(); onUnlock++) {
                     unsigned int unlock = bin->GetBaselineUnlock(onUnlock);
@@ -53,9 +58,9 @@ void EEnterBin_MakeEvent_Callback(const void *staticData) {
     new EEnterBin(((EEnterBin::StaticData *) staticData)->fBinIndex);
 }
 
-int EEnterBin_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EEnterBin((int) lua_tonumber(L, 1));
+int EEnterBin_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EEnterBin((int) lua_tonumber(luaState, 1));
     }
     return 0;
 }

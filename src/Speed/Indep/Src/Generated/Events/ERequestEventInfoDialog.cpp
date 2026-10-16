@@ -10,7 +10,11 @@ ERequestEventInfoDialog::ERequestEventInfoDialog(int pJoyPort, GRuntimeInstance 
 }
 
 ERequestEventInfoDialog::~ERequestEventInfoDialog() {
+#ifdef EA_BUILD_A124
+    cFEng::Get()->QueuePackageSwitch("EngageEventDialog.fng", (int) fRaceActivity, 0, false); // la A124 cambia de paquete
+#else
     cFEng::Get()->QueuePackagePush("EngageEventDialog.fng", (int) fRaceActivity, 0, false);
+#endif
 }
 
 const char *ERequestEventInfoDialog::GetEventName() const {
@@ -21,9 +25,9 @@ void ERequestEventInfoDialog_MakeEvent_Callback(const void *staticData) {
     new ERequestEventInfoDialog(((ERequestEventInfoDialog::StaticData *) staticData)->fJoyPort, ((ERequestEventInfoDialog::StaticData *) staticData)->fRaceActivity);
 }
 
-int ERequestEventInfoDialog_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ERequestEventInfoDialog((int) lua_tonumber(L, 1), (GRuntimeInstance *) lua_tostring(L, 2));
+int ERequestEventInfoDialog_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ERequestEventInfoDialog((int) lua_tonumber(luaState, 1), (GRuntimeInstance *) lua_tostring(luaState, 2));
     }
     return 0;
 }

@@ -169,8 +169,8 @@ int SNDAEMS_asyncloadmodulebank(char *moduleBankFileName, int moduleBankFileOffs
 
     SNDAEMSalmbpatchbankhandle = -1;
     SNDAEMSalmbmidibankhandle = -1;
-    SNDAEMSalmbpriority = SNDAEMSalmbcurrentpriority;
     SNDAEMSalmbstage = 0;
+    SNDAEMSalmbpriority = SNDAEMSalmbcurrentpriority;
     SNDAEMSalmbmodulebankhandle = SNDAEMSI_createmodulebankhandle();
     SNDAEMSalmbfileop = FILESYS_open(moduleBankFileName, 1, SNDAEMSalmbpriority, NULL);
 
@@ -185,6 +185,7 @@ int SNDAEMS_asyncloadmodulebank(char *moduleBankFileName, int moduleBankFileOffs
 }
 
 int SNDAEMS_asyncloadmodulebankdone() {
+    SNDI_CHECKINSTALLED();
     if (!sndaems.asyncloading) {
         if (SNDAEMSalmblasterror != 0) {
             return SNDAEMSalmblasterror;

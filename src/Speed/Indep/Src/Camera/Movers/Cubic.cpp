@@ -8,6 +8,9 @@
 #include "Speed/Indep/Src/World/ScreenEffects.hpp"
 #include "Speed/Indep/Src/World/Rain.hpp"
 #include "Speed/Indep/Src/Misc/Rumble.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 bVector3 *bClamp(bVector3 *dest, const bVector3 *minimum, const bVector3 *maximum);
 
@@ -556,13 +559,9 @@ CubicCameraMover::CubicCameraMover(int nView, CameraAnchor *p_car, int pov_type,
     bNormalize(&vLookDir, &vLookDir);
     bNormalize(&vLookDirDesired, &vLookDirDesired);
 
-    vSavedEye.z = 0.0f;
-    vSavedEye.y = 0.0f;
-    vSavedEye.x = 0.0f;
-    vCameraImpcat.y = 0.0f;
-    vCameraImpcat.x = 0.0f;
-    vCameraImpcatTimer.y = 0.0f;
-    vCameraImpcatTimer.x = 0.0f;
+    vSavedEye.x = vSavedEye.y = vSavedEye.z = 0.0f;
+    vCameraImpcat.x = vCameraImpcat.y = 0.0f;
+    vCameraImpcatTimer.x = vCameraImpcatTimer.y = 0.0f;
 
     if (!smooth || bLength(&vEyeDelta) > 50.0f || bDot(&vLookDir, &vLookDirDesired) < -0.9f) {
         CubicSnap(pUp);
@@ -595,7 +594,7 @@ bool CubicCameraMover::OutsidePOV() {
     return OutsidePovType(nPovTypeUsed);
 }
 
-int CubicCameraMover::RenderCarPOV() {
+bool CubicCameraMover::RenderCarPOV() {
     return RenderCarPovType(nPovTypeUsed, bLookBack);
 }
 
@@ -605,22 +604,28 @@ bool CubicCameraMover::HighliteMode() {
 
 #ifndef EA_BUILD_A124
 void CubicCameraMover::SetSnapNext() {
-    if (fIgnoreSetSnapNextTimer > 0.0f) {
-        return;
+    if (fIgnoreSetSnapNextTimer <= 0.0f) {
+        bSnapNext = true;
     }
-    bSnapNext = true;
 }
 #endif
 
 void CubicCameraMover::SetPovType(int pov_type) {
-    if (pov_type != nPovTypeUsed) {
-
-        bool old_outside = OutsidePovType(nPovTypeUsed);
-        bool new_outside = OutsidePovType(pov_type);
-
-        bSnapNext |= !(new_outside && old_outside);
-        nPovType = pov_type;
+    if (pov_type == nPovTypeUsed) {
+        return;
     }
+
+    bool old_outside = OutsidePovType(nPovTypeUsed);
+    bool new_outside = OutsidePovType(pov_type);
+
+    bSnapNext |= !(new_outside && old_outside);
+    nPovType = pov_type;
+#ifdef EA_BUILD_A124
+    // La A124 informa a Juice de la camara elegida (Cubic.cpp:215-217 de sus stabs).
+    if (pov_type >= 0 && pov_type < 7) {
+        JuiceStatsDB::Instance()->SetCamera(pov_type);
+    }
+#endif
 }
 
 void CubicCameraMover::ResetState() {
@@ -633,10 +638,8 @@ void CubicCameraMover::ResetState() {
 
     pCamera->ClearVelocity();
 
-    vCameraImpcat.y = 0.0f;
-    vCameraImpcat.x = 0.0f;
-    vCameraImpcatTimer.y = 0.0f;
-    vCameraImpcatTimer.x = 0.0f;
+    vCameraImpcat.x = vCameraImpcat.y = 0.0f;
+    vCameraImpcatTimer.x = vCameraImpcatTimer.y = 0.0f;
 }
 
 bool CubicCameraMover::IsUnderVehicle() {
@@ -804,16 +807,17 @@ void CubicCameraMover::CameraAccelCurve(bVector3 *pAccel) {
 
 void CubicCameraMover::CameraSpeedHug(bVector3 *pEyeOffset) {
 
-    if (pCar->GetTopSpeed() > 0.0f) {
-
-        bVector2 v_hug;
-        tTable<bVector2> speed_hug_table(CameraSpeedHugData, 5, 0.0f, pCar->GetTopSpeed());
-
-        speed_hug_table.GetValue(&v_hug, pCar->GetVelocityMagnitude());
-
-        pEyeOffset->x *= v_hug.x;
-        pEyeOffset->z *= v_hug.y;
+    if (pCar->GetTopSpeed() <= 0.0f) {
+        return;
     }
+
+    bVector2 v_hug;
+    tTable<bVector2> speed_hug_table(CameraSpeedHugData, 5, 0.0f, pCar->GetTopSpeed());
+
+    speed_hug_table.GetValue(&v_hug, pCar->GetVelocityMagnitude());
+
+    pEyeOffset->x *= v_hug.x;
+    pEyeOffset->z *= v_hug.y;
 }
 
 void CubicCameraMover::SetDesired(bMatrix4 *pCarToWorld, POV *pov, CubicPovData *pov_data, bool bSnapForward) {
@@ -977,7 +981,11 @@ void CubicCameraMover::Update(float dT) {
 
     float stiffness;
 
+#ifdef EA_BUILD_A124
+    bVector3 vAccel; // la A124 no la inicializa: la rellena CameraAccelCurve
+#else
     bVector3 vAccel(0.0f, 0.0f, 0.0f);
+#endif
 
 #ifndef EA_BUILD_A124
     if (fIgnoreSetSnapNextTimer <= 0.0f)
@@ -1158,7 +1166,7 @@ void CubicCameraMover::Update(float dT) {
     vEyeDirection *= 1.0f;
     vEye = vLook + vEyeDirection;
 
-    bAngle a_fov = (bAngle)pFov->Val;
+    bAngle a_fov = bFloatToInt(pFov->Val);
     float f_tan_fov = bTan(a_fov >> 1);
     bAngle a_new_fov = 2 * bATan(1.0f, f_tan_fov);
     pCamera->SetFieldOfView(a_new_fov);
@@ -1172,12 +1180,18 @@ void CubicCameraMover::Update(float dT) {
     float f_handheld_scale = PovHandheldNoiseScale[nPovTypeUsed];
     HandheldNoise(&world_to_camera, f_handheld_scale, true);
 
+#ifdef EA_BUILD_A124
+    // La A124 sacude siempre como el helicoptero, sin mirar el tunel ni la velocidad (Cubic.cpp:862-863).
+    float f_chopper_scale = PovHandheldChopperScale[nPovTypeUsed];
+    ChopperNoise(&world_to_camera, f_chopper_scale, true);
+#else
     if (!AmIinATunnel(&eViews[ViewID], 1)) {
         float f_chopper_scale = PovHandheldChopperScale[nPovTypeUsed];
         float speed_attenuation = bClamp(pCar->GetVelocityMagnitude() * 0.033333335f, 0.0f, 1.0f);
 
         ChopperNoise(&world_to_camera, f_chopper_scale * (1.0f - speed_attenuation * 0.8f), true);
     }
+#endif
 
     float f_speed_scale = PovVelocityNoiseScale[nPovTypeUsed];
     float f_terrain_scale = PovTerrainNoiseScale[nPovTypeUsed];

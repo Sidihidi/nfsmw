@@ -7,19 +7,19 @@
 
 template< int BASE >
 int RaiseToPower(int power) {
-    if (power == 0) return 1;
-    return RaiseToPower< BASE >(power - 1) * BASE;
+    return power == 0 ? 1 : RaiseToPower< BASE >(power - 1) * BASE;
 }
 
 template< typename T, int BASE, unsigned int PRECISION >
 struct FixedPoint {
     T mWord; // offset 0x0
 
+  private:
     static int GetScale() {
         static const unsigned int scale = RaiseToPower< BASE >(PRECISION - 1) * BASE;
         return scale;
     }
-
+  public:
     operator float() {
         return static_cast< float >(mWord) / GetScale();
     }

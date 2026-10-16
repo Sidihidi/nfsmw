@@ -20,7 +20,12 @@ int JumpToHotPosition = 0;
 
 void DebugWorld::Init() {
     if (mThis == nullptr) {
+#ifdef EA_PLATFORM_XENON
+        // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto.
+        mThis = ::new (static_cast<DebugWorld *>(bMalloc(sizeof(DebugWorld), "DebugWorld", 0, 0))) DebugWorld();
+#else
         mThis = ::new ("DebugWorld", 0) DebugWorld();
+#endif
     }
 }
 

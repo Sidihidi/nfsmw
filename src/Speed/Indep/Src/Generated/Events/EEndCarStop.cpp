@@ -15,7 +15,11 @@ EEndCarStop::~EEndCarStop() {
         IVehicle *ivehicle;
 
         if (isimable->QueryInterface(&ivehicle) && ivehicle) {
+#ifdef EA_BUILD_A124
+            ivehicle->ForceStopOff(11);
+#else
             ivehicle->ForceStopOff(3);
+#endif
         }
     }
 }
@@ -28,9 +32,9 @@ void EEndCarStop_MakeEvent_Callback(const void *staticData) {
     new EEndCarStop(((EEndCarStop::StaticData *) staticData)->fDontRetestInput, gEventDynamicData.fhSimable);
 }
 
-int EEndCarStop_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EEndCarStop((int) lua_tonumber(L, 1), gEventDynamicData.fhSimable);
+int EEndCarStop_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EEndCarStop((int) lua_tonumber(luaState, 1), gEventDynamicData.fhSimable);
     }
     return 0;
 }

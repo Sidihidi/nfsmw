@@ -28,9 +28,9 @@ void EShockObject_MakeEvent_Callback(const void *staticData) {
     new EShockObject(((EShockObject::StaticData *) staticData)->fAmount, gEventDynamicData.fhSimable);
 }
 
-int EShockObject_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EShockObject(lua_tonumber(L, 1), gEventDynamicData.fhSimable);
+int EShockObject_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EShockObject(lua_tonumber(luaState, 1), gEventDynamicData.fhSimable);
     }
     return 0;
 }

@@ -66,6 +66,13 @@ struct SystemInterface {
     const char *(*mLocaleGetter)(int); // offset 0xC
 };
 
+namespace Locale {
+
+// GetString__Q26Realmc6LocaleiPce: parameterTypes describe los argumentos variables ("s": una cadena).
+wchar_t *GetString(int strID, char *parameterTypes, ...);
+
+} // namespace Locale
+
 } // namespace Realmc
 
 namespace RealmcIface {
@@ -98,7 +105,8 @@ enum CardId {
     PORT5_SLOT1 = 65536,
     PORT5_DEFAULT = 65536,
     MAX_CARDID = 65536,
-    CARD_UNKNOWN = -1,
+    // Sin signo, como STATUS_UNKNOWN: las dos PS2 lo cargan con lui/ori 0xFFFF (una constante -1 seria addiu).
+    CARD_UNKNOWN = 0xFFFFFFFF,
 };
 
 enum CardStatus {
@@ -191,6 +199,7 @@ struct GcSaveInfo {
 // total size: 0x5C
 struct SaveInfo {
     SaveInfo();
+    void Clear();
 
     Ps2SaveInfo mPs2Info;         // offset 0x0
     XboxSaveInfo mXboxInfo;       // offset 0x2C
@@ -258,12 +267,27 @@ enum DataFormat {
     FORMAT_RAW = 1,
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// En PS2 el identificador de titulo es una cadena (volcado de tipos de la A124).
+typedef char TitleId[13];
+
+// total size: 0x1C
+struct TitleInfo {
+    void Init(TitleType type, const char *id, NameType nameType, DataFormat format);
+
+    TitleType mTitleType;   // offset 0x0
+    TitleId mTitleId;       // offset 0x4
+    NameType mNameType;     // offset 0x14
+    DataFormat mDataFormat; // offset 0x18
+};
+#else
 // total size: 0x10
 struct TitleInfo {
     void Init(TitleType type, unsigned int id, NameType nameType, DataFormat format);
 
     int mPad[4];
 };
+#endif
 
 // total size: 0x8
 struct SaveReq {
@@ -273,6 +297,17 @@ struct SaveReq {
     SaveInfo *mSaveInfo;    // offset 0x4
 };
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// total size: 0x9C
+struct GameInfo {
+    GameInfo(const wchar_t *name, const char *titleId, bool b1, bool b2);
+
+    int mGameTitle[33];            // offset 0x0
+    TitleId mTitleId;              // offset 0x84
+    bool mMultipleSaveTypesUsed;   // offset 0x94
+    bool mMultitapSupported;       // offset 0x98
+};
+#else
 // total size: 0x90
 struct GameInfo {
     GameInfo(const wchar_t *name, unsigned int titleId, bool b1, bool b2);
@@ -282,6 +317,7 @@ struct GameInfo {
     bool mMultipleSaveTypesUsed;   // offset 0x88
     bool mMultitapSupported;       // offset 0x8C
 };
+#endif
 
 // total size: 0x4
 struct IGameInterface {
@@ -307,7 +343,16 @@ struct IGameInterface {
     virtual void SetAutosaveDone(TaskResult res, CardStatus status, AutosaveState flag) = 0;
     virtual void CardRemoved() = 0;
     virtual void SetMonitorDone(CardStatus status, MonitorState state) = 0;
+#ifdef EA_BUILD_A124
+    // La A124 avisa del cambio de tarjeta solo con el estado; la forma con el resultado la reenvia (el original
+    // la emite en linea al final de zFe, CardChanged__Q211RealmcIface14IGameInterfaceQ211RealmcIface10TaskResult...).
+    virtual void CardChanged(CardStatus status) = 0;
+    virtual void CardChanged(TaskResult result, CardStatus status) {
+        CardChanged(status);
+    }
+#else
     virtual void CardChanged(TaskResult result, CardStatus status) = 0;
+#endif
 };
 
 // total size: 0x4
@@ -326,6 +371,11 @@ struct MemcardInterface {
     void FindEntries(const char *filter, const TitleInfo *titleInfo);
     void Load(const char *entryName, char *headerData, char *bodyData, const wchar_t *displayName, const TitleInfo *titleInfo);
     void Delete(const char *entryName, const wchar_t *displayName);
+    void SetRootPath(const char *path);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // El titulo del icon.sys de PS2 va en Shift-JIS (MemoryCardImp::ConstructSaveInfo).
+    void ConvertAsciiToSjisString(const char *asciiStr, wchar_t *sjisStr);
+#endif
 
     MemcardInterfaceImpl *mImpl; // offset 0x0
 };
@@ -369,6 +419,7 @@ class MemoryCardImp {
     static unsigned short gContentName[];
 
     const char *GetPrefix();
+    const char *GetTitleId();
     RealmcIface::SaveInfo *ConstructSaveInfo(MemoryCard::SaveType type, const char *DisplayName, int aSize);
     void DestructSaveInfo();
     void BootupCheckDone(RealmcIface::CardStatus status, RealmcIface::BootupCheckResults *res);
@@ -382,5 +433,10 @@ class MemoryCardImp {
     RealmcIface::SaveReq *m_pSaveReq; // offset 0x0
     RealmcIface::SaveReq m_SaveReq;   // offset 0x4
 };
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Definida junto a MemoryCardImp en la de PS2 (GetOldPrefix__Fv, 0x3CA280 en la A124).
+char *GetOldPrefix();
+#endif
 
 #endif

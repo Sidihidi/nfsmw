@@ -74,10 +74,10 @@ void ENISVisualLook_MakeEvent_Callback(const void *staticData) {
                        ((ENISVisualLook::StaticData *) staticData)->fFacingScale, ((ENISVisualLook::StaticData *) staticData)->fGrazingScale);
 }
 
-int ENISVisualLook_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 6) {
-        new ENISVisualLook(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), (int) lua_tonumber(L, 4), lua_tonumber(L, 5),
-                           lua_tonumber(L, 6));
+int ENISVisualLook_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 6) {
+        new ENISVisualLook(lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), (int) lua_tonumber(luaState, 4), lua_tonumber(luaState, 5),
+                           lua_tonumber(luaState, 6));
     }
     return 0;
 }

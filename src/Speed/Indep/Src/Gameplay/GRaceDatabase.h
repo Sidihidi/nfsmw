@@ -135,10 +135,6 @@ class GRaceDatabase {
         return CheckRaceScoreFlags(eventHash, kUnlocked_Online);
     }
 
-    const char *GetFinalEpicChaseRace() const {
-        return "1.8.1";
-    }
-
     enum ScoreFlags {
         kCompleted_ContextQuickRace = 1 << 0,
         kCompleted_ContextCareer = 1 << 1,
@@ -209,10 +205,6 @@ class GRaceDatabase {
         return CheckRaceScoreFlags(eventHash, kUnlocked_QuickRace);
     }
 
-    const char *GetBurgerKingRace() const {
-        return "19.8.31";
-    }
-
     const char *GetDDayStartRace() const {
         return sDDayRaces[0];
     }
@@ -223,6 +215,14 @@ class GRaceDatabase {
 
     const char *GetFinalBossRace() const {
         return "1.2.3";
+    }
+
+    const char *GetFinalEpicChaseRace() const {
+        return "1.8.1";
+    }
+
+    const char *GetBurgerKingRace() const {
+        return "19.8.31";
     }
 
     GRaceSaveInfo *GetScoreInfo() {

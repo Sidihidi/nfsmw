@@ -34,8 +34,9 @@ struct SFXCTL_Physics : public SFXCTL {
     bool IsCarAccelerating() {
         return this->IsAccelerating;
     }
-
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:
@@ -95,8 +96,9 @@ struct SndAIStateManager;
 struct SFXCTL_Shifting;
 
 struct SFXCTL_AIPhysics : public SFXCTL_Physics {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:
@@ -135,8 +137,9 @@ struct SFXCTL_AIPhysics : public SFXCTL_Physics {
 };
 
 struct SFXCTL_TruckPhysics : public SFXCTL_AIPhysics {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:

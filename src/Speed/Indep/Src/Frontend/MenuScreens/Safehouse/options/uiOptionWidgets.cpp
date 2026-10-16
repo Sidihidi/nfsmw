@@ -8,6 +8,7 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsController.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsMain.hpp"
 #include "Speed/Indep/Src/Input/IOModule.h"
+#include "Speed/Indep/Src/Misc/Joystick.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 
 #ifdef EA_PLATFORM_GAMECUBE
@@ -21,6 +22,12 @@ struct FEString;
 struct FEObject;
 #include "Speed/Indep/Src/FEng/FEImage.h"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
+#include "Speed/Indep/Src/Frontend/Localization/Localize.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Common/feDialogBox.hpp"
+#include "Speed/Indep/Src/Online/VoiceCore.hpp"
+#endif
 
 void FEngSetInvisible(const char* pkg_name, unsigned int obj_hash);
 void FEngSetVisible(const char* pkg_name, unsigned int obj_hash);
@@ -79,12 +86,45 @@ void OMEATrax::React(const char* pkg_name, unsigned int data, FEObject* obj, uns
     FEDatabase->GetOptionsSettings()->CurrentCategory = OC_EATRAX;
 }
 
+void OMOnline::React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
+                      unsigned int param2) {
+    if (data != 0xC407210) {
+        return;
+    }
+    FEDatabase->GetOptionsSettings()->CurrentCategory = OC_ONLINE;
+}
+
+void OMTrailers::React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
+                        unsigned int param2) {
+    if (data != 0xC407210) {
+        return;
+    }
+    FEDatabase->GetOptionsSettings()->CurrentCategory = OC_TRAILERS;
+}
+
 void OMCredits::React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                       unsigned int param2) {
     if (data != 0xC407210) {
         return;
     }
     FEDatabase->GetOptionsSettings()->CurrentCategory = OC_CREDITS;
+}
+
+void AOMasterVol::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    FEDatabase->GetAudioSettings()->MasterVol = GetValue();
+    g_pEAXSound->UpdateVolumes(FEDatabase->GetAudioSettings(), GetValue());
+    Update(data);
+}
+
+void AOMasterVol::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x26782C3E);
+    SetValue(FEDatabase->GetAudioSettings()->MasterVol);
+    DrawSlider();
+}
+
+void AOMasterVol::SetInitialValues() {
+    SetSliderValues(0.0f, 1.0f, 0.1f, FEDatabase->GetAudioSettings()->MasterVol);
 }
 
 void AOSFXMasterVol::Act(const char* parent_pkg, unsigned int data) {
@@ -155,6 +195,23 @@ void AOCarVol::SetInitialValues() {
     SetSliderValues(0.0f, 1.0f, 0.1f, FEDatabase->GetAudioSettings()->CarVol);
 }
 
+void AOEngineVol::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    FEDatabase->GetAudioSettings()->EngineVol = GetValue();
+    g_pEAXSound->UpdateVolumes(FEDatabase->GetAudioSettings(), GetValue());
+    Update(data);
+}
+
+void AOEngineVol::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0xA2B1F888);
+    SetValue(FEDatabase->GetAudioSettings()->EngineVol);
+    DrawSlider();
+}
+
+void AOEngineVol::SetInitialValues() {
+    SetSliderValues(0.0f, 1.0f, 0.1f, FEDatabase->GetAudioSettings()->EngineVol);
+}
+
 void AOSpeechVol::Act(const char* parent_pkg, unsigned int data) {
     UpdateSlider(data);
     FEDatabase->GetAudioSettings()->SpeechVol = GetValue();
@@ -175,9 +232,11 @@ void AOSpeechVol::SetInitialValues() {
 void AOFEMusicVol::Act(const char* parent_pkg, unsigned int data) {
     UpdateSlider(data);
     float value = GetValue();
+#ifndef EA_BUILD_A124
     if (bEqual(0.0f, value, 0.001f)) {
         value = 0.0f;
     }
+#endif
     FEDatabase->GetAudioSettings()->FEMusicVol = value;
     g_pEAXSound->UpdateVolumes(FEDatabase->GetAudioSettings(), GetValue());
     Update(data);
@@ -215,11 +274,19 @@ void AOAudioMode::Act(const char* parent_pkg, unsigned int data) {
     if (data == 0x9120409E) {
         mode--;
         if (mode < 0) {
+#ifdef EA_PLATFORM_WIN32
+            mode = 1;
+#else
             mode = 2;
+#endif
         }
     } else if (data == 0xB5971BF1) {
         mode++;
+#ifdef EA_PLATFORM_WIN32
+        if (mode > 1) {
+#else
         if (mode > 2) {
+#endif
             mode = 0;
         }
     }
@@ -250,6 +317,121 @@ void AOAudioMode::Draw() {
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
+#ifdef EA_BUILD_A124
+void OOShowPlayers::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        FEDatabase->GetOnlineSettings()->ShowPlayerNames = !FEDatabase->GetOnlineSettings()->ShowPlayerNames;
+    }
+    Update(data);
+}
+
+void OOShowPlayers::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x0B660729);
+    if (FEDatabase->GetOnlineSettings()->ShowPlayerNames) {
+        FEngSetLanguageHash(GetDataObject(), LANGUAGE_COMMON_ON);
+    } else {
+        FEngSetLanguageHash(GetDataObject(), LANGUAGE_COMMON_OFF);
+    }
+}
+
+void OOAppearOnline::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        UIOptionsScreen::mTempAppearOffline = !UIOptionsScreen::mTempAppearOffline;
+        if (UIOptionsScreen::mTempAppearOffline == true) {
+            DialogInterface::ShowOneButton(parent_pkg, "", static_cast<eDialogTitle>(1), LANGUAGE_COMMON_OK, 0xFFFFFFFF, 0xFFFFFFFF,
+                                           GetLocalizedString(0x66886589));
+        }
+    }
+    Update(data);
+}
+
+void OOAppearOnline::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x7BF4E178);
+    if (UIOptionsScreen::mTempAppearOffline) {
+        FEngSetLanguageHash(GetDataObject(), LANGUAGE_COMMON_YES);
+    } else {
+        FEngSetLanguageHash(GetDataObject(), LANGUAGE_COMMON_NO);
+    }
+}
+
+void OOBadConnectionWarning::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        FEDatabase->GetOnlineSettings()->ShowBadConnectionWarning = !FEDatabase->GetOnlineSettings()->ShowBadConnectionWarning;
+    }
+    Update(data);
+}
+
+void OOBadConnectionWarning::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0xD1009B34);
+    if (FEDatabase->GetOnlineSettings()->ShowBadConnectionWarning) {
+        FEngSetLanguageHash(GetDataObject(), LANGUAGE_COMMON_ON);
+    } else {
+        FEngSetLanguageHash(GetDataObject(), LANGUAGE_COMMON_OFF);
+    }
+}
+
+void OOVoiceSpeaker::Act(const char* parent_pkg, unsigned int data) {
+    if (VoiceCore::instance().IsHeadsetConnected()) {
+        if (data == 0x9120409E || data == 0xB5971BF1) {
+            VoiceCore::instance().SetSpeakerState(!VoiceCore::instance().GetSpeakerState());
+            if (volumewidget) {
+                if (VoiceCore::instance().GetSpeakerState()) {
+                    if (!volumewidget->IsEnabled()) {
+                        volumewidget->Enable();
+                    }
+                } else if (volumewidget->IsEnabled()) {
+                    volumewidget->Disable();
+                }
+                volumewidget->Draw();
+            }
+        }
+        BlinkArrows(data);
+    }
+    Draw();
+}
+
+void OOVoiceSpeaker::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x52BCEECC);
+    if (VoiceCore::instance().GetSpeakerState()) {
+        FEngSetLanguageHash(GetDataObject(), 0x86CC69B7);
+    } else {
+        FEngSetLanguageHash(GetDataObject(), 0x1E1C73AA);
+    }
+}
+
+void OOVoiceVolume::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    VoiceCore::instance().SetPlaybackVolume(GetValue());
+    Update(data);
+}
+
+void OOVoiceVolume::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0xD2822102);
+    SetValue(VoiceCore::instance().GetPlaybackVolume());
+    DrawSlider();
+}
+
+void OOVoiceVolume::SetInitialValues() {
+    SetSliderValues(0.0f, 1.0f, 0.1f, VoiceCore::instance().GetPlaybackVolume());
+}
+
+void OOVoiceVolume::Enable() {
+    FESliderWidget::Enable();
+    FEngSetScript(GetTitleObject(), FEHASH_UNHIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_UNHIGHLIGHT, true);
+    }
+}
+
+void OOVoiceVolume::Disable() {
+    FESliderWidget::Disable();
+    FEngSetScript(GetTitleObject(), FEHASH_DISABLE, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_DISABLE, true);
+    }
+}
+#endif
+
 void VOWideScreen::Act(const char* parent_pkg, unsigned int data) {
     if (data == 0x9120409E || data == 0xB5971BF1) {
         FEDatabase->GetVideoSettings()->WideScreen = !FEDatabase->GetVideoSettings()->WideScreen;
@@ -265,6 +447,66 @@ void VOWideScreen::Draw() {
     }
     FEngSetLanguageHash(GetDataObject(), hash);
 }
+
+void VOScreenPosHoriz::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    FEDatabase->GetVideoSettings()->ScreenOffsetX = GetValue();
+    Update(data);
+}
+
+void VOScreenPosHoriz::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0xA9CFE581);
+    SetValue(FEDatabase->GetVideoSettings()->ScreenOffsetX);
+    DrawSlider();
+}
+
+void VOScreenPosHoriz::SetInitialValues() {
+    SetSliderValues(-15.0f, 15.0f, 1.0f, FEDatabase->GetVideoSettings()->ScreenOffsetX);
+}
+
+void VOScreenPosVert::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    FEDatabase->GetVideoSettings()->ScreenOffsetY = GetValue();
+    Update(data);
+}
+
+void VOScreenPosVert::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x375B62F1);
+    SetValue(FEDatabase->GetVideoSettings()->ScreenOffsetY);
+    DrawSlider();
+}
+
+void VOScreenPosVert::SetInitialValues() {
+    SetSliderValues(-15.0f, 15.0f, 1.0f, FEDatabase->GetVideoSettings()->ScreenOffsetY);
+}
+
+void VOScreenScale::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    FEDatabase->GetVideoSettings()->FEScale = GetValue();
+    Update(data);
+}
+
+void VOScreenScale::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x39EF3A6C);
+    SetValue(FEDatabase->GetVideoSettings()->FEScale);
+    DrawSlider();
+}
+
+void VOScreenScale::SetInitialValues() {
+    SetSliderValues(1.0f, 1.125f, 0.0125f, FEDatabase->GetVideoSettings()->FEScale);
+}
+
+void VOTimeOfDay::Act(const char* parent_pkg, unsigned int data) {
+    UpdateSlider(data);
+    Update(data);
+}
+
+void VOTimeOfDay::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x999D1383);
+    DrawSlider();
+}
+
+void VOTimeOfDay::SetInitialValues() {}
 
 void GODamage::Act(const char* parent_pkg, unsigned int data) {
     if (data == 0x9120409E || data == 0xB5971BF1) {
@@ -455,6 +697,56 @@ void POTransmission::Draw() {
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
+void POTransPrompt::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        int player = GetPlayerToEditForOptions();
+        FEDatabase->GetPlayerSettings(player)->TransmissionPromptOn =
+            !FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->TransmissionPromptOn;
+    }
+    Update(data);
+}
+
+void POTransPrompt::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x50E2172B);
+    int player = GetPlayerToEditForOptions();
+    unsigned int hash = LANGUAGE_COMMON_OFF;
+    if (FEDatabase->GetPlayerSettings(player)->TransmissionPromptOn) {
+        hash = LANGUAGE_COMMON_ON;
+    }
+    FEngSetLanguageHash(GetDataObject(), hash);
+}
+
+void POHandling::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        int player = GetPlayerToEditForOptions();
+        unsigned char handling = FEDatabase->GetPlayerSettings(player)->Handling;
+        if (handling == 0) {
+            handling = 1;
+        } else if (handling == 1) {
+            handling = 0;
+        }
+        player = GetPlayerToEditForOptions();
+        FEDatabase->GetPlayerSettings(player)->Handling = handling;
+    }
+    Update(data);
+}
+
+void POHandling::Draw() {
+    unsigned int hash = 0;
+    FEngSetLanguageHash(GetTitleObject(), 0xDF06ED22);
+    int player = GetPlayerToEditForOptions();
+    unsigned char handling = FEDatabase->GetPlayerSettings(player)->Handling;
+    switch (handling) {
+    case 0:
+        hash = LANGUAGE_COMMON_ON;
+        break;
+    case 1:
+        hash = LANGUAGE_COMMON_OFF;
+        break;
+    }
+    FEngSetLanguageHash(GetDataObject(), hash);
+}
+
 void PODriveCam::Act(const char* parent_pkg, unsigned int data) {
     int player = GetPlayerToEditForOptions();
     int cam = static_cast<int>(FEDatabase->GetPlayerSettings(player)->CurCam);
@@ -536,6 +828,24 @@ void POPosition::Draw() {
     int player = GetPlayerToEditForOptions();
     unsigned int hash = LANGUAGE_COMMON_OFF;
     if (FEDatabase->GetPlayerSettings(player)->PositionOn) {
+        hash = LANGUAGE_COMMON_ON;
+    }
+    FEngSetLanguageHash(GetDataObject(), hash);
+}
+
+void POLapInfo::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        int player = GetPlayerToEditForOptions();
+        FEDatabase->GetPlayerSettings(player)->LapInfoOn = !FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->LapInfoOn;
+    }
+    Update(data);
+}
+
+void POLapInfo::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x969F96A5);
+    int player = GetPlayerToEditForOptions();
+    unsigned int hash = LANGUAGE_COMMON_OFF;
+    if (FEDatabase->GetPlayerSettings(player)->LapInfoOn) {
         hash = LANGUAGE_COMMON_ON;
     }
     FEngSetLanguageHash(GetDataObject(), hash);
@@ -649,7 +959,11 @@ void COVibration::Act(const char* parent_pkg, unsigned int data) {
 }
 
 void COVibration::Draw() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    FEngSetLanguageHash(GetTitleObject(), 0x28A690A2);
+#else
     FEngSetLanguageHash(GetTitleObject(), 0xDDDC5E1B);
+#endif
     FEString* dataObj = GetDataObject();
     int player = GetPlayerToEditForOptions();
     unsigned int hash = LANGUAGE_COMMON_OFF;
@@ -691,29 +1005,67 @@ void COVibration::SetFocus(const char* parent_pkg) {
     FEToggleWidget::SetFocus(parent_pkg);
 }
 
+void CODriveWithAnalog::Act(const char* parent_pkg, unsigned int data) {
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        int player = GetPlayerToEditForOptions();
+        FEDatabase->GetPlayerSettings(player)->DriveWithAnalog =
+            !FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog;
+    }
+    Update(data);
+}
+
+void CODriveWithAnalog::Draw() {
+    FEngSetLanguageHash(GetTitleObject(), 0x436668C6);
+    FEString* dataObj = GetDataObject();
+    int player = GetPlayerToEditForOptions();
+    unsigned int hash = LANGUAGE_COMMON_NO;
+    if (FEDatabase->GetPlayerSettings(player)->DriveWithAnalog) {
+        hash = LANGUAGE_COMMON_YES;
+    }
+    FEngSetLanguageHash(dataObj, hash);
+}
+
 void COConfig::Act(const char* parent_pkg, unsigned int data) {
     int player = GetPlayerToEditForOptions();
     int config = static_cast<int>(FEDatabase->GetPlayerSettings(player)->Config);
     player = GetPlayerToEditForOptions();
     bool isAnalogSwiched = FEDatabase->GetPlayerSettings(player)->DriveWithAnalog;
+#ifdef EA_BUILD_A124
+    int max = IsJoystickTypeWheel(static_cast<JoystickPort>(UIOptionsController::PortToConfigure)) ? 1 : MAX_CONFIG;
+    if (data == 0x9120409E) {
+        config--;
+        if (config < 0) {
+            isAnalogSwiched = !isAnalogSwiched;
+            config = max;
+        }
+    } else if (data == 0xB5971BF1) {
+        config++;
+        if (config > max) {
+            isAnalogSwiched = !isAnalogSwiched;
+            config = 0;
+        }
+    }
+#else
     if (UIOptionsController::isWheelConfig) {
         config = 0;
         isAnalogSwiched = true;
     } else {
+        int max = MAX_CONFIG;
         if (data == 0x9120409E) {
             config--;
             if (config < 0) {
                 isAnalogSwiched = !isAnalogSwiched;
-                config = MAX_CONFIG;
+                config = max;
             }
         } else if (data == 0xB5971BF1) {
             config++;
-            if (config > MAX_CONFIG) {
+            if (config > max) {
                 isAnalogSwiched = !isAnalogSwiched;
                 config = 0;
             }
         }
     }
+#endif
     player = GetPlayerToEditForOptions();
     FEDatabase->GetPlayerSettings(player)->DriveWithAnalog = isAnalogSwiched;
     player = GetPlayerToEditForOptions();

@@ -100,7 +100,7 @@ struct MemoryCardSetup {
     uint32 GetPrompt() { return mOp & 0xf000000; }
     void SetExtraOption(int eo) { mOp = (mOp & ~0xffff00) | (eo & 0xffff00); }
     void SetPrompt(int prompt) { mOp |= prompt & 0xf000000; }
-    void SetMethod(int method) { mOp = (mOp & ~0xf) | (method & 0xf); }
+    void SetMethod(int method) { mOp |= method & 0xf; } // PC lo saca fuera de linea asi (speed.exe 0x50EB10)
     void SetCommand(int command) { mOp |= command & 0xf0; }
     void ClearPrompt() {
 
@@ -134,33 +134,32 @@ struct MemoryCardSetup {
         mPreviousPrompt = 0;
     };
 
+    // Quien llama pasa mLastMessage (ExitComplete: lw a1, 0x18 antes del jal en SLUS).
     void SendTermMessage(uint32 msg) {
-        unsigned int m = mLastMessage;
-
         if ((mOp & MCE_SendTermMessage) != 0) {
 
-            cFEng::Get()->QueuePackageMessage(m, mToScreen, nullptr);
+            cFEng::Get()->QueuePackageMessage(msg, mToScreen, nullptr);
         }
 
         if ((mOp & MCE_SendCustomizedMessage) != 0) {
 
-            unsigned int hash = m == 0x461A18EE ? mSuccessMsg : mFailedMsg;
+            unsigned int m = msg == 0x461A18EE ? mSuccessMsg : mFailedMsg;
 
-            cFEng::Get()->QueueGameMessage(hash, mToScreen, 0xff);
+            cFEng::Get()->QueueGameMessage(m, mToScreen, 0xff);
         }
     }
 
-    // `Complete` salva mLastMessage, limpia la estructura entera y lo repone:
-    // el ultimo store a +0x18 lleva el valor ANTIGUO, no el argumento.
+    // Guarda el argumento en mLastMessage (la copia fuera de linea de PC, speed.exe 0x50EB90); los que la llaman
+    // le pasan mLastMessage, que se lee antes de la llamada a mTermFunc (el destructor de UIMemcardBase).
     void Complete(uint32 msg) {
-        unsigned int m = mLastMessage;
+
 
         if (mTermFunc != nullptr) {
             mTermFunc(mTermFuncParam);
         }
 
         Clear();
-        mLastMessage = m;
+        mLastMessage = msg;
     }
 };
 

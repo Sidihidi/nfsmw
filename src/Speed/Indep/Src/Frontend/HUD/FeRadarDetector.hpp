@@ -27,8 +27,8 @@ class RadarDetector : public HudElement, public IRadarDetector {
     void SetInPursuit(bool inPursuit) override {
         mInPursuit = inPursuit;
     };
-    void SetIsCoolingDown(bool coolingDown) override {
-        mIsCoolingDown = coolingDown;
+    void SetIsCoolingDown(bool isCoolingDown) override {
+        mIsCoolingDown = isCoolingDown;
     };
 
     static float mStaticRange; // size: 0x4, address: 0x8041BC64

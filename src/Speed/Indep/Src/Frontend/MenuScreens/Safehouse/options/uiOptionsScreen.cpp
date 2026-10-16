@@ -17,6 +17,10 @@
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#include "Speed/Indep/Src/Online/VoiceCore.hpp"
+#endif
 
 void FEngSetTextureHash(FEImage* image, unsigned int texture_hash);
 int FEngSNPrintf(char* buffer, int buf_size, const char* fmt, ...);
@@ -29,6 +33,9 @@ extern EAXSound* g_pEAXSound;
 // [fe3] FEngSetTextureHash(pkg,hash,tex) ya es inline en FEngInterfaceFEImages.hpp
 
 int UIOptionsScreen::PlayerToEdit = 0;
+#ifdef EA_BUILD_A124
+bool UIOptionsScreen::mTempAppearOffline = false;
+#endif
 
 int GetPlayerToEditForOptions() {
     return UIOptionsScreen::PlayerToEdit;
@@ -45,13 +52,38 @@ UIOptionsScreen::UIOptionsScreen(ScreenConstructorData* sd)
     , OriginalAudioSettings(nullptr) //
     , OriginalVideoSettings(nullptr) //
     , OriginalGameplaySettings(nullptr) //
-    , OriginalPlayerSettings(nullptr) {
+    , OriginalPlayerSettings(nullptr)
+#ifdef EA_BUILD_A124
+    , OriginalOnlineSettings(nullptr)
+#endif
+{
+#ifdef EA_BUILD_A124
+    OriginalSpeakerState = VoiceCore::instance().GetSpeakerState();
+    OriginalSpeakerVolume = VoiceCore::instance().GetSpeakerVolume();
+    OriginalPlaybackVolume = VoiceCore::instance().GetPlaybackVolume();
+#endif
     if (mCalledFromPauseMenu) {
         iMaxWidgetsOnScreen = 10;
     } else {
         iMaxWidgetsOnScreen = 9;
     }
 
+#ifdef EA_BUILD_A124
+    // La A124 rotula la cabecera por categoria y avisa a Juice de las opciones con las que se entra.
+    FEString* subtitle = FEngFindString(GetPackageName(), 0x7326E44C);
+    switch (FEDatabase->GetOptionsSettings()->CurrentCategory) {
+    case OC_AUDIO:
+    case OC_VIDEO:
+    case OC_PC_ADV_DISPLAY:
+    case OC_GAMEPLAY:
+        FEngSetInvisible(subtitle);
+        break;
+    case OC_PLAYER:
+        FEngSetLanguageHash(subtitle, PlayerToEdit == 0 ? LANGUAGE_COMMON_PLAYER_1 : LANGUAGE_COMMON_PLAYER_2);
+        break;
+    }
+    JuiceStatsDB::Instance()->SetOptions(*FEDatabase->GetOptionsSettings());
+#else
     if (FEDatabase->GetOptionsSettings()->CurrentCategory == OC_PLAYER &&
         Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
         cFEng::Get()->QueuePackageMessage(0x7DB7B6D7, GetPackageName(), 0);
@@ -59,15 +91,22 @@ UIOptionsScreen::UIOptionsScreen(ScreenConstructorData* sd)
         FEngSetLanguageHash(pkg, 0x53BF826D,
                             GetPlayerToEditForOptions() == 0 ? LANGUAGE_COMMON_PLAYER_1 : LANGUAGE_COMMON_PLAYER_2);
     }
+#endif
 
     Setup();
 }
 
 UIOptionsScreen::~UIOptionsScreen() {
+#ifdef EA_BUILD_A124
+    JuiceStatsDB::Instance()->CompareOptions(FEDatabase->GetOptionsSettings());
+#endif
     delete OriginalAudioSettings;
     delete OriginalVideoSettings;
     delete OriginalGameplaySettings;
     delete OriginalPlayerSettings;
+#ifdef EA_BUILD_A124
+    delete OriginalOnlineSettings;
+#endif
 }
 
 void UIOptionsScreen::NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
@@ -75,6 +114,15 @@ void UIOptionsScreen::NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
     UIWidgetMenu::NotificationMessage(msg, pobj, param1, param2);
 
     switch (msg) {
+#ifdef EA_BUILD_A124
+    // La A124 refresca el VOIP al cambiar de opcion online; es su primer caso (el codigo va delante del de
+    // 0x911AB364).
+    case 0xC98356BA:
+        if (FEDatabase->GetOptionsSettings()->CurrentCategory == OC_ONLINE) {
+            UpdateOnlineVoipOptions();
+        }
+        break;
+#endif
     case 0x911AB364:
         if (OptionsDidNotChange()) {
             cFEng::Get()->QueuePackageMessage(0x587C018B, GetPackageName(), 0);
@@ -105,10 +153,7 @@ void UIOptionsScreen::NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
     }
     case 0xD9FEEC59:
     case 0x5073EF13:
-        if (FEDatabase->GetOptionsSettings()->CurrentCategory != OC_PLAYER) {
-            return;
-        }
-        {
+        if (FEDatabase->GetOptionsSettings()->CurrentCategory == OC_PLAYER) {
             cFEng* fe = cFEng::Get();
             unsigned int snd = (msg == 0x5073EF13) ? 0x6B283007 : 0xF4B32D4D;
             fe->QueueSoundMessage(snd, GetPackageName());
@@ -135,8 +180,12 @@ void UIOptionsScreen::NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
     case 0xD05FC3A3:
         {
             OptionsSettings* options_settings = FEDatabase->GetOptionsSettings();
-            if (!FEDatabase->GetGameplaySettings()->AutoSaveOn &&
-                options_settings->CurrentCategory == OC_GAMEPLAY) {
+            // La A124 entra en la tarjeta sin mirar la categoria.
+            if (!FEDatabase->GetGameplaySettings()->AutoSaveOn
+#ifndef EA_BUILD_A124
+                && options_settings->CurrentCategory == OC_GAMEPLAY
+#endif
+            ) {
                 MemcardEnter(GetPackageName(), GetPackageName(), 0xA1, 0, 0, 0, 0);
             }
         }
@@ -172,20 +221,40 @@ void UIOptionsScreen::NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
             ClearWidgets();
             SetupGameplay();
             SetInitialOption(0);
-        } else {
+        }
+#ifndef EA_BUILD_A124 // la A124 no redibuja las demas categorias
+        else {
             for (int i = 0; i < Options.CountElements(); i++) {
                 Options.GetNode(i)->Draw();
             }
         }
+#endif
         break;
     case 0x34DC1BCF:
     case 0x72619778:
     case 0x406415E3:
     case 0xC519BFC3:
+#ifndef EA_BUILD_A124
     case 0xC98356BA:
+#endif
         break;
     }
 }
+
+#ifdef EA_BUILD_A124
+void UIOptionsScreen::UpdateOnlineVoipOptions() {
+    if (!VoiceCore::instance().IsHeadsetConnected()) {
+        if (!volumeoption->IsEnabled()) {
+            volumeoption->Enable();
+        }
+    } else if (!VoiceCore::instance().GetSpeakerState()) {
+        if (volumeoption->IsEnabled()) {
+            volumeoption->Disable();
+        }
+    }
+    volumeoption->Draw();
+}
+#endif
 
 void UIOptionsScreen::Setup() {
     ClearWidgets();
@@ -258,6 +327,10 @@ void UIOptionsScreen::SetupVideo() {
     }
 
     AddToggleOption(new ("VOWideScreen", 0) VOWideScreen(true), true);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    AddSliderOption(new ("VOScreenPosHoriz", 0) VOScreenPosHoriz(true), true);
+    AddSliderOption(new ("VOScreenPosVert", 0) VOScreenPosVert(true), true);
+#endif
 
     VideoSettings* temp = new ("VideoSettings", 0) VideoSettings();
     OriginalVideoSettings = temp;
@@ -288,14 +361,18 @@ void UIOptionsScreen::SetupGameplay() {
     AddToggleOption(new ("GORearview", 0) GORearview(true), true);
     AddToggleOption(new ("GOSpeedoUnits", 0) GOSpeedoUnits(true), true);
 
+#ifndef EA_BUILD_A124 // la A124 pone los minimapas tambien en pantalla partida
     bool is_split = Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN;
     if (!mCalledFromPauseMenu) is_split = false;
     if (!is_split) {
+#endif
         if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
             AddToggleOption(new ("GOExploringMiniMap", 0) GOExploringMiniMap(true), true);
         }
         AddToggleOption(new ("GORacingMiniMap", 0) GORacingMiniMap(true), true);
+#ifndef EA_BUILD_A124
     }
+#endif
 
     if (OriginalGameplaySettings == nullptr) {
         GameplaySettings* temp = new ("GameplaySettings", 0) GameplaySettings();
@@ -313,7 +390,9 @@ void UIOptionsScreen::SetupPlayer() {
         FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0xC055165F);
     }
 
+#ifndef EA_BUILD_A124 // la A124 no lanza el script de aparicion
     FEngSetScript(GetPackageName(), 0x8A41F5B9, FEHASH_APPEAR, true);
+#endif
 
     FEngSetLanguageHash(GetPackageName(), 0x53BF826D,
                         GetPlayerToEditForOptions() == 0 ? LANGUAGE_COMMON_PLAYER_1 : LANGUAGE_COMMON_PLAYER_2);
@@ -321,6 +400,9 @@ void UIOptionsScreen::SetupPlayer() {
     if (!GRaceStatus::Exists() || GRaceStatus::Get().GetRaceType() != GRace::kRaceType_Drag) {
         AddToggleOption(new ("POTransmission", 0) POTransmission(true), true);
     }
+#ifdef EA_BUILD_A124 // solo la A124 ofrece el aviso de cambio de marcha
+    AddToggleOption(new ("POTransPrompt", 0) POTransPrompt(true), true);
+#endif
 
     AddToggleOption(new ("PODriveCam", 0) PODriveCam(true), true);
     AddToggleOption(new ("POGauges", 0) POGauges(true), true);
@@ -344,6 +426,14 @@ void UIOptionsScreen::SetupOnline() {
     } else {
         FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0xE463B5F7);
     }
+#ifdef EA_BUILD_A124
+    volumeoption = new ("OOVoiceVolume", 0) OOVoiceVolume(true);
+    AddSliderOption(volumeoption, true);
+    AddToggleOption(new ("OOBadConnectionWarning", 0) OOBadConnectionWarning(true), true);
+    FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0x22B1C2E6);
+    OriginalOnlineSettings = new ("OnlineSettings", 0) cOnlineSettings();
+    *OriginalOnlineSettings = *FEDatabase->GetOnlineSettings();
+#endif
 }
 
 void UIOptionsScreen::RestoreDefaults() {
@@ -367,6 +457,11 @@ void UIOptionsScreen::RestoreDefaults() {
     case OC_PLAYER:
         FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DefaultFromOptionsScreen();
         break;
+#ifdef EA_BUILD_A124
+    case OC_ONLINE:
+        FEDatabase->GetOnlineSettings()->RestoreDefaultSettings();
+        break;
+#endif
     }
 
     for (int i = 0; i < Options.CountElements(); i++) {
@@ -386,6 +481,11 @@ bool UIOptionsScreen::OptionsDidNotChange() {
     case OC_PLAYER:
         return *FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions()) ==
                *OriginalPlayerSettings;
+#ifdef EA_BUILD_A124
+    case OC_ONLINE:
+        return *FEDatabase->GetOnlineSettings() == *OriginalOnlineSettings &&
+               mTempAppearOffline == FEDatabase->GetOnlineSettings()->AppearOffline;
+#endif
     default:
         return false;
     }
@@ -406,6 +506,17 @@ void UIOptionsScreen::RestoreOriginals() {
     case OC_PLAYER:
         *FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions()) = *OriginalPlayerSettings;
         break;
+#ifdef EA_BUILD_A124
+    case OC_ONLINE:
+        *FEDatabase->GetOnlineSettings() = *OriginalOnlineSettings;
+        // Una sola lectura de VoiceCore::mInstance para las tres llamadas: una referencia local (GCC no da stab
+        // a las referencias locales en registro, y la A124 no trae ninguno aqui).
+        VoiceCore &voice = VoiceCore::instance();
+        voice.SetSpeakerState(OriginalSpeakerState);
+        voice.SetSpeakerVolume(OriginalSpeakerVolume);
+        voice.SetPlaybackVolume(OriginalPlaybackVolume);
+        break;
+#endif
     }
 }
 
@@ -438,9 +549,12 @@ void UIOptionsScreen::TogglePlayer(bool revert_changes) {
 bool UIOptionsScreen::ShouldShowAutoSave() {
     bool result = false;
     if (!GRaceStatus::Exists() ||
-        GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career ||
-        (GRaceStatus::Get().GetRaceParameters() &&
-         GRaceStatus::Get().GetRaceParameters()->GetIsChallengeSeriesRace())) {
+        GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career
+#ifndef EA_BUILD_A124 // la A124 no autoguarda en las series de desafios
+        || (GRaceStatus::Get().GetRaceParameters() &&
+         GRaceStatus::Get().GetRaceParameters()->GetIsChallengeSeriesRace())
+#endif
+        ) {
         if (IsMemcardEnabled && IsAutoSaveEnabled && FEDatabase->bProfileLoaded &&
             !FEDatabase->IsOnlineMode()) {
             result = true;

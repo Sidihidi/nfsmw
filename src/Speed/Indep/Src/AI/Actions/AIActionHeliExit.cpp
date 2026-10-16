@@ -1,3 +1,4 @@
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Src/AI/AIAction.h"
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IHelicopter.h"
@@ -49,7 +50,7 @@ class AIActionHeliExit : public AIAction, public Debugable {
     IPursuitAI *mIPursuitAI;               // offset 0x5C, size 0x4
     float mExitTime;                       // offset 0x60, size 0x4
     bool mBuildingPath;                    // offset 0x64, size 0x1
-    ALIGN_16 UMath::Vector3 mSeekPosition; // offset 0x68, size 0xC
+    ALIGNVEC UMath::Vector3 mSeekPosition; // offset 0x68, size 0xC
     kExitMode mExitMode;                   // offset 0x74, size 0x4
 };
 

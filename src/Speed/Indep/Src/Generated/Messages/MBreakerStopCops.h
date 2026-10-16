@@ -28,8 +28,6 @@ class MBreakerStopCops : public Hermes::Message {
     MBreakerStopCops(UMath::Vector3 _InitialPos, float _Duration, float _Radius)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fInitialPos(_InitialPos), fDuration(_Duration), fRadius(_Radius) {}
 
-    ~MBreakerStopCops() {}
-
     UMath::Vector3 GetInitialPos() const {
         return fInitialPos;
     }
@@ -65,9 +63,9 @@ class MBreakerStopCops : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MBreakerStopCops::HandleMessage_LuaBinding(const MBreakerStopCops &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MBreakerStopCops::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

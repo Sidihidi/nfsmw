@@ -1,9 +1,6 @@
-typedef void (*VP6_BuildQuantIndex_FUNC)(void);
+#include "../cmn/pbdll.h"
 
-extern void VP6_BuildQuantIndex_Generic(void);
-extern VP6_BuildQuantIndex_FUNC VP6_BuildQuantIndex;
-
-int VP6_GetProcessorFrequency(void) {
+unsigned int VP6_GetProcessorFrequency(void) {
     return 0;
 }
 

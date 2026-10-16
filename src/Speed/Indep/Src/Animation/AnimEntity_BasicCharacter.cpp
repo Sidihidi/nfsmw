@@ -38,7 +38,7 @@ void CloseCharacterEffects() {
 }
 
 void CBasicCharacterAnimEntity::EndianSwapEntityData(void *data, int size) {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     BasicCharacterAnimEntityInfo *info = reinterpret_cast<BasicCharacterAnimEntityInfo *>(data);
     bPlatEndianSwap(&info->mThisInstanceNameHash);
     bPlatEndianSwap(&info->mParentInstanceNameHash);
@@ -169,8 +169,8 @@ bool CBasicCharacterAnimEntity::Init(void *init_data, SpaceNode *parent_space_no
     }
     bool skeletal_animation = false;
     if (info->mSkelNameHash != 0 && info->mSkelAnimNameHash != 0) {
-        skeletal_animation = true;
         mAnimCtrl->CreateFnAnimFromNamehash(info->mSkelAnimNameHash, 0);
+        skeletal_animation = true;
         mAnimCtrl->SetTimeScale(mAnimCtrl->GetTimeScale() * 0.5f);
     }
 
@@ -182,9 +182,7 @@ bool CBasicCharacterAnimEntity::Init(void *init_data, SpaceNode *parent_space_no
         if (info->mPlayFlags & 0x40) {
             mAnimCtrl->SetLoopRange(info->mLoopRangeStart, info->mLoopRangeEnd);
         }
-        CAnimCtrl *ctrl = mAnimCtrl;
-        ctrl->SetMasterDelayTime(info->mPlayDelay);
-        ctrl->SetFlags(0x80);
+        mAnimCtrl->SetMasterDelayTime(info->mPlayDelay);
         if (mAnimCtrl && mAnimCtrl->GetFlags() == 8) {
             bBreak();
         }
@@ -344,7 +342,7 @@ void CBasicCharacterAnimEntity::RenderEffects(eView *view, int is_reflection) {
         left1.x += parallel.x - perpendicular.x;
         left1.y += parallel.y - perpendicular.y;
         right0.x += -parallel.x + perpendicular.x;
-        right0.y += perpendicular.y - parallel.y;
+        right0.y += -parallel.y + perpendicular.y;
         right1.x += -parallel.x - perpendicular.x;
         right1.y += -parallel.y - perpendicular.y;
 
@@ -360,13 +358,13 @@ void CBasicCharacterAnimEntity::RenderEffects(eView *view, int is_reflection) {
         *reinterpret_cast<uint32 *>(&shadow_poly.Colours[2][0]) = 0x80808080;
         *reinterpret_cast<uint32 *>(&shadow_poly.Colours[3][0]) = 0x80808080;
         shadow_poly.UVs[0][0] = 0.0f;
-        shadow_poly.UVs[0][2] = 1.0f;
-        shadow_poly.UVs[1][2] = 0.0f;
         shadow_poly.UVs[1][0] = 1.0f;
+        shadow_poly.UVs[3][0] = 0.0f;
+        shadow_poly.UVs[2][0] = 1.0f;
         shadow_poly.UVs[0][1] = 0.0f;
-        shadow_poly.UVs[0][3] = 0.0f;
-        shadow_poly.UVs[1][3] = 1.0f;
-        shadow_poly.UVs[1][1] = 1.0f;
+        shadow_poly.UVs[1][1] = 0.0f;
+        shadow_poly.UVs[3][1] = 1.0f;
+        shadow_poly.UVs[2][1] = 1.0f;
         view->Render(&shadow_poly, CharacterShadowTexture, eGetIdentityMatrix(), 0, 0.0f);
     }
 }

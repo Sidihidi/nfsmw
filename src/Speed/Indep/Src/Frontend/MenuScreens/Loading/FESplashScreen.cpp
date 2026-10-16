@@ -12,6 +12,7 @@
 #include "Speed/Indep/Src/Generated/Messages/MControlPathfinder.h"
 #include "Speed/Indep/Src/Input/ActionQueue.h"
 #include "Speed/Indep/Src/Misc/EasterEggs.hpp"
+#include "Speed/Indep/Src/Misc/VersionNumber.hpp"
 #include "Speed/Indep/Src/World/CarInfo.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
@@ -24,7 +25,11 @@ float SplashScreenTotalTimeout = 0.0f;
 SplashScreen::SplashScreen(ScreenConstructorData *sd)
     : MenuScreen(sd), bAllowContinue(false), CopyrightNotice(), SplashStartedTimer() {
     const u32 FEObj_HDGROUP = 0x534CC377;
+#ifdef EA_PLATFORM_WIN32
+    const u32 FEObj_startclick = 0xC6CC55A4; // PC_START_CLICK
+#else
     const u32 FEObj_startclick = 0xC4DF3FF2;
+#endif
     const u32 FEObj_mouseclick = 0x13CF446D;
     const u32 FEObj_mousebutton = 0x8C0BD743;
     const u32 FEObj_LicenseBlurb = 0x4B98C4B9;
@@ -34,23 +39,31 @@ SplashScreen::SplashScreen(ScreenConstructorData *sd)
         cFEng::Get()->QueuePackageMessage(bStringHash("CURRENT_GEN_WIDESCREEN"), GetPackageName(), nullptr);
     }
 
-    FEngSetInvisible(FEngFindObject(GetPackageName(), FEObj_HDGROUP));
+#ifndef EA_BUILD_A124
+    FEngSetInvisible(GetPackageName(), FEObj_HDGROUP);
+#endif
 
     {
         const u32 FEObj_ESRBicon = 0x43D41F73;
         if (GetVideoMode() == MODE_PAL) {
-            FEngSetInvisible(FEngFindObject(GetPackageName(), FEObj_ESRBicon));
+            FEngSetInvisible(GetPackageName(), FEObj_ESRBicon);
         }
     }
 
-    FEngSetVisible(FEngFindObject(GetPackageName(), FEObj_startclick));
-    FEngSetInvisible(FEngFindObject(GetPackageName(), FEObj_mouseclick));
-    FEngSetInvisible(FEngFindObject(GetPackageName(), FEObj_mousebutton));
+    FEngSetVisible(GetPackageName(), FEObj_startclick);
+    FEngSetInvisible(GetPackageName(), FEObj_mouseclick);
+    FEngSetInvisible(GetPackageName(), FEObj_mousebutton);
     pObject = FEngFindObject(GetPackageName(), FEObj_mousebutton);
-    FEngSetInvisible(FEngFindObject(GetPackageName(), FEObj_LicenseBlurb));
-    FEngSetVisible(FEngFindObject(GetPackageName(), FEObj_LicenseBlurb));
+    FEngSetInvisible(GetPackageName(), FEObj_LicenseBlurb);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    FEngSetLanguageHash(GetPackageName(), FEObj_startclick, 0xDC64C04C);
+#elif defined(EA_PLATFORM_WIN32) // PC deja LicenseBlurb oculto y pone su texto en PC_START_CLICK
+    FEngSetLanguageHash(GetPackageName(), FEObj_startclick, 0x9B580B7E);
+#else
+    FEngSetVisible(GetPackageName(), FEObj_LicenseBlurb);
     FEngSetLanguageHash(GetPackageName(), FEObj_LicenseBlurb, 0x9BA134FC);
     FEngSetLanguageHash(GetPackageName(), FEObj_startclick, 0x9B580A55);
+#endif
 
     if (pObject != nullptr) {
         if (pObject->Flags & FF_IsButton) {
@@ -71,6 +84,11 @@ SplashScreen::SplashScreen(ScreenConstructorData *sd)
         CarViewer::ShowCarScreen();
         CarViewer::haveLoadedOnce = true;
     }
+#ifdef EA_PLATFORM_WIN32 // PC escribe la version del juego en PC_VERSION
+    char version[32];
+    GetGameVersionNumberString(version, sizeof(version));
+    FEPrintf(GetPackageName(), 0x69EF31D7, "%s", version);
+#endif
 }
 
 SplashScreen::~SplashScreen() {
@@ -84,10 +102,9 @@ Timer SplashScreen::CalculateLastJoyEventTime() {
 
     for (ActionQueue *const *iter = ActionQueue::GetList().begin(); iter != ActionQueue::GetList().end(); iter++) {
         ActionQueue *q = *iter;
-        if (q->IsConnected() && q->IsEnabled() &&
-            bStrICmp(*reinterpret_cast<char **>(reinterpret_cast<char *>(q) + 0x27C), "FEng") == 0) {
-            if (!lowesttimer.IsSet() || (*reinterpret_cast<int *>(reinterpret_cast<char *>(q) + 0x28C)) > lowesttimer.GetPackedTime()) {
-                lowesttimer.SetPackedTime(*reinterpret_cast<int *>(reinterpret_cast<char *>(q) + 0x28C));
+        if (q->IsConnected() && q->IsEnabled() && bStrICmp(q->GetName(), "FEng") == 0) {
+            if (!lowesttimer.IsSet() || q->LastActionTime() > lowesttimer) {
+                lowesttimer = q->LastActionTime();
             }
         }
     }
@@ -106,21 +123,20 @@ void SplashScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 p
     case FEHASH_CASTROL_UNLOCK:
         DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x1FAB5998, FEHASH_CASTROL_UNLOCK);
         break;
+#ifndef EA_BUILD_A124 // la A124 no tiene el truco de la demo
     case FEHASH_DEMO_CHEAT:
         DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x1FAB5998, 0xA1161AAF);
         break;
+#endif
     case 0xC98356BA: {
-        Timer last = CalculateLastJoyEventTime();
-        bool bTimedOut = (RealTimer - last).GetSeconds() > SplashScreenMovieTimeout ||
-                         (SplashScreenTotalTimeout != 0.0f &&
-                          (RealTimer - SplashStartedTimer).GetSeconds() > SplashScreenTotalTimeout);
-        int timed_out = bTimedOut;
-#ifndef EA_BUILD_A124 // la alpha 124 no tiene TrackStreamer::IsPermFileLoading
+        bool timed_out = (RealTimer - CalculateLastJoyEventTime()).GetSeconds() > SplashScreenMovieTimeout;
+        timed_out = timed_out || (SplashScreenTotalTimeout != 0.0f && (RealTimer - SplashStartedTimer).GetSeconds() > SplashScreenTotalTimeout);
+#ifndef EA_PLATFORM_PLAYSTATION2 // ni la A124 ni SLUS miran TrackStreamer::IsPermFileLoading
         if (TheTrackStreamer.IsPermFileLoading()) {
-            timed_out = 0;
+            timed_out = false;
         }
 #endif
-        if (timed_out != 0) {
+        if (timed_out) {
             if (!BootFlowManager::Get()->DoAttract()) {
                 SplashStartedTimer.ResetHigh();
             }

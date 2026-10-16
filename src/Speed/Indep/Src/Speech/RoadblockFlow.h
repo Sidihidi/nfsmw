@@ -49,9 +49,12 @@ class RoadblockFlow : public SpeechFlow {
     RoadblockFlow();
     ~RoadblockFlow() override;
     void NailedSomethingInRB(unsigned int what);
+  private:
     void MessageRoadBlockDodged(const MReqRoadBlock &message);
     void SyncRoadblock();
+  public:
     void Update() override;
+  private:
     void MessageReqHeliJoinRB(const MReqRoadBlock &message);
     void MessagePositionUpdate(const MReqRoadBlock &message);
     void MessageEventComplete(const MNotifySpeechStatus &message);
@@ -61,6 +64,7 @@ class RoadblockFlow : public SpeechFlow {
     void Effect();
     void Service();
     void Terminal();
+  public:
     void Reset() override;
     bool IsTransitionable() override;
 

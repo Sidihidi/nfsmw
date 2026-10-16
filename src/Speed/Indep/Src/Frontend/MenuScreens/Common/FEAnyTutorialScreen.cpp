@@ -11,8 +11,8 @@
 
 struct FEMovie;
 extern void DismissChyron();
-extern unsigned int FEngHashString(const char *, ...);
-extern unsigned int bStringHash(const char *, int);
+// r75: fuera 2 extern duplicados (FEngHashString, bStringHash): ya los declara
+// FEngInterfaceFEStrings.hpp (via FEDatabase.hpp) y Strings.hpp (include propio).
 
 // [fe3] FEngSetMovieName(pkg,hash,name) ya es inline en FEngInterfaces/FEngInterfaceFEMovies.hpp
 
@@ -43,32 +43,32 @@ FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
     CareerSettings *career = FEDatabase->GetCareerSettings();
 
     if (bStrCmp(MovieFilename, "drag_tutorial") == 0) {
-        if (career != nullptr && !(career->SpecialFlags & 0x40)) {
-            career->SpecialFlags |= 0x40;
+        if (career != nullptr && !career->HasDoneDragTutorial()) {
+            career->SetHasDoneDragTutorial();
             mSkipable = false;
         }
         str_hash = FEngHashString("TUTORIAL_DRAG");
     } else if (bStrCmp(MovieFilename, "speedtrap_tutorial") == 0) {
-        if (career != nullptr && !(career->SpecialFlags & 0x80)) {
-            career->SpecialFlags |= 0x80;
+        if (career != nullptr && !career->HasDoneSpeedTrapTutorial()) {
+            career->SetHasDoneSpeedTrapTutorial();
             mSkipable = false;
         }
         str_hash = FEngHashString("TUTORIAL_SPEEDTRAPRACE");
     } else if (bStrCmp(MovieFilename, "tollbooth_tutorial") == 0) {
-        if (career != nullptr && !(career->SpecialFlags & 0x100)) {
-            career->SpecialFlags |= 0x100;
+        if (career != nullptr && !career->HasDoneTollBoothTutorial()) {
+            career->SetHasDoneTollBoothTutorial();
             mSkipable = false;
         }
         str_hash = FEngHashString("TUTORIAL_TOLLBOOTH");
     } else if (bStrCmp(MovieFilename, "bounty_tutorial") == 0) {
-        if (career != nullptr && !(career->SpecialFlags & 0x400)) {
-            career->SpecialFlags |= 0x400;
+        if (career != nullptr && !career->HasDoneBountyTutorial()) {
+            career->SetHasDoneBountyTutorial();
             mSkipable = false;
         }
         str_hash = FEngHashString("TUTORIAL_BOUNTY");
     } else if (bStrCmp(MovieFilename, "pursuit_tutorial") == 0) {
-        if (career != nullptr && !(career->SpecialFlags & 0x200)) {
-            career->SpecialFlags |= 0x200;
+        if (career != nullptr && !career->HasDonePursuitTutorial()) {
+            career->SetHasDonePursuitTutorial();
             mSkipable = false;
         }
         str_hash = FEngHashString("TUTORIAL_PURSUIT");

@@ -68,7 +68,10 @@ class UIWidgetMenu : public MenuScreen {
     }
 
     uint32 GetWidgetIndex(FEWidget *opt);
-    FEInputWidget *GetCurrentInputWidget() {};
+    // feUIWidgetMenu.hpp:77 en la A124: uiGetUserEmailAddress::NotificationMessage lo expande (lw 52(this) = pCurrentOption).
+    FEInputWidget *GetCurrentInputWidget() {
+        return static_cast<FEInputWidget *>(pCurrentOption);
+    }
 
     bTList<FEWidget> Options;    // offset 0x2C, size 0x8
     FEWidget *pCurrentOption;    // offset 0x34, size 0x4

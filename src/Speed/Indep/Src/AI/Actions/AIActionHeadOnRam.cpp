@@ -16,10 +16,11 @@ class AIActionHeadOnRam : public AIAction, public Debugable {
     static AIAction *Construct(struct AIActionParams *params);
 
     AIActionHeadOnRam(AIActionParams *params, float score);
+  private:
     void GetSeekPosition(UMath::Vector3 &seekPosition);
     float GetDesiredSpeed(UMath::Vector3 &seekPosition);
     void UpdateSeek(UMath::Vector3 &seek, UMath::Vector3 &seekPosition, float &distToSeekPos);
-
+  public:
     // Virtual functions
     virtual void OnDebugDraw();
 
@@ -76,15 +77,22 @@ AIAction *AIActionHeadOnRam::Construct(AIActionParams *params) {
 }
 
 bool AIActionHeadOnRam::CanBeAttempted(float dT) {
-    if (mIVehicleAI && mIPursuitAI && mITransmission && mIRigidBody) {
-        if (!mIVehicleAI->GetDrivableToTargetPos()) {
-            return false;
-        }
-        if (mIVehicleAI->GetDrivableToDriveToNav()) {
-            return mIPursuitAI->GetChicken() == false;
-        }
+    if (!mIVehicleAI || !mIPursuitAI) {
+        return false;
     }
-    return false;
+    if (!mITransmission) {
+        return false;
+    }
+    if (!mIRigidBody) {
+        return false;
+    }
+    if (!mIVehicleAI->GetDrivableToTargetPos()) {
+        return false;
+    }
+    if (!mIVehicleAI->GetDrivableToDriveToNav()) {
+        return false;
+    }
+    return mIPursuitAI->GetChicken() == false;
 }
 
 bool AIActionHeadOnRam::IsFinished() {

@@ -86,56 +86,6 @@ class AnimBank {
     BankStat *mStat;                           // offset 0x18, size 0x4
 };
 
-// total size: 0x18
-class BankStat {
-  public:
-    BankStat() {}
-
-    // void *operator new(size_t size) {}
-
-    // void *operator new(size_t size, const char *msg) {}
-
-    // void operator delete(void *ptr, size_t size) {}
-
-    // void *operator new[](size_t size) {}
-
-    // void *operator new[](size_t size, const char *msg) {}
-
-    // void operator delete[](void *ptr, size_t size) {}
-
-    // void *operator new(size_t, void *ptr) {}
-
-    void IncrementLoads(AnimBank *ab) {}
-
-    void IncrementAnimNameLookUps() {}
-
-    bool InMemory() {}
-
-    void UnLoadBank() {}
-
-    ~BankStat();
-
-    void Init(AnimBank *ab, const char *name);
-
-    bool IsTracking(AnimBank *ab, const char *name) const;
-
-    AnimStat *GetAnimStat(AnimMemoryMap *a);
-
-    void Dump() const;
-
-    void Dump(PRINTCHANNEL channel) const;
-
-    void Reset();
-
-  private:
-    char *mBankFileName;     // offset 0x0, size 0x4
-    int mNumLoads;           // offset 0x4, size 0x4
-    int mNumAnims;           // offset 0x8, size 0x4
-    int mNumAnimNameLookUps; // offset 0xC, size 0x4
-    AnimStat *mAnimStats;    // offset 0x10, size 0x4
-    AnimBank *mBank;         // offset 0x14, size 0x4
-};
-
 }; // namespace EAGL4Anim
 
 #endif

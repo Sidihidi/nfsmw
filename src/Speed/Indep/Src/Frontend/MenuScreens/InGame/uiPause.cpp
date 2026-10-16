@@ -6,6 +6,9 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feDialogBox.hpp"
 
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterface.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Online/VoiceCore.hpp"
+#endif
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
 #include "Speed/Indep/Src/Frontend/Database/VehicleDB.hpp"
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
@@ -32,10 +35,30 @@ void FEngSetScript(const char* pkg_name, unsigned int obj_hash, unsigned int scr
                    bool start_at_beginning);
 unsigned char FEngGetLastButton(const char* pkg_name);
 
+#ifdef EA_BUILD_A124
+// Solo la A124 (carreras en linea): silenciar por los cascos a un jugador del canal de voz.
+struct pm_MutePlayer : public IconOption {
+    pm_MutePlayer(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash, const char* persona)
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+        bStrCpy(mPlayerToToggle, persona);
+    }
+    void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
+               unsigned int param2) override {
+        if (data == 0x0C407210) {
+            VoiceCore::instance().ToggleMuted(mPlayerToToggle);
+        }
+        PauseMenu::SetSelectionHash(0xFDAE152F);
+        FEngSetScript(pkg_name, 0x47FF4E7C, FEHASH_FORWARD, true);
+    }
+
+    char mPlayerToToggle[18];
+};
+#endif
+
 struct pm_ResumeRace : public IconOption {
     pm_ResumeRace(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_ResumeRace() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -48,7 +71,6 @@ struct pm_ResumeRace : public IconOption {
 struct pm_ResumeFreeRoam : public IconOption {
     pm_ResumeFreeRoam(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_ResumeFreeRoam() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -61,7 +83,6 @@ struct pm_ResumeFreeRoam : public IconOption {
 struct pm_RestartRace : public IconOption {
     pm_RestartRace(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_RestartRace() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -77,7 +98,6 @@ struct pm_RestartRace : public IconOption {
 struct pm_SwitchToOptions : public IconOption {
     pm_SwitchToOptions(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_SwitchToOptions() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -93,7 +113,6 @@ struct pm_SwitchToTuning : public IconOption {
         Locked = !unlocked;
         SetReactImmediately(true);
     }
-    ~pm_SwitchToTuning() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -112,7 +131,6 @@ struct pm_SwitchToTuning : public IconOption {
 struct pm_QuitMainMenu : public IconOption {
     pm_QuitMainMenu(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_QuitMainMenu() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -128,7 +146,6 @@ struct pm_QuitMainMenu : public IconOption {
 struct pm_QuitQuickRace : public IconOption {
     pm_QuitQuickRace(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_QuitQuickRace() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -144,7 +161,6 @@ struct pm_QuitQuickRace : public IconOption {
 struct pm_QuitRaceToFreeRoam : public IconOption {
     pm_QuitRaceToFreeRoam(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_QuitRaceToFreeRoam() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
@@ -160,14 +176,18 @@ struct pm_QuitRaceToFreeRoam : public IconOption {
 struct pm_QuitRaceToFE : public IconOption {
     pm_QuitRaceToFE(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) { SetReactImmediately(true); }
-    ~pm_QuitRaceToFE() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1,
                unsigned int param2) override {
         if (data == 0x0C407210) {
             unsigned int quitMessageHash = 0;
             PauseMenu::SetSelectionHash(0xE5C9C609);
             GRace::Context ctx = GRaceStatus::Get().GetRaceContext();
+#ifdef EA_BUILD_A124
+            if (ctx == GRace::kRaceContext_Online) {
+                quitMessageHash = FEDatabase->GetOnlineSettings()->GameDetails == eHOSTING ? 0xC0D1FAF6 : 0x73DBC497;
+#else
             if (ctx == GRace::kRaceContext_TimeTrial) {
+#endif
             } else if (ctx == GRace::kRaceContext_QuickRace) {
                 quitMessageHash = 0x1DB1CDE5;
             } else {
@@ -312,10 +332,12 @@ message_E1FDE1D1:
             new EUnPause();
             return;
         case 0xFBDF2EE3:
+#ifndef EA_BUILD_A124
             if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters()
                 && GRaceStatus::Get().GetRaceParameters()->GetIsDDayRace()) {
                 MemoryCard::GetInstance()->CancelNextAutoSave();
             }
+#endif
             new ERestartRace();
             new EUnPause();
             return;
@@ -371,7 +393,7 @@ bool PauseMenu::IsTuningAvailable() {
     FECarRecord* record = stable->GetCarRecordByHandle(player_car);
     FECustomizationRecord* custom = stable->GetCustomizationRecordByHandle(record->Customization);
     if (custom != nullptr) {
-        for (int i = 0; i <= 6; i++) {
+        for (int i = 0; i < 7; i++) {
             avail = avail | CustomTuningScreen::IsTuningAvailable(stable, record, static_cast< Physics::Tunings::Path >(i));
         }
     }
@@ -384,7 +406,11 @@ void PauseMenu::Setup() {
     } else {
         FEngSetLanguageHash(GetPackageName(), 0x863404B5, 0x6C839FBE);
     }
+#ifdef EA_BUILD_A124
+    if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Online) {
+#else
     if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_TimeTrial) {
+#endif
         SetupOnlineOptions();
     } else {
         SetupOptions();
@@ -393,6 +419,7 @@ void PauseMenu::Setup() {
     RefreshHeader();
 }
 
+// Las dos PS2 ponen al icono de volver a la ciudad la textura del de salir (0x4C9E34E6); GameCube, la suya.
 void PauseMenu::SetupOptions() {
     if (mCalledFromPostRace) {
         FEngSetInvisible(GetPackageName(), 0x812A09D4);
@@ -405,7 +432,11 @@ void PauseMenu::SetupOptions() {
             } else {
                 AddOption(new("pm_RestartRace", 0) pm_RestartRace(0xB295A6B6, 0xF893AFA1, 0));
                 AddOption(new("pm_QuitRaceToFE", 0) pm_QuitRaceToFE(0x4C9E34E6, 0x3C14C420, 0));
+#ifdef EA_PLATFORM_PLAYSTATION2
+                AddOption(new("pm_QuitRaceToFreeRoam", 0) pm_QuitRaceToFreeRoam(0x4C9E34E6, 0x9DC599B0, 0));
+#else
                 AddOption(new("pm_QuitRaceToFreeRoam", 0) pm_QuitRaceToFreeRoam(0x56FFBD2C, 0x9DC599B0, 0));
+#endif
             }
         } else {
             AddOption(new("pm_RestartRace", 0) pm_RestartRace(0xB295A6B6, 0xF893AFA1, 0));
@@ -418,9 +449,7 @@ void PauseMenu::SetupOptions() {
                 AddOption(opt);
             }
         }
-        return;
-    }
-    if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
+    } else if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
         if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
             if (FEDatabase->IsDDay()) {
                 AddOption(new("pm_ResumeFreeRoam", 0) pm_ResumeFreeRoam(0x12BB5EA2, 0x01BD185C, 0));
@@ -442,6 +471,7 @@ void PauseMenu::SetupOptions() {
                 AddOption(new("pm_SwitchToOptions", 0) pm_SwitchToOptions(0x520DE4E3, 0x2B5A03A8, 0));
             }
         } else {
+#ifndef EA_BUILD_A124
             GRaceParameters* pParams;
             if (GRaceStatus::Exists()) {
                 pParams = GRaceStatus::Get().GetRaceParameters();
@@ -452,12 +482,17 @@ void PauseMenu::SetupOptions() {
             if (pParams != nullptr && pParams->GetIsEpicPursuitRace()) {
                 isEpicPursuit = true;
             }
+#endif
             if (FEDatabase->IsDDay()) {
                 AddOption(new("pm_ResumeRace", 0) pm_ResumeRace(0x12BB5EA2, 0xDED357E7, 0));
                 AddOption(new("pm_RestartRace", 0) pm_RestartRace(0xB295A6B6, 0xF893AFA1, 0));
                 AddOption(new("pm_QuitRaceToFE", 0) pm_QuitRaceToFE(0x4C9E34E6, 0x690E9B7C, 0));
                 AddOption(new("pm_SwitchToOptions", 0) pm_SwitchToOptions(0x520DE4E3, 0x2B5A03A8, 0));
+#ifdef EA_BUILD_A124
+            } else if (FEDatabase->IsFinalEpicChase()) {
+#else
             } else if (FEDatabase->IsFinalEpicChase() || isEpicPursuit) {
+#endif
                 AddOption(new("pm_ResumeRace", 0) pm_ResumeRace(0x12BB5EA2, 0xDED357E7, 0));
                 AddOption(new("pm_RestartRace", 0) pm_RestartRace(0xB295A6B6, 0xF893AFA1, 0));
                 AddOption(new("pm_QuitRaceToFE", 0) pm_QuitRaceToFE(0x4C9E34E6, 0x690E9B7C, 0));
@@ -467,7 +502,11 @@ void PauseMenu::SetupOptions() {
                 AddOption(new("pm_ResumeRace", 0) pm_ResumeRace(0x12BB5EA2, 0xDED357E7, 0));
                 AddOption(new("pm_RestartRace", 0) pm_RestartRace(0xB295A6B6, 0xF893AFA1, 0));
                 AddOption(new("pm_QuitRaceToFE", 0) pm_QuitRaceToFE(0x4C9E34E6, 0x3C14C420, 0));
+#ifdef EA_PLATFORM_PLAYSTATION2
+                AddOption(new("pm_QuitRaceToFreeRoam", 0) pm_QuitRaceToFreeRoam(0x4C9E34E6, 0x9DC599B0, 0));
+#else
                 AddOption(new("pm_QuitRaceToFreeRoam", 0) pm_QuitRaceToFreeRoam(0x56FFBD2C, 0x9DC599B0, 0));
+#endif
                 AddOption(new("pm_SwitchToTuning", 0) pm_SwitchToTuning(0x483238FD, 0x6A3672A2, 0, IsTuningAvailable()));
                 AddOption(new("pm_SwitchToOptions", 0) pm_SwitchToOptions(0x520DE4E3, 0x2B5A03A8, 0));
             }
@@ -484,16 +523,25 @@ void PauseMenu::SetupOptions() {
             AddOption(new("pm_RestartRace", 0) pm_RestartRace(0xB295A6B6, 0xF893AFA1, 0));
             GRaceParameters* pParams = GRaceStatus::Get().GetRaceParameters();
             if (pParams != nullptr && pParams->GetIsChallengeSeriesRace()) {
+#ifdef EA_BUILD_A124
+                // La A124 usa aqui la cadena de pm_QuitQuickRace (el lui de las dos ramas es el mismo).
+                pm_QuitMainMenu* opt = new("pm_QuitQuickRace", 0) pm_QuitMainMenu(0x4C9E34E6, 0xE950B7AF, 0);
+#else
                 pm_QuitMainMenu* opt = new("pm_QuitMainMenu", 0) pm_QuitMainMenu(0x4C9E34E6, 0xE950B7AF, 0);
+#endif
                 AddOption(opt);
             } else {
                 pm_QuitQuickRace* opt = new("pm_QuitQuickRace", 0) pm_QuitQuickRace(0x4C9E34E6, 0x4349998B, 0);
                 AddOption(opt);
             }
+#ifdef EA_BUILD_A124
+            AddOption(new("pm_SwitchToTuning", 0) pm_SwitchToTuning(0x483238FD, 0x6A3672A2, 0, IsTuningAvailable()));
+#else
             if (!GRaceStatus::IsTollboothRace() &&
                 (pParams == nullptr || !pParams->GetIsChallengeSeriesRace())) {
                 AddOption(new("pm_SwitchToTuning", 0) pm_SwitchToTuning(0x483238FD, 0x6A3672A2, 0, IsTuningAvailable()));
             }
+#endif
             AddOption(new("pm_SwitchToOptions", 0) pm_SwitchToOptions(0x520DE4E3, 0x2B5A03A8, 0));
         }
     }
@@ -502,4 +550,16 @@ void PauseMenu::SetupOptions() {
 void PauseMenu::SetupOnlineOptions() {
     pm_QuitRaceToFE* opt = new("pm_QuitRaceToFE", 0) pm_QuitRaceToFE(0x4C9E34E6, 0xF95320B8, 0);
     AddOption(opt);
+#ifdef EA_BUILD_A124
+    for (int channel = 0; channel < 4; channel++) {
+        if (VoiceCore::instance().IsConnected(channel)) {
+            unsigned int buttonNameHash = 0x0C06AA60;
+            if (VoiceCore::instance().IsMuted(channel)) {
+                buttonNameHash = 0x98413803;
+            }
+            const char* persona = VoiceCore::instance().GetChannelPersona(channel);
+            AddOption(new("pm_MutePlayer", 0) pm_MutePlayer(FEngHashString("OL_HEADSET"), buttonNameHash, 0, persona));
+        }
+    }
+#endif
 }

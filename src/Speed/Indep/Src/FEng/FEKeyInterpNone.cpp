@@ -5,10 +5,12 @@
 // c34ord3 f5: el objetivo emite FEInterpNone(FEScript*) ANTES que
 // FEInterpNone(FEKeyTrack*). NO volver a ordenarlas.
 void FEInterpNone(FEScript *pScript, u8 TrackNum, i32 tTime, void *pOutData) {
-    FEKeyTrack *pTrack = pScript->pTracks + TrackNum;
-    char *pData = reinterpret_cast<char *>(pOutData);
+    FEKeyTrack *pTrack = &pScript->pTracks[TrackNum];
+    u8 *pOutDataPtr = reinterpret_cast<u8 *>(pOutData);
 
-    FEInterpNone(pTrack, tTime, pData + *(reinterpret_cast<char *>(pTrack) + 7) * 4);
+    u32 OutOffset = pTrack->LongOffset;
+
+    FEInterpNone(pTrack, tTime, pOutDataPtr + OutOffset * sizeof(void *));
 }
 
 void FEInterpNone(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
@@ -24,14 +26,13 @@ void FEInterpNone(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
         } else {
             FEngMemCpy(pOutDataPtr, &pKey->Val, KeySize - 4);
         }
-        return;
-    }
-
-    pKey = pTrack->GetKeyAt(pTrack->Length - tTime);
-    pPrevKey = static_cast<FEKeyNode *>(pKey->GetNext());
-    if (pPrevKey && pKey->tTime < tTime) {
-        FEngMemCpy(pOutDataPtr, &pPrevKey->Val, KeySize - 4);
     } else {
-        FEngMemCpy(pOutDataPtr, &pKey->Val, KeySize - 4);
+        pKey = pTrack->GetKeyAt(pTrack->Length - tTime);
+        pPrevKey = static_cast<FEKeyNode *>(pKey->GetNext());
+        if (pPrevKey && pKey->tTime < tTime) {
+            FEngMemCpy(pOutDataPtr, &pPrevKey->Val, KeySize - 4);
+        } else {
+            FEngMemCpy(pOutDataPtr, &pKey->Val, KeySize - 4);
+        }
     }
 }

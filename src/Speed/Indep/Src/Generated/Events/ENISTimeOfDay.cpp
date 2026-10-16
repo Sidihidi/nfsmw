@@ -15,9 +15,9 @@ void ENISTimeOfDay_MakeEvent_Callback(const void *staticData) {
     new ENISTimeOfDay(((ENISTimeOfDay::StaticData *)staticData)->fTimeOfDay, ((ENISTimeOfDay::StaticData *)staticData)->fUpdateRate, ((ENISTimeOfDay::StaticData *)staticData)->fSunAzimuth, ((ENISTimeOfDay::StaticData *)staticData)->fTimeOfDayOvercast);
 }
 
-int ENISTimeOfDay_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 4) {
-        new ENISTimeOfDay(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
+int ENISTimeOfDay_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 4) {
+        new ENISTimeOfDay(lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), lua_tonumber(luaState, 4));
     }
     return 0;
 }

@@ -49,6 +49,9 @@ int bFileExists(const char *f);
 int bFPrintf(bFile *file, const char *fmt, ...);
 void bFileFlushCachedFiles();
 void bFileFlushCacheFile(const char *filename);
+#ifdef EA_PLATFORM_PLAYSTATION2
+void bInvalidateCodeineFileCache(const char *filename);
+#endif
 unsigned int bFileGetFilenameHash(const char *filename);
 int GetRealFileOpenFlags(bFileOpenMode open_mode);
 void AddMemoryFile(void *pmemory_file);
@@ -62,12 +65,21 @@ bool bIsMainThread();
 void bThreadYield(int a);
 void bSyncTaskRun();
 void bFileRunTimingTest();
-void bReadAsync(bFile *f, void *buf, int numbytes, void (*callback)(void *), void *param);
+// La A124 pasa el parametro de la llamada de vuelta como int (bReadAsync__FP5bFilePviPFi_vi); GameCube y las de venta,
+// como void * (y el DWARF de GameCube expande una bReadAsync en linea con enteros encima).
+void bReadAsync(bFile *f, void *buf, int numbytes,
+#ifdef EA_BUILD_A124
+                void (*callback)(int), int param
+#else
+                void (*callback)(void *), void *param
+#endif
+);
 void bServiceFileSystem();
 void bWrite(bFile *f, const void *buf, int num_bytes);
-bool bIsAsyncDone(bFile *f);
+int bIsAsyncDone(bFile *f);
 void bWaitUntilAsyncDone(bFile *f);
 void bInitFileSystem();
+void bCloseFileSystem();
 
 // total size: 0x18
 struct bFileDirectoryEntry {

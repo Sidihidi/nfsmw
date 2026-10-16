@@ -3,8 +3,9 @@
 
 #include "Speed/Indep/Libs/Support/Utility/UListable.h"
 #include "Speed/Indep/Src/EAXSound/EAXSoundTypes.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/engineaudio.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/pvehicle.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/engine.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/engineaudio.h"
 #include "Speed/Indep/Src/Generated/CarTypes.hpp"
 #include "Speed/Indep/Src/Physics/CarBasics.hpp"
 #include "Speed/Indep/Src/World/Car.hpp"
@@ -15,7 +16,11 @@
 
 // total size: 0x248
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class EAX_CarState : public UTL::Collections::Listable<EAX_CarState, 20> {
+#else
 class EAX_CarState : public UTL::Collections::Listable<EAX_CarState, 10> {
+#endif
   public:
     static EAX_CarState *Find(WUID objectid) {
         for (List::const_iterator iter = GetList().begin(); iter != GetList().end(); ++iter) {
@@ -29,7 +34,11 @@ class EAX_CarState : public UTL::Collections::Listable<EAX_CarState, 10> {
         return nullptr;
     }
 
+#ifdef EA_BUILD_A124
+    EAX_CarState(const Attrib::Collection *atr, Sound::Context context, WUID wuid);
+#else
     EAX_CarState(const Attrib::Collection *atr, Sound::Context context, WUID wuid, HSIMABLE handle);
+#endif
 
     ~EAX_CarState() {}
 
@@ -183,7 +192,10 @@ class EAX_CarState : public UTL::Collections::Listable<EAX_CarState, 10> {
     float GetVelocityMagnitudeMPH() {
         return MPS2MPH(this->GetVelocityMagnitude());
     }
-    float GetYaw() {}
+    // Lee mSlipAngle: la A124 hace lwc1 0x250 (su mSlipAngle) en EAXCarState.hpp:168 y SLUS 0x254.
+    float GetYaw() {
+        return this->mSlipAngle;
+    }
     const bMatrix4 *GetBodyMatrix() {
         return &this->mMatrix;
     }
@@ -259,7 +271,11 @@ class EAX_CarState : public UTL::Collections::Listable<EAX_CarState, 10> {
     }
 
     bool IsEngineBlown() {
+#ifdef EA_BUILD_A124 // en la A124 el motor solo puede reventar (no hay sabotaje)
+        return this->mEngine.mBlownFlag;
+#else
         return this->mEngine.mBlownFlag == 1;
+#endif
     }
     bool IsEngineSabotaged() {
         return mEngine.mBlownFlag == 2;
@@ -289,6 +305,9 @@ class EAX_CarState : public UTL::Collections::Listable<EAX_CarState, 10> {
     Sound::Driveline mDriveline;          // offset 0x1D8, size 0x8, Decl: 272
     Sound::SirenState mSirenState;        // offset 0x1E0, size 0x4, Decl: 273
     bool mHotPursuit;                     // offset 0x1E4, size 0x1, Decl: 274
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    int mTopGear;                         // PC: offset 0x1FC (nombre desconocido)
+#endif
     Attrib::Gen::pvehicle mAttributes;    // offset 0x1E8, size 0x14, Decl: 277
     Attrib::Gen::engineaudio mEngineInfo; // offset 0x1FC, size 0x14, Decl: 278
     Sound::Context mContext;              // offset 0x210, size 0x4, Decl: 282

@@ -1,73 +1,4 @@
-typedef int INT32;
-typedef unsigned int UINT32;
-typedef unsigned char UINT8;
-
-typedef struct {
-    unsigned int VideoFrameWidth;
-    unsigned int VideoFrameHeight;
-    int YStride;
-    int UVStride;
-    unsigned int HFragPixels;
-    unsigned int VFragPixels;
-    unsigned int HScale;
-    unsigned int HRatio;
-    unsigned int VScale;
-    unsigned int VRatio;
-    unsigned int ScalingMode;
-    unsigned int Interlaced;
-    unsigned int ExpandedFrameWidth;
-    unsigned int ExpandedFrameHeight;
-} CONFIG_TYPE;
-
-typedef struct {
-    int Vp3VersionNo;
-    int FrameType;
-    int PostProcessingLevel;
-    int FrameQIndex;
-    unsigned char *LastFrameRecon;
-    unsigned char *PostProcessBuffer;
-    unsigned char *FragInfo;
-    unsigned int FragInfoElementSize;
-    unsigned int FragInfoCodedMask;
-    int *FragQIndex;
-    int *FragmentVariances;
-    unsigned char *FragDeblockingFlag;
-    int *BoundingValuePtr;
-    int *FiltBoundingValue;
-    int *DeblockValuePtr;
-    int *DeblockBoundingValue;
-    CONFIG_TYPE Configuration;
-    unsigned int ReconYDataOffset;
-    unsigned int ReconUDataOffset;
-    unsigned int ReconVDataOffset;
-    unsigned int YPlaneFragments;
-    unsigned int UVPlaneFragments;
-    unsigned int UnitFragments;
-    unsigned int HFragments;
-    unsigned int VFragments;
-    int YStride;
-    int UVStride;
-    int *FiltBoundingValueAlloc;
-    int *DeblockBoundingValueAlloc;
-    int *FragQIndexAlloc;
-    int *FragmentVariancesAlloc;
-    unsigned char *FragDeblockingFlagAlloc;
-    unsigned int MVBorder;
-    unsigned char *IntermediateBufferAlloc;
-    unsigned char *IntermediateBuffer;
-    unsigned int DeInterlaceMode;
-    unsigned int AddNoiseMode;
-} POSTPROC_INSTANCE;
-
-extern unsigned char LimitVal_VP31[768];
-
-extern void (*DeblockLoopFilteredBand)(POSTPROC_INSTANCE *, unsigned char *, unsigned char *,
-                                       UINT32, UINT32, UINT32, UINT32 *);
-extern void (*DeblockNonFilteredBand)(POSTPROC_INSTANCE *, unsigned char *, unsigned char *,
-                                      UINT32, UINT32, UINT32, UINT32 *);
-extern void (*DeblockNonFilteredBandNewFilter)(POSTPROC_INSTANCE *, unsigned char *, unsigned char *,
-                                               UINT32, UINT32, UINT32, UINT32 *);
-extern INT32 *(*SetupDeblockValueArray)(POSTPROC_INSTANCE *, INT32);
+#include "postp.h"
 
 UINT32 DeblockLimitValuesVp4[64] = {
     30, 25, 20, 20, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10,
@@ -114,7 +45,14 @@ INT32 *SetupDeblockValueArray_Generic(POSTPROC_INSTANCE *pbi, INT32 FLimit) {
 void SetupDeblocker(POSTPROC_INSTANCE *pbi) {
     INT32 FLimit;
 
+    /* PC (speed.exe 0x801D16/0x803BFC): el original compara contra 2 y contra 5,
+     * no contra 1 y 4 (MSVC 7.1 no canonicaliza como GCC). Solo en las funciones
+     * que asi casan byte a byte; DeblockPlane queda como esta. */
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo >= 2) {
+#else
     if (pbi->Vp3VersionNo > 1) {
+#endif
         FLimit = DeblockLimitValuesV2[pbi->FrameQIndex];
         pbi->DeblockValuePtr = SetupDeblockValueArray_Generic(pbi, FLimit);
     } else {
@@ -1001,10 +939,17 @@ void DeblockFrame(POSTPROC_INSTANCE *pbi, unsigned char *SourceBuffer,
                   unsigned char *DestinationBuffer) {
     memset(pbi->FragmentVariances, 0, sizeof(INT32) * pbi->UnitFragments);
 
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo >= 2)
+        SetupDeblocker(pbi);
+
+    if (pbi->Vp3VersionNo >= 5) {
+#else
     if (pbi->Vp3VersionNo > 1)
         SetupDeblocker(pbi);
 
     if (pbi->Vp3VersionNo > 4) {
+#endif
         DeblockPlaneNew(pbi, pbi->YStride, 0, pbi->HFragments, pbi->VFragments,
                         &SourceBuffer[pbi->ReconYDataOffset],
                         &DestinationBuffer[pbi->ReconYDataOffset], DCQuantScaleV2);

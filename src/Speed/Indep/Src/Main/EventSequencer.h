@@ -33,7 +33,11 @@ enum QueueMode {
     QUEUE_ABORT = 4,
 };
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class IEngine : public UTL::COM::IUnknown, public UTL::Collections::Instanceable<HENGINE, IEngine, 2296> {
+#else
 class IEngine : public UTL::COM::IUnknown, public UTL::Collections::Instanceable<HENGINE, IEngine, 434> {
+#endif
   public:
     enum { InstanceLimit = 434 };
 

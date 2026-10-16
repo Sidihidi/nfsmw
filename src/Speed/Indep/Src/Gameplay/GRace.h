@@ -33,13 +33,38 @@ enum CopDensity {
     kRaceCops_NumDensities = 4,
 };
 
+// El prototipo A124 no tiene contrarreloj y si tiene online: su .mdebug da
+// QuickRace = 0, Online = 1, Career = 2. La contrarreloj se anadio despues, y la
+// version de venta de PS2 ya no tiene online, asi que alli Career tambien vale
+// 2 pero por el otro lado. Los sitios que en la venta miran kRaceContext_TimeTrial
+// miran kRaceContext_Online en el prototipo: mismo valor 1, mismo codigo maquina
+// (PauseMenu::Setup esta al 100 % en SLES comparando con 1).
+//
+// En PC (WIN32) Career va ANTES que Online (QuickRace = 0, TimeTrial = 1,
+// Career = 2, Online = 3): el SPEED_EXE_1_3 original compara el contexto con 2
+// en los sitios que miran GRace::kRaceContext_Career
+// (HudResourceManager::ChooseLoadableTextures, HudResourceManager::GetCarPart,
+// PhotoFinishScreen::PhotoFinishScreen: `cmp [reg+0x1964], 0x2`), mientras que
+// con Career = 3 compilabamos `cmp ..., 0x3` (ventana 8, corriente 6: +3 en zFe2).
 enum Context {
     kRaceContext_QuickRace,
+#ifdef EA_BUILD_A124
+    kRaceContext_Online,
+    kRaceContext_Career,
+#else
     kRaceContext_TimeTrial,
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // 360 igual que PC: GManager::PreBeginGameplay guarda 2
+    kRaceContext_Career,
+#if ONLINE_SUPPORT
+    kRaceContext_Online,
+#endif
+#else
 #if ONLINE_SUPPORT
     kRaceContext_Online,
 #endif
     kRaceContext_Career,
+#endif
+#endif
     kRaceContext_Count,
 };
 

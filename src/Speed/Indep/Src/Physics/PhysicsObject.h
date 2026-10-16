@@ -20,6 +20,8 @@ class PhysicsObject : public Sim::Object,
                       public UTL::Collections::GarbageNode<PhysicsObject, 160>,
                       protected UTL::Collections::Container<Behavior, _type_UContainer> {
   public:
+    USE_FASTALLOC(PhysicsObject);
+
     typedef UTL::Std::map<unsigned int, Behavior *, _type_ID_POMechanics> Mechanics;
 
     struct Behaviors : protected UTL::Std::list<Behavior *, _type_ID_POBehaviors> {

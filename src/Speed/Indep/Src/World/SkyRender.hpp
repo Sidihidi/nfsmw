@@ -15,7 +15,7 @@ enum SKY_TEX_TYPE {
     TEX_CAP = 1,
 };
 
-struct eView;
+class eView;
 
 void StuffSkyLayer(eView *view, SKY_LAYER layer);
 void StuffSpecular(eView *view);

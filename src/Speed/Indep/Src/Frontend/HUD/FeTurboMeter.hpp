@@ -8,6 +8,7 @@
 class TurboMeter : public HudElement, public ITurbometer {
   public:
     TurboMeter(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~TurboMeter() override {}
     void Update(IPlayer *player) override;
     void SetInductionPsi(float psi) override;
 

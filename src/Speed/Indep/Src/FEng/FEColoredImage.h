@@ -4,6 +4,23 @@
 #include "FEImage.h"
 #include "Speed/Indep/Src/FEng/FEObject.h"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // File: speed/indep/src/feng/FEColoredImage.h
 // total size: 0x94
 // Decl: speed/indep/src/feng/FEColoredImage.h:27
@@ -12,19 +29,18 @@ class FEColoredImageData : public FEImageData {
     FEColor VertexColors[4]; // offset 0x54, size 0x40, Decl: speed/indep/src/feng/FEColoredImage.h:29
 };
 
+
+
 // total size: 0x60
 // Decl: speed/indep/src/feng/FEColoredImage.h:36
 class FEColoredImage : public FEImage {
   public:
-    FEColoredImage() { // Decl: speed/indep/src/feng/FEColoredImage.h:39
-        Type = FE_ColoredImage;
-    }
+
+    FEColoredImage() { Type = FE_ColoredImage; } // Decl: speed/indep/src/feng/FEColoredImage.h:39
     FEColoredImage(const FEColoredImage &Object, bool bReference) : FEImage(reinterpret_cast<const FEImage &>(Object), bReference) {}
     ~FEColoredImage() override {}
 
-    FEObject *Clone(bool bReference) override { // Decl: speed/indep/src/feng/FEColoredImage.h:43
-        return FNEW FEColoredImage(*this, bReference);
-    }
+    FEObject *Clone(bool bReference) override { return FNEW FEColoredImage(*this, bReference); } // Decl: speed/indep/src/feng/FEColoredImage.h:43
 
     void SetVertexColor(const FEColor &color, u32 vertexIndex, bool bRelative) {}
 };

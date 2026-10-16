@@ -25,6 +25,13 @@
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Online/LobbyCore.hpp"
+#include "Speed/Indep/Src/Online/LobbyGames.hpp"
+#include "Speed/Indep/Src/Online/LobbyUsers.hpp"
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineDisconnect.hpp"
+#endif
 
 PursuitData PostRacePursuitScreen::mPursuitData;
 
@@ -48,7 +55,11 @@ inline void RaceResultStat::Draw() {
         FEngSetLanguageHash(GetDataObject(), 0xB7B75185);
     } else if (RacerInfo->GetIsKnockedOut()) {
         FEngSetLanguageHash(GetDataObject(), 0x5D82DBA2);
+#ifdef EA_BUILD_A124 // la A124 no marca el abandono en las partidas en linea ni en LAN
+    } else if (!RacerInfo->IsFinishedRacing() && !FEDatabase->IsOnlineMode() && !FEDatabase->IsLanMode()) {
+#else
     } else if (!RacerInfo->IsFinishedRacing()) {
+#endif
         FEngSetLanguageHash(GetDataObject(), 0x0FC1BF40);
     } else {
         Timer t(RacerInfo->GetRaceTimer().GetTime());
@@ -72,16 +83,31 @@ void StatsPanel::Reset() {
 
 void StatsPanel::Draw(unsigned int numPlayers) {
     if (numPlayers > 1 && RacerName != nullptr && bStrCmp(RacerName, "") != 0) {
+#ifdef EA_BUILD_A124
+        // La A124 muestra y oculta los tres objetos uno a uno, sin el script del grupo.
+        FEngSetVisible(ParentPkg, 0x5BC);
+        FEngSetVisible(ParentPkg, 0x682);
+        FEngSetVisible(ParentPkg, 0xEB43CCB0);
+#else
         if (!FEngIsScriptSet(ParentPkg, 0x8A41F5B9, FEHASH_APPEAR)) {
             FEngSetScript(ParentPkg, 0x8A41F5B9, FEHASH_APPEAR, true);
         }
+#endif
 
         FEngSetButtonTexture(FEngFindImage(ParentPkg, 0x5BC), 0x5BC);
         FEngSetButtonTexture(FEngFindImage(ParentPkg, 0x682), 0x682);
         FEPrintf(ParentPkg, 0xEB43CCB0, "%s", RacerName);
+#ifdef EA_BUILD_A124
+    } else {
+        FEngSetInvisible(ParentPkg, 0x5BC);
+        FEngSetInvisible(ParentPkg, 0x682);
+        FEngSetInvisible(ParentPkg, 0xEB43CCB0);
+    }
+#else
     } else if (!FEngIsScriptSet(ParentPkg, 0x8A41F5B9, FEHASH_HIDE)) {
         FEngSetScript(ParentPkg, 0x8A41F5B9, FEHASH_HIDE, true);
     }
+#endif
 
     {
         FEWidget *widgey = TheStats.GetHead();
@@ -121,15 +147,22 @@ void StatsPanel::AddTimerStat(float seconds, unsigned int title_hash) {
 }
 
 PostRaceResultsScreen::PostRaceResultsScreen(ScreenConstructorData *sd)
-    : MenuScreen(sd), RacerStats(), RaceResults(), mNumberOfRacers(GRaceStatus::Get().GetRacerCount()), mIndexOfWinner(-1),
+    : MenuScreen(sd), RacerStats(), RaceResults(),
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
+      msgHandle(0),
+#endif
+#ifdef EA_PLATFORM_WIN32
+      mPCOnlineFlag(false),
+#endif
+      mNumberOfRacers(GRaceStatus::Get().GetRacerCount()), mIndexOfWinner(-1),
       mIndexOfCurrentRacer(-1), mNumberOfLaps(GRaceStatus::Get().GetRaceParameters()->GetNumLaps()), mNumberOfStats(0),
       mRaceType(GRaceStatus::Get().GetRaceType()), mPostRaceScreenMode(POSTRACESCREENMODE_RESULTS), mPlayerRacerInfo(nullptr),
       mMaxSlotsLeftSide(11), m_raceResultsUploaded(false) {
 #ifndef EA_BUILD_A124
     m_RaceButtonHash = 0x5CED1D04;
-#endif
 
     bEnableEAMessenger = false;
+#endif
 
     if (mRaceType == GRace::kRaceType_Tollbooth) {
         mPostRaceScreenMode = POSTRACESCREENMODE_LAPSTATS;
@@ -150,10 +183,30 @@ PostRaceResultsScreen::PostRaceResultsScreen(ScreenConstructorData *sd)
     }
     RaceResults.SetParentPkg(GetPackageName());
 
+#ifdef EA_BUILD_A124
+    if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+        FEngSetScript(GetPackageName(), 0x445A862B, 0x0016A259, true);
+        LobbyCore::Instance().Resume(false);
+        LobbyGames::Instance().SetResultUpdateCB(ResultUpdateCB, this);
+        msgHandle = DialogInterface::ShowMessage(GetPackageName(), "", static_cast<eDialogTitle>(2),
+                                                 GetLocalizedString(0x144849C1));
+    }
+#endif
     Setup();
 }
 
-PostRaceResultsScreen::~PostRaceResultsScreen() {}
+PostRaceResultsScreen::~PostRaceResultsScreen() {
+#ifdef EA_BUILD_A124
+    if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+        LobbyGames::Instance().SetResultUpdateCB(nullptr, nullptr);
+        LobbyCore::Instance().Suspend();
+        if (msgHandle) {
+            DialogInterface::DismissDialog(msgHandle);
+            msgHandle = 0;
+        }
+    }
+#endif
+}
 
 void PostRaceResultsScreen::Setup() {
     for (int i = 0; i < mNumberOfRacers; ++i) {
@@ -170,17 +223,17 @@ void PostRaceResultsScreen::Setup() {
 
         if (mPostRaceScreenMode == POSTRACESCREENMODE_STATS ||
             (mPostRaceScreenMode == POSTRACESCREENMODE_LAPSTATS && mRaceType == GRace::kRaceType_Tollbooth)) {
-            FEngSetInvisible(FEngFindObject(GetPackageName(), FEngHashString("COLUMN2_DATA%d", i + 1)));
+            FEngSetInvisible(GetPackageName(), FEngHashString("COLUMN2_DATA%d", i + 1));
         } else {
-            FEngSetVisible(FEngFindObject(GetPackageName(), FEngHashString("COLUMN2_DATA%d", i + 1)));
+            FEngSetVisible(GetPackageName(), FEngHashString("COLUMN2_DATA%d", i + 1));
         }
 
         i = i + 1;
     }
 
-    FEngSetInvisible(FEngFindObject(GetPackageName(), 0x586AB4A6));
-    FEngSetInvisible(FEngFindObject(GetPackageName(), 0x44AC8987));
-    FEngSetInvisible(FEngFindObject(GetPackageName(), 0x30EE5E68));
+    FEngSetInvisible(GetPackageName(), 0x586AB4A6);
+    FEngSetInvisible(GetPackageName(), 0x44AC8987);
+    FEngSetInvisible(GetPackageName(), 0x30EE5E68);
 
     switch (mPostRaceScreenMode) {
         case POSTRACESCREENMODE_RESULTS:
@@ -202,13 +255,18 @@ void PostRaceResultsScreen::Setup() {
             break;
     }
 
-    unsigned int fe_flags = FEDatabase->GetGameMode();
-
-    if ((fe_flags & 8) == 0) {
-        if ((fe_flags & 0x40) == 0 && !FEngIsScriptSet(GetPackageName(), 0x445A862B, FEHASH_APPEAR)) {
-            FEngSetScript(GetPackageName(), 0x445A862B, FEHASH_APPEAR, true);
-        }
+    // A124 (oraculo 0x294da8): el alpha encola el mensaje de paquete 0x5e5b26a1 en online o LAN; la final fija el
+    // script APPEAR de 0x445A862B cuando no es ninguno de los dos. El sra+andi de las dos versiones es el bool de los
+    // accesores IsOnlineMode/IsLanMode.
+#ifdef EA_BUILD_A124
+    if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+        cFEng::Get()->QueuePackageMessage(0x5e5b26a1, GetPackageName(), nullptr);
     }
+#else
+    if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLanMode() && !FEngIsScriptSet(GetPackageName(), 0x445A862B, FEHASH_APPEAR)) {
+        FEngSetScript(GetPackageName(), 0x445A862B, FEHASH_APPEAR, true);
+    }
+#endif
 }
 
 void PostRaceResultsScreen::SetupResults() {
@@ -264,6 +322,12 @@ void PostRaceResultsScreen::SetupResults() {
                     while (racer_info->GetRanking() != rank) {
                         racer_info = &GRaceStatus::Get().GetRacerInfo(i++);
                     }
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+                    // Solo SLUS espera a que las estadisticas del corredor esten listas (su asm llama a AreStatsReady).
+                    if (!racer_info->AreStatsReady()) {
+                        break;
+                    }
+#endif
                     place = rank;
 
                     RaceResults.AddStat(new ("", 0)
@@ -285,6 +349,12 @@ void PostRaceResultsScreen::SetupResults() {
                         racer_info = &GRaceStatus::Get().GetRacerInfo(i++);
                     }
 
+#ifdef EA_BUILD_A124 // la A124 muestra la velocidad sin convertir
+                    place = rank;
+                    RaceResults.AddStat(new ("", 0)
+                                            GenericResult(RaceResults.GetCurrentString("COLUMN2_DATA"), RaceResults.GetCurrentString("COLUMN3_DATA"),
+                                                          RaceResults.GetCurrentString("COLUMN1_DATA"), speed_units, racer_info->GetPointTotal(), "%$0.0f", racer_info));
+#else
                     float speed = racer_info->GetPointTotal();
                     if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 0) {
                         speed = MPS2MPH(speed * 0.27778f);
@@ -294,6 +364,7 @@ void PostRaceResultsScreen::SetupResults() {
                     RaceResults.AddStat(new ("", 0)
                                             GenericResult(RaceResults.GetCurrentString("COLUMN2_DATA"), RaceResults.GetCurrentString("COLUMN3_DATA"),
                                                           RaceResults.GetCurrentString("COLUMN1_DATA"), speed_units, speed, "%$0.0f", racer_info));
+#endif
                 } while (place < mNumberOfRacers);
             }
             break;
@@ -306,19 +377,21 @@ void PostRaceResultsScreen::SetupResults() {
 void PostRaceResultsScreen::SetupStat_NosUsed() {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(mIndexOfCurrentRacer);
     unsigned int mass_units = 0xC173E1BB;
-    float nos = *reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x11C);
+    float nos = racerInfo.GetPoundsNOSUsed();
 
     if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 1) {
         mass_units = 0xC173DE1F;
         nos *= 0.45359f;
     }
 
-#ifndef EA_BUILD_A124
-    if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f && racerInfo.AreStatsReady()) {
+    if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f
+#ifndef EA_BUILD_A124 // la A124 no comprueba si las estadisticas estan listas
+        && racerInfo.AreStatsReady()
+#endif
+    ) {
         RacerStats[mIndexOfCurrentRacer].AddGenericStat(nos, 0x114E759F, mass_units, "%$0.0f");
         return;
     }
-#endif
 
     RacerStats[mIndexOfCurrentRacer].AddInfoStat(0x114E759F, 0x0FC1BF40);
 }
@@ -326,19 +399,21 @@ void PostRaceResultsScreen::SetupStat_NosUsed() {
 void PostRaceResultsScreen::SetupStat_TopSpeed() {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(mIndexOfCurrentRacer);
     unsigned int speedUnits = 0x8569AB44;
-    float speed = *reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x114) * 2.23699f;
+    float speed = racerInfo.GetTopSpeed() * 2.23699f;
 
     if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 1) {
         speedUnits = 0x8569A25F;
         speed *= 1.60931f;
     }
 
-#ifndef EA_BUILD_A124
-    if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f && racerInfo.AreStatsReady()) {
+    if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f
+#ifndef EA_BUILD_A124 // la A124 no comprueba si las estadisticas estan listas
+        && racerInfo.AreStatsReady()
+#endif
+    ) {
         RacerStats[mIndexOfCurrentRacer].AddGenericStat(speed, 0x0EF34382, speedUnits, "%$0.0f");
         return;
     }
-#endif
 
     RacerStats[mIndexOfCurrentRacer].AddInfoStat(0x0EF34382, 0x0FC1BF40);
 }
@@ -353,12 +428,14 @@ void PostRaceResultsScreen::SetupStat_AverageSpeed() {
         speed *= 1.60931f;
     }
 
-#ifndef EA_BUILD_A124
-    if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f && racerInfo.AreStatsReady()) {
+    if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f
+#ifndef EA_BUILD_A124 // la A124 no comprueba si las estadisticas estan listas
+        && racerInfo.AreStatsReady()
+#endif
+    ) {
         RacerStats[mIndexOfCurrentRacer].AddGenericStat(speed, 0x57F4140A, speedUnits, "%$0.0f");
         return;
     }
-#endif
 
     RacerStats[mIndexOfCurrentRacer].AddInfoStat(0x57F4140A, 0x0FC1BF40);
 }
@@ -366,12 +443,14 @@ void PostRaceResultsScreen::SetupStat_AverageSpeed() {
 void PostRaceResultsScreen::SetupStat_TimeBehind() {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(mIndexOfCurrentRacer);
 
+#ifdef EA_BUILD_A124
+    if (mIndexOfWinner >= 0) {
+#else
     if (mIndexOfWinner >= 0 && mIndexOfWinner != mIndexOfCurrentRacer) {
-        GRacerInfo &winnerInfo = GRaceStatus::Get().GetRacerInfo(mIndexOfWinner);
-        float winnerTime = reinterpret_cast<const GTimer *>(reinterpret_cast<const char *>(&winnerInfo) + 0x160)->GetTime();
-        float racerTime = reinterpret_cast<const GTimer *>(reinterpret_cast<const char *>(&racerInfo) + 0x160)->GetTime();
+#endif
+        float timeDiff = bAbs(GRaceStatus::Get().GetRacerInfo(mIndexOfWinner).GetRaceTime() - racerInfo.GetRaceTime());
 
-        RacerStats[mIndexOfCurrentRacer].AddTimerStat(bAbs(winnerTime - racerTime), 0xAB44ED8B);
+        RacerStats[mIndexOfCurrentRacer].AddTimerStat(timeDiff, 0xAB44ED8B);
         return;
     }
 
@@ -381,7 +460,7 @@ void PostRaceResultsScreen::SetupStat_TimeBehind() {
 void PostRaceResultsScreen::SetupStat_LapVariance() {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(mIndexOfCurrentRacer);
 
-    if (*reinterpret_cast<const int *>(reinterpret_cast<const char *>(&racerInfo) + 0x3C) > 1) {
+    if (racerInfo.GetLapsCompleted() >= 2) {
         float bestLapTime = GRaceStatus::Get().GetBestLapTime(mIndexOfCurrentRacer);
         float worstLapTime = GRaceStatus::Get().GetWorstLapTime(mIndexOfCurrentRacer);
 
@@ -401,7 +480,7 @@ void PostRaceResultsScreen::SetupStat_TrafficCollisions() {
 
     if (GRaceStatus::Get().GetRaceTimeElapsed() > 0.0f) {
         RacerStats[mIndexOfCurrentRacer].AddGenericStat(
-            static_cast<float>(*reinterpret_cast<const int *>(reinterpret_cast<const char *>(&racerInfo) + 0x12C)), 0x094BFDFC, 0, "%$0.0f");
+            static_cast<float>(racerInfo.GetTrafficCarsHit()), 0x094BFDFC, 0, "%$0.0f");
         return;
     }
 
@@ -416,13 +495,13 @@ void PostRaceResultsScreen::SetupStat_ZeroToSixty() {
         speedUnits = 0xB8CF16FC;
     }
 
-    if (*reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x138) > 0.0f
+    if (racerInfo.GetZeroToSixtyTime() > 0.0f
 #ifndef EA_BUILD_A124
         && racerInfo.AreStatsReady()
 #endif
 
     ) {
-        RacerStats[mIndexOfCurrentRacer].AddTimerStat(*reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x138),
+        RacerStats[mIndexOfCurrentRacer].AddTimerStat(racerInfo.GetZeroToSixtyTime(),
                                                       speedUnits);
         return;
     }
@@ -438,12 +517,12 @@ void PostRaceResultsScreen::SetupStat_QuarterMile() {
         timeUnits = 0x1C6F2A82;
     }
 
-    if (*reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x13C) > 0.0f
+    if (racerInfo.GetQuarterMileTime() > 0.0f
 #ifndef EA_BUILD_A124
         && racerInfo.AreStatsReady()
 #endif
     ) {
-        RacerStats[mIndexOfCurrentRacer].AddTimerStat(*reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x13C),
+        RacerStats[mIndexOfCurrentRacer].AddTimerStat(racerInfo.GetQuarterMileTime(),
                                                       timeUnits);
         return;
     }
@@ -460,7 +539,7 @@ void PostRaceResultsScreen::SetupStat_PerfectShifts() {
 #endif
     ) {
         RacerStats[mIndexOfCurrentRacer].AddGenericStat(
-            static_cast<float>(*reinterpret_cast<const int *>(reinterpret_cast<const char *>(&racerInfo) + 0x128)), 0x680AC597, 0, "%$0.0f");
+            static_cast<float>(racerInfo.GetPerfectShifts()), 0x680AC597, 0, "%$0.0f");
         return;
     }
 
@@ -470,7 +549,7 @@ void PostRaceResultsScreen::SetupStat_PerfectShifts() {
 void PostRaceResultsScreen::SetupStat_AccumulatedSpeed() {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(mIndexOfCurrentRacer);
     unsigned int speedUnits = 0x8569A25F;
-    float speed = *reinterpret_cast<const float *>(reinterpret_cast<const char *>(&racerInfo) + 0x134);
+    float speed = racerInfo.GetPointTotal();
 
     if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 0) {
         speedUnits = 0x8569AB44;
@@ -577,9 +656,7 @@ void PostRaceResultsScreen::SetupRacerStats(int index, GRacerInfo *racer_info) {
         case GRace::kRaceType_P2P:
             SetupStat_TopSpeed();
             SetupStat_AverageSpeed();
-            if (FEDatabase->IsLANMode()) {
-                SetupStat_NosUsed();
-            } else if (FEDatabase->IsOnlineMode()) {
+            if (FEDatabase->IsLANMode() || FEDatabase->IsOnlineMode()) {
                 SetupStat_NosUsed();
             } else {
                 SetupStat_TimeBehind();
@@ -591,9 +668,7 @@ void PostRaceResultsScreen::SetupRacerStats(int index, GRacerInfo *racer_info) {
         case GRace::kRaceType_Knockout:
             SetupStat_TopSpeed();
             SetupStat_AverageSpeed();
-            if (FEDatabase->IsLANMode()) {
-                SetupStat_NosUsed();
-            } else if (FEDatabase->IsOnlineMode()) {
+            if (FEDatabase->IsLANMode() || FEDatabase->IsOnlineMode()) {
                 SetupStat_NosUsed();
             } else {
                 SetupStat_TimeBehind();
@@ -605,9 +680,7 @@ void PostRaceResultsScreen::SetupRacerStats(int index, GRacerInfo *racer_info) {
             SetupStat_ZeroToSixty();
             SetupStat_QuarterMile();
             SetupStat_PerfectShifts();
-            if (FEDatabase->IsLANMode()) {
-                SetupStat_NosUsed();
-            } else if (FEDatabase->IsOnlineMode()) {
+            if (FEDatabase->IsLANMode() || FEDatabase->IsOnlineMode()) {
                 SetupStat_NosUsed();
             } else {
                 SetupStat_TimeBehind();
@@ -642,9 +715,9 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
         case GRace::kRaceType_P2P:
         case GRace::kRaceType_Drag:
             FEngSetLanguageHash(GetPackageName(), 0x2D691760, 0x34BA50FF);
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x586AB4A6));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x44AC8987));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x30EE5E68));
+            FEngSetVisible(GetPackageName(), 0x586AB4A6);
+            FEngSetVisible(GetPackageName(), 0x44AC8987);
+            FEngSetVisible(GetPackageName(), 0x30EE5E68);
             FEngSetLanguageHash(GetPackageName(), 0x586AB4A6, 0xE8B7D527);
             FEngSetLanguageHash(GetPackageName(), 0x44AC8987, 0x96B05F47);
             FEngSetLanguageHash(GetPackageName(), 0x30EE5E68, 0xB67DA102);
@@ -652,9 +725,9 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
         case GRace::kRaceType_Circuit:
         case GRace::kRaceType_Knockout:
             FEngSetLanguageHash(GetPackageName(), 0x2D691760, 0x9C8D7FE8);
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x586AB4A6));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x44AC8987));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x30EE5E68));
+            FEngSetVisible(GetPackageName(), 0x586AB4A6);
+            FEngSetVisible(GetPackageName(), 0x44AC8987);
+            FEngSetVisible(GetPackageName(), 0x30EE5E68);
             FEngSetLanguageHash(GetPackageName(), 0x586AB4A6, 0x0000BF9C);
             FEngSetLanguageHash(GetPackageName(), 0x44AC8987, 0x96B05F47);
             FEngSetLanguageHash(GetPackageName(), 0x30EE5E68, 0xB67DA102);
@@ -664,17 +737,17 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
                 GRaceStatus::Get().SortCheckPointRankings();
             }
             FEngSetLanguageHash(GetPackageName(), 0x2D691760, 0xECD0E6A6);
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x586AB4A6));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x44AC8987));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x30EE5E68));
+            FEngSetVisible(GetPackageName(), 0x586AB4A6);
+            FEngSetVisible(GetPackageName(), 0x44AC8987);
+            FEngSetVisible(GetPackageName(), 0x30EE5E68);
             FEngSetLanguageHash(GetPackageName(), 0x586AB4A6, 0xEE1EDC76);
             FEngSetLanguageHash(GetPackageName(), 0x44AC8987, 0x96B05F47);
             FEngSetLanguageHash(GetPackageName(), 0x30EE5E68, 0x7540FB04);
             break;
         case GRace::kRaceType_Tollbooth:
             FEngSetLanguageHash(GetPackageName(), 0x2D691760, 0xD10A8EA2);
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x586AB4A6));
-            FEngSetVisible(FEngFindObject(GetPackageName(), 0x30EE5E68));
+            FEngSetVisible(GetPackageName(), 0x586AB4A6);
+            FEngSetVisible(GetPackageName(), 0x30EE5E68);
             FEngSetLanguageHash(GetPackageName(), 0x586AB4A6, 0xA15E4505);
             FEngSetLanguageHash(GetPackageName(), 0x30EE5E68, 0xB67DA102);
             FEngSetLanguageHash(GetPackageName(),
@@ -694,15 +767,32 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
     switch (mRaceType) {
         case GRace::kRaceType_P2P:
         case GRace::kRaceType_Drag: {
+#ifdef EA_BUILD_A124
+            // La A124 aun no tiene StageStat: pone los tiempos de cada punto de control con LapStat.
+            unsigned int numCheckpoints = GRaceStatus::Get().GetRaceParameters()->GetNumCheckpoints();
+            unsigned int i;
+            for (i = 1; i < numCheckpoints; ++i) {
+                float checkTime = GRaceStatus::Get().GetCheckpointTime(0, i, racerIndex, true);
+                LapStat *stat = new ("", 0) LapStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
+                                                    RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), i, checkTime,
+                                                    GRaceStatus::Get().GetCheckpointPosition(0, i, racerIndex));
+                RacerStats[racerIndex].AddStat(stat);
+            }
+
+            float checkTime = GRaceStatus::Get().GetCheckpointTime(0, 0, racerIndex, true);
+            LapStat *stat = new ("", 0) LapStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
+                                                RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), numCheckpoints, checkTime,
+                                                GRaceStatus::Get().GetCheckpointPosition(0, 0, racerIndex));
+            RacerStats[racerIndex].AddStat(stat);
+            break;
+#else
             const unsigned int numStages = 4;
             unsigned int stageIndex;
             for (stageIndex = 0; stageIndex < numStages; ++stageIndex) {
-#ifndef EA_BUILD_A124
                 StageStat *stat = new ("", 0) StageStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
                                                         RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), stageIndex,
                                                         racer_info->GetSplitTime(stageIndex), racer_info->GetSplitRanking(stageIndex));
                 RacerStats[racerIndex].AddStat(stat);
-#endif
             }
 
             float final_time = 0.0f;
@@ -714,6 +804,7 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
                                                         RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), numStages, final_time, racer_info->GetRanking());
             RacerStats[racerIndex].AddStat(stat);
             break;
+#endif
         }
         case GRace::kRaceType_Circuit:
         case GRace::kRaceType_Knockout: {
@@ -728,7 +819,7 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
 #endif
                 );
 
-                if (racer_info->GetIsKnockedOut() && lapPosition < 2) {
+                if (racer_info->GetIsKnockedOut() && lapPosition <= 1) {
                     lapPosition = -1;
                 }
 
@@ -753,15 +844,25 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
                                                         GRaceStatus::Get().GetRaceSpeedTrapPosition(trapIndex, racerIndex));
                 RacerStats[racerIndex].AddStat(stat);
             }
-            break;
+#ifndef EA_BUILD_A124
+            break; // la A124 no lo tiene: sigue con los peajes (su asm cae en el caso siguiente)
+#endif
         }
         case GRace::kRaceType_Tollbooth: {
             for (int boothIndex = 0; boothIndex < GRaceStatus::Get().GetNumRaceTollbooths(); ++boothIndex) {
+#ifdef EA_BUILD_A124
+                // la A124 aun no tiene TollboothStat: los peajes van con LapStat
+                LapStat *stat = new ("", 0) LapStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
+                                                    RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), boothIndex + 1,
+                                                    GRaceStatus::Get().GetRaceTollboothTime(boothIndex, racerIndex), 1);
+#else
                 TollboothStat *stat = new ("", 0) TollboothStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
                                                         RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), boothIndex + 1,
                                                                 GRaceStatus::Get().GetRaceTollboothTime(boothIndex, racerIndex), 1);
+#endif
                 RacerStats[racerIndex].AddStat(stat);
             }
+#ifndef EA_BUILD_A124
 
             float remaining_time = 0.0f;
             if (racer_info->IsFinishedRacing()) {
@@ -771,6 +872,7 @@ void PostRaceResultsScreen::SetupLapStats(int racerIndex, GRacerInfo *racer_info
             TollboothStat *stat = new ("", 0) TollboothStat(RacerStats[racerIndex].GetCurrentString("COLUMN1_DATA"), RacerStats[racerIndex].GetCurrentString("COLUMN3_DATA"),
                                                         RacerStats[racerIndex].GetCurrentString("COLUMN2_DATA"), GRaceStatus::Get().GetNumRaceTollbooths() + 1, remaining_time, 1);
             RacerStats[racerIndex].AddStat(stat);
+#endif
             break;
         }
         default:
@@ -845,6 +947,11 @@ void PostRaceResultsScreen::NotificationMessage(u32 msg, FEObject *pObject, u32 
             return;
         }
         case 0xE1A57D51:
+#ifdef EA_BUILD_A124
+            new ERestartRace();
+            new EUnPause();
+            return;
+#else
             new EUnPause();
             if (cFEng::Get()->IsPackagePushed("InGamePhotoMaster.fng")) {
                 PhotoFinishScreen::mRestartSelected = true;
@@ -853,9 +960,11 @@ void PostRaceResultsScreen::NotificationMessage(u32 msg, FEObject *pObject, u32 
 
             new ERestartRace();
             return;
+#endif
         case 0xB4623F67:
             cFEng::Get()->QueuePackageMessage(FEHASH_ENABLE_INPUT, GetPackageName(), nullptr);
             return;
+#ifndef EA_BUILD_A124
         case 0x406415E3: {
             if (FEngIsScriptSet(GetPackageName(), 0x57EFB2FB, FEHASH_HIDE)) {
                 return;
@@ -886,6 +995,14 @@ void PostRaceResultsScreen::NotificationMessage(u32 msg, FEObject *pObject, u32 
             }
             return;
         case 0xE1FDE1D1: {
+#else
+        // La A124 sale de la carrera con este mensaje, y en linea vuelve al frontend sin preguntar.
+        case 0x406415E3: {
+            if (FEDatabase->IsLANMode() || FEDatabase->IsOnlineMode()) {
+                FEManager::RequestUnPauseSimulation(nullptr);
+                new EQuitToFE(GARAGETYPE_MAIN_FE, nullptr);
+            }
+#endif
             if (FEDatabase->IsLANMode()) {
                 return;
             }
@@ -935,14 +1052,64 @@ void PostRaceResultsScreen::NotificationMessage(u32 msg, FEObject *pObject, u32 
             }
             return;
         }
+#ifdef EA_BUILD_A124
+        case 0xC98356BA: {
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+                float countdown = -1.0f;
+                if (TheOnlineManager.GetLocalRacer()) {
+                    countdown = TheOnlineManager.GetLocalRacer()->GetEndRaceCountdown();
+                }
+                if (countdown >= 0.0f) {
+                    char countdownStr[32];
+
+                    FEngSetScript(GetPackageName(), 0x7D913050, 0x001CA7C0, false);
+                    FEngSetScript(GetPackageName(), 0x77CE0364, 0x03826A28, false);
+                    if (countdown >= 10.0f) {
+                        bSPrintf(countdownStr, "00:%1.1f", countdown);
+                    } else {
+                        bSPrintf(countdownStr, "00:0%1.1f", countdown);
+                    }
+                    FEPrintf(GetPackageName(), 0x77CE0364, countdownStr);
+                }
+                if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_SENT_RACE_RESULTS) {
+                    LobbyCore::Instance().Resume(false);
+                    LobbyGames::Instance().SetResultUpdateCB(ResultUpdateCB, this);
+                    msgHandle = DialogInterface::ShowMessage(GetPackageName(), "", static_cast<eDialogTitle>(2),
+                                                             GetLocalizedString(0x144849C1));
+                } else if (msgHandle > 0) {
+                    DialogInterface::DismissDialog(msgHandle);
+                    msgHandle = 0;
+                }
+                if (TheOnlineManager.GetState() == OLS_RACE_END && !m_raceResultsUploaded) {
+                    UploadSavedRaceResults();
+                    m_raceResultsUploaded = true;
+                }
+                if (TheOnlineManager.GetState() != OLS_RACE_END) {
+                    Setup();
+                }
+            }
+            return;
+        }
+        case 0x2C0E485A:
+            ExitOnlineMode(GetPackageName());
+            return;
+#endif
         default:
             return;
     }
 }
 
 eMenuSoundTriggers PostRaceResultsScreen::NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) {
+#ifdef EA_BUILD_A124
+    if (msg == 0x6B283007 || msg == 0xF4B32D4D) {
+        if (mNumberOfRacers < 2 || mPostRaceScreenMode == POSTRACESCREENMODE_RESULTS) {
+            return static_cast<eMenuSoundTriggers>(-1);
+        }
+    }
+    return maybe;
+#else
     if (msg != 0x7B6B89D7) {
-        if (msg < 0x7B6B89D8) {
+        if (msg <= 0x7B6B89D7) {
             if (msg != 0x4A805994) {
                 return maybe;
             }
@@ -960,7 +1127,31 @@ eMenuSoundTriggers PostRaceResultsScreen::NotifySoundMessage(u32 msg, eMenuSound
     }
 
     return maybe;
+#endif
 }
+
+#ifdef EA_BUILD_A124
+void PostRaceResultsScreen::ResultUpdateCB(const LobbyGamesN::_GameResultUpdateT *update, void *context) {
+    static_cast<PostRaceResultsScreen *>(context)->Setup();
+}
+
+void PostRaceResultsScreen::UploadSavedRaceResults() {
+    PlayerDataT playerData;
+
+    LobbyUsers::Instance().GetMyUserStats(playerData, nullptr, nullptr);
+    if (LobbyCore::Instance().SendSavedRaceResults(SendRaceResultsCB, this) == 0) {
+        FEDatabase->GetOnlineSettings()->SetState(cOnlineSettings::OLS_LOBBY_SENT_RACE_RESULTS);
+    }
+}
+
+void PostRaceResultsScreen::SendRaceResultsCB(LobbyApiMsgT *msg, void *context) {
+    if (msg->code != 0) {
+        static_cast<PostRaceResultsScreen *>(context)->m_lastErrorKind = msg->kind;
+        static_cast<PostRaceResultsScreen *>(context)->m_lastErrorCode = msg->code;
+    }
+    FEDatabase->GetOnlineSettings()->SetState(cOnlineSettings::OLS_LOBBY_SENT_RACE_RESULTS);
+}
+#endif
 
 // Range: 0x80155F40 -> 0x801560EC
 void PursuitData::PopulateData(IPursuit *ipursuit, IPerpetrator *iperpetrator, int exitToSafehouse) {
@@ -998,7 +1189,7 @@ bool PursuitData::AddMilestone(GMilestone *milestone) {
 }
 
 const GMilestone *const PursuitData::GetMilestone(int index) const {
-    if (index <= 0x1F) {
+    if (index < 0x20) {
         return mMilestonesCompleted[index];
     }
     return 0;
@@ -1035,7 +1226,7 @@ PursuitResultsDatum::PursuitResultsDatum(PursuitResultsDatumType type, uint32 it
     mChecked = itemChecked;
 }
 
-void PursuitResultsDatum::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {}
+void PursuitResultsDatum::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u32 param2) {}
 
 PursuitResultsArraySlot::PursuitResultsArraySlot(FEObject *obj, FEString *itemName, FEString *itemNumber, FEImage *itemChecked
 #ifndef EA_BUILD_A124
@@ -1060,8 +1251,8 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
     if (datum) {
         PursuitResultsDatum *result = static_cast<PursuitResultsDatum *>(datum);
 
-        FEngSetScript(mItemChecked, 0x16A259, true);
 #ifndef EA_BUILD_A124
+        FEngSetScript(mItemChecked, 0x16A259, true);
         FEngSetScript(mItemEmpty, 0x16A259, true);
         FEngSetScript(mLine, 0x1744B3, true);
 #endif
@@ -1072,7 +1263,7 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
         }
 
         if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Number) {
-            FEPrintf(mItemNumber, "%$d", static_cast<int>(result->GetNumber()));
+            FEPrintf(mItemNumber, "%$d", bFloatToInt(result->GetNumber()));
             FEngSetScript(mItemNumber, 0x1744B3, true);
             if (result->GetChecked()) {
                 FEngSetScript(mItemChecked, 0x1CA7C0, true);
@@ -1104,9 +1295,7 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
 #endif
             char outputStr[32];
 #ifndef EA_BUILD_A124
-            if (result->GetChecked()) {
-                showCurrVal = false;
-            } else if (result->GetGreyed()) {
+            if (result->GetChecked() || result->GetGreyed()) {
                 showCurrVal = false;
             }
 #endif
@@ -1130,8 +1319,23 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
             } else {
                 FEngSetScript(mItemEmpty, 0x1CA7C0, true);
+#else
+            } else {
+                FEngSetScript(mItemChecked, 0x16A259, true);
 #endif
             }
+#ifdef EA_BUILD_A124 // la A124 no tiene el tiempo de persecucion restante
+        } else if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time) {
+            char outputStr[32];
+            FEDatabase->SetMilestoneDescriptionString(outputStr, 0x033FA23A, result->GetNumber(), result->GetGoal());
+            FEPrintf(mItemNumber, "%s", outputStr);
+            FEngSetScript(mItemNumber, 0x1744B3, true);
+            if (result->GetChecked()) {
+                FEngSetScript(mItemChecked, 0x1CA7C0, true);
+            } else {
+                FEngSetScript(mItemChecked, 0x16A259, true);
+            }
+#else
         } else if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time ||
                    result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time_PursuitRemaining) {
 #ifndef EA_BUILD_A124
@@ -1140,9 +1344,7 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
             int milestoneType;
             char outputStr[32];
 #ifndef EA_BUILD_A124
-            if (result->GetChecked()) {
-                showCurrVal = false;
-            } else if (result->GetGreyed()) {
+            if (result->GetChecked() || result->GetGreyed()) {
                 showCurrVal = false;
             }
 #endif
@@ -1172,6 +1374,7 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
                 FEngSetScript(mItemEmpty, 0x1CA7C0, true);
 #endif
             }
+#endif
         } else if (result->GetType() == PursuitResultsDatum::PursuitResultsDatumType_Check) {
             FEngSetScript(mItemNumber, 0x16A259, true);
             if (result->GetChecked()) {
@@ -1181,6 +1384,9 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
                 FEngSetScript(mItemChecked, 0x163C76, true);
             } else {
                 FEngSetScript(mItemEmpty, 0x1CA7C0, true);
+#else
+            } else {
+                FEngSetScript(mItemChecked, 0x163C76, true);
 #endif
             }
         }    }
@@ -1189,7 +1395,13 @@ void PursuitResultsArraySlot::Update(ArrayDatum *datum, bool isSelected) {
 PostRacePursuitScreen::PostRacePursuitScreen(ScreenConstructorData *sd)
     : ArrayScrollerMenu(sd, 1, 9, false), mPostPursuitScreenMode(POSTPURSUITSCREENMODE_PURSUIT) {
 #ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_WIN32
+    // SPEED_EXE_1_3 guarda 0xC6BE1C1F (`mov [esi+0xe4], 0xc6be1c1f`); las demas
+    // versiones, 0x5CED1D04 (ctor al 100 % en GC/A124/SLUS con ese valor).
+    m_RaceButtonHash = 0xC6BE1C1F;
+#else
     m_RaceButtonHash = 0x5CED1D04;
+#endif
 #endif
 
     {
@@ -1291,6 +1503,28 @@ void PostRacePursuitScreen::Initialize() {
 }
 
 void PostRacePursuitScreen::SetupInfractions() {
+#ifdef EA_BUILD_A124
+    // La A124 es la revision alpha (oraculo A124 0x297f58, 684 B): Speeding antes que Racing, Check=4 (falta
+    // Milestone_Time_PursuitRemaining, luego Check no es 5) y el ctor toma bool, asi que el DidInfractionOccur va
+    // directo como argumento del new (banco A124 100%; sin header guard por ahora: el enum compartido sigue con
+    // Check=5, aqui va 4 literal; propuesta: guardia en FEPKg_PostRace.hpp para Check=4 sin PursuitRemaining).
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0x8ec1a6ec, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Speeding)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0x4b0ff103, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Racing)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0x370f331d, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Reckless)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0x8462a784, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Assault)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0xdff254ba, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_HitAndRun)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0x7dbd5b34, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Damage)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0x2b1de2a9, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Resist)));
+    AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(static_cast<PursuitResultsDatum::PursuitResultsDatumType>(4), 0xb0ef5c12, 0.0f, 0.0f,
+                                                               GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_OffRoad)));
+#else
     PursuitResultsDatum::PursuitResultsDatumCheckType checkType = PursuitResultsDatum::PursuitResultsDatumCheckType_Off;
 
     if (GInfractionManager::Get().DidInfractionOccur(GInfractionManager::kInfraction_Racing)) {
@@ -1339,9 +1573,42 @@ void PostRacePursuitScreen::SetupInfractions() {
         checkType = PursuitResultsDatum::PursuitResultsDatumCheckType_On;
     }
     AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(PursuitResultsDatum::PursuitResultsDatumType_Check, 0xb0ef5c12, 0.0f, 0.0f, checkType));
+#endif
 }
 
 void PostRacePursuitScreen::SetupMilestones() {
+#ifdef EA_BUILD_A124
+    // La A124 es la revision alpha (oraculo A124 0x298208, 720 B): el primer bloque pursuit no mira
+    // PursuitRemaining (0x5392e4fd) y pasa bestVal >= goalVal directo como bool; el bucle tampoco trae
+    // PursuitRemaining y el check es DonePendingEscape || Awarded como bool.
+    if (GRaceStatus::Exists()) {
+        GRaceParameters *raceParams = GRaceStatus::Get().GetRaceParameters();
+        if (raceParams && raceParams->GetIsPursuitRace() && !FEDatabase->IsFinalEpicChase()) {
+            PursuitResultsDatum::PursuitResultsDatumType type = PursuitResultsDatum::PursuitResultsDatumType_Milestone_Number;
+            if (FEDatabase->IsMilestoneTimeFormat(raceParams->GetChallengeType())) {
+                type = PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time;
+            }
+            float bestVal = GManager::Get().GetBestValue(raceParams->GetChallengeType());
+            float goalVal = raceParams->GetChallengeGoal();
+            AddDatum(
+                new ("PursuitResultsDatum", 0) PursuitResultsDatum(type, FEDatabase->GetChallengeHeaderHash(raceParams->GetLocalizationTag()), bestVal, goalVal, bestVal >= goalVal));
+        } else {
+            unsigned int binNumber = FEDatabase->GetCareerSettings()->GetCurrentBin();
+            GMilestone *milestone = GManager::Get().GetFirstMilestone(false, binNumber);
+            while (milestone) {
+                PursuitResultsDatum::PursuitResultsDatumType type = PursuitResultsDatum::PursuitResultsDatumType_Milestone_Number;
+                if (FEDatabase->IsMilestoneTimeFormat(milestone->GetTypeKey())) {
+                    type = PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time;
+                }
+                AddDatum(new ("PursuitResultsDatum", 0) PursuitResultsDatum(type, FEDatabase->GetMilestoneHeaderHash(milestone->GetLocalizationTag()),
+                                                 milestone->GetCurrentValue() >= 0.0f ? milestone->GetCurrentValue() : 0.0f,
+                                                 milestone->GetRequiredValue(),
+                                                 milestone->GetIsDonePendingEscape() || milestone->GetIsAwarded()));
+                milestone = GManager::Get().GetNextMilestone(milestone, false, binNumber);
+            }
+        }
+    }
+#else
     if (GRaceStatus::Exists()) {
         GRaceParameters *raceParams = GRaceStatus::Get().GetRaceParameters();
         if (raceParams && raceParams->GetIsPursuitRace() && !FEDatabase->IsFinalEpicChase()) {
@@ -1354,8 +1621,12 @@ void PostRacePursuitScreen::SetupMilestones() {
             if (raceParams->GetChallengeType() == 0x5392e4fd) {
                 type = PursuitResultsDatum::PursuitResultsDatumType_Milestone_Time_PursuitRemaining;
             }
-            PursuitResultsDatum::PursuitResultsDatumCheckType checkType =
-                static_cast<PursuitResultsDatum::PursuitResultsDatumCheckType>(static_cast<int>(bestVal >= goalVal));
+            PursuitResultsDatum::PursuitResultsDatumCheckType checkType;
+            if (bestVal >= goalVal) {
+                checkType = PursuitResultsDatum::PursuitResultsDatumCheckType_On;
+            } else {
+                checkType = PursuitResultsDatum::PursuitResultsDatumCheckType_Off;
+            }
             AddDatum(
                 new ("PursuitResultsDatum", 0) PursuitResultsDatum(type, FEDatabase->GetChallengeHeaderHash(raceParams->GetLocalizationTag()), bestVal, goalVal, checkType));
         } else {
@@ -1381,6 +1652,7 @@ void PostRacePursuitScreen::SetupMilestones() {
             }
         }
     }
+#endif
 }
 
 void PostRacePursuitScreen::SetupPursuit() {
@@ -1416,18 +1688,18 @@ void PostRacePursuitScreen::NotificationMessage(u32 msg, FEObject *pObject, u32 
                 } else {
                     cFEng::Get()->QueuePackageSwitch("Car_Select.fng", 0, 0, false);
                 }
-            } else if (GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
-                GRacerInfo &info = GRaceStatus::Get().GetRacerInfo(0);
-                if (info.IsFinishedRacing() && GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace()) {
-                    if (FEDatabase->IsChallengeMode() && MemoryCard::GetInstance()->ShouldDoAutoSave(false)) {
-                        MemcardEnter(nullptr, nullptr, 0x100B1, nullptr, nullptr, 0, 0);
-                    } else {
-                        new EQuitToFE(static_cast<eGarageType>(1), nullptr);
-                    }
-                } else {
-                    new EUnPause();
-                }
             } else {
+                if (GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
+                    GRacerInfo &info = GRaceStatus::Get().GetRacerInfo(0);
+                    if (info.IsFinishedRacing() && GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace()) {
+                        if (FEDatabase->IsChallengeMode() && MemoryCard::GetInstance()->ShouldDoAutoSave(false)) {
+                            MemcardEnter(nullptr, nullptr, 0x100B1, nullptr, nullptr, 0, 0);
+                        } else {
+                            new EQuitToFE(static_cast<eGarageType>(1), nullptr);
+                        }
+                        break;
+                    }
+                }
                 new EUnPause();
             }
             break;
@@ -1473,8 +1745,11 @@ void PostRaceMilestonesScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 
                 }
             }
 
-            if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters() && GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace() &&
-                !FEDatabase->IsFinalEpicChase()) {
+            if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters() && GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace()
+#ifndef EA_BUILD_A124 // la A124 no tiene la persecucion final
+                && !FEDatabase->IsFinalEpicChase()
+#endif
+            ) {
                 StartChallengeAnimations();
             } else {
                 StartMilestoneAnimations();
@@ -1522,7 +1797,11 @@ bool PostRaceMilestonesScreen::StartChallengeAnimations() {
     mCurrMilestoneIndex++;
     if (mCurrMilestoneIndex < 1 && GRaceStatus::Exists()) {
         GRaceParameters *raceParams = GRaceStatus::Get().GetRaceParameters();
-        if (raceParams && raceParams->GetIsPursuitRace() && !FEDatabase->IsFinalEpicChase()) {
+        if (raceParams && raceParams->GetIsPursuitRace()
+#ifndef EA_BUILD_A124
+            && !FEDatabase->IsFinalEpicChase()
+#endif
+        ) {
             float currVal = GManager::Get().GetBestValue(raceParams->GetChallengeType());
             float goalVal = raceParams->GetChallengeGoal();
             char descStr[32];

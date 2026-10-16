@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 int SNDstop(int shandle) {
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
 
     if (voice >= 0) {

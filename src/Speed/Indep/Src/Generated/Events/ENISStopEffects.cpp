@@ -19,8 +19,8 @@ void ENISStopEffects_MakeEvent_Callback(const void *staticData) {
     new ENISStopEffects();
 }
 
-int ENISStopEffects_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int ENISStopEffects_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new ENISStopEffects();
     }
     return 0;

@@ -34,8 +34,8 @@ class ShiftUpdater : public HudElement, public IShiftUpdater {
             mShiftPotential = SHIFT_POTENTIAL_NONE;
         }
     };
-    void SetEngineBlown(bool blown) override {
-        mIsEngineBlown = blown;
+    void SetEngineBlown(bool isBlown) override {
+        mIsEngineBlown = isBlown;
     };
     void SetEngineTemp(float temp) override {
         mEngineTemp = temp;

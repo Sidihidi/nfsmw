@@ -198,4 +198,14 @@ inline float SFXCTL::GetPhysRPM() {
     return this->m_pEAXCar->GetPhysRPM();
 }
 
+#include "Speed/Indep/Src/EAXSound/CARSFX/CARSFX.hpp"
+
+inline float CARSFX::GetPhysTRQ() {
+    return m_pEAXCar->GetPhysTRQ();
+}
+
+inline float CARSFX::GetPhysRPM() {
+    return m_pEAXCar->GetPhysRPM();
+}
+
 #endif

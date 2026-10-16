@@ -28,8 +28,8 @@ void CloseClans() {
 }
 
 Clan *GetClan(bVector3 *position) {
-    int cx = (static_cast<int>(position->x * 65536.0f) >> 22) & 0xffff;
-    int cy = (static_cast<int>(position->y * 65536.0f) >> 22) * 0x10000;
+    int cx = (bFloatToInt(position->x * 65536.0f) >> 22) & 0xffff;
+    int cy = (bFloatToInt(position->y * 65536.0f) >> 22) * 0x10000;
     uint32 hash = static_cast<unsigned int>(cy + cx);
     Clan *clan = ClanList.GetHead();
 

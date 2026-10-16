@@ -409,7 +409,9 @@ class FESliderWidget : public FEToggleWidget {
         Slider.ToggleVisible(on);
     }
     void UpdateSlider(uint32 msg);
-    float GetVertOffset() {}
+    float GetVertOffset() {
+        return fVertOffset;
+    }
     void SetVertOffset(bool vertOffset) {}
     virtual void SetInitialValues() = 0;
 
@@ -463,28 +465,41 @@ class FEInputWidget : public FEStatWidget {
 
 // total size: 0x64
 class FEDateWidget : public FEStatWidget {
+    // UIDateMenu lee mDay/mMonth/mYear/mPkgName a pelo (sin accesor en el DWARF ni en los stabs) y los stabs los
+    // dan privados: la amistad es la unica forma de que el original compilara.
+    friend class UIDateMenu;
+
   public:
     FEDateWidget(bool enabled);
     ~FEDateWidget() override {}
+    // Act y Draw vuelven a ser virtuales puras (en las dos PS2 sus ranuras de la vtable son __pure_virtual); Draw
+    // tiene cuerpo igualmente, y OL_CU_EnterBirthday::Draw lo llama con FEDateWidget::Draw().
+    virtual void Act(const char *parent_pkg, uint32 data) = 0;
     void CheckMouse(const char *parent_pkg, const float mouse_x, const float mouse_y) override;
-    void Draw() override;
+    virtual void Draw() = 0;
     void Enable() override;
     void Disable() override;
     void Show() override;
     void Hide() override;
     void SetFocus(const char *parent_pkg) override;
     void UnsetFocus() override;
-    virtual const char *GetHeaderText() {}
-    virtual int GetMaxYear() {}
+    virtual const char *GetHeaderText() {
+        return "";
+    }
+    virtual int GetMaxYear() {
+        return 2015;
+    }
     void SetDate(int d, int m, int y) {
         mDay = d;
         mMonth = m;
         mYear = y;
     }
+    // Cuerpo de la A124 (L503@feWidget.hpp; OL_CU_EnterBirthday::Act en uiOnlineLogin.cpp lo expande): copia los tres
+    // campos a los punteros (lw 0x54/0x58/0x5C + sw). El del arbol solo reasignaba los parametros.
     void GetDate(int *pDay, int *pMonth, int *pYear) {
-        pDay = &mDay;
-        pMonth = &mMonth;
-        pYear = &mYear;
+        *pDay = mDay;
+        *pMonth = mMonth;
+        *pYear = mYear;
     }
     void SetPackageName(const char *pName) {
         mPkgName = pName;

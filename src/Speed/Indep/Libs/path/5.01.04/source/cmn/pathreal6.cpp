@@ -2,6 +2,7 @@
 
 #define USEREALCORE
 #include "path/PathToReal.h"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system/systask.h"
 
 extern int STREAM_overhead(int requests, int, int);
 extern int FILE_exists(const char *filename);
@@ -13,11 +14,13 @@ extern void PATHI_servicetask();
 extern void *PATHI_memalloc(int size);
 extern void PATHI_memfree(void *ptr);
 extern void REAL_abortmessage(const char *format, ...);
-extern void SYNCTASK_add(void (*func)(void *, int), int priority, int interval, void *data);
-extern void SYNCTASK_del(void (*func)(void *, int));
 extern "C" int printf(const char *format, ...);
 extern int TIMER_gettick();
 extern int TIMERhz;
+extern int ASYNCFILE_loadat(const char *filename, void *data, int size);
+extern void ASYNCFILE_setcallback(int handle, void (*func)(int));
+extern int ASYNCFILE_getstatus(int handle);
+extern int ASYNCFILE_release(int handle, void **data, int *size);
 
 void PATH_vectortoreal6() {
     if (Path::IPathToReal::realimp != 0) {
@@ -106,3 +109,54 @@ char *PathToReal6::LoadFileSync(const char *filepath, int filesize) {
 int PathToReal6::LoadFileDone(int, char *&) {
     return 1;
 }
+
+void *PathToReal6Async::operator new(size_t size) {
+    return PATHI_memalloc(size);
+}
+
+void PathToReal6Async::operator delete(void *ptr) {
+    PATHI_memfree(ptr);
+}
+
+PathToReal6Async::PathToReal6Async() {}
+
+PathToReal6Async::~PathToReal6Async() {}
+
+char *PathToReal6Async::LoadFile(const char *filepath, int &fileop, int filesize) {
+    char *filedata;
+
+    if (this->GetSynchMode() == Path::FILELOAD_SYNC) {
+        fileop = PATH_SYNCFILEOP;
+        return this->LoadFileSync(filepath, filesize);
+    }
+
+    if (filesize <= 0) {
+        filesize = FILE_size(filepath);
+    }
+
+    filedata = static_cast<char *>(PATHI_memalloc(filesize));
+    fileop = ASYNCFILE_loadat(filepath, filedata, filesize);
+    ASYNCFILE_setcallback(fileop, PathToReal6Async::AsyncCallback);
+    return filedata;
+}
+
+int PathToReal6Async::LoadFileDone(int fileop, char *&filedata) {
+    int status;
+
+    if (fileop == PATH_SYNCFILEOP) {
+        return 1;
+    }
+
+    status = ASYNCFILE_getstatus(fileop);
+
+    if (status == -1) {
+        return 1;
+    }
+
+    if (status == 1) {
+        ASYNCFILE_release(fileop, reinterpret_cast<void **>(&filedata), 0);
+    }
+    return status == 1;
+}
+
+void PathToReal6Async::AsyncCallback(int) {}

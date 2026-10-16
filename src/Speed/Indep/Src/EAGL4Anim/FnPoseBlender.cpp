@@ -1,3 +1,4 @@
+#include "FnRawPoseChannel.h"
 #include "FnPoseBlender.h"
 #include "Speed/Indep/Src/EAGL4Anim/AnimUtil.h"
 
@@ -129,8 +130,7 @@ bool FnPoseBlender::EvalSQT(float currentTime, float *sqtBuffer, const BoneMask 
 
                         sqt1[8] = trans.x; sqt1[9] = trans.y; sqt1[10] = trans.z;
 
-                        q = mAlignRootBoneIdx;
-                        EAGL4Anim::LinearBlendF3(w, &mPose[0][q + 8], &mPose[1][q + 8], &sqtBuffer[q + 8]);
+                        EAGL4Anim::LinearBlendF3(w, &mPose[0][mAlignRootBoneIdx + 8], &mPose[1][mAlignRootBoneIdx + 8], &sqtBuffer[mAlignRootBoneIdx + 8]);
                     }
 
                     q = i * DOF + 4;
@@ -272,7 +272,7 @@ void FnPoseBlender::Eval(float previousTime, float currentTime, float *outputPos
             }
         } else {
 
-            for (q = mpSkel->GetNumBones() * DOF - 8; q >= 4; q -= DOF) {
+            for (q = (mpSkel->GetNumBones() - 1) * DOF + 4; q >= 4; q -= DOF) {
 
                 FastQuatBlendF4(w, &mPose[0][q], &mPose[1][q], &outputPose[q]);
             }

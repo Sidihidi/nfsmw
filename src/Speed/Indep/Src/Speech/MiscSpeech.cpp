@@ -35,6 +35,29 @@ bool MiscSpeech::IsVehicleTypeOK() {
 }
 
 
+#ifdef EA_BUILD_A124
+// Solo la A124 (SLUS no la tiene). GameCube la tenia estripada y con otro cuerpo (su DWARF expande
+// EAXSound::GetCurAudioSettings y declara un int *pdata), que no se puede recuperar.
+bool MiscSpeech::IsSMSValid(int SMS_ID) {
+    Csis::CellCallStruct data;
+    if (!MapSMSToSPCHEnums(SMS_ID, data)) {
+        return false;
+    }
+    Speech::ScheduledSpeechEvent *cellcall = new (sizeof(data)) Speech::ScheduledSpeechEvent();
+    if (cellcall == nullptr) {
+        return false;
+    }
+    cellcall->iid = &Csis::CellCallId;
+    cellcall->fh = &Csis::gCellCallHandle;
+    cellcall->actor = nullptr;
+    cellcall->ID = kSPCH1_EventID_CellCall;
+    bMemCpy(cellcall->GetData(), &data, sizeof(data));
+    int result = Speech::Manager::IndirectSpeechEvent(cellcall, true);
+    delete cellcall;
+    return result == 0;
+}
+#endif
+
 bool MiscSpeech::MapSMSToSPCHEnums(int SMS_ID, Csis::CellCallStruct &data) {
     int bucket;
     int base;
@@ -86,7 +109,11 @@ bool MiscSpeech::MapSMSToSPCHEnums(int SMS_ID, Csis::CellCallStruct &data) {
     } else if (SMS_ID >= 89 && SMS_ID <= 96) {
         bucket = 1;
         base = 89;
+#ifdef EA_BUILD_A124
+    } else if (SMS_ID >= 97) { // la A124 no tiene tope (slti 97 y nada mas)
+#else
     } else if (SMS_ID >= 97 && SMS_ID <= 105) {
+#endif
         bucket = 0;
         base = 97;
     } else {
@@ -573,7 +600,12 @@ int MiscSpeech::MoreDetails(int spkrID) {
     if (spkrID > 0) {
         data.speaker_id = spkrID;
     } else {
+#ifdef EA_BUILD_A124
+        // La A124 sortea entre seis voces (lui 0x40c0); SLUS y GameCube, entre cuatro.
+        data.speaker_id = (int) (bRandom(6.0f) + 3.0f);
+#else
         data.speaker_id = (int) (bRandom(4.0f) + 3.0f);
+#endif
     }
     SCHEDULE_SPEECH(Setup_MoreDetails, data, nullptr);
     return data.speaker_id;
@@ -607,11 +639,11 @@ void MiscSpeech::RBAverted() {
     if (ai == nullptr) {
         return;
     }
-    IRoadBlock *roadblock = ai->GetRoadblock();
-    if (roadblock != nullptr) {
+    IRoadBlock *block = ai->GetRoadblock();
+    if (block != nullptr) {
         Csis::ExtraCops_ExtraRBAvertedStruct data;
         data.roadblock_engage_type =
-            roadblock->GetNumSpikeStrips() > 0 ? static_cast<Csis::Type_roadblock_engage_type>(2) : static_cast<Csis::Type_roadblock_engage_type>(1);
+            block->GetNumSpikeStrips() > 0 ? static_cast<Csis::Type_roadblock_engage_type>(2) : static_cast<Csis::Type_roadblock_engage_type>(1);
         SCHEDULE_SPEECH(ExtraCops_ExtraRBAverted, data, nullptr);
     }
 }

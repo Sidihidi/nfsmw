@@ -19,6 +19,7 @@ struct OnlinePlayer {
 
   public:
     OnlinePlayer();
+    ~OnlinePlayer() {}
     void Reset();
     void SetDriverNumber(int driver_number) { m_driverNumber = driver_number; }
     int GetDriverNumber() { return m_driverNumber; }
@@ -40,12 +41,12 @@ OnlinePlayer::OnlinePlayer()
 }
 
 void OnlinePlayer::Reset() {
-    m_oneWayLatencyMs = 0;
-    m_lastClockSyncRealTimeReceived = -1.0f;
-    m_driverNumber = -1;
     m_clientId = -1;
+    m_driverNumber = -1;
+    m_oneWayLatencyMs = 0;
     m_clientState = 0;
     m_clientTimestamp = 0.0f;
+    m_lastClockSyncRealTimeReceived = -1.0f;
 }
 
 void OnlinePlayer::SetClientState(int new_state) {

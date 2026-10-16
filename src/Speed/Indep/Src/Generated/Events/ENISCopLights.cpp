@@ -29,9 +29,9 @@ void ENISCopLights_MakeEvent_Callback(const void *staticData) {
     new ENISCopLights(((ENISCopLights::StaticData *)staticData)->fEnable, ((ENISCopLights::StaticData *)staticData)->fLightIntensity, ((ENISCopLights::StaticData *)staticData)->fLightPosX, ((ENISCopLights::StaticData *)staticData)->fLightPosY, ((ENISCopLights::StaticData *)staticData)->fLightPosZ);
 }
 
-int ENISCopLights_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 5) {
-        new ENISCopLights((int)lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4), lua_tonumber(L, 5));
+int ENISCopLights_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 5) {
+        new ENISCopLights((int)lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), lua_tonumber(luaState, 4), lua_tonumber(luaState, 5));
     }
     return 0;
 }

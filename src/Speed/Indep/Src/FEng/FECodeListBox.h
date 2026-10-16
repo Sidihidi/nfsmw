@@ -236,7 +236,11 @@ class FECodeListBox : public FEObject {
     void DeallocateString(i16 *psString);
 
     FEListBoxCell *GetPCellData(u32 ulColumnIndex, u32 ulRowIndex) const {
-        return &mpstCells[ulRowIndex * mulNumVisibleColumns + ulColumnIndex];
+        i32 lRIndex;
+        i32 lCIndex;
+        lCIndex = GetRealColumn(ulColumnIndex);
+        lRIndex = GetRealRow(ulRowIndex);
+        return &mpstCells[lRIndex * mulNumVisibleColumns + lCIndex];
     }
 
     FEListBoxCell *GetRealCellData(i32 lColumnIndex, i32 lRowIndex) {

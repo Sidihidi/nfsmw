@@ -27,8 +27,6 @@ class MNotifyVehicleDestroyed : public Hermes::Message {
 
     MNotifyVehicleDestroyed(HSIMABLE _Racer) : Hermes::Message(_GetKind(), _GetSize(), 0), fRacer(_Racer) {}
 
-    ~MNotifyVehicleDestroyed() {}
-
     HSIMABLE GetRacer() const {
         return fRacer;
     }
@@ -46,9 +44,9 @@ class MNotifyVehicleDestroyed : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyVehicleDestroyed::HandleMessage_LuaBinding(const MNotifyVehicleDestroyed &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyVehicleDestroyed::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

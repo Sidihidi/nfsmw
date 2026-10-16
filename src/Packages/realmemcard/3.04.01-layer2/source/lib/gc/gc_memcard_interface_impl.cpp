@@ -73,7 +73,6 @@ MemcardInterfaceImpl::MemcardInterfaceImpl(Realmc::SystemInterface *iSystem, IGa
     , mFileInfo()
     , mFilehandle(nullptr)
     , mFileHeader() {
-    this->mFileHeader.Clear();
     this->mUserHeader = nullptr;
     this->mUserBody = nullptr;
     this->mEntryFound = false;

@@ -2,6 +2,43 @@
 
 #include <string.h>
 
+// Los globales de la biblioteca viven en esta unidad (DWARF de GameCube: CU pathinit.cpp). Mismos valores en las cinco
+// versiones: .sdata de GC 0x804FF5B8, .data de la A124 0x64CF60 y de SLUS 0x5A4C00, speed.exe 0x90D1E0 (volscale 0x64,
+// bankservice 0x20, debugchannels 0x100, autoverify 1; PATH_setautoverify los escribe en 0x90D1E8). Lo que nadie
+// lee (pflock, autoverify, abortfilename/abortfileline) lo quita el enlazador de GameCube (Range 0xFFFFFFFF).
+namespace Path {
+
+int pflock = 0;
+PATHFINDERSTATE *pfstates[PATH_MAX_PROJECTS] = {0};
+PATHFINDERSTATE *pfstate = 0;
+SongProgressCallback songprogress = 0;
+EventReleaseCallback eventrelease = 0;
+EventActionCallback eventaction = 0;
+unsigned char inited = 0;
+unsigned char paused = 0;
+signed char volscale = 100;
+char bankservice = 0x20;
+int timercallsinarow = 0;
+int lasttimercb = 0;
+unsigned int milliseconds = 0;
+int debugchannels = 0x100;
+int autoverify = 1;
+int defaultfxbus = 0;
+void *(*memalloc)(int) = 0;
+void (*memfree)(void *) = 0;
+int timercalls = 0;
+int timertimespent = 0;
+int taskcalls = 0;
+int tasktimespent = 0;
+char *IPathToReal::abortfilename = 0;
+int IPathToReal::abortfileline = 0;
+IPathToReal *IPathToReal::realimp = 0;
+IPathToSnd *IPathToSnd::sndimp = 0;
+
+}; // namespace Path
+
+PathSemaphore *pathsemaphore = 0;
+
 int PATHI_lock() {
     unsigned int timeoutImmediate;
 
@@ -103,12 +140,12 @@ int PATH_addmapfile(char *pmap) {
         return PATHERR_INUSE;
     }
     {
+        header = reinterpret_cast<PATHFINDHEADER *>(pmap);
         slot = PATH_MAX_PROJECTS;
-        projectID = static_cast<unsigned char>(pmap[12]);
+        projectID = header->projectID;
         result = -1;
         voiceID = 0;
-        p = 0;
-        for (e = 0; e < PATH_MAX_PROJECTS; e++) {
+        for (p = 0; p < PATH_MAX_PROJECTS; p++) {
             if (Path::pfstates[p] == 0) {
                 if (slot == PATH_MAX_PROJECTS) {
                     slot = p;
@@ -116,22 +153,28 @@ int PATH_addmapfile(char *pmap) {
             }
             else {
                 if (Path::pfstates[p]->pmap->projectID == projectID) {
-                    if (reinterpret_cast<PATHFINDHEADER *>(pmap)->generateID !=
+                    if (header->generateID !=
                         Path::pfstates[p]->pmap->generateID) {
                         goto abort;
                     }
                     voiceID++;
                 }
             }
-            p++;
         }
         if (slot < PATH_MAX_PROJECTS &&
-            *reinterpret_cast<unsigned int *>(pmap) == 0x50464478 &&
-            (*reinterpret_cast<unsigned int *>(pmap + 4) & 0xffff0000) == 0x05010000) {
+            header->id == 0x50464478 &&
+#ifdef EA_PLATFORM_GAMECUBE
+            // GameCube lee la palabra entera (lwz 4; clrrwi 16; 0x05010000). Con las dos comparaciones de byte sus
+            // compiladores (3.9.3 y la replica v1.83) estrechan a `lhz 6` contra 0x105: los bytes equivocados.
+            (*reinterpret_cast<unsigned int *>(&header->majorRev) & 0xffff0000) == 0x05010000) {
+#else
+            // PS2 junta las dos en `(palabra & 0xffff) == 0x105` (fold_truthop) y PC hace dos cmp de byte.
+            header->majorRev == 5 && header->minorRev == 1) {
+#endif
             Path::pfstates[slot] = static_cast<PATHFINDERSTATE *>(PATHI_memalloc(sizeof(PATHFINDERSTATE)));
             if (Path::pfstates[slot] != 0) {
                 memset(Path::pfstates[slot], 0, sizeof(PATHFINDERSTATE));
-                Path::pfstates[slot]->pmap = reinterpret_cast<PATHFINDHEADER *>(pmap);
+                Path::pfstates[slot]->pmap = header;
                 Path::pfstates[slot]->idflags =
                     (0x10000000 << voiceID) | (0x01000000 << projectID);
                 PATHI_switchproject(slot, Path::pfstates[slot]->idflags);

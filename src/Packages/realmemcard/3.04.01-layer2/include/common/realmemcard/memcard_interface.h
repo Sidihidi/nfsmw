@@ -8,6 +8,13 @@
 #include <types.h>
 #include <Allocator/iallocator.h>
 
+// PlayStation 2 lleva la 3.04.00 del paquete (Packages/realmemcard/3.04.00-layer2 en el .mdebug de las dos PS2) y
+// GameCube la 3.04.01: configure.py pasa REALMEMCARD_VERSION=30400 en PS2. Las diferencias de la 3.04.00 salen de los
+// stabs de la A124 (firmas y campos) y de su codigo.
+#ifndef REALMEMCARD_VERSION
+#define REALMEMCARD_VERSION 30401
+#endif
+
 namespace Realmc {
 
 struct Interface;
@@ -55,6 +62,7 @@ namespace Locale {
 void SetLocaleGetStrCallback(const char *(*cb)(int));
 int GetWstrLength(const wchar_t *str);
 const wchar_t *GetString(int strID, char *parameterTypes, ...);
+void ConvertAsciiToUnicode(const char *src, unsigned short *dst);
 }
 
 } // namespace Realmc
@@ -90,7 +98,7 @@ enum CardStatus {
     STATUS_CANNOTMOUNT = 12,
     STATUS_RETRY_BOOT_FLOW = 13,
     STATUS_EXIT_TO_CARD_MANAGER = 14,
-    STATUS_UNKNOWN = -1,
+    STATUS_UNKNOWN = 0xFFFFFFFF,
 };
 
 enum TaskResult {
@@ -129,7 +137,7 @@ enum CardId {
     PORT5_SLOT1 = 65536,
     PORT5_DEFAULT = 65536,
     MAX_CARDID = 65536,
-    CARD_UNKNOWN = -1,
+    CARD_UNKNOWN = 0xFFFFFFFF,
 };
 
 enum DataStatus {
@@ -210,12 +218,21 @@ enum TitleType {
 enum NameType {
     NAME_ENTRY = 0,
     NAME_PATH = 1,
+#if REALMEMCARD_VERSION < 30401
+    NAME_FILE = 2,
+#endif
 };
 
 enum DataFormat {
     FORMAT_LAYER2 = 0,
     FORMAT_RAW = 1,
 };
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+typedef char TitleId[13];
+#else
+typedef unsigned int TitleId;
+#endif
 
 struct TimeInfo {
     TimeInfo();
@@ -270,11 +287,11 @@ struct BootupCheckParams {
 };
 
 struct GameInfo {
-    GameInfo(const wchar_t *gameTitle, const unsigned int titleId, bool multipleSaveTypesUsed, bool multitapSupported);
+    GameInfo(const wchar_t *gameTitle, const TitleId titleId, bool multipleSaveTypesUsed, bool multitapSupported);
     void Clear();
 
     wchar_t mGameTitle[33];
-    unsigned int mTitleId;
+    TitleId mTitleId;
     bool mMultipleSaveTypesUsed;
     bool mMultitapSupported;
 };
@@ -339,10 +356,10 @@ struct SaveReq {
 
 struct TitleInfo {
     void Clear();
-    void Init(TitleType titleType, const unsigned int titleId, NameType nameType, DataFormat dataFormat);
+    void Init(TitleType titleType, const TitleId titleId, NameType nameType, DataFormat dataFormat);
 
     TitleType mTitleType;
-    unsigned int mTitleId;
+    TitleId mTitleId;
     NameType mNameType;
     DataFormat mDataFormat;
 };
@@ -368,7 +385,16 @@ struct IGameInterface {
     virtual void SetAutosaveDone(TaskResult, CardStatus, AutosaveState) = 0;
     virtual void CardRemoved() = 0;
     virtual void SetMonitorDone(CardStatus, MonitorState) = 0;
+#if REALMEMCARD_VERSION < 30401
+    // La 3.04.00 avisaba del cambio de tarjeta solo con el estado: la forma con el resultado lo reenvia (la A124
+    // emite su copia fuera de linea en zFe).
+    virtual void CardChanged(CardStatus) = 0;
+    virtual void CardChanged(TaskResult, CardStatus status) {
+        this->CardChanged(status);
+    }
+#else
     virtual void CardChanged(TaskResult, CardStatus) = 0;
+#endif
 
   protected:
     virtual ~IGameInterface() {}
@@ -416,7 +442,11 @@ class MemcardInterface {
     void BootupCheck(const BootupCheckParams *params, unsigned int nEntries, const AutoloadEntry *autoloadEntries);
     void SaveCheck(const char *entryName, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
     void Save(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
+#if REALMEMCARD_VERSION < 30401
+    void Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo);
+#else
     void Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo, const wchar_t *typeName);
+#endif
     void Delete(const char *entryName, const wchar_t *contentName);
     void DeleteMultiple(unsigned int nEntryNames, const char **entryNames, const wchar_t *contentName);
     void FindEntries(const char *entryNamePattern, const TitleInfo *titleInfo);
@@ -459,7 +489,7 @@ enum MessageIds {
     ID_DELETE_WARNING = 131072,
     ID_DELETE_COMPLETE = 262144,
     ID_DELETE_FAILED = 524288,
-    ID_ALLMESSAGES = -1,
+    ID_ALLMESSAGES = 0xFFFFFFFF,
 };
 
 #endif

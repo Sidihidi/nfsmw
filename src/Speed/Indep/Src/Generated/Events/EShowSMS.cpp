@@ -6,6 +6,9 @@
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterface.hpp"
 #include "Speed/Indep/Src/Generated/Events/ESndGameState.hpp"
 #include "Speed/Indep/Src/Lua/source/lua.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
+#endif
 
 EShowSMS::EShowSMS(int pShowMsg) : Event(0x10), fShowMsg(pShowMsg) {
     if (FEManager::IsOkayToRequestPauseSimulation(0, true
@@ -15,6 +18,9 @@ EShowSMS::EShowSMS(int pShowMsg) : Event(0x10), fShowMsg(pShowMsg) {
 #endif
                                                   )) {
         new ESndGameState(8, true);
+#ifdef EA_BUILD_A124
+        SetSoundControlState(true, SNDSTATE_FE_SMS_MESSAGE, "EShowSMS");
+#endif
 
         int port = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));
 
@@ -43,9 +49,9 @@ void EShowSMS_MakeEvent_Callback(const void *staticData) {
     new EShowSMS(((EShowSMS::StaticData *) staticData)->fShowMsg);
 }
 
-int EShowSMS_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EShowSMS((int) lua_tonumber(L, 1));
+int EShowSMS_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EShowSMS((int) lua_tonumber(luaState, 1));
     }
     return 0;
 }

@@ -17,7 +17,7 @@ static const float TIME_TO_WAIT_BETWEEN_WOOSH = 3.0f;
 extern Slope g_WooshVol_vs_Vel;
 
 extern ParameterAccessor ReverbAccessor;
-extern int ReverbZoneCrossMap[];
+extern eREVERBFX ReverbZoneCrossMap[];
 float TimeBetweenOcclusionTests = 0.5f;
 float MaxDistanceToOccludeTest = 100.0f;
 unsigned int TickerTimeStart = 0;
@@ -62,25 +62,30 @@ SndBase *SFXCTL_Tunnel::CreateObject(unsigned int allocator) {
 SFXCTL_Tunnel::SFXCTL_Tunnel() {
     this->m_ReverbType = static_cast<eREVERBFX>(5);
     this->m_TargetType = static_cast<eREVERBFX>(5);
-    this->m_GinsuDryVol = 0x7F;
-    this->m_CurWetGinsu = 0.0f;
-    this->m_CurWetAems = 0.0f;
-    this->m_CurWetGinsuTarget = 0.0f;
-    this->m_CurWetAemsTarget = 0.0f;
-    this->m_fIntensity = 0.0f;
-    this->m_CurReverbZone = -1;
-    this->vDriveByLoc = bVector3(0.0f, 0.0f, 0.0f);
-    this->tTimeToWaitBeforeAnotherDriveBy = 0.0f;
-    this->tTimeToWaitBeforeAnotherExitDriveBy = 0.0f;
+
     this->m_GinsuWetVol = 0;
+    this->m_GinsuDryVol = 0x7F;
     this->m_AEMSWetVol = 0;
     this->m_AEMSDryVol = 0;
+
+    this->m_CurWetGinsu = 0.0f;
     this->m_CurDryGinsu = 1.0f;
+    this->m_CurWetAems = 0.0f;
     this->m_CurDryAems = 1.0f;
+
+    this->m_CurWetGinsuTarget = 0.0f;
+    this->m_CurWetAemsTarget = 0.0f;
     this->m_CurDryGinsuTarget = 1.0f;
     this->m_CurDryAemsTarget = 1.0f;
+
     this->m_PrevReverbZone = 0;
+    this->m_CurReverbZone = -1;
+
+    this->m_fIntensity = 0.0f;
+    this->vDriveByLoc = bVector3(0.0f, 0.0f, 0.0f);
     this->bPlayDriveBy = false;
+    this->tTimeToWaitBeforeAnotherDriveBy = 0.0f;
+    this->tTimeToWaitBeforeAnotherExitDriveBy = 0.0f;
     this->pLastZoneWePlayedWooshFor = nullptr;
     this->pLastZoneWePlayedExitWooshFor = nullptr;
     this->bFadingOut = false;
@@ -105,7 +110,11 @@ void SFXCTL_Tunnel::InitSFX() {
     this->m_bIsInTunnel = false;
     this->m_bWasInTunnel = false;
 
+#ifdef EA_BUILD_A124
+    if (this->m_pStateBase->m_InstNum == 0) {
+#else
     if (this->GetPhysCar()->GetContext() == Sound::CONTEXT_PLAYER && this->m_pStateBase->m_InstNum == 0) {
+#endif
         this->m_IsLeadCar = true;
     } else {
         this->m_IsLeadCar = false;
@@ -246,6 +255,17 @@ void SFXCTL_Tunnel::UpdateParams(float t) {
     peaxcar_a = g_pEAXSound->GetPlayerTunerCar(ninst);
 
     this->UpdateIsInTunnel(t);
+#ifdef EA_BUILD_A124
+    // La A124 ocluye antes y solo hace el resto para el coche del jugador.
+    if (this->GetPhysCar()->GetContext() == kRaceContext_Online || this->GetPhysCar()->GetContext() == kRaceContext_Career) {
+        this->UpdateOcclusion(t);
+    }
+    if (this->GetPhysCar()->GetContext() == Sound::CONTEXT_PLAYER) {
+        this->UpdateDriveBySnds(t);
+        this->UpdateCityVerb(t);
+        this->UpdateReflectionParams(t);
+    }
+#else
     this->UpdateDriveBySnds(t);
     this->UpdateCityVerb(t);
     this->UpdateReflectionParams(t);
@@ -257,6 +277,7 @@ void SFXCTL_Tunnel::UpdateParams(float t) {
         }
     }
     this->UpdateOcclusion(t);
+#endif
 }
 
 void SFXCTL_Tunnel::UpdateIsInTunnel(float t) {
@@ -432,7 +453,9 @@ void SFXCTL_Tunnel::UpdateCityVerb(float t) {
     (void)t;
 
     int ncurrentoffset = 0;
+#ifndef EA_BUILD_A124
     int isValid = 1;
+#endif
     this->m_PrevReverbZone = this->m_CurReverbZone;
 
     // La reverberacion de la A124 es una sola: solo la mueve el coche de cabeza (0x1C11E4: `lw $v0, 0xB0($s0)`).
@@ -442,11 +465,15 @@ void SFXCTL_Tunnel::UpdateCityVerb(float t) {
     }
 #endif
 
+#ifdef EA_BUILD_A124
+    if ((ReverbAccessor.Layer) &&
+#else
     if (!ReverbAccessor.Layer) {
         isValid = 0;
     }
 
     if ((isValid != 0) &&
+#endif
         (this->m_pEAXCar) &&
         (((this->objectID >> 16) & 0xFF) == 2)) {
         EAX_CarState *pcar = this->m_pEAXCar->GetPhysCar();
@@ -458,19 +485,16 @@ void SFXCTL_Tunnel::UpdateCityVerb(float t) {
     }
 
     if (static_cast<unsigned int>(this->m_CurReverbZone) > 0xB) {
-        int zone = g_pEAXSound->GetSndGameMode();
-
-        if (zone == SND_FRONTEND) {
-            zone = 0;
+        if (g_pEAXSound->GetSndGameMode() == SND_FRONTEND) {
+            this->m_CurReverbZone = 0;
         } else {
-            zone = 9;
+            this->m_CurReverbZone = 9;
         }
-        this->m_CurReverbZone = zone;
     }
 
-    eREVERBFX currentverb = static_cast<eREVERBFX>(ReverbZoneCrossMap[this->m_CurReverbZone]);
-    if (static_cast<int>(currentverb) > 0xB) {
-        currentverb = static_cast<eREVERBFX>(9);
+    eREVERBFX currentverb = ReverbZoneCrossMap[this->m_CurReverbZone];
+    if (currentverb >= RVRB_MAX_TYPES) {
+        currentverb = RVRB_CITYOPEN;
     }
 
     if ((this->m_CurReverbZone != this->m_PrevReverbZone) && !this->m_bIsInTunnel) {
@@ -488,7 +512,7 @@ void SFXCTL_Tunnel::EndTunnelVerb() {
         return;
     }
 #endif
-    eREVERBFX currentverb = static_cast<eREVERBFX>(ReverbZoneCrossMap[this->m_CurReverbZone]);
+    eREVERBFX currentverb = ReverbZoneCrossMap[this->m_CurReverbZone];
     if (currentverb >= RVRB_MAX_TYPES) {
         currentverb = RVRB_CITYOPEN;
     }
@@ -518,8 +542,8 @@ void SFXCTL_Tunnel::SetCurrentReverbType(eREVERBFX ereverbtype, int reverboffset
     this->m_TargetType = ereverbtype;
     this->ReflRamp.Initialize(0.0f, 1.0f, g_REVERBFXMODULES[this->m_ReverbType].FadeOut, LINEAR);
     this->m_CurWetGinsuTarget = 0.0f;
-    this->m_CurDryGinsuTarget = 1.0f;
     this->m_CurWetAemsTarget = 0.0f;
+    this->m_CurDryGinsuTarget = 1.0f;
     this->m_CurDryAemsTarget = 1.0f;
 }
 
@@ -538,8 +562,13 @@ void SFXCTL_Tunnel::UpdateReflectionParams(float t) {
                 this->bIsReadyForSwitch = true;
             }
             this->bFadingIn = true;
+#ifdef EA_PLATFORM_WIN32
+            this->bFadingOut = false;
+            this->m_ReverbType = this->m_TargetType;
+#else
             this->m_ReverbType = this->m_TargetType;
             this->bFadingOut = false;
+#endif
             this->ReflRamp.Initialize(0.0f, 1.0f, g_REVERBFXMODULES[this->m_TargetType].FadeIn, LINEAR);
 
             this->m_CurWetGinsu = this->m_CurWetGinsuTarget;

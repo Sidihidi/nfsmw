@@ -173,8 +173,8 @@ class AEMS_StichCollision {
     void SetFilter_LoPass(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 25000) {
+            x = 25000;
         }
         this->mData.filter_LoPass = x;
     }
@@ -186,8 +186,8 @@ class AEMS_StichCollision {
     void SetFilter_HiPass(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 25000) {
+            x = 25000;
         }
         this->mData.filter_HiPass = x;
     }
@@ -365,8 +365,8 @@ class AEMS_StichWoosh {
     void SetFilter_LoPass(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 25000) {
+            x = 25000;
         }
         this->mData.filter_LoPass = x;
     }
@@ -378,8 +378,8 @@ class AEMS_StichWoosh {
     void SetFilter_HiPass(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 25000) {
+            x = 25000;
         }
         this->mData.filter_HiPass = x;
     }
@@ -557,8 +557,8 @@ class AEMS_StichStatic {
     void SetFilter_LoPass(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 25000) {
+            x = 25000;
         }
         this->mData.filter_LoPass = x;
     }
@@ -570,8 +570,8 @@ class AEMS_StichStatic {
     void SetFilter_HiPass(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 25000) {
+            x = 25000;
         }
         this->mData.filter_HiPass = x;
     }

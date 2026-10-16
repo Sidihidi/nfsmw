@@ -118,6 +118,7 @@ struct LobbyRanks {
     inline void AbortCommand(int32 commandID);
     void ClearCache();
     int GetRankListSize(RankListE rankList, RankListTypeE type);
+    static RankListE GetRankListFromMode(OnlineRaceModeE raceMode, RankListSubcategoryE category, int weekOffset);
     DispListRef *GetDisplayListReference(RankListE index);
 
   private:
@@ -131,7 +132,6 @@ struct LobbyRanks {
     static int RankListMapping2DispListIndex(RankListMapping mapping);
     static inline RankListTypeE RankListMapping2RankListType(RankListMapping mapping);
     static inline int InitTierArray();
-    static RankListE GetRankListFromMode(OnlineRaceModeE raceMode, RankListSubcategoryE category, int weekOffset);
     friend int32 LobbyInit();
     friend void LobbyDisconnect();
     friend class LobbyCore;

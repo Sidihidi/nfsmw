@@ -27,8 +27,6 @@ class MNotifyRaceTime : public Hermes::Message {
     MNotifyRaceTime(float _TimeElapsed, bool _TimeIsLimited, float _TimeRemaining)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fTimeElapsed(_TimeElapsed), fTimeIsLimited(_TimeIsLimited), fTimeRemaining(_TimeRemaining) {}
 
-    ~MNotifyRaceTime() {}
-
     float GetTimeElapsed() const {
         return fTimeElapsed;
     }
@@ -64,9 +62,9 @@ class MNotifyRaceTime : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyRaceTime::HandleMessage_LuaBinding(const MNotifyRaceTime &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyRaceTime::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

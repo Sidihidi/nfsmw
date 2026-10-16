@@ -85,6 +85,10 @@ int IsInSkinCompositeCache(SkinCompositeParams *skin_composite_params) {
     SkinCompositeParams *cache_params = GetSkinCompositeParams(skin_composite_params->DestTexture->NameHash);
     bool match;
 
+    if (cache_params == nullptr) {
+        return 0;
+    }
+
     for (int i = 0; i < 0; i++) {
     }
 
@@ -93,12 +97,8 @@ int IsInSkinCompositeCache(SkinCompositeParams *skin_composite_params) {
         VinylLayerInfo *b;
     }
 
-    if (cache_params != nullptr) {
-        match = CompareCompositeParams(cache_params, skin_composite_params);
-        return static_cast<int>(match);
-    }
-
-    return 0;
+    match = CompareCompositeParams(cache_params, skin_composite_params);
+    return static_cast<int>(match);
 }
 
 void UpdateSkinCompositeCache(SkinCompositeParams *skin_composite_params) {
@@ -168,12 +168,14 @@ uint32 GetBlendColour(uint32 *colours, float *weights, int num_colours, bool max
 
 unsigned int RemapColour(unsigned int colour, unsigned int *colour_map) {
     CompColour col = *reinterpret_cast<CompColour *>(&colour);
-    float weights[4];
-
-    weights[0] = static_cast<float>(static_cast<int>(col.a)) / 255.0f;
-    weights[1] = static_cast<float>(static_cast<int>(col.r)) / 255.0f;
-    weights[2] = static_cast<float>(static_cast<int>(col.g)) / 255.0f;
-    weights[3] = 0.0f;
+#ifdef EA_PLATFORM_GAMECUBE
+    // GameCube pesa los bytes 3, 2 y 1 (clrlwi, extrwi); PS2, PC (al, ah) y X360 (lbz 0, 1, 2) leen b, g y r.
+    float weights[4] = {static_cast<float>(static_cast<int>(col.a)) / 255.0f, static_cast<float>(static_cast<int>(col.r)) / 255.0f,
+                        static_cast<float>(static_cast<int>(col.g)) / 255.0f, 0.0f};
+#else
+    float weights[4] = {static_cast<float>(static_cast<int>(col.b)) / 255.0f, static_cast<float>(static_cast<int>(col.g)) / 255.0f,
+                        static_cast<float>(static_cast<int>(col.r)) / 255.0f, 0.0f};
+#endif
 
     unsigned int result = GetBlendColour(colour_map, weights, 3, true);
     return result;
@@ -233,8 +235,8 @@ int CompositeSkin32(SkinCompositeParams *composite_params) {
 
     CompColour base = *reinterpret_cast<CompColour *>(&base_colour);
 
-    int temp = (base_colour >> 8) & 0xFF;
-    base.r = (base_colour >> 24) & 0xFF;
+    int temp = base.r;
+    base.r = base.b;
     base.b = temp;
 
     uint32 *dest_pixel;
@@ -265,25 +267,19 @@ int CompositeSkin32(SkinCompositeParams *composite_params) {
                 CompColour src_colour = *reinterpret_cast<CompColour *>(&src_pixel);
 
                 if (src_mask != 0) {
-                    // TODO remove fake var
-                    int fake = (src_pixel >> 8) & 0xFF;
-                    src_colour.b = fake;
-                    int tmp = src_pixel >> 24;
-                    src_colour.r = tmp & 0xFF;
+                    int temp = src_colour.b;
+                    src_colour.b = src_colour.r;
+                    src_colour.r = temp;
 
                     src_pixel = RemapColour(*reinterpret_cast<uint32 *>(&src_colour), info->m_RemapColours);
                 }
             }
 
-            if (src_mask < 0x80) {
-                if (src_mask != 0) {
-                    uint32 colours[2];
-                    float weights[2];
-
-                    colours[0] = src_pixel;
-                    colours[1] = dest_pixel;
-                    weights[0] = static_cast<float>(src_mask) / 128.0f;
-                    weights[1] = 1.0f - weights[0];
+            if (src_mask >= 0x80) {
+                *dest = src_pixel;
+            } else if (src_mask != 0) {
+                    uint32 colours[2] = {src_pixel, dest_pixel};
+                    float weights[2] = {static_cast<float>(src_mask) / 128.0f, 1.0f - static_cast<float>(src_mask) / 128.0f};
 
                     if (1.0f < weights[0]) {
                         weights[0] = 1.0f;
@@ -293,11 +289,7 @@ int CompositeSkin32(SkinCompositeParams *composite_params) {
                         weights[1] = 0.0f;
                     }
 
-                    src_pixel = GetBlendColour(colours, weights, 2, false);
-                    *dest = src_pixel;
-                }
-            } else {
-                *dest = src_pixel;
+                    *dest = GetBlendColour(colours, weights, 2, false);
             }
         }
     }
@@ -343,8 +335,47 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
     int dest_height = dest_texture->Height;
     int max_semi_trans_pixels = 0;
     max_semi_trans_pixels |= 0xC000;
-    SemiTransPixel *semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, nullptr, 0, (GetVirtualMemoryPoolNumber() & 0xF) | 0x40));
-    uint32 *semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, nullptr, 0, (GetVirtualMemoryPoolNumber() & 0xF) | 0x40));
+    SemiTransPixel *semi_trans_pixels;
+    uint32 *semi_trans_colours;
+#ifdef EA_PLATFORM_GAMECUBE
+    semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, "CarSkin Composite - Pixels", 0, (GetVirtualMemoryPoolNumber() & 0xF) | 0x40));
+    semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, "CarSkin Composite - Colours", 0, (GetVirtualMemoryPoolNumber() & 0xF) | 0x40));
+#elif defined(EA_BUILD_A124)
+    // La A124 mira la memoria libre del pool de coches y si no, el bloque mayor del pool 0 (0x60100).
+    if (bCountFreeMemory(CarLoaderMemoryPoolNumber) > 0x60100) {
+        semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, "CarSkin Composite - Pixels", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x40));
+        semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, "CarSkin Composite - Colours", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x40));
+    } else if (bLargestMalloc(0) > 0x60100) {
+        semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, "CarSkin Composite - Pixels", 0, 0x40));
+        semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, "CarSkin Composite - Colours", 0, 0x40));
+    } else {
+        dest_texture->UnlockImage(dest_image_data);
+        dest_texture->UnlockPalette(dest_palette_data);
+        return 0;
+    }
+#else
+    // SLUS, PC (0x748AD0) y X360: bloque mayor del pool de coches, del pool 0, del pool 7 y si no, hace sitio en el pool del streamer.
+    if (bLargestMalloc(CarLoaderMemoryPoolNumber) > 0x60180) {
+        semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, "CarSkin Composite - Pixels", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x40));
+        semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, "CarSkin Composite - Colours", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x40));
+    } else if (bLargestMalloc(0) > 0x60180) {
+        semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, "CarSkin Composite - Pixels", 0, 0x40));
+        semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, "CarSkin Composite - Colours", 0, 0x40));
+    } else {
+        if (bLargestMalloc(7) <= 0x60180) {
+            if (bCountFreeMemory(7) <= 0x60180) {
+                dest_texture->UnlockImage(dest_image_data);
+                dest_texture->UnlockPalette(dest_palette_data);
+                return 0;
+            }
+            if (TheTrackStreamer.IsLoadingInProgress()) {
+            }
+            TheTrackStreamer.MakeSpaceInPool(0x60180, true);
+        }
+        semi_trans_pixels = static_cast<SemiTransPixel *>(bMalloc(0x30000, "CarSkin Composite - Pixels", 0, 7));
+        semi_trans_colours = static_cast<unsigned int *>(bMalloc(0x30000, "CarSkin Composite - Colours", 0, 7));
+    }
+#endif
     int semi_trans_pixels_buffer_size;
     int total_malloc_required;
     int cur_semi_trans_pixel = 0;
@@ -431,7 +462,7 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
 
             if (info->m_LayerHash != 0) {
                 src_pixel = info->m_LayerImagePaletteData[*image_src[i]];
-                src_mask = reinterpret_cast<unsigned short *>(info->m_LayerMaskPaletteData)[*mask_src[i] * 2] & 0xFF;
+                src_mask = (info->m_LayerMaskPaletteData[*mask_src[i]] >> 16) & 0xFF;
 
                 if (info->m_RemapPalette != 0 && src_mask != 0) {
                     src_pixel = RemapColour(src_pixel, info->m_RemapColours);
@@ -442,7 +473,6 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
                     dest_pixel = src_pixel;
                 } else if (src_mask != 0) {
                     float weights[2];
-                    unsigned int colours[2];
 
                     weights[0] = static_cast<float>(src_mask) / 128.0f;
                     if (weights[0] > 1.0f) {
@@ -450,8 +480,7 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
                     }
 
                     weights[1] = 1.0f - weights[0];
-                    colours[0] = src_pixel;
-                    colours[1] = dest_pixel;
+                    unsigned int colours[2] = {src_pixel, dest_pixel};
                     unsigned int blend_colour = GetBlendColour(colours, weights, 2, false);
 
                     int x = (image_src[i] - info->m_LayerImageData) % dest_texture->Width;
@@ -485,7 +514,7 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
         } else {
             for (int j = 0; j < info->m_NumColours; j++) {
                 CompColour colour = *reinterpret_cast<CompColour *>(&info->m_LayerImagePaletteData[j]);
-                dest_palette_data[current_palette_base + j] = RemapColour(*reinterpret_cast<unsigned int *>(&colour), info->m_RemapColours);
+                dest_palette_data[current_palette_base + j] = RemapColour(info->m_LayerImagePaletteData[j], info->m_RemapColours);
             }
         }
 
@@ -498,12 +527,15 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
         int max_remap_colours = 0xFF - current_palette_base;
         SemiTransPixel *pixel_list;
         int num_pixels = cur_semi_trans_pixel;
+#ifdef EA_PLATFORM_GAMECUBE
+        // Solo GameCube copia los colores byte a byte (el orden de initnet); las PS2, PC y X360 le pasan
+        // semi_trans_colours tal cual y no tienen la cadena "CarSkin Composite".
 
         if (bLargestMalloc(0) < (num_pixels << 2)) {
             num_pixels = 0;
         }
 
-        uint8 *input = static_cast<uint8 *>(bMalloc(num_pixels << 2, nullptr, 0, 0x40));
+        uint8 *input = static_cast<uint8 *>(bMalloc(num_pixels << 2, "CarSkin Composite", 0, 0x40));
         int p = 0;
 
         for (int i = 0; i < num_pixels; i++) {
@@ -515,6 +547,9 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
             input[p * 4 + 3] = static_cast<unsigned char>(pixel_colour >> 24);
             p++;
         }
+#else
+        uint8 *input = reinterpret_cast<uint8 *>(semi_trans_colours);
+#endif
 
         if (num_pixels < max_remap_colours) {
             for (int i = 0; i < num_pixels; i++) {
@@ -555,8 +590,10 @@ int CompositeSkin(SkinCompositeParams *composite_params) {
                 }
             }
         }
+#ifdef EA_PLATFORM_GAMECUBE
 
         bFree(input);
+#endif
     }
 
     bFree(semi_trans_pixels);
@@ -943,13 +980,9 @@ int CompositeWheel8(TextureInfo *dest_texture, TextureInfo *src_texture, Texture
         float blend = static_cast<float>(i) / 15.0f;
 
         for (int j = 0; j < 16; j++) {
-            unsigned int blend_colours[2];
-            blend_colours[0] = src_palette_data[j];
-            blend_colours[1] = ScaleColours(src_palette_data[j], remap_colour);
+            unsigned int blend_colours[2] = {src_palette_data[j], ScaleColours(src_palette_data[j], remap_colour)};
 
-            float weights[2];
-            weights[0] = 1.0f - blend;
-            weights[1] = blend;
+            float weights[2] = {1.0f - blend, blend};
 
             dest_palette_data[i * 16 + j] = GetBlendColour(blend_colours, weights, 2, false) & 0xFFFFFF;
             dest_palette_data[i * 16 + j] |= blend_colours[0] & 0xFF000000;
@@ -968,10 +1001,9 @@ int CompositeWheel8(TextureInfo *dest_texture, TextureInfo *src_texture, Texture
     uint8 *src_mask_pixel = src_mask_data;
 
     for (; dest_pixel < end_pixel; dest_pixel++) {
-        uint32 mask;
-        unsigned int palette_offset = *src_mask_pixel << 2;
+        uint32 mask = src_mask_palette_data[*src_mask_pixel];
 
-        mask = *reinterpret_cast<uint32 *>(reinterpret_cast<uint8 *>(src_mask_palette_data) + palette_offset);
+        mask &= 0xFF;
         *dest_pixel = *src_pixel + (mask & 0xF0);
         src_pixel++;
         src_mask_pixel++;
@@ -998,31 +1030,25 @@ int CompositeWheel32(TextureInfo *dest_texture, TextureInfo *src_texture, Textur
     int pixel_count;
 
     while (dest_pixel < end_pixel) {
-        uint32 src_maskI = reinterpret_cast<unsigned char *>(src_mask_pixel)[2];
+        uint32 src_maskI = *src_mask_pixel;
+
+        src_maskI = (src_maskI >> 8) & 0xFF;
 
         {
-            float blend = static_cast<float>(src_maskI) / 255.0f;
-
-            src_mask_pixel++;
             *dest_pixel = *src_pixel;
+            float blend = static_cast<float>(src_maskI) / 255.0f;
             uint32 colour_pixel = ScaleColours(*src_pixel, remap_colour);
 
-            uint32 blend_colours[2];
-            blend_colours[0] = *src_pixel;
-            blend_colours[1] = colour_pixel;
-
-            float weights[2];
-            weights[0] = 1.0f - blend;
-            weights[1] = blend;
-            src_pixel++;
+            uint32 blend_colours[2] = {*src_pixel, colour_pixel};
+            float weights[2] = {1.0f - blend, blend};
             *dest_pixel = colour_pixel;
-
-            colour_pixel = GetBlendColour(blend_colours, weights, 2, false);
-            *dest_pixel = colour_pixel & 0xFFFFFF;
-            *dest_pixel = (colour_pixel & 0xFFFFFF) | (blend_colours[0] & 0xFF000000);
+            *dest_pixel = GetBlendColour(blend_colours, weights, 2, false) & 0xFFFFFF;
+            *dest_pixel |= blend_colours[0] & 0xFF000000;
         }
 
         dest_pixel++;
+        src_pixel++;
+        src_mask_pixel++;
     }
 
     src_mask->UnlockImage(src_mask_data);

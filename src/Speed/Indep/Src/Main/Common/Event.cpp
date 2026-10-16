@@ -15,7 +15,7 @@ Event *EventManager::fgCurrentEvent = nullptr;
 bool EventManager::fgHaltCurrentList = false;
 
 void EventManager::Init() {
-    gMemoryBuffer = (char *)bMalloc(0x4000, GetVirtualMemoryAllocParams());
+    gMemoryBuffer = (char *)bMalloc(0x4000, "EventBuffer", 0, GetVirtualMemoryAllocParams());
     EventManager::Reset();
 }
 
@@ -127,5 +127,5 @@ void *Event::operator new(size_t size) {
 }
 
 void Event::operator delete(void *ptr, size_t size) {
-    gDeletionPoint += *(unsigned int *)ptr;
+    gDeletionPoint += static_cast<Event *>(ptr)->fEventSize;
 }

@@ -30,33 +30,21 @@ unsigned int iSPCH_EACrandom(void) {
     seedX[1] = ax;
     ax = ax + seedX[0] + c;
     seedX[0] = ax;
-    seedX[5] = seedX[5] + 1;
-    if (seedX[5] != 0) {
-        return ax;
+    if (++seedX[5] == 0) {
+        if (++seedX[4] == 0) {
+            if (++seedX[3] == 0) {
+                if (++seedX[2] == 0) {
+                    if (++seedX[1] == 0) {
+                        ax = ++seedX[0];
+                    }
+                }
+            }
+        }
     }
-    seedX[4] = seedX[4] + 1;
-    if (seedX[4] != 0) {
-        return ax;
-    }
-    seedX[3] = seedX[3] + 1;
-    if (seedX[3] != 0) {
-        return ax;
-    }
-    seedX[2] = seedX[2] + 1;
-    if (seedX[2] != 0) {
-        return ax;
-    }
-    seedX[1] = seedX[1] + 1;
-    if (seedX[1] != 0) {
-        return ax;
-    }
-    seedX[0] = seedX[0] + 1;
-    /* Misma barrera que la hermana snd/srandom (que casa al 100%): sin ella
-     * GCC fusiona el resultado con r3 y se pierde el `mr r3, r0` del objetivo. */
-    return seedX[0];
+    return ax;
 }
 
-static void iSPCH_EACseedrandom(unsigned int seed) {
+void iSPCH_EACseedrandom(unsigned int seed) {
     unsigned int ax;
 
     ax = seed - 0xDD2F1AA;
@@ -69,10 +57,11 @@ static void iSPCH_EACseedrandom(unsigned int seed) {
     seedX[3] = ax;
     ax = ax - 0x68CD851F;
     seedX[4] = ax;
-    seedX[5] = ax - 0x2E560419;
+    ax = ax - 0x2E560419;
+    seedX[5] = ax;
 }
 
-static int iSPCH_FindRandInQueue(unsigned short rand, int checkBack, unsigned short randHandle) {
+int iSPCH_FindRandInQueue(unsigned short rand, int checkBack, unsigned short randHandle) {
     int result;
     int index;
     int done;
@@ -111,7 +100,7 @@ static int iSPCH_FindRandInQueue(unsigned short rand, int checkBack, unsigned sh
     return result;
 }
 
-static void iSPCH_AddRandToQueue(unsigned short rand, unsigned short handle) {
+void iSPCH_AddRandToQueue(unsigned short rand, unsigned short handle) {
     gRandArrayIndex = gRandArrayIndex + 1;
     if (gRandArrayIndex > 31) {
         gRandArrayIndex = 0;

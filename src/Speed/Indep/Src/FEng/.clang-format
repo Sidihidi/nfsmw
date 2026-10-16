@@ -1,0 +1,5 @@
+# FEng esta maquetado a las lineas del original: la A124 es una build milestone y FNEW pasa __LINE__, asi que cada
+# FNEW tiene que caer en la linea del original (lineas en blanco de relleno y metodos de una sola linea). clang-format
+# juntaria las lineas en blanco y partiria los metodos, y la A124 perderia esas funciones.
+DisableFormat: true
+SortIncludes: false

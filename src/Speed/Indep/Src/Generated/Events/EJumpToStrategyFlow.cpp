@@ -19,8 +19,8 @@ void EJumpToStrategyFlow_MakeEvent_Callback(const void *staticData) {
     new EJumpToStrategyFlow();
 }
 
-int EJumpToStrategyFlow_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EJumpToStrategyFlow_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EJumpToStrategyFlow();
     }
     return 0;

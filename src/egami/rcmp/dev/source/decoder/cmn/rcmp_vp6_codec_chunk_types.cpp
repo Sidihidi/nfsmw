@@ -1,7 +1,7 @@
 namespace RCMP {
 
-int VP6_CODEC_is_head_chunk_for_codec(unsigned int chunk_type) {
-    return (chunk_type ^ 0x4D566864) == 0;
+int VP6_CODEC_is_head_chunk_for_codec(unsigned int chunktype) {
+    return (chunktype ^ 0x4D566864) == 0;
 }
 
 int VP6_CODEC_is_chunk_for_codec(unsigned int chunk_type) {

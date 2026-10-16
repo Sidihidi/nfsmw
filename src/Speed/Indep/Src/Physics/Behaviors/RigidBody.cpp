@@ -17,14 +17,14 @@
 #include "Speed/Indep/bWare/Inc/bTypes.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
-// total size: 0x30
+// total size: 0x30 (en PS2 y X360 los vectores van alineados a 16: el sort de PS2 los copia con ld/sd)
 class CollisionPacket {
   public:
-    UMath::Vector3 lever;                  // offset 0x0, size 0xC
+    ALIGNVEC UMath::Vector3 lever;         // offset 0x0, size 0xC
     const Attrib::Collection *bodysurface; // offset 0xC, size 0x4
-    UMath::Vector3 normal;                 // offset 0x10, size 0xC
+    ALIGNVEC UMath::Vector3 normal;        // offset 0x10, size 0xC
     float penetration;                     // offset 0x1C, size 0x4
-    UMath::Vector3 arm;                    // offset 0x20, size 0xC
+    ALIGNVEC UMath::Vector3 arm;           // offset 0x20, size 0xC
     const Attrib::Collection *surface;     // offset 0x2C, size 0x4
 
     bool operator<(const CollisionPacket &b) const {
@@ -48,6 +48,7 @@ unsigned int RigidBody::mCount = 0;
 IMPLEMENT_SAP_GRID(RigidBody);
 
 bool RigidBody::mOnSP = false;
+RigidBody *RigidBody::mMaps[Sim::MaxRigidBodies];
 
 BIND_BEHAVIOR_FACTORY(RigidBody);
 
@@ -57,8 +58,8 @@ static const float V_LIMIT = 0.0f;  // TODO value
 // TODO clear the magic numbers in Volatile::state and status
 
 Behavior *RigidBody::Construct(const BehaviorParams &params) {
-    const RBComplexParams bp(params.fparams.Fetch<RBComplexParams>(UCrc32(UCRC32_BASE)));
-    return new RigidBody(params, bp);
+    const RBComplexParams rp(params.fparams.Fetch<RBComplexParams>(UCrc32(UCRC32_BASE)));
+    return new RigidBody(params, rp);
 }
 
 RigidBody::Volatile::Volatile() {}
@@ -377,8 +378,16 @@ bool RigidBody::AddCollisionPrimitive(UCrc32 name, const UMath::Vector3 &dim, fl
     if (boundflags & CollisionGeometry::kBounds_Disabled) {
         flags = 8;
     }
-    if ((boundflags &
+    if (
+#ifdef EA_PLATFORM_XENON
+        // X360 compara esta mascara sin signo (cmplwi): el cast lo reproduce.
+        (static_cast<unsigned int>(boundflags) &
+         static_cast<unsigned int>(CollisionGeometry::kBounds_PrimVsGround | CollisionGeometry::kBounds_PrimVsObjects |
+                                   CollisionGeometry::kBounds_PrimVsWorld)) != 0) {
+#else
+        (boundflags &
          (CollisionGeometry::kBounds_PrimVsGround | CollisionGeometry::kBounds_PrimVsObjects | CollisionGeometry::kBounds_PrimVsWorld))) {
+#endif
         if (boundflags & CollisionGeometry::kBounds_PrimVsGround) {
             flags |= 4;
         }
@@ -843,20 +852,22 @@ void RigidBody::DoInstanceCollision2d(const float dT) {
             world_pos.SetTolerance(tolerance);
             world_pos.Update(world_point, world_normal, true, this->mWCollider, true);
 
-            if (world_pos.OnValidFace() && world_normal.w > UMath::Epsilon) {
-                if (world_normal.w > deepest_ground_penetration.w) {
-                    deepest_ground_penetration = world_normal;
-                }
-
-                counter++;
-                UMath::RotateTranslate(UMath::Vector4To3(diagnols[loop]), ortho_scaled_matrix, bcp->arm);
-                bcp->lever = world_arm;
-                bcp->normal = UMath::Vector4To3(world_normal);
-                bcp->penetration = world_normal.w;
-                bcp->surface = world_pos.GetSurface();
-                bcp->bodysurface = bodysuface;
-                bcp++;
+            if (!world_pos.OnValidFace() || world_normal.w <= UMath::Epsilon) {
+                continue;
             }
+
+            if (world_normal.w > deepest_ground_penetration.w) {
+                deepest_ground_penetration = world_normal;
+            }
+
+            counter++;
+            UMath::RotateTranslate(UMath::Vector4To3(diagnols[loop]), ortho_scaled_matrix, bcp->arm);
+            bcp->lever = world_arm;
+            bcp->normal = UMath::Vector4To3(world_normal);
+            bcp->penetration = world_normal.w;
+            bcp->surface = world_pos.GetSurface();
+            bcp->bodysurface = bodysuface;
+            bcp++;
         }
     }
 
@@ -886,20 +897,22 @@ void RigidBody::DoInstanceCollision2d(const float dT) {
             world_pos.SetTolerance(tolerance);
             world_pos.Update(world_point, world_normal, true, this->mWCollider, true);
 
-            if (world_pos.OnValidFace() && world_normal.w > UMath::Epsilon) {
-                if (world_normal.w > deepest_ground_penetration.w) {
-                    deepest_ground_penetration = world_normal;
-                }
-
-                counter++;
-                bcp->lever = world_arm;
-                bcp->normal = UMath::Vector4To3(world_normal);
-                bcp->penetration = world_normal.w;
-                bcp->arm = ortho;
-                bcp->surface = world_pos.GetSurface();
-                bcp->bodysurface = bodysuface;
-                bcp++;
+            if (!world_pos.OnValidFace() || world_normal.w <= UMath::Epsilon) {
+                continue;
             }
+
+            if (world_normal.w > deepest_ground_penetration.w) {
+                deepest_ground_penetration = world_normal;
+            }
+
+            counter++;
+            bcp->lever = world_arm;
+            bcp->normal = UMath::Vector4To3(world_normal);
+            bcp->penetration = world_normal.w;
+            bcp->arm = ortho;
+            bcp->surface = world_pos.GetSurface();
+            bcp->bodysurface = bodysuface;
+            bcp++;
         }
     }
 

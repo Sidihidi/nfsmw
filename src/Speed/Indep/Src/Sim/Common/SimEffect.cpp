@@ -62,9 +62,9 @@ void Effect::Set(const Attrib::Collection *effect, const UMath::Vector3 &positio
         }
         mPosition = position;
         mMagnitude = magnitude;
-        mTracking = relative;
         mEffect = effect;
         mContext = context;
+        mTracking = relative;
         mActee = actee;
         if (!mService) {
             WorldConn::Pkt_Effect_Open pkt(effect, mOwner, mParticipant, context, actee);

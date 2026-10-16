@@ -10,8 +10,9 @@
 class EAXCop : public EAXCharacter {
   public:
     EAXCop(int speakerID, HSIMABLE handle, int bID, int cID);
+  private:
     int GetBackupTypeFromDispatch(int type);
-
+  public:
     // Virtual overrides
     // AudioMemBase
     ~EAXCop() override;

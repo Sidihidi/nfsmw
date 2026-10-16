@@ -40,7 +40,7 @@ class StrategyFlow : public SpeechFlow {
     void Reset() override;
     void Update() override;
     bool IsTransitionable() override;
-
+  private:
     virtual void CullCheck();
     virtual void SoloCheck();
     virtual void Waiting();

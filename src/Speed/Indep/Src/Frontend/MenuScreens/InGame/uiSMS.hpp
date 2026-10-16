@@ -29,7 +29,12 @@ struct SMSSlot : public ArraySlot {
 
 // total size: 0x100
 struct uiSMS : public ArrayScrollerMenu {
+#ifdef EA_BUILD_A124
+    // La A124 los guarda en 16 bits (stabs: short unsigned int last_msg[2] en 0xE4) y su "ninguno" es 0xFFFF.
+    unsigned short last_msg[2];
+#else
     unsigned char last_msg[2];     // offset 0xE8, size 0x2
+#endif
     int button_pressed;            // offset 0xEC, size 0x4
     bool bVoiceMsg;                // offset 0xF0, size 0x1
 #ifndef EA_BUILD_A124
@@ -40,14 +45,16 @@ struct uiSMS : public ArrayScrollerMenu {
 
     uiSMS(ScreenConstructorData* sd);
     ~uiSMS() override {}
-
+  private:
     void Setup();
     void AddSMSDatum(SMSMessage* msg);
     void AddSMSSlot(unsigned int index);
     void RefreshHeader() override;
+  public:
     void NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
                              u32 param2) override;
     eMenuSoundTriggers NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) override;
+  private:
     void ScrollBoxes(eScrollDir dir);
 };
 

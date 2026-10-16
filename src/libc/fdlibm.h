@@ -11,6 +11,16 @@
 #ifndef _FDLIBM_H_
 #define _FDLIBM_H_
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+/* El EE es little endian: la palabra baja va primero (la rama __IEEE_LITTLE_ENDIAN de newlib). */
+typedef union {
+    double value;
+    struct {
+        unsigned int lsw;
+        unsigned int msw;
+    } parts;
+} ieee_double_shape_type;
+#else
 typedef union {
     double value;
     struct {
@@ -18,6 +28,7 @@ typedef union {
         unsigned int lsw;
     } parts;
 } ieee_double_shape_type;
+#endif
 
 typedef union {
     float value;
@@ -83,6 +94,12 @@ typedef union {
         sf_u.word = (i);                                                       \
         (d) = sf_u.value;                                                      \
     } while (0)
+
+#ifdef EA_PLATFORM_GAMECUBE
+/* La libm de SN para GameCube no lleva los envoltorios w_*.c de newlib: sus nucleos __ieee754_* llevan el
+ * nombre publico.  La de PlayStation 2 es la de newlib tal cual (e_exp.c define __ieee754_exp y w_exp.c, exp). */
+#define __ieee754_exp exp
+#endif
 
 /* Lo que newlib saca de <math.h> y de su propio fdlibm.h. */
 extern double fabs(double x);

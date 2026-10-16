@@ -8,6 +8,10 @@
 #include "Speed/Indep/Src/Frontend/Localization/Localize.hpp"
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_UI_DebugCarCustomize.hpp"
 
+// clang-format off
+// Maquetado a las lineas del original: la A124 es una build milestone y el FNEW de LoaderFEngFont pasa __LINE__,
+// que tiene que ser el del original (129). clang-format juntaria las lineas en blanco de relleno.
+
 // File: speed/indep/src/frontend/FEngFont.cpp
 // total size: 0xC
 // Decl: speed/indep/src/frontend/FEngFont.cpp:309
@@ -27,10 +31,49 @@ static ExtraFontData ExtraFontDataTable[] = {
 
 bTList<FEngFont> FEngFonts;
 
-// Decl: /speed/indep/src/frontend/FEngFont.cpp:43
+// Decl: /speed/indep/src/frontend/FEngFont.cpp:89
 inline bool IsNewlineChar(i16 c) {
     return c == '\n' || c == '^';
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ExtraFontData *FindExtraFontData(uint32 font_hash) {
     for (int i = 0; i < 4; i++) {
@@ -41,8 +84,17 @@ ExtraFontData *FindExtraFontData(uint32 font_hash) {
     return nullptr;
 }
 
-// Decl: speed/indep/src/frontend/FEngFont.cpp:177
 
+
+
+
+
+
+
+
+
+
+// Decl: speed/indep/src/frontend/FEngFont.cpp:103
 FEngFont *FindFont(uint32 font_hash) {
     uint32 hash = font_hash;
 restart:
@@ -57,7 +109,7 @@ restart:
     }
     {
         int i = 0;
-        while (i <= 1) {
+        while (i < 2) {
             uint32 match_font = FontReplacementTable[i];
             uint32 replace_font = FontReplacementTable[i + 1];
             if (hash == match_font) {
@@ -73,6 +125,7 @@ restart:
 int LoaderFEngFont(bChunk *chunk) {
     if (chunk->GetID() == 0x30201) {
 
+
         FEngFont *font = FNEW FEngFont(chunk);
 
         FEngFonts.AddHead(font);
@@ -82,6 +135,9 @@ int LoaderFEngFont(bChunk *chunk) {
 
     return 0;
 }
+
+
+
 
 int UnloaderFEngFont(bChunk *chunk) {
     if (chunk->GetID() == 0x30201) {
@@ -105,16 +161,16 @@ FEngFont::FEngFont(bChunk *chunk) {
     pTextureInfo = 0;
     pFont = 0;
     mfZValue = 0.0f;
-    Height = 0.0f;
     FontHash = 0;
     TextureHash = 0;
+    Height = 0.0f;
     pFontName = static_cast<char *>(chunk->GetData());
     pTextureName = pFontName + 0x100;
 
     uint32 raw_font_hash = FEHashUpper(pFontName);
     int n = 0;
     while (n < bStrLen(pFontName)) {
-        for (int language_id = 0; language_id <= 15; language_id++) {
+        for (int language_id = 0; language_id < 16; language_id++) {
             if (bStrICmp(pFontName + n, GetLanguageName(static_cast<eLanguages>(language_id))) == 0) {
                 if (n > 0 && pFontName[n - 1] == '_') {
                     pFontName[n - 1] = 0;
@@ -140,16 +196,39 @@ FEngFont::FEngFont(bChunk *chunk) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEngFont::~FEngFont() {
     RealFontOld::Font::Destroy(pFont);
 }
 
+
+
 void FEngFont::NotifyTextureLoading(TexturePack *texture_pack, bool loading) {
-    TextureInfo *info = FixupTextureInfoNull(pTextureInfo, TextureHash, texture_pack, loading);
-    if (info != pTextureInfo) {
-        pTextureInfo = info;
+    TextureInfo *texture_info = FixupTextureInfoNull(pTextureInfo, TextureHash, texture_pack, loading);
+    if (texture_info != pTextureInfo) {
+        pTextureInfo = texture_info;
     }
 }
+
+
+
+
+
 
 void FEngFontNotifyTextureLoading(TexturePack *texture_pack, bool loading) {
     {
@@ -160,6 +239,88 @@ void FEngFontNotifyTextureLoading(TexturePack *texture_pack, bool loading) {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 bool FEngFont::IsJoyEventTexture(const i16 *pInputString, u32 Flags) {
     bool bRet = false;
@@ -184,6 +345,12 @@ bool FEngFont::IsJoyEventTexture(const i16 *pInputString, u32 Flags) {
     return bRet;
 }
 
+
+
+
+
+
+
 const i16 *FEngFont::SkipJoyEventTexture(const i16 *pInputString, u32 Flags) {
     if (!pInputString || (Flags & 0x820)) {
         return pInputString;
@@ -201,6 +368,18 @@ const i16 *FEngFont::SkipJoyEventTexture(const i16 *pInputString, u32 Flags) {
     return pInputString + 1;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 float FEngFont::GetJoyEventTextureWidth(const i16 *pInputString) {
     float result = 0.0f;
     const TextureInfo *info = GetJoyEventTextureInfo(pInputString);
@@ -209,6 +388,17 @@ float FEngFont::GetJoyEventTextureWidth(const i16 *pInputString) {
     }
     return result;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 const TextureInfo *FEngFont::GetJoyEventTextureInfo(const i16 *pInputString) {
     unsigned int texture_hash;
@@ -270,6 +460,23 @@ inline float FEngFont::PrintSpecialCharacter(TextureInfo *texture_info, float fX
 
     return width;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const i16 *FEngFont::HandleJoyEventTexture(const i16 *input, float fX, float fY, unsigned int *render_colors, FERenderObject *cached, float &advance,
                                            FEPackageRenderInfo *pkg_render_info) {
@@ -338,10 +545,23 @@ inline void FEngFont::PrintCharacter(const RealFontOld::Glyph *pGlyph, float fX,
     cached->AddPoly(x0, y0, x1, y1, 1.0f, s0, t0, s1, t1, render_colors, pkg_render_info);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEngFont::RenderString(const FEColor &Color, const i16 *pcString, FEString *obj, bMatrix4 *matrix, FERenderObject *cached,
                             FEPackageRenderInfo *pkg_render_info) {
     unsigned int ulJustification = obj->Format;
-    int ilLeading = static_cast<int>(static_cast<float>(obj->Leading) * fLeadingScale);
+    int ilLeading = bFloatToInt(static_cast<float>(obj->Leading) * fLeadingScale);
     u32 flags = obj->Flags;
     u32 max_width = obj->MaxWidth;
     unsigned int render_color = FEngColorToEpolyColor(Color);
@@ -429,6 +649,49 @@ void FEngFont::RenderString(const FEColor &Color, const i16 *pcString, FEString 
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 float FEngFont::GetNextWordWidth(const i16 *pcString, u32 flags) {
     float next_word_size = 0.0f;
     const i16 *prev_char = pcString - 1;
@@ -443,6 +706,30 @@ float FEngFont::GetNextWordWidth(const i16 *pcString, u32 flags) {
     }
     return next_word_size;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 float FEngFont::GetCharacterWidth(short Char, short PrevChar, u32 Flags) {
     float Width = 0.0f;
@@ -468,6 +755,36 @@ float FEngFont::GetCharacterWidth(short Char, short PrevChar, u32 Flags) {
     }
     return Width + static_cast<float>(pGlyph->mAdvanceX);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 float FEngFont::GetLineWidth(const i16 *pcString, u32 flags, u32 maxWidth, bool word_wrap) {
     if (pcString == nullptr) {
@@ -501,7 +818,7 @@ float FEngFont::GetLineWidth(const i16 *pcString, u32 flags, u32 maxWidth, bool 
 
         if (maxWidth != 0 && width > static_cast<float>(maxWidth) && word_wrap) {
 
-            if (0.0f < lastSpaceWidth) {
+            if (lastSpaceWidth > 0.0f) {
 
                 width = lastSpaceWidth;
             }
@@ -509,12 +826,21 @@ float FEngFont::GetLineWidth(const i16 *pcString, u32 flags, u32 maxWidth, bool 
             break;
         }
 
-        c = *pcString++;
         k++;
+        c = *pcString++;
     }
 
     return width;
 }
+
+
+
+
+
+
+
+
+
 
 float FEngFont::GetTextWidth(const i16 *pcString, u32 flags) {
     float width = GetLineWidth(pcString, 0, 0, false);
@@ -545,6 +871,57 @@ float FEngFont::GetHeight() {
     return Height;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32 maxWidth, bool word_wrap) {
     if (pcString == nullptr) {
         return 0.0f;
@@ -565,7 +942,7 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
 
             newLine = true;
 
-        } else if (c != '') {
+        } else if (c != '\r') {
 
             const RealFontOld::Glyph *pGlyph = pFont->GetGlyph(static_cast<int>(static_cast<unsigned int>(c) & 0xFF));
             if (pGlyph) {
@@ -587,7 +964,7 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
                 curLineWidth += GetCharacterWidth(c, prev, flags);
             }
         } else {
-            // '' se salta la comprobacion de newLine: el objetivo salta directo
+            // '\r' se salta la comprobacion de newLine: el objetivo salta directo
             // a la cola del bucle (.L_8016F07C), no cae en el bloque de abajo.
             goto next_character;
         }
@@ -615,23 +992,63 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
     return height;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 u16 FEngFont::ConvertCharacter(u16 c) {
-    u16 result = c;
+    const short tmchar = 0x2122;
+    const short oechar = 0x153;
 
-    if (result > 0xFF7F) {
-        result = result & 0xFF;
+    if (c >= 0xFF80) {
+        c = c & 0xFF;
     }
-
-    if (result == 0x99) {
-        result = 0x2122;
-    } else if (result == 0x9C) {
-        result = 0x153;
-    } else if (result == 0xA0) {
-        result = 0x20;
+    if (c == 0x99) {
+        c = tmchar;
+    } else if (c == 0x9C) {
+        c = oechar;
+    } else if (c == 0xA0) {
+        c = 0x20;
+    } else if (c == 0xA0) {
+        c = 0x20;
     }
-
-    return result;
+    return c;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 float FEngFont::CalculateXOffset(unsigned int ulJustification, float fTextWidth) {
     if (ulJustification & 1) {
@@ -642,6 +1059,19 @@ float FEngFont::CalculateXOffset(unsigned int ulJustification, float fTextWidth)
     }
     return 0.0f;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 float FEngFont::CalculateYOffset(unsigned int ulJustification, float fTextHeight) {
     if (ulJustification & 4) {

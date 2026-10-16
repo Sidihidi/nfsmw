@@ -7,6 +7,8 @@
 #include "Speed/Indep/Src/Online/LobbyCore.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 #include "Speed/Indep/Src/Frontend/FEngFont.hpp"
+#include "Speed/Indep/Src/Misc/BuildRegion.hpp"
+#include "Speed/Indep/Src/Misc/ISOCodes.hpp"
 
 void *operator new(size_t size, const char *file, int line, int allocationParams);
 void *operator new[](size_t size, const char *file, int line, int allocationParams);
@@ -15,19 +17,10 @@ void FEngSetButtonState(const char *pkg_name, uint32 button_hash, bool enabled);
 void FEngSetScript(const char *pkg_name, uint32 obj_hash, uint32 script_hash,
                    bool start_at_beginning);
 void FEngSetLanguageHash(const char *pkg_name, uint32 object_hash, uint32 language_hash);
-bool ConvertUTF8ToUCS2(uint16 *ucs2_data, int ucs2_data_len, uint8 *utf8_data);
+bool ConvertUTF8ToUCS2(uint16 *ucs2_data, int ucs2_data_len, const uint8 *utf8_data);
 char *OLGetProductName();
 char *OLGetPlatform();
 extern char LobbyLKEY[32];
-
-namespace BuildRegion {
-char *GetSlusCode();
-}
-
-namespace ISOCodes {
-char *GetLanguageISOCode();
-char *GetCountryISOCode();
-}
 
 extern "C" WebOfferT *WebOfferCreate(uint32 maxScriptSize);
 extern "C" void WebOfferDestroy(WebOfferT *webOffer);
@@ -281,13 +274,21 @@ void ConfigureWebOfferForTOS() {
     char *pURLScriptFormat =
         "%%{ CMD=http\nTIME=%d\nMESG=0x%x\nURL-GET=%s\nSUCCESS-GOTO=$http\nBTN1-GOTO=$exit=-1\n%%}\n"
         "%%{FAILURE CMD=alrt\nTITLE=0x%x\nMESG=0x%x\nBTN1=0x%x\nBTN1-GOTO=$exit=%d\n%%}";
+#ifdef EA_BUILD_A124
+    if (strlen(pURL) == 0) { // la A124 llama a strlen, aqui y abajo
+#else
     if (bStrLen(pURL) == 0) {
+#endif
         char FudgedURL[32];
         memcpy(FudgedURL, "http://1mdi71", 14);
         pURL = FudgedURL;
     }
 
+#ifdef EA_BUILD_A124
+    int TotalStrLen = strlen(pURLScriptFormat) + 36;
+#else
     int TotalStrLen = bStrLen(pURLScriptFormat) + 36;
+#endif
     if (TotalStrLen < 0x200) {
         bSPrintf(CUIWebOfferStart::m_WebOfferScript, pURLScriptFormat, 30, 0x780207ca, pURL, 0,
                  0x9016a670, 0x417b2601, -1);
@@ -328,7 +329,7 @@ MenuScreen *CreateOnlineNews(ScreenConstructorData *sd) {
         bSPrintf(FEngName, "Button%d", FEngButtonCount);
         FEObject *pFEObject = FEngFindObject(pScreen->GetPackageName(), FEHashUpper(FEngName));
         FEngSetInvisible(pFEObject);
-        FEngSetButtonState(pScreen->GetPackageName(), pFEObject->GetNameHash(), false);
+        FEngSetButtonState(pScreen->GetPackageName(), pFEObject->NameHash, false);
         bSPrintf(FEngName, "Button%d_Text", FEngButtonCount);
         pFEObject = FEngFindObject(pScreen->GetPackageName(), FEHashUpper(FEngName));
         FEngSetInvisible(pFEObject);
@@ -388,10 +389,10 @@ MenuScreen *CreateOnlineNews(ScreenConstructorData *sd) {
     FEString *pFERankModeString =
         FEngFindString(pScreen->GetPackageName(), FEHashUpper("RankMode_Type"));
     pFERankModeString->string = const_cast<char *>("");
-    pFERankModeString->SetFlags(pFERankModeString->GetFlags() | 0x400000);
+    pFERankModeString->Flags |= 0x400000;
 
     pString = FEngFindString(pScreen->GetPackageName(), FEHashUpper("Scroll_Text_1"));
-    FEngFont *pFont = FindFont(pString->GetHandle());
+    FEngFont *pFont = FindFont(pString->Handle);
     pScreen->m_TextScroller.Initialise(pScreen, pString->MaxWidth, 11,
                                        const_cast<char *>("Scroll_Text_%d"), pFont);
     pScreen->m_TextScroller.UseScrollBar(&pScreen->m_ScrollBar);
@@ -404,7 +405,7 @@ MenuScreen *CreateOnlineNews(ScreenConstructorData *sd) {
     } else {
         int16 *pText = new ("UIWebOfferNews(UTF8toUCS)", 0, 0x40) int16[TextSize];
         ConvertUTF8ToUCS2(reinterpret_cast<uint16 *>(pText), TextSize,
-                          reinterpret_cast<uint8 *>(pNewsData->pNewsText));
+                          reinterpret_cast<const uint8 *>(pNewsData->pNewsText));
         pScreen->m_TextScroller.SetText(pText);
         if (pText) {
             delete[] pText;
@@ -578,7 +579,7 @@ MenuScreen *CreateForeignReg(ScreenConstructorData *sd) {
         bSPrintf(FEngName, "Button%d", FEngButtonCount);
         FEObject *pFEObject = FEngFindObject(pScreen->GetPackageName(), FEHashUpper(FEngName));
         FEngSetInvisible(pFEObject);
-        FEngSetButtonState(pScreen->GetPackageName(), pFEObject->GetNameHash(), false);
+        FEngSetButtonState(pScreen->GetPackageName(), pFEObject->NameHash, false);
         bSPrintf(FEngName, "Button%d_Text", FEngButtonCount);
         pFEObject = FEngFindObject(pScreen->GetPackageName(), FEHashUpper(FEngName));
         FEngSetInvisible(pFEObject);
@@ -609,12 +610,12 @@ MenuScreen *CreateForeignReg(ScreenConstructorData *sd) {
     FEString *pFERankModeString =
         FEngFindString(pScreen->GetPackageName(), FEHashUpper("RankMode_Type"));
     pFERankModeString->string = const_cast<char *>("");
-    pFERankModeString->SetFlags(pFERankModeString->GetFlags() | 0x400000);
+    pFERankModeString->Flags |= 0x400000;
 
     char *szRegText = GetLocalizedString(0x27b12668);
     FEString *pString =
         FEngFindString(pScreen->GetPackageName(), FEHashUpper("Scroll_Text_1"));
-    FEngFont *pFont = FindFont(pString->GetHandle());
+    FEngFont *pFont = FindFont(pString->Handle);
     pScreen->m_TextScroller.Initialise(pScreen, pString->MaxWidth, 11,
                                        const_cast<char *>("Scroll_Text_%d"), pFont);
     pScreen->m_TextScroller.UseScrollBar(&pScreen->m_ScrollBar);
@@ -626,7 +627,7 @@ MenuScreen *CreateForeignReg(ScreenConstructorData *sd) {
         int16 *pText =
             new ("CUIWebOfferForeignReg(UTF8toUCS)", 0, 0x40) int16[TextSize];
         ConvertUTF8ToUCS2(reinterpret_cast<uint16 *>(pText), TextSize,
-                          reinterpret_cast<uint8 *>(szRegText));
+                          reinterpret_cast<const uint8 *>(szRegText));
         pScreen->m_TextScroller.SetText(pText);
         if (pText) {
             delete[] pText;

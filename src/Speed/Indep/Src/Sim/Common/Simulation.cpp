@@ -54,7 +54,14 @@
 #include <algorithm>
 #include <vector>
 
+// datos-gc 2026-10-13: el DWARF de la CU zSim parsea MGeneric.h (guarda _6) entre los seis
+// TypeName de VehicleBehaviors (via RigidBody.h) y los paquetes de WorldConn (_7.._18).
+#include "Speed/Indep/Src/Generated/Messages/MGeneric.h"
 #include "Speed/Indep/Src/World/WorldConn.h"
+// datos-gc 2026-10-13: el DWARF de la CU zSim parsea MAudioReflection.h entre los paquetes de
+// WorldConn (guardas _.tmp_7..18) y el `r` de GetRandom (_.tmp_20): su k es la _.tmp_19. Sin este
+// include el contador _.tmp_ de esta TU quedaba una guarda corto y la de GetRandom caia en _19.
+#include "Speed/Indep/Src/Generated/Messages/MAudioReflection.h"
 
 DECLARE_CONTAINER_TYPE(CollisionListener);
 DECLARE_CONTAINER_TYPE(CollisionParticipant);
@@ -265,28 +272,24 @@ void SimTask::Run(float dT_sim, float dT_render) {
 
     if (mode == Sim::TASK_FRAME_FIXED) {
         mUpdate += mRate;
-        if (mUpdate < 1.0f) {
-            return;
+        if (mUpdate >= 1.0f) {
+            Sim::Profile::Scope profile(mProfile);
+            bool handled = mHandler->OnTask(GetInstanceHandle(), dT_sim / mRate);
+            mUpdate -= 1.0f;
         }
-        Sim::Profile::Scope profile(mProfile);
-        bool handled = mHandler->OnTask(GetInstanceHandle(), dT_sim / mRate);
-        mUpdate -= 1.0f;
-    } else {
-        if (mode != Sim::TASK_FRAME_VARIABLE) {
-            return;
+        return;
+    }
+    if (mode == Sim::TASK_FRAME_VARIABLE) {
+        if (dT_render > 0.0f) {
+            mUpdate += mRate;
+            mTimeBank += dT_render;
+            if (mUpdate >= 1.0f) {
+                Sim::Profile::Scope profile(mProfile);
+                bool handled = mHandler->OnTask(GetInstanceHandle(), mTimeBank);
+                mUpdate -= 1.0f;
+                mTimeBank = 0.0f;
+            }
         }
-        if (dT_render <= 0.0f) {
-            return;
-        }
-        mUpdate += mRate;
-        mTimeBank += dT_render;
-        if (mUpdate < 1.0f) {
-            return;
-        }
-        Sim::Profile::Scope profile(mProfile);
-        bool handled = mHandler->OnTask(GetInstanceHandle(), mTimeBank);
-        mUpdate -= 1.0f;
-        mTimeBank = 0.0f;
     }
 }
 
@@ -386,8 +389,13 @@ SimSystem::SimSystem()
     mCameras[0] = mCameras[1] = UMath::Vector4::kZero;
     mCameraTargets[0] = mCameraTargets[1] = 0;
     mTimeStep = mScheduleStep;
+#ifdef EA_PLATFORM_WIN32
+    mEventData.fEventID = 0x522d67db; // TODO magic
+    mEventData.fSim = this;
+#else
     mEventData.fSim = this;
     mEventData.fEventID = 0x522d67db; // TODO magic
+#endif
     mEvent = Scheduler::Get().fSchedule_SimRate->AddTask(0x522d67db, &mEventData, 0, true, 0, 0);
 
     unsigned int c = mAttribs.Num_SimSubSystems();
@@ -480,23 +488,25 @@ bool SimSystem::OnTask(HSIMTASK htask, float dT) {
         RigidBody::PushSP(Sim::Internal::mWorkspace);
         RigidBody::Update(dT);
         AITarget::TrackAll();
+        return true;
     } else if (htask == mWorldUpdate) {
         WTriggerManager::Get().Update(dT);
         WGridManagedDynamicElem::UpdateElems();
         EventSequencer::UpdateDelta(dT);
         IInputPlayer::ForEach(DoFetchInput);
         SimSurface::UpdateSystem();
+        return true;
     } else if (htask == mSimFrameEnd) {
         for (IModel::List::const_iterator iter = IModel::GetList().begin(); iter != IModel::GetList().end(); ++iter) {
             IModel *model = *iter;
             model->OnProcessFrame(dT);
         }
+        return true;
     } else if (htask == mSimEnd) {
         RigidBody::PopSP();
-    } else {
-        return false;
+        return true;
     }
-    return true;
+    return false;
 }
 
 void SimSystem::CollectGarbage() {
@@ -533,8 +543,13 @@ void SimSystem::UpdateFrame() {
             PauseInput(statemgr->ShouldPauseInput());
         }
     } else {
+#ifdef EA_PLATFORM_WIN32
+        mSpeed = 1.0f;
+        mState = Sim::STATE_NONE;
+#else
         mState = Sim::STATE_NONE;
         mSpeed = 1.0f;
+#endif
     }
     const unsigned int current_render_frame = eGetFrameCounter();
     mTimeStep = mScheduleStep * mSpeed;
@@ -546,7 +561,7 @@ void SimSystem::UpdateFrame() {
     }
     Sim::Profile::Begin();
 
-    int start_ticks = bGetTicker();
+    int sim_tick_start = bGetTicker();
     Sim::Internal::mTime += mTimeStep;
     Sim::Internal::mTick++;
     float render_step = 0.0f;
@@ -557,7 +572,7 @@ void SimSystem::UpdateFrame() {
     }
     Sim::Internal::mFrameTime += mTimeStep;
     RunAllTasks(render_step);
-    Sim::Internal::mProfileTime += bGetTickerDifference(start_ticks);
+    Sim::Internal::mProfileTime += bGetTickerDifference(sim_tick_start);
     Sim::Internal::mCallCount++;
 
     Sim::Profile::End();
@@ -567,7 +582,9 @@ static void PauseFFB(IPlayer *player) {
     IFeedback *ffb = player->GetFFB();
     if (ffb) {
         ffb->PauseEffects();
+#ifndef EA_BUILD_A124
         ffb->ResetEffects();
+#endif
     }
 }
 
@@ -741,6 +758,25 @@ struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
 
     void Profile() {}
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Las dos PS2 instancian __lower_bound<const Node *> desde aqui (GameCube y PC, <Node *>): en PS2 Respond es
+    // const. Los stabs de la A124 no tienen la local node ni Node::Respond: el bucle llama al oyente directamente.
+    void Respond(HSIMABLE participant, const COLLISION_INFO &cinfo) const {
+        Node pair(participant, nullptr
+#ifndef EA_BUILD_A124
+                  ,
+                  nullptr
+#endif
+        );
+        List::const_iterator iter = std::lower_bound(mList.begin(), mList.end(), pair);
+        for (; iter != mList.end(); ++iter) {
+            if (iter->Participant != participant) {
+                break;
+            }
+            iter->Listener->OnCollision(cinfo);
+        }
+    }
+#else
     void Respond(HSIMABLE participant, const COLLISION_INFO &cinfo) {
         Node pair(participant, nullptr
 #ifndef EA_BUILD_A124
@@ -757,6 +793,7 @@ struct CDispatcher : public UTL::Collections::Singleton<CDispatcher> {
             node.Respond(cinfo);
         }
     }
+#endif
 
     bool FindListener(Collision::IListener *listener, HSIMABLE participant) const {
         List::const_iterator iter = std::find_if(mList.begin(), mList.end(), Finder(participant, listener));
@@ -893,6 +930,11 @@ const State GetState() {
     return STATE_NONE;
 }
 
+void SetWorkspace(void *data_buffer, void *stack) {
+    Internal::mWorkspace = data_buffer;
+    Internal::mStackFrame = stack;
+}
+
 namespace Internal {
 
 void Update() {
@@ -902,12 +944,13 @@ void Update() {
 }; // namespace Internal
 
 void Update() {
-    if (Internal::mSystem) {
-        if (Internal::mStackFrame) {
-            bDoWithStack((void *)Internal::Update, Internal::mStackFrame, 0, 0);
-        } else {
-            Internal::Update();
-        }
+    if (!Internal::mSystem) {
+        return;
+    }
+    if (Internal::mStackFrame) {
+        bDoWithStack((void *)Internal::Update, Internal::mStackFrame, 0, 0);
+    } else {
+        Internal::Update();
     }
 }
 
@@ -1026,6 +1069,14 @@ void StartProfile() {
     Internal::mCallCount = 0;
 }
 
+float GetProfile() {
+    return Internal::mProfileTime;
+}
+
+int GetCallCount() {
+    return Internal::mCallCount;
+}
+
 void Suspend() {
     if (Internal::mSystem) {
         Internal::mSystem->PauseInput(true);
@@ -1039,7 +1090,9 @@ void SetStream(const UMath::Vector3 &location, bool blocking) {
         TheTrackStreamer.ClearStreamingPositions();
         TheTrackStreamer.SetStreamingPosition(0, &streamLoc);
         if (blocking) {
+#ifndef EA_BUILD_A124
             Internal::mSystem->PauseInput(true);
+#endif
             TheTrackStreamer.ServiceNonGameState();
             TheTrackStreamer.BlockUntilLoadingComplete();
             TheTrackStreamer.SetStreamingPosition(0, &streamLoc);

@@ -1,4 +1,7 @@
 #include "Speed/Indep/Src/Lua/LuaGameHooks.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 
 #include "Speed/Indep/Src/Interfaces/Simables/IRigidBody.h"
@@ -73,6 +76,9 @@ class EAX_CarState;
 #include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IArticulatedVehicle.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Interfaces/Simables/IINput.h"
+#endif
 #include "Speed/Indep/Src/Interfaces/SimEntities/IOnlinePlayer.h"
 #include "Speed/Indep/Src/Online/InGame/OnlineRacer.h"
 #include "Speed/Indep/Src/EAXSound/Stream/SpeechManager.hpp"
@@ -183,6 +189,51 @@ void Audio_SetFlag(const char *flagName, bool value) {
             new ESndGameState(flagMapping[onFlag].mSndEnum, value);
 
             switch (flagMapping[onFlag].mSndEnum) {
+#ifdef EA_BUILD_A124 // el prototipo aun pone un estado de sonido para cada momento del NIS y de la carrera
+            case 0:
+                SetSoundControlState(value, SNDSTATE_ERROR, "LuaCall:error");
+                break;
+            case 1:
+                SetSoundControlState(value, SNDSTATE_FMV, "LuaCall:fmv");
+                break;
+            case 2:
+                SetSoundControlState(value, SNDSTATE_NIS_INTRO, "LuaCall:nisStart");
+                break;
+            case 3:
+                SetSoundControlState(value, SNDSTATE_NIS_321, "LuaCall:321");
+                break;
+            case 4:
+                SetSoundControlState(value, SNDSTATE_NIS_ARREST, "LuaCall:busted");
+                break;
+            case 5:
+                SetSoundControlState(value, SNDSTATE_NIS_INTRO, "LuaCall:end of race");
+                break;
+            case 6:
+                SetSoundControlState(value, SNDSTATE_PAUSE, "LuaCall:post race");
+                break;
+            case 7:
+                SetSoundControlState(value, SNDSTATE_PAUSE, "LuaCall:fe cam");
+                break;
+            case 8:
+                SetSoundControlState(value, SNDSTATE_PAUSE, "LuaCall:fe cam");
+                break;
+            case 9:
+                break;
+            case 10:
+                SetSoundControlState(value, SNDSTATE_OFF, "LuaCall:load");
+                break;
+            case 11:
+                SetSoundControlState(value, SNDSTATE_MINILOAD, "LuaCall:bust load");
+                break;
+            case 12:
+                break;
+            case 13:
+                SetSoundControlState(value, SNDSTATE_FE_SMS_MESSAGE, "LuaCall:sms");
+                break;
+            case 14:
+                SetSoundControlState(value, SNDSTATE_FE, "LuaCall:raceover");
+                break;
+#else
             case 0:
                 SetSoundControlState(value, SNDSTATE_ERROR, "LuaCall:error");
                 break;
@@ -218,6 +269,7 @@ void Audio_SetFlag(const char *flagName, bool value) {
             case 14:
                 SetSoundControlState(value, SNDSTATE_FE, "LuaCall:raceover");
                 break;
+#endif
             }
         }
     }
@@ -259,7 +311,7 @@ void Camera_SetGenericCamera(const char *groupName, const char *trackName) {
 }
 
 void MiniMap_AddEngagedRace(GRuntimeInstance *engageTriggerInstance) {
-    const UMath::Vector3 &position = engageTriggerInstance->Position();
+    const UMath::Vector3 &pos = engageTriggerInstance->Position();
 }
 
 void NIS_Play(GRuntimeInstance *startMarker, const char *animName, const char *animType, int cameraTrack,
@@ -292,7 +344,10 @@ void Demo_SetRaceCompleteForFE(GRuntimeInstance *activityInstance) {}
 void Demo_StorePursuitRepForFE(GRuntimeInstance *activityInstance) {}
 
 void HUD_ShowMessage(const char *languageString) {
-    if (languageString != NULL && languageString[0] != '\0') {
+#ifndef EA_BUILD_A124
+    if (languageString != NULL && languageString[0] != '\0')
+#endif
+    {
         const char *redundantPrefix = "LANGUAGE_";
 
         if (bStrNCmp(languageString, redundantPrefix, bStrLen(redundantPrefix)) == 0) {
@@ -301,7 +356,10 @@ void HUD_ShowMessage(const char *languageString) {
 
         unsigned int languageHash = bStringHash(languageString);
 
-        if (IPlayer::First(PLAYER_LOCAL)->GetHud() != NULL) {
+#ifndef EA_BUILD_A124
+        if (IPlayer::First(PLAYER_LOCAL)->GetHud() != NULL)
+#endif
+        {
             IGenericMessage *igenericmessage;
 
             if (IPlayer::First(PLAYER_LOCAL)->GetHud()->QueryInterface(&igenericmessage)) {
@@ -399,7 +457,11 @@ bool Game_FindPerformanceCandidates(UTL::Std::list<unsigned int, _type_list> &ca
 }
 
 unsigned int Game_MaxUniqueOpponents() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return 3; // `addiu v0, zero, 3` en las dos PS2
+#else
     return 2;
+#endif
 }
 
 void Game_SetSplitGrid() {
@@ -437,6 +499,8 @@ void Game_SetSplitGrid() {
     int num_lanes_center = num_lanes_right + 1;
     int num_lanes = num_lanes_left + num_lanes_center;
     bool odd_lanes = num_lanes & 1;
+    float delta[2] = {-1.0f, 1.0f};
+    float spacing;
 
     for (int i = 0; i < 2; i++) {
         GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(i);
@@ -494,8 +558,12 @@ void Game_SetSplitGrid() {
 void Game_InitRacers(GRuntimeInstance *startMarker) {
     GRaceStatus::Get().ClearRacers();
     GRaceStatus::Get().SyncronizeAdaptiveBonus();
+#ifndef EA_BUILD_A124
     GManager::Get().ClearStockCars();
+#endif
+#ifndef EA_PLATFORM_PLAYSTATION2
     WRoadNetwork::Get().ResetShortcuts();
+#endif
 
     if (ICopMgr::Exists()) {
         ICopMgr::Get()->ResetCopsForRestart(true);
@@ -508,7 +576,9 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
     IVehicle::ForEach(VEHICLE_PLAYERS, Game_AddPlayer);
 
     GRaceParameters *parms = GRaceStatus::Get().GetRaceParameters();
+#ifndef EA_BUILD_A124
     float minimum_ai_performance = 0.0f;
+#endif
     int num_spawned;
 
     if (IsSinglePlayer() && parms->GetRaceType() != GRace::kRaceType_Tollbooth) {
@@ -521,9 +591,11 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
 
             GRaceStatus::Get().AddRacer(opponentChar);
 
+#ifndef EA_BUILD_A124
             if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
                 minimum_ai_performance = UMath::Max(opponentChar->MinimumAIPerformance(), minimum_ai_performance);
             }
+#endif
         }
     }
 
@@ -543,10 +615,14 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
     IVehicleCache *cache = &GRaceStatus::Get();
     GRaceStatus::Get().LockVehicleCache(true);
 
-    unsigned int num_unique_opponents = Game_MaxUniqueOpponents();
+    const unsigned int num_unique_opponents = Game_MaxUniqueOpponents();
 
     Physics::Info::Performance matched_performance =
+#ifdef EA_BUILD_A124
+        IVehicle::ForEach(VEHICLE_PLAYERS, PerfMaximizer(0.0f)).Performance;
+#else
         IVehicle::ForEach(VEHICLE_PLAYERS, PerfMaximizer(minimum_ai_performance)).Performance;
+#endif
 
     UTL::Std::list<unsigned int, _type_list> matched_vehicles;
     Game_FindPerformanceCandidates(matched_vehicles, num_unique_opponents, matched_performance);
@@ -579,7 +655,7 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
             UMath::Vector3 initialVec = {0.0f, 0.0f, 1.0f};
 
             UMath::Init(rotMat, 1.0f, 1.0f, 1.0f);
-            MATRIX4_multyrot(&rotMat, -startMarkerCollection.Rotation() / 360.0f, &rotMat);
+            UMath::MultYRot(rotMat, -startMarkerCollection.Rotation() / 360.0f, rotMat);
             UMath::Rotate(initialVec, rotMat, initialVec);
 
             spawnPos = UMath::Vector3Make(-posSwizzled.y, posSwizzled.z, posSwizzled.x);
@@ -627,12 +703,16 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
         carLateralStagger = -carLateralStagger;
     }
 
+#ifndef EA_BUILD_A124
     GRaceParameters *raceParms = GRaceStatus::Get().GetRaceParameters();
+#endif
 
     GRaceStatus::Get().LockVehicleCache(false);
 
+#ifndef EA_BUILD_A124
     GActivity *raceActivity = raceParms->GetActivity();
     GManager::Get().PreloadStockCarsForActivity(raceActivity);
+#endif
 
     const char *copType = GRaceStatus::Get().GetRaceParameters()->GetGameplayObj()->CopSpawnType();
 
@@ -645,10 +725,12 @@ void Game_InitRacers(GRuntimeInstance *startMarker) {
         new ECommitRenderAssets();
     }
 
+#ifndef EA_BUILD_A124
     for (IPlayer *const *iter = IPlayer::GetList(PLAYER_LOCAL).begin();
          iter != IPlayer::GetList(PLAYER_LOCAL).end(); iter++) {
         (*iter)->SetHud(PHT_NONE);
     }
+#endif
 
     g_pEAXSound->StartNewGamePlay();
 }
@@ -679,7 +761,9 @@ void Game_KnockoutRacer(ISimable *simable) {
         }
     }
 
+#ifndef EA_BUILD_A124
     GRaceStatus::Get().UpdateAdaptiveDifficulty(GRaceStatus::kAdaptiveGain_FromRacerKOed, racerSimable);
+#endif
 }
 
 void Game_DetachCameraFromRacer(ISimable *simable) {
@@ -693,6 +777,11 @@ void Game_DetachCameraFromRacer(ISimable *simable) {
 }
 
 void Game_WarpPlayerToTrigger(GRuntimeInstance *startMarker) {
+#ifdef EA_BUILD_A124
+    if (TheOnlineManager.IsOnlineRace()) {
+        return;
+    }
+#endif
     GMarker *marker = static_cast<GMarker *>(static_cast<void *>(startMarker));
     const UMath::Vector3 &markerPos = marker->GetPosition();
     const UMath::Vector3 &markerDir = marker->GetDirection();
@@ -713,9 +802,12 @@ void Game_WarpPlayerToTrigger(GRuntimeInstance *startMarker) {
         }
     }
 
+#ifndef EA_BUILD_A124
     if (Sim::IsSplitScreen()) {
         Game_SetSplitGrid();
-    } else {
+    } else
+#endif
+    {
         ISimable *player = IPlayer::First(static_cast<ePlayerList>(1))->GetSimable();
         IVehicle *vehicle;
 
@@ -793,8 +885,8 @@ void Game_UnspawnCharacter(GRuntimeInstance *characterInstance) {
     static_cast<GCharacter *>(static_cast<void *>(characterInstance))->UnspawnWhenOffscreen();
 }
 
-void Game_SendCharacterStimulus(GRuntimeInstance *characterInstance, const char *stimulusName) {
-    GCharacter *character = static_cast<GCharacter *>(static_cast<void *>(characterInstance));
+void Game_SendCharacterStimulus(GRuntimeInstance *characterInst, const char *stimulus) {
+    GCharacter *character = static_cast<GCharacter *>(static_cast<void *>(characterInst));
 
     IVehicle *vehicle = character->GetSpawnedVehicle();
 
@@ -813,18 +905,19 @@ void Game_SendCharacterStimulus(GRuntimeInstance *characterInstance, const char 
             EventSequencer::IEngine *sequencer = simable->GetEventSequencer();
 
             if (sequencer != NULL) {
-                sequencer->ProcessStimulus(UCrc32(stimulusName).GetValue(), Sim::GetTime(), NULL, EventSequencer::QUEUE_ALLOW);
+                sequencer->ProcessStimulus(UCrc32(stimulus).GetValue(), Sim::GetTime(), NULL, EventSequencer::QUEUE_ALLOW);
             }
         }
     }
 }
 
 void Game_SetRacerLapsLeft(int racerIndex, int lapsLeft) {
-    GRaceStatus::Get().GetRacerInfo(racerIndex - 1);
+    GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(racerIndex - 1);
 }
 
 void Game_SetRacerGoal(int racerLuaIndex, GRuntimeInstance *goalTrigger) {
     if (goalTrigger != NULL) {
+        GTrigger *trigger = static_cast<GTrigger *>(static_cast<void *>(goalTrigger));
         GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(racerLuaIndex - 1);
         ISimable *simable = racerInfo.GetSimable();
 
@@ -833,7 +926,6 @@ void Game_SetRacerGoal(int racerLuaIndex, GRuntimeInstance *goalTrigger) {
 
             if (simable->QueryInterface(&vehicleAI)) {
                 AITarget *target = vehicleAI->GetTarget();
-                GTrigger *trigger = static_cast<GTrigger *>(static_cast<void *>(goalTrigger));
                 UMath::Vector3 triggerPos;
                 UMath::Vector3 triggerDir;
 
@@ -856,16 +948,16 @@ void Game_SetRacerGoal(int racerLuaIndex, GRuntimeInstance *goalTrigger) {
     }
 }
 
-void Game_NotifyCheckpointReached(ISimable *simable, int checkpointIndex) {
+void Game_NotifyCheckpointReached(ISimable *simable, int checkIndex) {
     int racerIndex = Game_GetRacerIndex(simable) - 1;
 
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(racerIndex);
 
     float checkpointTime = racerInfo.mCheckTimer.GetTime();
 
-    GRaceStatus::Get().SetCheckpointTime(racerInfo.mLapsCompleted, checkpointIndex, racerIndex, checkpointTime);
+    GRaceStatus::Get().SetCheckpointTime(racerInfo.mLapsCompleted, checkIndex, racerIndex, checkpointTime);
 
-    racerInfo.StartCheckpoint(checkpointIndex);
+    racerInfo.StartCheckpoint(checkIndex);
 }
 
 void Game_NotifyLapFinished(ISimable *simable, int lapIndexOneBased) {
@@ -920,21 +1012,31 @@ void Game_NotifyRaceFinished(ISimable *simable) {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(racerIndex);
 
     racerInfo.FinishRace();
+#ifndef EA_BUILD_A124
     racerInfo.SetPctRaceComplete(100.0f);
+#endif
 
     GRaceStatus::Get().CalculateRankings();
 
     if (simable->IsPlayer()) {
+#ifdef EA_BUILD_A124
+        if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Online) {
+            if (TheOnlineManager.IsRaceTimeup()) {
+                TheOnlineManager.FinishDriver(racerIndex, racerInfo.GetRanking(), false, 11);
+            } else {
+                TheOnlineManager.FinishDriver(racerIndex, racerInfo.GetRanking(), false, 1);
+            }
+        }
+#else
         if (Sim::IsSplitScreen() && racerInfo.GetGameCharacter() == NULL && !racerInfo.GetIsEngineBlown() &&
             !racerInfo.GetIsTotalled()) {
             IPlayer *player = simable->GetPlayer();
 
-#ifndef EA_BUILD_A124
             if (player != NULL && player->IsLocal()) {
                 new EShowRaceOverMessage(player);
             }
-#endif
         }
+#endif
 
         if (racerInfo.GetRanking() == 1) {
             unsigned int plrIndex = simable->GetPlayer()->GetSettingsIndex();
@@ -943,18 +1045,23 @@ void Game_NotifyRaceFinished(ISimable *simable) {
                 GRaceParameters *parms = GRaceStatus::Get().GetRaceParameters();
                 const Attrib::Gen::gameplay *dbItem = parms->GetGameplayObj();
 
+#ifndef EA_BUILD_A124
                 if (!GRaceStatus::Get().GetHasBeenWon()) {
                     GRaceStatus::Get().SetHasBeenWon(true);
 
                     bool doneBefore = GRaceDatabase::Get().IsCareerRaceComplete(parms->GetEventHash());
+#endif
 
                     if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
                         UserProfile *prof = FEDatabase->GetUserProfile(plrIndex);
                         CareerSettings *career = prof->GetCareer();
 
-                        career->AwardCash((int)GRaceStatus::Get().GetRaceParameters()->GetCashValue());
+                        career->AwardCash(bFloatToInt(GRaceStatus::Get().GetRaceParameters()->GetCashValue()));
 
-                        if (!doneBefore) {
+#ifndef EA_BUILD_A124
+                        if (!doneBefore)
+#endif
+                        {
                             for (unsigned int index = 0; index < dbItem->Num_RewardsForWinner(); index++) {
                                 new EAwardUpgrade(dbItem->RewardsForWinner(index).GetCollectionKey());
                             }
@@ -964,7 +1071,10 @@ void Game_NotifyRaceFinished(ISimable *simable) {
                         AdjustStableImpound_EventWin(plrIndex);
                     }
 
-                    if (!doneBefore) {
+#ifndef EA_BUILD_A124
+                    if (!doneBefore)
+#endif
+                    {
                         for (unsigned int unlockIndex = 0; unlockIndex < dbItem->Num_UnlockRaces(); unlockIndex++) {
                             unsigned int unlockKey = dbItem->UnlockRaces(unlockIndex).GetCollectionKey();
 
@@ -984,15 +1094,19 @@ void Game_NotifyRaceFinished(ISimable *simable) {
                         }
                     }
 
+#ifndef EA_BUILD_A124
                 }
+#endif
 
                 GRaceDatabase::Get().UpdateRaceScore(true);
                 GManager::Get().RefreshEngageTriggerIcons();
             }
 
+#ifndef EA_BUILD_A124
             if (Sim::IsSplitScreen()) {
                 racerInfo.ForceStop();
             }
+#endif
         } else {
             racerInfo.ForceStop();
         }
@@ -1008,6 +1122,9 @@ void Game_NotifyRaceFinished(ISimable *simable) {
         }
     }
 
+#ifdef EA_BUILD_A124
+    GRaceStatus::Get().UpdateAdaptiveBonus(&racerInfo);
+#else
     GRaceStatus::Get().UpdateAdaptiveDifficulty(GRaceStatus::kAdaptiveGain_FromRacerFinished, simable);
 
     if (GRaceStatus::Exists()) {
@@ -1040,6 +1157,7 @@ void Game_NotifyRaceFinished(ISimable *simable) {
     if (beaten) {
         FEDatabase->GetCareerSettings()->SetHasBeatenChallengeSeries();
     }
+#endif
 }
 
 int Game_GetRacerIndex(ISimable *simable) {
@@ -1051,8 +1169,8 @@ int Game_GetRacerIndex(ISimable *simable) {
     return -1;
 }
 
-bool Game_RacerIsHuman(int racerIndex) {
-    ISimable *simable = Game_GetRacerElement(racerIndex);
+bool Game_RacerIsHuman(int racerLuaIndex) {
+    ISimable *simable = Game_GetRacerElement(racerLuaIndex);
     IVehicle *vehicle;
 
     if (simable->QueryInterface(&vehicle)) {
@@ -1064,9 +1182,9 @@ bool Game_RacerIsHuman(int racerIndex) {
 }
 
 bool Game_PlayerIsLocal(ISimable *simable) {
-    for (IPlayer::List::const_iterator onPlayer = IPlayer::GetList(PLAYER_LOCAL).begin();
-         onPlayer != IPlayer::GetList(PLAYER_LOCAL).end(); ++onPlayer) {
-        IPlayer *player = *onPlayer;
+    for (IPlayer::List::const_iterator iter = IPlayer::GetList(PLAYER_LOCAL).begin();
+         iter != IPlayer::GetList(PLAYER_LOCAL).end(); ++iter) {
+        IPlayer *player = *iter;
 
         if (player->GetSimable() == simable) {
             return true;
@@ -1100,8 +1218,8 @@ float Game_GetSimableSpeedKmh(ISimable *simable) {
     return 0.0f;
 }
 
-bool Game_IsActiveSpeedTrap(GRuntimeInstance *speedTrapInstance) {
-
+bool Game_IsActiveSpeedTrap(GRuntimeInstance *trapTrigger) {
+#ifndef EA_BUILD_A124 // el prototipo no mira si se esta corriendo ni si hay persecucion
     if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
         return false;
     }
@@ -1114,9 +1232,10 @@ bool Game_IsActiveSpeedTrap(GRuntimeInstance *speedTrapInstance) {
     if (pursuit != NULL) {
         return false;
     }
+#endif
 
-    if (speedTrapInstance != NULL) {
-        unsigned int trapKey = speedTrapInstance->GetCollection();
+    if (trapTrigger != NULL) {
+        unsigned int trapKey = trapTrigger->GetCollection();
 
         GSpeedTrap *activeTrap = GManager::Get().GetFirstSpeedTrap(true, 0);
 
@@ -1184,7 +1303,9 @@ void Game_NotifySpeedTrapTriggered(GRuntimeInstance *trapActivity, GRuntimeInsta
 #endif
             );
 
+#ifndef EA_BUILD_A124
             Game_ChallengeCompleted();
+#endif
         } else {
             GRacerInfo *racerInfo = GRaceStatus::Get().GetRacerInfo(simable);
 
@@ -1220,8 +1341,8 @@ void Game_NotifySpeedTrapTriggered(GRuntimeInstance *trapActivity, GRuntimeInsta
     }
 }
 
-void Game_NotifyRacePlacement(GRuntimeInstance *raceInstance, ISimable *simable, int placement) {
-    MNotifyRacePlacement(static_cast<GCollectionKey>(raceInstance), simable->GetInstanceHandle(), placement).Post(UCrc32(0x20D60DBF));
+void Game_NotifyRacePlacement(GRuntimeInstance *raceActivity, ISimable *simable, int placing) {
+    MNotifyRacePlacement(static_cast<GCollectionKey>(raceActivity), simable->GetInstanceHandle(), placing).Post(UCrc32(0x20D60DBF));
 }
 
 void Game_SaveStartPositions() {
@@ -1251,6 +1372,83 @@ void Game_SetRaceActivity(GRuntimeInstance *activityInstance) {
 
 void Game_StartRace(GRuntimeInstance *raceActivity) {
     GActivity *activity = static_cast<GActivity *>(raceActivity);
+#ifdef EA_BUILD_A124 // el prototipo arranca los coches aqui, bloquea a la policia si hay persecucion forzada y avisa a Juice
+    bReleasePrintf("Game_StartRace: %s\n", GRaceStatus::Get().GetRaceParameters()->GetEventID());
+
+    FEngHud::bIsRestartingRace = false;
+
+    GRaceStatus::Get().SetRacing();
+    GManager::Get().UnspawnAllCharacters();
+
+    for (int onRacer = 0; onRacer < GRaceStatus::Get().GetRacerCount(); onRacer++) {
+        GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(onRacer);
+        ISimable *simable = racerInfo.GetSimable();
+        IVehicle *vehicle;
+
+        if (simable != NULL && simable->QueryInterface(&vehicle)) {
+            switch (GRaceStatus::Get().GetRaceType()) {
+                case GRace::kRaceType_Drag:
+                    vehicle->SetDriverStyle(STYLE_DRAG);
+                    break;
+                default:
+                    vehicle->SetDriverStyle(STYLE_RACING);
+                    break;
+            }
+
+            IInputPlayer *input;
+            if (simable->QueryInterface(&input)) {
+                input->BlockInput(false);
+            }
+        }
+    }
+
+    int density = GRaceStatus::Get().GetRaceParameters()->GetTrafficDensity();
+
+    if (activity->ForceTrafficDensity() > 0) {
+        density = activity->ForceTrafficDensity();
+    }
+
+    if (GRaceStatus::IsDragRace()) {
+        GRaceStatus::Get().SetTrafficDensity(0);
+    } else {
+        GRaceStatus::Get().SetTrafficDensity(density);
+    }
+
+    const char *traffic_pattern = GRaceStatus::Get().GetRaceParameters()->GetTrafficPattern();
+
+    if (traffic_pattern != NULL && traffic_pattern[0] != 0) {
+        GRaceStatus::Get().SetTrafficPattern(Attrib::StringToLowerCaseKey(traffic_pattern));
+    } else {
+        GRaceStatus::Get().ClearTrafficPattern();
+    }
+
+    if (activity->ForceHeatLevel() > 0) {
+        ICopMgr::Get()->LockoutCops(false);
+        Game_ForcePursuitStart(activity->ForceHeatLevel());
+    }
+
+    if (bStrCmp("e3demo", GRaceStatus::Get().GetRaceParameters()->GetEventID()) == 0) {
+        RedoTopologyAndSceneryGroups();
+    }
+
+    GRaceStatus::Get().EnableBarriers();
+
+    new EResetProps();
+
+    GRaceStatus::Get().DetermineRaceLength();
+    GRaceStatus::Get().MakeCatchUpData();
+
+    if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters()) {
+        Juice::GameHook::Instance()->AssetHit("TRACK", GRaceStatus::Get().GetRaceParameters()->GetEventID());
+    }
+
+    JuiceStatsDB::Instance()->SubmitStats(JUICE_FREE_ROAM);
+    Juice::GameHook::Instance()->AdvanceCycle(4);
+
+    if (FadeScreen::IsFadeScreenOn()) {
+        new EFadeScreenOff(0x161a918);
+    }
+#else
 
     FEngHud::bIsRestartingRace = false;
 
@@ -1314,6 +1512,7 @@ void Game_StartRace(GRuntimeInstance *raceActivity) {
     if (FadeScreen::IsFadeScreenOn()) {
         new EFadeScreenOff(0x161a918);
     }
+#endif
 }
 
 void Game_StartRaceTimers() {
@@ -1332,7 +1531,10 @@ void Game_AbandonRace() {
     GRaceStatus::Get().SetNextCheckpointPos(NULL);
     GRaceStatus::Get().ClearCheckpoints();
 
-    if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
+#ifndef EA_BUILD_A124
+    if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career)
+#endif
+    {
 
         GManager::Get().UnspawnAllCharacters();
         GManager::Get().ClearStockCars();
@@ -1341,18 +1543,80 @@ void Game_AbandonRace() {
     for (int onRacer = 0; onRacer < GRaceStatus::Get().GetRacerCount(); onRacer++) {
 
         ISimable *simable = GRaceStatus::Get().GetRacerInfo(onRacer).GetSimable();
+#ifdef EA_BUILD_A124
+        if (simable != NULL) {
+            IVehicle *vehicle;
+            IInputPlayer *input;
+            IVehicleAI *vehicleai;
+
+            if (simable->QueryInterface(&vehicle)) {
+                vehicle->SetDriverStyle(STYLE_RACING);
+            }
+            if (simable->QueryInterface(&input)) {
+                input->BlockInput(false);
+            }
+            if (simable->QueryInterface(&vehicleai)) {
+                AITarget *target = vehicleai->GetTarget();
+
+                if (target != NULL) {
+                    target->Clear();
+                }
+            }
+        }
+#else
         IRacer *racer;
 
         if (simable != NULL && simable->QueryInterface(&racer)) {
 
             racer->QuitRace();
         }
+#endif
     }
 }
 
 void Game_EnterPostRaceFlow() {
     GRaceStatus::Get().FinalizeRaceStats();
     Game_AbandonRace();
+#ifdef EA_BUILD_A124 // el prototipo manda a Juice el resultado y las estadisticas de la carrera
+    ISimable *simable = IPlayer::First(PLAYER_LOCAL)->GetSimable();
+    GRacerInfo *racer_info = GRaceStatus::Get().GetRacerInfo(simable);
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+    RaceSettings *settings = FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes);
+    FECarRecord *car = stable->GetCarRecordByHandle(settings->SelectedCar[0]);
+
+    if (GRaceStatus::Get().GetWinningPlayerInfo() == racer_info) {
+        Juice::GameHook::Instance()->GameEvent("RACE", "COMPLETION", "Win", racer_info->GetRanking(), racer_info->GetRaceTimer().GetTime(), "", "", "");
+    } else {
+        Juice::GameHook::Instance()->GameEvent("RACE", "COMPLETION", "Loss", racer_info->GetRanking(), racer_info->GetRaceTimer().GetTime(), "", "", "");
+    }
+
+    char race_type[64];
+    switch (GRaceStatus::Get().GetRaceType()) {
+        case GRace::kRaceType_Circuit:
+            bStrCpy(race_type, "CIRCUIT");
+            JuiceStatsDB::Instance()->SubmitStats(JUICE_CIRCUIT);
+            break;
+        case GRace::kRaceType_P2P:
+            bStrCpy(race_type, "P2P");
+            JuiceStatsDB::Instance()->SubmitStats(JUICE_P2P);
+            break;
+        default:
+            bStrCpy(race_type, "OTHERRACE");
+            JuiceStatsDB::Instance()->SubmitStats(static_cast<JuiceRaceType>(3));
+            break;
+    }
+
+    Juice::GameHook::Instance()->LogText("[STAT LOGGED] - FINISH_STATS
+");
+    Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_POSITION", racer_info->GetRanking());
+    Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_TIME", racer_info->GetRanking());
+    Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_SPREAD", racer_info->GetRanking());
+    Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_TOP_SPEED", racer_info->GetRanking());
+
+    JuiceStatsDB::Instance()->SubmitStats(JUICE_CIRCUIT);
+
+    Juice::GameHook::Instance()->AdvanceCycle(4);
+#endif
 
     if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
         GRaceParameters *parms = GRaceStatus::Get().GetRaceParameters();
@@ -1386,9 +1650,9 @@ void Game_NoNewPursuitsOrCops() {
     }
 }
 
-void Game_ForcePursuitStart(int heatLevel) {
+void Game_ForcePursuitStart(int minHeatLevel) {
     ICopMgr::Get()->LockoutCops(false);
-    MForcePursuitStart(heatLevel).Post(UCrc32("AICopManager"));
+    MForcePursuitStart(minHeatLevel).Post(UCrc32("AICopManager"));
 }
 
 void Game_EnterEngagableTrigger(GRuntimeInstance *triggerInstance) {
@@ -1406,7 +1670,11 @@ void Game_EnterGateZone(GRuntimeInstance *triggerInstance, const char *zoneName)
         IHud *hud = player->GetHud();
         IMenuZoneTrigger *menuZone;
 
+#ifdef EA_BUILD_A124
+        if (hud->QueryInterface(&menuZone)) {
+#else
         if (hud != NULL && hud->QueryInterface(&menuZone)) {
+#endif
             menuZone->EnterTrigger(zoneName);
         }
     }
@@ -1419,7 +1687,11 @@ void Game_ExitGateZone(GRuntimeInstance *triggerInstance, const char *zoneName) 
         IHud *hud = player->GetHud();
         IMenuZoneTrigger *menuZone;
 
+#ifdef EA_BUILD_A124
+        if (hud->QueryInterface(&menuZone)) {
+#else
         if (hud != NULL && hud->QueryInterface(&menuZone)) {
+#endif
             menuZone->ExitTrigger();
         }
     }
@@ -1436,13 +1708,18 @@ void Game_DoZoneMenuAction(GRuntimeInstance *zoneTrigger) {
 
         IHud *hud = player->GetHud();
 
-        if (hud != NULL) {
+#ifndef EA_BUILD_A124
+        if (hud != NULL)
+#endif
+        {
             IMenuZoneTrigger *izone;
 
             if (hud->QueryInterface(&izone)) {
+#ifndef EA_BUILD_A124
                 if (izone->IsType("safehouse")) {
                     GManager::Get().SetFreeRoamFromSafeHouseStartMarker(markerKey);
                 }
+#endif
 
                 izone->RequestDoAction();
             }
@@ -1451,10 +1728,16 @@ void Game_DoZoneMenuAction(GRuntimeInstance *zoneTrigger) {
 }
 
 void Game_ShowRaceOverSummary() {
-    if (Sim::GetUserMode() != Sim::USER_SPLIT_SCREEN) {
+#ifndef EA_BUILD_A124
+    if (!Sim::IsSplitScreen())
+#endif
+    {
         IPlayer *player = IPlayer::First(static_cast<ePlayerList>(1));
 
-        if (player != NULL) {
+#ifndef EA_BUILD_A124
+        if (player != NULL)
+#endif
+        {
             new EShowRaceOverMessage(player);
         }
     }
@@ -1483,8 +1766,8 @@ void Game_SetAllStaging(bool staging) {
     }
 }
 
-void Game_JackKnife(GRuntimeInstance *trailerInstance) {
-    IVehicle *vehicle = static_cast<GCharacter *>(static_cast<void *>(trailerInstance))->GetSpawnedVehicle();
+void Game_JackKnife(GRuntimeInstance *characterInst) {
+    IVehicle *vehicle = static_cast<GCharacter *>(static_cast<void *>(characterInst))->GetSpawnedVehicle();
 
     if (vehicle != NULL) {
         MJackKnife message;
@@ -1494,11 +1777,11 @@ void Game_JackKnife(GRuntimeInstance *trailerInstance) {
     }
 }
 
-void Game_SetTrafficSpeed(GRuntimeInstance *triggerInstance, float speedMultiplier, float speed) {
-    IVehicle *vehicle = static_cast<GCharacter *>(static_cast<void *>(triggerInstance))->GetSpawnedVehicle();
+void Game_SetTrafficSpeed(GRuntimeInstance *characterInst, float speedDefault, float speedHighway) {
+    IVehicle *vehicle = static_cast<GCharacter *>(static_cast<void *>(characterInst))->GetSpawnedVehicle();
 
     if (vehicle != NULL) {
-        MSetTrafficSpeed message(speedMultiplier, speed, 1);
+        MSetTrafficSpeed message(speedDefault, speedHighway, 1);
 
         message.SetID(vehicle->GetSimable()->GetWorldID());
         message.Post(UCrc32("AIAction"));
@@ -1547,14 +1830,14 @@ void Game_ChallengeCompleted() {
     MNotifyChallengePassed("").Post(UCrc32(0x20D60DBF));
 }
 
-void Game_UnlockRace(GRuntimeInstance *raceInstance) {
-    if (raceInstance == NULL) {
+void Game_UnlockRace(GRuntimeInstance *activityInstance) {
+    if (activityInstance == NULL) {
         return;
     }
 
     Debug_Print("unlocking race");
 
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(raceInstance));
+    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(activityInstance));
 
     if (parms == NULL) {
         return;
@@ -1579,12 +1862,12 @@ void Game_UnlockRace(GRuntimeInstance *raceInstance) {
     GManager::Get().RefreshEngageTriggerIcons();
 }
 
-bool Game_IsRaceUnlocked(GRuntimeInstance *raceInstance) {
-    if (raceInstance == NULL) {
+bool Game_IsRaceUnlocked(GRuntimeInstance *activityInstance) {
+    if (activityInstance == NULL) {
         return false;
     }
 
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(raceInstance));
+    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(activityInstance));
 
     if (parms == NULL) {
         return false;
@@ -1592,12 +1875,12 @@ bool Game_IsRaceUnlocked(GRuntimeInstance *raceInstance) {
     return IsCareerRaceUnlocked(GRaceDatabase::Get(), parms->GetEventHash());
 }
 
-bool Game_IsRaceCompleted(GRuntimeInstance *raceInstance) {
-    if (raceInstance == NULL) {
+bool Game_IsRaceCompleted(GRuntimeInstance *activityInstance) {
+    if (activityInstance == NULL) {
         return false;
     }
 
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(raceInstance));
+    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(activityInstance));
 
     if (parms == NULL) {
         return false;
@@ -1635,7 +1918,7 @@ bool Game_AllHumanPlayersDone() {
     return true;
 }
 
-void Debug_ShowScreenMessage(const char *message, float duration) {
+void Debug_ShowScreenMessage(const char *message, float seconds) {
     IPlayer *player = IPlayer::First(static_cast<ePlayerList>(1));
 
     if (player != NULL && player->GetHud() != NULL) {
@@ -1705,7 +1988,19 @@ int Game_GetPlayerBounty() {
             return 0;
         }
 
+#ifdef EA_BUILD_A124
+        FECarRecord *fe_car = stable->GetCarRecordByHandle(career->GetCurrentCar());
+        if (fe_car == NULL) {
+            return 0;
+        }
+        FECareerRecord *fe_career = stable->GetCareerRecordByHandle(fe_car->CareerHandle);
+        if (fe_career == NULL) {
+            return 0;
+        }
+        return fe_career->GetBounty();
+#else
         return stable->GetTotalBounty();
+#endif
     }
 
     return 0;
@@ -1726,6 +2021,12 @@ void Game_NotifyCountdownDone() {
             }
         }
     }
+#ifdef EA_BUILD_A124
+    // La A124 apunta en el gestor online el momento en que acaba la cuenta atras.
+    if (TheOnlineManager.IsOnlineRace()) {
+        TheOnlineManager.SetPostCountdownStartRaceTime(WorldTimer.GetSeconds());
+    }
+#endif
 }
 
 void Game_ResetCopsForRestart() {
@@ -1736,7 +2037,9 @@ void Game_ResetCopsForRestart() {
 }
 
 void Game_JumpToCarLot() {
+#ifndef EA_BUILD_A124
     SetCurrentTimeOfDay(0.0f);
+#endif
     new EQuitToFE(GARAGETYPE_CAR_LOT, "Car_Select.fng");
 }
 
@@ -1746,10 +2049,10 @@ void Game_JumpToSafeHouse() {
 
 // El original devuelve ISimable*: en BindToGameCode la instanciacion es
 // BindFunction<ISimable*, int> (H2ZP8ISimableZi), no <int, int>.
-ISimable *Game_GetPlayerElement(int playerIndex) {
+ISimable *Game_GetPlayerElement(int index) {
     IPlayer *player;
 
-    if (playerIndex == 0) {
+    if (index == 0) {
         player = IPlayer::First(PLAYER_LOCAL);
     } else {
         player = IPlayer::Last(PLAYER_LOCAL);
@@ -1761,10 +2064,10 @@ ISimable *Game_GetPlayerElement(int playerIndex) {
     return NULL;
 }
 
-void Game_BlowEngine(ISimable *simable) {
+void Game_BlowEngine(ISimable *who) {
     IEngineDamage *engineDamage;
 
-    if (simable != NULL && simable->QueryInterface(&engineDamage)) {
+    if (who != NULL && who->QueryInterface(&engineDamage)) {
         engineDamage->Blow();
     }
 }
@@ -1781,17 +2084,17 @@ void Game_ChallengeComplete(ISimable *simable) {
     racerInfo.ChallengeComplete();
 }
 
-void Game_SabotageEngine(ISimable *simable, float damage) {
+void Game_SabotageEngine(ISimable *who, float time) {
     IEngineDamage *engineDamage;
 
-    if (simable != NULL && simable->QueryInterface(&engineDamage)) {
+    if (who != NULL && who->QueryInterface(&engineDamage)) {
 
-        engineDamage->Sabotage(damage);
+        engineDamage->Sabotage(time);
     }
 }
 
-void Game_ForceAIControl(int racerIndex) {
-    ISimable *simable = Game_GetPlayerElement(racerIndex);
+void Game_ForceAIControl(int index) {
+    ISimable *simable = Game_GetPlayerElement(index);
 
     if (simable == NULL) {
         return;
@@ -1806,8 +2109,8 @@ void Game_ForceAIControl(int racerIndex) {
     }
 }
 
-void Game_ClearAIControl(int racerIndex) {
-    ISimable *simable = reinterpret_cast<ISimable *>(Game_GetPlayerElement(racerIndex));
+void Game_ClearAIControl(int index) {
+    ISimable *simable = reinterpret_cast<ISimable *>(Game_GetPlayerElement(index));
 
     if (simable == NULL) {
         return;
@@ -1826,14 +2129,16 @@ void Game_SetTimer(const char *timerName, float seconds) {
     GManager::Get().SetTimer(timerName, seconds);
 }
 
-void Game_KillTimer(const char *timerName) {
-    GManager::Get().KillTimer(timerName);
+void Game_KillTimer(const char *name) {
+    GManager::Get().KillTimer(name);
 }
 
 void Game_ShowGPS(bool show) {
     if (!show) {
         GPS_Disengage();
+#ifndef EA_BUILD_A124 // el prototipo deja el icono de GPS en el mapa
         WorldMap::ClearGPSing();
+#endif
     }
 }
 
@@ -1843,29 +2148,31 @@ void Game_NavigatePlayerTo(GRuntimeInstance *destinationInstance, GRuntimeInstan
                            bool useGPS
 #endif
 ) {
-    if (destinationInstance != NULL) {
-        destinationInstance->GetPosition(gGPSDestination);
+    if (destinationInstance == NULL) {
+        return;
+    }
 
-        if (routeInstance != NULL) {
-            WorldMap::SetGPSing(static_cast<GTrigger *>(static_cast<void *>(routeInstance))->GetIcon());
-        }
+    destinationInstance->GetPosition(gGPSDestination);
+
+    if (routeInstance != NULL) {
+        WorldMap::SetGPSing(static_cast<GTrigger *>(static_cast<void *>(routeInstance))->GetIcon());
+    }
 
 #ifndef EA_BUILD_A124
-        if (useGPS)
+    if (useGPS)
 #endif
-        {
-            GPS_Engage(gGPSDestination, maxDeviation);
-        }
+    {
+        GPS_Engage(gGPSDestination, maxDeviation);
     }
 }
 
-float Game_SimableDistance(ISimable *simable, GRuntimeInstance *targetInstance) {
-    if (simable != NULL && targetInstance != NULL) {
+float Game_SimableDistance(ISimable *simable, GRuntimeInstance *target) {
+    if (simable != NULL && target != NULL) {
 
         UMath::Vector3 simablePos = simable->GetPosition();
         UMath::Vector3 targetPos;
 
-        targetInstance->GetPosition(targetPos);
+        target->GetPosition(targetPos);
 
         return UMath::Distance(simablePos, targetPos);
     }
@@ -1873,8 +2180,8 @@ float Game_SimableDistance(ISimable *simable, GRuntimeInstance *targetInstance) 
     return 0.0f;
 }
 
-float Game_SimableAngle(ISimable *simable, GRuntimeInstance *targetInstance) {
-    if (simable != NULL && targetInstance != NULL) {
+float Game_SimableAngle(ISimable *simable, GRuntimeInstance *target) {
+    if (simable != NULL && target != NULL) {
 
         IRigidBody *rigidBody = simable->GetRigidBody();
 
@@ -1884,7 +2191,7 @@ float Game_SimableAngle(ISimable *simable, GRuntimeInstance *targetInstance) {
             UMath::Vector3 direction;
 
             rigidBody->GetForwardVector(forward);
-            targetInstance->GetDirection(direction);
+            target->GetDirection(direction);
 
             return UMath::Dot(forward, direction);
         }
@@ -1928,7 +2235,14 @@ bool Game_SkipCareerIntro() {
 void Game_SetChanceOfRain(float chance) {
     float rainChance = UMath::Clamp(chance, 0.0f, 1.0f);
 
-    SetOverRideRainIntensity(rainChance < 0.01f ? -1.0f : 0.0f);
+    if (rainChance < 0.01f) {
+        rainChance = -1.0f;
+#ifndef EA_BUILD_A124
+    } else {
+        rainChance = 0.0f;
+#endif
+    }
+    SetOverRideRainIntensity(rainChance);
 }
 
 void Game_DoFade() {
@@ -1998,17 +2312,23 @@ void Game_DoSafeHouseIntro(GRuntimeInstance *respawnMarker) {
         unsigned int markerKey = static_cast<unsigned int>(respawnMarker->GetCollection());
 
         GManager::Get().SetFreeRoamStartMarker(markerKey);
+#ifndef EA_BUILD_A124
         GManager::Get().SetFreeRoamFromSafeHouseStartMarker(markerKey);
         GManager::Get().SetStartingFreeRoamFromSafeHouse();
+#endif
     }
 
     FEDatabase->GetCareerSettings()->SetCurrentBin(0x10);
 
     FEAnyMovieScreen::PlaySafehouseIntroMovie();
 
+#ifdef EA_BUILD_A124
+    new EQuitToFE(GARAGETYPE_CAREER_SAFEHOUSE, "FEAnyMovie.fng");
+#else
     SetCurrentTimeOfDay(0.0f);
 
     new EQuitToFE(GARAGETYPE_CAREER_SAFEHOUSE, FEAnyMovieScreen::GetFEngPackageName());
+#endif
 }
 
 bool Game_IsCareerMode() {
@@ -2045,10 +2365,10 @@ void Game_SetWorldHeat(float heat) {
         ISimable *simable = player->GetSimable();
 
         if (simable != NULL) {
-            IPerpetrator *iperp;
+            IPerpetrator *perp;
 
-            if (simable->QueryInterface(&iperp)) {
-                iperp->SetHeat(heat);
+            if (simable->QueryInterface(&perp)) {
+                perp->SetHeat(heat);
             }
         }
     }
@@ -2076,6 +2396,9 @@ void FE_ShowPostRaceScreen(bool playerWon) {
     }
 
     if (GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace()) {
+#ifdef EA_BUILD_A124 // el prototipo siempre ensena los hitos, sin musica ni pausa
+        new EShowMilestones(0);
+#else
         bool music_active = false;
 
         if (SoundAI::Get() != NULL && SoundAI::Get()->IsMusicActive()) {
@@ -2100,11 +2423,14 @@ void FE_ShowPostRaceScreen(bool playerWon) {
 #endif
             );
         }
+#endif
     } else if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
         if (playerWon && !Sim::IsSplitScreen()) {
             const char *screen = "InGamePhotoMaster.fng";
 
+#ifndef EA_BUILD_A124 // el prototipo no avisa a la pantalla de la foto
             PhotoFinishScreen::SetActive();
+#endif
 
             int port = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));
 
@@ -2121,18 +2447,25 @@ void FE_ShowPostRaceScreen(bool playerWon) {
 }
 
 bool FE_ShowOnlinePostRaceScreen() {
+#ifdef EA_BUILD_A124
+    // Solo la A124 tiene juego en linea: el original lanza la pantalla de resultados de la carrera en linea.
+    if (TheOnlineManager.IsOnlineRace()) {
+        new EShowResults(FERESULTTYPE_RACE);
+        return true;
+    }
+#endif
     return false;
 }
 
-void FE_ShowSpeedTrapScreen(float speed
+void FE_ShowSpeedTrapScreen(float speedKph
 #ifndef EA_BUILD_A124
                             ,
-                            float record
+                            float bounty
 #endif
 ) {
-    PhotoFinishScreen::SetTrapSpeed(speed * 0.27778f);
+    PhotoFinishScreen::SetTrapSpeed(speedKph * 0.27778f);
 #ifndef EA_BUILD_A124
-    PhotoFinishScreen::SetTrapBounty(record);
+    PhotoFinishScreen::SetTrapBounty(bounty);
     PhotoFinishScreen::SetActive();
 #endif
 
@@ -2142,24 +2475,42 @@ void FE_ShowSpeedTrapScreen(float speed
     cFEng::Get()->QueuePackagePush(packageName, 2, joyParam, true);
 }
 
-bool Game_SetTimeOfDay(GRuntimeInstance *activityInstance) {
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(activityInstance));
+bool Game_SetTimeOfDay(GRuntimeInstance *race) {
+    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(race));
 
     if (parms != NULL) {
         if (parms->GetTimeOfDay() < 0.0f) {
             return false;
         }
 
+#ifdef EA_PLATFORM_PLAYSTATION2 // PS2 solo tiene mediodia y atardecer; dice si hay que recargar el mundo
+        if (!TheGameFlowManager.IsInGame()) {
+            return false;
+        }
+
+        eTimeOfDay previous_tod = GetCurrentTimeOfDay();
+
+        if (parms->GetIsSunsetRace()) {
+            SetCurrentTimeOfDay(0.9f);
+        } else {
+            SetCurrentTimeOfDay(0.0f);
+        }
+
+        return previous_tod != GetCurrentTimeOfDay();
+#else
         if (parms->GetTimeOfDay() >= 0.0f) {
             SetCurrentTimeOfDay(parms->GetTimeOfDay());
         }
+#endif
     }
     return false;
 }
 
+#ifndef EA_BUILD_A124
 void Game_ReloadWorld(GRuntimeInstance *restartRace) {
     new EReloadGame(restartRace);
 }
+#endif
 
 void Game_PreventPlayerBeingBusted() {
 #ifndef EA_BUILD_A124
@@ -2169,30 +2520,28 @@ void Game_PreventPlayerBeingBusted() {
 #endif
 }
 
-bool Game_DoSpecialSetup(GRuntimeInstance *activityInstance) {
-    if (activityInstance == NULL) {
+#ifndef EA_BUILD_A124 // la A124 no tiene Game_DoSpecialSetup (ni en los stabs ni en BindToGameCode)
+bool Game_DoSpecialSetup(GRuntimeInstance *race) {
+    if (race == NULL) {
         return false;
     }
 
-    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(activityInstance));
+    GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(race));
 
     if (parms == NULL) {
         return false;
     }
 
-    if (!parms->GetIsEpicPursuitRace()) {
-        return false;
+    if (parms->GetIsEpicPursuitRace() && !FEDatabase->GetCareerSettings()->HasBeenAwardedEpicCar()) {
+        FECarRecord *rivalCar = FEDatabase->GetPlayerCarStable(0)->AwardRivalCar(0x3A94520);
+
+        FEDatabase->GetCareerSettings()->SetCurrentCar(rivalCar->Handle);
+        return true;
     }
 
-    if (FEDatabase->GetCareerSettings()->HasBeenAwardedEpicCar()) {
-        return false;
-    }
-
-    FECarRecord *rivalCar = FEDatabase->GetPlayerCarStable(0)->AwardRivalCar(0x3A94520);
-
-    FEDatabase->GetCareerSettings()->SetCurrentCar(rivalCar->Handle);
-    return true;
+    return false;
 }
+#endif
 
 void Game_DoSpecialFinalization(GRuntimeInstance *activityInstance) {
     if (activityInstance != NULL) {
@@ -2201,16 +2550,21 @@ void Game_DoSpecialFinalization(GRuntimeInstance *activityInstance) {
 }
 
 int Game_CalculateRanking(ISimable *racer, int rankingAtFinishLine) {
-    if (!Sim::IsSplitScreen() && GRaceStatus::Exists() && GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_TimeTrial &&
-        racer != NULL && racer->IsPlayer()) {
-        if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_SpeedTrap) {
-            GRaceStatus::Get().FinalizeRaceStats();
-            GRaceStatus::Get().CalculateRankings();
+#ifdef EA_BUILD_A124
+    if (!Sim::IsSplitScreen() && GRaceStatus::Exists() && GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_Online) {
+#else
+    if (!Sim::IsSplitScreen() && GRaceStatus::Exists() && GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_TimeTrial) {
+#endif
+        if (racer != NULL && racer->IsPlayer()) {
+            if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_SpeedTrap) {
+                GRaceStatus::Get().FinalizeRaceStats();
+                GRaceStatus::Get().CalculateRankings();
 
-            GRacerInfo *info = GRaceStatus::Get().GetRacerInfo(racer);
+                GRacerInfo *info = GRaceStatus::Get().GetRacerInfo(racer);
 
-            if (info != NULL) {
-                rankingAtFinishLine = info->GetRanking();
+                if (info != NULL) {
+                    rankingAtFinishLine = info->GetRanking();
+                }
             }
         }
     }
@@ -2218,10 +2572,10 @@ int Game_CalculateRanking(ISimable *racer, int rankingAtFinishLine) {
     return rankingAtFinishLine;
 }
 
-void Game_WarpToMarkerWhenRoaming(GRuntimeInstance *markerInstance) {
+void Game_WarpToMarkerWhenRoaming(GRuntimeInstance *markerInst) {
 #ifndef EA_BUILD_A124
-    if (markerInstance != NULL) {
-        GRaceStatus::Get().SetWarpWhenInFreeRoam(markerInstance->GetCollection());
+    if (markerInst != NULL) {
+        GRaceStatus::Get().SetWarpWhenInFreeRoam(markerInst->GetCollection());
     }
 #endif
 }

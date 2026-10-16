@@ -74,3 +74,12 @@ unsigned int stringhash32(const char *string) {
     }
     return 0;
 }
+
+#ifdef EA_BUILD_A124
+unsigned int stringhash32(const void *k, unsigned int bytes, unsigned int seed) {
+    if (k != 0 && bytes != 0) {
+        return hash32(reinterpret_cast<const unsigned char *>(k), bytes, seed);
+    }
+    return 0;
+}
+#endif

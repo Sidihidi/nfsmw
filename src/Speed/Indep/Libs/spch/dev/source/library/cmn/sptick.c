@@ -3,9 +3,9 @@
 extern SPCHType_ExtVecs gExtVecs;
 
 int SPCHEXT_gettick(void) {
-    int tick = 0;
+    int result = 0;
     if (gExtVecs.spchGetTick != 0) {
-        tick = gExtVecs.spchGetTick();
+        result = gExtVecs.spchGetTick();
     }
-    return tick;
+    return result;
 }

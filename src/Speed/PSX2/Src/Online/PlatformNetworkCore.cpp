@@ -7,6 +7,7 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/PSX2/bWare/Src/ee/include/eekernel.h"
+#include "Speed/PSX2/Src/Online/PlatformNetworkCore.hpp"
 
 extern int bSuperBenderConnected;
 extern int PowerOff_ThreadID;
@@ -19,7 +20,6 @@ void RemoveVIFHandler();
 void SoundPause(bool pause, eSNDPAUSE_REASON reason);
 
 extern "C" {
-int32 NetConnStatus(int32 kind, int32 data, void *buffer);
 void NetConnSleep(int32 milliseconds);
 void NetConnStartup(const char *params);
 void NetConnIdle();
@@ -32,24 +32,6 @@ int sceDmaReset(int mode);
 int scePadEnd();
 void sceSifExitCmd();
 }
-
-class PlatformNetworkCore {
-  public:
-    PlatformNetworkCore();
-    virtual ~PlatformNetworkCore();
-
-    bool IsOnline();
-    void ExecNetGui();
-
-  protected:
-    bool Init();
-    void Destroy();
-
-  private:
-    void LoadIRXs();
-    void PrepareForExec();
-    char *FilenameFromSlus();
-};
 
 PlatformNetworkCore::PlatformNetworkCore() {}
 

@@ -168,9 +168,9 @@ void SFXCTL_Wheel::UpdateTireParams() {
                     break;
                 }
 
-                DebugPrintSkidBar(x, y, "X", (static_cast<int>(this->m_NormWheelSlip[nloop].x) + 0x3ff) / 2);
-                DebugPrintSkidBar(x, y + 0x14, "Y", (static_cast<int>(this->m_NormWheelSlip[nloop].y) + 0x3ff) / 2);
-                DebugPrintSkidBar(x, y + 0x28, "LD", static_cast<int>(this->m_fLoad[nloop]));
+                DebugPrintSkidBar(x, y, "X", (bFloatToInt(this->m_NormWheelSlip[nloop].x) + 0x3ff) / 2);
+                DebugPrintSkidBar(x, y + 0x14, "Y", (bFloatToInt(this->m_NormWheelSlip[nloop].y) + 0x3ff) / 2);
+                DebugPrintSkidBar(x, y + 0x28, "LD", bFloatToInt(this->m_fLoad[nloop]));
             }
         }
     }
@@ -197,8 +197,8 @@ void SFXCTL_Wheel::GenerateTerrainTypes() {
     Attrib::Gen::simsurface FRTerrainType(this->GetPhysCar()->GetWheelTerrain(1));
     Attrib::Gen::simsurface RRTerrainType(this->GetPhysCar()->GetWheelTerrain(2));
     Attrib::Gen::simsurface RLTerrainType(this->GetPhysCar()->GetWheelTerrain(3));
-    Attrib::Gen::simsurface CurRight(FRTerrainType.GetCollection() != RRTerrainType.GetCollection() ? this->RightSideTerrain : FRTerrainType);
-    Attrib::Gen::simsurface CurLeft(FLTerrainType.GetCollection() != RLTerrainType.GetCollection() ? this->LeftSideTerrain : FLTerrainType);
+    Attrib::Gen::simsurface CurRight(FRTerrainType.GetCollection() == RRTerrainType.GetCollection() ? FRTerrainType : this->RightSideTerrain);
+    Attrib::Gen::simsurface CurLeft(FLTerrainType.GetCollection() == RLTerrainType.GetCollection() ? FLTerrainType : this->LeftSideTerrain);
 
     this->PrevRightSideTerrain = this->RightSideTerrain;
     this->PrevLeftSideTerrain = this->LeftSideTerrain;

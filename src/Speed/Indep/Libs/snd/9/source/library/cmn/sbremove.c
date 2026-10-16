@@ -44,6 +44,11 @@ int SNDbankremove(int bhandle) {
         }
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (sndgs.banklist[bhandle].piopram != NULL) {
+        SNDPLATFORM_memfree(0x100, reinterpret_cast<uintptr_t>(sndgs.banklist[bhandle].piopram));
+    }
+#endif
     if (sndgs.banklist[bhandle].pspuram != NULL) {
         SNDPLATFORM_memfree(0x8, reinterpret_cast<uintptr_t>(sndgs.banklist[bhandle].pspuram));
     }

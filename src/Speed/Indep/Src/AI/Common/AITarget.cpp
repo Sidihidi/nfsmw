@@ -71,11 +71,12 @@ void AITarget::Aquire(ISimable *target) {
         return;
     }
     Clear();
-    if (CanAquire(target)) {
-        mTargetSimable = target;
-        mValid = true;
-        TrackInternal();
+    if (!CanAquire(target)) {
+        return;
     }
+    mTargetSimable = target;
+    mValid = true;
+    TrackInternal();
 }
 
 void AITarget::Aquire(const UMath::Vector3 &position) {

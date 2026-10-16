@@ -28,8 +28,6 @@ class MNotifyRacePlacement : public Hermes::Message {
     MNotifyRacePlacement(GCollectionKey _Activity, HSIMABLE _Racer, int _Placing)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fActivity(_Activity), fRacer(_Racer), fPlacing(_Placing) {}
 
-    ~MNotifyRacePlacement() {}
-
     GCollectionKey GetActivity() const {
         return fActivity;
     }
@@ -65,9 +63,9 @@ class MNotifyRacePlacement : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyRacePlacement::HandleMessage_LuaBinding(const MNotifyRacePlacement &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyRacePlacement::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

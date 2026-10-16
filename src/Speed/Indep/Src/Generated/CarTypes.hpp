@@ -81,6 +81,10 @@ enum CarType {
     CARTYPE_COPGTOGHOST = 75,
     CARTYPE_COPSPORTHENCH = 76,
     CARTYPE_COPSPORTGHOST = 77,
+    // El prototipo A124 tiene 78 tipos: estos seis coches de trafico se
+    // anadieron despues, TODOS al final, asi que ningun otro valor se mueve
+    // (comprobado entrada a entrada contra su .mdebug).
+#ifndef EA_BUILD_A124
     CARTYPE_CEMTR = 78,
     CARTYPE_GARB = 79,
     CARTYPE_PIZZA = 80,
@@ -88,6 +92,9 @@ enum CarType {
     CARTYPE_MINIVAN = 82,
     CARTYPE_PICKUPA = 83,
     NUM_CARTYPES = 84,
+#else
+    NUM_CARTYPES = 78,
+#endif
 };
 
 #endif

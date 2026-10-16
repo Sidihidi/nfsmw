@@ -1,3 +1,5 @@
+#include "DeltaQ.h"
+#include "DeltaSingleQ.h"
 #include "FnDeltaF1.h"
 #include "AnimTypeId.h"
 #include "DeltaF1.h"
@@ -390,11 +392,20 @@ void FnDeltaF1::InitBuffersAsRequired() {
     DeltaF1 *deltaF = reinterpret_cast<DeltaF1 *>(mpAnim);
 
     if (deltaF->GetNumBones() != 0) {
+        // PS2: como en FnDeltaF3, 15 bytes de mas y el puntero alineado a 16 (`addiu 15; sra 4; sll 4').
+#ifdef EA_PLATFORM_PLAYSTATION2
+        mPrevVBlock = MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mPrevValues) + 15);
+        mPrevValues = reinterpret_cast<float *>(AlignSize16(reinterpret_cast<intptr_t>(mPrevVBlock)));
+
+        mNextVBlock = MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mNextValues) + 15);
+        mNextValues = reinterpret_cast<float *>(AlignSize16(reinterpret_cast<intptr_t>(mNextVBlock)));
+#else
         mPrevValues = reinterpret_cast<float *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mPrevValues)));
         mPrevVBlock = mPrevValues;
 
         mNextValues = reinterpret_cast<float *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mNextValues)));
         mNextVBlock = mNextValues;
+#endif
 
         mMinRangesf = reinterpret_cast<DeltaF1MinRange *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mMinRangesf)));
 

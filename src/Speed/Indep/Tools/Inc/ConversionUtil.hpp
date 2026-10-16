@@ -57,7 +57,7 @@ inline Rpm RPS2RPM(const float _rps_) {
 }
 
 inline float RPM2RPS(const Rpm _rpm_) {
-    return _rpm_ / 9.5492958f; // TODO problems on PS2
+    return _rpm_ * (float)M_TWOPI / 60.0f; // GC/PS2 0x3dd67751, PC/360 0x3dd67750, como el original
 }
 
 inline Nm LBIN2NM(const float _lbin_) {
@@ -95,7 +95,7 @@ inline Meters METERS2FT(const Meters _meters_) {
 // se leyo. Verificado con litpos.py: 27 referencias de zAI con el valor
 // cambiado.
 inline Mps KPH2MPS(Kph x) {
-    return x / 3.6f;
+    return x * (1.0f / 3.6f);
 }
 
 namespace ConversionUtil {
@@ -109,10 +109,10 @@ void Copy4(U &out, const T &in) {
 }
 
 template <class T>
-void Scale3(T &v, float scale) {
-    v.x *= scale;
-    v.y *= scale;
-    v.z *= scale;
+void Scale3(T &v, float s) {
+    v.x *= s;
+    v.y *= s;
+    v.z *= s;
 }
 
 template <class T>

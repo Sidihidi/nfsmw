@@ -193,7 +193,17 @@ bool CAnimPlayer::Load(uint32 anim_id, int camera_track_number, bool DisableZone
 
         {
             int size_needed = AnimLoader_SizeNeeded();
-            if (size_needed >= 0xDBBA1) {
+            // El tope de la NIS cargada aparte depende de la plataforma: 1.100.000 en las dos PS2, 900.000 en
+            // GameCube, 3.000.000 en PC y 7.000.000 en Xbox 360 (la comparacion de Load en cada binario).
+#ifdef EA_PLATFORM_PLAYSTATION2
+            if (size_needed > 1100000) {
+#elif defined(EA_PLATFORM_XENON)
+            if (size_needed > 7000000) {
+#elif defined(EA_PLATFORM_WIN32)
+            if (size_needed > 3000000) {
+#else
+            if (size_needed > 900000) {
+#endif
                 gAnimLoader_MemPointer = nullptr;
             } else if (size_needed > gAnimCfg_Small_NIS_Size) {
                 int alloc_size = size_needed;
@@ -220,6 +230,11 @@ bool CAnimPlayer::Load(uint32 anim_id, int camera_track_number, bool DisableZone
         }
 
         if (gAnimLoader_MemPointer) {
+#ifdef EA_BUILD_A124
+            if (DisableZoneSwitching && TheICEManager.IsEditorOff()) {
+                TheTrackStreamer.DisableZoneSwitching();
+            }
+#endif
             AnimLoader_Init();
             loading_has_begun = true;
             AnimLoader_NextStep();
@@ -285,11 +300,10 @@ bool CAnimPlayer::IsLoaded(uint32 anim_id) {
 
 int CAnimPlayer::CreateAnimInstance(uint32 anim_id, int camera_track_number, int anim_candidate_type, int anim_candidate_index) {
     CAnimSceneData *anim_scene_data = CAnimSceneData::FindAnimSceneData(anim_id);
-    int result = 0;
     if (anim_scene_data) {
-        result = CreateAnimScene(anim_scene_data, camera_track_number, anim_candidate_type, anim_candidate_index);
+        return CreateAnimScene(anim_scene_data, camera_track_number, anim_candidate_type, anim_candidate_index);
     }
-    return result;
+    return 0;
 }
 
 void CAnimPlayer::DeleteAnimInstance(AnimHandle anim_handle) {
@@ -316,11 +330,11 @@ void CAnimPlayer::DestroyAnimScene(AnimHandle anim_handle) {
 
 int CAnimPlayer::CreateAndPlayAnim(uint32 anim_id, int camera_track_number, int anim_candidate_type, int anim_candidate_index) {
     AnimHandle anim_handle = CreateAnimInstance(anim_id, camera_track_number, anim_candidate_type, anim_candidate_index);
-    if (anim_handle == 0) {
-        return 0;
+    if (anim_handle != 0) {
+        Play(anim_handle);
+        return anim_handle;
     }
-    Play(anim_handle);
-    return anim_handle;
+    return 0;
 }
 
 CAnimScene *CAnimPlayer::FindAnimScene(AnimHandle anim_handle) {
@@ -493,8 +507,8 @@ void CAnimPlayer::Purge() {}
 
 void CAnimPlayer::InitWorldAnimScene() {
     if (!DisableWorldAnimations && !AnimCfg_DisableWorldAnimations) {
-        int numEntries = TheWorldAnimInstanceDirectory.GetNumInstanceEntries();
-        if (!mWorldAnimScene && numEntries > 0) {
+        int directory_size = TheWorldAnimInstanceDirectory.GetNumInstanceEntries();
+        if (!mWorldAnimScene && directory_size > 0) {
             mWorldAnimScene = new ("CAnimWorldScene", 0) CAnimWorldScene();
         }
     }
@@ -535,7 +549,7 @@ float gCopCarDoorAnim_StartPos[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 float gCopCarDoorAnim_Delta[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
 void StartCopDoorAnim(int door, float startPos, float AnimLength, float endPos) {
-    if (door < 0 || 3 < door) {
+    if (door < 0 || door >= 4) {
         return;
     }
     gCopCarDoorAnim_CurrentTime[door] = 0.0f;

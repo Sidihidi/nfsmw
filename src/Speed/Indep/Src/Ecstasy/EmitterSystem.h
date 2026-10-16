@@ -7,8 +7,8 @@
 
 #include "Ecstasy.hpp"
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/emitterdata.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/emittergroup.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/emitterdata.h"
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribHash.h"
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 #include "Speed/Indep/bWare/Inc/bList.hpp"
@@ -16,23 +16,25 @@
 #include "Texture.hpp"
 
 class smVector3 {
-    // total size: 0x8
+    // total size: 0x8 (GC/X360 comprimido) o 0x20 (PS2/PC sin comprimir)
   public:
-#ifdef EA_BUILD_A124
-    // La A124 guarda el vector sin comprimir (stabs: `v` bVector3 en 0x0 y magnitude en 0x10, 0x20 en total).
-    // Su constructor, expandido en GetNewParticle (0x21F8F4..0x21F90C), arma un bVector3(0, 0, 0) en la pila, lo
-    // copia con lqc2/sqc2 y pone magnitude a 0.
-    bVector3 v;
+    // w12c6: PC tambien sin comprimir (SPEED_EXE_1_3 reserva 0x70 por particula y mFlags va en 0x5C, igual que PS2).
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+    // Las dos PS2 guardan el vector sin comprimir (stabs de la A124: `v` bVector3 en 0x0 y magnitude en 0x10, 0x20 en
+    // total; SLUS reserva igual 0x70 por particula en InitParticleSlotPool y no tiene ExpandVector ni CompressVector).
+    // Su constructor, expandido en GetNewParticle (0x21F8F4..0x21F90C en la A124), arma un bVector3(0, 0, 0) en la
+    // pila, lo copia con lqc2/sqc2 y pone magnitude a 0.
+    bVector3 v; // offset 0x0, size 0x10 (bVector3 es ALIGN_16)
 #else
     char x;            // offset 0x0, size 0x1
     char y;            // offset 0x1, size 0x1
     char z;            // offset 0x2, size 0x1
     unsigned char pad; // offset 0x3, size 0x1
 #endif
-    float magnitude;   // offset 0x4, size 0x4
+    float magnitude;   // offset 0x4 (comprimido) o 0x10 (sin comprimir), size 0x4
 
     smVector3() {
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
         this->v = bVector3(0.0f, 0.0f, 0.0f);
 #else
         this->x = this->y = this->z = this->pad = 0;
@@ -76,23 +78,23 @@ class EmitterControl {
 extern SlotPool *ParticleSlotPool;
 
 class EmitterParticle : public bTNode<EmitterParticle> {
-    // total size: 0x40
+    // total size: 0x40 (GC/X360) o 0x70 (PS2/PC); mFlags en 0x2C o 0x5C
   public:
     uint32 mColour;      // offset 0x8, size 0x4
     float mSize;         // offset 0xC, size 0x4
-    smVector3 mVel;      // offset 0x10, size 0x8
-    smVector3 mAcc;      // offset 0x18, size 0x8
-    float mPosX;         // offset 0x20, size 0x4
-    float mPosY;         // offset 0x24, size 0x4
-    float mPosZ;         // offset 0x28, size 0x4
-    uint32 mFlags;       // offset 0x2C, size 0x4
-    uint32 mUVStart;     // offset 0x30, size 0x4
-    uint32 mUVEnd;       // offset 0x34, size 0x4
-    uint16 mLife;        // offset 0x38, size 0x2
-    uint16 mAngle;       // offset 0x3A, size 0x2
-    uint16 mAnimFrame;   // offset 0x3C, size 0x2
-    uint8 mInitialAngle; // offset 0x3E, size 0x1
-    uint8 mRotOffset;    // offset 0x3F, size 0x1
+    smVector3 mVel;      // offset 0x10, size 0x8 (GC/X360) o 0x20 (PS2/PC)
+    smVector3 mAcc;      // offset 0x18 (GC/X360) o 0x30 (PS2/PC), size 0x8 o 0x20
+    float mPosX;         // offset 0x20 (GC/X360) o 0x50 (PS2/PC), size 0x4
+    float mPosY;         // offset 0x24 o 0x54, size 0x4
+    float mPosZ;         // offset 0x28 o 0x58, size 0x4
+    uint32 mFlags;       // offset 0x2C o 0x5C, size 0x4
+    uint32 mUVStart;     // offset 0x30 o 0x60, size 0x4
+    uint32 mUVEnd;       // offset 0x34 o 0x64, size 0x4
+    uint16 mLife;        // offset 0x38 o 0x68, size 0x2
+    uint16 mAngle;       // offset 0x3A o 0x6A, size 0x2
+    uint16 mAnimFrame;   // offset 0x3C o 0x6C, size 0x2
+    uint8 mInitialAngle; // offset 0x3E o 0x6E, size 0x1
+    uint8 mRotOffset;    // offset 0x3F o 0x6F, size 0x1
 
     void *operator new(size_t size) {
         return bOMalloc(ParticleSlotPool);
@@ -323,7 +325,10 @@ class EmitterGroup : public bTNode<EmitterGroup> {
     bTList<Emitter> mEmitters;               // offset 0x8, size 0x8
     uint32 mGroupKey;                        // offset 0x10, size 0x4
     uint32 Padding;                          // offset 0x14, size 0x4
+  public:
+    // Publico: speed.exe prueba este flag directo desde EmitterSystem::KillEverything (test byte [esi+0x18],2).
     uint32 mFlags;                           // offset 0x18, size 0x4
+  private:
     uint16 mNumEmitters;                     // offset 0x1C, size 0x2
     uint16 mSectionNumber;                   // offset 0x1E, size 0x2
     bMatrix4 mLocalWorld;                    // offset 0x20, size 0x40
@@ -420,7 +425,11 @@ class EmitterGroup : public bTNode<EmitterGroup> {
     }
 
     bool IsFlagSet(uint32 flag) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe salta con jbe (forma `> 0` sin signo); GameCube casa con el & pelado
+        return (this->mFlags & flag) > 0;
+#else
         return this->mFlags & flag;
+#endif
     }
 
     const Attrib::Gen::emittergroup &GetAttribs() const {
@@ -537,7 +546,9 @@ class EmitterSystem {
     EmitterParticle *GetNewParticle(Emitter *spawning_emitter);
     void KillParticle(Emitter *em, EmitterParticle *particle);
     void KillEverything();
+#ifndef EA_BUILD_A124
     void ServiceWorldEffects();
+#endif
     void RefreshWorldEffects();
     EmitterGroup *CreateEmitterGroup(const Attrib::StringKey &group_name, uint32 creation_context_flags);
     EmitterGroup *CreateEmitterGroup(const Attrib::Key &group_key, uint32 creation_context_flags);
@@ -550,9 +561,13 @@ class EmitterSystem {
     void Render(eView *view);
     EmitterDataAttribWrapper *GetEmitterData(const Attrib::Collection *spec);
     EmitterGroupAttribWrapper *GetEmitterGroup(const Attrib::Collection *spec);
+#ifdef EA_BUILD_A124
+    bool IsCloseEnough(EmitterGroup *group, int32 frustrum) const;
+#else
     bool IsCloseEnough(const bVector3 *group_pos, float farclip, int32 frustrum, float cos_angle_fov) const;
     bool IsCloseEnough(const bVector4 *group_pos, float farclip, int32 frustrum, float cos_angle_fov) const;
     bool IsCloseEnough(EmitterGroup *group, int32 frustrum, float cos_angle_fov) const;
+#endif
     void KillEffectsMatchingFlag(uint32 flags_to_match);
     void Update(float dt);
 

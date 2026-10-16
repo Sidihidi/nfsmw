@@ -26,8 +26,6 @@ class MNotifyTimer : public Hermes::Message {
 
     MNotifyTimer(const char *_Name) : Hermes::Message(_GetKind(), _GetSize(), 0), fName(_Name) {}
 
-    ~MNotifyTimer() {}
-
     const char *GetName() const {
         return fName;
     }
@@ -45,9 +43,9 @@ class MNotifyTimer : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyTimer::HandleMessage_LuaBinding(const MNotifyTimer &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyTimer::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

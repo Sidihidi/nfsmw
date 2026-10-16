@@ -9,6 +9,9 @@
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_FeBusted.hpp"
 
 uiRapSheetTEP::uiRapSheetTEP(ScreenConstructorData *sd) : UIWidgetMenu(sd), button_pressed(0), num_pursuits(0) {
+#ifdef EA_PLATFORM_WIN32
+    m_unknown128 = 0;
+#endif
     Setup();
 }
 
@@ -101,7 +104,11 @@ void uiRapSheetTEP::Setup() {
             char time_str[16];
             Timer(pursuit.Length).PrintToString(time_str, 0);
             FEPrintf(GetPackageName(), FEngHashString("CAR_USED_%d", i + 1), GetLocalizedString(0x69EAB50F),
+#ifdef EA_BUILD_A124
+                     GetLocalizedString(pursuit.CarFEKey)); // el prototipo no pasa por GetFECarNameHashFromFEKey
+#else
                      GetLocalizedString(GetFECarNameHashFromFEKey(pursuit.CarFEKey)));
+#endif
             FEPrintf(GetPackageName(), FEngHashString("BOUNTY_%d", i + 1), GetLocalizedString(0x060C058A), pursuit.Bounty);
             FEPrintf(GetPackageName(), FEngHashString("PURSUIT_ID_%d", i + 1), GetLocalizedString(0x41474FB1),
                      pursuit.PursuitName);
@@ -116,7 +123,7 @@ void uiRapSheetTEP::Setup() {
         }
     }
     if (num_pursuits == 0) {
-        FEngSetInvisible(FEngFindObject(GetPackageName(), 0xEB5E7757));
-        FEngSetInvisible(FEngFindObject(GetPackageName(), 0x73DCB662));
+        FEngSetInvisible(GetPackageName(), 0xEB5E7757);
+        FEngSetInvisible(GetPackageName(), 0x73DCB662);
     }
 }

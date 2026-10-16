@@ -299,7 +299,7 @@ class SuspensionSpline : public Chassis, public INISCarControl {
     bool mBrakeLockFront;                                        // offset 0x104, size 0x1
     bool mBrakeLockRear;                                         // offset 0x108, size 0x1
     Degrees mConstraint;                                         // offset 0x10C, size 0x4
-    PS2ALIGN16 UMath::Matrix4 mNISPosition;                      // offset 0x110, size 0x40
+    ALIGNVEC UMath::Matrix4 mNISPosition;                      // offset 0x110, size 0x40
     float mAnimatedPitchLength;                                  // offset 0x150, size 0x4
     float mAnimatedPitch;                                        // offset 0x154, size 0x4
     float mAnimatedPitchDelta;                                   // offset 0x158, size 0x4
@@ -652,8 +652,8 @@ bool SuspensionSpline::SetNISPosition(const UMath::Matrix4 &position, bool initi
             float deltaRotation = newRotation - lastRotation;
             angular_velocity_y = deltaRotation / dT;
         } else {
-            angular_velocity_y = 0.0f;
             UMath::Clear(linear_velocity_xz);
+            angular_velocity_y = 0.0f;
         }
 
         this->mNISPosition = position;
@@ -847,7 +847,7 @@ void SuspensionSpline::DoWheelForces(State &state) {
         float penetration = wheel.GetNormal().w;
         float upness = UMath::Clamp(UMath::Dot(groundNormal, vUp), 0.0f, 1.0f);
         const float oldCompression = wheel.GetCompression();
-        float newCompression = rideheight_specs[axle] * upness + penetration;
+        float newCompression = penetration + rideheight_specs[axle] * upness;
         float max_compression = travel_specs[axle];
 
         if (wheel.GetCompression() == 0.0f) {

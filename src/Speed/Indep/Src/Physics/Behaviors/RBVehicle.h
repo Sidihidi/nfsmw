@@ -1,6 +1,7 @@
 #ifndef RBVEHICLE_H
 #define RBVEHICLE_H
 
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/collisionreactions.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IRBVehicle.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
 #include "Speed/Indep/Src/Physics/Behaviors/RigidBody.h"

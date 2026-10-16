@@ -24,6 +24,7 @@ class CustomTuningScreen : public UIWidgetMenu {
     void ScrollTypes(eScrollDir dir);
     void DrawSettingName(uint32 tuning_type);
     static bool IsTuningAvailable(FEPlayerCarDB *stable, FECarRecord *record, Physics::Tunings::Path path);
+  protected:
     uint32 GetNameForPath(Physics::Tunings::Path path, bool turbo);
     uint32 GetHelpForPath(Physics::Tunings::Path path, bool active, bool turbo);
     uint32 AddTuningSlider(FEPlayerCarDB *stable, FECarRecord *record, Physics::Tunings::Path path, bool turbo);
@@ -39,7 +40,7 @@ class CustomTuningScreen : public UIWidgetMenu {
     FECustomizationRecord *TuningRecord;    // offset 0x140, size 0x4
     FECustomizationRecord TempTuningRecord; // offset 0x144, size 0x198
     int CurrentTuningType;                  // offset 0x2DC, size 0x4
-    int HelpVisible;                        // offset 0x2E0, size 0x4
+    bool HelpVisible;                       // offset 0x2E0, size 0x4
     bool ExitWithStart;                     // offset 0x2E4, size 0x1
 };
 

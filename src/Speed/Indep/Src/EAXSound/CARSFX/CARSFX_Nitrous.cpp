@@ -167,7 +167,7 @@ void CARSFX_Nitrous::ProcessUpdate() {
             this->SetDMIX_Input(2, 0);
         }
 
-        if (this->m_NitrousControl->GetRefCount() < 2) {
+        if (this->m_NitrousControl->GetRefCount() <= 1) {
             delete this->m_NitrousControl;
             this->m_NitrousControl = nullptr;
         } else {
@@ -186,7 +186,7 @@ void CARSFX_Nitrous::ProcessUpdate() {
     }
 
     if (this->m_NitrousPurge != nullptr) {
-        if (this->m_NitrousPurge->GetRefCount() < 2) {
+        if (this->m_NitrousPurge->GetRefCount() <= 1) {
             delete this->m_NitrousPurge;
             this->m_NitrousPurge = nullptr;
         } else {

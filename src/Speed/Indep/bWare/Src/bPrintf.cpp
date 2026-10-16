@@ -57,16 +57,22 @@ void bBufferedPutChar(char c) {
     }
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// En PS2 bWare define el printf de la libc: todo printf del juego sale por bVPrintf (bPrintf.cpp:267-270 en la A124).
+extern "C" int printf(const char *fmt, ...) {
+    va_list argList;
+    va_start(argList, fmt);
+    return bVPrintf(fmt, argList);
+}
+#endif
+
 int bReleasePrintf(const char *fmt, ...) {
     va_list argList;
-    if (EnableReleasePrintf) {
-        va_start(argList, fmt);
-        // TODO returning this causes issues??
-        bVPrintf(fmt, argList);
-        va_end(argList);
-    } else {
+    if (!EnableReleasePrintf) {
         return 0;
     }
+    va_start(argList, fmt);
+    return bVPrintf(fmt, argList);
 }
 
 int bVPrintf(const char *fmt, va_list argList) {
@@ -85,15 +91,13 @@ int bVPrintf(char terminal_channel, char *fmt, char *argList) {}
 int bSPrintf(char *destString, const char *fmt, ...) {
     va_list argList;
     va_start(argList, fmt);
-    bVSPrintf(destString, fmt, argList);
-    va_end(argList);
+    return bVSPrintf(destString, fmt, argList);
 }
 
 int bSNPrintf(char *buf, int max_len, const char *format, ...) {
     va_list argList;
     va_start(argList, format);
-    bVSNPrintf(buf, max_len, format, argList);
-    va_end(argList);
+    return bVSNPrintf(buf, max_len, format, argList);
 }
 
 int bVSPrintf(char *destString, const char *fmt, va_list argList) {
@@ -116,15 +120,14 @@ int bVSNPrintf(char *destString, int max_len, const char *fmt, va_list argList) 
     bOutputInfo output_info;
     int retVal;
 
-    if (max_len >= 1) {
-        output_info.DestString = destString;
-        output_info.DestStringLen = max_len;
-        output_info.StdOut = false;
-        output_info.TerminalChannel = 0;
-        retVal = _bOutput(&output_info, fmt, argList);
-    } else {
-        retVal = 0;
+    if (max_len < 1) {
+        return 0;
     }
+    output_info.DestString = destString;
+    output_info.DestStringLen = max_len;
+    output_info.StdOut = false;
+    output_info.TerminalChannel = 0;
+    retVal = _bOutput(&output_info, fmt, argList);
     return retVal;
 }
 
@@ -601,7 +604,7 @@ int _bOutput(bOutputInfo *output_info, const char *fmt, va_list argList) {
 
                         tempNumber = va_arg(argList, unsigned int);
 
-                        if (tempNumber > 0x7FFFFFFEu) {
+                        if (tempNumber >= 0x7FFFFFFFu) {
                             tempNumber = ~tempNumber + 1;
                             flags |= FL_NEGATIVE;
                         }

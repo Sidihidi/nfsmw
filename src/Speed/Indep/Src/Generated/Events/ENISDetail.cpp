@@ -36,9 +36,9 @@ void ENISDetail_MakeEvent_Callback(const void *staticData) {
     new ENISDetail(((ENISDetail::StaticData *) staticData)->fSceneryDetail);
 }
 
-int ENISDetail_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ENISDetail((int) lua_tonumber(L, 1));
+int ENISDetail_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ENISDetail((int) lua_tonumber(luaState, 1));
     }
     return 0;
 }

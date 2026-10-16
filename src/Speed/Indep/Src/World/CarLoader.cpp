@@ -19,6 +19,9 @@
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/Src/World/CarRender.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 int CarLoaderMemoryPoolNumber = -1;
 
@@ -172,7 +175,7 @@ class LoadedCar : public bTNode<LoadedCar> {
     LoadedCar(RideInfo *ride_info, int in_front_end, int is_two_player);
 
     int ShouldWeStream() {
-        return static_cast<int>(GetCarTypeInfo(this->Type)->GetCarUsageType() != 2);
+        return static_cast<int>(GetCarTypeInfo(this->Type)->GetCarUsageType() != CAR_USAGE_TYPE_TRAFFIC);
     }
 
     int GetModelHashes(unsigned int *model_hashes, int max_model_hashes);
@@ -237,7 +240,12 @@ LoadedSkin::LoadedSkin(RideInfo *ride_info, int in_front_end, int is_player_skin
 int LoadedSkin::GetTextureHashes(unsigned int *texture_hashes, int max_texture_hashes, int perm) {
     UsedCarTextureInfo used_texture_info;
 
+#ifdef EA_PLATFORM_XENON
+    // X360 borra 512 B fijos (li r5, 0x200 = 128 hashes); el resto usa max_texture_hashes * 4.
+    bMemSet(texture_hashes, 0, 512);
+#else
     bMemSet(texture_hashes, 0, max_texture_hashes * sizeof(*texture_hashes));
+#endif
     GetUsedCarTextureInfo(&used_texture_info, this->pRideInfo, this->InFrontEnd);
 
     int num_hashes = used_texture_info.NumTexturesToLoadTemp;
@@ -477,10 +485,21 @@ LoadedRideInfo::LoadedRideInfo(RideInfo *ride_info, int in_front_end, int is_two
 }
 
 void InitCarLoader() {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // PC y 360 doblan los cuatro pools
+    LoadedTexturePackSlotPool = bNewSlotPool(sizeof(LoadedTexturePack), 60, "CarLoadedTexturePackSlotPool", 0);
+    LoadedSolidPackSlotPool = bNewSlotPool(sizeof(LoadedSolidPack), 60, "CarLoadedSolidPackSlotPool", 0);
+    LoadedSkinLayerSlotPool = bNewSlotPool(sizeof(LoadedSkinLayer), 1500, "CarLoadedSkinLayerSlotPool", 0);
+    LoadedRideInfoSlotPool = bNewSlotPool(sizeof(LoadedRideInfo), 40, "CarLoadedRideInfoSlotPool", 0);
+#else
     LoadedTexturePackSlotPool = bNewSlotPool(sizeof(LoadedTexturePack), 30, "CarLoadedTexturePackSlotPool", 0);
     LoadedSolidPackSlotPool = bNewSlotPool(sizeof(LoadedSolidPack), 30, "CarLoadedSolidPackSlotPool", 0);
+#ifdef EA_BUILD_A124
+    LoadedSkinLayerSlotPool = bNewSlotPool(sizeof(LoadedSkinLayer), 500, "CarLoadedSkinLayerSlotPool", 0);
+#else
     LoadedSkinLayerSlotPool = bNewSlotPool(sizeof(LoadedSkinLayer), 750, "CarLoadedSkinLayerSlotPool", 0);
+#endif
     LoadedRideInfoSlotPool = bNewSlotPool(sizeof(LoadedRideInfo), 20, "CarLoadedRideInfoSlotPool", 0);
+#endif
 }
 
 // STRIPPED
@@ -508,51 +527,12 @@ void CarLoader::SetLoadingMode(eLoadingMode mode, int two_player_flag) {
     this->TwoPlayerFlag = two_player_flag;
 }
 
-// UNSOLVED, scheduling.  304/304, 97,895 %, DOS filas: el objetivo emite
-// `lis r6,@ha | addi r6,r6,@l | stw r0,CarLoaderMemoryPoolNumber@l(r29)` y
-// nosotros `lis | stw | addi`.
-//
-// r36e, DIAGNOSTICO CERRADO con el volcado `.sched2` de cc1plus (mini-TU:
-// zWorld.cpp truncado detras del `#include` de CarLoader.cpp, 16 s por vuelta;
-// `ngccc` no pasa las `-d`, hay que llamar a cc1plus sobre el `.ii`).  La
-// visualizacion del bloque dice:
-//
-//    ;; Ready list (t = 15):   256  232  250      <- peor primero, mejor ULTIMO
-//    ;; 15   lsu: 232 [stw]        iu2: 250 [mr r3,r0]
-//    ;; 16                         iu2: 256 [addi @l]
-//
-// El bloque emite DOS por ciclo, en el ciclo 15 hay TRES listos y el `addi`
-// (256) se queda fuera.  Reconstruyendo el orden de las listas (`rank_for_
-// schedule` con prioridades iguales desempata por INSN_LUID, el mas bajo el
-// mejor) el orden de LUID antes de sched2 es
-//     228 mr r0,r3 < 254 lwz r5 < 252 lwz r4 < 247 lis < 250 mr r3,r0
-//                  < 232 stw < 256 addi @l
-// o sea que **el `lo_sum` es la ULTIMA insn del bloque en el RTL**, detras del
-// store: eso ya lo decidio sched1, no sched2.  Para casar hace falta que el
-// `addi` tenga LUID menor que el `stw`, y ninguna forma de la fuente lo mueve.
-//
-// De paso, un hallazgo reutilizable: la insn 250 `(set (reg 3) (reg 0))` ESTA
-// en el RTL post-sched2 y OCUPA la ranura iu2 del ciclo 15, pero NO se emite
-// (la funcion mide 304 B = 76 insns y no hay ningun `mr 3,0`).  Es una insn
-// fantasma que cuesta una ranura y cero bytes; cuando una barrera la vuelve
-// real aparecen los 4 B de mas.
-//
-// VEDAS MEDIDAS r36e (once, todas sobre la unidad completa con `fndiff`):
-//   temporal + `asm("":"+r"(n))` antes del store            308 B, 97,895 %
-//   idem con copia explicita `int stored = n`               308 B, 97,895 %
-//   idem con el `pool_num` original como 1er argumento      304 B, IDENTICA a la base
-//   `const char *nm="Cars"; asm("":"+r"(nm))` tras el store 304 B, 4 filas
-//   idem con la barrera ANTES del store                     304 B, 4 filas
-//   idem con el puntero declarado antes de la llamada       308 B, 6 filas
-//   `asm("":"+m"(CarLoaderMemoryPoolNumber))` antes         IDENTICA a la base
-//   idem con clobber de r0 (barrera de ranura)              IDENTICA a la base
-//   la asignacion DENTRO de la lista de argumentos          IDENTICA a la base
-// El mapa de lineas del original (`lmap`) da 789 al `bl bGetFreeMemoryPoolNum`,
-// al `mr r0,r3` y al `stw`, y 790 a los tres argumentos y al `bl`: la forma de
-// fuente que tenemos ya es la del original.
-// TODO dwarf
+// El bucle de esponjas recorre la constante y la cuenta se asigna DETRAS (el mapa de lineas de GameCube pone
+// NumSpongeAllocations en la 802, tras las lineas del bucle, que no dejan codigo). Con la asignacion delante y el
+// bucle sobre el miembro, sched2 colaba el `stw` de CarLoaderMemoryPoolNumber entre el lis/addi de "Cars".
 void CarLoader::SetMemoryPoolSize(int size) {
-    bool success;
+    bool success; // sin usar: el DWARF la declara (sin registro)
+
     if (this->MemoryPoolSize != size) {
         if (this->MemoryPoolSize != 0) {
             {
@@ -577,7 +557,7 @@ void CarLoader::SetMemoryPoolSize(int size) {
 
         if (size != 0) {
             TheTrackStreamer.FlushHibernatingSections();
-            success = TheTrackStreamer.MakeSpaceInPool(size, true);
+            TheTrackStreamer.MakeSpaceInPool(size, true);
 
             this->MemoryPoolMem = bMalloc(size, "CarLoaderPool", 0, 7);
             this->MemoryPoolSize = size;
@@ -588,11 +568,11 @@ void CarLoader::SetMemoryPoolSize(int size) {
             bSetMemoryPoolTopDirection(CarLoaderMemoryPoolNumber, true);
             // DWARF conserva este segundo bucle y su bMalloc inline aunque
             // CarLoaderMemorySpongeNumAllocs == 0 elimina sus instrucciones.
-            this->NumSpongeAllocations = CarLoaderMemorySpongeNumAllocs;
-            for (int n = 0; n < this->NumSpongeAllocations; n++) {
+            for (int n = 0; n < CarLoaderMemorySpongeNumAllocs; n++) {
                 this->SpongeAllocations[n] = bMalloc(CarLoaderMemorySpongeAllocSize, "SpongeAllocation", 0,
                                                    (CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
             }
+            this->NumSpongeAllocations = CarLoaderMemorySpongeNumAllocs;
         }
     }
 }
@@ -640,66 +620,72 @@ void CarLoader::PrintMemoryUsage(bool on_screen) {
 
     float elapsedTime = GetDebugRealTime() - lastTime;
 
-    if (elapsedTime >= kUpdateFreq) {
-        void *allocation_table[1152];
-        int num_allocations;
-        char allocation_usage_table[1024];
-        int total_memory_used = 0;
-        int total_memory_used2;
-        int screen_x;
-        int screen_y;
+    if (elapsedTime < kUpdateFreq) {
+        return;
+    }
 
-        lastTime = GetDebugRealTime();
-        num_allocations = bMemoryGetAllocations(CarLoaderMemoryPoolNumber, allocation_table, 1152);
-        bMemSet(allocation_usage_table, 0, 0x400);
+#ifdef EA_PLATFORM_WIN32
+    void *allocation_table[3072];
+#else
+    void *allocation_table[1152];
+#endif
+    int num_allocations;
+    char allocation_usage_table[1024];
+    int total_memory_used = 0;
+    int total_memory_used2;
+    int screen_x;
+    int screen_y;
 
-        for (LoadedRideInfo *loaded_ride_info = this->LoadedRideInfoList.GetTail(); loaded_ride_info != this->LoadedRideInfoList.EndOfList();
-             loaded_ride_info = loaded_ride_info->GetPrev()) {
-            if (!on_screen) {
-                this->IsLoaded(loaded_ride_info);
-            }
+    lastTime = GetDebugRealTime();
+    num_allocations = bMemoryGetAllocations(CarLoaderMemoryPoolNumber, allocation_table, NUM_ELEMENTS(allocation_table));
+    bMemSet(allocation_usage_table, 0, 0x400);
 
-            void *memory_entries[256];
-            int num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedCar, memory_entries, 0);
-            int memory_used = 0;
-            int memory_required = 0;
-            int memory_budget;
-
-            num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedSkin, memory_entries, num_memory_entries);
-            num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedWheel, memory_entries, num_memory_entries);
-
-            for (int n = 0; n < num_memory_entries; n++) {
-                void *memory_entry = memory_entries[n];
-                int memory_entry_size = bGetMallocSize(memory_entry);
-                int i;
-                for (i = 0; i < num_allocations; i++) {
-                    if (memory_entry == allocation_table[i]) {
-                        memory_used += memory_entry_size;
-
-                        if (allocation_usage_table[i] == 0) {
-                            memory_required += memory_entry_size;
-                        }
-
-                        allocation_usage_table[i]++;
-                        break;
-                    }
-                }
-            }
-
-            if (loaded_ride_info->NumInstances > 0) {
-                total_memory_used += memory_required;
-            }
-
-            memory_budget = CarInfo_GetResourceCost(loaded_ride_info->TheRideInfo.Type, loaded_ride_info->IsPlayerCar != 0, this->TwoPlayerFlag != 0);
+    for (LoadedRideInfo *loaded_ride_info = this->LoadedRideInfoList.GetTail(); loaded_ride_info != this->LoadedRideInfoList.EndOfList();
+         loaded_ride_info = loaded_ride_info->GetPrev()) {
+        if (!on_screen) {
+            this->IsLoaded(loaded_ride_info);
         }
 
-        for (int allocation_num = 0; allocation_num < num_allocations; allocation_num++) {
-            void *allocation = allocation_table[allocation_num];
+        void *memory_entries[256];
+        int num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedCar, memory_entries, 0);
+        int memory_used = 0;
+        int memory_required = 0;
+        int memory_budget;
 
-            for (int n = 0; n < this->NumSpongeAllocations; n++) {
-                if (this->SpongeAllocations[n] == allocation) {
-                    allocation_usage_table[allocation_num] = 1;
+        num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedSkin, memory_entries, num_memory_entries);
+        num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedWheel, memory_entries, num_memory_entries);
+
+        for (int n = 0; n < num_memory_entries; n++) {
+            void *memory_entry = memory_entries[n];
+            int memory_entry_size = bGetMallocSize(memory_entry);
+            int i;
+            for (i = 0; i < num_allocations; i++) {
+                if (memory_entry == allocation_table[i]) {
+                    memory_used += memory_entry_size;
+
+                    if (allocation_usage_table[i] == 0) {
+                        memory_required += memory_entry_size;
+                    }
+
+                    allocation_usage_table[i]++;
+                    break;
                 }
+            }
+        }
+
+        if (loaded_ride_info->NumInstances > 0) {
+            total_memory_used += memory_required;
+        }
+
+        memory_budget = CarInfo_GetResourceCost(loaded_ride_info->TheRideInfo.Type, loaded_ride_info->IsPlayerCar != 0, this->TwoPlayerFlag != 0);
+    }
+
+    for (int allocation_num = 0; allocation_num < num_allocations; allocation_num++) {
+        void *allocation = allocation_table[allocation_num];
+
+        for (int n = 0; n < this->NumSpongeAllocations; n++) {
+            if (this->SpongeAllocations[n] == allocation) {
+                allocation_usage_table[allocation_num] = 1;
             }
         }
     }
@@ -709,7 +695,11 @@ void CarLoader::PrintMemoryUsage(bool on_screen) {
 int CarLoader::GetMemoryRequired(LoadedRideInfo *loaded_ride_info) {}
 
 // STRIPPED
-void CarLoader::ServiceTweakables() {}
+void CarLoader::ServiceTweakables() {
+    if (DisplayCarLoaderMemoryOnScreen) {
+        this->PrintMemoryUsage(true);
+    }
+}
 
 // STRIPPED
 char *CarLoader::GetPrintHeader() {}
@@ -752,7 +742,7 @@ void CarLoader::LoadSolidPack(LoadedSolidPack *loaded_solid_pack, int stream_sol
             pool = CarLoaderMemoryPoolNumber;
         }
 
-        loaded_solid_pack->pResourceFile->SetAllocationParams((pool & 0xF) | 0x2000, loaded_solid_pack->Filename);
+        loaded_solid_pack->pResourceFile->SetAllocationParams((pool & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT), loaded_solid_pack->Filename);
         loaded_solid_pack->LoadState = CARLOADSTATE_LOADING;
         this->LoadingInProgress = 1;
         loaded_solid_pack->pResourceFile->BeginLoading(LoadedSolidPackCallbackBridge, reinterpret_cast<intptr_t>(loaded_solid_pack));
@@ -778,7 +768,8 @@ int CarLoader::UnloadSolidPack(LoadedSolidPack *loaded_solid_pack) {
             }
         }
 
-        delete this->LoadedSolidPackList.Remove(loaded_solid_pack);
+        this->LoadedSolidPackList.Remove(loaded_solid_pack);
+        delete loaded_solid_pack;
         return 1;
     }
 
@@ -829,7 +820,8 @@ int CarLoader::UnloadTexturePack(LoadedTexturePack *loaded_texture_pack) {
             eUnloadStreamingTexturePack(loaded_texture_pack->Filename);
         }
 
-        delete this->LoadedTexturePackList.Remove(loaded_texture_pack);
+        this->LoadedTexturePackList.Remove(loaded_texture_pack);
+        delete loaded_texture_pack;
         return 1;
     }
 
@@ -948,11 +940,7 @@ int CarLoader::LoadAllWheelTextures() {
                 int num_loaded = this->LoadSkinLayers(&name_hash_table[num_name_hashes], NUM_ELEMENTS(name_hash_table) - num_name_hashes,
                                                       loaded_wheel->LoadedSkinLayersPerm, 4);
 
-                if (num_loaded != 0) {
-                    loaded_wheel->LoadStateSkinPerm = CARLOADSTATE_LOADING;
-                } else {
-                    loaded_wheel->LoadStateSkinPerm = CARLOADSTATE_LOADED;
-                }
+                loaded_wheel->LoadStateSkinPerm = num_loaded != 0 ? CARLOADSTATE_LOADING : CARLOADSTATE_LOADED;
 
                 loaded_ride_info->LoadState = CARLOADSTATE_LOADING;
                 num_name_hashes += num_loaded;
@@ -1152,6 +1140,12 @@ void CarLoader::LoadedSkinCallback(LoadedSkin *loaded_skin) {
 // UNSOLVED
 void CarLoader::CompositeSkin(LoadedSkin *loaded_skin) {
     if (loaded_skin->pRideInfo->IsUsingCompositeSkin() != 0) {
+#ifdef EA_BUILD_A124
+        // La A124 solo desfragmenta si no cabe el bloque mas grande, sin descargar nada.
+        if (bLargestMalloc(CarLoaderMemoryPoolNumber) < CarInfo_GetMaxCompositingBufferSize()) {
+            this->DefragmentPool();
+        }
+#else
         if (this->LoadingMode == MODE_IN_GAME) {
             int required_size = CarInfo_GetMaxCompositingBufferSize();
 
@@ -1166,6 +1160,7 @@ void CarLoader::CompositeSkin(LoadedSkin *loaded_skin) {
                 this->DefragmentPool();
             }
         }
+#endif
 
         ::CompositeSkin(loaded_skin->pRideInfo);
     }
@@ -1184,15 +1179,15 @@ int CarLoader::UnloadSkinTemporaries(LoadedSkin *loaded_skin, int force_unload) 
         loaded_skin->NumLoadedSkinLayersTemp = 0;
 
         if (num_name_hashes != 0) {
-            unloaded_something = 1;
             eUnloadStreamingTexture(name_hash_table, num_name_hashes);
+            unloaded_something = 1;
         }
 
         if (loaded_skin->pLoadedVinylsPack != nullptr) {
-            unloaded_something += 1;
             this->UnallocateTexturePack(loaded_skin->pLoadedVinylsPack);
             this->UnloadTexturePack(loaded_skin->pLoadedVinylsPack);
             loaded_skin->pLoadedVinylsPack = nullptr;
+            unloaded_something += 1;
         }
 
         return unloaded_something;
@@ -1209,13 +1204,13 @@ int CarLoader::UnloadSkinPerms(LoadedSkin *loaded_skin) {
     int num_name_hashes = this->UnloadSkinLayers(name_hash_table, NUM_ELEMENTS(name_hash_table), loaded_skin->LoadedSkinLayersPerm,
                                                  loaded_skin->NumLoadedSkinLayersPerm);
 
-    if (num_name_hashes == 0) {
-        return 0;
+    if (num_name_hashes != 0) {
+        eUnloadStreamingTexture(name_hash_table, num_name_hashes);
+        loaded_skin->NumLoadedSkinLayersPerm = 0;
+        return 1;
     }
 
-    eUnloadStreamingTexture(name_hash_table, num_name_hashes);
-    loaded_skin->NumLoadedSkinLayersPerm = 0;
-    return 1;
+    return 0;
 }
 
 int CarLoader::UnloadSkin(LoadedSkin *loaded_skin) {
@@ -1338,7 +1333,8 @@ int CarLoader::UnloadSkinLayers(unsigned int *name_hash_table, int max_name_hash
                 num_name_hashes++;
             }
 
-            delete this->LoadedSkinLayerList.Remove(loaded_skin_layer);
+            this->LoadedSkinLayerList.Remove(loaded_skin_layer);
+            delete loaded_skin_layer;
         }
     }
 
@@ -1428,25 +1424,35 @@ int CarLoader::Load(RideInfo *ride_info) {
     this->LoadedRideInfoList.Remove(loaded_ride_info);
     // AddHead missing
     this->LoadedRideInfoList.AddTail(loaded_ride_info);
+#ifdef EA_BUILD_A124
+    if (is_player_car) {
+        Juice::GameHook::Instance()->AssetHit("CAR_DRIVE", GetCarTypeName(ride_info->Type));
+    } else {
+        Juice::GameHook::Instance()->AssetHit("CAR_LOAD", GetCarTypeName(ride_info->Type));
+    }
+#endif
     return loaded_ride_info->ID;
 }
 
 void CarLoader::Unload(int handle) {
     LoadedRideInfo *loaded_ride_info = this->FindLoadedRideInfo(handle);
 
-    if (loaded_ride_info != nullptr && loaded_ride_info->NumInstances != 0) {
-        if (loaded_ride_info->HighPriority != 0) {
-            this->LoadedRideInfoList.Remove(loaded_ride_info);
-            this->LoadedRideInfoList.AddTail(loaded_ride_info);
-        }
+    if (loaded_ride_info == nullptr || loaded_ride_info->NumInstances == 0) {
+        return;
+    }
 
-        this->UnallocateRideInfo(loaded_ride_info);
+    if (loaded_ride_info->HighPriority != 0) {
+        this->LoadedRideInfoList.Remove(loaded_ride_info);
+        this->LoadedRideInfoList.AddTail(loaded_ride_info);
+    }
 
-        if (loaded_ride_info->NumInstances == 0 && loaded_ride_info->LoadState == CARLOADSTATE_QUEUED) {
-            this->UnloadRideInfo(loaded_ride_info, 0);
-        }
+    this->UnallocateRideInfo(loaded_ride_info);
+
+    if (loaded_ride_info->NumInstances == 0 && loaded_ride_info->LoadState == CARLOADSTATE_QUEUED) {
+        this->UnloadRideInfo(loaded_ride_info, 0);
     }
 }
+
 
 int CarLoader::IsLoaded(CarLoaderHandle handle) {
     LoadedRideInfo *loaded_ride_info = this->FindLoadedRideInfo(handle);
@@ -1575,7 +1581,8 @@ int CarLoader::UnloadRideInfo(LoadedRideInfo *loaded_ride_info, int leave_if_in_
     this->UnloadSkin(loaded_ride_info->pLoadedSkin);
     this->UnloadWheel(loaded_ride_info->pLoadedWheel);
     this->UnloadCar(loaded_ride_info->pLoadedCar);
-    delete this->LoadedRideInfoList.Remove(loaded_ride_info);
+    this->LoadedRideInfoList.Remove(loaded_ride_info);
+    delete loaded_ride_info;
     this->NumLoadedRideInfos--;
     this->MayNeedDefragmentation++;
     return 1;
@@ -1678,6 +1685,12 @@ int CarLoader::RemoveSomethingFromCarMemoryPool(bool force_unload) {
 
     if (this->NumSpongeAllocations != 0) {
         int mem_remaining;
+#ifdef EA_BUILD_A124
+        // la A124 avisa a Juice de que se ha tocado la marca de memoria
+        mem_remaining = this->NumSpongeAllocations * CarLoaderMemorySpongeAllocSize;
+        Juice::GameHook::Instance()->GameEvent("MEMORY", "CARLOADER", "Watermark Reached", mem_remaining, static_cast<float>(this->TwoPlayerFlag),
+                                               "", "", "");
+#endif
         this->NumSpongeAllocations--;
         bFree(this->SpongeAllocations[this->NumSpongeAllocations]);
         this->MayNeedDefragmentation++;
@@ -1715,7 +1728,7 @@ bool CarLoader::MakeSpaceInPool(int size) {
         ServiceResourceLoading();
     }
 
-    return this->MakeSpaceInCarMemoryPool(size, 0, false) != 0;
+    return this->MakeSpaceInCarMemoryPool(size, 0, false) != 0 ? true : false;
 }
 
 int CarLoader::MakeSpaceInCarMemoryPool(int largest_malloc_needed, int amount_free_needed, bool allocating_stream_header_chunks) {
@@ -1724,7 +1737,11 @@ int CarLoader::MakeSpaceInCarMemoryPool(int largest_malloc_needed, int amount_fr
     }
 
     int amount_free = bCountFreeMemory(CarLoaderMemoryPoolNumber);
-    int largest_malloc = bLargestMalloc((CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
+#ifdef EA_BUILD_A124
+    int largest_malloc = bLargestMalloc(CarLoaderMemoryPoolNumber);
+#else
+    int largest_malloc = bLargestMalloc((CarLoaderMemoryPoolNumber & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
+#endif
     int unloaded_something;
 
     // TODO simply while loop?
@@ -1737,7 +1754,12 @@ int CarLoader::MakeSpaceInCarMemoryPool(int largest_malloc_needed, int amount_fr
             }
 
             amount_free = bCountFreeMemory(CarLoaderMemoryPoolNumber);
-            largest_malloc = bLargestMalloc((CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
+#ifdef EA_BUILD_A124
+            largest_malloc = bLargestMalloc(CarLoaderMemoryPoolNumber);
+#else
+            largest_malloc = bLargestMalloc((CarLoaderMemoryPoolNumber & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
+#endif
+
         } while (amount_free < amount_free_needed || largest_malloc < largest_malloc_needed);
     }
 
@@ -1748,7 +1770,7 @@ int CarLoader::MakeSpaceInCarMemoryPool(int largest_malloc_needed, int amount_fr
     if (allocating_stream_header_chunks) {
         char *min_stream_header_chunks = nullptr;
 
-        for (int type = 0; type <= 1; type++) {
+        for (int type = 0; type < 2; type++) {
             bTList<eStreamingPack> *list = StreamingTexturePackLoader.GetLoadedStreamingPackList();
 
             if (type == 1) {
@@ -1763,7 +1785,7 @@ int CarLoader::MakeSpaceInCarMemoryPool(int largest_malloc_needed, int amount_fr
             }
         }
 
-        char *test_alloc = static_cast<char *>(bMalloc(largest_malloc_needed, "TestAlloc", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x2040));
+        char *test_alloc = static_cast<char *>(bMalloc(largest_malloc_needed, "TestAlloc", 0, (CarLoaderMemoryPoolNumber & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x40));
 
         bFree(test_alloc);
 
@@ -1801,7 +1823,7 @@ void *MoveDefragmentAllocation(void *allocation) {
     }
 
     bool use_copy_storage =
-        reinterpret_cast<intptr_t>(allocation) - reinterpret_cast<intptr_t>(DefragmentParams.pNewAllocation) < allocation_size + 1152;
+        reinterpret_cast<intptr_t>(allocation) - reinterpret_cast<intptr_t>(DefragmentParams.pNewAllocation) < allocation_size + (1024 + BCHUNK_ALIGNMENT);
     void *new_allocation;
 
     if (use_copy_storage) {
@@ -1825,7 +1847,7 @@ void *MoveDefragmentAllocation(void *allocation) {
         DefragmentParams.pAllocation = allocation;
     }
 
-    new_allocation = bMalloc(allocation_size, (CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
+    new_allocation = bMalloc(allocation_size, DefragmentParams.AllocationName, 0, (CarLoaderMemoryPoolNumber & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
 
     if (new_allocation != DefragmentParams.pNewAllocation) {
         bMemoryPrintAllocationsByAddress(CarLoaderMemoryPoolNumber, 0, 0x7FFFFFFF);
@@ -2083,7 +2105,7 @@ int CarLoader::DefragmentPool() {
     eWaitUntilRenderingDone();
     gDefragFixer.Init();
 
-    void *first_hole = bMalloc(128, "CarLoaderDefrag but with a really long debug name!!", 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
+    void *first_hole = bMalloc(128, "CarLoaderDefrag but with a really long debug name!!", 0, (CarLoaderMemoryPoolNumber & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
     int num_hole_filling_allocations = 0;
 
     bFree(first_hole);
@@ -2109,25 +2131,26 @@ int CarLoader::DefragmentPool() {
             bStrNCpy(DefragmentParams.AllocationName, bGetMallocName(allocation), 0x3F);
 
             for (;;) {
-                void *hole = bMalloc(1, 0, 0, (CarLoaderMemoryPoolNumber & 0xF) | 0x2000);
+                void *hole = bMalloc(1, 0, 0, (CarLoaderMemoryPoolNumber & 0xF) | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
 
-                if (reinterpret_cast<intptr_t>(hole) < reinterpret_cast<intptr_t>(first_hole) - 128) {
-                    hole_filling_allocations[num_hole_filling_allocations] = hole;
-                    num_hole_filling_allocations++;
-                } else {
+                if (reinterpret_cast<intptr_t>(hole) >= reinterpret_cast<intptr_t>(first_hole) - 128) {
                     bFree(hole);
                     DefragmentParams.pNewAllocation = hole;
-                    movement = reinterpret_cast<intptr_t>(hole) - reinterpret_cast<intptr_t>(DefragmentParams.pAllocation);
-                    ChunkMovementOffset = movement;
-
-                    if (!this->DefragmentAllocation(allocation)) {
-                        movement = 0;
-                    }
-
-                    ChunkMovementOffset = 0;
                     break;
                 }
+
+                hole_filling_allocations[num_hole_filling_allocations] = hole;
+                num_hole_filling_allocations++;
             }
+
+            movement = reinterpret_cast<intptr_t>(DefragmentParams.pNewAllocation) - reinterpret_cast<intptr_t>(DefragmentParams.pAllocation);
+            ChunkMovementOffset = movement;
+
+            if (!this->DefragmentAllocation(allocation)) {
+                movement = 0;
+            }
+
+            ChunkMovementOffset = 0;
         }
 
         gDefragFixer.Add(allocation, allocation_size, movement);
@@ -2177,8 +2200,13 @@ void CarLoader::ServiceLoading() {
     if (num_can_unload > 0) {
         int num_free_slots = bCountFreeSlots(LoadedRideInfoSlotPool);
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        if (num_free_slots < 20) {
+            int num_to_unload = 20 - num_free_slots;
+#else
         if (num_free_slots < 10) {
             int num_to_unload = 10 - num_free_slots;
+#endif
             int num_to_leave;
 
             if (num_to_unload > num_can_unload) {

@@ -7,10 +7,20 @@
 
 #include <types.h>
 
+#include "Speed/Indep/Libs/Support/Utility/FastMem.h"
+
 class NetworkMutex {
   public:
+    // NetworkMutex.hpp:12 de la A124: el new de ExtrapolatedCar va a gFastMem, y su delete tiene copia en zWorld.
+    static void *operator new(size_t size) {
+        return gFastMem.Alloc(size, nullptr);
+    }
+    static void operator delete(void *mem, size_t size) {
+        if (mem) {
+            gFastMem.Free(mem, size, nullptr);
+        }
+    }
     NetworkMutex() {}
-    static void operator delete(void *mem, size_t size);
     void Create() {}
     void Lock() {}
     void Unlock() {}

@@ -2,6 +2,8 @@
 
 #ifdef EA_PLATFORM_XENON
 #include <ppcintrinsics.h>
+#else
+#include "UEALibs.hpp"
 #endif
 
 // Decl: 44
@@ -11,11 +13,26 @@ inline float VU0_v3dotprod(const UMath::Vector3 &a, const UMath::Vector3 &b) {
 
 // Decl: 59
 inline void VU0_v3crossprod(const UMath::Vector3 &a, const UMath::Vector3 &b, UMath::Vector3 &dest) {
-    UMath::Vector3 result; // TODO
-    dest.x = a.y * b.z - a.z * b.y;
-    dest.y = a.z * b.x - a.x * b.z;
-    dest.z = a.x * b.y - a.y * b.x;
+    // Admite alias (dest igual a a o b), como GameCube y PS2, que leen todo antes de escribir:
+    // SuspensionRacer llama Cross(c, forwardNormal, c).
+    UMath::Vector3 result;
+    result.x = a.y * b.z - a.z * b.y;
+    result.y = a.z * b.x - a.x * b.z;
+    result.z = a.x * b.y - a.y * b.x;
+    dest = result;
 }
+
+// En PC va en linea: la UMath::Unit del original (speed.exe 0x40FE20) llama a la raiz y compara con cero en el
+// propio cuerpo. En Xbox 360 sigue fuera de linea (UVectorMath.cpp): con LTCG el binario no lo distingue.
+#ifndef EA_PLATFORM_XENON
+inline float VU0_rsqrt(const float a) {
+    float temp = VU0_sqrt(a);
+    float zero = 0.0f;
+    if (temp == zero)
+        return zero;
+    return 1.0f / temp;
+}
+#endif
 
 // Decl: Carbon: UVectorMathCPU.hpp: 94, GC MW: UVectorMathGC.hpp: 26, PS2 MW: UVectorMath.hpp: 354
 inline void VU0_v3unitcrossprod(const UMath::Vector3 &a, const UMath::Vector3 &b, UMath::Vector3 &dest) {
@@ -24,8 +41,14 @@ inline void VU0_v3unitcrossprod(const UMath::Vector3 &a, const UMath::Vector3 &b
 }
 
 // Decl: Carbon: UVectorMathCPU.hpp: 129, GC MW: UVectorMathGC.hpp: 220, PS2 MW: UVectorMath.hpp: 621
+// Las longitudes de hasta 1e-6 dan cero sin raiz: asi lo hacen la Unit de PC (speed.exe 0x40FE20) y la
+// VU0_v3unit de Xbox 360 (0x820F0410).
 inline void VU0_v3unit(const UMath::Vector3 &a, UMath::Vector3 &result) {
-    float rlen = VU0_rsqrt(VU0_v3lengthsquare(a));
+    float rlen = 0.0f;
+    float lensq = VU0_v3lengthsquare(a);
+    if (lensq > 0.000001f) {
+        rlen = VU0_rsqrt(lensq);
+    }
     VU0_v3scale(a, rlen, result);
 }
 
@@ -71,9 +94,10 @@ inline void VU0_v3scale(const UMath::Vector3 &a, const UMath::Vector3 &b, UMath:
 
 // Decl: 269
 inline void VU0_v3scaleadd(const UMath::Vector3 &a, const float scaleby, const UMath::Vector3 &b, UMath::Vector3 &result) {
-    result.x = a.x + b.x * scaleby;
-    result.y = a.y + b.y * scaleby;
-    result.z = a.z + b.z * scaleby;
+    // a * scaleby + b, como en GameCube (ps_muls0 sobre a y ps_add con b) y en PS2 (vmulx sobre a y vadd con b)
+    result.x = a.x * scaleby + b.x;
+    result.y = a.y * scaleby + b.y;
+    result.z = a.z * scaleby + b.z;
 }
 
 // Decl: Carbon: UVectorMathCPU.hpp: 293, GC MW: UVectorMathGC.hpp: 62, PS2 MW: UVectorMath.hpp: 1223
@@ -124,6 +148,11 @@ inline float VU0_v3lengthxz(const UMath::Vector3 &a) {
     return VU0_sqrt(a.x * a.x + a.z * a.z);
 }
 
+// Como la de GameCube (UVectorMathGC.hpp): UMath::LengthXZ la necesita en todas las plataformas.
+inline float VU0_v4lengthxz(const UMath::Vector4 &a) {
+    return VU0_sqrt(a.x * a.x + a.z * a.z);
+}
+
 // Decl: Carbon: UVectorMathCPU.hpp: 364, GC MW: UVectorMathGC.hpp: 284, PS2 MW: UVectorMath.hpp: TODO
 inline float VU0_v4length(const UMath::Vector4 &a) {
     return VU0_sqrt(VU0_v4lengthsquare(a));
@@ -141,7 +170,7 @@ inline float VU0_v3distancesquare(const UMath::Vector3 &p1, const UMath::Vector3
 
 // Decl: 393
 inline float VU0_v3distancesquarexz(const UMath::Vector3 &p1, const UMath::Vector3 &p2) {
-    return 0.0f; // TODO
+    return (p1.x - p2.x) * (p1.x - p2.x) + (p1.z - p2.z) * (p1.z - p2.z);
 }
 
 // Decl: 405
@@ -151,18 +180,17 @@ inline float VU0_v3lengthsquare(const UMath::Vector3 &a) {
 
 // Decl: Carbon: UVectorMathCPU.hpp: 415
 inline float VU0_v4lengthsquarexyz(const UMath::Vector4 &a) {
-    return 0.0f; // TODO
+    return a.x * a.x + a.y * a.y + a.z * a.z;
 }
 
 // Decl: 420
 inline float VU0_sqrt(const float a) {
 #ifdef EA_PLATFORM_XENON
     return __fsqrts(a);
-#elif defined(__ANDROID__)
-    // Port Android
-    return __builtin_sqrtf(a);
 #else
-    return static_cast<float>(sqrt(a));
+    // La rsqrt de UEALibs (fuera de linea en zFoundation, speed.exe 0x5C5E80): el juego de PC la llama 208 veces y
+    // en zFoundation, que la define, sale en linea.
+    return rsqrt(a);
 #endif
 }
 
@@ -243,7 +271,7 @@ inline void VU0_MATRIX4Init(UMath::Matrix4 &dest, const float xx, const float yy
 
 // Las tres siguientes existian solo en UVectorMathGC.hpp. UMath.h las llama desde
 // codigo comun --Init(Matrix4&), Init(Vector4&) y UnitCrossxyz--, asi que sin
-// ellas la ruta portable (Android y cualquier host que no sea GC ni PS2) no
+// ellas la ruta de CPU (Xbox 360, PC y cualquier host que no sea GC ni PS2) no
 // compila. Este fichero NO entra en el build de GameCube, comprobado contra
 // build/GOWE69/dep: aqui no se puede mover el DOL.
 

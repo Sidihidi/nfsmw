@@ -11,6 +11,36 @@
 EVehicleDestroyed::EVehicleDestroyed(HSIMABLE phSimable) : Event(0x10), fhSimable(phSimable) {
 }
 
+#ifdef EA_BUILD_A124
+// La A124 avisa del destrozo antes de mirar al jugador, y aun no ajusta la dificultad ni avisa en pantalla partida.
+EVehicleDestroyed::~EVehicleDestroyed() {
+    ISimable *isimable = ISimable::FindInstance(fhSimable);
+
+    if (isimable) {
+        MNotifyVehicleDestroyed(isimable->GetInstanceHandle()).Post(UCrc32(0x20d60dbf));
+
+        IPlayer *iplayer = isimable->GetPlayer();
+
+        if (iplayer) {
+            if (iplayer->InGameBreaker()) {
+                iplayer->ToggleGameBreaker();
+            }
+        }
+
+        GRacerInfo *racerInfo = GRaceStatus::Get().GetRacerInfo(isimable);
+
+        if (racerInfo) {
+            racerInfo->TotalVehicle();
+        }
+
+        IInputPlayer *input;
+
+        if (isimable->QueryInterface(&input)) {
+            input->BlockInput(true);
+        }
+    }
+}
+#else
 EVehicleDestroyed::~EVehicleDestroyed() {
     ISimable *isimable = ISimable::FindInstance(fhSimable);
 
@@ -50,6 +80,7 @@ EVehicleDestroyed::~EVehicleDestroyed() {
         }
     }
 }
+#endif
 
 const char *EVehicleDestroyed::GetEventName() const {
     return "EVehicleDestroyed";

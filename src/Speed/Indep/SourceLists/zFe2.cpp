@@ -1,3 +1,10 @@
+// Prefijo comun de las unidades de juego del original (como zFEng.cpp): en la A124 los 402 primeros tipos de
+// los stabs son los mismos en todas, y la .rodata empieza por las cadenas de bWare.hpp.
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/Support/Utility/UStandard.h"
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UCollections.h"
+
 #include "Speed/Indep/Src/Frontend/HUD/FeHudElement.cpp"
 
 #include "Speed/Indep/Src/Frontend/HUD/FeGetawayMeter.cpp"
@@ -9,6 +16,9 @@
 #include "Speed/Indep/Src/Frontend/HUD/FeCostToState.cpp"
 
 #include "Speed/Indep/Src/Frontend/HUD/FeReputation.cpp"
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/Src/Frontend/HUD/FeOnlineHudSupport.cpp"
+#endif
 
 #include "Speed/Indep/Src/Frontend/HUD/FeMinimapStreamer.cpp"
 
@@ -68,6 +78,8 @@
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEPkg_Chyron.cpp"
 
+#include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEPkg_ConfirmDialog.cpp"
+
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEpkg_MU_Keyboard.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEPKg_PostRace.cpp"
@@ -75,6 +87,8 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/PhotoFinish.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/uiSixDaysLater.cpp"
+
+#include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEPkg_OKDialog.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Loading/FEBootFlowManager.cpp"
 
@@ -99,6 +113,9 @@
 #include "Speed/Indep/Src/Frontend/Localization/Localize.cpp"
 
 #include "Speed/Indep/Src/Frontend/Localization/WideCharHistogram.cpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/ScreenPrintf.cpp"
+#endif
 
 #include "Speed/Indep/Src/Frontend/RaceStarter.cpp"
 
@@ -109,6 +126,9 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/Slider.cpp"
 
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.cpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/Database/OnlineDB.cpp"
+#endif
 
 #include "Speed/Indep/Src/Frontend/Database/RaceDB.cpp"
 
@@ -135,6 +155,8 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feArrayScrollerMenu.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feUIWidgetMenu.cpp"
+
+#include "Speed/Indep/Src/Frontend/MenuScreens/Common/uiDateMenu.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feWidget.cpp"
 

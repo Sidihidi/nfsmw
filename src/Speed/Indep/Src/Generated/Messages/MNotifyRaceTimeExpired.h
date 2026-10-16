@@ -26,7 +26,6 @@ class MNotifyRaceTimeExpired : public Hermes::Message {
 
     MNotifyRaceTimeExpired() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MNotifyRaceTimeExpired() {}
 };
 
 
@@ -34,9 +33,9 @@ class MNotifyRaceTimeExpired : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyRaceTimeExpired::HandleMessage_LuaBinding(const MNotifyRaceTimeExpired &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyRaceTimeExpired::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

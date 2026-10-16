@@ -13,9 +13,17 @@ SymbolPool::SymbolPool() {
     mpFunctions = nullptr;
 }
 
-void SymbolPool::FreeMemory() {}
+void SymbolPool::FreeMemory() {
+    Empty();
+    if (mpSymbolTable) {
+        EAGL4Internal::EAGL4Free(mpSymbolTable, mTableLength * sizeof(*mpSymbolTable));
+        mpSymbolTable = nullptr;
+    }
+}
 
-SymbolPool::~SymbolPool() {}
+SymbolPool::~SymbolPool() {
+    FreeMemory();
+}
 
 unsigned int SymbolPool::HashFunction(const char *Name) {
     int i = 0;
@@ -123,6 +131,29 @@ void *SymbolPool::Search(const char *Name, bool &Valid) {
 end:
     Valid = false;
     return nullptr;
+}
+
+void SymbolPool::Empty() {
+    EAGL4Internal::SymbolEntry *pSymbol;
+    EAGL4Internal::FunctionEntry *pFunction;
+
+    if (mpSymbolTable) {
+        for (unsigned int i = 0; i < mTableLength; i++) {
+            pSymbol = mpSymbolTable[i];
+            if (pSymbol) {
+                EAGL4Internal::EAGL4Free(pSymbol, strlen(reinterpret_cast<char *>(pSymbol + 1)) + 5);
+            }
+            mpSymbolTable[i] = nullptr;
+        }
+    }
+    mTableSize = 0;
+
+    while (mpFunctions) {
+        pFunction = mpFunctions;
+        mpFunctions = mpFunctions->Next;
+        EAGL4Internal::EAGL4Free(pFunction, sizeof(*pFunction));
+    }
+    mpFunctions = nullptr;
 }
 
 }; // namespace EAGL4

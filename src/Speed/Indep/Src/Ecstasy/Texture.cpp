@@ -2,6 +2,7 @@
 #include "Ecstasy.hpp"
 #include "Speed/Indep/Libs/Support/Miscellaneous/StringHash.h"
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
+#include "Speed/Indep/Src/Misc/Profiler.hpp"
 #include "Speed/Indep/Src/Misc/ResourceLoader.hpp"
 #include "Speed/Indep/Src/Misc/SpeedChunks.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
@@ -20,32 +21,6 @@
 #include "Speed/Xenon/Src/Ecstasy/TextureInfoPlat.hpp"
 #elif defined(EA_PLATFORM_PLAYSTATION2)
 #include "Speed/PSX2/Src/Ecstasy/TextureInfoPlat.hpp"
-void TextureUnLoadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *streaming_entry, eStreamingPack *streaming_pack) {
-    // ProfileNode profile_node;
-    // TODO ProfileNode
-
-    TexturePackHeader *texture_pack_header = streaming_pack->pTexturePackHeader;
-    TexturePack *texture_pack = texture_pack_header->pTexturePack;
-    unsigned char *pdata = reinterpret_cast<unsigned char *>(chunk);
-    TextureInfoPlatInfo *plat_info =
-        reinterpret_cast<TextureInfoPlatInfo *>(pdata + (streaming_entry->UncompressedSize - sizeof(TextureInfoPlatInfo)));
-    TextureInfo *texture_info =
-        reinterpret_cast<TextureInfo *>(pdata + (streaming_entry->UncompressedSize - sizeof(TextureInfoPlatInfo) - sizeof(TextureInfo)));
-
-    int data_start = texture_info->ImagePlacement;
-    int data_end;
-    if (texture_info->PalettePlacement != -1) {
-        data_end = texture_info->PalettePlacement + texture_info->PaletteSize;
-    } else {
-        data_end = data_start + texture_info->ImageSize;
-    }
-    int data_size = data_end - data_start;
-    eFixupReplacementTexturesAfterUnloading(texture_info);
-    texture_pack->UnAssignTextureData(data_start, data_size);
-    texture_pack->UnattachTextureInfo(texture_info, plat_info, nullptr);
-    texture_info->EndianSwap();
-}
-
 #endif
 
 TextureInfo *DefaultTextureInfo = 0;
@@ -398,16 +373,27 @@ void TexturePack::AssignTextureData(char *texture_data, int begin_pos, int num_b
         }
         bool initialized_something = false;
         if (t->ImageSize != 0 && (t->ImagePlacement >= begin_pos) && (t->ImagePlacement < begin_pos + num_bytes)) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe guarda ImageData antes de poner el flag; GameCube casa al reves
+            t->ImageData = texture_data + (t->ImagePlacement - begin_pos);
+            initialized_something = true;
+#else
             initialized_something = true;
             t->ImageData = texture_data + (t->ImagePlacement - begin_pos);
+#endif
         }
         if (t->PaletteSize != 0 && (t->PalettePlacement >= begin_pos) && (t->PalettePlacement < begin_pos + num_bytes)) {
             initialized_something = true;
             t->PaletteData = texture_data + (t->PalettePlacement - begin_pos);
         }
         if (initialized_something && t->ImageData) {
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+            // X360 incrementa tras la llamada (el addi va despues del bl); speed.exe tambien (inc tras el call).
+            t->Init();
+            num_assigned++;
+#else
             num_assigned++;
             t->Init();
+#endif
             assigned_texture_info = t;
         }
     }
@@ -459,11 +445,22 @@ void TexturePack::UnAssignTextureData(int begin_pos, int num_bytes) {
             t->Close();
             uint32 texture_name_hash = t->NameHash;
             ClearTextureInfoCache(texture_name_hash);
+#ifdef EA_PLATFORM_WIN32 // speed.exe compara los 4 hashes con cmp sueltos, sin plegar a rango;
+                         // GameCube casa con el rango
+            if (t->NameHash == 0x530b82b0 || t->NameHash == 0x530b82b1 || t->NameHash == 0x530b82b2 || t->NameHash == 0x530b82b3) {
+#else
             if (t->NameHash + 0xacf47d50 < 4) {
+#endif
                 FlushFromSkinCompositeCache(t->NameHash);
             }
+#ifdef EA_PLATFORM_WIN32 // speed.exe deja el contador en eax entre el inc y el spill, con el store de t en
+                         // medio (forma con el store antes del ++); GameCube casa con ++ y mem-inc
+            unassigned_texture_info = t;
+            num_unassigned++;
+#else
             num_unassigned++;
             unassigned_texture_info = t;
+#endif
         }
     }
     if (num_unassigned != 1) {
@@ -483,21 +480,12 @@ TextureIndexEntry *TexturePack::GetTextureIndexEntry(uint32 name_hash) {
 }
 
 TextureInfo *TexturePack::GetLoadedTexture(uint32 name_hash) {
-    bool bVar1;
-
-    if (TextureLoadedTable.IsLoaded(name_hash)) {
+    if (!TextureLoadedTable.IsLoaded(name_hash)) {
         return nullptr;
     }
     TextureIndexEntry *index_entry = this->GetTextureIndexEntry(name_hash);
-    if (index_entry && index_entry->pTextureInfo) {
-        // TODO
-        if (!index_entry->pTextureInfo->ImageData ||
-            (bVar1 = true, index_entry->pTextureInfo->PaletteSize != 0 && !index_entry->pTextureInfo->PaletteData)) {
-            bVar1 = false;
-        }
-        if (bVar1) {
-            return index_entry->pTextureInfo;
-        }
+    if (index_entry && index_entry->pTextureInfo && index_entry->pTextureInfo->IsLoaded()) {
+        return index_entry->pTextureInfo;
     }
     return nullptr;
 }
@@ -508,6 +496,78 @@ TextureInfo *TexturePack::GetTexture(uint32 name_hash) {
         return index_entry->pTextureInfo;
     }
     return nullptr;
+}
+
+void TextureInfo::Setup(const char *name, void *image_data, int image_width, int image_height, int comp_type, void *palette_data,
+                        int num_palette_entries, int alpha_usage, int alpha_blend, int alpha_sort) {
+    int shift_width_amount;
+    int shift_height_amount;
+
+    for (shift_width_amount = 0; (1 << shift_width_amount) < image_width; shift_width_amount++) {
+    }
+    for (shift_height_amount = 0; (1 << shift_height_amount) < image_height; shift_height_amount++) {
+    }
+
+    int image_size = 0;
+    switch (comp_type) {
+    case TEXCOMP_8BIT:
+    case TEXCOMP_8BIT_16:
+    case TEXCOMP_8BIT_64:
+        image_size = image_width * image_height;
+        break;
+    case TEXCOMP_16BIT:
+    case TEXCOMP_16BIT_1555:
+    case TEXCOMP_16BIT_565:
+    case TEXCOMP_16BIT_3555:
+        image_size = image_width * image_height * 2;
+        break;
+    case TEXCOMP_24BIT:
+        image_size = image_width * image_height * 3;
+        break;
+    case TEXCOMP_32BIT:
+        image_size = image_width * image_height * 4;
+        break;
+    case TEXCOMP_4BIT:
+    case TEXCOMP_DXT:
+    case TEXCOMP_DXTC1:
+    case TEXCOMP_DXTC3:
+        image_size = ((image_width + 1) & 1) * image_height;
+        break;
+    }
+
+    bMemCpy(DebugName, name, sizeof(DebugName));
+    DebugName[sizeof(DebugName) - 1] = 0;
+
+    NameHash = bStringHash(name);
+    Width = image_width;
+    Height = image_height;
+    ImagePlacement = 0;
+    PalettePlacement = 0;
+    BaseImageSize = image_size;
+    ImageSize = image_size;
+    PaletteSize = 0;
+    ImageCompressionType = comp_type;
+    PaletteCompressionType = 0;
+    NumPaletteEntries = num_palette_entries;
+    NumMipMapLevels = 1;
+    ShiftWidth = shift_width_amount;
+    ShiftHeight = shift_height_amount;
+    ApplyAlphaSorting = 0;
+    AlphaUsageType = alpha_usage;
+    AlphaBlendType = alpha_blend;
+    RenderingOrder = 0;
+    TilableUV = 0;
+    Flags = 0;
+    ScrollType = 0;
+    SetOffsetS(0.0f);
+    SetOffsetT(0.0f);
+    SetScaleS(1.0f);
+    SetScaleT(1.0f);
+    pTexturePack = nullptr;
+    pImageParent = this;
+    ImageData = image_data;
+    PaletteData = palette_data;
+    ReferenceCount = 1;
 }
 
 TextureInfo *eCreateTextureInfo() {
@@ -588,9 +648,13 @@ void TextureAnimPack::InitAnims() {
 }
 
 void UpdateTextureAnimations() {
-    // ProfileNode profile_node;
+    ProfileNode profile_node(nullptr, 0);
 
+#ifdef EA_BUILD_A124
+    if (WorldTimeElapsed == 0.0f) {
+#else
     if (!IsGameFlowInFrontEnd() && (WorldTimeElapsed == 0.0f)) {
+#endif
         return;
     }
 
@@ -615,7 +679,7 @@ void UpdateTextureAnimations() {
             current_time = texture_anim->TimeBase == 1 ? real_time : world_time;
             fps = texture_anim->FramesPerSecond;
             num_frames = texture_anim->NumFrames;
-            current_frame = static_cast<int>(fps * current_time) % num_frames;
+            current_frame = bFloatToInt(fps * current_time) % num_frames;
 
             if (current_frame == texture_anim->CurrentFrame) {
                 continue;
@@ -633,14 +697,10 @@ void UpdateTextureAnimations() {
             }
         }
     }
-
-    // TODO ProfileNode
 }
 
 void TextureLoadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *streaming_entry, eStreamingPack *streaming_pack) {
-    // ProfileNode profile_node;
-    // TODO ProfileNode
-
+    ProfileNode profile_node(nullptr, 0);
     TexturePackHeader *texture_pack_header = streaming_pack->pTexturePackHeader;
     TexturePack *texture_pack = texture_pack_header->pTexturePack;
     unsigned char *pdata = reinterpret_cast<unsigned char *>(chunk);
@@ -663,9 +723,7 @@ void TextureLoadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *streami
 }
 
 void TextureUnloadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *streaming_entry, eStreamingPack *streaming_pack) {
-    // ProfileNode profile_node;
-    // TODO ProfileNode
-
+    ProfileNode profile_node(nullptr, 0);
     TexturePackHeader *texture_pack_header = streaming_pack->pTexturePackHeader;
     TexturePack *texture_pack = texture_pack_header->pTexturePack;
     unsigned char *pdata = reinterpret_cast<unsigned char *>(chunk);
@@ -688,9 +746,32 @@ void TextureUnloadedStreamingEntryCallback(bChunk *chunk, eStreamingEntry *strea
     texture_info->EndianSwap();
 }
 
+#ifdef EA_BUILD_A124
+void eLoadStreamingTexture(uint32 name_hash, void (*callback)(uint32), uint32 param0, int memory_pool_num) {
+    StreamingTexturePackLoader.LoadStreamingEntry(name_hash, callback, param0, memory_pool_num);
+}
+
+void eLoadStreamingTexture(uint32 *name_hash_table, int num_hashes, void (*callback)(uint32), uint32 param0, int memory_pool_num) {
+    StreamingTexturePackLoader.LoadStreamingEntry(name_hash_table, num_hashes, callback, param0, memory_pool_num);
+}
+#else
+#ifdef EA_PLATFORM_PLAYSTATION2
+void eLoadStreamingTexture(uint32 *name_hash_table, int num_hashes, void (*callback)(uintptr_t), uintptr_t param0, int memory_pool_num) {
+    StreamingTexturePackLoader.LoadStreamingEntry(name_hash_table, num_hashes, reinterpret_cast<void (*)(void *)>(callback),
+                                                  reinterpret_cast<void *>(param0), memory_pool_num);
+}
+#endif
+
 void eLoadStreamingTexture(uint32 *name_hash_table, int num_hashes, void (*callback)(void *), void *param0, int memory_pool_num) {
     StreamingTexturePackLoader.LoadStreamingEntry(name_hash_table, num_hashes, callback, param0, memory_pool_num);
 }
+#endif
+
+#ifdef EA_BUILD_A124
+void eUnloadStreamingTexture(uint32 name_hash) {
+    StreamingTexturePackLoader.UnloadStreamingEntry(name_hash, nullptr);
+}
+#endif
 
 void eUnloadStreamingTexture(uint32 *name_hash_table, int num_hashes) {
     StreamingTexturePackLoader.UnloadStreamingEntry(name_hash_table, num_hashes);
@@ -708,12 +789,31 @@ int eIsStreamingTexturePackLoaded(const char *filename) {
     return StreamingTexturePackLoader.GetLoadedStreamingPack(filename) != nullptr;
 }
 
+#ifdef EA_BUILD_A124
+int eLoadStreamingTexturePack(const char *filename, void (*callback_function)(uint32), uint32 callback_param, int memory_pool_num) {
+    eStreamingPack *streaming_pack;
+
+    streaming_pack = StreamingTexturePackLoader.CreateStreamingPack(filename, callback_function, callback_param, memory_pool_num);
+    return streaming_pack != nullptr;
+}
+#else
 int eLoadStreamingTexturePack(const char *filename, void (*callback_function)(void *), void *callback_param, int memory_pool_num) {
     eStreamingPack *streaming_pack;
 
     streaming_pack = StreamingTexturePackLoader.CreateStreamingPack(filename, callback_function, callback_param, memory_pool_num);
     return streaming_pack != nullptr;
 }
+#endif
+
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+int eLoadStreamingTexturePack(const char *filename, void (*callback_function)(uintptr_t), uintptr_t callback_param, int memory_pool_num) {
+    eStreamingPack *streaming_pack;
+
+    streaming_pack = StreamingTexturePackLoader.CreateStreamingPack(filename, reinterpret_cast<void (*)(void *)>(callback_function),
+                                                                   reinterpret_cast<void *>(callback_param), memory_pool_num);
+    return streaming_pack != nullptr;
+}
+#endif
 
 void TextureLoadingStreamingPackPhase1(eStreamingPackHeaderLoadingInfoPhase1 *loading_info) {
     bChunk *list_chunk = loading_info->TempHeaderChunks;
@@ -723,8 +823,13 @@ void TextureLoadingStreamingPackPhase1(eStreamingPackHeaderLoadingInfoPhase1 *lo
     bChunk *header_chunk = null_chunk->GetNext();
     EndianSwapChunkHeader(header_chunk);
     int header_chunks_size = header_chunk->GetSize();
+#ifdef EA_PLATFORM_WIN32 // speed.exe guarda primero la posicion y despues la cantidad; GameCube casa al reves
+    loading_info->NextLoadPosition = (uintptr_t)header_chunk - (uintptr_t)list_chunk;
+    loading_info->NextLoadAmount = header_chunks_size + 16;
+#else
     loading_info->NextLoadAmount = header_chunks_size + 16;
     loading_info->NextLoadPosition = (uintptr_t)header_chunk - (uintptr_t)list_chunk;
+#endif
 }
 
 void TextureLoadingStreamingPackPhase2(eStreamingPackHeaderLoadingInfoPhase2 *loading_info) {
@@ -740,9 +845,15 @@ void TextureLoadingStreamingPackPhase2(eStreamingPackHeaderLoadingInfoPhase2 *lo
     loading_info->pTexturePackHeader = texture_pack_header;
 }
 
+#ifdef EA_BUILD_A124
+int eUnloadStreamingTexturePack(const char *filename, void (*callback_function)(uint32), uint32 callback_param) {
+    return StreamingTexturePackLoader.DeleteStreamingPack(filename, callback_function, callback_param);
+}
+#else
 void eUnloadStreamingTexturePack(const char *filename) {
     StreamingTexturePackLoader.DeleteStreamingPack(filename);
 }
+#endif
 
 void TextureUnloadingStreamingPack(eStreamingPack *streaming_pack) {
     InternalUnloadTexturePackHeaderChunks(streaming_pack->HeaderChunks);
@@ -756,11 +867,11 @@ float TextureInfo::GetScroll(float time, float speed, int scroll_type, float tim
     }
     if (scroll_type == TEXSCROLL_SNAP) {
         time /= time_step;
-        t = (int)time;
+        t = bFloatToInt(time);
     } else {
         t = time;
     }
-    float p = (int)(t * speed);
+    float p = bFloatToInt(t * speed);
     return t * speed - p;
 }
 
@@ -776,7 +887,7 @@ TextureInfo *GetTextureInfo(uint32 name_hash /* r30 */, int return_default_textu
             return texture_info;
         }
         for (TexturePack *p = TexturePackList.GetHead(); p != TexturePackList.EndOfList(); p = p->GetNext()) {
-            if (TextureLoadedTable.IsLoaded(name_hash)) {
+            if (!TextureLoadedTable.IsLoaded(name_hash)) {
                 break;
             }
             TextureInfo *texture_info;

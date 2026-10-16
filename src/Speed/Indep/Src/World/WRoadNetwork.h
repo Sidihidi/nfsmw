@@ -6,6 +6,7 @@
 #endif
 
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Libs/Support/Utility/USpline.h"
 #include "Speed/Indep/Src/Debug/Debugable.h"
@@ -175,7 +176,7 @@ struct NavCookie {
     unsigned short SegmentNodeInd : 1; // offset 0x3E, size 0x2
 
     void SetSegmentParameter(float t) {
-        SegmentParameter = static_cast<short>(bClamp(t, 0.0f, 1.0f) * 65535.0f);
+        SegmentParameter = static_cast<short>(bFloatToInt(bClamp(t, 0.0f, 1.0f) * 65535.0f));
     }
 
     float GetSegmentParameter() const {
@@ -552,24 +553,24 @@ class WRoadNav {
     short fSegmentInd;                          // offset 0x9A, size 0x2
     float fSegTime;                             // offset 0x9C, size 0x4
     float fCurvature;                           // offset 0xA0, size 0x4
-    ALIGN_16 UMath::Vector3 fPosition;          // offset 0xA4, size 0xC
-    ALIGN_16 UMath::Vector3 fLeftPosition;      // offset 0xB0, size 0xC
-    ALIGN_16 UMath::Vector3 fRightPosition;     // offset 0xBC, size 0xC
-    ALIGN_16 UMath::Vector3 fForwardVector;     // offset 0xC8, size 0xC
-    ALIGN_16 UMath::Vector3 fEndPos;            // offset 0xD4, size 0xC
-    ALIGN_16 UMath::Vector3 fStartPos;          // offset 0xE0, size 0xC
-    ALIGN_16 UMath::Vector3 fEndControl;        // offset 0xEC, size 0xC
-    ALIGN_16 UMath::Vector3 fStartControl;      // offset 0xF8, size 0xC
-    ALIGN_16 UMath::Vector3 fLeftEndPos;        // offset 0x104, size 0xC
-    ALIGN_16 UMath::Vector3 fLeftStartPos;      // offset 0x110, size 0xC
-    ALIGN_16 UMath::Vector3 fLeftEndControl;    // offset 0x11C, size 0xC
-    ALIGN_16 UMath::Vector3 fLeftStartControl;  // offset 0x128, size 0xC
-    ALIGN_16 UMath::Vector3 fRightEndPos;       // offset 0x134, size 0xC
-    ALIGN_16 UMath::Vector3 fRightStartPos;     // offset 0x140, size 0xC
-    ALIGN_16 UMath::Vector3 fRightEndControl;   // offset 0x14C, size 0xC
-    ALIGN_16 UMath::Vector3 fRightStartControl; // offset 0x158, size 0xC
-    ALIGN_16 UMath::Vector3 fApexPosition;      // offset 0x164, size 0xC
-    ALIGN_16 UMath::Vector3 fOccludedPosition;  // offset 0x170, size 0xC
+    ALIGNVEC UMath::Vector3 fPosition;          // offset 0xA4, size 0xC
+    ALIGNVEC UMath::Vector3 fLeftPosition;      // offset 0xB0, size 0xC
+    ALIGNVEC UMath::Vector3 fRightPosition;     // offset 0xBC, size 0xC
+    ALIGNVEC UMath::Vector3 fForwardVector;     // offset 0xC8, size 0xC
+    ALIGNVEC UMath::Vector3 fEndPos;            // offset 0xD4, size 0xC
+    ALIGNVEC UMath::Vector3 fStartPos;          // offset 0xE0, size 0xC
+    ALIGNVEC UMath::Vector3 fEndControl;        // offset 0xEC, size 0xC
+    ALIGNVEC UMath::Vector3 fStartControl;      // offset 0xF8, size 0xC
+    ALIGNVEC UMath::Vector3 fLeftEndPos;        // offset 0x104, size 0xC
+    ALIGNVEC UMath::Vector3 fLeftStartPos;      // offset 0x110, size 0xC
+    ALIGNVEC UMath::Vector3 fLeftEndControl;    // offset 0x11C, size 0xC
+    ALIGNVEC UMath::Vector3 fLeftStartControl;  // offset 0x128, size 0xC
+    ALIGNVEC UMath::Vector3 fRightEndPos;       // offset 0x134, size 0xC
+    ALIGNVEC UMath::Vector3 fRightStartPos;     // offset 0x140, size 0xC
+    ALIGNVEC UMath::Vector3 fRightEndControl;   // offset 0x14C, size 0xC
+    ALIGNVEC UMath::Vector3 fRightStartControl; // offset 0x158, size 0xC
+    ALIGNVEC UMath::Vector3 fApexPosition;      // offset 0x164, size 0xC
+    ALIGNVEC UMath::Vector3 fOccludedPosition;  // offset 0x170, size 0xC
     USpline fRoadSpline;                        // offset 0x17C, size 0x6C
     USpline fLeftSpline;                        // offset 0x1E8, size 0x6C
     USpline fRightSpline;                       // offset 0x254, size 0x6C

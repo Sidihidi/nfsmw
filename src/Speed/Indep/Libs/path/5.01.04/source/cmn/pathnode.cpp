@@ -60,20 +60,19 @@ int PATHI_calcwaitbeat(int every, int note, int offset, PATHBEATINFO *beatinfo)
     int nextsynchtime;
 
     scalar = (float)beatinfo->notes / (float)note;
-    fevery = (float)every;
-    foffset = (float)offset;
+    fevery = scalar * (float)every;
+    foffset = scalar * (float)offset;
 
     timeinbar = beatinfo->barduration - beatinfo->timetonextbar;
 
-    firstsynchtime = (int)(scalar * foffset * (float)beatinfo->beatduration);
-    scalar = scalar * fevery;
+    firstsynchtime = (int)(foffset * (float)beatinfo->beatduration);
 
     nextsynchtime = firstsynchtime;
     if (nextsynchtime < timeinbar)
     {
         while (nextsynchtime < (int)beatinfo->barduration)
         {
-            nextsynchtime += (int)(scalar * (float)beatinfo->beatduration);
+            nextsynchtime += (int)(fevery * (float)beatinfo->beatduration);
 
             if (nextsynchtime > timeinbar)
                 break;
@@ -344,13 +343,11 @@ int PATHI_nextnode(int node, int control, int forreal)
 
     for (i = 0; i < nodeinfo->numbranches; i++)
     {
-        if (control < branches[i].controlmin)
-            continue;
-        if (control > branches[i].controlmax)
-            continue;
-
-        nextnode = (short)branches[i].dstnode;
-        break;
+        if (control >= branches[i].controlmin && control <= branches[i].controlmax)
+        {
+            nextnode = (short)branches[i].dstnode;
+            break;
+        }
     }
 
     if (nextnode < 0)

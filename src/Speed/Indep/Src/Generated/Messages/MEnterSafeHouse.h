@@ -26,8 +26,6 @@ class MEnterSafeHouse : public Hermes::Message {
 
     MEnterSafeHouse(const char *_ZoneType) : Hermes::Message(_GetKind(), _GetSize(), 0), fZoneType(_ZoneType) {}
 
-    ~MEnterSafeHouse() {}
-
     const char *GetZoneType() const {
         return fZoneType;
     }
@@ -45,9 +43,9 @@ class MEnterSafeHouse : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MEnterSafeHouse::HandleMessage_LuaBinding(const MEnterSafeHouse &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MEnterSafeHouse::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -12,6 +12,7 @@
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_UI_DebugCarCustomize.hpp"
 
 uiCredits::uiCredits(ScreenConstructorData *sd) : MenuScreen(sd), initComplete_(false), prototypeStr_(0), pendingDelete_(0) {
+#ifndef EA_BUILD_A124 // la A124 no distingue el modo de juego terminado
     if (!FEDatabase->IsBeatGameMode()) {
         FEngSetInvisible(GetPackageName(), 0xEB4CF244);
         cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), 0);
@@ -19,6 +20,7 @@ uiCredits::uiCredits(ScreenConstructorData *sd) : MenuScreen(sd), initComplete_(
         FEngSetInvisible(GetPackageName(), 0x0BF41045);
         cFEng::Get()->QueuePackageMessage(0x3111B806, GetPackageName(), 0);
     }
+#endif
 }
 
 void uiCredits::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) {
@@ -56,11 +58,15 @@ void uiCredits::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             uf_.Unload();
             initComplete_ = false;
 
+#ifdef EA_BUILD_A124 // el prototipo vuelve siempre al menu
+            cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
+#else
             if (!FEDatabase->IsBeatGameMode()) {
                 cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
             } else {
                 FEGameWonScreen::QueuePackageSwitchForNextScreen();
             }
+#endif
 
             break;
 
@@ -97,13 +103,16 @@ void uiCredits::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
                 *od = *prototypeStr_->GetObjData();
 
                 ns->SetString(creditLine);
-                ns->Flags |= FF_DirtyCode;
 
+#ifdef EA_BUILD_A124
+                ns->SetScript(FEHashUpper("RollCredit"), false);
+#else
                 if (!FEDatabase->IsBeatGameMode()) {
                     ns->SetScript(FEHashUpper("RollCredit"), false);
                 } else {
                     ns->SetScript(FEHashUpper("RollCredit_ENDGAME"), false);
                 }
+#endif
 
                 currentPackage->AddObject(ns);
             }
@@ -116,9 +125,12 @@ void uiCredits::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             break;
 
         case 0x911AB364:
+#ifndef EA_BUILD_A124 // en la A124 el caso existe pero no hace nada
             cFEng::Get()->QueuePackageMessage(0x587C018B, nullptr, nullptr);
+#endif
 
             break;
+#ifndef EA_BUILD_A124
 
         case 0x406415E3:
             if (FEDatabase->IsBeatGameMode()) {
@@ -126,5 +138,6 @@ void uiCredits::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             }
 
             break;
+#endif
     }
 }

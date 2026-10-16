@@ -16,10 +16,11 @@ class AIActionRam : public AIAction, public Debugable {
     static AIAction *Construct(AIActionParams *params);
 
     AIActionRam(AIActionParams *params, float score);
+  private:
     bool ShouldDoIt();
     void GetSeekPosition(UMath::Vector3 &seekPosition, bool avoid);
     void UpdateSeek(UMath::Vector3 &seek, UMath::Vector3 &seekPosition, bool pull_over);
-
+  public:
     // Virtual functions
     virtual void OnDebugDraw();
 
@@ -91,16 +92,22 @@ bool AIActionRam::ShouldDoIt() {
 }
 
 bool AIActionRam::CanBeAttempted(float dT) {
-    if (mIVehicleAI && mIPursuitAI && mITransmission && mIRigidBody) {
-        if (mIPursuitAI->GetChicken()) {
-            return false;
-        }
-        if (!ShouldDoIt()) {
-            return false;
-        }
-        return true;
+    if (!mIVehicleAI || !mIPursuitAI) {
+        return false;
     }
-    return false;
+    if (!mITransmission) {
+        return false;
+    }
+    if (!mIRigidBody) {
+        return false;
+    }
+    if (mIPursuitAI->GetChicken()) {
+        return false;
+    }
+    if (!ShouldDoIt()) {
+        return false;
+    }
+    return true;
 }
 
 bool AIActionRam::IsFinished() {
@@ -201,7 +208,7 @@ void AIActionRam::UpdateSeek(UMath::Vector3 &seek, UMath::Vector3 &seekPosition,
 }
 
 void AIActionRam::Update(float dT) {
-    bool ispullover = mIVehicleAI->GetGoalName() == "AIGoalPullOver";
+    bool ispullover = mIVehicleAI->GetGoalName() == UCrc32("AIGoalPullOver");
 
     UMath::Vector3 seekPosition;
     GetSeekPosition(seekPosition, ispullover);

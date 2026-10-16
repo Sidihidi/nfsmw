@@ -41,9 +41,9 @@ void EResetSystem_MakeEvent_Callback(const void *staticData) {
     new EResetSystem(((EResetSystem::StaticData *) staticData)->fSystemName, gEventDynamicData.fEventSeqEngine, gEventDynamicData.fEventSeqSystem);
 }
 
-int EResetSystem_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EResetSystem(UCrc32(lua_tostring(L, 1)), gEventDynamicData.fEventSeqEngine, gEventDynamicData.fEventSeqSystem);
+int EResetSystem_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EResetSystem(UCrc32(lua_tostring(luaState, 1)), gEventDynamicData.fEventSeqEngine, gEventDynamicData.fEventSeqSystem);
     }
     return 0;
 }

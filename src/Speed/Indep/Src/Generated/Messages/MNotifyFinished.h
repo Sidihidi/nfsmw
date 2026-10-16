@@ -26,8 +26,6 @@ class MNotifyFinished : public Hermes::Message {
 
     MNotifyFinished(GCollectionKey _Sender) : Hermes::Message(_GetKind(), _GetSize(), 0), fSender(_Sender) {}
 
-    ~MNotifyFinished() {}
-
     GCollectionKey GetSender() const {
         return fSender;
     }
@@ -45,9 +43,9 @@ class MNotifyFinished : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyFinished::HandleMessage_LuaBinding(const MNotifyFinished &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyFinished::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

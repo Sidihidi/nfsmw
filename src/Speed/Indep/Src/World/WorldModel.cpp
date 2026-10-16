@@ -81,18 +81,18 @@ void WorldModel::Construct(SpaceNode *spacenode, bMatrix4 *matrix, const ModelHe
     this->mLightMaterialSkinHash = 0;
 
     if ((heirarchy != nullptr) && rootnode < heirarchy->mNumNodes) {
+        this->mChildVisibility = 0xFFFFFF;
         this->mHeirarchyIndex = rootnode;
         this->mHeirarchy = heirarchy;
-        this->mChildVisibility = 0xFFFFFF;
     } else {
         this->mChildVisibility = 0;
         this->mHeirarchyIndex = 0;
         this->mHeirarchy = nullptr;
     }
 
-    this->mInvisibleInside = false;
     this->mEnabled = true;
     this->mRenderInSplitScreen = true;
+    this->mInvisibleInside = false;
 #ifndef EA_BUILD_A124
     this->mCastsShadow = 1;
 #endif
@@ -182,10 +182,11 @@ void WorldModel::RenderNode(const ModelHeirarchy *heirarchy, unsigned int nodeIn
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        if (this->mHeirarchyIndex != nodeIndex || (this->mChildVisibility & (1 << i))) {
-            if ((heirarchy->GetNodes()[node->mChildIndex + i].mFlags & ModelHeirarchy::F_INTERNAL) == 0) {
-                this->RenderNode(heirarchy, node->mChildIndex + i, view, exc_flag, blended_matrices, matrix);
-            }
+        if (this->mHeirarchyIndex == nodeIndex && !(this->mChildVisibility & (1 << i))) {
+            continue;
+        }
+        if ((heirarchy->GetNodes()[node->mChildIndex + i].mFlags & ModelHeirarchy::F_INTERNAL) == 0) {
+            this->RenderNode(heirarchy, node->mChildIndex + i, view, exc_flag, blended_matrices, matrix);
         }
     }
 }
@@ -203,7 +204,7 @@ void WorldModel::RenderModel(eModel *render_model, eView *view, int exc_flag, bM
 
         eDynamicLightContext *light_context = nullptr;
         if (this->mAddLighting) {
-            light_context = static_cast<eDynamicLightContext *>(eFrameMalloc(sizeof(eDynamicLightContext) + 0xC)); // TODO why +0xC?
+            light_context = static_cast<eDynamicLightContext *>(eFrameMalloc(sizeof(eDynamicLightContext)));
             if (light_context == nullptr) {
                 return;
             }
@@ -253,10 +254,14 @@ static const float WorldObjectMaximumRadius = 35.0f;
 bVector4 delta2;
 bVector4 delta66;
 
+#ifdef EA_PLATFORM_WIN32
+extern int eRenderSkinnedWorldModels; // (0x9017D0) nombre nuestro; vale 1 en speed.exe
+#endif
+
 void WorldModel::Render(eView *view, int exc_flag) {
     if (this->mLastRenderFrame != eGetFrameCounter()) {
-        this->mLastRenderFrame = eGetFrameCounter();
         this->mDistanceToGameView = 999999.0f;
+        this->mLastRenderFrame = eGetFrameCounter();
     }
 
     CameraMover *mover = view->GetCameraMover();
@@ -299,6 +304,11 @@ void WorldModel::Render(eView *view, int exc_flag) {
     if (this->pSpaceNode != nullptr) {
         matrix = this->pSpaceNode->GetWorldMatrix();
         blended_matrices = this->pSpaceNode->GetBlendingMatrices();
+#ifdef EA_PLATFORM_WIN32
+        if (!eRenderSkinnedWorldModels && blended_matrices != nullptr) {
+            return;
+        }
+#endif
         if (blended_matrices != nullptr) {
             bMulMatrix(&clip_matrix, matrix, &blended_matrices[1]);
         } else {

@@ -20,7 +20,10 @@ class SymbolPool {
 
     // static void *operator new(size_t size, const char *msg) {}
 
-    // static void operator delete(void *ptr, size_t size) {}
+    // El DWARF de GameCube la expande en ~SymbolPool (el delete de la A124 libera 0x14 bytes con EAGL4Free).
+    static void operator delete(void *ptr, size_t size) {
+        EAGL4Internal::EAGL4Free(ptr, size);
+    }
 
     // static void *operator new[](size_t size) {}
 

@@ -105,7 +105,23 @@ public:
         this->phead = pnode;
     } // Decl: 112
 
-    CListDNode *Pop() {} // Decl: 129
+    // r76-audit: Pop venia decompilado con cuerpo {} (caer por el final de una
+    // funcion no-void es UB; GCC 2.95 lo tolera, clang -O2 no genera nada
+    // despues). El DWARF del binario original registra la instancia abstracta
+    // de este inline con UN local (CListDNode *pnode), asi que el fuente
+    // original llevaba cuerpo. Nadie lo llama en todo el arbol y no se emite
+    // (el objeto original no tiene simbolo Pop), con lo que la forma exacta no
+    // es recuperable: se restaura la simetrica de CListStack::Pop. Objeto
+    // invariante (rebuild + objdiff verificados).
+    CListDNode *Pop() {
+        CListDNode *pnode = this->phead;
+
+        if (pnode != NULL) {
+            this->phead = pnode->GetNext();
+        }
+
+        return pnode;
+    } // Decl: 129
 
     void Remove(CListDNode *pnode) {
         if (pnode == this->phead) {
@@ -161,10 +177,10 @@ public:
 
     void PushTail(CListNode *pnode) {
         pnode->SetNext(NULL);
-        if (this->ptail != NULL) {
-            this->ptail->SetNext(pnode);
-        } else {
+        if (this->phead == NULL) {
             this->phead = pnode;
+        } else {
+            this->ptail->SetNext(pnode);
         }
         this->ptail = pnode;
         this->entries++;

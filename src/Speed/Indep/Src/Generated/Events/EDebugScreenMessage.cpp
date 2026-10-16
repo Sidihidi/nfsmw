@@ -3,11 +3,17 @@
 #include <new>
 
 #include "Speed/Indep/Src/Lua/source/lua.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 
 EDebugScreenMessage::EDebugScreenMessage(const char *pDebugMsg, float pDuration, int pX, int pY) : Event(0x20), fDebugMsg(EventManager::EmbedField(this, pDebugMsg)), fDuration(pDuration), fX(pX), fY(pY) {
 }
 
 EDebugScreenMessage::~EDebugScreenMessage() {
+#ifdef EA_BUILD_A124
+    ScreenPrintf(fX, fY, fDuration, fDebugMsg); // solo la A124 pinta el mensaje
+#endif
 }
 
 const char *EDebugScreenMessage::GetEventName() const {
@@ -18,9 +24,9 @@ void EDebugScreenMessage_MakeEvent_Callback(const void *staticData) {
     new EDebugScreenMessage(((EDebugScreenMessage::StaticData *) staticData)->fDebugMsg, ((EDebugScreenMessage::StaticData *) staticData)->fDuration, ((EDebugScreenMessage::StaticData *) staticData)->fX, ((EDebugScreenMessage::StaticData *) staticData)->fY);
 }
 
-int EDebugScreenMessage_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 4) {
-        new EDebugScreenMessage(lua_tostring(L, 1), lua_tonumber(L, 2), (int) lua_tonumber(L, 3), (int) lua_tonumber(L, 4));
+int EDebugScreenMessage_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 4) {
+        new EDebugScreenMessage(lua_tostring(luaState, 1), lua_tonumber(luaState, 2), (int) lua_tonumber(luaState, 3), (int) lua_tonumber(luaState, 4));
     }
     return 0;
 }

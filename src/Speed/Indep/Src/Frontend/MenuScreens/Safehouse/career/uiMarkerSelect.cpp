@@ -183,9 +183,9 @@ int FEMarkerSelection::GetButtonIndex(unsigned int hash) {
 }
 
 int FEMarkerSelection::GetSelectedButtonIndex() {
-    FEObject *btn = FEngGetCurrentButton(GetPackageName());
-    if (btn) {
-        return GetButtonIndex(btn->NameHash);
+    FEObject *button = FEngGetCurrentButton(GetPackageName());
+    if (button) {
+        return GetButtonIndex(button->NameHash);
     }
     return 0;
 }
@@ -267,8 +267,10 @@ uint32 FEMarkerSelection::GetCategoryBlurbHashForType(FEMarkerManager::ePossible
 int FEMarkerSelection::GetNumSelected() {
     int count = 0;
     for (int i = 0; i < NumVisibleMarkers; i++) {
-        if (TheMarkers[i].Marker != static_cast<FEMarkerManager::ePossibleMarker>(0) && TheMarkers[i].Selected) {
-            count++;
+        if (TheMarkers[i].Marker != static_cast<FEMarkerManager::ePossibleMarker>(0)) {
+            if (TheMarkers[i].Selected) {
+                count++;
+            }
         }
     }
     return count;
@@ -281,12 +283,12 @@ void FEMarkerSelection::Redraw() {
             const char *pkg = GetPackageName();
             unsigned int hash = FEngHashString("BUTTON_%d", i + 1);
             unsigned int icon = GetIconHashForType(marker);
-            FEngSetTextureHash(FEngFindImage(pkg, hash), icon);
+            FEngSetTextureHash(pkg, hash, icon);
         } else {
             const char *pkg = GetPackageName();
             unsigned int hash = FEngHashString("BUTTON_%d", i + 1);
             unsigned int icon = GetCategoryIconHashForType(marker);
-            FEngSetTextureHash(FEngFindImage(pkg, hash), icon);
+            FEngSetTextureHash(pkg, hash, icon);
         }
     }
 
@@ -312,7 +314,11 @@ void FEMarkerSelection::Redraw() {
     const char *remaining_str = GetLocalizedString(0x5bb3a130);
     FEPrintf(pkg2, 0x38deac6b, remaining_str, 2 - GetNumSelected());
 
+#ifdef EA_BUILD_A124
+    int current_bin = FEDatabase->GetCareerSettings()->GetCurrentBin(); // la A124 no suma 1 (lbu 0xEC sin addiu)
+#else
     int current_bin = FEDatabase->GetCareerSettings()->GetCurrentBin() + 1;
+#endif
     char buf[256];
     GetLocalizedString(buf, 0x100, 0xae5bc899);
     const char *pkg3 = GetPackageName();

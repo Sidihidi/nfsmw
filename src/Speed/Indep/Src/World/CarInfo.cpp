@@ -221,7 +221,21 @@ int ConvertVinylGroupNumberToVinylType(int vinyl_group_number) {
 }
 
 // STRIPPED
-char GetCarPartLODChar(int car_part_lod) {}
+char GetCarPartLODChar(int car_part_lod) {
+    switch (car_part_lod) {
+        case 0:
+            return 'A';
+        case 1:
+            return 'B';
+        case 2:
+            return 'C';
+        case 3:
+            return 'D';
+        case 4:
+            return 'E';
+    }
+    return '?';
+}
 
 CarTypeInfo *CarTypeInfoArray = nullptr;
 int32 CarTypeInfoArrayUpdated = 0;
@@ -353,7 +367,7 @@ int LoaderCarInfo(bChunk *chunk) {
                     for (int model_lod = 0; model_lod < 5; model_lod++) {
                         if ((model_table->ModelNames[model_number][model_lod]) != (char *)-1) {
                             model_table->ModelNames[model_number][model_lod] =
-                                const_cast<char *>(&CarPartStringTable[reinterpret_cast<int>(model_table->ModelNames[model_number][model_lod]) * 4]);
+                                const_cast<char *>(&CarPartStringTable[reinterpret_cast<intptr_t>(model_table->ModelNames[model_number][model_lod]) * 4]);
                         }
                     }
                 }
@@ -543,7 +557,7 @@ unsigned int CarPart::GetAppliedAttributeUParam(unsigned int namehash, unsigned 
 }
 
 unsigned int CarPartModelTable::GetModelNameHash(unsigned int base_namehash, int model_num, int lod) {
-    if (reinterpret_cast<int>(this->ModelNames[model_num][lod]) == -1) {
+    if (this->ModelNames[model_num][lod] == reinterpret_cast<const char *>(0xFFFFFFFF)) {
         return 0;
     }
 
@@ -626,7 +640,7 @@ int CarPartDatabase::GetPartIndex(CarPart *car_part) {
 }
 
 CarPart *CarPartDatabase::GetCarPartByIndex(int index) {
-    if (index > -1) {
+    if (index >= 0) {
         for (CarPartPack *car_part_pack = this->CarPartPackList.GetHead(); car_part_pack != this->CarPartPackList.EndOfList();
              car_part_pack = car_part_pack->GetNext()) {
             if (index < static_cast<int>(car_part_pack->NumParts)) {
@@ -676,7 +690,7 @@ CarPart *CarPartDatabase::NewGetCarPart(CarType car_type, int car_slot_id, unsig
         cur_type = 0;
     }
 
-    for (int i = cur_type; i <= 1; i++) {
+    for (int i = cur_type; i < 2; i++) {
         if (slot_types[i] != 0) {
             for (CarPartPack *car_part_pack = this->CarPartPackList.GetHead(); car_part_pack != this->CarPartPackList.EndOfList();
                  car_part_pack = car_part_pack->GetNext()) {
@@ -929,10 +943,17 @@ void RideInfo::SetStockParts() {
     ProfileNode profile_node;
 
     for (int car_slot_id = 0; car_slot_id <= CARSLOTID_MISC; car_slot_id++) {
+#ifdef EA_BUILD_A124
+        // la A124 no se salta el adorno 6 del helicoptero
+        if (car_slot_id == CARSLOTID_VINYL_LAYER0 ||
+            (car_slot_id >= CARSLOTID_DECAL_FRONT_WINDOW_TEX0 && car_slot_id <= CARSLOTID_DECAL_RIGHT_QUARTER_TEX7)) {
+#else
         if ((this->Type == CARTYPE_COPHELI && car_slot_id == CARSLOTID_ATTACHMENT6) || car_slot_id == CARSLOTID_VINYL_LAYER0 ||
             (car_slot_id >= CARSLOTID_DECAL_FRONT_WINDOW_TEX0 && car_slot_id <= CARSLOTID_DECAL_RIGHT_QUARTER_TEX7)) {
+#endif
             continue;
         }
+
 
         switch (car_slot_id) {
             case CARSLOTID_BASE_PAINT: {
@@ -1176,6 +1197,8 @@ MissingCarPart MissingCarPartTable[330] = {
     {CARTYPE_PUNTO, CARSLOTID_BODY, 0x8A67D06E},         {CARTYPE_PUNTO, CARSLOTID_SPOILER, 0x1D49C032},
 };
 
+// La A124 no genera codigo para este bloque (solo marco de 0x20): no tiene
+// los char[100] (ni statics ni hueco para ellos en su ELF); SLUS si (0x100).
 void GenerateMissingCarParts() {
     if (0) {
         for (int car_type = 0; car_type < NUM_CARTYPES; car_type++) {
@@ -1183,15 +1206,19 @@ void GenerateMissingCarParts() {
 
             // if (car_type_info->GetCarUsageType() != CAR_USAGE_TYPE_PLAYER)
             {
+#ifndef EA_BUILD_A124
                 char filename_textures[100];
                 char filename_vinyls[100];
+#endif
                 int slots_to_check[5];
                 int num_exist = 0;
                 int num_parts = 0;
 
+#ifndef EA_BUILD_A124
                 eLoadStreamingTexturePack(filename_textures);
                 eLoadStreamingTexturePack(filename_vinyls);
                 // eLoadStreamingSolidPack(filename_textures); // TODO create this inline somewhere
+#endif
 
                 for (int n = 0; n < 5; n++) {
                     int slot = slots_to_check[n];
@@ -1204,9 +1231,11 @@ void GenerateMissingCarParts() {
                             skip = true;
                         }
 
+#ifndef EA_BUILD_A124
                         if (bStrEqual(filename_textures, filename_vinyls)) {
                             skip = true;
                         }
+#endif
 
                         {
                             bool exists = false;
@@ -1427,7 +1456,7 @@ void RideInfo::UpdatePartsEnabled() {
             bool is_part_brake_paint = false;
             if (part != nullptr) {
                 if (part->PartID == CARPARTID_PAINT) {
-                    is_part_brake_paint = part->GetBrandNameHash() == brake_paint_hash;
+                    if (part->GetBrandNameHash() == brake_paint_hash) { is_part_brake_paint = true; }
                 }
                 part = this->PreviewPart;
                 if ((part != nullptr) && (part->PartID == CARPARTID_BRAKE || is_part_brake_paint)) {
@@ -1445,17 +1474,17 @@ int RideInfo::IsPartEnabled(int car_part_id) {
 unsigned int RideInfo::GetSkinNameHash() {
     CarPart *skin_base;
 
-    if (this->IsUsingCompositeSkin() == 0) {
-        skin_base = this->GetPart(CARSLOTID_BASE_PAINT);
+    if (this->IsUsingCompositeSkin() != 0) {
+        return this->mCompositeSkinHash;
+    }
 
-        if (skin_base == nullptr) {
-            return 0;
-        }
+    skin_base = this->GetPart(CARSLOTID_BASE_PAINT);
 
+    if (skin_base != nullptr) {
         return skin_base->GetTextureNameHash();
     }
 
-    return this->mCompositeSkinHash;
+    return 0;
 }
 
 // TODO move?
@@ -1962,7 +1991,11 @@ void GetUsedCarTextureInfo(UsedCarTextureInfo *info, RideInfo *ride_info, int fr
 }
 
 int CarInfo_GetMaxCompositingBufferSize() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return 0x80000; // las dos PS2 devuelven 512 kB (lui v0, 0x8); GameCube, 0
+#else
     return 0;
+#endif
 }
 
 // RandomCarPartUpgrade RandomPartUpgrades[12]; // TODO
@@ -1979,7 +2012,9 @@ struct CarMemoryInfo {
 #elif defined(EA_PLATFORM_PLAYSTATION2)
         return 0;
 #elif defined(EA_PLATFORM_XENON)
-        return 2; // TODO
+        return 4; // NFS.exe 0x825288A0 lee Sizes[4] (lwz 0x14)
+#elif defined(EA_PLATFORM_WIN32)
+        return 3; // speed.exe CarInfo_GetResourceCost lee Sizes[3] ([esi+0x10])
 #endif
     }
 };

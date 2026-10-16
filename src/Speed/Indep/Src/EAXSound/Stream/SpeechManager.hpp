@@ -31,9 +31,16 @@ struct CLUMP_IDX_FILEtag;
 namespace Csis {
 static inline Result CacheHandlesEventsNIS() {
     gNIS_Select_StartHandle.Set(&NIS_Select_StartId);
+#ifdef EA_BUILD_A124
+    // la A124 trae los interfaces de NIS en otro orden (NISAudio.hpp:230-233 de su .mdebug)
+    gNIS_Select_EndHandle.Set(&NIS_Select_EndId);
+    gSoundFX_SelectHandle.Set(&SoundFX_SelectId);
+    gNIS_Select_BlacklistHandle.Set(&NIS_Select_BlacklistId);
+#else
     gSoundFX_SelectHandle.Set(&SoundFX_SelectId);
     gNIS_Select_BlacklistHandle.Set(&NIS_Select_BlacklistId);
     gNIS_Select_EndHandle.Set(&NIS_Select_EndId);
+#endif
     return RESULT_OK;
 }
 }
@@ -167,7 +174,11 @@ struct ScheduledSpeechEvent {
 
     static bool sort_nested_priority(const ScheduledSpeechEvent *lhs, const ScheduledSpeechEvent *rhs);
     void AddSample(SpeechSampleData *sample, unsigned char specific_index);
-    void *GetData(unsigned int *datasize);
+#ifdef EA_BUILD_A124
+    void *GetData();
+#else
+    void *GetData(unsigned int *datasize = nullptr);
+#endif
     unsigned char ReserveSample();
 };
 
@@ -186,7 +197,6 @@ class Manager {
     static SPCHType_EventRuleResult EventRuleCallback(EventSpec *event_info);
     static void ClearPlayback();
     static void Init(SPEECH_MODE mode);
-    static void Init(int mode) { Init(static_cast<SPEECH_MODE>(mode)); }
     static void Init2();
     static void Destroy();
     static void Deduce();
@@ -207,11 +217,15 @@ class Manager {
 #endif
     );
     static int GetTicker();
+  private:
     static void PopulateHashMap();
+  public:
     static bool IsCacheable(SPCHType_1_EventID event_id);
     static bool HasBeenSaid(SPCHType_1_EventID event_id);
+  private:
     static bool ServiceInterruptEvents();
     static void ServiceFilteredEvents();
+  public:
     static bool RecallSpeechEvent(SPCHType_1_EventID recall_id);
     static void ResetGlobalHistory();
     static void Expire(ScheduledSpeechEvent *event);
@@ -221,8 +235,13 @@ class Manager {
     static ScheduledSpeechEvent *GetNextEvent();
     static SpeechValRtnType PostValidate(ScheduledSpeechEvent *evt, unsigned int mask);
     static SpeechValRtnType PreValidate(ScheduledSpeechEvent &evt);
+  private:
     static bool CanPlayback(Attrib::Gen::speech &event_attribs);
     static void CalcProbPlayback();
+#ifdef EA_BUILD_A124
+    static void VerifySampleIntegrity();
+#endif
+  public:
     static SPCHType_1_EventID GetLastEventID() {
         if (mEvtHistory.empty()) {
             return kSPCH1_EventID_MaxEventID;

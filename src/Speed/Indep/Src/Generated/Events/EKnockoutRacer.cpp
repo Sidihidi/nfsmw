@@ -11,7 +11,10 @@ EKnockoutRacer::EKnockoutRacer(GRacerInfo *pRacer) : Event(0x10), fRacer(pRacer)
 }
 
 EKnockoutRacer::~EKnockoutRacer() {
-    if (!GRaceStatus::Get().GetWinningPlayerInfo()) {
+#ifndef EA_BUILD_A124
+    if (!GRaceStatus::Get().GetWinningPlayerInfo())
+#endif
+    {
         char message[64];
         char finalMessage[64];
         IPlayer *player;

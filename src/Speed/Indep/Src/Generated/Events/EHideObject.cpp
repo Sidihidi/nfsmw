@@ -23,8 +23,8 @@ void EHideObject_MakeEvent_Callback(const void *staticData) {
     new EHideObject(gEventDynamicData.fhModel);
 }
 
-int EHideObject_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EHideObject_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EHideObject(gEventDynamicData.fhModel);
     }
     return 0;

@@ -43,6 +43,13 @@ bool IsNaN(const UMath::Matrix3 &v) {}
 bool IsNaN(const UMath::Matrix4 &v) {}
 //...
 
+#ifndef EA_PLATFORM_GAMECUBE
+// Fuera de GameCube es una funcion de verdad (UMath.h): en SLUS, `j VU0_quattom4`.
+void QuaternionToMatrix4(const Vector4 &q, Matrix4 &m) {
+    VU0_quattom4(q, m);
+}
+#endif
+
 // Estaticos de clase que el objetivo emite en el .rodata de zFoundation
 // (zFoundation.s: 0x803EB374..0x803EB3F0, 116 B). Sin definicion quedaban
 // UNDEF en nuestro .o y el enlazador les daba basura.
@@ -72,13 +79,12 @@ void BuildRotate(UMath::Matrix4 &m, float r, float x, float y, float z) {
     float fSZ;
     float *p;
 
-    r *= 0.0027777778f;
-    if (r == 0.0f) {
+    angle = r * 0.0027777778f;
+    if (angle == 0.0f) {
         VU0_MATRIX4Init(m);
         return;
     }
 
-    angle = r * 6.2831855f;
     fSin = VU0_Sin(angle);
     fCos = VU0_Cos(angle);
 

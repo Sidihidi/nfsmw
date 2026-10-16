@@ -6,7 +6,28 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/Src/Frontend/FECarViewer.hpp"
 #include "Speed/Indep/Src/Frontend/FEManager.hpp"
+#include "Speed/Indep/Src/Frontend/FEJoyInput.hpp"
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Las dos PS2 (stabs de la A124: sBootFlowNTSC[7], sBootFlowPAL[8], sBootFlowWideScreen[1]): sin los paquetes _GC, el
+// selector de idioma al principio del flujo PAL y en panoramico solo el menu principal.
+static char *sBootFlowNTSC[] = {"MC_Bootup.fng",    "LS_EAlogo.fng", "LS_PSA.fng",  "MW_LS_AttractFMV.fng",
+                                "MW_LS_Splash.fng", "MC_Main.fng",   "MainMenu.fng"};
+static char *sBootFlowPAL[] = {"LS_LangSelect.fng",    "MC_Bootup.fng",    "LS_EAlogo.fng", "LS_PSA.fng",
+                               "MW_LS_AttractFMV.fng", "MW_LS_Splash.fng", "MC_Main.fng",   "MainMenu.fng"};
+static char *sBootFlowWideScreen[] = {"MainMenu.fng"};
+static char *sBootFlowPALWidescreen[] = {"MainMenu.fng"};
+#elif defined(EA_PLATFORM_WIN32)
+// PC (speed.exe 1.3, 0x8F3C58-0x8F3CCF): los paquetes de PC sin _GC, y todas menos la NTSC empiezan en DiscErrorPC.
+const char *sBootFlowNTSC[] = {"MC_Bootup.fng",    "LS_EAlogo.fng", "LS_PSA.fng",  "MW_LS_AttractFMV.fng",
+                               "MW_LS_Splash.fng", "MC_Main.fng",   "MainMenu.fng"};
+const char *sBootFlowPAL[] = {"DiscErrorPC.fng",      "MC_Bootup.fng",    "LS_EAlogo.fng", "LS_PSA.fng",
+                              "MW_LS_AttractFMV.fng", "MW_LS_Splash.fng", "MC_Main.fng",   "MainMenu.fng"};
+const char *sBootFlowWideScreen[] = {"DiscErrorPC.fng",  "MC_Bootup.fng", "LS_EAlogo.fng", "LS_PSA.fng",
+                                     "MW_LS_Splash.fng", "MC_Main.fng",   "MainMenu.fng"};
+const char *sBootFlowPALWidescreen[] = {"DiscErrorPC.fng",      "MC_Bootup.fng",    "LS_EAlogo.fng", "LS_PSA.fng",
+                                        "MW_LS_AttractFMV.fng", "MW_LS_Splash.fng", "MC_Main.fng",   "MainMenu.fng"};
+#else
 const char *sBootFlowNTSC[] = {"MC_Bootup_GC.fng", "LS_EAlogo.fng",  "LS_PSA.fng",  "MW_LS_AttractFMV.fng",
                                "MW_LS_Splash.fng", "MC_Main_GC.fng", "MainMenu.fng"};
 const char *sBootFlowPAL[] = {"MC_Bootup_GC.fng", "LS_EAlogo.fng",  "LS_PSA.fng",  "MW_LS_AttractFMV.fng",
@@ -15,6 +36,12 @@ const char *sBootFlowWideScreen[] = {"MC_Bootup_GC.fng", "LS_EAlogo.fng",  "LS_P
                                      "MW_LS_Splash.fng", "MC_Main_GC.fng", "MainMenu.fng"};
 const char *sBootFlowPALWidescreen[] = {"MC_Bootup_GC.fng", "LS_EAlogo.fng",  "LS_PSA.fng",  "MW_LS_AttractFMV.fng",
                                         "MW_LS_Splash.fng", "MC_Main_GC.fng", "MainMenu.fng"};
+#endif
+
+#ifdef EA_PLATFORM_WIN32
+// La comprobacion del disco de PC (speed.exe 0x6C2700, zPlatform: GetLogicalDrives/GetDriveTypeA). El nombre es nuestro.
+bool IsDiscInDrive();
+#endif
 
 BootFlowManager *BootFlowManager::mInstance = nullptr;
 
@@ -37,60 +64,94 @@ BootFlowManager *BootFlowManager::Get() {
     return mInstance;
 }
 
+#ifdef EA_BUILD_A124 // la A124 no tiene la lista PAL panoramica y arranca en ControllerUnplugged sin mandos
 BootFlowManager::BootFlowManager() {
     if (!BuildRegion::IsPal()) {
         if (eIsWidescreen()) {
-            for (int i = 0; i < 7; i++) {
-                bStrICmp(sBootFlowWideScreen[i], "WS_LS_EA_hidef.fng");
+            for (int i = 0; i < NUM_ELEMENTS(sBootFlowWideScreen); i++) {
                 if (*sBootFlowWideScreen[i] != '\0') {
-                    BootFlowScreen *screen = new ("BootFlowScreen", 0) BootFlowScreen();
-                    screen->Name = sBootFlowWideScreen[i];
-                    BootFlowScreens.AddTail(screen);
+                    BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowWideScreen[i]));
                 }
             }
         } else {
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < NUM_ELEMENTS(sBootFlowNTSC); i++) {
                 if (*sBootFlowNTSC[i] != '\0') {
-                    BootFlowScreen *screen = new ("BootFlowScreen", 0) BootFlowScreen();
-                    screen->Name = sBootFlowNTSC[i];
-                    BootFlowScreens.AddTail(screen);
+                    BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowNTSC[i]));
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < NUM_ELEMENTS(sBootFlowPAL); i++) {
+            bool add_screen = true;
+            if (bStrICmp(sBootFlowPAL[i], "LS_LangSelect.fng") == 0 && !BuildRegion::ShowLanguageSelect()) {
+                add_screen = false;
+            }
+            if (add_screen && *sBootFlowPAL[i] != '\0') {
+                BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowPAL[i]));
+            }
+        }
+    }
+    CurrentScreen = BootFlowScreens.GetHead();
+    if (!cFEngJoyInput::Get()->IsJoyPluggedIn(JOYSTICK_PORT1) && !cFEngJoyInput::Get()->IsJoyPluggedIn(JOYSTICK_PORT2)) {
+        FEManager::Get()->SetFirstScreen("ControllerUnplugged.fng", -1, 0);
+    } else {
+        FEManager::Get()->SetFirstScreen(CurrentScreen->Name, 0, 0);
+    }
+}
+#else
+BootFlowManager::BootFlowManager() {
+    if (!BuildRegion::IsPal()) {
+        if (eIsWidescreen()) {
+            for (int i = 0; i < NUM_ELEMENTS(sBootFlowWideScreen); i++) {
+                bool add_screen = true;
+                if (bStrICmp(sBootFlowWideScreen[i], "WS_LS_EA_hidef.fng") == 0) {
+                }
+                if (add_screen && *sBootFlowWideScreen[i] != '\0') {
+                    BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowWideScreen[i]));
+                }
+            }
+        } else {
+            for (int i = 0; i < NUM_ELEMENTS(sBootFlowNTSC); i++) {
+                if (*sBootFlowNTSC[i] != '\0') {
+                    BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowNTSC[i]));
                 }
             }
         }
     } else {
         if (eIsWidescreen()) {
-            for (int i = 0; i < 7; i++) {
-                bool ok = true;
+            for (int i = 0; i < NUM_ELEMENTS(sBootFlowPALWidescreen); i++) {
+                bool add_screen = true;
                 if (bStrICmp(sBootFlowPALWidescreen[i], "LS_LangSelect.fng") == 0 && !BuildRegion::ShowLanguageSelect()) {
-                    ok = false;
+                    add_screen = false;
                 }
-                if (ok) {
-                    if (*sBootFlowPALWidescreen[i] != '\0') {
-                        BootFlowScreen *screen = new ("BootFlowScreen", 0) BootFlowScreen();
-                        screen->Name = sBootFlowPALWidescreen[i];
-                        BootFlowScreens.AddTail(screen);
-                    }
+                if (add_screen && *sBootFlowPALWidescreen[i] != '\0') {
+                    BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowPALWidescreen[i]));
                 }
             }
         } else {
-            for (int i = 0; i < 7; i++) {
-                bool ok = true;
+            for (int i = 0; i < NUM_ELEMENTS(sBootFlowPAL); i++) {
+                bool add_screen = true;
                 if (bStrICmp(sBootFlowPAL[i], "LS_LangSelect.fng") == 0 && !BuildRegion::ShowLanguageSelect()) {
-                    ok = false;
+                    add_screen = false;
                 }
-                if (ok) {
-                    if (*sBootFlowPAL[i] != '\0') {
-                        BootFlowScreen *screen = new ("BootFlowScreen", 0) BootFlowScreen();
-                        screen->Name = sBootFlowPAL[i];
-                        BootFlowScreens.AddTail(screen);
-                    }
+                if (add_screen && *sBootFlowPAL[i] != '\0') {
+                    BootFlowScreens.AddTail(new ("BootFlowScreen", 0) BootFlowScreen(sBootFlowPAL[i]));
                 }
             }
         }
     }
     CurrentScreen = BootFlowScreens.GetHead();
+#ifdef EA_PLATFORM_WIN32 // PC salta DiscErrorPC si el disco esta en la unidad (o existe "foobar")
+    if (bStrICmp("DiscErrorPC.fng", CurrentScreen->Name) == 0) {
+        bool no_disc = !IsDiscInDrive();
+        if (bFileExists("foobar") || !no_disc) {
+            CurrentScreen = CurrentScreen->GetNext();
+        }
+    }
+#endif
     FEManager::Get()->SetFirstScreen(CurrentScreen->Name, 0, 0);
 }
+#endif
 
 BootFlowScreen *BootFlowManager::FindScreen(const char *name) {
     {
@@ -129,8 +190,12 @@ bool BootFlowManager::JumpToScreen(const char *screen_name) {
         return false;
     }
     CurrentScreen = screen;
+#ifdef EA_BUILD_A124
+    cFEng::Get()->QueuePackageSwitch(CurrentScreen->Name, 0, 0, false);
+#else
     cFEng::Get()->QueuePackagePop(0);
     cFEng::Get()->QueuePackagePush(CurrentScreen->Name, 0, 0, false);
+#endif
     if (BootFlowScreens.GetTail() == CurrentScreen) {
         Destroy();
     }
@@ -138,11 +203,11 @@ bool BootFlowManager::JumpToScreen(const char *screen_name) {
 }
 
 bool BootFlowManager::DoAttract() {
-    BootFlowScreen *screen = FindScreenSubStr("AttractFMV");
-    if (screen == nullptr) {
+    BootFlowScreen *new_screen = FindScreenSubStr("AttractFMV");
+    if (new_screen == nullptr) {
         return false;
     }
-    return JumpToScreen(screen->Name);
+    return JumpToScreen(new_screen->Name);
 }
 
 void BootFlowManager::ChangeToNextBootFlowScreen(int mask) {

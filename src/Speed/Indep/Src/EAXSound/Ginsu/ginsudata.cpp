@@ -16,6 +16,13 @@ struct GinsuDataLayout {
     unsigned char data[1]; // offset 0x20, size 0x1, Decl: 17
 };
 
+// La etiqueta "Gnsu" del fichero leida como palabra: en little-endian sale al reves (0x75736E47 en las dos PS2).
+#ifdef NATIVE_ENDIAN_BIG
+#define GINSU_ID 'Gnsu'
+#else
+#define GINSU_ID 'usnG'
+#endif
+
 static float xafilterf[2][4] = {
     {0.0f, 0.9375f, 1.796875f, 1.53125f},
     {0.0f, 0.0f, -0.8125f, -0.859375f},
@@ -127,7 +134,7 @@ bool GinsuSynthData::BindToData(void *ptr) {
     this->mSampleCount = 0;
     this->mSampleRate = 0;
 
-    if (*reinterpret_cast<unsigned int *>(memdata) != 'Gnsu' || memdata->ver[0] != '2') {
+    if (*reinterpret_cast<unsigned int *>(memdata) != GINSU_ID || memdata->ver[0] != '2') {
         return false;
     }
 
@@ -148,6 +155,9 @@ bool GinsuSynthData::BindToData(void *ptr) {
     this->mSampleData = reinterpret_cast<unsigned char *>(this->mCyclePos + (this->mCycleCount + 1));
     this->mCurrentBlock = -1;
 
+    // r32-gin: probado minperiod ANTES de mCurrentBlock (el li del GOWE69 sale
+    // pegado al store 0xac): el planificador hotea el li igual (r8 vs r0 del
+    // original es eleccion del asignador, no del fuente). Sin cambio medible.
     int minperiod = this->mSampleCount;
 
     for (int i = 0; i < this->mCycleCount; i++) {

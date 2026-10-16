@@ -22,7 +22,7 @@ StringToNumber::StringToNumber(StringToNumberEntry *null_terminated_table) {
     unsorted_table = null_terminated_table;
 
     if (count > 30) {
-        string_sorted_table = (StringToNumberEntry *)gFastMem.Alloc(count * 16, "StringToNumber");
+        string_sorted_table = (StringToNumberEntry *)gFastMem.Alloc(count * 2 * sizeof(StringToNumberEntry), "StringToNumber");
         number_sorted_table = string_sorted_table + count;
 
         for (int i = 0; i < numItems; i++) {

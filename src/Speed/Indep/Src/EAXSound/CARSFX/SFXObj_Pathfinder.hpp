@@ -9,6 +9,8 @@
 #include "Speed/Indep/Src/Generated/Messages/MControlPathfinder.h"
 #include "Speed/Indep/Src/Generated/Messages/MPerpBusted.h"
 
+class cPathLine;
+
 void InitializeEATrax(
 #ifndef EA_BUILD_A124
     bool breset
@@ -142,6 +144,9 @@ class SFXObj_PFEATrax : public SFXObj_Pathfinder {
     bool TestToPursuit();
     bool TestToLicensed(bool bstart);
     bool TestToAmbience();
+#ifdef EA_BUILD_A124
+    bool ShouldPause();
+#endif
     void Pause();
     void UnPause();
     void UpdateAmbience(float t);

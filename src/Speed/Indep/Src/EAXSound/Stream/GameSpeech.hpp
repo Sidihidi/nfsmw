@@ -16,13 +16,21 @@ namespace Speech {
 struct SpeechSampleData;
 struct ScheduledSpeechEvent;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+DECLARE_CONTAINER_TYPE(SpeechSampleList);
+
+// Las dos PS2 la tienen (stabs de la A124, que la declaran delante de SpeechSampleVec; SLUS la usa en Cache::Dump): una
+// lista de muestras con AudioMemBase detras, 0xC. La A124 guarda asi las muestras pendientes de GameSpeech.
+struct SpeechSampleList : public UTL::Std::list<SpeechSampleData *, _type_SpeechSampleList>, public AudioMemBase {};
+#endif
+
 DECLARE_CONTAINER_TYPE(SpeechSampleVec);
 
 struct SpeechSampleVec : public UTL::Std::vector<SpeechSampleData *, _type_SpeechSampleVec>, public AudioMemBase {
     SpeechSampleData *Find(int handle) const;
 };
 
-// total size: 0xD0
+// total size: 0xD0 (0xB0 en la A124)
 struct GameSpeech : public Module {
     static char *m_tempCharPtr;
     static CLUMP_IDX_FILEtag *m_clumpIdx;
@@ -33,10 +41,12 @@ struct GameSpeech : public Module {
     std::deque<int> mLoadState;            // offset 0x58, size 0x30
     int m_currentIntensity;                // offset 0x88, size 0x4
     int m_speechCycle;                     // offset 0x8C, size 0x4
-    // La A124 tiene `SpeechSampleList *m_pendingList` (stabs: 4 bytes en 0x88; tamano de la clase 0xB0): una
-    // lista que el constructor crea con new (0x3EA41C) y que Update y ClearCompletedRequests recorren nodo a
-    // nodo. Es otra logica en cada uso, asi que no lleva variante.
+#ifdef EA_BUILD_A124
+    // La A124 guarda un puntero a una lista que crea el constructor (stabs: 4 bytes en 0x88; la clase mide 0xB0).
+    SpeechSampleList *m_pendingList;
+#else
     SpeechSampleVec m_pendingList;         // offset 0x90, size 0x14
+#endif
     ScheduledSpeechEvent *m_currEvent;     // offset 0xA4, size 0x4
     unsigned int m_currEventTime;          // offset 0xA8, size 0x4
     // La A124 no los tiene: sus stabs pasan de m_currEventTime a m_Chirper.
@@ -56,22 +66,30 @@ struct GameSpeech : public Module {
     int SetSentenceRuleCallback(int eventID, int ruleID, int parmValue) override;
     SPCHType_EventRuleResult EventRuleCallback(int eventID) override;
     void Update() override;
+  protected:
+#ifndef EA_BUILD_A124 // la A124 mira el siguiente evento dentro de Update
     void CheckNextEvent();
+#endif
+  public:
     ScheduledSpeechEvent *GetCurrentEvent() {
         return this->m_currEvent;
     }
     bool IsBusy() {
         return TestFlag(8);
     }
+  protected:
     void IssuePlayback(ScheduledSpeechEvent *nextevent);
     void ClearCompletedRequests();
+  public:
     void ReleaseResource() override;
     unsigned int SampleRequestCallback(SPCHType_SampleRequestData *data) override;
     void IssueSampleRequests();
+  protected:
     bool ShouldPause();
     void RadioChirp(unsigned char type);
     void UpdateChirps();
     int GetVolForSpeaker(int id);
+  public:
     char *GetCSIptr() override {
         return m_csisData;
     }

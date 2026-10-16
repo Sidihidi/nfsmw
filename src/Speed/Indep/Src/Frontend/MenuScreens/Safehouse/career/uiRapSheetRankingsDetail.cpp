@@ -80,8 +80,10 @@ void uiRapSheetRankingsDetail::NotificationMessage(u32 msg, FEObject *pobj, u32 
             Setup();
             break;
         case 0x911C0A4B:
-        case 0x35F8620B:
         case 0x72619778:
+            UpdateHighlight();
+            break;
+        case 0x35F8620B:
             UpdateHighlight();
             break;
         case 0xE1FDE1D1:
@@ -93,7 +95,7 @@ void uiRapSheetRankingsDetail::NotificationMessage(u32 msg, FEObject *pobj, u32 
 
 void uiRapSheetRankingsDetail::Setup() {
     ClearData();
-    unsigned int value_label;
+    unsigned int value_label = 0;
     UserProfile &prof = *FEDatabase->GetUserProfile(0);
     Attrib::Key key;
     player_rank = prof.GetHighScores()->CalcPursuitRank(rank_type, career_view);
@@ -207,7 +209,11 @@ void uiRapSheetRankingsDetail::Setup() {
                     if (career_view) {
                         tmp_player_value = prof.GetHighScores()->GetCareerPursuitScore(rank_type);
                     } else {
+#ifdef EA_BUILD_A124
+                        car_name_hash = prof.GetHighScores()->GetBestPursuitScore(rank_type).CarFEKey;
+#else
                         car_name_hash = GetFECarNameHashFromFEKey(prof.GetHighScores()->GetBestPursuitScore(rank_type).CarFEKey);
+#endif
                         tmp_player_value = prof.GetHighScores()->GetBestPursuitScore(rank_type).Value;
                     }
 
@@ -243,8 +249,7 @@ void uiRapSheetRankingsDetail::Setup() {
     }
     FEngSetLanguageHash(GetPackageName(), 0x8224E17C, value_label);
     UpdateHighlight();
-    ArrayScroller *scroller = this;
-    scroller->RefreshHeader();
+    RefreshHeader();
 }
 
 void uiRapSheetRankingsDetail::RefreshHeader() {
@@ -257,11 +262,11 @@ void uiRapSheetRankingsDetail::RefreshHeader() {
 }
 
 void uiRapSheetRankingsDetail::UpdateHighlight() {
-    int highlight = player_rank - GetStartDatumNum();
-    if (highlight > 0) {
+    int player_pos = player_rank - GetStartDatumNum();
+    if (player_pos > 0) {
         int numSlots = GetNumSlots();
-        if (highlight <= numSlots) {
-            cFEng::Get()->QueuePackageMessage(FEngHashString("POS%d", highlight), nullptr, nullptr);
+        if (player_pos <= numSlots) {
+            cFEng::Get()->QueuePackageMessage(FEngHashString("POS%d", player_pos), nullptr, nullptr);
             return;
         }
     }

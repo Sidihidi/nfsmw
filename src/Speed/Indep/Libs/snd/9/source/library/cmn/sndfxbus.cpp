@@ -14,7 +14,7 @@ GlobalFxProcessor::~GlobalFxProcessor() {
             this->Reset();
         }
 
-        memset(pGlobalFxProcessorData, 0, sizeof(GlobalFxProcessorData));
+        SNDI_memclear(pGlobalFxProcessorData, sizeof(GlobalFxProcessorData));
 
         SNDSYS_entercritical();
         SNDMEMI_free(this);
@@ -31,7 +31,7 @@ Csis::Result GlobalFxProcessor::CreateInstance(Device device, int bus, GlobalFxP
     );
     SNDSYS_leavecritical();
 
-    memset(pGlobalFxProcessorData, 0, sizeof(GlobalFxProcessorData));
+    SNDI_memclear(pGlobalFxProcessorData, sizeof(GlobalFxProcessorData));
 
     if (pGlobalFxProcessorData == NULL) {
         return Csis::RESULT_ERR_ALLOCATE;

@@ -37,7 +37,14 @@ extern "C" int SNDPROFILE_voices(SNDPROFVOICES *pspv) {
     memset(pspv, 0, sizeof(SNDPROFVOICES));
     pspv->currentmaincpu = SNDPROFILEI_voicesinrange(4);
     voices = pspv->currentmaincpu;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    pspv->currentiopcpu = SNDPROFILEI_voicesinrange(0x100);
+    voices += pspv->currentiopcpu;
+    pspv->currentspu = SNDPROFILEI_voicesinrange(8);
+    voices += pspv->currentspu;
+#else
     pspv->currentdsp = SNDPROFILEI_voicesinrange(0x200);
     voices += pspv->currentdsp;
+#endif
     return voices;
 }

@@ -36,7 +36,12 @@ void GetLocalizedString(char *buffer, uint32 bufsize, uint32 string_label);
 
 char *GetTranslatedString(int label_hash);
 void LoadCurrentLanguage();
+void SetCurrentLanguage(eLanguages new_language);
 void InitLocalization();
+#ifdef EA_PLATFORM_PLAYSTATION2
+eLanguages PS2_GetOSLanguage();
+int GetDemoLanguageID(eLanguages language);
+#endif
 eLanguages GetCurrentLanguage();
 
 const bool GetLocalizedWideString(int16 *wide_string, int wide_string_buffer_size, uint32 string_label);
@@ -52,5 +57,7 @@ void WideStringToPackedString(char *packed_string, int packed_string_buffer_size
 char *GetLanguageName(eLanguages language);
 const char *GetLocalizedPercentSign();
 bool DoesStringExist(uint32 label);
+void LanguageChangerCallback(int dir);
+void DumpMap();
 
 #endif

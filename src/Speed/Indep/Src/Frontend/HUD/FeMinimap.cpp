@@ -15,12 +15,13 @@
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
 #include "Speed/Indep/Src/Physics/PVehicle.h"
 #include "Speed/Indep/Src/Sim/Simulation.h"
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
 #include "Speed/Indep/Src/World/RaceParameters.hpp"
 
 bool GPS_IsEngaged();
 
-int MinimapShowNonPursuitCops = 0;
-int MinimapShowPursuitCops = 1;
+bool MinimapShowNonPursuitCops = false;
+bool MinimapShowPursuitCops = true;
 float MinimapPivotX = 0.0f;
 float MinimapPivotY = 0.0f;
 float MinimapDispX = 0.0f;
@@ -34,17 +35,25 @@ Minimap::GameplayIconInfo Minimap::kGameplayIconInfo[] = {
     { GII_KNOCKOUT, WMIT_LAP_KO_RACE, "MMICON_KNOCKOUT_%d", 0x4930F5FC, 0x3A015595 },
     { GII_TOLLBOOTH, WMIT_TOLLBOOTH_RACE, "MMICON_TOLLBOOTH_%d", 0xA15E4505, 0x1A091045 },
     { GII_SPEEDTRAP, WMIT_SPEED_TRAP_RACE, "MMICON_SPEEDTRAP_%d", 0xEE7386EA, 0x66C9A7B6 },
+#ifdef EA_BUILD_A124 // sin textura en el mapa del mundo (.data de la A124)
+    { GII_RIVAL, WMIT_RIVAL_RACE, "MINIMAP_ICON_EVENT_RIVAL", 0x213CC8D1, 0x0 },
+#else
     { GII_RIVAL, WMIT_RIVAL_RACE, "MINIMAP_ICON_EVENT_RIVAL", 0x213CC8D1, 0x9F562D57 },
+#endif
     { GII_SAFEHOUSE, WMIT_SAFEHOUSE, "SAFEHOUSEINDICATOR_%d", 0xDED7B298, 0x0ED39F69 },
     { GII_CARLOT, WMIT_CAR_LOT, "CAR_LOT_%d", 0xB9D71959, 0x4EAEE18B },
     { GII_SHOP, WMIT_SHOP, "SHOP_%d", 0xE0C8090F, 0x0CF07089 },
     { GII_HIDINGSPOT, WMIT_HIDING_SPOT, "HIDING_SPOT_%d", 0xA31E817A, 0xF172B456 },
     { GII_PURSUITSBREAKER, WMIT_PURSUIT_BREAKER, "PURSUIT_BREAKER_%d", 0xDAC9D619, 0xD01A771E },
+#ifdef EA_BUILD_A124 // el radar usa el titulo del de las carreras, y no hay mas iconos (.data de la A124)
+    { GII_SPEEDTRAPCAM, WMIT_SPEED_TRAP, "SPEED_TRAP_CAM_%d", 0xEE7386EA, 0x66C9A7B6 },
+#else
     { GII_SPEEDTRAPCAM, WMIT_SPEED_TRAP, "SPEED_TRAP_CAM_%d", 0x5BDCF050, 0x66C9A7B6 },
     { GII_SPEEDTRAPRACECAM, WMIT_SPEED_TRAP, "SPEED_TRAP_RACE_CAM_%d", 0xEE7386EA, 0x66C9A7B6 },
     { GII_CHECKPOINT, WMIT_NONE, "MMICON_CHECKPOINT", 0x0, 0x0 },
+#endif
     { GII_MAX, WMIT_NONE, "", 0x0, 0x0 },
-    { static_cast<Type>(17), WMIT_NONE, "", 0x0, 0x0 },
+    { static_cast<Type>(GII_MAX + 1), WMIT_NONE, "", 0x0, 0x0 },
 };
 
 bChunkLoader bChunkLoaderMiniMap(0x3A100, LoaderMiniMap, UnloaderMiniMap);
@@ -77,11 +86,12 @@ int UnloaderMiniMap(bChunk *chunk) {
     return gChoppedMiniMapManager->Unloader(chunk);
 }
 
-Minimap::Minimap(const char *pkg_name, int player_number) : HudElement(pkg_name, HUD_FEATURE_MINIMAP | HUD_FEATURE_CANYON_METER) {
-    mCopFlashCounter = -1;
-    mSpeedZoomScale = 0.0f;
-    mPolyRotation = 0.0f;
+Minimap::Minimap(const char *pkg_name, int player_number)
+    : HudElement(pkg_name, HUD_FEATURE_MINIMAP | HUD_FEATURE_CANYON_METER), mSpeedZoomScale(0.0f), mPolyRotation(0.0f),
+      mCopFlashCounter(-1) {
+#ifndef EA_BUILD_A124 // la A124 no reinicia el pivote al crear el radar
     MinimapPivotX = 0.0f;
+#endif
     mTrackTargetNormalized.x = 0.0f;
     mTrackTargetNormalized.y = 0.0f;
     mTrackMapCentre.x = 0.0f;
@@ -110,7 +120,7 @@ Minimap::Minimap(const char *pkg_name, int player_number) : HudElement(pkg_name,
         mCopElementArt[p] = RegisterImage(FEngHashString("MMICON_COPCAR_%d", p));
         mRacerElementArt[p] = RegisterImage(FEngHashString("MMICON_AIRACER_%d", p));
 
-        for (int g = 0; g < 17; g++) {
+        for (int g = 0; g < GII_MAX + 1; g++) {
             if (kGameplayIconInfo[g].mItemType != WMIT_NONE) {
                 if (p == 0 || bStrStr(kGameplayIconInfo[g].mElementString, "%") != nullptr) {
                     mGameplayIcons[g][p] = RegisterImage(FEngHashString(kGameplayIconInfo[g].mElementString, p));
@@ -145,12 +155,13 @@ void Minimap::SetupMinimap(IPlayer *player) {
 
     const int num_chops = 4;
     short chop_nums[4] = { 0, 0, 0, 0 };
+    // En este orden en los stabs de la A124 y en el DWARF: map_pos antes que target_pos y target_dir.
+    bVector2 map_pos;
     bVector2 target_pos;
     bVector2 target_dir;
     ISimable *isimable = player->GetSimable();
     GetVehicleVectors(&target_pos, &target_dir, isimable);
 
-    bVector2 map_pos;
     ConvertPos(target_pos, map_pos, CurrentTrack);
     map_pos.x *= 8.0f;
     map_pos.y *= 8.0f;
@@ -383,7 +394,7 @@ void Minimap::UpdateCopElements(IVehicle *ivehicle) {
     unsigned int artIter = 0;
     bool helicopterFound = false;
 
-    if (mCopFlashCounter++ > 7) {
+    if (mCopFlashCounter++ >= 8) {
         mCopFlashCounter = 0;
     }
 
@@ -396,7 +407,7 @@ void Minimap::UpdateCopElements(IVehicle *ivehicle) {
             if (!(*iter)->IsActive()) {
                 continue;
             }
-            if (artIter > 7) {
+            if (artIter >= 8) {
                 break;
             }
 
@@ -451,7 +462,7 @@ void Minimap::UpdateCopElements(IVehicle *ivehicle) {
         }
     }
 
-    for (unsigned int i = artIter; i <= 7; i++) {
+    for (unsigned int i = artIter; i < 8; i++) {
         FEngSetInvisible(mCopElementArt[i]);
     }
 
@@ -463,7 +474,11 @@ void Minimap::UpdateCopElements(IVehicle *ivehicle) {
 
 void Minimap::UpdateAiRacerElements() {
     unsigned int artIter = 0;
+#ifdef EA_BUILD_A124 // la A124 pinta tambien los rivales remotos en las carreras en linea
+    eVehicleList listid = TheOnlineManager.IsOnlineRace() ? VEHICLE_REMOTE : VEHICLE_AIRACERS;
+#else
     eVehicleList listid = VEHICLE_AIRACERS;
+#endif
     const IVehicle::List &vehicles = IVehicle::GetList(listid);
 
     for (IVehicle::List::const_iterator iter = vehicles.begin(); iter != vehicles.end(); ++iter) {
@@ -479,7 +494,7 @@ void Minimap::UpdateAiRacerElements() {
         artIter++;
     }
 
-    for (unsigned int i = artIter; i <= 7; i++) {
+    for (unsigned int i = artIter; i < 8; i++) {
         FEngSetInvisible(mRacerElementArt[i]);
     }
 }
@@ -503,10 +518,12 @@ void Minimap::UpdateIconElement(FEImage *image, GIcon *icon) {
     dir.x = 1.0f;
     dir.y = 0.0f;
 
+#ifndef EA_BUILD_A124 // la A124 no apaga el GPS del icono
     if (icon->GetType() != GIcon::kType_AreaUnlock && !GPS_IsEngaged() && icon->IsGPSing()) {
 
         icon->ClearGPSing();
     }
+#endif
 
     UpdateElementArt(&pos, &dir, image, icon->IsGPSing());
     FEngSetRotationZ(image, 0.0f);
@@ -517,25 +534,25 @@ void Minimap::UpdateRaceElements() {
 }
 
 void Minimap::AdjustForWidescreen(bool moveOutwards) {
-    float xOffset;
+    float adjustment;
 
     if (moveOutwards) {
-        xOffset = -120.0f;
+        adjustment = -120.0f;
         MinimapPivotX = -120.0f;
         MinimapDispX = -0.9375f;
     } else {
-        xOffset = 120.0f;
+        adjustment = 120.0f;
         MinimapPivotX = 0.0f;
         MinimapDispX = 0.9375f;
     }
 
-    mTrackMapCentre.x += xOffset;
+    mTrackMapCentre.x += adjustment;
 
     for (unsigned int i = 0; i < 4; i++) {
-        TrackmapArt[i]->GetObjData()->Pos.x += xOffset;
+        TrackmapArt[i]->GetObjData()->Pos.x += adjustment;
     }
 
-    mPlayerCarIndicator->GetObjData()->Pos.x += xOffset;
+    mPlayerCarIndicator->GetObjData()->Pos.x += adjustment;
     mPlayerCarIndicator->GetObjData()->Pos.y = mTrackMapCentre.y;
 }
 
@@ -570,8 +587,7 @@ void Minimap::UpdateGameplayIcons(IPlayer *player) {
 
         if (iconInfo.mItemType != 0 && static_cast<unsigned int>(iconsPlaced[iconType]) < 8) {
             if (FEDatabase->GetGameplaySettings()->IsMapItemEnabled(static_cast<eWorldMapItemType>(iconInfo.mItemType))) {
-                image = mGameplayIcons[iconType][static_cast<unsigned int>(iconsPlaced[iconType])];
-                iconsPlaced[iconType]++;
+                image = mGameplayIcons[iconType][static_cast<unsigned int>(iconsPlaced[iconType]++)];
                 if (image) {
                     UpdateIconElement(image, icon);
                 }

@@ -363,7 +363,7 @@ void learn() {
     radius = (netsize << 3) & ~0x3F;
     rad = radius >> 6;
 
-    if (rad < 2) {
+    if (rad <= 1) {
         rad = 0;
     }
 
@@ -406,7 +406,7 @@ void learn() {
             rad = radius >> 6;
             alpha = alpha - alpha / alphadec;
 
-            if (rad < 2) {
+            if (rad <= 1) {
                 rad = 0;
             }
 

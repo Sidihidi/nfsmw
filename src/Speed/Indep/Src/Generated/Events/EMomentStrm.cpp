@@ -30,10 +30,10 @@ void EMomentStrm_MakeEvent_Callback(const void *staticData) {
                     ((EMomentStrm::StaticData *) staticData)->fAttribStrm, ((EMomentStrm::StaticData *) staticData)->fAttribKey);
 }
 
-int EMomentStrm_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
+int EMomentStrm_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
         new EMomentStrm(gEventDynamicData.fPosition, gEventDynamicData.fVector, gEventDynamicData.fVelocity, gEventDynamicData.fhSimable,
-                        lua_tostring(L, 1), (unsigned int) lua_tostring(L, 2));
+                        lua_tostring(luaState, 1), (unsigned int) lua_tostring(luaState, 2));
     }
     return 0;
 }

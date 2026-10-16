@@ -14,7 +14,7 @@
 #include "Speed/Indep/Src/Physics/SmackableTrigger.h"
 #include "Speed/Indep/Src/Sim/SimModel.h"
 #include "Speed/Indep/Src/World/Scenery.hpp"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 
 class HeirarchyModel;
 class SceneryModel;
@@ -268,8 +268,8 @@ class SceneryModel : public HeirarchyModel, public ISceneryModel {
     }
 
     bool IsExcluded(unsigned int scenery_exclusion_flag) const override {
-        unsigned int flags = mSpawner ? mSpawner->GetExcludeFlags() : 0;
-        return (flags & scenery_exclusion_flag) == 0 ? false : true;
+        unsigned int my_flags = mSpawner ? mSpawner->GetExcludeFlags() : 0;
+        return (my_flags & scenery_exclusion_flag) == 0 ? false : true;
     }
 
     unsigned int GetSpawnerID() const override {

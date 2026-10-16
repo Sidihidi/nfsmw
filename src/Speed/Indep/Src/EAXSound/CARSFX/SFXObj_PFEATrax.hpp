@@ -58,8 +58,9 @@ enum eMUSIC_TYPE {
 
 // TODO: PS2 alpha type info omits several later members; use the GC DWARF layout here.
 class SFXObj_PFEATrax : public SFXObj_Pathfinder {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static stEATraxParms m_EATrax[2];
     friend void InitializeEATrax(
 #ifndef EA_BUILD_A124

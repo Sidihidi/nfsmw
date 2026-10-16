@@ -41,8 +41,8 @@
 extern int gCamCloseToRoadBlock;
 
 static float kCinematicMomementSeconds = 2.0f;
-int gCinematicMomementCamera = 0;
-int gGameBreakerCamera = 0;
+bool gCinematicMomementCamera = 0;
+bool gGameBreakerCamera = 0;
 
 int gCamCloseToRoadBlock = 0; // .data: 0x80416568
 
@@ -74,12 +74,11 @@ class CDActionDrive :                       public CameraAI::Action,
         return mMover;
     }
     void Update(float dT) override;
-    void SetSpecial(float scale) override {
-        if (scale <= 0.0f) {
-            return;
+    void SetSpecial(float val) override {
+        if (val > 0.0f) {
+            kCinematicMomementSeconds = val;
+            mCinematicRising = 1;
         }
-        kCinematicMomementSeconds = scale;
-        mCinematicRising = 1;
     }
     bool Attach(UTL::COM::IUnknown *pOther) override {
         return mAttachments->Attach(pOther);
@@ -116,7 +115,7 @@ class CDActionDrive :                       public CameraAI::Action,
     float mCollisionScale;
     float mPulseTimer;
     float mCinematicTimer;
-    int mCinematicRising;
+    bool mCinematicRising;
     int mLastGear;
     Hermes::HHANDLER mJumpCutHandler;
 };
@@ -226,9 +225,9 @@ void CDActionDrive::Reset() {
     mGroundHitTimer = 0.0f;
     mObjectHitTimer = 0.0f;
     mPulseTimer = 0.0f;
+    mCinematicTimer = 0.0f;
     mCinematicRising = 0;
     mLastGear = 0;
-    mCinematicTimer = 0.0f;
 }
 
 void CDActionDrive::OnDetached(IAttachable *pOther) {
@@ -252,36 +251,33 @@ void CDActionDrive::OnCarDetached() {
 }
 
 void CDActionDrive::OnCollision(const Sim::Collision::Info &cinfo) {
-    float speed = VU0_sqrt(VU0_v3lengthsquare(cinfo.closingVel));
+    float speed = UMath::Length(cinfo.closingVel);
     switch (cinfo.Type()) {
     case Sim::Collision::Info::OBJECT: {
-        if (speed <= 20.0f) {
-            break;
+        if (speed > 20.0f) {
+            float objecttime = (speed - 20.0f) * 0.01f;
+            objecttime = UMath::Min(objecttime, 1.0f);
+            objecttime *= mCollisionScale;
+            mObjectHitTimer = UMath::Max(objecttime, mObjectHitTimer);
         }
-        float objecttime = (speed - 20.0f) * 0.01f;
-        objecttime = UMath::Min(objecttime, 1.0f);
-        objecttime *= mCollisionScale;
-        mObjectHitTimer = UMath::Max(objecttime, mObjectHitTimer);
         break;
     }
     case Sim::Collision::Info::WORLD: {
-        if (speed <= 5.0f) {
-            break;
+        if (speed > 5.0f) {
+            float damptime = (speed - 5.0f) * 0.025f;
+            damptime = UMath::Min(damptime, 1.0f);
+            damptime *= mCollisionScale;
+            mWorldHitTimer = UMath::Max(damptime, mWorldHitTimer);
         }
-        float damptime = (speed - 5.0f) * 0.025f;
-        damptime = UMath::Min(damptime, 1.0f);
-        damptime *= mCollisionScale;
-        mWorldHitTimer = UMath::Max(damptime, mWorldHitTimer);
         break;
     }
     case Sim::Collision::Info::GROUND: {
-        if (speed <= 3.0f) {
-            break;
+        if (speed > 3.0f) {
+            float groundtime = (speed - 3.0f) * 0.05f;
+            groundtime = UMath::Min(groundtime, 1.0f);
+            groundtime *= mCollisionScale;
+            mGroundHitTimer = UMath::Max(groundtime, mGroundHitTimer);
         }
-        float groundtime = (speed - 3.0f) * 0.05f;
-        groundtime = UMath::Min(groundtime, 1.0f);
-        groundtime *= mCollisionScale;
-        mGroundHitTimer = UMath::Max(groundtime, mGroundHitTimer);
         break;
     }
     default:
@@ -331,7 +327,7 @@ void CDActionDrive::AquireCar() {
 
     IRigidBody *body = simable->GetRigidBody();
     UMath::Vector3 dim = body->GetDimension();
-    bVector3 bdim(*reinterpret_cast<bVector3 *>(&dim));
+    bVector3 bdim(dim.x, dim.y, dim.z);
     mAnchor->SetDimension(bdim);
 
     ITransmission *trans = 0;

@@ -8,8 +8,8 @@ Collection::Collection(Class *aclass, const Collection *parent, Key k, unsigned 
     mParent = parent;
     mClass = aclass;
     mLayout = nullptr;
-    mSource = nullptr;
     mKey = k;
+    mSource = nullptr;
     mRefCount = 1;
     mNamePtr = KeyToString(k);
     if (mParent && !mClass) {
@@ -215,7 +215,7 @@ bool Collection::AddAttribute(Key attributeKey, unsigned int count) {
             }
         } else {
             void *dst;
-            if (d->GetSize() < 5) {
+            if (d->GetSize() <= 4) {
                 dst = nullptr;
                 flags = Node::Flag_IsByValue;
             } else {

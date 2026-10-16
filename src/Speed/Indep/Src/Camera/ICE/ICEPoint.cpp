@@ -15,11 +15,11 @@ float Cubic1D::GetVal(float t) const {
 }
 
 float Cubic1D::GetdVal(float t) const {
-    return ((2.0f * Coeff[1]) + (3.0f * Coeff[0] * t)) * t + Coeff[2];
+    return ((3.0f * Coeff[0] * t) + (2.0f * Coeff[1])) * t + Coeff[2];
 }
 
 float Cubic1D::GetddVal(float t) const {
-    return (2.0f * Coeff[1]) + (6.0f * Coeff[0] * t);
+    return (6.0f * Coeff[0] * t) + (2.0f * Coeff[1]);
 }
 
 float Cubic1D::GetValDesired() const {
@@ -42,7 +42,7 @@ float Cubic1D::GetSecondDerivative(float t) const {
 
 void Cubic1D::ClampDerivative(float fMag) {
     float fDf = GetDerivative(duration);
-    float fDfAbs = bAbs(fDf);
+    float fDfAbs = Abs(fDf);
     if (fDfAbs > fMag) {
         float fSign = fDfAbs / fDf;
         SetdValDesired(fSign * fMag * duration);
@@ -51,9 +51,9 @@ void Cubic1D::ClampDerivative(float fMag) {
 
 void Cubic1D::ClampSecondDerivative(float fMag) {
     float fAcc0 = GetSecondDerivative(0);
-    float fAcc0Abs = bAbs(fAcc0);
+    float fAcc0Abs = Abs(fAcc0);
     float fAcc1 = GetSecondDerivative(duration);
-    float fAcc1Abs = bAbs(fAcc1);
+    float fAcc1Abs = Abs(fAcc1);
     bool bNeedFix = false;
     if (fAcc0Abs > fMag) {
         float fSign = fAcc0Abs / fAcc0;
@@ -148,10 +148,21 @@ void Cubic3D::GetValDesired(Vector3 *pV) const {
     pV->z = z.ValDesired;
 }
 
-void Cubic3D::Update(float fSeconds, float fDClamp, float fDDClamp) {
-    x.Update(fSeconds, fDClamp, fDDClamp);
-    y.Update(fSeconds, fDClamp, fDDClamp);
-    z.Update(fSeconds, fDClamp, fDDClamp);
+void Cubic3D::Update(float time, float fDClamp, float fDDClamp) {
+    x.Update(time, fDClamp, fDDClamp);
+    y.Update(time, fDClamp, fDDClamp);
+    z.Update(time, fDClamp, fDDClamp);
 }
+
+// Linea 61 del ICEPoint.cpp original (mapa $LM A124): 40 B identicos al
+// gemelo cPoint::Update de Misc/Point.cpp (lw 0x168; beqz; jalr con a0/a1).
+void Point::Update(float fSeconds) {
+    if (mUpdateFunc) {
+        mUpdateFunc(this, fSeconds);
+    }
+}
+
+// STRIPPED (original: inline al final del ICEPoint.cpp, linea 269 del alpha)
+Point::~Point() {}
 
 }; // namespace ICE

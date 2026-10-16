@@ -6,6 +6,7 @@
 #include "Speed/Indep/Src/Online/LobbyCore.hpp"
 #include "Speed/Indep/Src/Online/LobbyGames.hpp"
 #include "Speed/Indep/Src/Online/LobbyGameSessions.hpp"
+#include "Speed/Indep/Src/Online/LobbyUsers.hpp"
 #include "Speed/Indep/Src/Online/OnlineCfg.hpp"
 
 extern LobbyLoginAlertT LobbyLogin_DefaultAlertTable[];
@@ -100,31 +101,22 @@ bool LobbyLogin::DoContextLogin(const char *username, const char *password) {
 
 bool LobbyLogin::DoContextTOS(bool acceptedTOS) {
     char params[8] = "";
-    TagFieldSetNumber(params, sizeof(params), "TOS", acceptedTOS);
+    TagFieldSetNumber(params, sizeof(params), "TOS", acceptedTOS == true);
     return DoContext(LOBBYLOGIN_CONTEXT_TOS, params);
 }
 
 bool LobbyLogin::DoContextSelPers(const char *persona) {
-    char params[64];
-
     for (int i = 0; i < personas.iNumNames; i++) {
         if (bStrCmp(persona, personas.strNames[i]) == 0) {
             break;
         }
     }
-    params[0] = '\0';
-    bMemSet(params + 1, 0, sizeof(params) - 1);
+    char params[64] = "";
     TagFieldSetString(params, sizeof(params), "PERS", persona);
     return DoContext(LOBBYLOGIN_CONTEXT_SELPERS, params);
 }
 
-LobbyLoginContextE LobbyLogin::GetContext() {
-    LobbyLoginContextE context = LOBBYLOGIN_CONTEXT_INVALID;
-    if (IsStarted() == true) {
-        context = LobbyLoginGetContext(lobbylogin);
-    }
-    return context;
-}
+LobbyLoginContextE LobbyLogin::GetContext() { return IsStarted() ? LobbyLoginGetContext(lobbylogin) : LOBBYLOGIN_CONTEXT_INVALID; }
 
 LobbyLoginStatusE LobbyLogin::GetStatus() { return LobbyLoginGetStatus(lobbylogin, GetContext()); }
 
@@ -133,10 +125,7 @@ LobbyLoginNameListT &LobbyLogin::GetPersonaList() { return personas; }
 bool LobbyLogin::IsAlertSet() { return GetStatus() == LOBBYLOGIN_STATUS_ALERT; }
 
 LobbyLoginAlertT *LobbyLogin::GetAlert(LobbyLoginContextE context) {
-    if (context == LOBBYLOGIN_NUMCONTEXTS) {
-        context = GetContext();
-    }
-    return LobbyLoginAlert(lobbylogin, context);
+    return LobbyLoginAlert(lobbylogin, context == LOBBYLOGIN_NUMCONTEXTS ? GetContext() : context);
 }
 
 LobbyLoginAlertE LobbyLogin::GetAlertEnum(LobbyLoginContextE context) {
@@ -146,11 +135,10 @@ LobbyLoginAlertE LobbyLogin::GetAlertEnum(LobbyLoginContextE context) {
 static void _LoginSubmitCallback(LobbyLoginRefT *pLogin, LobbyLoginContextE context, LobbyLoginStatusE status, void *callbackData) {}
 
 bool LobbyLogin::DoContext(LobbyLoginContextE context, char *params) {
-    char emptyParams[1] = "";
-
     if (GetContext() != context) {
         LobbyLoginSetContextCB(lobbylogin, context, 0, 0);
     }
+    char emptyParams[1] = "";
     if (context == LOBBYLOGIN_CONTEXT_LOGIN) {
         return LobbyLoginSubmitCB(lobbylogin, LOBBYLOGIN_CONTEXT_LOGIN, params ? params : emptyParams, ContextLoginCB, this) != 0;
     }
@@ -175,7 +163,7 @@ void LobbyLogin::DeletePersona(char *persona) {
                 break;
             }
         }
-        if (foundIt) {
+        if (foundIt == true) {
             for (i++; i < personas.iNumNames; i++) {
                 bStrCpy(personas.strNames[i - 1], personas.strNames[i]);
                 personas.strNames[i][0] = '\0';

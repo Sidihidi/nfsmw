@@ -5,18 +5,18 @@ extern "C" {
 #endif
 
 int SNDSTRM_overheadtap(int maxrequests, int maxchunks) {
-    int size = Snd::gMaxFxBuses * sizeof(Snd::SNDSTREAMFXVOLUME) + sizeof(SNDSTREAMCHANNEL);
-    size += maxrequests * sizeof(Snd::SNDSTREAMREQUEST);
+    int overhead = Snd::gMaxFxBuses * sizeof(Snd::SNDSTREAMFXVOLUME) + sizeof(SNDSTREAMCHANNEL);
+    overhead += maxrequests * sizeof(Snd::SNDSTREAMREQUEST);
 
-    return size + SNDPKTPLAY_overhead(maxchunks);
+    return overhead + SNDPKTPLAY_overhead(maxchunks);
 }
 
 int SNDSTRM_overhead(int maxrequests, int maxchunks) {
-    int size = SNDSTRM_overheadtap(maxrequests, maxchunks);
+    int overhead = SNDSTRM_overheadtap(maxrequests, maxchunks);
 
-    size += STREAM_overhead(maxrequests + 2, 1, 1);
+    overhead += STREAM_overhead(maxrequests + 2, 1, 1);
 
-    return size;
+    return overhead;
 }
 
 #ifdef __cplusplus

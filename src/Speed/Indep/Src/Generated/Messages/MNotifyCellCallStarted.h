@@ -26,7 +26,6 @@ class MNotifyCellCallStarted : public Hermes::Message {
 
     MNotifyCellCallStarted() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MNotifyCellCallStarted() {}
 };
 
 

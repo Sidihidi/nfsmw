@@ -38,9 +38,9 @@ void ENISLights_MakeEvent_Callback(const void *staticData) {
     new ENISLights(((ENISLights::StaticData *) staticData)->fCopLights, ((ENISLights::StaticData *) staticData)->fHeadLights, gEventDynamicData.fhSimable);
 }
 
-int ENISLights_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ENISLights((unsigned int) lua_tonumber(L, 1), (unsigned int) lua_tonumber(L, 2), gEventDynamicData.fhSimable);
+int ENISLights_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ENISLights((unsigned int) lua_tonumber(luaState, 1), (unsigned int) lua_tonumber(luaState, 2), gEventDynamicData.fhSimable);
     }
     return 0;
 }

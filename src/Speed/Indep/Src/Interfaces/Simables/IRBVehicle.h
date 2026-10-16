@@ -3,7 +3,12 @@
 
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/collisionreactions.h"
+
+namespace Attrib {
+namespace Gen {
+struct collisionreactions;
+} // namespace Gen
+} // namespace Attrib
 
 enum eInvulnerablitiy {
     INVULNERABLE_NONE = 0,

@@ -63,7 +63,11 @@ bool Wheel::UpdatePosition(const UMath::Vector3 &body_av, const UMath::Vector3 &
     UMath::Add(this->mWorldArm, UMath::Vector4To3(body_matrix.v3), this->mPosition);
 
     float tolerance = UMath::Max(-pVel.y * dT, 0.0f) + wheel_radius + UMath::Lengthxz(pVel) * dT;
+#ifdef EA_BUILD_A124
+    float prev = vehicle_height;
+#else
     float prev = vehicle_height * 0.5f;
+#endif
     this->mWorldPos.SetTolerance(UMath::Min(tolerance, prev));
 
     bool result = this->mWorldPos.Update(this->mPosition, this->mNormal, IsOnGround() && usecache, collider, true);

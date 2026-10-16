@@ -12,6 +12,9 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/bDebug.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/bWare/Inc/bCodeineFile.hpp"
+#endif
 #include <types.h>
 
 #include <stdarg.h>
@@ -108,7 +111,13 @@ class bFileCallbackEntry : public bTNode<bFileCallbackEntry> {
   public:
     USE_SLOTALLOC(bFileSlotPool);
 
-    bFileCallbackEntry(bFile *file, void *buf, int position, int num_bytes, void (*callback)(void *), void *callback_param)
+    bFileCallbackEntry(bFile *file, void *buf, int position, int num_bytes,
+#ifdef EA_BUILD_A124
+                       void (*callback)(int), int callback_param
+#else
+                       void (*callback)(void *), void *callback_param
+#endif
+                       )
         : File(file),                    //
           Callback(callback),            //
           FileHandleToClose(0),          //
@@ -121,8 +130,13 @@ class bFileCallbackEntry : public bTNode<bFileCallbackEntry> {
     void *Buf;                      // offset 0xC, size 0x4
     int Position;                   // offset 0x10, size 0x4
     int NumBytes;                   // offset 0x14, size 0x4
+#ifdef EA_BUILD_A124
+    void (*Callback)(int);          // offset 0x18, size 0x4
+    int CallbackParam;              // offset 0x1C, size 0x4
+#else
     void (*Callback)(void *);       // offset 0x18, size 0x4
     void *CallbackParam;            // offset 0x1C, size 0x4
+#endif
     EAFileHandle FileHandleToClose; // offset 0x20, size 0x4
 };
 
@@ -147,7 +161,11 @@ class CachedRealFileHandle : public bTNode<CachedRealFileHandle> {
         Filename = bAllocateSharedString(filename);
     }
 
-    ~CachedRealFileHandle() {}
+    ~CachedRealFileHandle() {
+        NumInstances--;
+        AsyncCloseFile(FileHandle);
+        bFreeSharedString(Filename);
+    }
 
     USE_SLOTALLOC(bFileSlotPool);
 
@@ -209,12 +227,7 @@ bool CachedRealFileHandle::RemoveUnusedHandle() {
     for (CachedRealFileHandle *c = HandleList.GetHead(); c != HandleList.EndOfList(); c = c->GetNext()) {
         if (c->NumReferences == 0) {
             HandleList.Remove(c);
-            if (c) {
-                NumInstances--;
-                AsyncCloseFile(c->FileHandle);
-                bFreeSharedString(c->Filename);
-                delete c;
-            }
+            delete c;
             return true;
         }
     }
@@ -223,13 +236,11 @@ bool CachedRealFileHandle::RemoveUnusedHandle() {
 
 void CachedRealFileHandle::FlushUnusedHandle(const char *filename) {
     CachedRealFileHandle *c = FindHandle(filename);
-    if (c) {
-        HandleList.Remove(c);
-        NumInstances--;
-        AsyncCloseFile(c->FileHandle);
-        bFreeSharedString(c->Filename);
-        delete c;
+    if (!c) {
+        return;
     }
+    HandleList.Remove(c);
+    delete c;
 }
 
 void CachedRealFileHandle::FlushUnusedHandles(bool print_warning) {
@@ -240,10 +251,16 @@ void CachedRealFileHandle::FlushUnusedHandles(bool print_warning) {
 
 void bFileFlushCachedFiles() {
     CachedRealFileHandle::FlushUnusedHandles(false);
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 vacian tambien la cache de ficheros de Codeine
+    bClearCodeineFileCache();
+#endif
 }
 
 void bFileFlushCacheFile(const char *filename) {
     CachedRealFileHandle::FlushUnusedHandle(filename);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    bInvalidateCodeineFileCache(filename);
+#endif
 }
 
 // total size: 0x28
@@ -259,7 +276,11 @@ struct OpenDisculatorFile {
 
     ~OpenDisculatorFile() {}
 
+#ifdef EA_BUILD_A124
+    USE_SLOTALLOC(bFileSlotPool); // la A124 no tiene un pool propio para los ficheros del Disculator
+#else
     USE_SLOTALLOC(OpenDisculatorFileSlotPool);
+#endif
 
     const char *filename;    // offset 0x0, size 0x4
     int32 nameHash;          // offset 0x4, size 0x4
@@ -328,7 +349,9 @@ bool bInitDisculatorDriver(const char *dir_filename, const char *data_filename) 
     if (driver) {
         RealFile::AddDevice(driver);
         RealFile::AddSearchLocation("discu:", true);
+#ifndef EA_BUILD_A124
         bFileRunTimingTest();
+#endif
         return true;
     }
     return false;
@@ -350,7 +373,9 @@ DisculatorDriver *DisculatorDriver::Create(const char *dir_filename, const char 
 }
 
 bool DisculatorDriver::Init() {
+#ifndef EA_BUILD_A124 // la A124 no crea el pool aqui
     OpenDisculatorFileSlotPool = bNewSlotPool(0x28, 0x44, "OpenDisculatorFileSlotPool", 0);
+#endif
     CurrentSector = 0;
     TotalDeltaSector = 0;
     return true;
@@ -449,12 +474,17 @@ bool DisculatorDriver::LoadGiantFiles(const char *giant_dir_filename, const char
         int num_entries = size / sizeof(bFileDirectoryEntry);
 
         bFileDirectoryEntry *dir = new (giant_dir_filename, 0) bFileDirectoryEntry[num_entries];
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Las dos PS2 leen el directorio con bRead, sin la espera de DVDErrorTask (bFile.cpp:919 en la A124).
+        bRead(f, dir, size);
+#else
         bReadAsync(f, dir, size, nullptr, nullptr);
 
         while (!bIsAsyncDone(f)) {
             DVDErrorTask(nullptr, 0);
             bThreadYield(8);
         }
+#endif
 
         this->pDirectoryEntryTable = dir;
         this->NumDirectoryEntries = num_entries;
@@ -573,7 +603,11 @@ class bFile : public bTNode<bFile> {
     void OpenLowLevel();
     void MaybeAddCachedHandle();
     void Seek(int position, int mode);
+#ifdef EA_BUILD_A124
+    void ReadAsync(void *buf, int num_bytes, void (*callback)(int), int callback_param);
+#else
     void ReadAsync(void *buf, int num_bytes, void (*callback)(void *), void *callback_param);
+#endif
     void FlushWriteBuffer();
     void Write(const void *buf, int num_bytes);
 
@@ -623,6 +657,9 @@ bFile::bFile(const char *filename, bFileOpenMode open_mode) {
 
     if (open_mode == BOPEN_MODE_WRITE || open_mode == BOPEN_MODE_APPEND) {
         bFileFlushCacheFile(Filename);
+#ifdef EA_PLATFORM_PLAYSTATION2
+        bInvalidateCodeineFileCache(Filename);
+#endif
         WriteBufferSize = 0x2000;
         WriteBuffer = static_cast<uint8 *>(bMalloc(0x2000, "bFile WriteBuffer", 0, 0));
     }
@@ -641,7 +678,15 @@ bFile::bFile(const char *filename, bFileOpenMode open_mode) {
                 if (OpenMode == BOPEN_MODE_APPEND) {
                     Position = FileSize;
                 }
+#ifdef EA_BUILD_A124 // la A124 no tiene MaybeAddCachedHandle: el constructor guarda el manejador el mismo
+                if (OpenMode == BOPEN_MODE_READONLY && FileHandle != 0) {
+                    CachedRealFileHandle *c = CachedRealFileHandle::AddHandle(Filename, FileHandle, FileSize);
+                    c->AddReference();
+                    pCachedRealFileHandle = c;
+                }
+#else
                 MaybeAddCachedHandle();
+#endif
             }
         }
     }
@@ -666,8 +711,8 @@ bFile::~bFile() {
     bFreeSharedString(Filename);
 }
 
-// TODO maybe higher
-inline void DetectMicropause(int start_tick, const char *filename) {}
+// TODO maybe higher. Firma del DWARF de GameCube; los textos de cada llamada estan en el .rodata del original.
+inline void DetectMicropause(int start_tick, const char *text, const char *filename) {}
 
 inline void CheckForFatalDiscError() {}
 
@@ -694,7 +739,7 @@ void bFile::OpenLowLevel() {
         if (status == 1) {
             FileHandle = result;
         }
-        // TODO DetectMicropause from another game
+        DetectMicropause(ticks, "bFile FILESYS_OPEN", Filename);
     }
     if (FileHandle != 0) {
         int ticks = bGetTicker();
@@ -704,10 +749,11 @@ void bFile::OpenLowLevel() {
         if (status == 1) {
             FileSize = file_size;
         }
-        // TODO DetectMicropause from another game
+        DetectMicropause(ticks, "bFile Determine FileSize", Filename);
     }
 }
 
+#ifndef EA_BUILD_A124
 void bFile::MaybeAddCachedHandle() {
     if (FileHandle != 0 && !pCachedRealFileHandle && OpenMode == BOPEN_MODE_READONLY) {
         CachedRealFileHandle *c = CachedRealFileHandle::AddHandle(Filename, FileHandle, FileSize);
@@ -715,6 +761,7 @@ void bFile::MaybeAddCachedHandle() {
         pCachedRealFileHandle = c;
     }
 }
+#endif
 
 void bFile::Seek(int position, int mode) {
     switch (mode) {
@@ -730,7 +777,13 @@ void bFile::Seek(int position, int mode) {
     }
 }
 
-void bFile::ReadAsync(void *buf, int num_bytes, void (*callback)(void *), void *callback_param) {
+void bFile::ReadAsync(void *buf, int num_bytes,
+#ifdef EA_BUILD_A124
+                      void (*callback)(int), int callback_param
+#else
+                      void (*callback)(void *), void *callback_param
+#endif
+) {
     int ticks = bGetTicker();
     if (Position + num_bytes > FileSize) {
         num_bytes = FileSize - Position;
@@ -763,13 +816,15 @@ void bFile::ReadAsync(void *buf, int num_bytes, void (*callback)(void *), void *
     if (file_needs_opening) {
         FILEOP fop = FILESYS_open(Filename, GetRealFileOpenFlags(OpenMode), 100, reinterpret_cast<void *>(callback_entry));
         FILESYS_callbackop(fop, bFile::CallbackFunctionOpen);
+#ifndef EA_BUILD_A124 // la A124 no guarda aqui el manejador en la cache
         MaybeAddCachedHandle();
+#endif
     } else {
         FILEOP fop = FILESYS_read(FileHandle, Position, buf, num_bytes, 0x64, reinterpret_cast<void *>(callback_entry));
         FILESYS_callbackop(fop, bFile::CallbackFunctionRead);
     }
     Position += num_bytes;
-    DetectMicropause(ticks, Filename);
+    DetectMicropause(ticks, "bFile::ReadAsync", Filename);
 }
 
 void bFile::FlushWriteBuffer() {
@@ -804,6 +859,23 @@ void bFile::Write(const void *buf, int num_bytes) {
 
 void bFile::CallbackFunctionOpen(int fop, int status, void *userdata) {
     int ticks = bGetTicker();
+#ifdef EA_BUILD_A124 // el prototipo guarda aqui el manejador en la cache y lee siempre
+    int file_handle = FILESYS_completeop(fop);
+    bFileCallbackEntry *callback_entry = static_cast<bFileCallbackEntry *>(userdata);
+    bFile *file = callback_entry->File;
+    if (file->FileHandle == 0) {
+        file->FileHandle = file_handle;
+        if (file->OpenMode == BOPEN_MODE_READONLY) {
+            CachedRealFileHandle *c = CachedRealFileHandle::AddHandle(file->Filename, file_handle, file->FileSize);
+            file->pCachedRealFileHandle = c;
+            c->AddReference();
+        }
+    } else {
+        callback_entry->FileHandleToClose = file_handle;
+    }
+    int readFop = FILESYS_read(file_handle, callback_entry->Position, callback_entry->Buf, callback_entry->NumBytes, 100, callback_entry);
+    FILESYS_callbackop(readFop, bFile::CallbackFunctionRead);
+#else
     bFileCallbackEntry *callback_entry = static_cast<bFileCallbackEntry *>(userdata);
     int file_handle = FILESYS_completeop(fop);
     bFile *file = callback_entry->File;
@@ -820,8 +892,9 @@ void bFile::CallbackFunctionOpen(int fop, int status, void *userdata) {
         PendingCallbackList.Remove(callback_entry);
         CompletedCallbackList.AddTail(callback_entry);
         MUTEX_unlock(&bFileMutex);
-        // TODO DetectMicropause
     }
+#endif
+    DetectMicropause(ticks, "bFile::CallbackFunctionOpen", file->Filename);
 }
 
 void bFile::CallbackFunctionRead(int fop, int status, void *userdata) {
@@ -836,7 +909,7 @@ void bFile::CallbackFunctionRead(int fop, int status, void *userdata) {
         AsyncCloseFile(callback_entry->FileHandleToClose);
     }
     MUTEX_unlock(&bFileMutex);
-    // TODO DetectMicropause
+    DetectMicropause(ticks, "bFile::CallbackFunctionRead", callback_entry->File->Filename);
 }
 
 void bFile::HandleCompletedCallbacks() {
@@ -846,11 +919,13 @@ void bFile::HandleCompletedCallbacks() {
         bFile *file = callback_entry->File;
         file->NumPendingCallbacks--;
         TotalNumPendingCallbacks--;
+#ifndef EA_BUILD_A124
         file->MaybeAddCachedHandle();
+#endif
 
         bool delete_file_after_callback = false;
-        if (file->CloseAfterCallbacks) {
-            delete_file_after_callback = file->NumPendingCallbacks == 0;
+        if (file->CloseAfterCallbacks && file->NumPendingCallbacks == 0) {
+            delete_file_after_callback = true;
         }
         if (callback_entry->Callback) {
             MUTEX_unlock(&bFileMutex);
@@ -870,9 +945,27 @@ void bInitFileSystem() {
     if (!bFileSlotPool) {
         MUTEX_create(&bFileMutex);
         unsigned int slot_size = 64;
+#ifdef EA_BUILD_A124
+        bFileSlotPool = bNewSlotPool(slot_size, 64, "bFile System", 0);
+#else
         bFileSlotPool = bNewSlotPool(slot_size, 68, "bFile System", 0);
+#endif
     }
 }
+
+// GameCube y la A124 la compilan pero su enlace la quita (Range 0xFFFFFFFF en el DWARF y en los stabs); en PC esta en
+// 0x661210 (la llama la funcion de cierre de la plataforma, 0x6DFA80).
+#ifndef EA_PLATFORM_GAMECUBE
+void bCloseFileSystem() {
+    if (bFileSlotPool) {
+        bWaitUntilAsyncDone(nullptr);
+        CachedRealFileHandle::FlushUnusedHandles(true);
+        bDeleteSlotPool(bFileSlotPool);
+        bFileSlotPool = nullptr;
+        MUTEX_destroy(&bFileMutex);
+    }
+}
+#endif
 
 void bServiceFileSystem() {
     if (bFileSlowReadCount > 0) {
@@ -953,14 +1046,20 @@ int bFileExists(const char *filename) {
     if (f) {
         int size = f->GetFileSize();
         bClose(f);
-        DetectMicropause(ticks, "bFileExists()");
+        DetectMicropause(ticks, "bFileExists()", filename);
         result = size + 1;
     }
-    DetectMicropause(ticks, "bFileExists()");
+    DetectMicropause(ticks, "bFileExists()", filename);
     return result;
 }
 
-void bReadAsync(bFile *f, void *buf, int numbytes, void (*callback)(void *), void *param) {
+void bReadAsync(bFile *f, void *buf, int numbytes,
+#ifdef EA_BUILD_A124
+                void (*callback)(int), int param
+#else
+                void (*callback)(void *), void *param
+#endif
+) {
     if (f && f->IsOpen()) {
         f->ReadAsync(buf, numbytes, callback, param);
     }
@@ -978,7 +1077,7 @@ void bSeek(bFile *f, int position, int mode) {
     }
 }
 
-bool bIsAsyncDone(bFile *f) {
+int bIsAsyncDone(bFile *f) {
     bServiceFileSystem();
     if (f) {
         return f->GetNumPendingCallbacks() == 0;
@@ -991,35 +1090,37 @@ void bWrite(bFile *f, const void *buf, int num_bytes) {
     f->Write(buf, num_bytes);
 }
 
-void *bGetFile(const char *filename, int32 *size_out, int flags) {
+void *bGetFile(const char *filename, int32 *size, int allocation_params) {
     bFile *f = bOpen(filename, BOPEN_MODE_READONLY, true);
     if (!f) {
         return nullptr;
     }
-    if (size_out) {
-        *size_out = bFileSize(f);
+    if (size) {
+        *size = bFileSize(f);
     }
     // TODO remove
-    unsigned int hack = bMemoryGetAlignment(flags);
+    unsigned int hack = bMemoryGetAlignment(allocation_params);
     if (hack == 0) {
         hack = 16;
     }
     if (hack == 16) {
-        flags |= 0x2000;
+        allocation_params |= BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
     }
-    void *buf = bMalloc(bFileSize(f), filename, 0, flags);
+    void *buf = bMalloc(bFileSize(f), filename, 0, allocation_params);
     unsigned int filesize = bFileSize(f);
     bReadAsync(f, buf, filesize, nullptr, nullptr);
     while (!bIsAsyncDone(f)) {
+#ifndef EA_PLATFORM_PLAYSTATION2
         DVDErrorTask(nullptr, 0);
+#endif
         bThreadYield(8);
     }
     bClose(f);
     return buf;
 }
 
-int bFPrintf(bFile *f, const char *fmt, ...) {
-    if (!f) {
+int bFPrintf(bFile *file, const char *fmt, ...) {
+    if (!file) {
         va_list arg_list;
         va_start(arg_list, fmt);
         int len = bVPrintf(fmt, arg_list);
@@ -1031,7 +1132,7 @@ int bFPrintf(bFile *f, const char *fmt, ...) {
     va_start(arg_list, fmt);
     int len = bVSPrintf(buffer, fmt, arg_list);
     va_end(arg_list);
-    bWrite(f, buffer, len);
+    bWrite(file, buffer, len);
     delete[] buffer;
     return len;
 }

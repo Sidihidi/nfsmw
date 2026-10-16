@@ -22,7 +22,6 @@ int Path::PathToSnd::CreateStreamTrack(Path::IPathTrack **ppPathTrack, int maxRe
                                        float bufferTime, int byteRate) {
     int result;
     Path::PathTrackSndStream *streamimp;
-    char framePad[8];
 
     streamimp = new Path::PathTrackSndStream(maxRequests);
     if (bufferTime != 0.0f) {
@@ -111,16 +110,10 @@ int Path::PathTrackSnd::GetPathStatus(PATHSTATUS *psps) {
     }
     beatlen = this->mStatus.nodeduration;
     barlen = beatlen;
-    int nodeIndex = this->mStatus.playingnode;
-    if (nodeIndex >= 0 && nodeIndex <= Path::pfstate->pmap->numnodes) {
-        nodeinfo = (PATHFINDNODE *)((int *)Path::pfstate->pmap +
-            (unsigned short)Path::pfstate->pnodeoffsets[nodeIndex]);
-    } else {
-        nodeinfo = 0;
-    }
+    nodeinfo = this->mStatus.playingnode >= 0 ? PATHI_getnode(this->mStatus.playingnode) : 0;
     if (nodeinfo != 0 && nodeinfo->bars != 0) {
         this->mStatus.barduration = this->mStatus.nodeduration / nodeinfo->bars;
-        barlen = beatlen / nodeinfo->bars;
+        barlen = barlen / nodeinfo->bars;
         if (nodeinfo->beats != 0) {
             this->mStatus.beatduration =
                 this->mStatus.nodeduration / (nodeinfo->beats * nodeinfo->bars);
@@ -135,20 +128,8 @@ int Path::PathTrackSnd::GetPathStatus(PATHSTATUS *psps) {
         timeinnode = 0;
     }
     this->mStatus.playingbeat = timeinnode;
-    if (barlen >= 1) {
-        this->mStatus.timeleftinbar = this->mStatus.timeleftinnode -
-                                      this->mStatus.timeleftinnode / barlen * barlen;
-    }
-    else {
-        this->mStatus.timeleftinbar = 0;
-    }
-    if (beatlen >= 1) {
-        this->mStatus.timeleftinbeat = this->mStatus.timeleftinnode -
-                                       this->mStatus.timeleftinnode / beatlen * beatlen;
-    }
-    else {
-        this->mStatus.timeleftinbeat = 0;
-    }
+    this->mStatus.timeleftinbar = barlen >= 1 ? this->mStatus.timeleftinnode % barlen : 0;
+    this->mStatus.timeleftinbeat = beatlen >= 1 ? this->mStatus.timeleftinnode % beatlen : 0;
     *psps = this->mStatus;
     return 1;
 }
@@ -169,15 +150,15 @@ int Path::PathTrackSnd::GetVolume() {
 }
 
 int Path::PathTrackSnd::SetVolume(int volume) {
-    int current;
+    int vol;
 
     if (static_cast<unsigned int>(volume) > 0x7f) {
         return PATHERR_INV_PARAM;
     }
-    current = this->GetVolume();
-    if (current != volume) {
+    vol = this->GetVolume();
+    if (vol != volume) {
         if (volume >= 0) {
-            if (current >= 0) {
+            if (vol >= 0) {
                 return 0;
             }
         }
@@ -194,15 +175,15 @@ int Path::PathTrackSnd::SetFXSendLevel(int bus, int level) {
 }
 
 int Path::PathTrackSnd::SetPitchMult(int pitchmult) {
-    int current;
+    int pm;
 
     if (static_cast<unsigned int>(pitchmult) > 0x4000) {
         return PATHERR_INV_PARAM;
     }
-    current = this->GetPitchMult();
-    if (current != pitchmult) {
+    pm = this->GetPitchMult();
+    if (pm != pitchmult) {
         if (pitchmult >= 0) {
-            if (current >= 0) {
+            if (pm >= 0) {
                 return 0;
             }
         }
@@ -211,15 +192,15 @@ int Path::PathTrackSnd::SetPitchMult(int pitchmult) {
 }
 
 int Path::PathTrackSnd::SetStretchMult(int stretchmult) {
-    int current;
+    int pm;
 
     if (static_cast<unsigned int>(stretchmult - 0x800) > 0x1800) {
         return PATHERR_INV_PARAM;
     }
-    current = this->GetStretchMult();
-    if (current != stretchmult) {
+    pm = this->GetStretchMult();
+    if (pm != stretchmult) {
         if (stretchmult >= 0) {
-            if (current >= 0) {
+            if (pm >= 0) {
                 return 0;
             }
         }
@@ -280,8 +261,8 @@ Path::PathTrackSndBank::PathTrackSndBank(int maxsubbanks) {
 }
 
 Path::PathTrackSndBank::~PathTrackSndBank() {
-    for (int i = 0; i < this->GetNumSubBanks(); i++) {
-        this->RemoveSubBank(i);
+    for (int sb = 0; sb < this->GetNumSubBanks(); sb++) {
+        this->RemoveSubBank(sb);
     }
     if (this->mSubBanks != 0) {
         PATHI_memfree(this->mSubBanks);
@@ -356,11 +337,12 @@ void Path::PathTrackSndBank::CheckStatus() {
                 int newvol;
 
                 timeleft *= 10;
-                nodeinfo = 0;
                 duration = static_cast<int>(
                     static_cast<float>(ssd.totalframes) /
                     static_cast<float>(static_cast<int>(ssf.samplerate)) * 1000.0f);
-                nodeinfo = PATHI_getnode(this->mRequest.node);
+                nodeinfo = 0;
+                if (this->mRequest.node >= 0)
+                    nodeinfo = PATHI_getnode(this->mRequest.node);
                 if (nodeinfo->extra.beat.playbeats != 0) {
                     {
                         // Written through a block temp on purpose: with
@@ -789,8 +771,8 @@ void Path::PathTrackSndStream::CheckStatus() {
             int correction;
 
             correction = Path::timercallsinarow * Path::pfstate->timerinterval;
-            this->mStatus.timebuffered -= correction;
             this->mStatus.timeremaining -= correction;
+            this->mStatus.timebuffered -= correction;
             this->mStatus.timeleftinnode -= correction;
             if (this->mStatus.timeremaining < 0) {
                 this->mStatus.timeremaining = 0;

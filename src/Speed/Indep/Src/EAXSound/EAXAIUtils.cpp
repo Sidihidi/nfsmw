@@ -91,25 +91,22 @@ void SndAITrigger::Update(float UpdateVal, float t) {
     if (!this->bTrigger) {
         if (this->fSign * this->CurValue > this->fSign * this->m_fAutoTrigger) {
             this->BeginTrigger();
-            return;
-        }
-        if (this->fSign * this->CurValue > this->fSign * this->m_fThreshold) {
+        } else if (this->fSign * this->CurValue > this->fSign * this->m_fThreshold) {
             this->CurSustain -= t;
             if (this->CurSustain < 0.0f) {
                 this->BeginTrigger();
             }
-            return;
+        } else {
+            this->CurSustain = this->t_fSustain;
         }
-        this->CurSustain = this->t_fSustain;
-        return;
-    }
-
-    if (this->fSign * this->CurValue > this->fSign * this->m_fThreshold) {
-        this->CurTriggerLength = this->t_TriggerLength;
     } else {
-        this->CurTriggerLength -= t;
-        if (this->CurTriggerLength < 0.0f) {
-            this->EndTrigger();
+        if (this->fSign * this->CurValue > this->fSign * this->m_fThreshold) {
+            this->CurTriggerLength = this->t_TriggerLength;
+        } else {
+            this->CurTriggerLength -= t;
+            if (this->CurTriggerLength < 0.0f) {
+                this->EndTrigger();
+            }
         }
     }
 }
@@ -123,8 +120,8 @@ SndAIStateManager::SndAIStateManager()
     this->bTransition = false;
     this->CurState = SND_AI_STATE_UNKNOWN;
     this->PrevState = SND_AI_STATE_UNKNOWN;
-    this->m_pPhysicsCTL = nullptr;
     this->m_tLastSwitch = 0.0f;
+    this->m_pPhysicsCTL = nullptr;
 }
 
 SndAIStateManager::~SndAIStateManager() {}
@@ -170,7 +167,7 @@ void SndAIStateManager::Initialize(SFXCTL_Physics *_m_pPhysicsCTL) {
 
 void SndAIStateManager::Update(float t) {
     float steering = static_cast<float>(this->m_pPhysicsCTL->GetPhysCar()->GetSteering()) * 0.005493248f;
-    if (180.0f < steering) {
+    if (steering > 180.0f) {
         steering -= 360.0f;
     }
 

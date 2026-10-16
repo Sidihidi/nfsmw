@@ -706,8 +706,12 @@ MAD_FRAME *MAD_CODEC_INTERNAL::CreateKorM() {
         return NewFrame;
     }
 
+    #ifdef EA_PLATFORM_WIN32
+    REAL_abortmessage("MAD_CODEC_INTERNAL::CreateIorP() out of frames did you call CODEC::ReleaseFrame( FRAME *Frame )\n");
+#else
     REAL_abortmessage("MAD_CODEC_INTERNAL::CreateIorP() out of frames did you call CODEC::ReleaseFrame( FRAME *Frame )
 ");
+#endif
     return 0;
 }
 
@@ -720,8 +724,12 @@ MAD_FRAME *MAD_CODEC_INTERNAL::CreateE() {
         return NewFrame;
     }
 
+    #ifdef EA_PLATFORM_WIN32
+    REAL_abortmessage("MAD_CODEC_INTERNAL::CreateB() out of frames did you call CODEC::ReleaseFrame( FRAME *Frame )\n");
+#else
     REAL_abortmessage("MAD_CODEC_INTERNAL::CreateB() out of frames did you call CODEC::ReleaseFrame( FRAME *Frame )
 ");
+#endif
     return 0;
 }
 

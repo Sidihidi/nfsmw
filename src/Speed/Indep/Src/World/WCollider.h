@@ -5,6 +5,7 @@
 #pragma once
 #endif
 
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "types.h"
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #include "Speed/Indep/Libs/Support/Utility/UListable.h"
@@ -93,13 +94,13 @@ class WCollider : public UTL::Collections::Listable<WCollider, 100> {
     void ClearLists(unsigned int typeMask);
     void ReserveLists(unsigned int typeMask);
 
-    ALIGN_16 UMath::Vector3 fRequestedPosition;     // offset 0x4, size 0xC
+    ALIGNVEC UMath::Vector3 fRequestedPosition;     // offset 0x4, size 0xC
     float fRequestedRadius;                         // offset 0x10, size 0x4
-    ALIGN_16 UMath::Vector3 fLastRequestedPosition; // offset 0x14, size 0xC
+    ALIGNVEC UMath::Vector3 fLastRequestedPosition; // offset 0x14, size 0xC
     float fLastRequestedRadius;                     // offset 0x20, size 0x4
-    ALIGN_16 UMath::Vector3 fPosition;              // offset 0x24, size 0xC
+    ALIGNVEC UMath::Vector3 fPosition;              // offset 0x24, size 0xC
     float fRadius;                                  // offset 0x30, size 0x4
-    ALIGN_16 UMath::Vector3 fLastRefreshedPosition; // offset 0x34, size 0xC
+    ALIGNVEC UMath::Vector3 fLastRefreshedPosition; // offset 0x34, size 0xC
     WCollisionInstanceCacheList fInstanceCacheList; // offset 0x40, size 0x10
     WCollisionBarrierList fBarrierList;             // offset 0x50, size 0x10
     WCollisionTriList fTriList;                     // offset 0x60, size 0x14

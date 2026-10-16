@@ -5,9 +5,21 @@
 IAnimEntity *CAnimEntityFactory::CreateAnimEntity(int anim_entity_type) {
     switch (anim_entity_type) {
         case eAnimEntityType_BasicCharacter:
-            return new ("CBasicCharacterAnimEntity", 0) CBasicCharacterAnimEntity();
+#ifdef EA_PLATFORM_XENON
+            // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto.
+            return ::new (static_cast<CBasicCharacterAnimEntity *>(bMalloc(sizeof(CBasicCharacterAnimEntity), "CBasicCharacterAnimEntity", 0, 0)))
+#else
+            return new ("CBasicCharacterAnimEntity", 0)
+#endif
+                CBasicCharacterAnimEntity();
         case eAnimEntityType_Prop:
-            return new ("CPropAnimEntity", 0) CPropAnimEntity();
+#ifdef EA_PLATFORM_XENON
+            // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto.
+            return ::new (static_cast<CPropAnimEntity *>(bMalloc(sizeof(CPropAnimEntity), "CPropAnimEntity", 0, 0)))
+#else
+            return new ("CPropAnimEntity", 0)
+#endif
+                CPropAnimEntity();
         case eAnimEntityType_None:
         default:
             return nullptr;

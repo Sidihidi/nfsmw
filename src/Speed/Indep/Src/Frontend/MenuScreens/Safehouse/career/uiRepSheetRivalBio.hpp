@@ -26,6 +26,7 @@ struct uiRepSheetRivalBio : public MenuScreen {
     void NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) override;
 
     void RefreshHeader();
+  private:
     void Setup();
 };
 

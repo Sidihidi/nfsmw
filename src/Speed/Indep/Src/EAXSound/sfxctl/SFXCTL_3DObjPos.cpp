@@ -56,7 +56,7 @@ void SFXCTL_3DObjPos::SetCameraAngle() {
     m_CameraAngle = bACos(fdotobj);
 
     if (-v2NormPos.y * m_pv2AzimRefDir->x + v2NormPos.x * m_pv2AzimRefDir->y < 0.0f) {
-        m_CameraAngle = static_cast<unsigned short>(~m_CameraAngle);
+        m_CameraAngle = 0xFFFF - m_CameraAngle;
     }
 }
 
@@ -238,21 +238,21 @@ void SFXCTL_3DObjPos::UpdateDoppler(int PlayerNum, float t) {
     this->m_fdvelmag_cam[0] = bLength(&vel_to_cam);
 
     if (this->m_fDistToRef[0][1] > this->m_fDistToRef[0][0]) {
-        this->m_fdvelmag_car[0] = -this->m_fdvelmag_car[0];
+        this->m_fdvelmag_car[0] *= -1.0f;
     }
 
     if (this->m_fDistToRef[1][1] > this->m_fDistToRef[1][0]) {
-        this->m_fdvelmag_cam[0] = -this->m_fdvelmag_cam[0];
+        this->m_fdvelmag_cam[0] *= -1.0f;
     }
 
-    if (((this->m_fdvelmag_car[1] < 0.0f) && (0.0f < this->m_fdvelmag_car[0])) ||
-        ((0.0f < this->m_fdvelmag_car[1]) && (this->m_fdvelmag_car[0] < 0.0f))) {
+    if (((this->m_fdvelmag_car[1] < 0.0f) && (this->m_fdvelmag_car[0] > 0.0f)) ||
+        ((this->m_fdvelmag_car[1] > 0.0f) && (this->m_fdvelmag_car[0] < 0.0f))) {
         int nvar = this->GetDMIX_InputValue(15) | 0x80000000;
         this->SetDMIX_Input(15, nvar);
     }
 
-    if (((this->m_fdvelmag_cam[1] < 0.0f) && (0.0f < this->m_fdvelmag_cam[0])) ||
-        ((0.0f < this->m_fdvelmag_cam[1]) && (this->m_fdvelmag_cam[0] < 0.0f))) {
+    if (((this->m_fdvelmag_cam[1] < 0.0f) && (this->m_fdvelmag_cam[0] > 0.0f)) ||
+        ((this->m_fdvelmag_cam[1] > 0.0f) && (this->m_fdvelmag_cam[0] < 0.0f))) {
         int nvar = this->GetDMIX_InputValue(15) | 0x40000000;
         this->SetDMIX_Input(15, nvar);
     }

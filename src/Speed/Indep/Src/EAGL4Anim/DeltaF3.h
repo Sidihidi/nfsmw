@@ -7,6 +7,7 @@
 
 #include "AnimMemoryMap.h"
 #include "AnimUtil.h"
+#include "Speed/Indep/Libs/Support/Utility/UVectorMath.h"
 
 namespace EAGL4Anim {
 
@@ -116,13 +117,13 @@ struct DeltaF3 : public AnimMemoryMap {
         return &reinterpret_cast<unsigned char *>(&reinterpret_cast<unsigned short *>(binData)[mNumBones * 3])[frameIdx * GetFrameDeltaSize()];
     }
 
-    void UnQuantizePhysical(const DeltaF3MinRange &dofInfo, const unsigned short *physFrame, UMath::Vector3 &result) const {
+    void UnQuantizePhysical(const DeltaF3MinRange &dofInfo, const unsigned short *physFrame, COORD3 &result) const {
         result.x = physFrame[0] * dofInfo.mPhysRange[0] + dofInfo.mPhysMin[0];
         result.y = physFrame[1] * dofInfo.mPhysRange[1] + dofInfo.mPhysMin[1];
         result.z = physFrame[2] * dofInfo.mPhysRange[2] + dofInfo.mPhysMin[2];
     }
 
-    void UnQuantizeDelta(const DeltaF3MinRange &dofInfo, const unsigned char *deltaFrame, int dofIdx, UMath::Vector3 &result) const {
+    void UnQuantizeDelta(const DeltaF3MinRange &dofInfo, const unsigned char *deltaFrame, int dofIdx, COORD3 &result) const {
         const unsigned char *deltaPtr = &deltaFrame[dofIdx * 3];
         result.x = deltaPtr[0] * dofInfo.mDeltaRange[0] + dofInfo.mDeltaMin[0];
         result.y = deltaPtr[1] * dofInfo.mDeltaRange[1] + dofInfo.mDeltaMin[1];

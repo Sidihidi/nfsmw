@@ -305,7 +305,12 @@ class RigidBody : public Behavior,
     float GetOrientToGround() const override;
 
     bool IsInGroundContact() const override {
+#ifdef EA_PLATFORM_XENON
+        // X360 devuelve el char tal cual (li r3 directo); el resto usa != 0 (li r11 + clrlwi). Identico: char->bool.
+        return this->mData->leversInContact;
+#else
         return this->mData->leversInContact != 0;
+#endif
     }
 
     unsigned int GetNumContactPoints() const override {

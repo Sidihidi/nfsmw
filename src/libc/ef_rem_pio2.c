@@ -129,18 +129,19 @@ int __ieee754_rem_pio2f(float x, float *y) {
         if (n < 32 && (ix & 0xffffff00) != npio2_hw[n - 1]) {
             y[0] = r - w; /* quick check no cancellation */
         } else {
+            unsigned int high;
             j = ix >> 23;
             y[0] = r - w;
-            GET_FLOAT_WORD(i, y[0]);
-            i = j - (((i) >> 23) & 0xff);
+            GET_FLOAT_WORD(high, y[0]);
+            i = j - ((high >> 23) & 0xff);
             if (i > 8) { /* second reduction round */
                 t = r;
                 w = fn * pio2_2;
                 r = t - w;
                 w = fn * pio2_2t - ((t - r) - w);
                 y[0] = r - w;
-                GET_FLOAT_WORD(i, y[0]);
-                i = j - (((i) >> 23) & 0xff);
+                GET_FLOAT_WORD(high, y[0]);
+                i = j - ((high >> 23) & 0xff);
                 if (i > 25) { /* third reduction round */
                     t = r;
                     w = fn * pio2_3;

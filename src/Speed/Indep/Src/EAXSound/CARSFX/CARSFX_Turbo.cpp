@@ -22,11 +22,11 @@ static const float gfxturbomaxtorque = 0.25f; // size: 0x4, Decl: 45
 DEFINE_CREATABLE(0x20040, CARSFX_Turbo, SndBase);
 
 CARSFX_Turbo::CARSFX_Turbo() : CARSFX(), m_BlowoffRampDown(), m_SpoolDuck(), m_fDeltaTurbo(3) {
-    this->tLastBlowoffTime = 0.0f;
     this->m_pTurboBlowoffControl = nullptr;
     this->m_pTurboSplControl = nullptr;
     this->bStopBlowoff = false;
     this->bReachedPeak = false;
+    this->tLastBlowoffTime = 0.0f;
     this->m_pShiftingCtl = nullptr;
     this->m_pEngineCtl = nullptr;
     this->eTurboState = SFXTURBO_NONE;
@@ -34,7 +34,22 @@ CARSFX_Turbo::CARSFX_Turbo() : CARSFX(), m_BlowoffRampDown(), m_SpoolDuck(), m_f
 }
 
 CARSFX_Turbo::~CARSFX_Turbo() {
+#ifdef EA_BUILD_A124
+    // La A124 no llama a Destroy: borra los dos controles aqui (lineas 69-81 del original), con los contadores.
+    if (this->m_pTurboBlowoffControl != nullptr) {
+        delete this->m_pTurboBlowoffControl;
+        this->m_pTurboBlowoffControl = nullptr;
+        gnMemLeakTurboBLOWOFFCountTest--;
+    }
+
+    if (this->m_pTurboSplControl != nullptr) {
+        delete this->m_pTurboSplControl;
+        this->m_pTurboSplControl = nullptr;
+        gnMemLeakTurboSPOOLCountTest--;
+    }
+#else
     this->Destroy();
+#endif
 }
 
 int CARSFX_Turbo::GetController(int Index) {
@@ -66,8 +81,14 @@ void CARSFX_Turbo::AttachController(SFXCTL *psfxctl) {
 
 void CARSFX_Turbo::SetupSFX(CSTATE_Base *_StateBase) {
     this->SndBase::SetupSFX(_StateBase);
+#ifdef EA_PLATFORM_WIN32
+    // PC guarda m_pTurboData antes que eTurboState.
+    this->m_pTurboData = &this->m_pEAXCar->GetTurboInfo();
+    this->eTurboState = SFXTURBO_NONE;
+#else
     this->eTurboState = SFXTURBO_NONE;
     this->m_pTurboData = &this->m_pEAXCar->GetTurboInfo();
+#endif
 }
 
 void CARSFX_Turbo::InitSFX() {
@@ -86,9 +107,15 @@ void CARSFX_Turbo::InitSFX() {
 
         bClamp(0, 0, 5);
 
+#ifdef EA_BUILD_A124
+        // La A124 no arranca aqui el spool: deja los dos controles a cero.
+        this->m_pTurboBlowoffControl = nullptr;
+        this->m_pTurboSplControl = nullptr;
+#else
         if (this->m_pTurboSplControl == nullptr) {
             this->PlaySpl(0, 0, 0, 0, 0);
         }
+#endif
 
         this->bStopBlowoff = false;
         this->bReachedPeak = false;
@@ -103,6 +130,18 @@ void CARSFX_Turbo::Detach() {
 }
 
 void CARSFX_Turbo::Destroy() {
+#ifdef EA_BUILD_A124
+    // La A124 borra primero el de spool y no lleva los contadores.
+    if (this->m_pTurboSplControl != nullptr) {
+        delete this->m_pTurboSplControl;
+        this->m_pTurboSplControl = nullptr;
+    }
+
+    if (this->m_pTurboBlowoffControl != nullptr) {
+        delete this->m_pTurboBlowoffControl;
+        this->m_pTurboBlowoffControl = nullptr;
+    }
+#else
     if (this->m_pTurboBlowoffControl != nullptr) {
         delete this->m_pTurboBlowoffControl;
         this->m_pTurboBlowoffControl = nullptr;
@@ -114,39 +153,47 @@ void CARSFX_Turbo::Destroy() {
         this->m_pTurboSplControl = nullptr;
         gnMemLeakTurboSPOOLCountTest--;
     }
+#endif
 }
 
 void CARSFX_Turbo::UpdateParams(float t) {
-    if (this->IsEnabled()) {
-        if (this->m_pEngineCtl->GetEngTorque() > MIN_TORQUE_FOR_BLOWOFF) {
-            this->m_fTurbo = this->m_pEngineCtl->GetEngTorque() * 0.01f;
-        } else {
-            this->m_fTurbo = 0.0f;
-        }
+    if (!this->IsEnabled()) {
+        return;
+    }
 
-        this->UpdateBlowOff(t);
-        this->UpdateSpool(t);
+#ifdef EA_PLATFORM_XENON
+    // X360 compara contra el literal 20.0f, no contra el global (probado al 100 %).
+    if (this->m_pEngineCtl->GetEngTorque() > 20.0f) {
+#else
+    if (this->m_pEngineCtl->GetEngTorque() > MIN_TORQUE_FOR_BLOWOFF) {
+#endif
+        this->m_fTurbo = this->m_pEngineCtl->GetEngTorque() * 0.01f;
+    } else {
+        this->m_fTurbo = 0.0f;
+    }
 
-        switch (this->eTurboState) {
-            case SFXTURBO_NONE:
-                if (this->m_pEngineCtl->GetEngTorque() > MIN_TORQUE_FOR_BLOWOFF) {
-                    this->eTurboState = SFXTURBO_SPOOLING;
-                }
-                break;
-            case SFXTURBO_SPOOLING:
-                if (this->m_pEngineCtl->GetEngTorque() < MIN_TORQUE_FOR_BLOWOFF) {
-                    this->eTurboState = SFXTURBO_BLOWOFF;
-                    this->PlayBlowoff(0, 0, 0, 0, this->m_pEAXCar->GetRotation());
-                    this->ResetSpool();
-                    this->UpdateSpool(t);
-                }
-                break;
-            case SFXTURBO_BLOWOFF:
-                if (this->IsBlowOffDone()) {
-                    this->eTurboState = SFXTURBO_NONE;
-                }
-                break;
-        }
+    this->UpdateBlowOff(t);
+    this->UpdateSpool(t);
+
+    switch (this->eTurboState) {
+        case SFXTURBO_NONE:
+            if (this->m_pEngineCtl->GetEngTorque() > MIN_TORQUE_FOR_BLOWOFF) {
+                this->eTurboState = SFXTURBO_SPOOLING;
+            }
+            break;
+        case SFXTURBO_SPOOLING:
+            if (this->m_pEngineCtl->GetEngTorque() < MIN_TORQUE_FOR_BLOWOFF) {
+                this->eTurboState = SFXTURBO_BLOWOFF;
+                this->PlayBlowoff(0, 0, 0, 0, this->m_pEAXCar->GetRotation());
+                this->ResetSpool();
+                this->UpdateSpool(t);
+            }
+            break;
+        case SFXTURBO_BLOWOFF:
+            if (this->IsBlowOffDone()) {
+                this->eTurboState = SFXTURBO_NONE;
+            }
+            break;
     }
 }
 
@@ -165,7 +212,9 @@ void CARSFX_Turbo::ProcessUpdate() {
         int TmpBlowoffVol = (this->BlowoffVol * nDMixOut) >> 15;
 
         TmpBlowoffVol = static_cast<int>(static_cast<float>(TmpBlowoffVol) * this->m_BlowoffRampDown.GetValue());
+#ifndef EA_BUILD_A124
         this->m_pTurboBlowoffControl->SetAzimuth(Az);
+#endif
         this->m_pTurboBlowoffControl->SetVolume(TmpBlowoffVol);
         this->m_pTurboBlowoffControl->CommitMemberData();
     }
@@ -185,7 +234,10 @@ void CARSFX_Turbo::ProcessUpdate() {
 }
 
 int CARSFX_Turbo::PlayBlowoff(int _ID, int Vol, int PSI, int Azimuth, int rotation) {
-    if (this->IsEnabled() && IsSoundEnabled == 1 && this->m_pTurboBlowoffControl == nullptr) {
+    if (!this->IsEnabled() || IsSoundEnabled != 1 || this->m_pTurboBlowoffControl != nullptr) {
+        return 0;
+    }
+    {
         this->BlowoffID = 1;
 
         if (this->SpoolPercent > 0.75f) {
@@ -201,7 +253,9 @@ int CARSFX_Turbo::PlayBlowoff(int _ID, int Vol, int PSI, int Azimuth, int rotati
         g_pEAXSound->SetCsisName("SND: Turbo");
         this->m_pTurboBlowoffControl = new Csis::FX_TURBO_01(this->BlowoffID, 0, static_cast<int>(this->SpoolPercent * 1024.0f), 0, rotation,
                                                              static_cast<int>(this->GetPhysRPM()));
+#ifndef EA_BUILD_A124
         gnMemLeakTurboBLOWOFFCountTest++;
+#endif
 
         this->m_refCount = static_cast<unsigned short>(this->m_pTurboBlowoffControl != nullptr ? this->m_pTurboBlowoffControl->GetRefCount() : 0);
         this->tLastBlowoffTime = this->m_pEAXCar->GetCurTime();
@@ -238,11 +292,12 @@ void CARSFX_Turbo::StopBlowOff() {
     if (this->m_pTurboBlowoffControl != nullptr) {
         delete this->m_pTurboBlowoffControl;
         this->m_pTurboBlowoffControl = nullptr;
+#ifndef EA_BUILD_A124
         gnMemLeakTurboBLOWOFFCountTest--;
+#endif
     }
 }
 
-// UNSOLVED, regswap
 int CARSFX_Turbo::PlaySpl(int _ID, int Vol, int PSI, int Azimuth, int rotation) {
     if (IsSoundEnabled == 1) {
         int nDMixVol = this->GetDMixOutput(1, DMX_VOL);
@@ -250,6 +305,12 @@ int CARSFX_Turbo::PlaySpl(int _ID, int Vol, int PSI, int Azimuth, int rotation) 
         Vol = (Vol * nDMixVol) >> 15;
 
         g_pEAXSound->SetCsisName("SND:Turbo Spool");
+#ifdef EA_BUILD_A124
+        // Solo la A124: delete del control anterior (a1 = 3: el dtor salta a operator delete/System::Free)
+        // y nullptr despues (beql con el sw en el delay slot).
+        delete this->m_pTurboSplControl;
+        this->m_pTurboSplControl = nullptr;
+#endif
         this->m_pTurboSplControl =
             new Csis::FX_TURBO_01(_ID, Vol, PSI, this->GetDMixOutput(0, DMX_AZIM), rotation, static_cast<int>(this->GetPhysRPM()));
         gnMemLeakTurboSPOOLCountTest++;
@@ -266,6 +327,13 @@ void CARSFX_Turbo::ResetSpool() {
 extern int g_nArrayCosTable[513];
 
 int CARSFX_Turbo::UpdateSpool(float t) {
+#ifdef EA_BUILD_A124
+    // Solo la A124: crea el control de spool bajo demanda y sale (b al epilogo con v0 = 0).
+    if (this->m_pTurboSplControl == nullptr) {
+        this->PlaySpl(0, 0, 0, 0, 0);
+        return 0;
+    }
+#endif
     if (!g_EAXIsPaused()) {
         if (this->m_fTurbo > 0.01f) {
             this->SpoolCharge += this->m_fTurbo;

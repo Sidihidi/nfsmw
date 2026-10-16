@@ -26,6 +26,11 @@ class SelectableTrack : public bTNode<SelectableTrack> {
 #endif
     {}
 
+#ifdef EA_BUILD_A124
+    // El constructor de la A124 (stabs): (GRaceParameters *, bool). Lo usa uiOnlineViewTrack::SetCurrentTrack.
+    SelectableTrack(GRaceParameters *rp, bool locked) : pRaceParams(rp), bLocked(locked) {}
+#endif
+
     ~SelectableTrack() {}
 
     GRaceParameters *pRaceParams; // offset 0x8, size 0x4

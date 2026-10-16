@@ -28,9 +28,9 @@ void ENISBrakelock_MakeEvent_Callback(const void *staticData) {
     new ENISBrakelock(((ENISBrakelock::StaticData *) staticData)->fFront, ((ENISBrakelock::StaticData *) staticData)->fRear, gEventDynamicData.fhSimable);
 }
 
-int ENISBrakelock_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ENISBrakelock((unsigned int) lua_tonumber(L, 1), (unsigned int) lua_tonumber(L, 2), gEventDynamicData.fhSimable);
+int ENISBrakelock_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ENISBrakelock((unsigned int) lua_tonumber(luaState, 1), (unsigned int) lua_tonumber(luaState, 2), gEventDynamicData.fhSimable);
     }
     return 0;
 }

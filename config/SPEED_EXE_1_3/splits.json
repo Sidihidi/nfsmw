@@ -4,43 +4,127 @@
     "function_ranges": [
       [
         4198480,
-        4477488
+        4477184
+      ],
+      [
+        8811584,
+        8821042
+      ],
+      [
+        8928384,
+        8931360
+      ],
+      [
+        8970016,
+        8970064
       ]
     ],
-    "rdata": [[8979684, 8991720]],
-    "data": [[9347072, 9355384]],
-    "bss": [[9492252, 9492912]]
+    "rdata": [
+      [
+        8979684,
+        8991720
+      ]
+    ],
+    "data": [
+      [
+        9347072,
+        9355384
+      ]
+    ],
+    "bss": [
+      [
+        9492252,
+        9492912
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zAnim.obj": {
     "functions": [],
     "function_ranges": [
       [
-        4477488,
-        4527240
+        4477184,
+        4525920
+      ],
+      [
+        8821056,
+        8821874
+      ],
+      [
+        8931360,
+        8932192
+      ],
+      [
+        8970080,
+        8970192
       ]
     ],
-    "rdata": [[8991720, 8993856]],
-    "data": [[9355384, 9356512]],
-    "bss": [[9492912, 9493672]]
+    "rdata": [
+      [
+        8991720,
+        8993856
+      ]
+    ],
+    "data": [
+      [
+        9355384,
+        9356512
+      ]
+    ],
+    "bss": [
+      [
+        9492912,
+        9493672
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zAttribSys.obj": {
     "functions": [],
     "function_ranges": [
       [
-        4527240,
-        4573481
+        4525920,
+        4573424
+      ],
+      [
+        8821920,
+        8822856
+      ],
+      [
+        8932192,
+        8932288
       ]
     ],
-    "rdata": [[8993856, 8994136]],
+    "rdata": [
+      [
+        8993856,
+        8994136
+      ]
+    ],
     "data": [],
-    "bss": [[9493672, 9493744]]
+    "bss": [
+      [
+        9493672,
+        9493744
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zBWare.obj": {
     "functions": [],
     "function_ranges": [
       [
-        4573481,
+        4573424,
         4613280
+      ],
+      [
+        8822928,
+        8822949
+      ],
+      [
+        8932288,
+        8932496
+      ],
+      [
+        8970192,
+        8970320
       ]
     ],
     "rdata": [
@@ -49,22 +133,59 @@
         8996328
       ]
     ],
-    "data": [[9356512, 9363028]],
-    "bss": [[9493744, 9506848]]
+    "data": [
+      [
+        9356512,
+        9363028
+      ]
+    ],
+    "bss": [
+      [
+        9493744,
+        9506848
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zCamera.obj": {
     "functions": [],
     "function_ranges": [
       [
         4613280,
-        4759546
+        4744608
+      ],
+      [
+        8822960,
+        8826162
+      ],
+      [
+        8932512,
+        8933856
+      ],
+      [
+        8970320,
+        8970368
       ]
     ],
-    "rdata": [[8996328, 9000056]],
-    "data": [[9363028, 9364688]],
-    "bss": [[9506848, 9507628]]
+    "rdata": [
+      [
+        8996328,
+        9000056
+      ]
+    ],
+    "data": [
+      [
+        9363028,
+        9364688
+      ]
+    ],
+    "bss": [
+      [
+        9506848,
+        9507628
+      ]
+    ]
   },
-    "Speed/Indep/SourceLists/zDebug.obj": {
+  "Speed/Indep/SourceLists/zDebug.obj": {
     "functions": [],
     "function_ranges": [],
     "rdata": [],
@@ -75,61 +196,177 @@
     "functions": [],
     "function_ranges": [
       [
-        4759546,
-        4776198
+        4744608,
+        4772368
+      ],
+      [
+        8826240,
+        8826408
+      ],
+      [
+        8970368,
+        8970384
       ]
     ],
     "rdata": [],
     "data": [],
-    "bss": [[9507628, 9508828]]
+    "bss": [
+      [
+        9507628,
+        9508828
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zEagl4Anim.obj": {
     "functions": [],
     "function_ranges": [
       [
-        4776198,
-        4826398
+        4772368,
+        4892624
+      ],
+      [
+        8826448,
+        8826829
+      ],
+      [
+        8933856,
+        8933984
+      ],
+      [
+        8970384,
+        8970512
       ]
     ],
-    "rdata": [[9000056, 9004012]],
-    "data": [[9364688, 9364824]],
-    "bss": [[9508828, 9510552]]
+    "rdata": [
+      [
+        9000056,
+        9004012
+      ]
+    ],
+    "data": [
+      [
+        9364688,
+        9364824
+      ]
+    ],
+    "bss": [
+      [
+        9508828,
+        9510552
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zEAXSound.obj": {
     "functions": [],
     "function_ranges": [
       [
-        4826398,
-        5060373
+        4892624,
+        5056880
+      ],
+      [
+        8826832,
+        8833056
+      ],
+      [
+        8934048,
+        8935664
+      ],
+      [
+        8970512,
+        8970784
       ]
     ],
-    "rdata": [[9004012, 9009468]],
-    "data": [[9364824, 9370008]],
-    "bss": [[9510552, 9518512]]
+    "rdata": [
+      [
+        9004012,
+        9009468
+      ]
+    ],
+    "data": [
+      [
+        9364824,
+        9370008
+      ]
+    ],
+    "bss": [
+      [
+        9510552,
+        9518512
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zEAXSound2.obj": {
     "functions": [],
     "function_ranges": [
       [
-        5060373,
-        5217785
+        5056880,
+        5219856
+      ],
+      [
+        8833088,
+        8838557
+      ],
+      [
+        8935664,
+        8937408
+      ],
+      [
+        8970784,
+        8971072
       ]
     ],
-    "rdata": [[9009468, 9020996]],
-    "data": [[9370008, 9380180]],
-    "bss": [[9518512, 9522016]]
+    "rdata": [
+      [
+        9009468,
+        9020996
+      ]
+    ],
+    "data": [
+      [
+        9370008,
+        9380180
+      ]
+    ],
+    "bss": [
+      [
+        9518512,
+        9522016
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zEcstasy.obj": {
     "functions": [],
     "function_ranges": [
       [
-        5217785,
+        5219856,
         5297616
+      ],
+      [
+        8838624,
+        8839586
+      ],
+      [
+        8937408,
+        8938432
+      ],
+      [
+        8971072,
+        8971408
       ]
     ],
     "rdata": [],
-    "data": [[9380180, 9384468]],
-    "bss": [[9522016, 9552496]]
+    "data": [
+      [
+        9380180,
+        9384468
+      ]
+    ],
+    "bss": [
+      [
+        9522016,
+        9552496
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zFe.obj": {
     "functions": [],
@@ -137,33 +374,99 @@
       [
         5297616,
         5654608
+      ],
+      [
+        8839696,
+        8852217
+      ],
+      [
+        8938480,
+        8938576
+      ],
+      [
+        8971424,
+        8971456
       ]
     ],
-    "rdata": [[9020996, 9030996]],
-    "data": [[9384468, 9389468]],
-    "bss": [[9552496, 9560036]]
+    "rdata": [
+      [
+        9020996,
+        9030996
+      ]
+    ],
+    "data": [
+      [
+        9384468,
+        9389468
+      ]
+    ],
+    "bss": [
+      [
+        9552496,
+        9560036
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zFe2.obj": {
     "functions": [],
     "function_ranges": [
       [
         5654608,
-        5957260
+        5951392
+      ],
+      [
+        8852352,
+        8863150
+      ],
+      [
+        8938576,
+        8939328
+      ],
+      [
+        8971456,
+        8971488
       ]
     ],
-    "rdata": [[9030996, 9040996]],
-    "data": [[9389468, 9394776]],
+    "rdata": [
+      [
+        9030996,
+        9040996
+      ]
+    ],
+    "data": [
+      [
+        9389468,
+        9394776
+      ]
+    ],
     "bss": []
   },
   "Speed/Indep/SourceLists/zFEng.obj": {
     "functions": [],
     "function_ranges": [
       [
-        5957260,
-        6053311
+        5951392,
+        6052928
+      ],
+      [
+        8863312,
+        8865797
+      ],
+      [
+        8939328,
+        8939456
+      ],
+      [
+        8971552,
+        8971616
       ]
     ],
-    "rdata": [[9040996, 9058276]],
+    "rdata": [
+      [
+        9040996,
+        9058276
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -171,8 +474,20 @@
     "functions": [],
     "function_ranges": [
       [
-        6053311,
+        6052928,
         6128844
+      ],
+      [
+        8865936,
+        8866562
+      ],
+      [
+        8939456,
+        8939552
+      ],
+      [
+        8971616,
+        8971712
       ]
     ],
     "rdata": [],
@@ -184,7 +499,7 @@
     "function_ranges": [
       [
         6128844,
-        6129245
+        6131792
       ]
     ],
     "rdata": [],
@@ -195,49 +510,136 @@
     "functions": [],
     "function_ranges": [
       [
-        6129245,
-        6307981
+        6131792,
+        6306480
+      ],
+      [
+        8866704,
+        8872782
       ]
     ],
-    "rdata": [[9058276, 9060040]],
-    "data": [[9394776, 9397972]],
-    "bss": [[9560036, 9560264]]
+    "rdata": [
+      [
+        9058276,
+        9060040
+      ]
+    ],
+    "data": [
+      [
+        9394776,
+        9397972
+      ]
+    ],
+    "bss": [
+      [
+        9560036,
+        9560264
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zLua.obj": {
     "functions": [],
     "function_ranges": [
       [
-        6307981,
-        6421305
+        6306480,
+        6421920
+      ],
+      [
+        8873072,
+        8874750
       ]
     ],
-    "rdata": [[9060040, 9062428]],
+    "rdata": [
+      [
+        9060040,
+        9062428
+      ]
+    ],
     "data": [],
-    "bss": [[9560264, 9565208]]
+    "bss": [
+      [
+        9560264,
+        9565208
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zMain.obj": {
     "functions": [],
     "function_ranges": [
       [
-        6421305,
-        6592081
+        6421920,
+        6590240
+      ],
+      [
+        8874816,
+        8888210
+      ],
+      [
+        8939584,
+        8940416
+      ],
+      [
+        8971728,
+        8971808
       ]
     ],
-    "rdata": [[9062428, 9078232]],
-    "data": [[9397972, 9403864]],
-    "bss": [[9565208, 9590400]]
+    "rdata": [
+      [
+        9062428,
+        9078232
+      ]
+    ],
+    "data": [
+      [
+        9397972,
+        9403864
+      ]
+    ],
+    "bss": [
+      [
+        9565208,
+        9590400
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zMisc.obj": {
     "functions": [],
     "function_ranges": [
       [
-        6592081,
+        6590240,
         6713347
+      ],
+      [
+        8888224,
+        8889417
+      ],
+      [
+        8940480,
+        8941680
+      ],
+      [
+        8971840,
+        8972320
       ]
     ],
-    "rdata": [[9078232, 9081456]],
-    "data": [[9403864, 9406092]],
-    "bss": [[9590400, 9592932]]
+    "rdata": [
+      [
+        9078232,
+        9081456
+      ]
+    ],
+    "data": [
+      [
+        9403864,
+        9406092
+      ]
+    ],
+    "bss": [
+      [
+        9590400,
+        9592932
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zMiscSmall.obj": {
     "functions": [],
@@ -248,8 +650,18 @@
       ]
     ],
     "rdata": [],
-    "data": [[9406092, 9406768]],
-    "bss": [[9592932, 9593192]]
+    "data": [
+      [
+        9406092,
+        9406768
+      ]
+    ],
+    "bss": [
+      [
+        9592932,
+        9593192
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zMission.obj": {
     "functions": [],
@@ -269,46 +681,156 @@
       [
         6714168,
         6853985
+      ],
+      [
+        8889424,
+        8895722
+      ],
+      [
+        8941680,
+        8944768
+      ],
+      [
+        8972320,
+        8972736
       ]
     ],
-    "rdata": [[9081456, 9087956]],
-    "data": [[9406768, 9406928]],
-    "bss": [[9593192, 9656904]]
+    "rdata": [
+      [
+        9081456,
+        9087956
+      ]
+    ],
+    "data": [
+      [
+        9406768,
+        9406928
+      ]
+    ],
+    "bss": [
+      [
+        9593192,
+        9656904
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zPhysicsBehaviors.obj": {
     "functions": [],
     "function_ranges": [
       [
         6853985,
-        7072220
+        7063376
+      ],
+      [
+        8895888,
+        8905308
+      ],
+      [
+        8944768,
+        8948464
+      ],
+      [
+        8972736,
+        8972768
       ]
     ],
-    "rdata": [[9087956, 9110056]],
-    "data": [[9406928, 9408496]],
-    "bss": [[9656904, 9685712]]
+    "rdata": [
+      [
+        9087956,
+        9110056
+      ]
+    ],
+    "data": [
+      [
+        9406928,
+        9408496
+      ]
+    ],
+    "bss": [
+      [
+        9656904,
+        9685712
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zPlatform.obj": {
     "functions": [],
     "function_ranges": [
       [
-        7072220,
-        7112769
+        7063376,
+        7240144
+      ],
+      [
+        8905312,
+        8906458
+      ],
+      [
+        8948464,
+        8949168
+      ],
+      [
+        8972816,
+        8973040
       ]
     ],
     "rdata": [],
-    "data": [[9408496, 9444064]],
-    "bss": [[9685712, 9693284]]
+    "data": [
+      [
+        9408496,
+        9444064
+      ]
+    ],
+    "bss": [
+      [
+        9685712,
+        9693284
+      ]
+    ]
+  },
+  "Speed/Indep/SourceLists/zRender.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        7240144,
+        7240240
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
   },
   "Speed/Indep/SourceLists/zSim.obj": {
     "functions": [],
     "function_ranges": [
       [
-        7112769,
+        7240240,
         7331895
+      ],
+      [
+        8906528,
+        8910908
+      ],
+      [
+        8949408,
+        8950320
+      ],
+      [
+        8973040,
+        8973120
       ]
     ],
-    "rdata": [[9110056, 9116876]],
-    "data": [[9444064, 9444288]],
+    "rdata": [
+      [
+        9110056,
+        9116876
+      ]
+    ],
+    "data": [
+      [
+        9444064,
+        9444288
+      ]
+    ],
     "bss": []
   },
   "Speed/Indep/SourceLists/zSpeech.obj": {
@@ -316,58 +838,1263 @@
     "function_ranges": [
       [
         7331895,
-        7478464
+        7477040
+      ],
+      [
+        8910912,
+        8914146
+      ],
+      [
+        8950320,
+        8952992
+      ],
+      [
+        8973120,
+        8973248
       ]
     ],
-    "rdata": [[9116876, 9126876]],
-    "data": [[9444288, 9445668]],
+    "rdata": [
+      [
+        9116876,
+        9126876
+      ]
+    ],
+    "data": [
+      [
+        9444288,
+        9445668
+      ]
+    ],
     "bss": []
   },
   "Speed/Indep/SourceLists/zTrack.obj": {
     "functions": [],
     "function_ranges": [
       [
-        7478464,
-        7547307
+        7477040,
+        7546384
+      ],
+      [
+        8914160,
+        8914756
+      ],
+      [
+        8952992,
+        8958864
+      ],
+      [
+        8973248,
+        8973536
       ]
     ],
     "rdata": [],
-    "data": [[9445668, 9450128]],
+    "data": [
+      [
+        9445668,
+        9450128
+      ]
+    ],
     "bss": []
   },
   "Speed/Indep/SourceLists/zWorld.obj": {
     "functions": [],
     "function_ranges": [
       [
-        7547307,
+        7546384,
         7739131
+      ],
+      [
+        8914768,
+        8919108
+      ],
+      [
+        8958864,
+        8967328
+      ],
+      [
+        8973536,
+        8974000
       ]
     ],
-    "rdata": [[9126876, 9136876]],
-    "data": [[9450128, 9460968]],
-    "bss": [[9693284, 9993284]]
+    "rdata": [
+      [
+        9126876,
+        9136876
+      ]
+    ],
+    "data": [
+      [
+        9450128,
+        9460968
+      ]
+    ],
+    "bss": [
+      [
+        9693284,
+        9993284
+      ]
+    ]
   },
   "Speed/Indep/SourceLists/zWorld2.obj": {
     "functions": [],
     "function_ranges": [
       [
         7739131,
-        7904648
+        7905744
+      ],
+      [
+        8919120,
+        8922418
+      ],
+      [
+        8967328,
+        8968528
+      ],
+      [
+        8974000,
+        8974160
       ]
     ],
-    "rdata": [[9136876, 9146876]],
-    "data": [[9460968, 9461036]],
+    "rdata": [
+      [
+        9136876,
+        9146876
+      ]
+    ],
+    "data": [
+      [
+        9460968,
+        9461036
+      ]
+    ],
+    "bss": []
+  },
+  "Speed/Indep/SourceLists/zFeOverlay.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8001376,
+        8142649
+      ],
+      [
+        8923472,
+        8928308
+      ],
+      [
+        8968864,
+        8968928
+      ],
+      [
+        8974624,
+        8974650
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/eathread/1.1.0/source/eathread_semaphore.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8605058,
+        8605673
+      ],
+      [
+        8605673,
+        8605687
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathcontrol.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8556432,
+        8557504
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathinit.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8557552,
+        8561024
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathsnd.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8561184,
+        8566880
+      ],
+      [
+        8566912,
+        8566966
+      ],
+      [
+        8566976,
+        8567032
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal6.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8567232,
+        8568032
+      ],
+      [
+        8568032,
+        8568138
+      ],
+      [
+        8568256,
+        8568269
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8568448,
+        8568720
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathevent.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8569296,
+        8571008
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathtrack.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8571664,
+        8574144
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathvol.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8574304,
+        8574848
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathserv.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8577904,
+        8577922
+      ],
+      [
+        8577936,
+        8579104
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathaction.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8579152,
+        8579284
+      ],
+      [
+        8579456,
+        8581040
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathnode.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8583664,
+        8586304
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/path/5.01.04/source/cmn/pathbank.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8586816,
+        8587760
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchevnt.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8592207,
+        8594966
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchbank.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8595112,
+        8596352
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchrslv.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8596509,
+        8596811
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchinit.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8596811,
+        8597191
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchpick.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8597305,
+        8597317
+      ],
+      [
+        8597317,
+        8597339
+      ],
+      [
+        8597377,
+        8597389
+      ],
+      [
+        8597399,
+        8597419
+      ],
+      [
+        8597419,
+        8602998
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchsamp.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8604120,
+        8604272
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/spch/dev/source/library/cmn/spchrule.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8604272,
+        8604406
+      ],
+      [
+        8604546,
+        8604827
+      ],
+      [
+        8604827,
+        8604935
+      ],
+      [
+        8604935,
+        8605058
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/saems.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8492514,
+        8492541
+      ],
+      [
+        8492738,
+        8492750
+      ],
+      [
+        8493065,
+        8493173
+      ],
+      [
+        8493461,
+        8493521
+      ],
+      [
+        8493583,
+        8493618
+      ],
+      [
+        8493774,
+        8493897
+      ],
+      [
+        8493968,
+        8494050
+      ],
+      [
+        8494679,
+        8494963
+      ],
+      [
+        8494994,
+        8495036
+      ],
+      [
+        8495037,
+        8495315
+      ],
+      [
+        8495370,
+        8495462
+      ],
+      [
+        8495534,
+        8495738
+      ],
+      [
+        8495738,
+        8495752
+      ],
+      [
+        8495787,
+        8495919
+      ],
+      [
+        8495920,
+        8496020
+      ],
+      [
+        8496020,
+        8496034
+      ],
+      [
+        8496034,
+        8497974
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/ssys.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8499687,
+        8499781
+      ],
+      [
+        8499817,
+        8499863
+      ],
+      [
+        8500550,
+        8500645
+      ],
+      [
+        8501313,
+        8501579
+      ],
+      [
+        8501579,
+        8501611
+      ],
+      [
+        8501670,
+        8501736
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/ssysserv.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8501853,
+        8501987
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sserver.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8502040,
+        8502085
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sst.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8502943,
+        8505648
+      ],
+      [
+        8506199,
+        8506231
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstvol.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8508869,
+        8508914
+      ],
+      [
+        8508914,
+        8509240
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/svol.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8509348,
+        8509423
+      ],
+      [
+        8509423,
+        8509623
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sndfxbus.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8509662,
+        8509754
+      ],
+      [
+        8509754,
+        8509792
+      ],
+      [
+        8509868,
+        8509924
+      ],
+      [
+        8509924,
+        8509952
+      ],
+      [
+        8510087,
+        8510134
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/spktplay.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8510134,
+        8510192
+      ],
+      [
+        8510192,
+        8510205
+      ],
+      [
+        8510205,
+        8510225
+      ],
+      [
+        8511522,
+        8511555
+      ],
+      [
+        8511587,
+        8511634
+      ],
+      [
+        8511634,
+        8512116
+      ],
+      [
+        8512116,
+        8512203
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstqreqi.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8513023,
+        8513048
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstcrtap.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8513048,
+        8513081
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/ssysinit.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8513198,
+        8513412
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/smemman.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8513899,
+        8514365
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/salloc.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8516591,
+        8516627
+      ],
+      [
+        8517579,
+        8517631
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/ssine.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8517658,
+        8517739
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/saemstimupdt.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8518026,
+        8518070
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/satospkr.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8518456,
+        8519779
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/pc/sdsound.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8519779,
+        8523084
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfxrevc.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8523103,
+        8523116
+      ],
+      [
+        8523127,
+        8523141
+      ],
+      [
+        8523141,
+        8525825
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sprofvoc.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8525852,
+        8525927
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/slinklst.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8526741,
+        8526860
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstgetrp.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8526920,
+        8526972
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/smixer.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8529588,
+        8532228
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/stagpat.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8533945,
+        8535102
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sballoc.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8535597,
+        8535635
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_cos.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8536905,
+        8537029
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_sin.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8537029,
+        8537167
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfsrc.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8537211,
+        8537260
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfilter.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8537344,
+        8537408
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfsplit.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8537832,
+        8537990
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfmixer.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8538062,
+        8538187
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfecho.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8538562,
+        8538591
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfamplf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8538746,
+        8538880
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfreson.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8539049,
+        8539167
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfbpffir8.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8539457,
+        8539529
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfhpffir8.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8539645,
+        8539695
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sflpffir8.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8539695,
+        8539762
+      ],
+      [
+        8539805,
+        8539857
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sflpf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8539962,
+        8540020
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sgettag.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8540144,
+        8540265
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/stretch.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8541058,
+        8542417
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfft24.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8542668,
+        8542683
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfrsf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8543975,
+        8544463
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/smixhip.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8544799,
+        8544955
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/spantoaz.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8545130,
+        8545143
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/srrange.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8545143,
+        8545190
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_mult16.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8545223,
+        8545249
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sfir8.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8545354,
+        8545527
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/smixfilt.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8546121,
+        8546201
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supmutlf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8546419,
+        8546751
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supmutpf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8546751,
+        8547261
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supmutf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8547261,
+        8547531
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/csis/dev/source/library/cmn/csis.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8588971,
+        8592207
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sclnt100.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8793637,
+        8793671
+      ],
+      [
+        8793671,
+        8793758
+      ]
+    ],
+    "rdata": [],
+    "data": [],
     "bss": []
   },
   "unassigned_00.obj": {
     "functions": [],
     "function_ranges": [
       [
-        7904960,
+        7905744,
         7944452
       ]
     ],
-    "rdata": [[9146876, 9153549]],
+    "rdata": [
+      [
+        9146876,
+        9153549
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -379,7 +2106,12 @@
         7979979
       ]
     ],
-    "rdata": [[9153549, 9160222]],
+    "rdata": [
+      [
+        9153549,
+        9160222
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -388,58 +2120,63 @@
     "function_ranges": [
       [
         7979984,
-        8012041
+        8001376
       ]
     ],
-    "rdata": [[9160222, 9166895]],
+    "rdata": [
+      [
+        9160222,
+        9166895
+      ]
+    ],
     "data": [],
     "bss": []
   },
   "unassigned_03.obj": {
     "functions": [],
-    "function_ranges": [
+    "function_ranges": [],
+    "rdata": [
       [
-        8012048,
-        8043290
+        9166895,
+        9173568
       ]
     ],
-    "rdata": [[9166895, 9173568]],
     "data": [],
     "bss": []
   },
   "unassigned_04.obj": {
     "functions": [],
-    "function_ranges": [
+    "function_ranges": [],
+    "rdata": [
       [
-        8043360,
-        8071808
+        9173568,
+        9180242
       ]
     ],
-    "rdata": [[9173568, 9180242]],
     "data": [],
     "bss": []
   },
   "unassigned_05.obj": {
     "functions": [],
-    "function_ranges": [
+    "function_ranges": [],
+    "rdata": [
       [
-        8071808,
-        8099581
+        9180242,
+        9186915
       ]
     ],
-    "rdata": [[9180242, 9186915]],
     "data": [],
     "bss": []
   },
   "unassigned_06.obj": {
     "functions": [],
-    "function_ranges": [
+    "function_ranges": [],
+    "rdata": [
       [
-        8099648,
-        8126448
+        9186915,
+        9193588
       ]
     ],
-    "rdata": [[9186915, 9193588]],
     "data": [],
     "bss": []
   },
@@ -447,11 +2184,16 @@
     "functions": [],
     "function_ranges": [
       [
-        8126448,
+        8142649,
         8154226
       ]
     ],
-    "rdata": [[9193588, 9200261]],
+    "rdata": [
+      [
+        9193588,
+        9200261
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -463,7 +2205,12 @@
         8182176
       ]
     ],
-    "rdata": [[9200261, 9206934]],
+    "rdata": [
+      [
+        9200261,
+        9206934
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -475,7 +2222,12 @@
         8210372
       ]
     ],
-    "rdata": [[9206934, 9213608]],
+    "rdata": [
+      [
+        9206934,
+        9213608
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -487,7 +2239,12 @@
         8238512
       ]
     ],
-    "rdata": [[9213608, 9220281]],
+    "rdata": [
+      [
+        9213608,
+        9220281
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -499,7 +2256,12 @@
         8265966
       ]
     ],
-    "rdata": [[9220281, 9226954]],
+    "rdata": [
+      [
+        9220281,
+        9226954
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -508,10 +2270,31 @@
     "function_ranges": [
       [
         8265968,
+        8296736
+      ],
+      [
+        8296749,
+        8296752
+      ],
+      [
+        8296765,
+        8296912
+      ],
+      [
+        8296925,
+        8296928
+      ],
+      [
+        8296941,
         8301384
       ]
     ],
-    "rdata": [[9226954, 9233627]],
+    "rdata": [
+      [
+        9226954,
+        9233627
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -520,10 +2303,151 @@
     "function_ranges": [
       [
         8301488,
+        8307094
+      ],
+      [
+        8307111,
+        8307922
+      ],
+      [
+        8308071,
+        8308124
+      ],
+      [
+        8308225,
+        8310338
+      ],
+      [
+        8310599,
+        8310642
+      ],
+      [
+        8310662,
+        8310706
+      ],
+      [
+        8310764,
+        8311925
+      ],
+      [
+        8312133,
+        8312892
+      ],
+      [
+        8313099,
+        8313413
+      ],
+      [
+        8313689,
+        8315620
+      ],
+      [
+        8315655,
+        8315668
+      ],
+      [
+        8315712,
+        8315813
+      ],
+      [
+        8315838,
+        8315891
+      ],
+      [
+        8316355,
+        8316387
+      ],
+      [
+        8316485,
+        8316589
+      ],
+      [
+        8316624,
+        8316733
+      ],
+      [
+        8316760,
+        8317144
+      ],
+      [
+        8317154,
+        8318110
+      ],
+      [
+        8318139,
+        8318171
+      ],
+      [
+        8318269,
+        8323492
+      ],
+      [
+        8323571,
+        8326828
+      ],
+      [
+        8326939,
+        8329412
+      ],
+      [
+        8329477,
+        8329483
+      ],
+      [
+        8329492,
+        8329522
+      ],
+      [
+        8329643,
+        8330396
+      ],
+      [
+        8330450,
+        8330459
+      ],
+      [
+        8330480,
+        8331440
+      ],
+      [
+        8331453,
+        8335465
+      ],
+      [
+        8335477,
+        8335489
+      ],
+      [
+        8335507,
+        8335630
+      ],
+      [
+        8335762,
+        8335841
+      ],
+      [
+        8335875,
+        8336434
+      ],
+      [
+        8336506,
+        8336757
+      ],
+      [
+        8336793,
+        8336837
+      ],
+      [
+        8336902,
         8336972
       ]
     ],
-    "rdata": [[9233627, 9240300]],
+    "rdata": [
+      [
+        9233627,
+        9240300
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -532,10 +2456,107 @@
     "function_ranges": [
       [
         8336972,
+        8337507
+      ],
+      [
+        8337601,
+        8338182
+      ],
+      [
+        8339268,
+        8339521
+      ],
+      [
+        8339625,
+        8346344
+      ],
+      [
+        8347127,
+        8347809
+      ],
+      [
+        8352089,
+        8352128
+      ],
+      [
+        8352446,
+        8352825
+      ],
+      [
+        8353229,
+        8353820
+      ],
+      [
+        8353846,
+        8353925
+      ],
+      [
+        8353966,
+        8354746
+      ],
+      [
+        8354797,
+        8354838
+      ],
+      [
+        8354921,
+        8355214
+      ],
+      [
+        8355275,
+        8356767
+      ],
+      [
+        8356964,
+        8357882
+      ],
+      [
+        8357997,
+        8362617
+      ],
+      [
+        8362842,
+        8362862
+      ],
+      [
+        8362946,
+        8363370
+      ],
+      [
+        8363447,
+        8363592
+      ],
+      [
+        8363731,
+        8364728
+      ],
+      [
+        8364843,
+        8365109
+      ],
+      [
+        8365190,
+        8365394
+      ],
+      [
+        8365614,
+        8366326
+      ],
+      [
+        8366502,
+        8367439
+      ],
+      [
+        8368224,
         8368377
       ]
     ],
-    "rdata": [[9240300, 9246974]],
+    "rdata": [
+      [
+        9240300,
+        9246974
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -544,10 +2565,47 @@
     "function_ranges": [
       [
         8368377,
-        8398506
+        8370425
+      ],
+      [
+        8371169,
+        8373749
+      ],
+      [
+        8373772,
+        8373958
+      ],
+      [
+        8377639,
+        8377721
+      ],
+      [
+        8379768,
+        8380186
+      ],
+      [
+        8387685,
+        8388983
+      ],
+      [
+        8392864,
+        8393444
+      ],
+      [
+        8393521,
+        8393522
+      ],
+      [
+        8395034,
+        8395937
       ]
     ],
-    "rdata": [[9246974, 9253647]],
+    "rdata": [
+      [
+        9246974,
+        9253647
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -555,11 +2613,40 @@
     "functions": [],
     "function_ranges": [
       [
-        8398506,
+        8405349,
+        8408318
+      ],
+      [
+        8410369,
+        8411055
+      ],
+      [
+        8413563,
+        8413927
+      ],
+      [
+        8414775,
+        8417060
+      ],
+      [
+        8423416,
+        8423707
+      ],
+      [
+        8424878,
+        8425051
+      ],
+      [
+        8425223,
         8430053
       ]
     ],
-    "rdata": [[9253647, 9260320]],
+    "rdata": [
+      [
+        9253647,
+        9260320
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -571,7 +2658,12 @@
         8454407
       ]
     ],
-    "rdata": [[9260320, 9266993]],
+    "rdata": [
+      [
+        9260320,
+        9266993
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -580,10 +2672,19 @@
     "function_ranges": [
       [
         8454407,
+        8481774
+      ],
+      [
+        8482004,
         8483119
       ]
     ],
-    "rdata": [[9266993, 9273666]],
+    "rdata": [
+      [
+        9266993,
+        9273666
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -592,10 +2693,183 @@
     "function_ranges": [
       [
         8483119,
-        8513081
+        8484079
+      ],
+      [
+        8484958,
+        8491563
+      ],
+      [
+        8491686,
+        8492295
+      ],
+      [
+        8492466,
+        8492514
+      ],
+      [
+        8492541,
+        8492590
+      ],
+      [
+        8492616,
+        8492691
+      ],
+      [
+        8492708,
+        8492738
+      ],
+      [
+        8492750,
+        8493065
+      ],
+      [
+        8493173,
+        8493461
+      ],
+      [
+        8493521,
+        8493583
+      ],
+      [
+        8493618,
+        8493774
+      ],
+      [
+        8493897,
+        8493968
+      ],
+      [
+        8494050,
+        8494679
+      ],
+      [
+        8494963,
+        8494994
+      ],
+      [
+        8495036,
+        8495037
+      ],
+      [
+        8495315,
+        8495370
+      ],
+      [
+        8495462,
+        8495534
+      ],
+      [
+        8495752,
+        8495787
+      ],
+      [
+        8495919,
+        8495920
+      ],
+      [
+        8497974,
+        8499687
+      ],
+      [
+        8499781,
+        8499817
+      ],
+      [
+        8499863,
+        8500550
+      ],
+      [
+        8500645,
+        8501313
+      ],
+      [
+        8501611,
+        8501670
+      ],
+      [
+        8501736,
+        8501853
+      ],
+      [
+        8501987,
+        8502040
+      ],
+      [
+        8502085,
+        8502502
+      ],
+      [
+        8502706,
+        8502943
+      ],
+      [
+        8505648,
+        8506199
+      ],
+      [
+        8506231,
+        8506708
+      ],
+      [
+        8506740,
+        8507500
+      ],
+      [
+        8507622,
+        8507701
+      ],
+      [
+        8507773,
+        8508700
+      ],
+      [
+        8508802,
+        8508869
+      ],
+      [
+        8509240,
+        8509246
+      ],
+      [
+        8509307,
+        8509317
+      ],
+      [
+        8509623,
+        8509662
+      ],
+      [
+        8509792,
+        8509868
+      ],
+      [
+        8509952,
+        8510087
+      ],
+      [
+        8510225,
+        8511522
+      ],
+      [
+        8511555,
+        8511587
+      ],
+      [
+        8512203,
+        8512280
+      ],
+      [
+        8512833,
+        8512855
       ]
     ],
-    "rdata": [[9273666, 9280340]],
+    "rdata": [
+      [
+        9273666,
+        9280340
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -604,10 +2878,135 @@
     "function_ranges": [
       [
         8513081,
-        8540265
+        8513198
+      ],
+      [
+        8513412,
+        8513899
+      ],
+      [
+        8514365,
+        8516509
+      ],
+      [
+        8516627,
+        8517579
+      ],
+      [
+        8517631,
+        8517658
+      ],
+      [
+        8517739,
+        8518026
+      ],
+      [
+        8518070,
+        8518456
+      ],
+      [
+        8523084,
+        8523103
+      ],
+      [
+        8523116,
+        8523127
+      ],
+      [
+        8525825,
+        8525852
+      ],
+      [
+        8525927,
+        8526267
+      ],
+      [
+        8526429,
+        8526657
+      ],
+      [
+        8526860,
+        8526920
+      ],
+      [
+        8526972,
+        8529341
+      ],
+      [
+        8529377,
+        8529399
+      ],
+      [
+        8529435,
+        8529588
+      ],
+      [
+        8532228,
+        8533945
+      ],
+      [
+        8535102,
+        8535597
+      ],
+      [
+        8535635,
+        8536905
+      ],
+      [
+        8537167,
+        8537211
+      ],
+      [
+        8537260,
+        8537344
+      ],
+      [
+        8537408,
+        8537832
+      ],
+      [
+        8537990,
+        8538062
+      ],
+      [
+        8538187,
+        8538562
+      ],
+      [
+        8538591,
+        8538746
+      ],
+      [
+        8538880,
+        8539049
+      ],
+      [
+        8539167,
+        8539457
+      ],
+      [
+        8539529,
+        8539645
+      ],
+      [
+        8539762,
+        8539805
+      ],
+      [
+        8539857,
+        8539962
+      ],
+      [
+        8540020,
+        8540144
       ]
     ],
-    "rdata": [[9280340, 9287013]],
+    "rdata": [
+      [
+        9280340,
+        9287013
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -616,10 +3015,99 @@
     "function_ranges": [
       [
         8540265,
-        8571008
+        8541058
+      ],
+      [
+        8542417,
+        8542668
+      ],
+      [
+        8542845,
+        8542972
+      ],
+      [
+        8543243,
+        8543975
+      ],
+      [
+        8544463,
+        8544561
+      ],
+      [
+        8544594,
+        8544607
+      ],
+      [
+        8544955,
+        8545130
+      ],
+      [
+        8545249,
+        8545354
+      ],
+      [
+        8545527,
+        8546121
+      ],
+      [
+        8546201,
+        8546360
+      ],
+      [
+        8546418,
+        8546419
+      ],
+      [
+        8547531,
+        8547532
+      ],
+      [
+        8549363,
+        8551009
+      ],
+      [
+        8556295,
+        8556432
+      ],
+      [
+        8557504,
+        8557552
+      ],
+      [
+        8561024,
+        8561184
+      ],
+      [
+        8566880,
+        8566912
+      ],
+      [
+        8566966,
+        8566976
+      ],
+      [
+        8567032,
+        8567232
+      ],
+      [
+        8568138,
+        8568256
+      ],
+      [
+        8568269,
+        8568448
+      ],
+      [
+        8568720,
+        8569296
       ]
     ],
-    "rdata": [[9287013, 9293686]],
+    "rdata": [
+      [
+        9287013,
+        9293686
+      ]
+    ],
     "data": [],
     "bss": []
   },
@@ -628,23 +3116,103 @@
     "function_ranges": [
       [
         8571008,
-        8602356
+        8571664
+      ],
+      [
+        8574144,
+        8574304
+      ],
+      [
+        8574848,
+        8577904
+      ],
+      [
+        8577922,
+        8577936
+      ],
+      [
+        8579104,
+        8579152
+      ],
+      [
+        8579284,
+        8579456
+      ],
+      [
+        8581040,
+        8583664
+      ],
+      [
+        8586304,
+        8586816
+      ],
+      [
+        8587760,
+        8588971
+      ],
+      [
+        8594966,
+        8595112
+      ],
+      [
+        8596352,
+        8596509
+      ],
+      [
+        8597191,
+        8597305
+      ],
+      [
+        8597339,
+        8597377
+      ],
+      [
+        8597389,
+        8597399
       ]
     ],
-    "rdata": [[9293686, 9300359]],
+    "rdata": [
+      [
+        9293686,
+        9300359
+      ]
+    ],
     "data": [],
-    "bss": [[9993284, 10067662]]
+    "bss": [
+      [
+        9993284,
+        10067662
+      ]
+    ]
   },
   "unassigned_23.obj": {
     "functions": [],
     "function_ranges": [
       [
-        8602388,
+        8602998,
+        8604120
+      ],
+      [
+        8604406,
+        8604546
+      ],
+      [
+        8605687,
         8638108
       ]
     ],
-    "rdata": [[9300359, 9307032]],
-    "data": [[10067662, 10094037]],
+    "rdata": [
+      [
+        9300359,
+        9307032
+      ]
+    ],
+    "data": [
+      [
+        10067662,
+        10094037
+      ]
+    ],
     "bss": []
   },
   "unassigned_24.obj": {
@@ -655,8 +3223,18 @@
         8668939
       ]
     ],
-    "rdata": [[9307032, 9313706]],
-    "data": [[10094037, 10120412]],
+    "rdata": [
+      [
+        9307032,
+        9313706
+      ]
+    ],
+    "data": [
+      [
+        10094037,
+        10120412
+      ]
+    ],
     "bss": []
   },
   "unassigned_25.obj": {
@@ -667,8 +3245,18 @@
         8697704
       ]
     ],
-    "rdata": [[9313706, 9320379]],
-    "data": [[10120412, 10146787]],
+    "rdata": [
+      [
+        9313706,
+        9320379
+      ]
+    ],
+    "data": [
+      [
+        10120412,
+        10146787
+      ]
+    ],
     "bss": []
   },
   "unassigned_26.obj": {
@@ -679,8 +3267,18 @@
         8733458
       ]
     ],
-    "rdata": [[9320379, 9327052]],
-    "data": [[10146787, 10173162]],
+    "rdata": [
+      [
+        9320379,
+        9327052
+      ]
+    ],
+    "data": [
+      [
+        10146787,
+        10173162
+      ]
+    ],
     "bss": []
   },
   "unassigned_27.obj": {
@@ -691,8 +3289,18 @@
         8762360
       ]
     ],
-    "rdata": [[9327052, 9333725]],
-    "data": [[10173162, 10199537]],
+    "rdata": [
+      [
+        9327052,
+        9333725
+      ]
+    ],
+    "data": [
+      [
+        10173162,
+        10199537
+      ]
+    ],
     "bss": []
   },
   "unassigned_28.obj": {
@@ -700,11 +3308,45 @@
     "function_ranges": [
       [
         8762432,
+        8790612
+      ],
+      [
+        8790655,
+        8790698
+      ],
+      [
+        8790732,
+        8790952
+      ],
+      [
+        8791343,
+        8792190
+      ],
+      [
+        8792325,
+        8793398
+      ],
+      [
+        8793528,
+        8793637
+      ],
+      [
+        8793758,
         8796307
       ]
     ],
-    "rdata": [[9333725, 9340398]],
-    "data": [[10199537, 10225912]],
+    "rdata": [
+      [
+        9333725,
+        9340398
+      ]
+    ],
+    "data": [
+      [
+        10199537,
+        10225912
+      ]
+    ],
     "bss": []
   },
   "unassigned_29.obj": {
@@ -712,11 +3354,2081 @@
     "function_ranges": [
       [
         8796320,
-        8974634
+        8811584
+      ],
+      [
+        8821042,
+        8821056
+      ],
+      [
+        8821874,
+        8821920
+      ],
+      [
+        8822856,
+        8822928
+      ],
+      [
+        8822949,
+        8822960
+      ],
+      [
+        8826162,
+        8826240
+      ],
+      [
+        8826408,
+        8826448
+      ],
+      [
+        8826829,
+        8826832
+      ],
+      [
+        8833056,
+        8833088
+      ],
+      [
+        8838557,
+        8838624
+      ],
+      [
+        8839586,
+        8839696
+      ],
+      [
+        8852217,
+        8852352
+      ],
+      [
+        8863150,
+        8863312
+      ],
+      [
+        8865797,
+        8865936
+      ],
+      [
+        8866562,
+        8866704
+      ],
+      [
+        8872782,
+        8873072
+      ],
+      [
+        8874750,
+        8874816
+      ],
+      [
+        8888210,
+        8888224
+      ],
+      [
+        8889417,
+        8889424
+      ],
+      [
+        8895722,
+        8895888
+      ],
+      [
+        8905308,
+        8905312
+      ],
+      [
+        8906458,
+        8906528
+      ],
+      [
+        8910908,
+        8910912
+      ],
+      [
+        8914146,
+        8914160
+      ],
+      [
+        8914756,
+        8914768
+      ],
+      [
+        8919108,
+        8919120
+      ],
+      [
+        8922418,
+        8923472
+      ],
+      [
+        8928308,
+        8928384
+      ],
+      [
+        8932496,
+        8932512
+      ],
+      [
+        8933984,
+        8934048
+      ],
+      [
+        8938432,
+        8938480
+      ],
+      [
+        8939552,
+        8939584
+      ],
+      [
+        8940416,
+        8940480
+      ],
+      [
+        8949168,
+        8949408
+      ],
+      [
+        8968528,
+        8968864
+      ],
+      [
+        8968928,
+        8969963
+      ],
+      [
+        8969974,
+        8970016
+      ],
+      [
+        8970064,
+        8970080
+      ],
+      [
+        8971408,
+        8971424
+      ],
+      [
+        8971488,
+        8971552
+      ],
+      [
+        8971712,
+        8971728
+      ],
+      [
+        8971808,
+        8971840
+      ],
+      [
+        8972768,
+        8972816
+      ],
+      [
+        8974160,
+        8974624
       ]
     ],
-    "rdata": [[9340398, 9347072]],
-    "data": [[10225912, 10252288]],
+    "rdata": [
+      [
+        9340398,
+        9347072
+      ]
+    ],
+    "data": [
+      [
+        10225912,
+        10252288
+      ]
+    ],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstautov.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8492590,
+        8492616
+      ],
+      [
+        8492691,
+        8492708
+      ],
+      [
+        8502502,
+        8502706
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstqmem.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8506708,
+        8506740
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstovrhd.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8508725,
+        8508802
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/svecreal.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8509246,
+        8509307
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/ssysveccsismutex.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8509317,
+        8509348
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sclcptch.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8526267,
+        8526429
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/smixlowp.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8544607,
+        8544799
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/mtdecf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8551107,
+        8555255
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/system/cmn/mutex.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8307094,
+        8307111
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/system/cmn/systask.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8307922,
+        8308071
+      ],
+      [
+        8308124,
+        8308225
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/syncfile.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8310338,
+        8310378
+      ],
+      [
+        8310378,
+        8310476
+      ],
+      [
+        8310476,
+        8310519
+      ],
+      [
+        8310519,
+        8310556
+      ],
+      [
+        8310556,
+        8310599
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/std/cmn/locale.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8326828,
+        8326898
+      ],
+      [
+        8326898,
+        8326920
+      ],
+      [
+        8326920,
+        8326939
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/memvectors.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8329431,
+        8329454
+      ],
+      [
+        8329454,
+        8329477
+      ],
+      [
+        8329483,
+        8329492
+      ],
+      [
+        8329522,
+        8329544
+      ],
+      [
+        8329544,
+        8329643
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/eventqueue.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8335465,
+        8335477
+      ],
+      [
+        8335489,
+        8335507
+      ],
+      [
+        8335630,
+        8335659
+      ],
+      [
+        8335659,
+        8335702
+      ],
+      [
+        8335702,
+        8335762
+      ],
+      [
+        8335841,
+        8335875
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/event.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8336434,
+        8336464
+      ],
+      [
+        8336464,
+        8336471
+      ],
+      [
+        8336471,
+        8336506
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_interface.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8338182,
+        8338326
+      ],
+      [
+        8338326,
+        8338337
+      ],
+      [
+        8338337,
+        8338384
+      ],
+      [
+        8338384,
+        8338426
+      ],
+      [
+        8338426,
+        8338475
+      ],
+      [
+        8338475,
+        8338486
+      ],
+      [
+        8338486,
+        8338497
+      ],
+      [
+        8338497,
+        8338537
+      ],
+      [
+        8338537,
+        8338548
+      ],
+      [
+        8338548,
+        8338559
+      ],
+      [
+        8338559,
+        8338570
+      ],
+      [
+        8338570,
+        8338581
+      ],
+      [
+        8338581,
+        8338592
+      ],
+      [
+        8338592,
+        8338603
+      ],
+      [
+        8338603,
+        8338699
+      ],
+      [
+        8338699,
+        8338714
+      ],
+      [
+        8338714,
+        8338726
+      ],
+      [
+        8338726,
+        8338751
+      ],
+      [
+        8338751,
+        8338874
+      ],
+      [
+        8338874,
+        8338909
+      ],
+      [
+        8338909,
+        8338942
+      ],
+      [
+        8338942,
+        8338972
+      ],
+      [
+        8338972,
+        8339056
+      ],
+      [
+        8339056,
+        8339064
+      ],
+      [
+        8339064,
+        8339109
+      ],
+      [
+        8339109,
+        8339131
+      ],
+      [
+        8339131,
+        8339139
+      ],
+      [
+        8339139,
+        8339183
+      ],
+      [
+        8339183,
+        8339193
+      ],
+      [
+        8339193,
+        8339216
+      ],
+      [
+        8339216,
+        8339235
+      ],
+      [
+        8339235,
+        8339268
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/interfaceimp.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8352128,
+        8352208
+      ],
+      [
+        8352208,
+        8352257
+      ],
+      [
+        8352257,
+        8352264
+      ],
+      [
+        8352264,
+        8352412
+      ],
+      [
+        8352412,
+        8352446
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/av/cmn/audioplayer.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8356767,
+        8356801
+      ],
+      [
+        8356801,
+        8356849
+      ],
+      [
+        8356849,
+        8356890
+      ],
+      [
+        8356890,
+        8356964
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/av/cmn/avsubtitle.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8296736,
+        8296749
+      ],
+      [
+        8296752,
+        8296765
+      ],
+      [
+        8296912,
+        8296925
+      ],
+      [
+        8296928,
+        8296941
+      ],
+      [
+        8357882,
+        8357959
+      ],
+      [
+        8357959,
+        8357971
+      ],
+      [
+        8357971,
+        8357984
+      ],
+      [
+        8357984,
+        8357997
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/decoder/cmn/rcmpbase.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8362617,
+        8362707
+      ],
+      [
+        8362707,
+        8362761
+      ],
+      [
+        8362761,
+        8362773
+      ],
+      [
+        8362773,
+        8362809
+      ],
+      [
+        8362809,
+        8362829
+      ],
+      [
+        8362829,
+        8362842
+      ],
+      [
+        8362862,
+        8362894
+      ],
+      [
+        8362894,
+        8362946
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/decoder/cmn/maddec.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8367439,
+        8367524
+      ],
+      [
+        8367524,
+        8367639
+      ],
+      [
+        8367639,
+        8367754
+      ],
+      [
+        8367754,
+        8368057
+      ],
+      [
+        8368057,
+        8368224
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/allocator.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8371068,
+        8371169
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/postproc.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8373958,
+        8376354
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/quantize.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8376354,
+        8377639
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/scale.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8382706,
+        8387685
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/loopfilter.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8404532,
+        8405349
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/idctpart.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8484079,
+        8484260
+      ],
+      [
+        8484260,
+        8484958
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_findprime.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8551009,
+        8551107
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/eaxadecf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8555255,
+        8556295
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/vputil.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8377721,
+        8379768
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/FrameIni.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8380186,
+        8381597
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/decodemode.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8424019,
+        8424878
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/reconstruct.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8481774,
+        8482004
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/pb_globals.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8370425,
+        8371068
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/duck_mem.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8373749,
+        8373772
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/borders.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8381597,
+        8382706
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/decodembs.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8388983,
+        8392864
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/DFrameR.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8393522,
+        8395034
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/deblock.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8395937,
+        8404532
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/Huffman.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8422747,
+        8423416
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/DeInterlace.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8425051,
+        8425223
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/decodemv.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8423707,
+        8424019
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/boolhuff.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8393444,
+        8393521
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/dering.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8408318,
+        8410369
+      ],
+      [
+        8411055,
+        8413563
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/simpledeblocker.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8413927,
+        8414775
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/pc/criticalpath.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8417060,
+        8422747
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/vp6/1.0.6/source/decode/cmn/recon.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8491563,
+        8491686
+      ],
+      [
+        8492295,
+        8492466
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/filesys.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8310642,
+        8310662
+      ],
+      [
+        8310706,
+        8310719
+      ],
+      [
+        8310719,
+        8310732
+      ],
+      [
+        8310732,
+        8310764
+      ],
+      [
+        8311925,
+        8311969
+      ],
+      [
+        8311969,
+        8312027
+      ],
+      [
+        8312027,
+        8312076
+      ],
+      [
+        8312076,
+        8312133
+      ],
+      [
+        8312892,
+        8312964
+      ],
+      [
+        8312964,
+        8313099
+      ],
+      [
+        8313413,
+        8313522
+      ],
+      [
+        8313522,
+        8313531
+      ],
+      [
+        8313531,
+        8313614
+      ],
+      [
+        8313614,
+        8313689
+      ],
+      [
+        8315620,
+        8315626
+      ],
+      [
+        8315626,
+        8315629
+      ],
+      [
+        8315629,
+        8315634
+      ],
+      [
+        8315634,
+        8315641
+      ],
+      [
+        8315641,
+        8315648
+      ],
+      [
+        8315648,
+        8315655
+      ],
+      [
+        8315668,
+        8315712
+      ],
+      [
+        8315813,
+        8315838
+      ],
+      [
+        8315891,
+        8315931
+      ],
+      [
+        8315931,
+        8315979
+      ],
+      [
+        8315979,
+        8316023
+      ],
+      [
+        8316023,
+        8316075
+      ],
+      [
+        8316075,
+        8316232
+      ],
+      [
+        8316232,
+        8316259
+      ],
+      [
+        8316259,
+        8316291
+      ],
+      [
+        8316291,
+        8316323
+      ],
+      [
+        8316323,
+        8316355
+      ],
+      [
+        8316387,
+        8316485
+      ],
+      [
+        8316589,
+        8316624
+      ],
+      [
+        8316733,
+        8316760
+      ],
+      [
+        8317144,
+        8317151
+      ],
+      [
+        8317151,
+        8317154
+      ],
+      [
+        8318110,
+        8318132
+      ],
+      [
+        8318132,
+        8318139
+      ],
+      [
+        8318171,
+        8318224
+      ],
+      [
+        8318224,
+        8318269
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/hlsfile.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8323492,
+        8323509
+      ],
+      [
+        8323509,
+        8323571
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/interface.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8329412,
+        8329415
+      ],
+      [
+        8329415,
+        8329418
+      ],
+      [
+        8329418,
+        8329419
+      ],
+      [
+        8329419,
+        8329422
+      ],
+      [
+        8329422,
+        8329425
+      ],
+      [
+        8329425,
+        8329428
+      ],
+      [
+        8329428,
+        8329431
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/interfaceimp.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8330396,
+        8330428
+      ],
+      [
+        8330428,
+        8330450
+      ],
+      [
+        8330459,
+        8330480
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/device.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8331440,
+        8331445
+      ],
+      [
+        8331445,
+        8331448
+      ],
+      [
+        8331448,
+        8331453
+      ],
+      [
+        8336757,
+        8336793
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/effect.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8336837,
+        8336846
+      ],
+      [
+        8336846,
+        8336853
+      ],
+      [
+        8336853,
+        8336854
+      ],
+      [
+        8336854,
+        8336855
+      ],
+      [
+        8336855,
+        8336858
+      ],
+      [
+        8336858,
+        8336861
+      ],
+      [
+        8336861,
+        8336864
+      ],
+      [
+        8336864,
+        8336867
+      ],
+      [
+        8336867,
+        8336902
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/debug/cmn/printstr.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8337507,
+        8337601
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_memvectors.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8339521,
+        8339582
+      ],
+      [
+        8339582,
+        8339603
+      ],
+      [
+        8339603,
+        8339625
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_interface_impl.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8346344,
+        8346654
+      ],
+      [
+        8346654,
+        8346697
+      ],
+      [
+        8346697,
+        8346865
+      ],
+      [
+        8346865,
+        8346886
+      ],
+      [
+        8346886,
+        8346898
+      ],
+      [
+        8346898,
+        8346910
+      ],
+      [
+        8346910,
+        8346922
+      ],
+      [
+        8346922,
+        8346934
+      ],
+      [
+        8346934,
+        8346946
+      ],
+      [
+        8346946,
+        8347127
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_taskmanager.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8347809,
+        8347857
+      ],
+      [
+        8347857,
+        8348432
+      ],
+      [
+        8348432,
+        8348450
+      ],
+      [
+        8348450,
+        8348471
+      ],
+      [
+        8348471,
+        8348534
+      ],
+      [
+        8348534,
+        8348550
+      ],
+      [
+        8348550,
+        8348610
+      ],
+      [
+        8348610,
+        8348715
+      ],
+      [
+        8348715,
+        8352089
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_utilities.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8352825,
+        8352869
+      ],
+      [
+        8352869,
+        8353229
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/av/cmn/avplayer.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8353820,
+        8353821
+      ],
+      [
+        8353821,
+        8353833
+      ],
+      [
+        8353833,
+        8353846
+      ],
+      [
+        8353925,
+        8353934
+      ],
+      [
+        8353934,
+        8353966
+      ],
+      [
+        8354746,
+        8354797
+      ],
+      [
+        8354838,
+        8354852
+      ],
+      [
+        8354852,
+        8354902
+      ],
+      [
+        8354902,
+        8354910
+      ],
+      [
+        8354910,
+        8354921
+      ],
+      [
+        8355214,
+        8355235
+      ],
+      [
+        8355235,
+        8355257
+      ],
+      [
+        8355257,
+        8355275
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/decoder/cmn/rcmp_vp6_codec.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8363370,
+        8363390
+      ],
+      [
+        8363390,
+        8363394
+      ],
+      [
+        8363394,
+        8363398
+      ],
+      [
+        8363398,
+        8363425
+      ],
+      [
+        8363425,
+        8363447
+      ],
+      [
+        8363592,
+        8363650
+      ],
+      [
+        8363650,
+        8363731
+      ],
+      [
+        8364728,
+        8364790
+      ],
+      [
+        8364790,
+        8364816
+      ],
+      [
+        8364816,
+        8364823
+      ],
+      [
+        8364823,
+        8364843
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "egami/rcmp/dev/source/decoder/cmn/rcmp_mad_codec.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8365109,
+        8365133
+      ],
+      [
+        8365133,
+        8365137
+      ],
+      [
+        8365137,
+        8365141
+      ],
+      [
+        8365141,
+        8365168
+      ],
+      [
+        8365168,
+        8365190
+      ],
+      [
+        8365394,
+        8365475
+      ],
+      [
+        8365475,
+        8365556
+      ],
+      [
+        8365556,
+        8365614
+      ],
+      [
+        8366326,
+        8366502
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/hlafile.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8790612,
+        8790655
+      ],
+      [
+        8790698,
+        8790732
+      ],
+      [
+        8790952,
+        8791090
+      ],
+      [
+        8791090,
+        8791343
+      ],
+      [
+        8792190,
+        8792267
+      ],
+      [
+        8792267,
+        8792325
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/realcore/6.24.00/source/debug/cmn/abortmsg.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8793398,
+        8793460
+      ],
+      [
+        8793460,
+        8793528
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/saemsamb.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8507757,
+        8507773
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/scheckpo.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8529341,
+        8529377
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sdownmix.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8526657,
+        8526741
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/spktctoh.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8546360,
+        8546418
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/spoutlat.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8513006,
+        8513023
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sinitut.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8542683,
+        8542784
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/sinitxa.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8542784,
+        8542845
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/smixtmul.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8544561,
+        8544594
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8549168,
+        8549316
+      ],
+      [
+        8549316,
+        8549363
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/suplf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8549004,
+        8549119
+      ],
+      [
+        8549119,
+        8549168
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/suppf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8548738,
+        8548933
+      ],
+      [
+        8548933,
+        8549004
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supxaf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8548528,
+        8548642
+      ],
+      [
+        8548642,
+        8548738
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstrmdry.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8507500,
+        8507555
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstpmult.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8507555,
+        8507622
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstlowp.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8507701,
+        8507757
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/saemsmbm.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8508700,
+        8508725
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sfxlevel.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8512280,
+        8512459
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sctrldry.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8512459,
+        8512617
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/slowpass.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8512617,
+        8512702
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/spitch.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8512702,
+        8512833
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/s3dlow.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8512855,
+        8513006
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sstop.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8516509,
+        8516591
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/smemhigh.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8529399,
+        8529435
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/cmn/sover.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8545190,
+        8545223
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supxapf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8547532,
+        8547949
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/mix/supxalf.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8547949,
+        8548528
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/coda.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8542984,
+        8543243
+      ],
+      [
+        8969963,
+        8969974
+      ]
+    ],
+    "rdata": [],
+    "data": [],
+    "bss": []
+  },
+  "Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/setmemcpy.obj": {
+    "functions": [],
+    "function_ranges": [
+      [
+        8542972,
+        8542984
+      ]
+    ],
+    "rdata": [],
+    "data": [],
     "bss": []
   }
 }

@@ -6,13 +6,25 @@
 #include "Speed/Indep/Src/World/CarLoader.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) // las dos PS2 y PC: buffers mayores y 16 trozos para la voz
+#define COPSPEECH_STREAMBUFFERSIZE 65536
+#define COPSPEECH_MAXCHUNKS 16
+#define MUSIC_STREAMBUFFERSIZE 163840
+#define NISSFX_STREAMBUFFERSIZE 131072
+#else
 #define COPSPEECH_STREAMBUFFERSIZE 49152
+#define COPSPEECH_MAXCHUNKS 8
 #define MUSIC_STREAMBUFFERSIZE 98304
 #define NISSFX_STREAMBUFFERSIZE 65536
-#define STREAMBLOCK_SIZE 32768
+#endif
 
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124) // SLUS: dos bloques mas por canal (sus .data valen 2)
+int INCREASE_MUSICSTREAM_BLOCKS = 2;
+int INCREASE_NISSFXSTRM_BLOCKS = 2;
+#elif !defined(EA_BUILD_A124) // la A124 no los tiene (EAXS_StreamManager.h)
 int INCREASE_MUSICSTREAM_BLOCKS = 0;
 int INCREASE_NISSFXSTRM_BLOCKS = 0;
+#endif
 EAXS_StreamManager *gpEAXS_StrmMgr = nullptr;
 
 Sound::SongInfoList Songs;
@@ -43,7 +55,7 @@ void AssignAudioStreamHandle(unsigned int realstrmhandle) {
     unsigned int nStartAudioMemPool;
     unsigned int nEndAudioMemPool;
 
-    nStartAudioMemPool = reinterpret_cast<unsigned int>(*(void *volatile *)&gAudioMemoryManager.m_pMemoryPoolMem);
+    nStartAudioMemPool = reinterpret_cast<unsigned int>(gAudioMemoryManager.m_pMemoryPoolMem);
     nEndAudioMemPool = nStartAudioMemPool + static_cast<unsigned int>(gAudioMemoryManager.m_memoryPoolSize);
     if (realstrmhandle > nStartAudioMemPool && realstrmhandle < nEndAudioMemPool) {
         unsigned int buffstart;
@@ -80,13 +92,13 @@ void EAXS_StreamManager::InitializeStreams(eGAMEMODE gamemode) {
 
     switch (gamemode) {
         case SNDGM_SPLITSCREEN:
-            this->m_pStrmCh[STYPE_MUSIC] = new ("AUD:PF MUSIC Stream Channel", __LINE__) EAXS_StreamChannel();
+            this->m_pStrmCh[STYPE_MUSIC] = new ("AUD:PF MUSIC Stream Channel", STRMCHANNEL_LINE) EAXS_StreamChannel();
             this->m_pStrmCh[STYPE_MUSIC]->InitParams(this);
             this->m_pStrmCh[STYPE_MUSIC]->InitChannel(8, 32,
                                                       MUSIC_STREAMBUFFERSIZE + INCREASE_MUSICSTREAM_BLOCKS * STREAMBLOCK_SIZE,
                                                       STYPE_MUSIC);
 
-            this->m_pStrmCh[STYPE_NISSFX] = new ("AUD:NIS/SFX Stream Channel", __LINE__) EAXS_StreamChannel();
+            this->m_pStrmCh[STYPE_NISSFX] = new ("AUD:NIS/SFX Stream Channel", STRMCHANNEL_LINE) EAXS_StreamChannel();
             this->m_pStrmCh[STYPE_NISSFX]->InitParams(this);
             this->m_pStrmCh[STYPE_NISSFX]->InitChannel(8, 32,
                                                        NISSFX_STREAMBUFFERSIZE + INCREASE_NISSFXSTRM_BLOCKS * STREAMBLOCK_SIZE,
@@ -97,17 +109,17 @@ void EAXS_StreamManager::InitializeStreams(eGAMEMODE gamemode) {
         case SNDGM_RACE:
         case SNDGM_FRONTEND:
         default:
-            this->m_pStrmCh[STYPE_COPSPEECH] = new ("AUD:Speech Stream Channel", __LINE__) EAXS_StreamChannel();
+            this->m_pStrmCh[STYPE_COPSPEECH] = new ("AUD:Speech Stream Channel", STRMCHANNEL_LINE) EAXS_StreamChannel();
             this->m_pStrmCh[STYPE_COPSPEECH]->InitParams(this);
-            this->m_pStrmCh[STYPE_COPSPEECH]->InitChannel(8, 32, COPSPEECH_STREAMBUFFERSIZE, STYPE_COPSPEECH);
+            this->m_pStrmCh[STYPE_COPSPEECH]->InitChannel(COPSPEECH_MAXCHUNKS, 32, COPSPEECH_STREAMBUFFERSIZE, STYPE_COPSPEECH);
 
-            this->m_pStrmCh[STYPE_MUSIC] = new ("AUD:PF MUSIC Stream Channel", __LINE__) EAXS_StreamChannel();
+            this->m_pStrmCh[STYPE_MUSIC] = new ("AUD:PF MUSIC Stream Channel", STRMCHANNEL_LINE) EAXS_StreamChannel();
             this->m_pStrmCh[STYPE_MUSIC]->InitParams(this);
             this->m_pStrmCh[STYPE_MUSIC]->InitChannel(8, 32,
                                                       MUSIC_STREAMBUFFERSIZE + INCREASE_MUSICSTREAM_BLOCKS * STREAMBLOCK_SIZE,
                                                       STYPE_MUSIC);
 
-            this->m_pStrmCh[STYPE_NISSFX] = new ("AUD:NIS/SFX Stream Channel", __LINE__) EAXS_StreamChannel();
+            this->m_pStrmCh[STYPE_NISSFX] = new ("AUD:NIS/SFX Stream Channel", STRMCHANNEL_LINE) EAXS_StreamChannel();
             this->m_pStrmCh[STYPE_NISSFX]->InitParams(this);
             this->m_pStrmCh[STYPE_NISSFX]->InitChannel(8, 32,
                                                        NISSFX_STREAMBUFFERSIZE + INCREASE_NISSFXSTRM_BLOCKS * STREAMBLOCK_SIZE,

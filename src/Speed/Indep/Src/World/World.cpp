@@ -27,19 +27,26 @@
 #include "Speed/Indep/Src/Misc/Config.h"
 #include "Speed/Indep/Src/Physics/SmokeableInfo.hpp"
 #include "Speed/Indep/Src/Sim/SimSubSystem.h"
+#include "Speed/Indep/Src/Animation/AnimPlayer.hpp"
 #include "Speed/Indep/Src/World/World.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "TrackInfo.hpp"
 #include "TrackPath.hpp"
+// datos-gc 2026-10-13: la CU zWorld original parsea WorldConn (_0.._11 en la CU), los 18
+// hash de RenderConn (_19.._36) y los 8 de SoundConn (_37.._44) antes de
+// UpdateEnvironmentMapCameras (sCarWorldPosition, _45).
+#include "Speed/Indep/Src/World/WorldConn.h"
+#include "Speed/Indep/Src/Render/RenderConn.h"
+#include "Speed/Indep/Src/EAXSound/SoundConn.h"
 
 // TODO the stripped functions here are leftovers from HP2
 
 int SuperEasyAIMode = 0;
 int CarControllerDisableCatchup = 0;
 int UseHP2SteeringCode = 0;
-bVector3 ZeroVector = bVector3(0, 0, 0);
+bVector3 ZeroVector(0.0f, 0.0f, 0.0f);
 
 float UglyTimestepHack = 1.0f / 60.0f;
 World *pCurrentWorld = nullptr;
@@ -94,10 +101,14 @@ void World::BeginPause() {}
 void World::EndPause() {}
 
 // STRIPPED
-void World::BeginOnlinePause() {}
+void World::BeginOnlinePause() {
+    TheAnimPlayer.BeginOnlinePause();
+}
 
 // STRIPPED
-void World::EndOnlinePause() {}
+void World::EndOnlinePause() {
+    TheAnimPlayer.EndOnlinePause();
+}
 
 // STRIPPED
 void World::UpdateWorldPaused() {}

@@ -23,6 +23,22 @@ extern "C" {
 typedef s64 OSTime;
 typedef u32 OSTick;
 
+// Upper words of the masks, since UIMM is only 16 bits
+#define OS_CACHED_REGION_PREFIX   0x8000
+#define OS_UNCACHED_REGION_PREFIX 0xC000
+#define OS_PHYSICAL_MASK 0x3FFF
+
+#define OS_BASE_CACHED   (OS_CACHED_REGION_PREFIX << 16)
+#define OS_BASE_UNCACHED (OS_UNCACHED_REGION_PREFIX << 16)
+
+u32 __OSBusClock AT_ADDRESS(OS_BASE_CACHED | 0x00F8);
+u32 __OSCoreClock AT_ADDRESS(OS_BASE_CACHED | 0x00FC);
+
+#define OS_BUS_CLOCK   (u32)__OSBusClock
+#define OS_CORE_CLOCK  __OSCoreClock
+#define OS_TIMER_CLOCK (OS_BUS_CLOCK / 4)
+
+
 #include <dolphin/os/OSAlloc.h>
 #include <dolphin/os/OSCache.h>
 #include <dolphin/os/OSContext.h>
@@ -56,21 +72,11 @@ typedef u32 OSTick;
 
 #define DOLPHIN_ALIGNMENT 32
 
-// Upper words of the masks, since UIMM is only 16 bits
-#define OS_CACHED_REGION_PREFIX   0x8000
-#define OS_UNCACHED_REGION_PREFIX 0xC000
-#define OS_PHYSICAL_MASK 0x3FFF
-
-#define OS_BASE_CACHED   (OS_CACHED_REGION_PREFIX << 16)
-#define OS_BASE_UNCACHED (OS_UNCACHED_REGION_PREFIX << 16)
-
 u32 __OSPhysicalMemSize AT_ADDRESS(OS_BASE_CACHED | 0x0028);
 volatile int __OSTVMode AT_ADDRESS(OS_BASE_CACHED | 0x00CC);
 OSThreadQueue __OSActiveThreadQueue AT_ADDRESS(OS_BASE_CACHED | 0x00DC);
 OSThread* __OSCurrentThread AT_ADDRESS(OS_BASE_CACHED | 0x00E4);
 u32 __OSSimulatedMemSize AT_ADDRESS(OS_BASE_CACHED | 0x00F0);
-u32 __OSBusClock AT_ADDRESS(OS_BASE_CACHED | 0x00F8);
-u32 __OSCoreClock AT_ADDRESS(OS_BASE_CACHED | 0x00FC);
 volatile u16 __OSDeviceCode AT_ADDRESS(OS_BASE_CACHED | 0x30E6);
 u16 __OSWirelessPadFixMode AT_ADDRESS(OS_BASE_CACHED | 0x30E0);
 
@@ -78,10 +84,6 @@ u16 __OSWirelessPadFixMode AT_ADDRESS(OS_BASE_CACHED | 0x30E0);
 OSThread* __gUnkThread1 AT_ADDRESS(OS_BASE_CACHED | 0x00D8);
 int __gUnknown800030C0[2] AT_ADDRESS(OS_BASE_CACHED | 0x30C0);
 u8 __gUnknown800030E3 AT_ADDRESS(OS_BASE_CACHED | 0x30E3);
-
-#define OS_BUS_CLOCK   (u32)__OSBusClock
-#define OS_CORE_CLOCK  __OSCoreClock
-#define OS_TIMER_CLOCK (OS_BUS_CLOCK / 4)
 
 #define OSTicksToSeconds(ticks)      ((ticks) / OS_TIMER_CLOCK)
 #define OSTicksToMilliseconds(ticks) ((ticks) / (OS_TIMER_CLOCK / 1000))

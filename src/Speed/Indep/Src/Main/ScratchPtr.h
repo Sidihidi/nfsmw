@@ -2,6 +2,9 @@
 #define SCRATCHPPTR_H
 
 #include <types.h>
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#endif
 
 // total size: 0x4
 template <typename T> class ScratchPtr {
@@ -62,9 +65,35 @@ template <typename T> ScratchPtr<T>::~ScratchPtr() {
     *mRef = nullptr;
 }
 
-template <typename T> void ScratchPtr<T>::Push(void *workspace) {}
+// Las PS2 pasan los T vivos al scratchpad (workspace) y de vuelta; GameCube los deja siempre en mRAMBuffer.
+template <typename T> void ScratchPtr<T>::Push(void *workspace) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (workspace != nullptr) {
+        mWorkSpace = workspace;
+        bMemCpy(workspace, mRAMBuffer, sizeof(mRAMBuffer));
+        T *spbuffer = reinterpret_cast<T *>(mWorkSpace);
+        for (unsigned int i = 0; i < sizeof(mPointer) / sizeof(T *); ++i) {
+            if (mPointer[i] != nullptr) {
+                mPointer[i] = &spbuffer[i];
+            }
+        }
+    }
+#endif
+}
 
-template <typename T> void ScratchPtr<T>::Pop() {}
+template <typename T> void ScratchPtr<T>::Pop() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (mWorkSpace != nullptr) {
+        bMemCpy(mRAMBuffer, mWorkSpace, sizeof(mRAMBuffer));
+        for (unsigned int i = 0; i < sizeof(mPointer) / sizeof(T *); ++i) {
+            if (mPointer[i] != nullptr) {
+                mPointer[i] = &mRAMBuffer[i];
+            }
+        }
+        mWorkSpace = nullptr;
+    }
+#endif
+}
 
 #define IMPLEMENT_SCRATCHPTR(DATATYPE)                                                                                                               \
     template <> void *ScratchPtr<DATATYPE>::mWorkSpace = NULL;                                                                                       \

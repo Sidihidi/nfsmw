@@ -21,6 +21,13 @@ float FEngAbs(float x);
 float FEngSqrt(float x);
 float FEngSin(float x);
 float FEngACos(float x);
+// A124: IsDigit__Fc:F21 (bool, parametro c) definida en FELocalizer.cpp; UICreateUserPart1::VerifyInformation
+// (uiOnlineLogin.cpp) la llama. El arbol no la tiene en ninguna cabecera.
+bool IsDigit(char c);
+#ifdef EA_BUILD_A124
+// Solo la A124 (FEngPrintf__FPCce:F1): un printf de depuracion que llama a vprintf.
+int FEngPrintf(const char *format, ...);
+#endif
 
 struct DummyFEngNewType {};
 
@@ -32,7 +39,11 @@ inline void *operator new[](size_t size, const char *file, int line, DummyFEngNe
     return FEngMalloc(size, file, line);
 }
 
-#ifdef MILESTONE_BUILD
+#if defined(EA_PLATFORM_WIN32)
+// En PC el new de FEng es el global: FEWideString::SetLength, FEListBox::SetNumColumns... llaman al operator new
+// del juego sin pasar por FEngMalloc.
+#define FNEW new
+#elif defined(MILESTONE_BUILD)
 #define FNEW new (__FILE__, __LINE__, (DummyFEngNewType *)NULL) // :88
 #else
 #define FNEW new (0, 0, (DummyFEngNewType *)NULL)

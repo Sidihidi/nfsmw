@@ -48,33 +48,48 @@ SillyTextureStreamerManager::SillyTextureStreamerManager(const char *stream_pack
     mCurrentlyLoading = 1;
 #ifndef EA_BUILD_A124
     mMakeSpaceInPoolComplete = 0;
-#endif
     TheTrackStreamer.DisableZoneSwitching();
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+    TheTrackStreamer.MakeSpaceInPool(0xC0000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<intptr_t>(this));
+#elif defined(EA_PLATFORM_WIN32)
+    TheTrackStreamer.MakeSpaceInPool(0x300000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<intptr_t>(this));
+#else
     TheTrackStreamer.MakeSpaceInPool(0x60000, MakeSpaceInPoolCallbackBridge, reinterpret_cast<intptr_t>(this));
+#endif
 }
 
 SillyTextureStreamerManager::~SillyTextureStreamerManager() {
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+    while (mCurrentlyLoading) {
+        WaitForResourceLoadingComplete();
+    }
+#else
     if (!mMakeSpaceInPoolComplete) {
         TheTrackStreamer.WaitForCurrentLoadingToComplete();
     }
-#endif
     eWaitForStreamingTexturePackLoading(nullptr);
+#endif
     for (int i = 0; i <= 3; i++) {
         if (LoadInfos[i].LoadingTexture != 0) {
-            unsigned int tex = LoadInfos[i].LoadingTexture;
-            eUnloadStreamingTexture(&tex, 1);
+            eUnloadStreamingTexture(LoadInfos[i].LoadingTexture);
         }
     }
     eUnloadStreamingTexturePack(BundleFileName);
+#ifndef EA_BUILD_A124
     TheTrackStreamer.EnableZoneSwitching();
+#endif
 }
 
 void SillyTextureStreamerManager::MakeSpaceInPoolCallback() {
 #ifndef EA_BUILD_A124
     mMakeSpaceInPoolComplete = 1;
 #endif
+#ifdef EA_BUILD_A124
+    eLoadStreamingTexturePack(BundleFileName, LoadCallbackBridge, reinterpret_cast<uint32>(this), 0);
+#else
     eLoadStreamingTexturePack(BundleFileName, reinterpret_cast<void (*)(void *)>(LoadCallbackBridge), this, 0);
+#endif
 }
 
 void SillyTextureStreamerManager::LoadCallback() {
@@ -86,7 +101,7 @@ void SillyTextureStreamerManager::LoadCallback() {
         LoadInfos[idx].IsLoaded = 1;
         mCurrentLoadingIndex = -1;
     }
-    for (int i = 0; i <= 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (LoadInfos[i].LoadingTexture != 0 && LoadInfos[i].IsLoaded == 0) {
             mCurrentlyLoading = 1;
             mCurrentLoadingIndex = i;
@@ -99,7 +114,7 @@ void SillyTextureStreamerManager::LoadCallback() {
 }
 
 void SillyTextureStreamerManager::Load(unsigned int hash, FEImage *image) {
-    for (int i = 0; i <= 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (LoadInfos[i].LoadingTexture == 0) {
             LoadInfos[i].LoadingTexture = hash;
             LoadInfos[i].LoadIntoImage = image;
@@ -115,8 +130,7 @@ void SillyTextureStreamerManager::Load(unsigned int hash, FEImage *image) {
 void SillyTextureStreamerManager::UnloadAll() {
     for (int i = 0; i <= 3; i++) {
         if (LoadInfos[i].IsLoaded != 0) {
-            unsigned int tex = LoadInfos[i].LoadingTexture;
-            eUnloadStreamingTexture(&tex, 1);
+            eUnloadStreamingTexture(LoadInfos[i].LoadingTexture);
             LoadInfos[i].LoadingTexture = 0;
             LoadInfos[i].IsLoaded = 0;
         }
@@ -152,12 +166,30 @@ PhotoFinishScreen::PhotoFinishScreen(ScreenConstructorData *sd)
 
     mIceCamTimer = RealTimer;
     CameraAI::StartCinematicSlowdown(EVIEW_PLAYER1, 0.75f);
+#ifdef EA_BUILD_A124
+    // En la A124 el bloque del evento 19.8.31 va en el ctor (oraculo A124 0x2997ec: GetEventHash +
+    // StringHash32 + ShowOneButton + SetAwardedBKReward); sin SetSoundControlState ni EMomentStrm.
+    if (GRaceStatus::Get().GetRaceParameters()->GetEventHash() == Attrib::StringHash32("19.8.31")) {
+        DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x1FAB5998, 0x4C54B7EA);
+        FEDatabase->GetCareerSettings()->SetAwardedBKReward();
+    }
+#else
     SetSoundControlState(true, SNDSTATE_FADEOUT, "CinemSlow");
 
     new EMomentStrm(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, nullptr, 0x9FE1EE17);
+#endif
 }
 
 PhotoFinishScreen::~PhotoFinishScreen() {
+#ifdef EA_BUILD_A124
+    // La A124 no tiene bloque mRestartSelected ni limpia mActive, y SetGenericCameraToPlay va inline
+    // (oraculo A124 0x299878, 204 B: bStringHash("") + ICE::StrNCpy 0xd + sb; banco 100%).
+    StreamTex.UnloadAll();
+
+    TheICEManager.SetGenericCameraToPlay("", "");
+    new ESndGameState(7, false);
+    SetSoundControlState(false, SNDSTATE_PAUSE, "PhotoFin");
+#else
     StreamTex.UnloadAll();
 
     if (mRestartSelected) {
@@ -170,9 +202,164 @@ PhotoFinishScreen::~PhotoFinishScreen() {
     SetSoundControlState(false, SNDSTATE_PAUSE, "PhotoFin");
 
     mActive = false;
+#endif
 }
 
 void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) {
+#ifdef EA_BUILD_A124
+    // La A124 es la revision alpha (oraculo A124 0x299948, 2164 B): caso 0x1FAB5998 extra, el 0x406415E3
+    // mira IsBusyLoading y fResultType != SPEEDTRAP, sin EAutoSave/EFadeScreenOn/currentBin, RIVAL con
+    // "PHOTOFINISH_TOOBOOTH", y el reinicio es directo (ERestartRace, sin mRestartSelected).
+    switch (msg) {
+        case 0x1FAB5998: {
+            cFEng::Get()->QueuePackagePop(1);
+            return;
+        }
+        case 0x406415E3: {
+            if (StreamTex.IsBusyLoading()) {
+                return;
+            }
+            if (fResultType == FERESULTTYPE_SPEEDTRAP) {
+                new EUnPause();
+                MFlowReadyForOutro().Post(UCrc32(0x20D60DBF));
+                SoundPause(false, eSNDPAUSE_PHOTOFINISH);
+                SetSoundControlState(false, SNDSTATE_PAUSE, "PhotoFinish");
+                return;
+            }
+
+            if (FEngIsScriptSet(GetPackageName(), 0x286A9CD4, FEHASH_HIDE)) {
+                return;
+            }
+            if (FEngIsScriptRunning(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR)) {
+                return;
+            }
+
+            if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
+                if (GRaceStatus::Get().GetRaceParameters()->GetIsBossRace()) {
+                    bool allFinished = true;
+                    GRaceBin *bin = GRaceDatabase::Get().GetBinNumber(FEDatabase->GetCareerSettings()->GetCurrentBin());
+
+                    for (unsigned int i = 0; i < bin->GetBossRaceCount(); i++) {
+                        if (!GRaceDatabase::Get().CheckRaceScoreFlags(bin->GetBossRaceHash(i), GRaceDatabase::kCompleted_ContextCareer)) {
+                            allFinished = false;
+                        }
+                    }
+
+                    if (allFinished) {
+                        new EQuitToFE(GARAGETYPE_CAREER_SAFEHOUSE, "SafeHouseRivalChallenge.fng");
+                    } else {
+                        cFEng::Get()->QueuePackagePop(1);
+                        new ERaceSheetOn(2);
+                    }
+                    return;
+                }
+
+                new EUnPause();
+                MFlowReadyForOutro().Post(UCrc32(0x20D60DBF));
+                return;
+            }
+
+            if (FEDatabase->IsChallengeMode() && MemoryCard::GetInstance()->ShouldDoAutoSave(false)) {
+                MemcardEnter(nullptr, nullptr, 0x100B1, nullptr, nullptr, 0, 0);
+                return;
+            }
+
+            new EQuitToFE(GARAGETYPE_MAIN_FE, nullptr);
+            return;
+        }
+        case 0xC519BFC3: {
+            // ^ == 0 en vez de == : el original emite xori+beqz (banco A124 100%); con == sale li+beq (99.54%).
+            if ((fResultType ^ FERESULTTYPE_SPEEDTRAP) == 0) {
+                return;
+            }
+
+            cFEng::Get()->QueuePackageMessage(bStringHash("PAD_BUTTON4_CB"), GetPackageName(), nullptr);
+
+            if (!cFEng::Get()->IsPackagePushed("InGameBackground.fng")) {
+                cFEng::Get()->QueuePackagePush("InGameBackground.fng", 0, 0, false);
+            }
+
+            new EShowResults(fResultType);
+            return;
+        }
+        case 0xC519BFC4: {
+            // Como arriba: ^ == 0 reproduce el xori+beqz del original.
+            if ((fResultType ^ FERESULTTYPE_SPEEDTRAP) == 0) {
+                return;
+            }
+
+            DialogInterface::ShowTwoButtons(GetPackageName(), "InGameDialog.fng", dialog_alert, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xE1A57D51,
+                                            0xB4623F67, 0xB4623F67, first_dialog_button2, static_cast<unsigned int>(0x4D3399A8));
+            return;
+        }
+        case 0xE1A57D51: {
+            cFEng::Get()->QueuePackageMessage(bStringHash("PAD_BUTTON5_CB"), GetPackageName(), nullptr);
+            new ERestartRace();
+            new EUnPause();
+            return;
+        }
+        case 0xC98356BA: {
+            if (mIceCamTimer.IsSet()) {
+                if ((RealTimer - mIceCamTimer).GetSeconds() >= 0.75f) {
+                    mIceCamTimer.UnSet();
+                    mSlowdownTimer = RealTimer;
+                    HideEverySingleHud();
+                    FEManager::RequestPauseSimulation(GetPackageName());
+                    TheICEManager.SetUseRealTime(true);
+
+                    if (fResultType == FERESULTTYPE_PURSUIT) {
+                        new ECinematicMoment("Cinematics", "DefaultFinish", 0.0f);
+                    } else if (fResultType == FERESULTTYPE_SPEEDTRAP) {
+                        new ECinematicMoment("Cinematics", "DefaultSpeed", 0.0f);
+                    } else {
+                        new ECinematicMoment("Cinematics", GRaceStatus::Get().GetRaceParameters()->GetPhotoFinishCamera(), 0.0f);
+                    }
+                    return;
+                }
+            }
+
+            if (mSlowdownTimer.IsSet()) {
+                if ((RealTimer - mSlowdownTimer).GetSeconds() >= 0.75f) {
+                    mSlowdownTimer.UnSet();
+
+                    if (!FEngIsScriptSet(GetPackageName(), 0x47FF4E7C, 0x13C37B)) {
+                        FEngSetScript(GetPackageName(), 0x47FF4E7C, 0x13C37B, true);
+                    }
+
+                    if (fResultType == FERESULTTYPE_SPEEDTRAP) {
+                        if (!FEngIsScriptSet(GetPackageName(), 0x857FB472, FEHASH_APPEAR)) {
+                            FEngSetScript(GetPackageName(), 0x857FB472, FEHASH_APPEAR, true);
+                        }
+                        FEngSetScript(GetPackageName(), bStringHash("PHOTOFINISH_TOOBOOTH"), FEHASH_APPEAR, true);
+                        cFEng::Get()->QueuePackageMessage(bStringHash("SPEEDTRAP"), GetPackageName(), nullptr);
+                    } else {
+                        if (mPhotoHash == bStringHash("PHOTOFINISH_TOOBOOTH")) {
+                            FEngSetScript(GetPackageName(), bStringHash("TOLL_BOOTH_GROUP"), FEHASH_APPEAR, true);
+                        } else if (mPhotoHash == bStringHash("PHOTOFINISH_RIVAL")) {
+                            FEngSetScript(GetPackageName(), bStringHash("RIVAL_GROUP"), FEHASH_APPEAR, true);
+                        } else {
+                            FEngSetScript(GetPackageName(), bStringHash("SPRINT_GROUP"), FEHASH_APPEAR, true);
+                        }
+
+                        if (!FEngIsScriptSet(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR)) {
+                            FEngSetScript(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR, true);
+                        }
+                    }
+
+                    Setup();
+                    TheICEManager.SetUseRealTime(false);
+                    MMiscSound(2).Send(UCrc32("Snd"));
+                    new ESndGameState(7, true);
+                    SoundPause(true, eSNDPAUSE_PHOTOFINISH);
+                    SetSoundControlState(true, SNDSTATE_PAUSE, "PhotoFinish");
+                }
+            }
+            return;
+        }
+        default:
+            break;
+    }
+#else
     switch (msg) {
         case 0x406415E3: {
             if (fResultType == FERESULTTYPE_SPEEDTRAP) {
@@ -180,7 +367,11 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                 new EAutoSave();
                 MFlowReadyForOutro().Post(UCrc32(0x20D60DBF));
                 SoundPause(false, eSNDPAUSE_PHOTOFINISH);
+#ifdef EA_BUILD_A124 // sin SNDSTATE_STOP_MUSIC, la A124 sale de la pausa
+                SetSoundControlState(false, SNDSTATE_PAUSE, "PhotoFinish");
+#else
                 SetSoundControlState(false, SNDSTATE_STOP_MUSIC, "PhotoFinish");
+#endif
                 return;
             }
 
@@ -226,7 +417,7 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                 return;
             }
 
-            if ((FEDatabase->GetGameMode() & eFE_GAME_MODE_CHALLENGE) && MemoryCard::GetInstance()->ShouldDoAutoSave(false)) {
+            if (FEDatabase->IsChallengeMode() && MemoryCard::GetInstance()->ShouldDoAutoSave(false)) {
                 MemcardEnter(nullptr, nullptr, 0x100B1, nullptr, nullptr, 0, 0);
                 return;
             }
@@ -235,31 +426,27 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
             return;
         }
         case 0xC519BFC3: {
-            if (fResultType == FERESULTTYPE_SPEEDTRAP) {
-                return;
-            }
+            if (fResultType != FERESULTTYPE_SPEEDTRAP) {
+                cFEng::Get()->QueuePackageMessage(bStringHash("PAD_BUTTON4_CB"), GetPackageName(), nullptr);
 
-            cFEng::Get()->QueuePackageMessage(bStringHash("PAD_BUTTON4_CB"), GetPackageName(), nullptr);
+                if (!cFEng::Get()->IsPackagePushed("InGameBackground.fng")) {
+                    cFEng::Get()->QueuePackagePush("InGameBackground.fng", 0, 0, false);
+                }
 
-            if (!cFEng::Get()->IsPackagePushed("InGameBackground.fng")) {
-                cFEng::Get()->QueuePackagePush("InGameBackground.fng", 0, 0, false);
-            }
-
-            new EShowResults(fResultType
+                new EShowResults(fResultType
 #ifndef EA_BUILD_A124
-                ,
-                false
+                    ,
+                    false
 #endif
-            );
+                );
+            }
             return;
         }
         case 0xC519BFC4: {
-            if (fResultType == FERESULTTYPE_SPEEDTRAP) {
-                return;
+            if (fResultType != FERESULTTYPE_SPEEDTRAP) {
+                DialogInterface::ShowTwoButtons(GetPackageName(), "InGameDialog.fng", dialog_alert, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xE1A57D51,
+                                                0xB4623F67, 0xB4623F67, first_dialog_button2, static_cast<unsigned int>(0x4D3399A8));
             }
-
-            DialogInterface::ShowTwoButtons(GetPackageName(), "InGameDialog.fng", dialog_alert, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xE1A57D51, 0xB4623F67,
-                                            0xB4623F67, first_dialog_button2, static_cast<unsigned int>(0x4D3399A8));
             return;
         }
         case 0xE1A57D51: {
@@ -289,49 +476,48 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
             }
 
             if (mSlowdownTimer.IsSet()) {
-                if ((RealTimer - mSlowdownTimer).GetSeconds() < 0.75f) {
-                    return;
-                }
+                if ((RealTimer - mSlowdownTimer).GetSeconds() >= 0.75f) {
+                    mSlowdownTimer.UnSet();
 
-                mSlowdownTimer.UnSet();
-
-                if (!FEngIsScriptSet(GetPackageName(), 0x47FF4E7C, 0x13C37B)) {
-                    FEngSetScript(GetPackageName(), 0x47FF4E7C, 0x13C37B, true);
-                }
-
-                if (fResultType == FERESULTTYPE_SPEEDTRAP) {
-                    if (!FEngIsScriptSet(GetPackageName(), 0x857FB472, FEHASH_APPEAR)) {
-                        FEngSetScript(GetPackageName(), 0x857FB472, FEHASH_APPEAR, true);
+                    if (!FEngIsScriptSet(GetPackageName(), 0x47FF4E7C, 0x13C37B)) {
+                        FEngSetScript(GetPackageName(), 0x47FF4E7C, 0x13C37B, true);
                     }
-                    FEngSetScript(GetPackageName(), bStringHash("SPEEDTRAP_GROUP"), FEHASH_APPEAR, true);
-                    cFEng::Get()->QueuePackageMessage(bStringHash("SPEEDTRAP"), GetPackageName(), nullptr);
-                } else {
-                    if (mPhotoHash == bStringHash("PHOTOFINISH_TOOBOOTH")) {
-                        FEngSetScript(GetPackageName(), bStringHash("TOLL_BOOTH_GROUP"), FEHASH_APPEAR, true);
-                    } else if (mPhotoHash == bStringHash("PHOTOFINISH_RIVAL")) {
-                        FEngSetScript(GetPackageName(), bStringHash("RIVAL_GROUP"), FEHASH_APPEAR, true);
+
+                    if (fResultType == FERESULTTYPE_SPEEDTRAP) {
+                        if (!FEngIsScriptSet(GetPackageName(), 0x857FB472, FEHASH_APPEAR)) {
+                            FEngSetScript(GetPackageName(), 0x857FB472, FEHASH_APPEAR, true);
+                        }
+                        FEngSetScript(GetPackageName(), bStringHash("SPEEDTRAP_GROUP"), FEHASH_APPEAR, true);
+                        cFEng::Get()->QueuePackageMessage(bStringHash("SPEEDTRAP"), GetPackageName(), nullptr);
                     } else {
-                        FEngSetScript(GetPackageName(), bStringHash("SPRINT_GROUP"), FEHASH_APPEAR, true);
+                        if (mPhotoHash == bStringHash("PHOTOFINISH_TOOBOOTH")) {
+                            FEngSetScript(GetPackageName(), bStringHash("TOLL_BOOTH_GROUP"), FEHASH_APPEAR, true);
+                        } else if (mPhotoHash == bStringHash("PHOTOFINISH_RIVAL")) {
+                            FEngSetScript(GetPackageName(), bStringHash("RIVAL_GROUP"), FEHASH_APPEAR, true);
+                        } else {
+                            FEngSetScript(GetPackageName(), bStringHash("SPRINT_GROUP"), FEHASH_APPEAR, true);
+                        }
+
+                        if (!FEngIsScriptSet(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR)) {
+                            FEngSetScript(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR, true);
+                        }
                     }
 
-                    if (!FEngIsScriptSet(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR)) {
-                        FEngSetScript(GetPackageName(), 0x286A9CD4, FEHASH_APPEAR, true);
-                    }
+                    Setup();
+                    TheICEManager.SetUseRealTime(false);
+                    MMiscSound(2).Send(UCrc32("Snd"));
+                    new ESndGameState(7, true);
+                    SoundPause(true, eSNDPAUSE_PHOTOFINISH);
+                    SetSoundControlState(false, SNDSTATE_FADEOUT, "CinemSlow");
+                    SetSoundControlState(true, SNDSTATE_PAUSE, "PhotoFinish");
                 }
-
-                Setup();
-                TheICEManager.SetUseRealTime(false);
-                MMiscSound(2).Send(UCrc32("Snd"));
-                new ESndGameState(7, true);
-                SoundPause(true, eSNDPAUSE_PHOTOFINISH);
-                SetSoundControlState(false, SNDSTATE_FADEOUT, "CinemSlow");
-                SetSoundControlState(true, SNDSTATE_PAUSE, "PhotoFinish");
             }
             return;
         }
         default:
             break;
     }
+#endif
 }
 
 void PhotoFinishScreen::Setup() {
@@ -342,6 +528,67 @@ void PhotoFinishScreen::Setup() {
         speedUnits = 0x8569A25F;
     }
 
+#ifdef EA_BUILD_A124
+    // La A124 es la revision alpha (oraculo A124 0x29a1c0, 1180 B): speedtrap siempre en KPH sin bounty,
+    // velocidad de TopSpeed, un solo Timer (sin bonusTime), "%s @ ..." sin 0x474, RIVAL sin sub-rama,
+    // GetRaceType con nulo explicito, y sin el bloque 19.8.31 (esta en el ctor).
+    if (fResultType == FERESULTTYPE_SPEEDTRAP) {
+        float converted_speed = MPS2KPH(mSpeedtrapSpeed);
+        FEPrintf(GetPackageName(), bStringHash("SPEEDTRAP_SPEED"), "%0.0f %s", converted_speed, GetTranslatedString(0x8569A25F));
+    } else {
+        GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(0);
+
+        for (int i = 0; i < GRaceStatus::Get().GetRacerCount(); i++) {
+            racerInfo = GRaceStatus::Get().GetRacerInfo(i);
+            if (racerInfo.GetSimable()->IsPlayer()) {
+                break;
+            }
+        }
+
+        float cashEarned = GRaceStatus::Get().GetRaceParameters()->GetCashValue();
+        float speed = MPS2MPH(racerInfo.GetTopSpeed());
+        float pointsEarned = racerInfo.GetPointTotal();
+
+        if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 1) {
+            speed = speed * 1.60931003f;
+        }
+
+        char time[TIMER_STRING_SIZE];
+        char timeAndSpeed[64];
+        Timer t(racerInfo.GetRaceTimer().GetTime());
+        t.PrintToString(time, 0);
+
+        bSNPrintf(timeAndSpeed, 0x40, "%s @ %$0.0f %s", time, speed, GetTranslatedString(speedUnits));
+
+        int cashHash;
+        if (FEngIsScriptSet(GetPackageName(), bStringHash("TOLL_BOOTH_GROUP"), FEHASH_APPEAR)) {
+            FEPrintf(GetPackageName(), 0x8BB39726, "%$0.0f %s", speed, GetTranslatedString(speedUnits));
+            FEPrintf(GetPackageName(), 0x424BB244, "%s", time);
+            cashHash = 0x42423E94;
+        } else if (FEngIsScriptSet(GetPackageName(), bStringHash("RIVAL_GROUP"), FEHASH_APPEAR)) {
+            FEPrintf(GetPackageName(), 0x37BEA03B, "%s", timeAndSpeed);
+            cashHash = 0x9F4DF5BB;
+        } else {
+            GRaceParameters *parms = GRaceStatus::Get().GetRaceParameters();
+            int raceType = -1;
+            if (parms) {
+                raceType = parms->GetRaceType();
+            }
+            if (raceType == GRace::kRaceType_SpeedTrap) {
+                FEPrintf(GetPackageName(), 0xAB6AAFDD, "%s: %$0.0f", GetTranslatedString(0xB76BBE25), pointsEarned);
+            } else {
+                FEPrintf(GetPackageName(), 0xAB6AAFDD, "%s", timeAndSpeed);
+            }
+            cashHash = 0x3D1773DD;
+        }
+
+        if (cashEarned > 0.0f && GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_QuickRace) {
+            FEPrintf(GetPackageName(), cashHash, "%s: %$0.0f", GetTranslatedString(0xB7F2B3C8), cashEarned);
+        } else {
+            FEngSetInvisible(GetPackageName(), cashHash);
+        }
+    }
+#else
     if (fResultType == FERESULTTYPE_SPEEDTRAP) {
         float converted_speed;
         if (speedUnits == 0x8569A25F) {
@@ -410,11 +657,14 @@ void PhotoFinishScreen::Setup() {
             FEngSetInvisible(GetPackageName(), cashHash);
         }
     }
+#endif
 
+#ifndef EA_BUILD_A124
     if (GRaceStatus::Get().GetRaceParameters() != nullptr && GRaceStatus::Get().GetRaceParameters()->GetEventHash() == Attrib::StringHash32("19.8.31")) {
         DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x1FAB5998, 0x4C54B7EA);
         FEDatabase->GetCareerSettings()->SetAwardedBKReward();
     }
+#endif
 }
 
 MenuScreen *PhotoFinishScreen::Create(ScreenConstructorData *sd) {

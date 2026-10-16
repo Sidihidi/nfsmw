@@ -136,6 +136,9 @@ int ActualReadJoystickData() {
                                 data = 255;
                             }
                             joy_data->ThePadData[slot].AnalogLeftX = data;
+                            if ((short)data & 0x8000) { // muerto en el original: su andi. (JoyE.cpp:307) no lo lee ningun salto
+                                data = 0;
+                            }
                             }
                             {
                             int data = 0x80 - (int)((float)joy_data->padSTATUS.stickY * 1.75f);

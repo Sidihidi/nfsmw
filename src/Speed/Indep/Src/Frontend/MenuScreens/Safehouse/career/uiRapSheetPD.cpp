@@ -17,7 +17,7 @@ void uiRapSheetPD::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 
 
 void uiRapSheetPD::Setup() {
     UserProfile *prof = FEDatabase->GetUserProfile(0);
-    const TopEvadedPursuitDetail &pursuit = prof->GetHighScores()->GetTopEvadedPursuitScores(((unsigned short *)&pursuit_number)[1]);
+    const TopEvadedPursuitDetail &pursuit = prof->GetHighScores()->GetTopEvadedPursuitScores(pursuit_number);
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FEPrintf(GetPackageName(), 0x1232703A, GetLocalizedString(0xE21D083C), prof->GetCareer()->CaseFileName);
     FEPrintf(GetPackageName(), 0xEB406FEC, GetLocalizedString(0x6031106E), prof->GetProfileName());

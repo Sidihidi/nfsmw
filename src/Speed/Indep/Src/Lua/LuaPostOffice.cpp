@@ -69,9 +69,9 @@ void LuaPostOffice::RegisterHandler(unsigned int messageID, GActivity *activity)
 }
 
 void LuaPostOffice::UnregisterHandler(unsigned int messageID, GActivity *activity) {
-    UTL::Std::vector<GActivity *, _type_ID_LuaActivityList> &subscribers = mSubscribers[messageID];
+    UTL::Std::vector<GActivity *, _type_ID_LuaActivityList> &activities = mSubscribers[messageID];
 
-    subscribers.erase(std::remove(subscribers.begin(), subscribers.end(), activity), subscribers.end());
+    activities.erase(std::remove(activities.begin(), activities.end(), activity), activities.end());
 }
 
 void LuaMessageDeliveryInfo::BuildMessageTable() {

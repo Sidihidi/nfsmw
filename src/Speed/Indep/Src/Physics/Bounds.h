@@ -107,6 +107,7 @@ struct Bounds {
         GetOrientation(orientation);
         UMath::QuaternionToMatrix4(orientation, matrix);
         GetPosition(UMath::Vector4To3(matrix.v3));
+        matrix.v3.w = 1.0f;
     }
 
     void GetPivot(UMath::Vector3 &to) const {

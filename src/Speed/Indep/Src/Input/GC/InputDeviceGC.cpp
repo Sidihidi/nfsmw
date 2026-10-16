@@ -8,10 +8,9 @@
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/bDebug.hpp"
+#include "Speed/Indep/bWare/Inc/bMemory.hpp"
 
 #include "dolphin/pad.h"
-
-extern void *gMemoryAllocator;
 
 namespace RealInput {
 struct Interface;
@@ -244,7 +243,7 @@ static void InitEffects() {
 static void InitPads() {
     RealInput::ConfigOptions options;
     RealInput::Interface *m_pInputInterface;
-    options.allocator = gMemoryAllocator;
+    options.allocator = &gMemoryAllocator;
     options.callback = MyEnumDeviceCallback;
     options.count = 4;
     m_pInputInterface = RealInput::Interface::CreateInstance(options);
@@ -415,8 +414,7 @@ void GameDevice::PollDevice() {
         this->mWheelDevice->ReadInput(this->fCurrentValues + 20);
     }
 
-    bool wheel_connected = SteeringWheelDevice::WheelConnected(this->GetDeviceIndex());
-    if (wheel_connected) {
+    if (SteeringWheelDevice::WheelConnected(this->GetDeviceIndex())) {
         return;
     }
 
@@ -461,27 +459,29 @@ void GameDevice::PollDevice() {
     const DeviceScalarInfo *di = &device_infos[8];
 
     float *value = &this->fCurrentValues[8];
-    wheel_connected = SteeringWheelDevice::WheelConnected(this->GetDeviceIndex());
+    bool wheel_connected = SteeringWheelDevice::WheelConnected(this->GetDeviceIndex());
     while (di->name != 0) {
+        if (!wheel_connected && di->system_index < 0) {
+            value++;
+            di++;
+            continue;
+        }
 
-        if (wheel_connected || di->system_index >= 0) {
+        if (di->type == kAnalogButton) {
 
-            if (di->type == kAnalogButton) {
+            float newval = data->mValues[di->system_index] * 0.006666667f;
+            if (di->ramp_max > di->ramp_min) {
 
-                float newval = data->mValues[di->system_index] * 0.006666667f;
-                if (di->ramp_max > di->ramp_min) {
+                float range = di->ramp_max - di->ramp_min;
+                newval = UMath::Clamp((newval - di->ramp_min) / range, 0.0f, 1.0f);
+            }
+            *value = newval;
+        } else if (di->type == kDigitalButton) {
 
-                    float range = di->ramp_max - di->ramp_min;
-                    newval = UMath::Clamp((newval - di->ramp_min) / range, 0.0f, 1.0f);
-                }
-                *value = newval;
-            } else if (di->type == kDigitalButton) {
-
-                if (data->mValues[di->system_index] != 0) {
-                    *value = 1.0f;
-                } else {
-                    *value = 0.0f;
-                }
+            if (data->mValues[di->system_index] != 0) {
+                *value = 1.0f;
+            } else {
+                *value = 0.0f;
             }
         }
 

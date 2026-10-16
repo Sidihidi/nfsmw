@@ -120,4 +120,13 @@ unsigned int FEngHashString(const char *format, ...);
 void FEngSetLanguageHash(const char *pkg_name, unsigned int string_hash, unsigned int language_hash);
 char *GetLocalizedString(unsigned int string_label);
 
+// Definido en FEngInterface.cpp (cFEng::Init lo pone a cero); UIOnlineEA_Messenger lo fija al construirse.
+class Timer;
+extern Timer MessengerCreationTimer;
+
+#ifdef EA_BUILD_A124
+// FEngKillAllChildren__FP9FEPackage (FEngInterface.cpp de la A124, 0x78 B); UIOLGameRoom::NotificationMessage lo llama.
+void FEngKillAllChildren(FEPackage *pParent);
+#endif
+
 #endif

@@ -5,6 +5,7 @@
 #include "Speed/Indep/Src/EAXSound/CARSFX/CARSFX.hpp"
 #include "Speed/Indep/Src/EAXSound/SndBase.hpp"
 #include "Speed/Indep/Src/EAXSound/sfxctl/SFXCTL_3DObjPos.hpp"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/aud_moment_strm.h"
 #include "Speed/Indep/Src/Generated/Messages/MGamePlayMoment.h"
 #include "Speed/Indep/Src/Generated/Messages/MPursuitBreaker.h"
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"

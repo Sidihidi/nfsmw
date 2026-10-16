@@ -30,8 +30,8 @@ class AUDIO_PLAYER {
     int mTap;
     int mRequestId;
 
-    static void operator delete(void *p) {
-        rcmp_sys.FreeMem(p);
+    static void operator delete(void *ptr) {
+        rcmp_sys.FreeMem(ptr);
     }
 
     AUDIO_PLAYER(int channel, int param);
@@ -42,7 +42,7 @@ class AUDIO_PLAYER {
     int IsAudioFinished();
 };
 
-AUDIO_PLAYER::AUDIO_PLAYER(int channel, int param) {
+AUDIO_PLAYER::AUDIO_PLAYER(int audiotap, int streamrequestid) {
     SNDPLAYOPTS playdef;
 
     if (!Snd::System::IsInited()) {
@@ -57,8 +57,8 @@ AUDIO_PLAYER::AUDIO_PLAYER(int channel, int param) {
     SNDplaysetdef(&playdef);
     int overhead = SNDSTRM_overheadtap(1, 30);
     mMemBlock = rcmp_sys.AllocMem("AV::audiobuff", overhead, 0, 0, rcmp_sys.m_DefaultMemDir);
-    mTap = SNDSTRM_createtap(channel, &playdef, 1, 30, mMemBlock, overhead);
-    mRequestId = SNDSTRM_queuerequestid(mTap, -1, param);
+    mTap = SNDSTRM_createtap(audiotap, &playdef, 1, 30, mMemBlock, overhead);
+    mRequestId = SNDSTRM_queuerequestid(mTap, -1, streamrequestid);
     mSpeed = 1.0f;
 }
 

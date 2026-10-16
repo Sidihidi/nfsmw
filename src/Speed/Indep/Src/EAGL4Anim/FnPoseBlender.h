@@ -6,6 +6,7 @@
 #endif
 
 #include "FnAnim.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Skeleton.h"
 #include "eagl4supportdef.h"
 
@@ -103,7 +104,7 @@ class FnPoseBlender : public FnAnim {
     FnAnim *mAnim[2];              // offset 0x18, size 0x8
     float mTimeOffset[2];          // offset 0x20, size 0x8
     int mAlignRootBoneIdx;         // offset 0x28, size 0x4
-    EAGL4::Transform mAlignMatrix; // offset 0x40, size 0x40
+    ALIGNVEC EAGL4::Transform mAlignMatrix; // offset 0x40, size 0x40
     float mStartTransTime;         // offset 0x80, size 0x4
     float mDuration;               // offset 0x84, size 0x4
     float mEndTransTime;           // offset 0x88, size 0x4

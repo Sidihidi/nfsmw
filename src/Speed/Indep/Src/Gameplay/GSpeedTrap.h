@@ -9,6 +9,14 @@ class GTrigger;
 
 // total size: 0x14
 class GSpeedTrap {
+    // El original los llama desde fuera: asm de GameCube (bl IsFlagSet__C10GSpeedTrapUi en
+    // uiRepSheetMilestones::Setup, GManager::GetNextSpeedTrap, GRaceBin::RefreshProgress, LocalPlayer::DoRadar;
+    // Init, Unlock y Activate desde GManager) y PC los da private (?IsFlagSet@GSpeedTrap@@ABE_NI@Z).
+    friend class GManager;
+    friend class GRaceBin;
+    friend class LocalPlayer;
+    friend struct uiRepSheetMilestones;
+
   public:
     void DebugForceComplete();
 
@@ -20,11 +28,11 @@ class GSpeedTrap {
     };
 
     GSpeedTrap();
-
+  private:
     void Init(unsigned int trapKey);
 
     void Reset();
-
+  public:
     void NotifyTriggered(float value);
 
     float GetBounty() const;
@@ -32,11 +40,11 @@ class GSpeedTrap {
     GTrigger *GetTrapTrigger() const;
 
     unsigned int GetJumpMarkerKey() const;
-
+  private:
     void Unlock();
 
     void Activate();
-
+  public:
     bool GetIsLocked() const {
         return IsFlagClear(kFlag_Unlocked);
     }
@@ -82,7 +90,7 @@ class GSpeedTrap {
     bool operator<(const GSpeedTrap &rhs) const {
         return mBinNumber < rhs.mBinNumber;
     }
-
+  private:
     void SetFlag(unsigned int mask) {
         mFlags |= mask;
     }

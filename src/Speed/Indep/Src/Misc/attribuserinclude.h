@@ -3,6 +3,7 @@
 
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribHash.h"
+#include "Speed/Indep/Libs/Support/Utility/UCrc.h"
 
 namespace Attrib {
 
@@ -30,7 +31,7 @@ class StringKey {
     }
 
     const char *GetString() const {
-                return (this->mString != nullptr) ? this->mString : "";
+        return (this->mString != nullptr) ? this->mString : "";
     }
     uint64_t GetHash64() const {
         return this->mHash64;
@@ -79,12 +80,34 @@ class StringKey {
 
 // total size: 0x4
 class StringKeyPtr {
+  public:
+    StringKeyPtr(const StringKey *ptr) : mKey(ptr) {}
+
+    const StringKey &operator*() const {
+        return *mKey;
+    }
+
+    const StringKey *operator->() const {
+        return mKey;
+    }
+
+  private:
     static const StringKey gDefault; // Decl: 75
 
     const StringKey *mKey; // offset 0x0, size 0x4
 };
 
 }; // namespace Attrib
+
+// El constructor de UCrc32 desde StringKey vive AQUI en GameCube (el DWARF del original lo lista en
+// esta region, y UCrc.h cuelga de bWare.hpp: con el ctor alli, toda unidad de juego veria la clase
+// StringKey y su literal "" caeria al pool comun de .rodata, que no lo tiene). En las demas plataformas
+// UCrc.h si ve la clase (include directo) y lo define alli, en la posicion con la que casan los objetos
+// de la base.
+// El constructor de UCrc32 desde StringKey vive AQUI, no en UCrc.h (el DWARF del original lo lista en
+// esta region): con el cuerpo en UCrc.h, toda unidad de juego veria la clase StringKey por la cadena de
+// bWare.hpp y su literal "" caeria al pool comun de .rodata, que no lo tiene.
+inline UCrc32::UCrc32(const Attrib::StringKey &key) : mCRC(key.GetHash32()) {}
 
 #undef min // Decl: 82
 #undef max // Decl: 83

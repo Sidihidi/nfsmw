@@ -84,9 +84,9 @@ void DrawVehicle::Part::OnBeginSimulation() {
     if (!this->mOffScreenTask) {
         float offscreen_allow;
         offscreen_allow = this->mAttributes.KILL_OFF_SCREEN();
-        if (0.0f < offscreen_allow) {
-            this->mOffScreenTime = 0.0f;
+        if (offscreen_allow > 0.0f) {
             this->mOffScreenTask = true;
+            this->mOffScreenTime = 0.0f;
         }
     }
 
@@ -188,8 +188,17 @@ IModel *DrawVehicle::GetChildModel(UCrc32 name) const {
 }
 
 IModel *DrawVehicle::SpawnModel(UCrc32 name, UCrc32 collisionnode, UCrc32 attributes) {
-    // TODO unhardcode
-    if (Vehicle_Part_Count >= 61U || UTL::Collections::Listable<IModel, IModel::InstanceLimit>::Count() > 434U || this->mGeometry == nullptr) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (Vehicle_Part_Count > 120U) {
+#else
+    if (Vehicle_Part_Count > 60U) {
+#endif
+        return nullptr;
+    }
+    if (UTL::Collections::Listable<IModel, IModel::InstanceLimit>::Count() > static_cast<unsigned int>(IModel::InstanceLimit)) {
+        return nullptr;
+    }
+    if (this->mGeometry == nullptr) {
         return nullptr;
     }
 

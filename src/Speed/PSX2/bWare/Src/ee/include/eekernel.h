@@ -51,8 +51,8 @@ int DIntr(void);	/* System used */
 }
 #endif
 
-#define	EI	EIntr
-#define	DI	DIntr
+// Sin `#define EI EIntr` ni `#define DI DIntr`: el binario lleva ei/di en linea donde se usan EI()/DI() (snd de
+// PS2, realcore mutex.cpp); el juego llama a EIntr/DIntr por su nombre.
 
 #ifndef EI
 #define	EI()			__asm__ volatile("ei")
@@ -209,6 +209,7 @@ int SuspendThread(int);
 int iSuspendThread(int);
 int ResumeThread(int);
 int iResumeThread(int);
+int DelayThread(int usec); /* el lector de realcore (file/ps2/cddvd_device.cpp) */
 void *EndOfHeap(void);		/* System Use */
 
 /*

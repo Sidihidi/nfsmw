@@ -1,0 +1,82 @@
+bsqrt-order.patch -- Fase 2 scheduling: t1-before-t2 for bSqrt (SN-F2).
+
+With -ffast-math + -fschedule-insns/-fschedule-insns2, each Newton step comes
+out as t0, t2, t1, fmadds: after t0, both t1 (y0*half, independent) and t2
+(one-x*t0) are ready, and haifa lets t2 jump ahead of t1, while the original
+(asm) keeps t1 first (FEngSqrt 82.08% with plain C+builtins in Fase 1).
+No C formulation fixes it (five source orders all come out t2-first with the
+game flags); the first scheduler alone preserves source order, so scheduling
+is the culprit.  ADJUST_PRIORITY cannot fix the second pass: haifa gates it
+to pre-reload, and ADJUST_COST results are clamped to >= 1.
+
+What it does: one narrow MD_SCHED_REORDER hook for the Fase 1 pattern
+(b_fnmsubs_minus_sf2, now named so CODE_FOR exists): after every ready-list
+sort, in both passes, demote those fnmsubs below every other ready insn
+(stable partition; haifa issues from the end), so t1 issues first.
+Dependencies still pin t2 before its fmadds; only this pattern is touched,
+no flag, cost-table or type change.  Requires the Fase 1 rename in
+fnmsubs-minus.patch; build.sh applies it in both source toolchains after
+fnmsubs-minus.
+
+--- a/gcc/config/rs6000/rs6000.c
++++ b/gcc/config/rs6000/rs6000.c
+@@ -5773,6 +5773,43 @@
+   return priority;
+ }
+ 
++/* SN-F2 (bSqrt order t1-before-t2): ready-list tweak for the new `c-a*b'
++   fnmsubs (b_fnmsubs_minus_sf2).  In both scheduling passes, after t0 an
++   independent fmuls (t1 = y0*half) and this fnmsubs (t2 = one-x*t0) are
++   ready together, and haifa's tie-breaks (register weight pre-reload,
++   LUID order post-reload) let t2 jump ahead of t1; the original keeps t1
++   first (FEngSqrt 82.08% with plain C+builtins in Fase 1).  Unlike
++   ADJUST_PRIORITY, which haifa gates to pre-reload, MD_SCHED_REORDER runs
++   in both passes: stable-partition READY so these fnmsubs come first
++   (= least preferred; haifa issues from the end), preserving relative
++   order otherwise.  Dependencies still pin t2 before its fmadds; only
++   this pattern is touched.  */
++void
++rs6000_sched_reorder (ready, n_ready)
++     rtx *ready;
++     int n_ready;
++{
++  int i, j;
++  rtx tmp;
++
++  for (i = 1; i < n_ready; i++)
++    {
++      tmp = ready[i];
++      if (GET_RTX_CLASS (GET_CODE (tmp)) != 'i'
++          || recog_memoized (tmp) != CODE_FOR_b_fnmsubs_minus_sf2)
++        continue;
++      for (j = i; j > 0; j--)
++        {
++          rtx prev = ready[j - 1];
++          if (GET_RTX_CLASS (GET_CODE (prev)) == 'i'
++              && recog_memoized (prev) == CODE_FOR_b_fnmsubs_minus_sf2)
++            break;
++          ready[j] = prev;
++        }
++      ready[j] = tmp;
++    }
++}
++
+ /* Return how many instructions the machine can issue per cycle */
+ int get_issue_rate()
+ {
+--- a/gcc/config/rs6000/rs6000.h
++++ b/gcc/config/rs6000/rs6000.h
+@@ -1068,6 +1068,13 @@
+ #define ADJUST_PRIORITY(INSN)						\
+   INSN_PRIORITY (INSN) = rs6000_adjust_priority (INSN, INSN_PRIORITY (INSN))
+ 
++/* SN-F2 (bSqrt order t1-before-t2): ready-list tweak in both scheduling
++   passes (ADJUST_PRIORITY above only runs pre-reload).  See
++   rs6000_sched_reorder in rs6000.c.  */
++extern void rs6000_sched_reorder ();
++#define MD_SCHED_REORDER(DUMP, SCHED_VERBOSE, READY, N_READY)		\
++  rs6000_sched_reorder (READY, N_READY)
++
+ /* Define this macro to change register usage conditional on target flags.
+    Set MQ register fixed (already call_used) if not POWER architecture
+    (RIOS1, RIOS2, RSC, and PPC601) so that it will not be allocated.

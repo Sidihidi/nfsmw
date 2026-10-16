@@ -37,6 +37,7 @@ inline unsigned int GCInterface::GetBlockSize(const CardID &cardID) {
 }
 
 const char *ROOT_DIRECTORY_NAME = 0;
+const int MAX_COMMENT_LENGTH = 32;
 const char *FILENAME_ALL_FILES = "*";
 
 GCDriver *GCInterface::mpDriver = nullptr;
@@ -46,6 +47,7 @@ IMutex *gInterfaceMutex = nullptr;
 
 MessageTimer GCInterface::mMsgTimer;
 BlockCalculatorImp GCInterface::mBlockCalculator;
+unsigned short GCInterface::mCardName[48];
 TaskManager GCInterface::mTaskManager;
 FindResult GCInterface::mFindResult;
 TaskTrcStartGame GCInterface::mTaskTrcStartGame(&GCInterface::mTaskManager);

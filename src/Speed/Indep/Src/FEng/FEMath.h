@@ -16,7 +16,7 @@ class FEQuaternion {
     f32 x, y, z, w; // offset 0x0, size 0x4, Decl: speed/indep/src/feng/FEMath.h:51
 
     FEQuaternion() : x(0.0f), y(0.0f), z(0.0f), w(1.0f) {} // Decl: speed/indep/src/feng/FEMath.h:54
-    FEQuaternion(float X, float Y, float Z, float W) {}
+    FEQuaternion(float X, float Y, float Z, float W) : x(X), y(Y), z(Z), w(W) {}
 
     void Conjugate() { // Decl: speed/indep/src/feng/FEMath.h:56
         x = -x;
@@ -170,15 +170,35 @@ class FEVector2 {
         y *= f;
         return *this;
     }
-    FEVector2 &operator*=(FEVector2 &v) {} // Decl: speed/indep/src/feng/FEMath.h:101
-    FEVector2 &operator/=(float f) {}
-    FEVector2 &operator/=(FEVector2 &v) {} // Decl: speed/indep/src/feng/FEMath.h:103
+    FEVector2 &operator*=(FEVector2 &v) { // Decl: speed/indep/src/feng/FEMath.h:101
+        x *= v.x;
+        y *= v.y;
+        return *this;
+    }
+    FEVector2 &operator/=(float f) {
+        x /= f;
+        y /= f;
+        return *this;
+    }
+    FEVector2 &operator/=(FEVector2 &v) { // Decl: speed/indep/src/feng/FEMath.h:103
+        x /= v.x;
+        y /= v.y;
+        return *this;
+    }
 
-    int operator==(const FEVector2 &v) const {}
-    f32 operator*(const FEVector2 &v) const {}
+    int operator==(const FEVector2 &v) const {
+        return x == v.x && y == v.y;
+    }
+    f32 operator*(const FEVector2 &v) const {
+        return Dot(v);
+    }
 
+    // Cuerpos sin escribir a proposito: no hay UN SOLO llamante de estos dos
+    // operadores en el original (cero expansiones inline en el DWARF de
+    // GameCube, ningun __vc__9FEVector2i en el ELF de PS2), asi que no hay asm
+    // del que deducirlos. El tipo de retorno SI esta comprobado.
     const f32 operator[](int i) const {}
-    const f32 &operator[](int i) {} // Decl: speed/indep/src/feng/FEMath.h:109
+    f32 &operator[](int i) {} // Decl: speed/indep/src/feng/FEMath.h:109
 
     float Dot(const FEVector2 &v) const {
         return x * v.x + y * v.y;
@@ -214,13 +234,21 @@ class FEVector3 {
         *this = v;
     }
 
-    FEVector3 operator+(const FEVector3 &v) const {}
+    FEVector3 operator+(const FEVector3 &v) const {
+        return FEVector3(x + v.x, y + v.y, z + v.z);
+    }
     FEVector3 operator-(const FEVector3 &v) const {
         return FEVector3(x - v.x, y - v.y, z - v.z);
     }
-    FEVector3 operator*(float f) const {}
-    FEVector3 operator*(const FEVector3 &v) const {}
-    FEVector3 operator/(float f) const {}
+    FEVector3 operator*(float f) const {
+        return FEVector3(x * f, y * f, z * f);
+    }
+    FEVector3 operator*(const FEVector3 &v) const {
+        return FEVector3(x * v.x, y * v.y, z * v.z);
+    }
+    FEVector3 operator/(float f) const {
+        return FEVector3(x / f, y / f, z / f);
+    }
     FEVector3 &operator=(const FEVector3 &v) {
         x = v.x;
         y = v.y;
@@ -233,31 +261,68 @@ class FEVector3 {
         z += v.z;
         return *this;
     }
-    FEVector3 &operator-=(const FEVector3 &v) {}
+    FEVector3 &operator-=(const FEVector3 &v) {
+        x -= v.x;
+        y -= v.y;
+        z -= v.z;
+        return *this;
+    }
     FEVector3 &operator*=(float f) {
         x *= f;
         y *= f;
         z *= f;
         return *this;
     }
-    FEVector3 &operator*=(const FEVector3 &v) {}
-    FEVector3 &operator/=(float f) {}
+    FEVector3 &operator*=(const FEVector3 &v) {
+        x *= v.x;
+        y *= v.y;
+        z *= v.z;
+        return *this;
+    }
+    FEVector3 &operator/=(float f) {
+        x /= f;
+        y /= f;
+        z /= f;
+        return *this;
+    }
 
-    int operator==(const FEVector3 &v) const {}
+    int operator==(const FEVector3 &v) const {
+        return x == v.x && y == v.y && z == v.z;
+    }
 
+    // Igual que en FEVector2: sin llamantes en el original, sin cuerpo.
     const f32 operator[](int i) const {}
 
-    const f32 &operator[](int i) {} // Decl: speed/indep/src/feng/FEMath.h:148
+    f32 &operator[](int i) {} // Decl: speed/indep/src/feng/FEMath.h:148
 
-    f32 Dot(const FEVector3 &v) const {}
+    f32 Dot(const FEVector3 &v) const {
+        return x * v.x + y * v.y + z * v.z;
+    }
 
-    f32 Length() const {}
+    f32 Length() const {
+        return FEngSqrt(Dot(*this));
+    }
 
-    f32 Normalize() {} // Decl: speed/indep/src/feng/FEMath.h:153
+    // UNA sola local: el DWARF del original lista `float len' y nada mas, al
+    // contrario que FEVector2::Normalize, que si tiene las dos.  Con dos
+    // locales el reciproco se materializa y sobra una division menos.
+    f32 Normalize() { // Decl: speed/indep/src/feng/FEMath.h:153
+        f32 len = Length();
+        if (len >= 0.1f) {
+            x /= len;
+            y /= len;
+            z /= len;
+        }
+        return len;
+    }
 
-    FEVector3 CrossProduct(const FEVector3 &v) const {}
+    FEVector3 CrossProduct(const FEVector3 &v) const {
+        return FEVector3(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x);
+    }
 
-    operator f32 *() {}
+    operator f32 *() {
+        return &x;
+    }
 };
 
 // total size: 0x10
@@ -267,10 +332,18 @@ class FEVector4 {
     float x, y, z, w; // offset 0x0, size 0x4
 
     FEVector4() {}
-    FEVector4(float v) {}
-    FEVector4(float xx, float yy, float zz, float ww) {}
-    FEVector4(const FEVector4 &Src) {}
-    FEVector4 &operator=(const FEVector4 &Src) {}
+    FEVector4(float v) : x(v), y(v), z(v), w(v) {}
+    FEVector4(float xx, float yy, float zz, float ww) : x(xx), y(yy), z(zz), w(ww) {}
+    FEVector4(const FEVector4 &Src) {
+        *this = Src;
+    }
+    FEVector4 &operator=(const FEVector4 &Src) {
+        x = Src.x;
+        y = Src.y;
+        z = Src.z;
+        w = Src.w;
+        return *this;
+    }
 };
 
 // total size: 0x40

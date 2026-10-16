@@ -42,8 +42,8 @@ class RaceInformation : public HudElement, public IRaceInformation {
     void SetPlayerTollboothsCrossed(int num) override {
         mPlayerTollboothNumber = num;
     };
-    void SetNumTollbooths(int num) override {
-        mNumTollbooths = num;
+    void SetNumTollbooths(int numTollbooths) override {
+        mNumTollbooths = numTollbooths;
     };
 
   private:

@@ -1,31 +1,25 @@
+#include "postp.h"
 
-typedef struct {
-    unsigned char pad0[120];
-    int MiddleStart;      /* +120 */
-    unsigned char pad1[20];
-    int RowLength;        /* +144, bound = *8 */
-    int RowCount;         /* +148, bound = *8 */
-    int PlaneLineStep;    /* +152 */
-} PP_INST;
-
-void ClampLevels_C(PP_INST *pbi, int BlackClamp, int WhiteClamp, unsigned char *Src,
-                   unsigned char *Dst) {
+/* En la A124 casa con SrcPtr declarado delante de DestPtr (el orden que dan
+   los stabs y tambien el DWARF de GameCube), pero GameCube solo sale identico
+   con este orden: los dos compiladores reparten al reves los dos punteros de la
+   fila siguiente. Se deja el de GameCube, que no puede cambiar. */
+void ClampLevels_C(POSTPROC_INSTANCE *pbi, INT32 BlackClamp, INT32 WhiteClamp, UINT8 *Src, UINT8 *Dst) {
     int i;
     int row;
     int col;
     unsigned char clamped[256];
     int width;
     int height;
-    unsigned char *DestPtr;
-    unsigned char *SrcPtr;
-    unsigned int LineLength;
+    UINT8 *DestPtr;
+    UINT8 *SrcPtr;
+    UINT32 LineLength;
 
-    width = pbi->RowLength * 8;
-    height = pbi->RowCount * 8;
-    LineLength = pbi->PlaneLineStep;
-
-    SrcPtr = Src + pbi->MiddleStart;
-    DestPtr = Dst + pbi->MiddleStart;
+    width = pbi->HFragments * 8;
+    height = pbi->VFragments * 8;
+    SrcPtr = Src + pbi->ReconYDataOffset;
+    DestPtr = Dst + pbi->ReconYDataOffset;
+    LineLength = pbi->YStride;
 
     for (i = 0; i < 256; i++) {
         clamped[i] = i;

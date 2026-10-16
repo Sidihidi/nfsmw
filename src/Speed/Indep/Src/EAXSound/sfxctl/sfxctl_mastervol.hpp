@@ -9,7 +9,7 @@
 
 // total size: 0x28
 struct SFXCTL_MasterVol : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
 
   public:
@@ -17,6 +17,7 @@ struct SFXCTL_MasterVol : public SFXCTL {
     ~SFXCTL_MasterVol() override;
     TypeInfo *GetTypeInfo() const override;
     const char *GetTypeName() const override;
+    static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
     static SndBase *CreateObject(unsigned int allocator);
     void InitSFX() override;
     void UpdateParams(float t) override;
@@ -24,7 +25,7 @@ struct SFXCTL_MasterVol : public SFXCTL {
 
 // total size: 0x28
 struct SFXCTL_GameState : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
 
   public:

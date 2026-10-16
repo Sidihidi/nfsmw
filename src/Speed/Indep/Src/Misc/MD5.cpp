@@ -189,7 +189,12 @@ void MD5::_Final() {
 
     raw = this->rawMD5;
     str = this->strMD5;
+#ifdef EA_PLATFORM_XENON
+    // X360 escribe `< 16`, no `<= 15` (probado al 100 %).
+    for (uIndex = 0; uIndex < 16; uIndex++) {
+#else
     for (uIndex = 0; uIndex <= 15; uIndex++) {
+#endif
         if ((uIndex & 3) == 0) {
             uData = this->uRegs[uIndex >> 2];
         }

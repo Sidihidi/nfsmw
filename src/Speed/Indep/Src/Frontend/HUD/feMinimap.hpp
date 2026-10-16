@@ -44,24 +44,28 @@ struct MiniMapItem : public bTNode<MiniMapItem> {
 
 // total size: 0x330
 struct Minimap : public HudElement {
+    // Sin valores a mano: la A124 no tiene los dos iconos de detras de GII_SPEEDTRAPCAM (su kGameplayIconInfo tiene 16
+    // entradas y su mGameplayIcons, 15 filas).
     enum Type {
         GII_NONE = 0,
-        GII_SPRINT = 1,
-        GII_CIRCUIT = 2,
-        GII_DRAG = 3,
-        GII_KNOCKOUT = 4,
-        GII_TOLLBOOTH = 5,
-        GII_SPEEDTRAP = 6,
-        GII_RIVAL = 7,
-        GII_SAFEHOUSE = 8,
-        GII_CARLOT = 9,
-        GII_SHOP = 10,
-        GII_HIDINGSPOT = 11,
-        GII_PURSUITSBREAKER = 12,
-        GII_SPEEDTRAPCAM = 13,
-        GII_SPEEDTRAPRACECAM = 14,
-        GII_CHECKPOINT = 15,
-        GII_MAX = 16,
+        GII_SPRINT,
+        GII_CIRCUIT,
+        GII_DRAG,
+        GII_KNOCKOUT,
+        GII_TOLLBOOTH,
+        GII_SPEEDTRAP,
+        GII_RIVAL,
+        GII_SAFEHOUSE,
+        GII_CARLOT,
+        GII_SHOP,
+        GII_HIDINGSPOT,
+        GII_PURSUITSBREAKER,
+        GII_SPEEDTRAPCAM,
+#ifndef EA_BUILD_A124
+        GII_SPEEDTRAPRACECAM,
+        GII_CHECKPOINT,
+#endif
+        GII_MAX,
     };
 
     // total size: 0x14
@@ -72,15 +76,15 @@ struct Minimap : public HudElement {
         unsigned int mWorldMapTitle;   // offset 0xC, size 0x4
         unsigned int mworldIconTexHash; // offset 0x10, size 0x4
     };
-
+  private:
     static GameplayIconInfo kGameplayIconInfo[];
-
+  public:
     static GameplayIconInfo &GetGameplayIconInfo(Type iconType) {
         return kGameplayIconInfo[iconType];
     }
 
     static GameplayIconInfo &GetGameplayIconInfo(eWorldMapItemType itemType) {
-        for (int i = 0; i <= GII_MAX; i++) {
+        for (int i = 0; i < GII_MAX + 1; i++) {
             if (kGameplayIconInfo[i].mItemType == itemType) {
                 return kGameplayIconInfo[i];
             }
@@ -95,6 +99,7 @@ struct Minimap : public HudElement {
     void RefreshMapItems();
     static void ConvertPos(bVector2 &worldPos, bVector2 &minimapPos, TrackInfo *track);
     void Update(IPlayer *player) override;
+  private:
     void UpdateTrackMapArt();
     void UpdateElementArt(bVector2 *elementPos, bVector2 *elementDir, FEObject *elementArt, bool pulse);
     void UpdateCopElements(IVehicle *ivehicle);
@@ -103,7 +108,9 @@ struct Minimap : public HudElement {
     void UpdateTriggerElement(FEImage *image, GTrigger *trigger);
     void UpdateIconElement(FEImage *image, GIcon *icon);
     void UpdateRaceElements();
+  public:
     void AdjustForWidescreen(bool moveOutwards);
+  private:
     void UpdateMiniMapItems();
     void InitStaticMiniMapItems();
     void UpdateGameplayIcons(IPlayer *player);
@@ -132,7 +139,7 @@ struct Minimap : public HudElement {
     FEImage *mRacerElementArt[8];           // offset 0xE8, size 0x20
     FEImage *mCheckpointElementArt;         // offset 0x108, size 0x4
     FEImage *mGPSSelectionElementArt;       // offset 0x10C, size 0x4
-    FEImage *mGameplayIcons[17][8];         // offset 0x110, size 0x220
+    FEImage *mGameplayIcons[GII_MAX + 1][8]; // offset 0x110, size 0x220 (0x1E0 en la A124)
 };
 
 #endif

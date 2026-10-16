@@ -2,7 +2,12 @@
 #define PHYSICSUPGRADES_HPP
 
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/pvehicle.h"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/presetride.h"
+
+namespace Attrib {
+namespace Gen {
+struct presetride;
+} // namespace Gen
+} // namespace Attrib
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/Src/Physics/PhysicsInfo.hpp"
 

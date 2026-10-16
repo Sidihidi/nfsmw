@@ -33,13 +33,11 @@ SubTitler::~SubTitler() {
 }
 
 bool SubTitler::ShouldShowSubTitles(const char *movie_name) {
-    if (GetCurrentLanguage() != 0) {
-        return true;
-    }
 #ifndef EA_BUILD_A124
-    if (!mIsTutorial)
+    if (GetCurrentLanguage() == 0 && !mIsTutorial) {
+#else
+    if (GetCurrentLanguage() == 0) {
 #endif
-    {
         return false;
     }
     return true;
@@ -94,16 +92,15 @@ void SubTitler::Unload() {
 float SubTitler::GetElapsedTime() {
     unsigned int timenow;
     float thetime_ms;
-    if (!mSubtitlePaused) {
-        timenow = bGetTicker();
-        thetime_ms = bGetTickerDifference(lastTime, timenow) * 0.001f + timeElapsed;
-        lastTime = timenow;
-        timeElapsed = thetime_ms;
-    } else {
+    if (mSubtitlePaused) {
         lastTime = bGetTicker();
-        thetime_ms = timeElapsed;
+        return timeElapsed;
     }
-    return thetime_ms;
+    timenow = bGetTicker();
+    thetime_ms = bGetTickerDifference(lastTime, timenow);
+    timeElapsed += thetime_ms * 0.001f;
+    lastTime = timenow;
+    return timeElapsed;
 }
 
 void SubTitler::Update(uint32 msg) {
@@ -117,7 +114,7 @@ void SubTitler::Update(uint32 msg) {
             if (data_ != nullptr && lastTime != 0) {
                 float timenow = GetElapsedTime();
                 if (IsMovieTimerPrintf) {
-                    Timer timer(static_cast<int>(timenow * 4000.0f + 0.5f));
+                    Timer timer(bFloatToInt(timenow * 4000.0f + 0.5f));
                     char timer_str[100];
                     timer.PrintToString(timer_str, 0);
                 }

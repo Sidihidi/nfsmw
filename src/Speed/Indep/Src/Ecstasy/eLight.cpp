@@ -18,6 +18,9 @@
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/light_flares_cg.h"
 #include "Speed/Indep/Src/Generated/Hash.hpp"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/Src/World/TimeOfDay.hpp"
+#endif
 
 class eDynamicLightPack;
 
@@ -418,9 +421,10 @@ void CartesianToSpherical(bVector3 *v, float x, float y, float z) {
     v->z = r;
 }
 
-// 73.14 %: GCC calls the synthesized eDynamicLightContext::operator= out of line here, and the
-// original inlines it. That happens when the operator was synthesized by an earlier use in the
-// unit; the DWARF shows none, and a dead function written only to provide it was removed.
+// El operator= sintetizado: GameCube lo expande en linea (DWARF) y las dos PS2 y PC lo llaman fuera de linea. El
+// cc1plus de 2.95 solo expande un metodo sintetizado si cabe en el umbral de tamano de function_cannot_inline_p,
+// que cuenta tambien las notas de linea de lo que el expande: con bFill y la copia de bVector4 en una linea cada
+// una (bMath.hpp:1040 y 1106 en el mapa de lineas de GameCube) cabe; con una sentencia por linea no.
 void elRotateLightContext(eDynamicLightContext *new_light_context, eDynamicLightContext *light_context, bMatrix4 *rotate_matrix) {
     bMatrix4 invrotate_matrix;
     bVector4 light_directions[3];
@@ -576,7 +580,12 @@ int elSetupLights(eDynamicLightContext *light_context /* r27 */, eShaperLightRig
 
         case LIGHT_SUN_DIRECTION:
         case LIGHT_OPPOSITE_SUN_DIRECTION: {
+#ifdef EA_PLATFORM_WIN32
+            // PC (speed.exe 0x5022A4): el sol de la hora del dia, no el de la seccion.
+            float *sunDirection = &TimeOfDayPointer->SunDirection.x;
+#else
             float *sunDirection = WorldLightDirectionVector;
+#endif
             bVector3 spherical_sun_direction;
 
             if (shaper_lights->Lights[i].CameraSpace == LIGHT_SUN_DIRECTION) {
@@ -656,7 +665,7 @@ int elSetupLights(eDynamicLightContext *light_context /* r27 */, eShaperLightRig
         }
     }
 
-    for (int i = 0; i < num_shaper_lights - 1; i++) {
+    for (int i = 0; i < num_shaper_lights + num_lights - 1; i++) {
         bNormalize(&light_directions[i], &light_positions[i]);
         bScale(&light_pos_colours[i], &light_pos_colours[i], 1.0f / 255.0f);
     }
@@ -747,7 +756,25 @@ void UpdateLightFlareParameters() {
 }
 
 float indep_fpow(float n, float p) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2 aproxima la potencia con los bits del flotante: n^p ~ p * bits(n) + (1 - p) * bits(1).
+    // asm de EA (aprobado el 2026-10-02): los bits de n se convierten a float en el propio registro de coma flotante
+    // (cvt.s.w sobre el max.s) y el resultado vuelve a bits sin pasar por un registro entero (cvt.w.s al devolver),
+    // como bTruncate; en C, floatsisf2 y fix_truncsfsi2 pasan siempre por un registro entero.
+    float magic = FloatAsInt(1.0f) - p * kFloatOneAsInt;
+
+    n = bMax(n, 0.01f);
+
+    float output;
+    asm("cvt.s.w %0, %1" : "=f"(output) : "f"(n));
+    output *= p;
+    output += magic;
+
+    asm("cvt.w.s %0, %1" : "=f"(output) : "f"(output));
+    return output;
+#else
     return ePowf(n, p);
+#endif
 }
 
 eLightFlare PoolLightFlareList[50]; // size: 0x960, address: 0x804615F4
@@ -801,8 +828,12 @@ void eRenderLightFlarePool(eView *view /* r30 */) {
                 intensity_scale = GetSunIntensity(eGetView(1, false));
             }
             if ((vid & PoolOfFlaresXcludeView[i]) == 0) {
-                if ((view->GetID() == EVIEW_FIRST_RVM) || (view->GetID() > EVIEW_SHADOWMATTE && (view->GetID() < NUM_EVIEWS))) {
+                if ((view->GetID() == EVIEW_FIRST_RVM) || (view->GetID() >= EVIEW_FIRST_ENVMAP && view->GetID() <= EVIEW_LAST_ENVMAP)) {
                     eRenderLightFlare(view, light_flare, local_world, intensity_scale, REF_NONE, FLARE_ENV, 0.0f, 0, 1.0f);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) || (defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124))
+                } else if (view->GetID() == EVIEW_PLAYER1_REFLECTION) {
+                    eRenderLightFlare(view, light_flare, local_world, intensity_scale, REF_FAST, FLARE_REFLECT, 0.0f, 0, 1.0f);
+#endif
                 } else {
                     eRenderLightFlare(view, light_flare, local_world, 1.0f, REF_NONE,
                                       view->GetID() == EVIEW_FIRST_PLAYER ? FLARE_CAT_P1 : FLARE_CAT_P2, 0.0f, 0, 1.0f);
@@ -1121,14 +1152,14 @@ int eRenderLightFlare(eView *view, eLightFlare *light_flare, bMatrix4 *local_wor
             }
 
             if (ColourOverRide != 0) {
-                uint32 a = (int)fa;
+                uint32 a = bFloatToInt(fa);
 
                 abgr = ColourOverRide | a;
             } else {
-                uint32 r = (int)fr;
-                uint32 g = (int)fg;
-                uint32 b = (int)fb;
-                uint32 a = (int)fa;
+                uint32 r = bFloatToInt(fr);
+                uint32 g = bFloatToInt(fg);
+                uint32 b = bFloatToInt(fb);
+                uint32 a = bFloatToInt(fa);
 
                 abgr = a | (b << 8) | (g << 16) | (r << 24);
             }
@@ -1210,7 +1241,10 @@ void AdjustQuickDynamicLight(eShaperLightRig *ShaperRigP, bVector3 *MyPosition) 
         if (0 == 0) {
             bVector3 direction = ShaperRigP->position - *MyPosition;
             bVector3 spherical_direction;
+#ifndef EA_PLATFORM_PLAYSTATION2
+            // GC: el frame muerto del original es 0x38 (tres bVector3 en el bloque); PS2: 0x20 (dos).
             bVector3 idk;
+#endif
         }
     }
 }

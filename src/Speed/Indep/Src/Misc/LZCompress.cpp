@@ -5,9 +5,9 @@
 // El nombre lo da el DWARF; el valor, el 0x2000 que ya teniamos.
 static const int JLZ_HTSize = 8192;
 
-static int Compare(unsigned char *a, unsigned char *b, int max) {
+static int Compare(unsigned char *p1, unsigned char *p2, int MaxLen) {
     int Result = 0;
-    while (Result < max && a[Result] == b[Result]) {
+    while (Result < MaxLen && p1[Result] == p2[Result]) {
         Result++;
     }
     return Result;
@@ -63,7 +63,7 @@ static int32 GetTableHash(uint8 *pData) {
 }
 
 void JLZHashPool::Update(uint8 *pData, int32 Offset) {
-    int WindowPos = Offset - (Offset / PoolSize) * PoolSize;
+    int WindowPos = Offset % PoolSize;
     JLZHash *pHash = &pPool[WindowPos];
     int TableNum;
     if (pHash->pData != nullptr) {
@@ -78,8 +78,14 @@ void JLZHashPool::Update(uint8 *pData, int32 Offset) {
             pHead[TableNum] = pHash->pNext;
         }
     }
+#ifdef EA_PLATFORM_XENON
+    // X360 asigna pData antes que Offset, probado al 100 %.
+    pHash->pData = pData;
+    pHash->Offset = Offset;
+#else
     pHash->Offset = Offset;
     pHash->pData = pData;
+#endif
     TableNum = GetTableHash(pData);
     pHash->pPrev = nullptr;
     pHash->pNext = pHead[TableNum];
@@ -176,7 +182,7 @@ int JLZCompress(uint8 *pSrc, int32 Size, uint8 *pDest) {
             } while (LongRun != 0);
         } else {
             Pool.Update(pSrc, Pos);
-            Control = (Control >> 1) & 0x7f7f;
+            Control = (Control >> 1) & ~0x80;
             Size--;
             *pOut = *pSrc;
             pOut++;
@@ -234,11 +240,11 @@ int JLZDecompress(uint8 *pSrc, uint8 *pDest) {
     if (header->Version != JLZCOMP_VERSION) {
         return 0;
     }
-    Size -= 0x12;
     pEnd = pOut + header->UncompressedSize;
     Control = pSrc[0x10] | 0x100;
     RunType = pSrc[0x11] | 0x100;
     pSrc += 0x12;
+    Size -= 0x12;
     while (Size != 0) {
         if ((Control & 1) != 0) {
             if ((RunType & 1) != 0) {
@@ -1675,16 +1681,16 @@ int32 LZValidHeader(LZHeader *header) {
     }
 }
 
-uint32 LZCompress(uint8 *pSrc, uint32 SrcSize, uint8 *pDst) {
-    unsigned int huffSize = HUFFCompress(pSrc, SrcSize, pDst);
-    unsigned int lzSize = JLZCompress(pSrc, SrcSize, pDst);
+uint32 LZCompress(uint8 *pSrc, uint32 sourceSize, uint8 *pDst) {
+    unsigned int huffSize = HUFFCompress(pSrc, sourceSize, pDst);
+    unsigned int lzSize = JLZCompress(pSrc, sourceSize, pDst);
     if (huffSize > lzSize) {
         return lzSize;
     }
-    if (huffSize > SrcSize + sizeof(LZHeader)) {
-        return RAWCompress(pSrc, SrcSize, pDst);
+    if (huffSize > sourceSize + sizeof(LZHeader)) {
+        return RAWCompress(pSrc, sourceSize, pDst);
     }
-    return HUFFCompress(pSrc, SrcSize, pDst);
+    return HUFFCompress(pSrc, sourceSize, pDst);
 }
 
 unsigned int LZDecompress(uint8 *pSrc, uint8 *pDst) {

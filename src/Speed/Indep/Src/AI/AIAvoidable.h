@@ -8,6 +8,7 @@
 #include "Speed/Indep/Libs/Support/Miscellaneous/SAP.h"
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
 
@@ -16,7 +17,7 @@ DECLARE_CONTAINER_TYPE(AIAvoidableNeighbors);
 typedef UTL::Std::list<struct AIAvoidable *, _type_AIAvoidableNeighbors> AvoidableList;
 
 // total size: 0x14
-class ALIGN_16 AIAvoidable {
+class ALIGNVEC AIAvoidable {
   public:
     // total size: 0x6C
     struct Grid : public SAP::Grid<AIAvoidable> {
@@ -40,15 +41,17 @@ class ALIGN_16 AIAvoidable {
     };
 
     typedef UTL::Std::list<AIAvoidable *, _type_AIAvoidableNeighbors> Neighbors;
-
+  private:
     static void OnOverLap(AIAvoidable &a0, AIAvoidable &a1, float dT);
     static void Validate(AIAvoidable *avoidable);
+  public:
     static void DrawAll();
     static void UpdateAllAvoidables(float dT);
-
+  protected:
     AIAvoidable(UTL::COM::IUnknown *pUnkPersist);
+  public:
     AIAvoidable *FindOverlap(UMath::Vector4 *normal) const;
-
+  protected:
     // Virtual functions
     virtual ~AIAvoidable();
     // Pura en el original: OnUpdateAvoidable__11AIAvoidable... no existe en el ELF.
@@ -56,7 +59,7 @@ class ALIGN_16 AIAvoidable {
     // (0x803CEEB8, 32 B). Las tres que heredan la sobreescriben: AIVehicle,
     // SmackableAvoidable y HeirarchyModel.
     virtual bool OnUpdateAvoidable(UMath::Vector3 &pos, float &sweep) = 0;
-
+  public:
     const Neighbors &GetAvoidableNeighbors() {
         return mNeighbors;
     }

@@ -43,7 +43,7 @@ class CDActionTrackCar : public CameraAI::Action, public IAttachable, public ITr
     CameraMover *GetMover() override {
         return mMover;
     }
-    void SetSpecial(float scale) override {}
+    void SetSpecial(float val) override {}
     bool Attach(UTL::COM::IUnknown *pOther) override {
         return mAttachments->Attach(pOther);
     }

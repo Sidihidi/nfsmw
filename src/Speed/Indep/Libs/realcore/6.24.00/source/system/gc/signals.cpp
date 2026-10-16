@@ -15,16 +15,16 @@ int SIGNAL_create(SIGNAL *signal) {
     return 1;
 }
 
-void SIGNAL_set(SIGNAL *signal) {
+void SIGNAL_set(SIGNAL *hSignal) {
     void *msg;
 
-    OSSendMessage((OSMessageQueue *)&signal->field_4, &msg, 0);
+    OSSendMessage((OSMessageQueue *)&hSignal->field_4, &msg, 0);
 }
 
-void SIGNAL_wait(SIGNAL *signal) {
+void SIGNAL_wait(SIGNAL *hSignal) {
     void *msg;
 
-    OSReceiveMessage((OSMessageQueue *)&signal->field_4, &msg, 1);
+    OSReceiveMessage((OSMessageQueue *)&hSignal->field_4, &msg, 1);
 }
 
 void SIGNAL_destroy(SIGNAL *signal) {

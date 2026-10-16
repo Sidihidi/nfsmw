@@ -28,9 +28,9 @@ void ENISOverlayMessage_MakeEvent_Callback(const void *staticData) {
     new ENISOverlayMessage(((ENISOverlayMessage::StaticData *) staticData)->fOverlayName, ((ENISOverlayMessage::StaticData *) staticData)->fOverlayMessage);
 }
 
-int ENISOverlayMessage_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ENISOverlayMessage(lua_tostring(L, 1), lua_tostring(L, 2));
+int ENISOverlayMessage_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ENISOverlayMessage(lua_tostring(luaState, 1), lua_tostring(luaState, 2));
     }
     return 0;
 }

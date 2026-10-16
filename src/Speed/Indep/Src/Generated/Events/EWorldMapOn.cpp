@@ -14,7 +14,7 @@ EWorldMapOn::EWorldMapOn() : Event(0x10) {
                                                   false
 #endif
                                                   )) {
-        unsigned long joyParam = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));
+        unsigned int joyParam = FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0));
         cFEng::Get()->QueuePackageSwitch("WorldMapMain.fng", 0, joyParam, false);
     }
 }
@@ -29,8 +29,8 @@ void EWorldMapOn_MakeEvent_Callback(const void *staticData) {
     new EWorldMapOn();
 }
 
-int EWorldMapOn_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EWorldMapOn_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EWorldMapOn();
     }
     return 0;

@@ -7,10 +7,10 @@ SimRandom::SimRandom() {
 SimRandom::~SimRandom() {}
 
 void SimRandom::Reset() {
+    this->fastRandom = 0xF874AF01;
     this->randtemp = 0;
     this->numRandCalls = 0;
 
-    this->fastRandom = 0xF874AF01;
     int seedIterations = this->randSeed % 50;
 
     for (int i = 0; i < seedIterations; i++) {

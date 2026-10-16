@@ -99,11 +99,11 @@ void ESpawnExplosion_MakeEvent_Callback(const void *staticData) {
                         ((ESpawnExplosion::StaticData *) staticData)->fExcludeSmackables, gEventDynamicData.fhModel);
 }
 
-int ESpawnExplosion_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 9) {
-        new ESpawnExplosion(UCrc32(lua_tostring(L, 1)), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4),
-                            (unsigned int) lua_tonumber(L, 5), (unsigned int) lua_tonumber(L, 6), (unsigned int) lua_tonumber(L, 7),
-                            (unsigned int) lua_tonumber(L, 8), (unsigned int) lua_tonumber(L, 9), gEventDynamicData.fhModel);
+int ESpawnExplosion_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 9) {
+        new ESpawnExplosion(UCrc32(lua_tostring(luaState, 1)), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), lua_tonumber(luaState, 4),
+                            (unsigned int) lua_tonumber(luaState, 5), (unsigned int) lua_tonumber(luaState, 6), (unsigned int) lua_tonumber(luaState, 7),
+                            (unsigned int) lua_tonumber(luaState, 8), (unsigned int) lua_tonumber(luaState, 9), gEventDynamicData.fhModel);
     }
     return 0;
 }

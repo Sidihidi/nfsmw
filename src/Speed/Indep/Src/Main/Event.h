@@ -28,8 +28,6 @@ struct RegisterEvent {
 class Event {
   public:
     struct StaticData {
-        USE_FASTALLOC(StaticData)
-
         unsigned int fEventID;
     };
 

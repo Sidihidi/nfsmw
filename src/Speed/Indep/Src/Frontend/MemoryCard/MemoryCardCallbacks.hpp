@@ -22,7 +22,11 @@ class MemcardCallbacks : public RealmcIface::IGameInterface, public IJoyHelper {
     void FindEntriesDone(RealmcIface::CardStatus status) override;
     void Retry(RealmcIface::CardStatus status) override;
     void Failed(RealmcIface::TaskResult result, RealmcIface::CardStatus status) override;
+#ifdef EA_BUILD_A124
+    void CardChanged(RealmcIface::CardStatus status) override;
+#else
     void CardChanged(RealmcIface::TaskResult result, RealmcIface::CardStatus status) override;
+#endif
     void CardChecked(const RealmcIface::CardInfo *info) override;
     void CardRemoved() override;
     void SetAutosaveDone(RealmcIface::TaskResult res, RealmcIface::CardStatus status, RealmcIface::AutosaveState flag) override;

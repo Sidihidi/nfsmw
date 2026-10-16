@@ -253,9 +253,9 @@ void SuspensionTraffic::Tire::BeginFrame() {
 void SuspensionTraffic::Tire::EndFrame(float dT) {}
 
 void SuspensionTraffic::Tire::UpdateFree(float dT) {
-    this->mSlipping = false;
     this->mLoad = 0.0f;
     this->mSlip = 0.0f;
+    this->mSlipping = false;
     this->mSlipAngle = 0.0f;
     if ((this->mEBrake > 0.0f) || (this->mBrake > 0.0f)) {
         this->mAV = 0.0f;
@@ -480,13 +480,12 @@ SuspensionTraffic::SuspensionTraffic(const BehaviorParams &bp, const SuspensionP
       mBrakeInfo(this, 0),      //
       mSuspensionInfo(this, 0), //
       mDrivetrainInfo(this, 0), //
+      mRB(nullptr),             //
+      mRBComplex(nullptr),      //
+      mInput(nullptr),          //
       mLastSteer(0.0f),         //
+      mNumWheelsOnGround(0),    //
       mMaxSteering(45.0f) {
-    this->mRB = nullptr;
-    this->mRBComplex = nullptr;
-    this->mInput = nullptr;
-    this->mNumWheelsOnGround = 0;
-
     this->EnableProfile("SuspensionTraffic");
 
     this->GetOwner()->QueryInterface(&this->mRB);
@@ -630,9 +629,9 @@ void SuspensionTraffic::DoSteering(State &state, UMath::Vector3 &right, UMath::V
     float ca = cosf(truesteer * steer1);
     float sa = sinf(truesteer * steer1);
 
+    right.z = ca;
     right.x = sa;
     right.y = 0.0f;
-    right.z = ca;
     UMath::Rotate(right, state.matrix, right);
     left = right;
 }
@@ -730,7 +729,7 @@ void SuspensionTraffic::DoWheelForces(State &state) {
         float penetration = wheel.GetNormal().w;
         float upness = UMath::Clamp(UMath::Dot(groundNormal, vUp), 0.0f, 1.0f);
         const float oldCompression = wheel.GetCompression();
-        float newCompression = rideheight_specs[axle] * upness + penetration;
+        float newCompression = penetration + rideheight_specs[axle] * upness;
         float max_compression = travel_specs[axle];
 
         if (wheel.GetCompression() == 0.0f) {

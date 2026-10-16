@@ -3,10 +3,12 @@
 #include "Speed/Indep/Src/FEng/FEObject.h"
 #include "Speed/Indep/Src/FEng/FEString.h"
 #include "Speed/Indep/Src/Frontend/FEngFont.hpp"
+#include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterface.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 #include "Speed/Indep/Src/Frontend/Localization/Localize.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEMenuScreen.hpp"
+#include "Speed/Indep/Src/Misc/BuildRegion.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include <string.h>
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
@@ -82,32 +84,30 @@ FEStatWidget::FEStatWidget(bool enabled)
       vDataPos(0.0f, 0.0f) {}
 
 void FEStatWidget::Position() {
-    float title_y = GetTopLeftY() + vMaxTitleSize.y * 0.5f;
-    if (pTitle) {
-        unsigned int format = pTitle->Format;
-        float title_x;
-        if ((format & 1) != 0) {
-            title_x = GetTopLeftX();
-        } else if ((format & 2) != 0) {
-            title_x = GetTopLeftX() + vMaxTitleSize.x;
+    float y = GetTopLeftY() + GetMaxTitleHeight() * 0.5f;
+    float x;
+    if (GetTitleObject()) {
+        unsigned int alignment = GetTitleObject()->Format;
+        if (alignment & 1) {
+            x = GetTopLeftX();
+        } else if (alignment & 2) {
+            x = GetTopLeftX() + GetMaxTitleWidth();
         } else {
-            title_x = GetTopLeftX() + vMaxTitleSize.x * 0.5f;
+            x = GetTopLeftX() + GetMaxTitleWidth() * 0.5f;
         }
-        FEngSetCenter(reinterpret_cast<FEObject *>(pTitle), title_x, title_y);
+        FEngSetCenter(reinterpret_cast<FEObject *>(GetTitleObject()), x, y);
     }
-    if (pData) {
-        FEObject *data = reinterpret_cast<FEObject *>(pData);
-        unsigned int format = pData->Format;
-        if ((format & 1) != 0) {
-            FEngSetCenter(data, GetDataPosX() + GetMaxDataWidth() * 0.5f, title_y);
-        } else if ((format & 2) != 0) {
-            FEngSetCenter(data, FEngGetCenterX(data), title_y);
-
-            FEVector3 pos = reinterpret_cast<FEObject *>(pData)->GetObjData()->Pos;
+    if (GetDataObject()) {
+        unsigned int alignment = GetDataObject()->Format;
+        if (alignment & 1) {
+            FEngSetCenter(reinterpret_cast<FEObject *>(GetDataObject()), GetDataPosX() + GetMaxDataWidth() * 0.5f, y);
+        } else if (alignment & 2) {
+            FEngSetCenterY(reinterpret_cast<FEObject *>(GetDataObject()), y);
+            FEVector3 pos = reinterpret_cast<FEObject *>(GetDataObject())->GetObjData()->Pos;
             pos.x = GetDataPosX() + GetMaxDataWidth();
             reinterpret_cast<FEObject *>(GetDataObject())->SetPosition(pos, false);
         } else {
-            FEngSetCenter(data, vDataPos.x, title_y);
+            FEngSetCenter(reinterpret_cast<FEObject *>(GetDataObject()), GetDataPosX(), y);
         }
     }
     if (GetBacking()) {
@@ -229,6 +229,61 @@ void FEToggleWidget::UnsetFocus() {
 
 void FEToggleWidget::BlinkArrows(uint32 data) {}
 
+FEToggleImageWidget::FEToggleImageWidget(bool enabled) : FEToggleWidget(enabled) {
+    pDataImage = nullptr;
+}
+
+void FEToggleImageWidget::Position() {
+    float data_size_y = FEngGetSizeY(reinterpret_cast<FEObject *>(pDataImage));
+    float title_y = GetTopLeftY() + data_size_y * 0.5f;
+    FEngSetTopLeft(reinterpret_cast<FEObject *>(GetTitleObject()), GetTopLeftX(), title_y);
+
+    FEngSetCenterX(reinterpret_cast<FEObject *>(pDataImage), GetDataPosX() + GetMaxDataWidth() * 0.5f);
+    FEngSetTopLeftY(reinterpret_cast<FEObject *>(pDataImage), GetDataPosY());
+
+    FEngSetCenterX(reinterpret_cast<FEObject *>(GetDataObject()), GetDataPosX() + GetMaxDataWidth() * 0.5f);
+    FEngSetTopLeftY(reinterpret_cast<FEObject *>(GetDataObject()), GetDataPosY() + data_size_y + 1.0f);
+
+    float data_x = GetDataPosX() + GetMaxDataWidth() * 0.5f;
+    float img_width = FEngGetSizeX(reinterpret_cast<FEObject *>(GetRightImage()));
+    FEngSetTopLeft(reinterpret_cast<FEObject *>(GetLeftImage()), data_x - (img_width + GetMaxDataWidth() * 0.5f), GetDataPosY());
+    FEngSetTopLeft(reinterpret_cast<FEObject *>(GetRightImage()), data_x + GetMaxDataWidth() * 0.5f, GetDataPosY());
+
+    if (GetBacking()) {
+        FEngSetTopLeft(GetBacking(), GetTopLeftX() - GetBackingOffsetX(), GetTopLeftY() - GetBackingOffsetY());
+    }
+}
+
+void FEToggleImageWidget::Enable() {
+    FEToggleWidget::Enable();
+    FEngSetScript(reinterpret_cast<FEObject *>(pDataImage), FEHASH_UNHIGHLIGHT, true);
+}
+
+void FEToggleImageWidget::Disable() {
+    FEToggleWidget::Disable();
+    FEngSetScript(reinterpret_cast<FEObject *>(pDataImage), FEHASH_DISABLE, true);
+}
+
+void FEToggleImageWidget::Show() {
+    FEToggleWidget::Show();
+    FEngSetVisible(reinterpret_cast<FEObject *>(pDataImage));
+}
+
+void FEToggleImageWidget::Hide() {
+    FEToggleWidget::Hide();
+    FEngSetInvisible(reinterpret_cast<FEObject *>(pDataImage));
+}
+
+void FEToggleImageWidget::SetFocus(const char *parent_pkg) {
+    FEToggleWidget::SetFocus(parent_pkg);
+    FEngSetScript(reinterpret_cast<FEObject *>(pDataImage), FEHASH_HIGHLIGHT, true);
+}
+
+void FEToggleImageWidget::UnsetFocus() {
+    FEToggleWidget::UnsetFocus();
+    FEngSetScript(reinterpret_cast<FEObject *>(pDataImage), FEHASH_UNHIGHLIGHT, true);
+}
+
 FESliderWidget::FESliderWidget(bool enabled) : FEToggleWidget(enabled) {
     // Slider = Slider();
     fVertOffset = 9.5f;
@@ -284,7 +339,13 @@ void FESliderWidget::Enable() {
 }
 
 void FESliderWidget::Disable() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2 (A124 y SLUS) solo apaga el widget (el FEWidget::Disable en linea: `sw zero, 0x24`); GameCube y PC
+    // llaman a FEToggleWidget::Disable.
+    FEWidget::Disable();
+#else
     FEToggleWidget::Disable();
+#endif
 }
 
 void FESliderWidget::SetFocus(const char *parent_pkg) {
@@ -310,6 +371,163 @@ void FESliderWidget::UpdateSlider(unsigned int msg) {
         bMovedLastUpdate = true;
     } else {
         bMovedLastUpdate = false;
+    }
+}
+
+FEInputWidget::FEInputWidget(uint32 max_input_length, const char *init_text, uint32 edit_mode, bool enabled)
+    : FEStatWidget(enabled),              //
+      MaxInputLength(max_input_length), //
+      EditMode(edit_mode) {
+    bMemSet(Title, 0, sizeof(Title));
+    bMemSet(InputText, 0, sizeof(InputText));
+    if (init_text) {
+        SetInputText(init_text);
+    }
+}
+
+void FEInputWidget::Act(const char *parent_pkg, uint32 data) {
+    if (data == 0x0C407210) {
+        cFEng::Get()->QueueGameMessage(0x81017864, parent_pkg, 0xFF);
+    }
+}
+
+void FEInputWidget::CheckMouse(const char *parent_pkg, const float mouse_x, const float mouse_y) {
+    bVector2 bottom_right;
+    bVector2 top_left;
+    GetTopLeft(top_left);
+    bVector2 size;
+    GetSize(size);
+    if (FEngTestForIntersection(mouse_x, mouse_y, top_left, size)) {
+        Act(parent_pkg, 0x0C407210);
+    }
+}
+
+void FEInputWidget::Enable() {
+    FEWidget::Enable();
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_UNHIGHLIGHT, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_UNHIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_UNHIGHLIGHT, true);
+    }
+}
+
+void FEInputWidget::Disable() {
+    FEWidget::Disable();
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_DISABLE, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_DISABLE, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_DISABLE, true);
+    }
+}
+
+void FEInputWidget::Show() {
+    FEngSetVisible(reinterpret_cast<FEObject *>(GetTitleObject()));
+    FEngSetVisible(reinterpret_cast<FEObject *>(GetDataObject()));
+    if (GetBacking()) {
+        FEngSetVisible(GetBacking());
+    }
+}
+
+void FEInputWidget::Hide() {
+    FEngSetInvisible(reinterpret_cast<FEObject *>(GetTitleObject()));
+    FEngSetInvisible(reinterpret_cast<FEObject *>(GetDataObject()));
+    if (GetBacking()) {
+        FEngSetInvisible(GetBacking());
+    }
+}
+
+void FEInputWidget::SetFocus(const char *parent_pkg) {
+    FEngSetCurrentButton(parent_pkg, reinterpret_cast<FEObject *>(GetTitleObject()));
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_HIGHLIGHT, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_HIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_HIGHLIGHT, true);
+    }
+}
+
+void FEInputWidget::UnsetFocus() {
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_UNHIGHLIGHT, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_UNHIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_UNHIGHLIGHT, true);
+    }
+}
+
+void FEInputWidget::SetInputFocus() {}
+
+void FEInputWidget::SetTitle(const char *text) {
+    bStrNCpy(Title, text, 0x9b);
+}
+
+FEDateWidget::FEDateWidget(bool enabled) : FEStatWidget(enabled) {}
+
+void FEDateWidget::CheckMouse(const char *parent_pkg, const float mouse_x, const float mouse_y) {
+    bVector2 bottom_right;
+    bVector2 top_left;
+    GetTopLeft(top_left);
+    FEngGetBottomRight(reinterpret_cast<FEObject *>(GetDataObject()), bottom_right.x, bottom_right.y);
+    bottom_right -= top_left;
+    if (FEngTestForIntersection(mouse_x, mouse_y, top_left, bottom_right)) {
+        Act(parent_pkg, 0x0C407210);
+    }
+}
+
+void FEDateWidget::Draw() {
+    if (GetCurrentLanguage() == eLANGUAGE_ENGLISH && !BuildRegion::IsEurope()) {
+        FEPrintf(GetDataObject(), "%d/%d/%d", mDay, mMonth, mYear);
+    } else {
+        FEPrintf(GetDataObject(), "%02d/%02d/%02d", mDay, mMonth, mYear);
+    }
+}
+
+void FEDateWidget::Enable() {
+    FEWidget::Enable();
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_UNHIGHLIGHT, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_UNHIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_UNHIGHLIGHT, true);
+    }
+}
+
+void FEDateWidget::Disable() {
+    FEWidget::Disable();
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_DISABLE, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_DISABLE, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_DISABLE, true);
+    }
+}
+
+void FEDateWidget::Show() {
+    FEngSetVisible(reinterpret_cast<FEObject *>(GetTitleObject()));
+    FEngSetVisible(reinterpret_cast<FEObject *>(GetDataObject()));
+    if (GetBacking()) {
+        FEngSetVisible(GetBacking());
+    }
+}
+
+void FEDateWidget::Hide() {
+    FEngSetInvisible(reinterpret_cast<FEObject *>(GetTitleObject()));
+    FEngSetInvisible(reinterpret_cast<FEObject *>(GetDataObject()));
+    if (GetBacking()) {
+        FEngSetInvisible(GetBacking());
+    }
+}
+
+void FEDateWidget::SetFocus(const char *parent_pkg) {
+    FEngSetCurrentButton(parent_pkg, reinterpret_cast<FEObject *>(GetTitleObject()));
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_HIGHLIGHT, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_HIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_HIGHLIGHT, true);
+    }
+}
+
+void FEDateWidget::UnsetFocus() {
+    FEngSetScript(reinterpret_cast<FEObject *>(GetTitleObject()), FEHASH_UNHIGHLIGHT, true);
+    FEngSetScript(reinterpret_cast<FEObject *>(GetDataObject()), FEHASH_UNHIGHLIGHT, true);
+    if (GetBacking()) {
+        FEngSetScript(GetBacking(), FEHASH_UNHIGHLIGHT, true);
     }
 }
 
@@ -363,6 +581,8 @@ FEScrollBar::FEScrollBar(const char *parent_pkg, const char *name, bool vert, bo
     }
 }
 
+#ifndef EA_BUILD_A124
+// La A124 no tiene SetGroupVisible (ni en sus stabs): su Update lleva el cuerpo escrito dentro.
 void FEScrollBar::SetGroupVisible(bool visible) {
     if (visible) {
         bVisible = true;
@@ -380,15 +600,34 @@ void FEScrollBar::SetGroupVisible(bool visible) {
         SetInvisible(pSecondBackingEnd);
     }
 }
+#endif
 
 void FEScrollBar::Update(int num_view_items, int num_list_items, int view_head_index, int selected_item) {
     if (selected_item == -1) {
         selected_item = view_head_index;
     }
     if (num_list_items <= num_view_items || num_list_items == 0) {
+#ifdef EA_BUILD_A124
+        bVisible = false;
+        SetInvisible(pBacking);
+        SetInvisible(pHandle);
+        SetInvisible(pFirstArrow);
+        SetInvisible(pSecondArrow);
+        SetInvisible(pFirstBackingEnd);
+        SetInvisible(pSecondBackingEnd);
+#else
         SetGroupVisible(false);
+#endif
     } else {
+#ifdef EA_BUILD_A124
+        bVisible = true;
+        SetVisible(pBacking);
+        SetVisible(pHandle);
+        SetVisible(pFirstArrow);
+        SetVisible(pSecondArrow);
+#else
         SetGroupVisible(true);
+#endif
         SetPosResized(num_view_items, num_list_items, view_head_index);
         if (selected_item == 1) {
             SetArrow1Dim(true);
@@ -402,24 +641,24 @@ void FEScrollBar::SetPosResized(int num_view_items, int num_list_items, int view
     if (bVertical) {
         float barsize = (static_cast<float>(num_view_items) / static_cast<float>(num_list_items)) * vBackingSize.y;
         FEngSetSizeY(pHandle, barsize);
-        float range = static_cast<float>(num_list_items) - static_cast<float>(num_view_items);
-        float num_segs = (vBackingSize.y - barsize) / bMax(1.0f, range);
-        fSegSize = num_segs;
-        float view_dist_to_head = (static_cast<float>(view_head_index) - 1.0f) * num_segs + vBackingPos.y;
-        vCurPos.y = view_dist_to_head;
+        float view_dist_to_head = static_cast<float>(view_head_index) - 1.0f;
+        float range = vBackingSize.y - barsize;
+        float num_segs = static_cast<float>(num_list_items) - static_cast<float>(num_view_items);
+        fSegSize = range / bMax(1.0f, num_segs);
+        vCurPos.y = view_dist_to_head * fSegSize + vBackingPos.y;
         if (!bHandleGrabbed) {
-            FEngSetTopLeftY(pHandle, view_dist_to_head);
+            FEngSetTopLeftY(pHandle, vCurPos.y);
         }
     } else {
         float barsize = (static_cast<float>(num_view_items) / static_cast<float>(num_list_items)) * vBackingSize.x;
         FEngSetSizeX(pHandle, barsize);
-        float range = static_cast<float>(num_list_items) - static_cast<float>(num_view_items);
-        float num_segs = (vBackingSize.x - barsize) / bMax(1.0f, range);
-        fSegSize = num_segs;
-        float view_dist_to_head = (static_cast<float>(view_head_index) - 1.0f) * num_segs + vBackingPos.x;
-        vCurPos.x = view_dist_to_head;
+        float view_dist_to_head = static_cast<float>(view_head_index) - 1.0f;
+        float range = vBackingSize.x - barsize;
+        float num_segs = static_cast<float>(num_list_items) - static_cast<float>(num_view_items);
+        fSegSize = range / bMax(1.0f, num_segs);
+        vCurPos.x = view_dist_to_head * fSegSize + vBackingPos.x;
         if (!bHandleGrabbed) {
-            FEngSetTopLeftX(pHandle, view_dist_to_head);
+            FEngSetTopLeftX(pHandle, vCurPos.x);
         }
     }
 }
@@ -437,6 +676,14 @@ void FEScrollBar::SetArrowVisibility(int arrow_num, bool visible) {
         } else if (arrow_num == 2) {
             SetInvisible(pSecondArrow);
         }
+    }
+}
+
+void FEScrollBar::SetBackingVisibility(bool visible) {
+    if (visible) {
+        SetVisible(pBacking);
+    } else {
+        SetInvisible(pBacking);
     }
 }
 
@@ -476,6 +723,15 @@ CTextScroller::~CTextScroller() {
     }
 }
 
+bool CTextScroller::PreAllocate(int BytesToAllocate) {
+    if (m_pRawDataBlock) {
+        return false;
+    }
+    m_DataBlockSize = BytesToAllocate;
+    m_pRawDataBlock = new ("CTextScroller(RawPreAlloc)", 0) char[BytesToAllocate];
+    return true;
+}
+
 void CTextScroller::Initialise(MenuScreen *pOwner, int ViewWidth, int ViewLines, char *pTextDisplayNameTempl, FEngFont *pFont) {
     m_pOwner = pOwner;
     m_ViewWidth = ViewWidth;
@@ -484,15 +740,14 @@ void CTextScroller::Initialise(MenuScreen *pOwner, int ViewWidth, int ViewLines,
     m_pFont = pFont;
 }
 
-void CTextScroller::SetTextHash(uint32 hash) {
-    const char *str = GetTranslatedString(hash);
-    int len = bStrLen(str);
-    if (len + 1 > 0) {
-        int size = (len + 1) * 2;
-        int16 *wideStr = new int16[len + 1];
-        PackedStringToWideString((u16 *)wideStr, size, str);
-        SetText(wideStr);
-        delete[] wideStr;
+void CTextScroller::SetTextHash(uint32 language_hash) {
+    char *text = GetTranslatedString(language_hash);
+    int TextSize = bStrLen(text) + 1;
+    if (TextSize > 0) {
+        short *pUCSText = new ("CTextScrollerWideToUCS2", 64) short[TextSize];
+        PackedStringToWideString(reinterpret_cast<uint16 *>(pUCSText), TextSize * sizeof(short), text);
+        SetText(pUCSText);
+        delete[] pUCSText;
     }
 }
 
@@ -541,7 +796,7 @@ void CTextScroller::SetText(int16 *pText) {
         if (NumLines > 0) {
             if (!m_pRawDataBlock) {
                 m_DataBlockSize = NumChars * 2 + NumLines * 4;
-                m_pRawDataBlock = new char[m_DataBlockSize];
+                m_pRawDataBlock = new ("CTextScroller(Raw)", 0) char[m_DataBlockSize];
             }
 
             m_pLines = reinterpret_cast<int16 **>(m_pRawDataBlock);

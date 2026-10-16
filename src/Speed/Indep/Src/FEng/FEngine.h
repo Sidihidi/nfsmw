@@ -50,7 +50,7 @@ struct FEPackageButtonRec {
 // Decl: speed/indep/src/feng/FEngine.h:84
 class FEPackageCommand : public FENode {
   public:
-    FEPackageCommand() {} // Decl: speed/indep/src/feng/FEngine.h:86
+    FEPackageCommand() { iCommand = 0; uControlMask = 0; } // Decl: speed/indep/src/feng/FEngine.h:86
 
     i32 iCommand;        // offset 0x14, size 0x4, Decl: speed/indep/src/feng/FEngine.h:87
     u32 uControlMask;    // offset 0x18, size 0x4, Decl: speed/indep/src/feng/FEngine.h:88

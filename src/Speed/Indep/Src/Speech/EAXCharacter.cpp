@@ -349,11 +349,11 @@ void EAXCharacter::Ack() {
 
 void EAXCharacter::Deny() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    Csis::AcknowledgeStruct deny;
-    deny.speaker_id = mSpeakerID;
-    deny.yes_no = mDestroyed ? Csis::Type_yes_no_No_False : Csis::Type_yes_no_Yes_True;
-    deny.intensity = ai->IsHighIntensity() ? Csis::Type_intensity_Normal : Csis::Type_intensity_High;
-    SCHEDULE_SPEECH(Acknowledge, deny, this);
+    Csis::AcknowledgeStruct ack;
+    ack.speaker_id = mSpeakerID;
+    ack.yes_no = mDestroyed ? Csis::Type_yes_no_No_False : Csis::Type_yes_no_Yes_True;
+    ack.intensity = ai->IsHighIntensity() ? Csis::Type_intensity_Normal : Csis::Type_intensity_High;
+    SCHEDULE_SPEECH(Acknowledge, ack, this);
 }
 
 void EAXCharacter::InterruptStatic() {

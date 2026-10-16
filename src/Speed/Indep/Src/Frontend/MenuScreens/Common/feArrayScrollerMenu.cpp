@@ -5,6 +5,7 @@
 #include "Speed/Indep/Src/Frontend/FEngHashes/SoundHashes.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterface.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEImages.hpp"
+#include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feWidget.hpp"
 
 ArrayScripts::ArrayScripts() {
@@ -55,6 +56,19 @@ void ImageArraySlot::Update(ArrayDatum *datum, bool isSelected) {
     ArraySlot::Update(datum, isSelected);
     if (datum) {
         SetTexture(datum->GetHash());
+    }
+}
+
+StringArraySlot::StringArraySlot(FEString *str) : ArraySlot(str) {}
+
+void StringArraySlot::SetNameHash(unsigned int name_hash) {
+    FEngSetLanguageHash(static_cast<FEString *>(GetFEngObject()), name_hash);
+}
+
+void StringArraySlot::Update(ArrayDatum *datum, bool isSelected) {
+    ArraySlot::Update(datum, isSelected);
+    if (datum) {
+        SetNameHash(datum->GetHash());
     }
 }
 
@@ -111,14 +125,19 @@ void ArrayScroller::AddDatum(ArrayDatum *datum) {
 }
 
 void ArrayScroller::SetSelection(ArrayDatum *newDatum, int newStartDatum) {
-    if (newDatum->IsEnabled()) {
-        startDatum = newStartDatum;
-        currentDatum = newDatum;
-        if (bSelectableArray) {
-            ArraySlot *pSlot = GetSlotAt(data.GetNodeNumber(currentDatum) - (startDatum + 1));
-            if (pSlot) {
-                FEngSetCurrentButton(GetPkgName(), pSlot->GetFEngObject()->NameHash);
-            }
+    if (!newDatum->IsEnabled()) {
+        return;
+    }
+    currentDatum = newDatum;
+    startDatum = newStartDatum;
+    if (bSelectableArray) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        ArraySlot *pSlot = GetSlotAt(GetCurrentDatumNum() - startDatum);
+#else
+        ArraySlot *pSlot = GetSlotAt(GetCurrentDatumNum() - (startDatum + 1));
+#endif
+        if (pSlot) {
+            FEngSetCurrentButton(GetPkgName(), pSlot->GetFEngObject());
         }
     }
 }
@@ -142,14 +161,18 @@ void ArrayScroller::ScrollHor(eScrollDir dir) {
     }
 
     ArrayDatum *new_datum = currentDatum;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    int current_num = GetCurrentDatumNum();
+#else
     int current_num = GetCurrentDatumNum() - 1;
+#endif
     int new_index = current_num;
 
     if (dir == eSD_PREV) {
 
         new_index = current_num - 1;
 
-        if (new_index + 1 == ((new_index + 1) / width) * width) {
+        if ((new_index + 1) % width == 0) {
             new_index = new_index + width;
         }
 
@@ -160,12 +183,12 @@ void ArrayScroller::ScrollHor(eScrollDir dir) {
 
         new_index = current_num + 1;
 
-        if (new_index == (new_index / width) * width) {
+        if (new_index % width == 0) {
             new_index = new_index - width;
         }
 
         if (new_index >= GetNumDatum()) {
-            new_index = (new_index / width) * width;
+            new_index -= new_index % width;
         }
     }
 
@@ -200,7 +223,11 @@ void ArrayScroller::ScrollVer(eScrollDir dir) {
         return;
     }
     new_datum = currentDatum;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    new_index = GetCurrentDatumNum();
+#else
     new_index = GetCurrentDatumNum() - 1;
+#endif
     new_start = startDatum;
 
     if (dir == eSD_PREV) {
@@ -217,11 +244,20 @@ void ArrayScroller::ScrollVer(eScrollDir dir) {
         }
 
         if (new_index >= 0) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            for (int i = 0; i < GetCurrentDatumNum() - new_index; i++) {
+#else
             for (int i = 0; i < GetCurrentDatumNum() - (new_index + 1); i++) {
+#endif
                 new_datum = static_cast<ArrayDatum *>(new_datum->GetPrev());
             }
         }
     } else if (dir == eSD_NEXT) {
+        // r32-fe: probada la recompute `GetCurrentDatumNum() - 1 + width` (la
+        // linea :332-334 del original llama al inline hpp:160): nuestro inline
+        // emite una SEGUNDA llamada Traverse real que cse no funde (87,8 %);
+        // en el original la copia `mr r11, r31` es un pseudo separado de la
+        // base, no una llamada. Reutilizar la variable (96,29 %) es lo cercano.
         new_index = new_index + width;
 
         if (!bSelectableArray) {
@@ -233,7 +269,11 @@ void ArrayScroller::ScrollVer(eScrollDir dir) {
         } else {
             if (new_index >= GetNumDatum()) {
                 if (((GetNumDatum() - 1) / GetWidth() + 1) * GetHeight() >
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+                    (GetCurrentDatumNum() / GetWidth() + 1) * GetHeight()) {
+#else
                     ((GetCurrentDatumNum() - 1) / GetWidth() + 1) * GetHeight()) {
+#endif
                     new_index = GetNumDatum() - 1;
                 }
             }
@@ -244,7 +284,11 @@ void ArrayScroller::ScrollVer(eScrollDir dir) {
         }
 
         if (new_index < GetNumDatum()) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            for (int i = 0; i < new_index - GetCurrentDatumNum(); i++) {
+#else
             for (int i = 0; i < (new_index + 1) - GetCurrentDatumNum(); i++) {
+#endif
                 new_datum = static_cast<ArrayDatum *>(new_datum->GetNext());
             }
         }
@@ -268,7 +312,11 @@ void ArrayScroller::UpdateScrollbar() {
     int view_size = GetHeight();
     int num_rows_of_data = (GetNumDatum() - 1) / GetWidth() + 1;
     int top_item = startDatum / GetWidth() + 1;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    int selected_item = GetCurrentDatumNum() / GetWidth() + 1;
+#else
     int selected_item = (GetCurrentDatumNum() - 1) / GetWidth() + 1;
+#endif
 
     ScrollBar.Update(view_size, num_rows_of_data, top_item, selected_item);
 }
@@ -327,16 +375,16 @@ void ArrayScroller::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u32
     }
     switch (msg) {
         case __PAD_LEFT__:
-            ScrollHor(eSD_PREV);
+            ScrollLeft();
             break;
         case __PAD_RIGHT__:
-            ScrollHor(eSD_NEXT);
+            ScrollRight();
             break;
         case __PAD_UP__:
-            ScrollVer(eSD_PREV);
+            ScrollUp();
             break;
         case __PAD_DOWN__:
-            ScrollVer(eSD_NEXT);
+            ScrollDown();
             break;
         case FEMSG_MOUSE_CHANGED:
             UpdateMouse();

@@ -1,11 +1,20 @@
 #include <snd/sfilter.h>
 
 // total size: 0x3C (sfir8.c)
+// En PS2 (snd 9.06.00-ps2) mide 0x100: los stabs de la A124 le ponen delante los coeficientes para la VU0,
+// alineados a 16 (por eso la `fir` de LPFSTATE/HPFSTATE/BPFSTATE cae en 0x20), y detras resetVU0coef.
 typedef struct SNDFIRSTATE {
-    float history[8]; // offset 0x0, size 0x20
-    float coef[5];    // offset 0x20, size 0x14
-    float cutLow;     // offset 0x34
-    float cutHigh;    // offset 0x38
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float VU0coef[12][4] __attribute__((aligned(16))); // offset 0x0, size 0xC0
+#endif
+    float history[8]; // offset 0x0, size 0x20 (PS2: 0xC0)
+    float coef[5];    // offset 0x20, size 0x14 (PS2: 0xE0)
+    float cutLow;     // offset 0x34 (PS2: 0xF4)
+    float cutHigh;    // offset 0x38 (PS2: 0xF8)
+#ifdef EA_PLATFORM_PLAYSTATION2
+    signed char resetVU0coef; // offset 0xFC
+    char pad[3];              // offset 0xFD
+#endif
 } SNDFIRSTATE;
 
 // total size: 0x58

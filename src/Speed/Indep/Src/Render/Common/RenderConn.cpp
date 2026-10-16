@@ -5,6 +5,7 @@
 // keep the global emitter system and animation player ticking.
 
 #include "Speed/Indep/Src/Render/RenderConn.h"
+#include "Speed/Indep/Src/World/VehicleRenderConn.h" // datos-gc: antes llegaba via RenderConn.h->CarRenderConn.h
 
 #include "Speed/Indep/Src/Animation/AnimPlayer.hpp"
 
@@ -24,7 +25,12 @@ void InitServices() {
 
 void RestoreServices() {
     SmackableRender_Shutdown();
+    // En PC no existe ClearXenonEmitters (sin simbolo ni definicion en el exe;
+    // solo la define el xSparks de GameCube): el original es el tail-call unico
+    // a SmackableRender_Shutdown (jmp de 5 B en 0x6E79E0, banco zRender 4/4).
+#ifndef EA_PLATFORM_WIN32
     ClearXenonEmitters();
+#endif
 }
 
 void UpdateLoading() {

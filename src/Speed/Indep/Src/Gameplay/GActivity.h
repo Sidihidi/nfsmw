@@ -6,12 +6,12 @@
 #endif
 
 #include "GHandler.h"
-#include "GState.h"
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 
 DECLARE_CONTAINER_TYPE(ID_GHandlerVector);
 DECLARE_CONTAINER_TYPE(ID_StateToVectors);
 
+class GState;
 struct lua_State;
 
 typedef UTL::Std::map<GState *, UTL::Std::vector<GHandler *, _type_ID_GHandlerVector>, _type_ID_StateToVectors> StateToHandlers;
@@ -40,7 +40,7 @@ class GActivity : public GRuntimeInstance {
     bool GetIsRunning() const {
         return mRunning;
     }
-
+  private:
     void GatherStatesAndHandlers();
     unsigned int StoreHandlers(GState *state, UTL::Std::vector<GHandler *, _type_ID_GHandlerVector> *handlerVec);
     bool CollectionIsStateForActivity(GState *state);
@@ -48,6 +48,7 @@ class GActivity : public GRuntimeInstance {
     void RegisterMessageHandlers(GState *state);
     void UnregisterMessageHandlers();
     void ActivateReferencedTriggers(bool activate, GRuntimeInstance *instance);
+  public:
     void Run();
     void Suspend();
     void Reset();
@@ -55,7 +56,9 @@ class GActivity : public GRuntimeInstance {
     void EnterStateByName(const char *stateName);
     void EnterState(GState *newState);
     static int ChangeStateFromScript(lua_State *luaState);
+  private:
     void HandleLocalMessage(UCrc32 messageType);
+  public:
     void PushActivityVars(lua_State *luaState);
     void ClearActivityVars(lua_State *luaState);
     int BuildActivityTables(lua_State *luaState);

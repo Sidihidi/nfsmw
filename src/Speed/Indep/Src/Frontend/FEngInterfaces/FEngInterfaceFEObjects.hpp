@@ -13,6 +13,12 @@ inline void FEngSetInvisible(const char *pkg_name, uint32 obj_hash) {
     FEngSetInvisible(FEngFindObject(pkg_name, obj_hash));
 }
 
+// FEngInterfaceFEObjects.hpp:17 en la A124 (NCSelector::Act lo expande: obj && !(obj->Flags & 1)); el DWARF de GC
+// lo pone entre FEngSetInvisible y FEngSetVisible.
+inline bool FEngIsVisible(FEObject *obj) {
+    return obj && !(obj->Flags & 1);
+}
+
 inline void FEngSetVisible(const char *pkg_name, uint32 obj_hash) {
     FEngSetVisible(FEngFindObject(pkg_name, obj_hash));
 }
@@ -207,6 +213,11 @@ inline void FEngSetVisibility(FEObject *obj, bool visible) {
     } else {
         FEngSetInvisible(obj);
     }
+}
+
+inline void FEngSetCenterX(FEObject *obj, float x) {
+    float y = FEngGetCenterY(obj);
+    FEngSetCenter(obj, x, y);
 }
 
 inline void FEngSetCenterY(FEObject *obj, float y) {

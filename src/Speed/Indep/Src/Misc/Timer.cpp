@@ -57,7 +57,7 @@ float GetRealTimeElapsedFromQuantized(int real_time_elapsed_quantized) {
 }
 
 int GetQuantizedRealTimeElapsed(float real_time_elapsed) {
-    return static_cast<int>(real_time_elapsed * 3.6e+03f + 0.5f);
+    return bFloatToInt(real_time_elapsed * 3.6e+03f + 0.5f);
 }
 
 void PrepareRealTimestep(float video_time_elapsed) {
@@ -139,13 +139,18 @@ void PrepareRealTimestep(float video_time_elapsed) {
 }
 
 void AdvanceRealTime() {
-    int frames_elapsed_60hz = static_cast<int>((RealTimeElapsedFrame + RealTimeElapsed) * 6e+01f);
+    int frames_elapsed_60hz = bFloatToInt((RealTimeElapsedFrame + RealTimeElapsed) * 6e+01f);
     RealTimeElapsedFrame = (RealTimeElapsedFrame + RealTimeElapsed) - static_cast<float>(frames_elapsed_60hz) * 0.016666668f;
     if (frames_elapsed_60hz == 0) {
         frames_elapsed_60hz = 1;
     }
+#ifdef EA_PLATFORM_WIN32
+    RealTimeFrames += frames_elapsed_60hz;
+    RealTimeFramesElapsed = frames_elapsed_60hz;
+#else
     RealTimeFramesElapsed = frames_elapsed_60hz;
     RealTimeFrames += frames_elapsed_60hz;
+#endif
     RealTime = RealTimeFrames;
     RealTimer = RealTimer + RealTimeElapsed;
     RealLoopCounter++;
@@ -184,11 +189,13 @@ void AdvanceWorldTime() {
     if (NeedToPrepareWorldTimestep == 0) {
         NeedToPrepareWorldTimestep = 1;
         if (WorldTimeElapsed != 0.0f) {
-            int frames_elapsed_60hz = static_cast<int>((WorldTimeElapsedFrame + WorldTimeElapsed) * 6e+01f);
-            WorldTimeFramesElapsed = frames_elapsed_60hz;
+            WorldTimeElapsedFrame += WorldTimeElapsed;
+            int frames_elapsed_60hz = bFloatToInt(WorldTimeElapsedFrame * 6e+01f);
+            WorldTimeElapsedFrame -= static_cast<float>(frames_elapsed_60hz) * 0.016666668f;
+
             WorldTimeFrames += frames_elapsed_60hz;
+            WorldTimeFramesElapsed = frames_elapsed_60hz;
             WorldTime = WorldTimeFrames;
-            WorldTimeElapsedFrame = WorldTimeElapsedFrame + WorldTimeElapsed - static_cast<float>(frames_elapsed_60hz) * 0.016666668f;
             WorldTimer.SetTime(Sim::GetTime());
             WorldTimeElapsed = 0.0f;
             WorldLoopCounter++;
@@ -435,4 +442,14 @@ void Timer::PrintToString(char *string, int flags) {
         }
         ::PrintToString(string, flags, hours, minutes, seconds, thousandths_seconds / 10);
     }
+}
+
+int Timer::CountDown(float fSeconds) {
+    if (IsSet()) {
+        PackedTime -= bFloatToInt(fSeconds * TIMER_SHIFT_VALUE_FLOAT);
+        if (PackedTime < 0) {
+            ResetLow();
+        }
+    }
+    return IsSet();
 }

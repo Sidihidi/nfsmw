@@ -31,6 +31,16 @@ void MemcardInterface::Save(const char *entryName, const char *header, const cha
     }
 }
 
+#if REALMEMCARD_VERSION < 30401
+// La 3.04.00 no pasa el nombre del tipo, y una entrada con nombre de fichero (NAME_FILE) tambien va por la carga alternativa.
+void MemcardInterface::Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo) {
+    if (titleInfo != nullptr && (titleInfo->mNameType == NAME_FILE || titleInfo->mDataFormat == FORMAT_RAW || titleInfo->mTitleType == TITLE_ALTERNATE)) {
+        this->mImpl->TaskManagerLoad(entryName, header, body, contentName, titleInfo);
+    } else {
+        this->mImpl->TaskManagerLoad(entryName, header, body, contentName, nullptr);
+    }
+}
+#else
 void MemcardInterface::Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo, const wchar_t *typeName) {
     if (titleInfo != nullptr && (titleInfo->mTitleType == TITLE_ALTERNATE || titleInfo->mDataFormat == FORMAT_RAW)) {
         this->mImpl->TaskManagerLoad(entryName, header, body, contentName, typeName, titleInfo);
@@ -38,13 +48,18 @@ void MemcardInterface::Load(const char *entryName, char *header, char *body, con
         this->mImpl->TaskManagerLoad(entryName, header, body, contentName, typeName, nullptr);
     }
 }
+#endif
 
 void MemcardInterface::Delete(const char *entryName, const wchar_t *contentName) {
     this->mImpl->TaskManagerDelete(entryName, contentName);
 }
 
 void MemcardInterface::FindEntries(const char *entryNamePattern, const TitleInfo *titleInfo) {
+#if REALMEMCARD_VERSION < 30401
+    if (titleInfo != nullptr && (titleInfo->mNameType == NAME_FILE || titleInfo->mDataFormat == FORMAT_RAW || titleInfo->mTitleType == TITLE_ALTERNATE)) {
+#else
     if (titleInfo != nullptr && (titleInfo->mDataFormat == FORMAT_RAW || titleInfo->mTitleType == TITLE_ALTERNATE)) {
+#endif
         this->mImpl->TaskManagerFindEntries(entryNamePattern, titleInfo);
     } else {
         this->mImpl->TaskManagerFindEntries(entryNamePattern, nullptr);
@@ -74,6 +89,12 @@ void MemcardInterface::SetMessage(MessageState state, unsigned int message) {
 MemcardTask MemcardInterface::Update(unsigned int elapsedTime) {
     return this->mImpl->Update(elapsedTime);
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+void MemcardInterface::ConvertAsciiToSjisString(const char *asciiStr, wchar_t *sjisStr) {
+    this->mImpl->ConvertAsciiToSjisString(asciiStr, sjisStr);
+}
+#endif
 
 bool MemcardInterface::IsResettable() {
     return this->mImpl->IsResettable();
@@ -124,10 +145,15 @@ void EntryInfo::Clear() {
     this->mGameCode[0] = 0;
 }
 
-GameInfo::GameInfo(const wchar_t *gameTitle, const unsigned int titleId, bool multipleSaveTypesUsed, bool multitapSupported) {
+GameInfo::GameInfo(const wchar_t *gameTitle, const TitleId titleId, bool multipleSaveTypesUsed, bool multitapSupported) {
     memset(this->mGameTitle, 0, 0x42);
     memcpy(this->mGameTitle, gameTitle, Realmc::Locale::GetWstrLength(gameTitle) * 2);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    memset(this->mTitleId, 0, sizeof(this->mTitleId));
+    strncpy(this->mTitleId, titleId, sizeof(this->mTitleId) - 1);
+#else
     this->mTitleId = titleId;
+#endif
     this->mMultipleSaveTypesUsed = multipleSaveTypesUsed;
     this->mMultitapSupported = multitapSupported;
 }
@@ -198,14 +224,22 @@ void TimeInfo::Clear() {
 
 void TitleInfo::Clear() {
     this->mTitleType = static_cast<TitleType>(0);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    memset(this->mTitleId, 0, sizeof(this->mTitleId));
+#else
     this->mTitleId = 0;
+#endif
     this->mNameType = static_cast<NameType>(0);
     this->mDataFormat = static_cast<DataFormat>(0);
 }
 
-void TitleInfo::Init(TitleType titleType, const unsigned int titleId, NameType nameType, DataFormat dataFormat) {
+void TitleInfo::Init(TitleType titleType, const TitleId titleId, NameType nameType, DataFormat dataFormat) {
     this->mTitleType = titleType;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    strncpy(this->mTitleId, titleId, sizeof(this->mTitleId) - 1);
+#else
     this->mTitleId = titleId;
+#endif
     this->mNameType = nameType;
     this->mDataFormat = dataFormat;
 }

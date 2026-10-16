@@ -11,8 +11,8 @@ class Speedometer : public HudElement, public ISpeedometer {
     Speedometer(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
     ~Speedometer() override {}
     void Update(IPlayer *player) override;
-    void SetSpeed(float speed) override {
-        mSpeed = speed;
+    void SetSpeed(float mps) override {
+        mSpeed = mps;
     };
 
   private:

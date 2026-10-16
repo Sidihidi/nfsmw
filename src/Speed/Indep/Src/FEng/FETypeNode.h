@@ -23,6 +23,9 @@ typedef enum { IT_None = 0, IT_Linear = 1, IT_Spline = 2, IT_MoveToLinear = 3, I
 
 typedef enum { AT_Once = 0, AT_Loop = 1, AT_PingPong = 2, AT_ActionTypeCount = 3 } FEPlayActions;
 
+// FEKeyTypes.cpp: la interpolacion por defecto de cada FEParamType (la usa FETypeLib::CreateObjectScript)
+extern i32 FEKeyInterpDefault[PT_ParamTypeCount];
+
 // File: speed/indep/src/feng/FETypeNode.h
 // total size: 0x24
 // Decl: speed/indep/src/feng/FETypeNode.h:25
@@ -89,6 +92,7 @@ class FETypeNode : public FENode {
     void InsertField(FEFieldNode *pField, FEFieldNode *pInsertAfter) {} // Decl: speed/indep/src/feng/FETypeNode.h:71
     void AppendField(FEFieldNode *pField) {                             // Decl: speed/indep/src/feng/FETypeNode.h:72
         Fields.AddTail(pField);
+        UpdateOffsets();
     }
     void RemoveField(FEFieldNode *pField) { // Decl: speed/indep/src/feng/FETypeNode.h:73
         Fields.RemNode(pField);

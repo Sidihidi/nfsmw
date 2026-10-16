@@ -171,7 +171,7 @@ void CompoundChannel::InitAnimMemoryMap(AnimMemoryMap *anim) {
     CompoundChannel *cchannel = reinterpret_cast<CompoundChannel *>(anim);
 
     for (int i = cchannel->GetNumChannels() - 1; i >= 0; i--) {
-        MemoryPoolManager::InitAnimMemoryMap(cchannel->mChannels[i]);
+        MemoryPoolManager::InitAnimMemoryMap(cchannel->GetChannels()[i]);
     }
 }
 

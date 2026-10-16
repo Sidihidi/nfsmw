@@ -19,18 +19,15 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
     int savenumevents;
     int value;
     int compareValue;
+    int by;
     int setwhat;
     int towhat;
     int ms;
     int result;
     static unsigned int lastwhile;
     static unsigned int lastendif;
-    int fadebits;
-    int pitchbits;
 
     savenumevents = Path::pfstate->eventindex;
-    fadebits = *reinterpret_cast<int *>(&action->act) << 8;
-    pitchbits = *reinterpret_cast<int *>(&action->act) << 14;
     {
         int t;
         {
@@ -40,7 +37,7 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
             bool mainvoice;
             bool auxvoice;
             for (t = 0; t < PATH_MAX_TRACKS; t++) {
-                trackFlag = 1 << t;
+                trackFlag = 1L << t;
                 if ((static_cast<unsigned int>(action->track) & trackFlag) == 0) {
                     continue;
                 }
@@ -54,36 +51,36 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
                 if (track->trackimp == 0) {
                     continue;
                 }
-                mainvoice = ((static_cast<unsigned int>(action->track) >> 28) & 1) != 0;
-                voice = (static_cast<unsigned int>(action->track) & 0xe0000000) != 0;
+                voice = action->track & PATH_ALL_VOICES;
+                mainvoice = (voice & 0x10000000) != 0;
+                auxvoice = (voice & 0xE0000000) != 0;
                 if (mainvoice && track->mainvoice == 0) {
                     continue;
                 }
-                if (voice != 0 && mainvoice == 0 && track->mainvoice != 0) {
+                if (auxvoice && mainvoice == 0 && track->mainvoice != 0) {
                     continue;
                 }
 
                 switch (action->type) {
                 case 2:
-                    value = PATHI_getvalue(act.waittime.millisecs, action->rightvaluetype, track, event);
-                    if (act.waittime.lowest > 0 && act.waittime.lowest < value) {
-                        value = 0;
+                    ms = PATHI_getvalue(act.waittime.millisecs, action->rightvaluetype, track, event);
+                    if (act.waittime.lowest > 0 && act.waittime.lowest < ms) {
+                        ms = 0;
                     }
                     if (action->rightvaluetype == PATH_VALUE_SPECIAL) switch (act.waittime.millisecs) {
                     case 0x14:
                     case 0x15:
                     case 0x16:
                         if (action->act.waittime.lowest == 0 ||
-                            action->act.waittime.lowest > value) {
-                            action->act.waittime.lowest = value;
+                            action->act.waittime.lowest > ms) {
+                            action->act.waittime.lowest = ms;
                         }
-                        if (value > 0) {
-                            value = Path::milliseconds + 0xbb8;
+                        if (ms > 0) {
+                            ms = Path::milliseconds + 0xbb8;
                         }
                         break;
                     }
-                    ms = Path::IPathToReal::realimp->GetMilliseconds();
-                    if (value > static_cast<int>(ms - event->lastact)) {
+                    if (ms > static_cast<int>(Path::IPathToReal::realimp->GetMilliseconds() - event->lastact)) {
                         break;
                     }
                     action->act.waittime.lowest = 0;
@@ -93,7 +90,7 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
                     if (act.waitbeat.millisecs == 0) {
                         track->trackimp->UpdateStatus();
                         if (PATHI_beatinfo(track, &beatinfo) >= 0) {
-                            ms = PATHI_calcwaitbeat(act.waitbeat.every, 1 << act.waitbeat.note,
+                            ms = PATHI_calcwaitbeat(act.waitbeat.every, 1L << act.waitbeat.note,
                                                      act.waitbeat.offset, &beatinfo);
                             action->act.waitbeat.millisecs = ms;
                         } else {
@@ -149,8 +146,7 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
                     if (act.branch.immediate != 0) {
                         PATHI_stop(track);
                     }
-                    trackstatus = static_cast<PATHTRACKPLAYSTATUS>(PATHI_readyfornewrequest(track));
-                    if (trackstatus != PATHTRACK_INVALID) {
+                    if (PATHI_readyfornewrequest(track)) {
                         track->nodebeat = -1;
                         result = PATHI_enternode(currentnode, nodeID, track->control, 1);
                         track->node = static_cast<short>(result);
@@ -165,45 +161,30 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
                     }
                     break;
                 case 5:
-                    {
-                        int fadevalue = PATHI_getvalue(act.fade.ms, action->rightvaluetype, track, event);
-                        fadetime = fadebits >> 25;
-                        PATHI_fade(track, act.fade.tovol, fadevalue, fadetime);
-                        action->done = 1;
-                        break;
-                    }
+                    fadetime = PATHI_getvalue(act.fade.ms, action->rightvaluetype, track, event);
+                    PATHI_fade(track, act.fade.tovol, fadetime, act.fade.id);
+                    action->done = 1;
+                    break;
                 case 7:
-                    {
-                        int fadevalue = PATHI_getvalue(act.sfxfade.ms, action->rightvaluetype, track, event);
-                        fadetime = fadebits >> 25;
-                        PATHI_customsfxfade(track, act.sfxfade.tovol, fadevalue, fadetime);
-                        action->done = 1;
-                        break;
-                    }
+                    fadetime = PATHI_getvalue(act.sfxfade.ms, action->rightvaluetype, track, event);
+                    PATHI_customsfxfade(track, act.sfxfade.tovol, fadetime, act.sfxfade.id);
+                    action->done = 1;
+                    break;
                 case 6:
-                    {
-                        int fadevalue = PATHI_getvalue(act.dryfade.ms, action->rightvaluetype, track, event);
-                        fadetime = fadebits >> 25;
-                        PATHI_customdrylevelfade(track, act.dryfade.tovol, fadevalue, fadetime);
-                        action->done = 1;
-                        break;
-                    }
+                    fadetime = PATHI_getvalue(act.dryfade.ms, action->rightvaluetype, track, event);
+                    PATHI_customdrylevelfade(track, act.dryfade.tovol, fadetime, act.dryfade.id);
+                    action->done = 1;
+                    break;
                 case 17:
-                    {
-                        int fadevalue = PATHI_getvalue(act.pitchfade.ms, action->rightvaluetype, track, event);
-                        fadetime = pitchbits >> 29;
-                        PATHI_custompitchfade(track, act.pitchfade.tovol, fadevalue, fadetime);
-                        action->done = 1;
-                        break;
-                    }
+                    fadetime = PATHI_getvalue(act.pitchfade.ms, action->rightvaluetype, track, event);
+                    PATHI_custompitchfade(track, act.pitchfade.tovol, fadetime, act.pitchfade.id);
+                    action->done = 1;
+                    break;
                 case 18:
-                    {
-                        int fadevalue = PATHI_getvalue(act.stretchfade.ms, action->rightvaluetype, track, event);
-                        fadetime = pitchbits >> 29;
-                        PATHI_customstretchfade(track, act.stretchfade.tovol, fadevalue, fadetime);
-                        action->done = 1;
-                        break;
-                    }
+                    fadetime = PATHI_getvalue(act.stretchfade.ms, action->rightvaluetype, track, event);
+                    PATHI_customstretchfade(track, act.stretchfade.tovol, fadetime, act.stretchfade.id);
+                    action->done = 1;
+                    break;
                 case 9:
                     {
                         int eventID;
@@ -249,48 +230,46 @@ int PATHI_serviceaction(PATHEVENT *event, PATHACTION *action) {
                     action->done = 1;
                     break;
                 case 8:
+                    setwhat = act.setval.setwhat;
                     towhat = PATHI_getvalue(act.setval.towhat, action->rightvaluetype, track, event);
                     action->done = 1;
-                    setwhat = act.setval.setwhat;
                     PATHI_setvalue(setwhat, action->leftvaluetype, towhat, track, event);
                     break;
                 case 14:
-                    {
-                        value = PATHI_getvalue(act.calc.value, action->leftvaluetype, track, event);
-                        int calcby = PATHI_getvalue(act.calc.by, action->rightvaluetype, track, event);
-                        action->done = 1;
-                        switch (act.calc.op) {
-                        case 1:
-                            value += calcby;
-                            break;
-                        case 2:
-                            value -= calcby;
-                            break;
-                        case 3:
-                            value *= calcby;
-                            break;
-                        case 4:
-                            value /= calcby;
-                            break;
-                        case 5:
-                            value %= calcby;
-                            break;
-                        default:
-                            break;
-                        }
-                        PATHI_setvalue(act.calc.value, action->leftvaluetype, value, track, event);
+                    value = PATHI_getvalue(act.calc.value, action->leftvaluetype, track, event);
+                    by = PATHI_getvalue(act.calc.by, action->rightvaluetype, track, event);
+                    action->done = 1;
+                    switch (act.calc.op) {
+                    case 1:
+                        value += by;
+                        break;
+                    case 2:
+                        value -= by;
+                        break;
+                    case 3:
+                        value *= by;
+                        break;
+                    case 4:
+                        value /= by;
+                        break;
+                    case 5:
+                        value %= by;
+                        break;
+                    default:
                         break;
                     }
+                    PATHI_setvalue(act.calc.value, action->leftvaluetype, value, track, event);
+                    break;
                 case 15:
-                    value = PATHI_getvalue(act.pause.when, action->rightvaluetype, track, event);
+                    ms = PATHI_getvalue(act.pause.when, action->rightvaluetype, track, event);
                     action->done = 1;
-                    if (value < 1) {
+                    if (ms < 1) {
                         track->paused = act.pause.on;
                         track->trackimp->Pause(act.pause.on);
                     } else if (act.pause.on != 0) {
-                        track->pauseat = Path::milliseconds + value;
+                        track->pauseat = Path::milliseconds + ms;
                     } else {
-                        track->resumeat = Path::milliseconds + value;
+                        track->resumeat = Path::milliseconds + ms;
                     }
                     break;
                 case 16:
@@ -382,7 +361,7 @@ void PATHI_conditiondone(PATHACTION *action, int skiptonextelse, PATHACTION *end
     unsigned int startindent = action->indent;
     int waitforendif = skiptonextelse;
 
-    for (action++; action <= endaction && waitforendif >= 0; action++)
+    for (action++; action <= endaction && skiptonextelse >= 0; action++)
     {
         if (action->indent == startindent)
         {
@@ -392,13 +371,13 @@ void PATHI_conditiondone(PATHACTION *action, int skiptonextelse, PATHACTION *end
                 return;
             }
 
-            if (!skiptonextelse)
+            if (!waitforendif)
                 return;
 
-            waitforendif = 0;
+            skiptonextelse = 0;
         }
 
-        if (!waitforendif)
+        if (!skiptonextelse)
             action->done = 1;
     }
 }

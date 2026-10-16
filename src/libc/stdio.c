@@ -2,10 +2,15 @@
 
 #include <stdio.h>
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+/* Los prototipos de <reent.h>: _read_r y _write_r devuelven _ssize_t (64 bits en el EE). */
+#include "local.h"
+#else
 extern int _read_r(struct _reent *, int, void *, unsigned long);
 extern int _write_r(struct _reent *, int, const void *, unsigned long);
 extern _fpos_t _lseek_r(struct _reent *, int, _fpos_t, int);
 extern int _close_r(struct _reent *, int);
+#endif
 
 int __sread(void *cookie, char *buf, int n)
 {

@@ -1,59 +1,29 @@
 #include <stdlib.h>
 
-namespace EA {
+#include <Allocator/iallocator.h>
 
-struct TagValuePair {
-    TagValuePair() {}
-    TagValuePair(unsigned int tag, int value);
-
-    unsigned int mTag;
-    union {
-        int mInt;
-        unsigned int mSize;
-        float mFloat;
-        const void *mPointer;
-    } mValue;
-    const TagValuePair *mNext;
-};
-
-inline TagValuePair::TagValuePair(unsigned int tag, int value) {
-    this->mTag = tag;
-    this->mValue.mInt = value;
-    this->mNext = 0;
-}
-
-namespace Allocator {
-
-class IAllocator {
-  public:
-    virtual void *Alloc(unsigned int size, const TagValuePair &flags) = 0;
-    virtual void Free(void *pBlock, unsigned int size) = 0;
-};
-
-} // namespace Allocator
-
-} // namespace EA
+#include "duck_mem.h"
 
 namespace Vp6 {
 
-EA::Allocator::IAllocator *gAllocator = 0;
+static EA::Allocator::IAllocator *gAllocator = NULL;
 
 void SetAllocator(EA::Allocator::IAllocator *allocator) {
     gAllocator = allocator;
 }
 
 void *Alloc(int size) {
-    if (gAllocator != 0) {
-        return gAllocator->Alloc(size, EA::TagValuePair(0, 0));
+    if (gAllocator) {
+        return gAllocator->Alloc(size, NULLALLOCTVP);
     }
     return malloc(size);
 }
 
-void Free(void *mem) {
-    if (gAllocator != 0) {
-        gAllocator->Free(mem, 0);
+void Free(void *ptr) {
+    if (gAllocator) {
+        gAllocator->Free(ptr, 0);
     } else {
-        free(mem);
+        free(ptr);
     }
 }
 

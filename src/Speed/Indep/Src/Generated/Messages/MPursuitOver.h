@@ -27,8 +27,6 @@ class MPursuitOver : public Hermes::Message {
 
     MPursuitOver(HSIMABLE _Perpetrator) : Hermes::Message(_GetKind(), _GetSize(), 0), fPerpetrator(_Perpetrator) {}
 
-    ~MPursuitOver() {}
-
     HSIMABLE GetPerpetrator() const {
         return fPerpetrator;
     }
@@ -46,9 +44,9 @@ class MPursuitOver : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MPursuitOver::HandleMessage_LuaBinding(const MPursuitOver &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MPursuitOver::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

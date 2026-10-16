@@ -90,7 +90,11 @@ AudioEvent *CollisionEvent::PlayScrape(const AudioEventParams &aep) {
         return nullptr;
     }
 
+#ifdef EA_BUILD_A124
+    bang = new CollisionEvent(aep, false); // la A124 no nombra esta asignacion (__builtin_new)
+#else
     bang = new ("Sound::CollisionEvent", 0) CollisionEvent(aep, false);
+#endif
     if (!bang->GetCSISEffect()) {
         if (bang) {
             delete bang;
@@ -184,7 +188,7 @@ CollisionEvent::CollisionEvent(const AudioEventParams &aep, bool impact)
             float magnitude = UMath::Clamp(this->GetParameters().magnitude, 0.0f, 1.0f);
             this->Intensity = static_cast<int>(magnitude * 127.0f);
 
-            if (((this->Description & 6) != 6) || this->Intensity > 9) {
+            if (((this->Description & 6) != 6) || this->Intensity >= 10) {
                 if (impact == true) {
                     Attrib::Gen::audioimpact attributes(this->GetAttributes());
                     this->InitAsImpact(attributes);

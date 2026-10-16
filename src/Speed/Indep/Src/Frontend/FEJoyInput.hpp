@@ -35,7 +35,7 @@ class cFEngJoyInput {
   private:
     bool CheckUnplugged(); // Decl: speed/indep/src/frontend/FEJoyInput.hpp:72
 
-    ActionQueue *mActionQ[2]; // offset 0x0, size 0x8, Decl: speed/indep/src/frontend/FEJoyInput.hpp:76
+    ActionQueue *mActionQ[NUM_JOYSTICK_PORTS]; // offset 0x0, size 0x8, Decl: speed/indep/src/frontend/FEJoyInput.hpp:76
 };
 
 #endif

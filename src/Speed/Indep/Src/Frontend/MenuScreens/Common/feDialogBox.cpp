@@ -14,6 +14,7 @@
 #include "Speed/Indep/Src/Frontend/FEngFont.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/Src/Frontend/FEPackageData.hpp"
+#include "Speed/Indep/Src/Frontend/FEPackageManager.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
 
@@ -41,15 +42,23 @@ feDialogConfig::feDialogConfig() {
     bDetectController = false;
     bBlurbIsUTF8 = false;
     DialogHandle = 0;
+#ifdef EA_BUILD_A124
+    ControlMask = 0xFF;
+#else
     fCountdown = 0.0f;
+#endif
 }
 
 eMenuSoundTriggers feDialogScreen::NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) {
     switch (msg) {
         case 0x48122792:
         case 0x4ac5e165:
+#ifdef EA_BUILD_A124
+            if (FEngGetCurrentButton(GetPackageName())->NameHash == mLastButtonHash) {
+#else
             if (FEngGetCurrentButton(GetPackageName()) == nullptr ||
                 FEngGetCurrentButton(GetPackageName())->NameHash == mLastButtonHash) {
+#endif
                 maybe = static_cast<eMenuSoundTriggers>(-1);
             } else {
                 mLastButtonHash = FEngGetCurrentButton(GetPackageName())->NameHash;
@@ -66,9 +75,19 @@ eMenuSoundTriggers feDialogScreen::NotifySoundMessage(u32 msg, eMenuSoundTrigger
 }
 
 void feDialogScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
+#ifdef EA_BUILD_A124 // la A124 cierra en el siguiente tick el dialogo que ya tiene respuesta
+    if (ReturnWithMessage != 0) {
+        if (msg == 0xc98356ba) {
+            DialogInterface::DismissDialog(Config.DialogHandle);
+        }
+    }
+#endif
     switch (msg) {
         case 0x35f8620b:
-            if (Config.NumButtons != 0) {
+#ifndef EA_PLATFORM_PLAYSTATION2
+            if (Config.NumButtons != 0)
+#endif
+            {
                 if (Config.FirstButton == 0) {
                     FEngSetCurrentButton(GetPackageName(), FEHASH_BUTTON1);
                 } else if (Config.FirstButton == 1) {
@@ -80,8 +99,8 @@ void feDialogScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32
             }
             break;
 
-#ifndef EA_BUILD_A124
         case 0xc98356ba:
+#ifndef EA_BUILD_A124 // la A124 no tiene dialogos con cuenta atras (el caso queda vacio)
             if (Config.Title == dialog_countdown) {
                 const u32 FEObj_messageblurb = 0x1e2640fa;
                 int elapsed = static_cast<int>((RealTimer - tCountdownTimer).GetSeconds());
@@ -90,13 +109,15 @@ void feDialogScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32
                     NotificationMessage(0x911ab364, nullptr, 0, 0);
                 }
             }
-            break;
 #endif
+            break;
 
         case 0x911ab364:
             if (Config.bIsDismissable) {
                 ReturnWithMessage = Config.DialogCancelledMessage;
+#ifndef EA_BUILD_A124 // la A124 cierra el dialogo en el tick siguiente
                 DialogInterface::DismissDialog(Config.DialogHandle);
+#endif
             }
             break;
 
@@ -125,19 +146,25 @@ void feDialogScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32
                 case FEHASH_BUTTON1:
                     if (Config.NumButtons != 0) {
                         ReturnWithMessage = Config.Button1PressedMessage;
+#ifndef EA_BUILD_A124
                         DialogInterface::DismissDialog(Config.DialogHandle);
+#endif
                     }
                     break;
                 case FEHASH_BUTTON2:
                     if (Config.NumButtons != 0) {
                         ReturnWithMessage = Config.Button2PressedMessage;
+#ifndef EA_BUILD_A124
                         DialogInterface::DismissDialog(Config.DialogHandle);
+#endif
                     }
                     break;
                 case FEHASH_BUTTON3:
                     if (Config.NumButtons != 0) {
                         ReturnWithMessage = Config.Button3PressedMessage;
+#ifndef EA_BUILD_A124
                         DialogInterface::DismissDialog(Config.DialogHandle);
+#endif
                     }
                     break;
             }
@@ -224,7 +251,9 @@ void feDialogScreen::BuildFromConfig() {
 
     switch (Config.Title) {
         case dialog_alert:
+#ifndef EA_BUILD_A124
         case dialog_fatalerror:
+#endif
             if (TheGameFlowManager.IsInGame()) {
                 FEngSetLanguageHash(GetPackageName(), 0x42adb44c, 0x2bd146d3);
             } else {
@@ -233,9 +262,16 @@ void feDialogScreen::BuildFromConfig() {
             FEngSetTextureHash(GetPackageName(), 0xd4f4069, 0x6948e2b3);
             FEngSetTextureHash(GetPackageName(), 0xfac88427, 0x6948e2b3);
             break;
+#ifdef EA_BUILD_A124 // la A124 no pone titulo a los dialogos sin titulo
         case dialog_none:
+            break;
+#else
+        case dialog_none:
+#endif
         case dialog_info:
+#ifndef EA_BUILD_A124
         case dialog_countdown:
+#endif
             FEngSetLanguageHash(GetPackageName(), 0x42adb44c, 0xdbe419d4);
             FEngSetTextureHash(GetPackageName(), 0xd4f4069, 0x1a7afe27);
             FEngSetTextureHash(GetPackageName(), 0xfac88427, 0x1a7afe27);
@@ -252,14 +288,25 @@ MenuScreen *DialogCreater(ScreenConstructorData *sd) {
     return new ("", 0) feDialogScreen(sd);
 }
 
+feDialogScreen *DialogInterface::FindDialogBox(int handle) {
+    if (SecretDialogInfo.DialogHandle == handle) {
+        return static_cast<feDialogScreen *>(FEngFindScreen(SecretDialogInfo.DialogPackage));
+    }
+    return nullptr;
+}
+
 void DialogInterface::DismissDialog(int handle) {
     if (SecretDialogInfo.DialogHandle == handle) {
         if (cFEng::Get()->IsPackageInControl(SecretDialogInfo.DialogPackage)) {
+#ifdef EA_BUILD_A124 // la A124 no trata aparte los errores fatales
+            cFEng::Get()->QueuePackagePop(1);
+#else
             if (SecretDialogInfo.Title == dialog_fatalerror) {
                 cFEng::Get()->PopErrorPackage();
             } else {
                 cFEng::Get()->QueuePackagePop(1);
             }
+#endif
         }
         SecretDialogInfo.DialogHandle = 0;
         cFEng::Get()->QueuePackageMessage(0xd731d75e, nullptr, nullptr);
@@ -295,12 +342,16 @@ dialog_handle DialogInterface::ShowDialog(feDialogConfig *conf) {
 
     FEngSetCreateCallback(SecretDialogInfo.DialogPackage, DialogCreater);
 
+#ifdef EA_BUILD_A124 // la A124 no tiene dialogos de error fatal y pasa su ControlMask como mascara
+    cFEng::Get()->QueuePackagePush(SecretDialogInfo.DialogPackage, reinterpret_cast<int>(&SecretDialogInfo), SecretDialogInfo.ControlMask, false);
+#else
     if (SecretDialogInfo.Title == dialog_fatalerror) {
         int port = FEDatabase->GetPlayersJoystickPort(0);
         cFEng::Get()->PushErrorPackage(SecretDialogInfo.DialogPackage, reinterpret_cast<int>(&SecretDialogInfo), FEngMapJoyportToJoyParam(port));
     } else {
         cFEng::Get()->QueuePackagePush(SecretDialogInfo.DialogPackage, reinterpret_cast<int>(&SecretDialogInfo), 0, false);
     }
+#endif
     return SecretDialogInfo.DialogHandle;
 }
 
@@ -309,23 +360,57 @@ void FormatMessage(char *buffer, int bufsize, const char *fmt, va_list arglist) 
     bVSPrintf(buffer, fmt, arglist);
 }
 
+dialog_handle DialogInterface::ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, va_list arg_list) {
+    feDialogConfig conf;
+    FormatMessage(conf.BlurbString, 0x200, fmt, arg_list);
+    conf.Title = title;
+    conf.NumButtons = 0;
+    conf.ParentPackage = from_pkg;
+    conf.DialogPackage = dlg_pkg;
+    conf.bIsDismissable = false;
+    return ShowDialog(&conf);
+}
+
+dialog_handle DialogInterface::ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *msg_fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, msg_fmt);
+    int result = ShowMessage(from_pkg, dlg_pkg, title, msg_fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
+
+dialog_handle DialogInterface::ShowMessage(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash, ...) {
+    char msg_fmt[512];
+    va_list arg_list;
+    GetLocalizedString(msg_fmt, 0x200, message_hash);
+    va_start(arg_list, message_hash);
+    int result = ShowMessage(from_pkg, dlg_pkg, title, msg_fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
+
 dialog_handle DialogInterface::ShowOk(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, va_list arg_list) {
     feDialogConfig conf;
     FormatMessage(conf.BlurbString, 0x200, fmt, arg_list);
     conf.Title = title;
+    conf.NumButtons = 1;
     conf.Button1TextHash = LANGUAGE_COMMON_OK;
     conf.Button1PressedMessage = 0x34dc1bec;
     conf.DialogCancelledMessage = 0xb4edeb6d;
     conf.FirstButton = 0;
     conf.ParentPackage = from_pkg;
     conf.DialogPackage = dlg_pkg;
-    conf.NumButtons = 1;
     conf.bIsDismissable = true;
     return ShowDialog(&conf);
 }
 
-// STRIPPED
-dialog_handle DialogInterface::ShowOk(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, ...) {}
+dialog_handle DialogInterface::ShowOk(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, fmt);
+    int result = ShowOk(from_pkg, dlg_pkg, title, fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
 
 dialog_handle DialogInterface::ShowOk(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash, ...) {
     char fmt[512];
@@ -333,6 +418,41 @@ dialog_handle DialogInterface::ShowOk(const char *from_pkg, const char *dlg_pkg,
     GetLocalizedString(fmt, 0x200, message_hash);
     va_start(arg_list, message_hash);
     int result = ShowOk(from_pkg, dlg_pkg, title, fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
+
+dialog_handle DialogInterface::ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, va_list arg_list) {
+    feDialogConfig conf;
+    FormatMessage(conf.BlurbString, 0x200, fmt, arg_list);
+    conf.Title = title;
+    conf.NumButtons = 2;
+    conf.Button1TextHash = LANGUAGE_COMMON_OK;
+    conf.Button1PressedMessage = 0x34dc1bec;
+    conf.Button2TextHash = LANGUAGE_COMMON_CANCEL;
+    conf.Button2PressedMessage = 0x1fab5998;
+    conf.DialogCancelledMessage = 0xb4edeb6d;
+    conf.FirstButton = 1;
+    conf.ParentPackage = from_pkg;
+    conf.DialogPackage = dlg_pkg;
+    conf.bIsDismissable = true;
+    return ShowDialog(&conf);
+}
+
+dialog_handle DialogInterface::ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, const char *fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, fmt);
+    int result = ShowOkCancel(from_pkg, dlg_pkg, title, fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
+
+dialog_handle DialogInterface::ShowOkCancel(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 message_hash, ...) {
+    char fmt[512];
+    va_list arg_list;
+    GetLocalizedString(fmt, 0x200, message_hash);
+    va_start(arg_list, message_hash);
+    int result = ShowOkCancel(from_pkg, dlg_pkg, title, fmt, arg_list);
     va_end(arg_list);
     return result;
 }
@@ -350,8 +470,21 @@ dialog_handle DialogInterface::ShowOneButton(const char *from_pkg, const char *d
     conf.FirstButton = 0;
     conf.ParentPackage = from_pkg;
     conf.DialogPackage = dlg_pkg;
+#ifdef EA_BUILD_A124 // la A124 ignora dismissable: el dialogo de un boton siempre se puede cerrar
+    conf.bIsDismissable = true;
+#else
     conf.bIsDismissable = dismissable;
+#endif
     return ShowDialog(&conf);
+}
+
+dialog_handle DialogInterface::ShowOneButton(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button_text_hash,
+                                             uint32 button_pressed_message, uint32 cancel_message, const char *fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, fmt);
+    int result = ShowOneButton(from_pkg, dlg_pkg, title, button_text_hash, button_pressed_message, cancel_message, true, fmt, arg_list);
+    va_end(arg_list);
+    return result;
 }
 
 dialog_handle DialogInterface::ShowOneButton(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button_text_hash,
@@ -366,12 +499,29 @@ dialog_handle DialogInterface::ShowOneButton(const char *from_pkg, const char *d
 }
 
 dialog_handle DialogInterface::ShowOneButton(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button_text_hash,
+                                             uint32 button_pressed_message, const char *fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, fmt);
+#ifdef EA_BUILD_A124 // como la de blurb_fmt: la A124 no manda mensaje al cancelar y el dialogo no se puede cerrar
+    int result = ShowOneButton(from_pkg, dlg_pkg, title, button_text_hash, button_pressed_message, 0, false, fmt, arg_list);
+#else
+    int result = ShowOneButton(from_pkg, dlg_pkg, title, button_text_hash, button_pressed_message, button_pressed_message, true, fmt, arg_list);
+#endif
+    va_end(arg_list);
+    return result;
+}
+
+dialog_handle DialogInterface::ShowOneButton(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button_text_hash,
                                              uint32 button_pressed_message, uint32 blurb_fmt, ...) {
     char fmt[512];
     va_list arg_list;
     GetLocalizedString(fmt, 0x200, blurb_fmt);
     va_start(arg_list, blurb_fmt);
+#ifdef EA_BUILD_A124 // la A124 no manda mensaje al cancelar y el dialogo no se puede cerrar
+    int result = ShowOneButton(from_pkg, dlg_pkg, title, button_text_hash, button_pressed_message, 0, false, fmt, arg_list);
+#else
     int result = ShowOneButton(from_pkg, dlg_pkg, title, button_text_hash, button_pressed_message, button_pressed_message, true, fmt, arg_list);
+#endif
     va_end(arg_list);
     return result;
 }
@@ -431,6 +581,17 @@ dialog_handle DialogInterface::ShowTwoButtons(const char *from_pkg, const char *
 
 dialog_handle DialogInterface::ShowTwoButtons(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button1_text_hash,
                                               uint32 button2_text_hash, uint32 button1_pressed_message, uint32 button2_pressed_message,
+                                              eDialogFirstButtons first_button, const char *fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, fmt);
+    int result = ShowTwoButtons(from_pkg, dlg_pkg, title, button1_text_hash, button2_text_hash, button1_pressed_message, button2_pressed_message,
+                                0, false, first_button, fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
+
+dialog_handle DialogInterface::ShowTwoButtons(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button1_text_hash,
+                                              uint32 button2_text_hash, uint32 button1_pressed_message, uint32 button2_pressed_message,
                                               eDialogFirstButtons first_button, uint32 blurb_fmt, ...) {
     char fmt[512];
     va_list arg_list;
@@ -467,6 +628,18 @@ dialog_handle DialogInterface::ShowThreeButtons(const char *from_pkg, const char
 dialog_handle DialogInterface::ShowThreeButtons(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button1_text_hash,
                                                 uint32 button2_text_hash, uint32 button3_text_hash, uint32 button1_pressed_message,
                                                 uint32 button2_pressed_message, uint32 button3_pressed_message, uint32 cancel_message,
+                                                eDialogFirstButtons first_button, const char *fmt, ...) {
+    va_list arg_list;
+    va_start(arg_list, fmt);
+    int result = ShowThreeButtons(from_pkg, dlg_pkg, title, button1_text_hash, button2_text_hash, button3_text_hash, button1_pressed_message,
+                                  button2_pressed_message, button3_pressed_message, cancel_message, first_button, fmt, arg_list);
+    va_end(arg_list);
+    return result;
+}
+
+dialog_handle DialogInterface::ShowThreeButtons(const char *from_pkg, const char *dlg_pkg, eDialogTitle title, uint32 button1_text_hash,
+                                                uint32 button2_text_hash, uint32 button3_text_hash, uint32 button1_pressed_message,
+                                                uint32 button2_pressed_message, uint32 button3_pressed_message, uint32 cancel_message,
                                                 eDialogFirstButtons first_button, uint32 blurb_fmt, ...) {
     char fmt[512];
     va_list arg_list;
@@ -476,4 +649,37 @@ dialog_handle DialogInterface::ShowThreeButtons(const char *from_pkg, const char
                                   button2_pressed_message, button3_pressed_message, cancel_message, first_button, fmt, arg_list);
     va_end(arg_list);
     return result;
+}
+
+bool DialogInterface::SetButtonText(int ButtonNum, const char *pText, bool bTextIsUTF8) {
+    bool bRet = false;
+
+    if (SecretDialogInfo.DialogHandle != 0) {
+        MenuScreen *pDialog = FEngFindScreen(SecretDialogInfo.DialogPackage);
+
+        if (pDialog) {
+            int ButtonNames[3] = {0xf9363f30, 0xfb8b67d1, 0xfde09072};
+
+            FEString *pString = FEngFindString(pDialog->GetPackageName(), ButtonNames[ButtonNum]);
+
+            if (pString) {
+                if (bTextIsUTF8) {
+                    pString->SetStringFromUTF8(pText);
+                } else {
+                    pString->SetString(pText);
+                }
+                bRet = true;
+            }
+        }
+    }
+
+    return bRet;
+}
+
+void DialogInterface::SetBlurbIsUTF8() {
+    SecretDialogInfo.bBlurbIsUTF8 = true;
+}
+
+void DialogInterface::SetDismissedByAnotherDialogMsg(uint32 Msg) {
+    SecretDialogInfo.DismissedByOtherDialogMsg = Msg;
 }

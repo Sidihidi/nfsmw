@@ -14,6 +14,7 @@
 #include "Speed/Indep/Src/Generated/Messages/MNotifyRaceTime.h"
 #include "Speed/Indep/Src/Generated/Messages/MNotifyRaceTimeExpired.h"
 #include "Speed/Indep/Src/Generated/Messages/MNotifyRaceTimeSecTick.h"
+#include "Speed/Indep/Src/Generated/Messages/MTriggerEnter.h"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/Indep/Src/Generated/Events/EFadeScreenOn.hpp"
@@ -35,6 +36,7 @@
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/World/CarInfo.hpp"
 #include "Speed/Indep/Src/World/Rain.hpp"
+#include "Speed/Indep/Src/World/TimeOfDay.hpp"
 #include "Speed/Indep/Src/World/WCollisionAssets.h"
 #include "Speed/Indep/Src/World/WorldModel.hpp"
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
@@ -94,9 +96,9 @@ GRaceStatus::GRaceStatus() : UTL::COM::Object(1), IVehicleCache(this) {
     mTrafficDensity = 0;
     mTrafficPattern = 0;
     mScriptWaitingForLoad = false;
+#ifndef EA_BUILD_A124
     mHasBeenWon = false;
     mPlayMode = kPlayMode_Racing;
-#ifndef EA_BUILD_A124
     mRefreshBinAfterRace = false;
     mWarpWhenInFreeRoam = 0;
 
@@ -126,7 +128,11 @@ GRaceStatus::~GRaceStatus() {
 }
 
 void GRaceStatus::Init() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    fObj = new ("GRaceStatus", 0) GRaceStatus();
+#else
     fObj = new (GetVirtualMemoryAllocParams()) GRaceStatus();
+#endif
 }
 
 void GRaceStatus::Shutdown() {
@@ -143,7 +149,15 @@ void GRaceStatus::EnableBinBarriers() {
 }
 
 void GRaceStatus::RefreshBinWhileInGame() {
+#ifdef EA_BUILD_A124
+    // La A124 solo pide el cambio si el bin de la carrera no es el de la carrera profesional.
+    int newBin = FEDatabase->GetCareerSettings()->GetCurrentBin();
+    if (mRaceBin == nullptr || mRaceBin->GetBinNumber() != newBin) {
+        mQueueBinChange = true;
+    }
+#else
     mQueueBinChange = true;
+#endif
 }
 
 void GRaceStatus::EnterBin(unsigned int binNumber) {
@@ -153,16 +167,34 @@ void GRaceStatus::EnterBin(unsigned int binNumber) {
     mRaceBin = GRaceDatabase::Get().GetBinNumber(binNumber);
     if (mRaceBin != nullptr) {
         mRaceBin->EnableBarriers();
+#ifdef EA_BUILD_A124 // la A124 pide la boveda hija sin comprobar el bin
+    }
+    {
+#endif
         GVault *childVault = mRaceBin->GetChildVault();
         if (childVault != nullptr && !childVault->IsLoaded()) {
             childVault->LoadSyncTransient();
         }
     }
     if (GManager::Get().GetInGameplay()) {
+#ifdef EA_BUILD_A124
+        for (GObjectIterator<GActivity> activityIter(0xFFFFFFFF); activityIter.IsValid(); activityIter.Advance()) {
+            GActivity *activity = activityIter.GetInstance();
+            if (activity->AutoStart() && !activity->GetIsRunning()) {
+                activity->Run();
+            }
+        }
+
+        GActivity *binActivity = static_cast<GActivity *>(GManager::Get().FindInstance(mRaceBin->GetCollectionKey()));
+        if (!binActivity->GetIsRunning()) {
+            binActivity->Run();
+        }
+#else
         GManager::Get().StartWorldActivities(true);
         GManager::Get().StartBinActivity(mRaceBin);
         GManager::Get().RefreshEngageTriggerIcons();
         GManager::Get().RefreshSpeedTrapIcons();
+#endif
     }
 }
 
@@ -223,7 +255,8 @@ void GRaceStatus::SortCheckPointRankings() {
                 float spd1 = sortedRacers[sort1]->mSpeedTrapSpeed[i];
                 float spd2 = sortedRacers[sort2]->mSpeedTrapSpeed[i];
 
-                if (spd2 < spd1) {
+                swap = spd2 < spd1;
+                if (swap) {
                     GRacerInfo *temp = sortedRacers[sort1];
                     sortedRacers[sort1] = sortedRacers[sort2];
                     sortedRacers[sort2] = temp;
@@ -288,9 +321,11 @@ void GRaceStatus::Update(float dT) {
 
         CalculateRankings();
 
+#ifndef EA_BUILD_A124
         for (int i = 0; i < num_racers; i++) {
             GetRacerInfo(i).UpdateSplits();
         }
+#endif
 
         (MNotifyRaceTime(GetRaceTimeElapsed(), GetIsTimeLimited(), GetRaceTimeRemaining())).Post(UCrc32(0x20d60dbf));
 
@@ -371,11 +406,13 @@ bool GRaceStatus::CanUnspawnRoamer(const IVehicle *roamer) const {
 
 enum eVehicleCacheResult GRaceStatus::OnQueryVehicleCache(const IVehicle *removethis, const IVehicleCache *whosasking) const {
     if (mPlayMode != kPlayMode_Racing && !mVehicleCacheLocked) {
+#ifndef EA_BUILD_A124
         if (UTL::COM::ComparePtr(whosasking, ICopMgr::Get()) || UTL::COM::ComparePtr(whosasking, ITrafficMgr::Get())) {
             if (!CanUnspawnRoamer(removethis)) {
                 return VCR_WANT;
             }
         }
+#endif
         return VCR_DONTCARE;
     }
     for (int onRacer = 0; onRacer < GetRacerCount(); onRacer++) {
@@ -462,6 +499,42 @@ float GRaceStatus::GetRaceTimeRemaining() const {
     return 0.0f;
 }
 
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+void GRaceStatus::SkipToEndOfRaceForRacer(ISimable *thisPlayer, int index, float time) {
+    if (GetPlayMode() == kPlayMode_Racing) {
+        GRaceParameters *parms = GetRaceParameters();
+        float lapTime = time / parms->GetNumLaps();
+        for (int onLap = 0; onLap < parms->GetNumLaps(); onLap++) {
+            SetLapTime(onLap, index, lapTime);
+            for (int onCheckpoint = 0; onCheckpoint < GetCheckpointCount(); onCheckpoint++) {
+                (MTriggerEnter(GCollectionKey(this->GetCheckpoint(onCheckpoint)), thisPlayer->GetInstanceHandle())).Post(UCrc32(0x20d60dbf));
+            }
+        }
+    }
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+void GRaceStatus::SkipToEndOfRaceInPlace(int place, float finishTime) {
+    int playerIndex;
+
+    for (int onRacer = 0; onRacer < mRacerCount; onRacer++) {
+        if (onRacer == place - 1) {
+            playerIndex = onRacer;
+            break;
+        }
+        GRacerInfo &info = mRacerInfo[onRacer];
+        ISimable *simable = info.GetSimable();
+        if (simable) {
+            if (simable->IsPlayer()) {
+                place++;
+            } else {
+                SkipToEndOfRaceForRacer(simable, onRacer, finishTime - 0.9f);
+            }
+        }
+    }
+    SkipToEndOfRaceForRacer(IPlayer::First(PLAYER_LOCAL)->GetSimable(), playerIndex, finishTime);
+}
+
 void GRaceStatus::ClearRacers() {
     const IVehicle::List &list = IVehicle::GetList(VEHICLE_RACERS);
 
@@ -485,13 +558,16 @@ GRacerInfo &GRaceStatus::AddSimablePlayer(ISimable *isim) {
     info.SetSimable(isim);
     info.SetIndex(mRacerCount - 1);
 
+#ifndef EA_BUILD_A124 // la A124 no tiene pantalla partida aqui
     if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
         if (mRacerCount == 1) {
             info.SetName(GetLocalizedString(0x7B070984));
         } else {
             info.SetName(GetLocalizedString(0x7B070985));
         }
-    } else {
+    } else
+#endif
+    {
         UserProfile *userProfile = FEDatabase->GetUserProfile(isim->GetPlayer()->GetSettingsIndex());
 
         if (userProfile != NULL) {
@@ -528,9 +604,9 @@ void GRaceStatus::EnableBarriers() {
         for (unsigned int onBarrier = 0; onBarrier < mRaceParms->GetBarrierCount(); onBarrier++) {
 
             const char *barrierName = mRaceParms->GetBarrierName(onBarrier);
-            bool isFlipped = mRaceParms->GetBarrierIsFlipped(onBarrier);
+            bool flipFlag = mRaceParms->GetBarrierIsFlipped(onBarrier);
 
-            EnableBarrierSceneryGroup(barrierName, isFlipped);
+            EnableBarrierSceneryGroup(barrierName, flipFlag);
         }
 
         WCollisionAssets::Get().SetExclusionFlags();
@@ -559,7 +635,9 @@ void GRaceStatus::SetRoaming() {
     mRaceParms = nullptr;
     mIsLoading = false;
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     WRoadNetwork::Get().ResetShortcuts();
+#endif
 
     for (IPlayer *player = IPlayer::First(PLAYER_ALL); player != nullptr; player = player->Next(PLAYER_ALL)) {
         if (player->InGameBreaker()) {
@@ -570,21 +648,27 @@ void GRaceStatus::SetRoaming() {
             IVehicle *ivehicle = nullptr;
             if (simable->QueryInterface(&ivehicle)) {
                 ivehicle->ForceStopOff(ivehicle->GetForceStop());
+#ifndef EA_BUILD_A124
                 IVehicleAI *vehicleAI = nullptr;
                 if (ivehicle->QueryInterface(&vehicleAI)) {
                     if (vehicleAI->GetPursuit() == nullptr) {
                         ICopMgr::Get()->LockoutCops(true);
                     }
                 }
+#endif
             }
         }
     }
 
     if (!isDDayRace) {
+#ifdef EA_BUILD_A124
+        new EReloadHud();
+#else
         bool restartPending = GManager::Get().GetHasPendingRestartEvent();
         if (!restartPending) {
             new EReloadHud();
         }
+#endif
     }
     new EAutoSave();
 
@@ -594,10 +678,16 @@ void GRaceStatus::SetRoaming() {
     }
     if (!dDay) {
         SetOverRideRainIntensity(0.0f);
+#ifdef EA_BUILD_A124
+        // La A124 vuelve tambien a la hora del dia por defecto al salir de la carrera.
+        SetCurrentTimeOfDay(0.5f);
+#endif
     }
 
+#ifndef EA_BUILD_A124
     GManager::Get().SpawnAllLoadedSectionIcons();
     ICopMgr::mDisableCops = 0;
+#endif
 }
 
 void GRaceStatus::SetRacing() {
@@ -620,9 +710,11 @@ void GRaceStatus::SetRacing() {
         iter.Advance();
     }
 
+#ifndef EA_BUILD_A124
     if ((mRaceParms != NULL && mRaceParms->GetIsDDayRace() && bStrCmp(mRaceParms->GetEventID(), "16.1.0") != 0) || FEDatabase->IsFinalEpicChase()) {
         new EAutoSave();
     }
+#endif
 
     new EReloadHud();
 
@@ -661,6 +753,9 @@ void GRaceStatus::AddAvailableEventToMap(GRuntimeInstance *trigger, GRuntimeInst
 void GRaceStatus::AddSpeedTrapToMap(GRuntimeInstance *trigger) {}
 
 void GRaceStatus::AwardBonusTime(float seconds) {
+#ifdef EA_BUILD_A124 // la A124 suma el tiempo antes de avisar a los corredores
+    mBonusTime += seconds;
+#endif
     for (int onRacer = 0; onRacer < mRacerCount; onRacer++) {
 
         GRacerInfo &info = mRacerInfo[onRacer];
@@ -668,7 +763,9 @@ void GRaceStatus::AwardBonusTime(float seconds) {
         info.NotifyTollboothCrossed(GRaceStatus::Get().GetRaceTimeRemaining());
     }
 
+#ifndef EA_BUILD_A124
     mBonusTime += seconds;
+#endif
 }
 
 void GRaceStatus::ClearCheckpoints() {
@@ -828,7 +925,7 @@ float GRaceStatus::DetermineRaceSegmentLength(const UMath::Vector4 *positions, c
                     road_it = unique_roads.begin();
                     while (road_it != unique_roads.end()) {
                         WRoad *road = WRoadNetwork::Get().GetRoadNonConst(*road_it);
-                        road->nScale = static_cast<unsigned short>(static_cast<int>(scale * 65536.0f) >> 8);
+                        road->nScale = static_cast<unsigned short>(bFloatToInt(scale * 65536.0f) >> 8);
                         ++road_it;
                     }
                 }
@@ -968,7 +1065,12 @@ int SplitChars(char *in, char ***array, int (*func)(char)) {
         }
     }
 
+#ifdef EA_BUILD_A124
+    // La A124 etiquetaba esta reserva; la version final usa el new[] plano.
+    *array = new ("GRaceStatus SplitChars()", 0) char *[count];
+#else
     *array = new char *[count];
+#endif
 
     temp = in;
 
@@ -991,44 +1093,39 @@ int SplitChars(char *in, char ***array, int (*func)(char)) {
     return count;
 }
 
-float ParseFloat(char *str) {
-    int isNeg = (*str == '-') ? 1 : 0;
+float ParseFloat(char *word) {
     float sign = 1.0f;
-    float value = 0.0f;
-    float place = 1.0f;
-    unsigned char ch = str[isNeg];
-    int afterDot = 0;
-    if (ch == 0) {
-        return value;
-    }
-    do {
-        signed char c = static_cast<signed char>(ch);
+    int i = (*word == '-') ? 1 : 0;
+    float total = 0.0f;
+    float decimal = 1.0f;
+    bool after_decimal = false;
+
+    for (; word[i] != '\0'; i++) {
+        char c = word[i];
         if (c == '.') {
-            afterDot = 1;
-        } else {
-            if (afterDot != 0) {
-                place *= 0.1f;
-            } else {
-                value *= 10.0f;
-            }
-            value = place * static_cast<float>(bClamp(c - '0', 0, 9)) + value;
+            after_decimal = true;
+            continue;
         }
-        isNeg++;
-        ch = str[isNeg];
-    } while (ch != 0);
-    return value;
+        if (after_decimal) {
+            decimal *= 0.1f;
+        } else {
+            total *= 10.0f;
+        }
+        total = decimal * static_cast<float>(bClamp(c - '0', 0, 9)) + total;
+    }
+    return total;
 }
 
-int ParseArray(const char *str, float *out, int maxEntries) {
-    int len = bStrLen(str) + 1;
-    char *copy = new char[len];
-    bMemCpy(copy, str, len);
+int ParseArray(const char *string, float *data, int max) {
+    int len = bStrLen(string) + 1;
+    char *copy = new ("GRaceStatus ParseArray()", 0) char[len];
+    bMemCpy(copy, string, len);
 
     char **tokens;
     int count = SplitChars(copy, &tokens, NotNumeric);
 
-    if (count > maxEntries) {
-        float *parsed = new float[count];
+    if (count > max) {
+        float *parsed = new ("GRaceStatus ParseArray()", 0) float[count];
         {
             int i = 0;
             while (i < count) {
@@ -1036,28 +1133,28 @@ int ParseArray(const char *str, float *out, int maxEntries) {
                 i++;
             }
         }
-        Table table(parsed, count, 0.0f, static_cast<float>(maxEntries - 1));
+        Table table(parsed, count, 0.0f, static_cast<float>(max - 1));
         {
             int i = 0;
-            while (i < maxEntries) {
-                out[i] = table.GetValue(static_cast<float>(i));
+            while (i < max) {
+                data[i] = table.GetValue(static_cast<float>(i));
                 i++;
             }
         }
         if (parsed != NULL) {
             delete[] parsed;
         }
-        count = maxEntries;
+        count = max;
     } else {
         {
             int i = 0;
             while (i < count) {
-                out[i] = ParseFloat(tokens[i]);
+                data[i] = ParseFloat(tokens[i]);
                 i++;
             }
         }
         if (count == 1) {
-            out[1] = out[0];
+            data[1] = data[0];
             count = 2;
         }
     }
@@ -1086,6 +1183,54 @@ float GRaceStatus::GetAdaptiveDifficutly() const {
 void GRaceStatus::SyncronizeAdaptiveBonus() {
     fCatchUpAdaptiveBonus = bClamp((float)FEDatabase->GetCareerSettings()->AdaptiveDifficulty * 0.00003051851f, -1.0f, 1.0f);
 }
+
+#ifdef EA_BUILD_A124
+void GRaceStatus::UpdateAdaptiveBonus(const GRacerInfo *racer_info) {
+    if (mRaceContext != GRace::kRaceContext_Career || Sim::GetUserMode() != 0) {
+        return;
+    }
+
+    int num_racers = GetRacerCount();
+    if (num_racers < 2) {
+        return;
+    }
+
+    if (racer_info->GetRanking() != 1) {
+        return;
+    }
+
+    if (racer_info->GetGameCharacter() == nullptr) {
+        float max_pct_complete = 0.0f;
+        for (int i = 0; i < num_racers; i++) {
+            GRacerInfo *info = &GetRacerInfo(i);
+            if (info != racer_info && !info->IsFinishedRacing()) {
+                max_pct_complete = bMax(max_pct_complete, info->GetPctRaceComplete());
+            }
+        }
+
+        float percent_remaining = (100.0f - max_pct_complete) * 0.01f;
+        float win_margin = GetRaceLength() * percent_remaining;
+        if (win_margin > 0.0f) {
+            float t = UMath::Ramp(win_margin, 0.0f, 300.0f);
+            fCatchUpAdaptiveBonus = bClamp(fCatchUpAdaptiveBonus + UMath::Lerp(0.0f, 0.2f, t), -1.0f, 1.0f);
+        }
+    } else {
+        for (int i = 0; i < num_racers; i++) {
+            GRacerInfo *info = &GetRacerInfo(i);
+            if (info->GetGameCharacter() == nullptr && !info->IsFinishedRacing()) {
+                float percent_remaining = (100.0f - info->GetPctRaceComplete()) * 0.01f;
+                float lose_margin = GetRaceLength() * percent_remaining;
+                if (lose_margin > 0.0f) {
+                    float t = UMath::Ramp(lose_margin, 0.0f, 300.0f);
+                    fCatchUpAdaptiveBonus = bClamp(fCatchUpAdaptiveBonus + UMath::Lerp(0.0f, -0.2f, t), -1.0f, 1.0f);
+                }
+            }
+        }
+    }
+
+    FEDatabase->GetCareerSettings()->SetAdaptiveDifficulty(fCatchUpAdaptiveBonus);
+}
+#endif
 
 void GRaceStatus::UpdateAdaptiveDifficulty(eAdaptiveGainReason reason, ISimable *who) {
 #ifndef EA_BUILD_A124
@@ -1257,14 +1402,12 @@ void GRaceStatus::UpdateAdaptiveDifficulty(eAdaptiveGainReason reason, ISimable 
 
             float percent_remaining = (100.0f - info.GetPctRaceComplete()) * 0.01f;
             float lose_margin = GetRaceLength() * percent_remaining;
-            if (lose_margin <= 0.0f) {
-                continue;
+            if (lose_margin > 0.0f) {
+                float t = UMath::Ramp(lose_margin, 0.0f, 300.0f);
+                float bonus = UMath::Lerp(-0.1f, -0.4f, t);
+                difficulty = bClamp(difficulty + bonus * info.GetPctRaceComplete() * 0.01f, -1.0f, 1.0f);
+                update = true;
             }
-
-            float t = UMath::Ramp(lose_margin, 0.0f, 300.0f);
-            float bonus = UMath::Lerp(-0.1f, -0.4f, t);
-            difficulty = bClamp(difficulty + bonus * info.GetPctRaceComplete() * 0.01f, -1.0f, 1.0f);
-            update = true;
         }
     } else if (eliminated_player != nullptr) {
         const int num_laps = bMax(mRaceParms->GetNumLaps(), 1);
@@ -1385,6 +1528,16 @@ void GRaceStatus::MakeCatchUpData() {
     }
 }
 
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+int GRaceStatus::GetCheckpointCount() {
+    return mCheckpoints.size();
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+GTrigger *GRaceStatus::GetCheckpoint(int index) {
+    return mCheckpoints[index];
+}
+
 void GRaceStatus::ClearTimes() {
     bMemSet(mLapTimes, 0, sizeof(mLapTimes));
     bMemSet(mCheckTimes, 0, sizeof(mCheckTimes));
@@ -1437,6 +1590,36 @@ void GRaceStatus::SetCheckpointTime(int lapIndex, int checkIndex, int racerIndex
     mCheckTimes[lapIndex][checkIndex][racerIndex] = time;
 }
 
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+float GRaceStatus::GetCheckpointTime(int lapIndex, int checkIndex, int racerIndex, bool bCumulative) {
+    if (bCumulative) {
+        const unsigned int numCheckpoints = GRaceStatus::Get().GetRaceParameters()->GetNumCheckpoints();
+        float totalTime = 0.0f;
+        for (unsigned int i = 1; i < numCheckpoints; i++) {
+            float time = mCheckTimes[lapIndex][i][racerIndex];
+            if (time > 0.0f) {
+                totalTime += time;
+            } else {
+                totalTime = 0.0f;
+                break;
+            }
+            if (i == checkIndex) {
+                break;
+            }
+        }
+        if (checkIndex == numCheckpoints) {
+            float time = mCheckTimes[lapIndex][0][racerIndex];
+            if (time > 0.0f) {
+                totalTime += time;
+            } else {
+                totalTime = 0.0f;
+            }
+        }
+        return totalTime;
+    }
+    return mCheckTimes[lapIndex][checkIndex][racerIndex];
+}
+
 int GRaceStatus::GetLapPosition(int lapIndex, int racerIndex
 #ifndef EA_BUILD_A124
                                 ,
@@ -1464,6 +1647,24 @@ int GRaceStatus::GetLapPosition(int lapIndex, int racerIndex
         );
 
         if (onRacerLapTime < lapTime && onRacerLapTime > 0.0f) {
+            numFaster++;
+        }
+    }
+
+    return numFaster + 1;
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+int GRaceStatus::GetCheckpointPosition(int lapIndex, int checkIndex, int racerIndex) {
+    float checkTime = GetCheckpointTime(lapIndex, checkIndex, racerIndex, true);
+    int numFaster = 0;
+
+    for (int onRacer = 0; onRacer < mRacerCount; onRacer++) {
+        if (onRacer == racerIndex) {
+            continue;
+        }
+        float onRacerCheckTime = GetCheckpointTime(lapIndex, checkIndex, onRacer, true);
+        if (onRacerCheckTime < checkTime && onRacerCheckTime > 0.0f) {
             numFaster++;
         }
     }
@@ -1574,7 +1775,11 @@ void GRaceStatus::RaceAbandoned() {
 
         GRaceParameters *parms = GetRaceParameters();
 
+#ifdef EA_BUILD_A124
+        if (parms != NULL && parms->GetIsBossRace()) {
+#else
         if (parms != NULL && parms->GetIsBossRace() && !parms->GetIsEpicPursuitRace()) {
+#endif
 
             unsigned int numBossRaces = mRaceBin->GetBossRaceCount();
 
@@ -1584,13 +1789,19 @@ void GRaceStatus::RaceAbandoned() {
                 GRaceDatabase::Get().ResetCareerCompleteFlag(raceHash);
             }
 
+#ifndef EA_BUILD_A124
             GManager::Get().RefreshEngageTriggerIcons();
+#endif
         }
     }
 }
 
 void GRaceStatus::FinalizeRaceStats() {
+#ifdef EA_BUILD_A124
+    if (GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_Online) {
+#else
     if (GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_TimeTrial) {
+#endif
 
         int num_racers = mRacerCount;
         for (int idx = 0; idx < num_racers; idx++) {
@@ -1603,7 +1814,7 @@ void GRaceStatus::FinalizeRaceStats() {
     }
 }
 
-IVehicle *GRacerInfo::CreateVehicle(unsigned int typeHash) {
+IVehicle *GRacerInfo::CreateVehicle(unsigned int default_key) {
     GCharacter *character = mGameCharacter;
     if (character == NULL) {
         return NULL;
@@ -1633,7 +1844,7 @@ IVehicle *GRacerInfo::CreateVehicle(unsigned int typeHash) {
         }
     }
     if (vehicleKey == 0) {
-        vehicleKey = typeHash;
+        vehicleKey = default_key;
     }
 
     Attrib::Gen::pvehicle vehicle(vehicleKey, 0, NULL);
@@ -1716,6 +1927,9 @@ void GRacerInfo::SetSimable(ISimable *simable) {
 }
 
 void GRacerInfo::KnockOut() {
+#ifdef EA_BUILD_A124 // la A124 solo marca al corredor
+    mKnockedOut = true;
+#else
     if (!mFinishedRacing) {
         mKnockedOut = true;
         mRaceTimer.Stop();
@@ -1723,9 +1937,13 @@ void GRacerInfo::KnockOut() {
         mCheckTimer.Stop();
         GRaceStatus::Get().CalculateRankings();
     }
+#endif
 }
 
 void GRacerInfo::TotalVehicle() {
+#ifdef EA_BUILD_A124 // la A124 solo marca al corredor
+    mTotalled = true;
+#else
     if (!IsFinishedRacing()) {
 
         mTotalled = true;
@@ -1736,9 +1954,13 @@ void GRacerInfo::TotalVehicle() {
 
         GRaceStatus::Get().CalculateRankings();
     }
+#endif
 }
 
 void GRacerInfo::Busted() {
+#ifdef EA_BUILD_A124 // la A124 solo marca al corredor
+    mBusted = true;
+#else
     if (!mFinishedRacing) {
         mBusted = true;
         mRaceTimer.Stop();
@@ -1746,6 +1968,7 @@ void GRacerInfo::Busted() {
         mCheckTimer.Stop();
         GRaceStatus::Get().CalculateRankings();
     }
+#endif
 }
 
 void GRacerInfo::ChallengeComplete() {
@@ -1764,6 +1987,9 @@ void GRacerInfo::ForceStop() {
 }
 
 void GRacerInfo::BlowEngine() {
+#ifdef EA_BUILD_A124 // la A124 solo marca al corredor
+    mEngineBlown = true;
+#else
     if (!mFinishedRacing) {
         mEngineBlown = true;
         mRaceTimer.Stop();
@@ -1771,6 +1997,7 @@ void GRacerInfo::BlowEngine() {
         mCheckTimer.Stop();
         GRaceStatus::Get().CalculateRankings();
     }
+#endif
 }
 
 void GRacerInfo::SetName(const char *name) {
@@ -1799,9 +2026,11 @@ static inline float GRacerInfoMilesToMeters(float miles) {
 }
 
 void GRacerInfo::Update(float dT) {
+#ifndef EA_BUILD_A124 // la A124 no sale antes con el corredor fuera de carrera
     if (mFinishedRacing || mEngineBlown || mTotalled || mKnockedOut) {
         return;
     }
+#endif
     ISimable *simable = GetSimable();
     if (simable == nullptr) {
         return;
@@ -1834,14 +2063,14 @@ void GRacerInfo::Update(float dT) {
     mTotalUpdateTime += dT;
 
     if (mQuarterMileTime == 0.0f) {
-        static float quarterMileInMeters = GRacerInfoMilesToMeters(0.25f);
+        static const float quarterMileInMeters = GRacerInfoMilesToMeters(0.25f);
         if (mDistanceDriven >= quarterMileInMeters) {
             mQuarterMileTime = mRaceTimer.GetTime();
         }
     }
 
     if (mZeroToSixtyTime == 0.0f) {
-        static float sixtyMphInMetersPerSec = GRacerInfoMphToMetersPerSecond(60.0f);
+        static const float sixtyMphInMetersPerSec = GRacerInfoMphToMetersPerSecond(60.0f);
         if (mTopSpeed >= sixtyMphInMetersPerSec) {
             mZeroToSixtyTime = mRaceTimer.GetTime();
         }
@@ -1851,41 +2080,39 @@ void GRacerInfo::Update(float dT) {
     float raceLength = raceStatus.GetRaceLength();
     mDistToNextCheckpoint = simable->QueryInterface(&vehicleAI) ? vehicleAI->GetPathDistanceRemaining() : 0.0f;
 
-    if (raceLength <= 0.0f) {
-        return;
-    }
-
-    int lapsCompleted = mLapsCompleted;
-    float lapLength = 0.0f;
-    if (lapsCompleted > 0) {
-        lapLength = raceStatus.GetFirstLapLength();
-    }
-    if (lapsCompleted > 1) {
-        lapLength += raceStatus.GetSubsequentLapLength() * (lapsCompleted - 1);
-    }
-
-    int checkpointsHit = mCheckpointsHitThisLap;
-    float pctLap = 0.0f;
-    for (int i = 0; i < checkpointsHit; i++) {
-        pctLap += raceStatus.GetSegmentLength(i, lapsCompleted);
-    }
-    float distToNext = mDistToNextCheckpoint;
-    float segmentLength = raceStatus.GetSegmentLength(checkpointsHit, lapsCompleted);
-
-    if (distToNext != 0.0f) {
-        pctLap += segmentLength - distToNext;
-
-        lapLength += pctLap;
-
-        float lapFrac = raceStatus.GetLapLength(lapsCompleted);
-
-        if (lapFrac > 0.0f) {
-            mPctLapComplete = bClamp(pctLap / lapFrac, 0.0f, 1.0f) * 100.0f;
-        } else {
-            mPctLapComplete = 100.0f;
+    if (raceLength > 0.0f) {
+        int lapsCompleted = mLapsCompleted;
+        float lapLength = 0.0f;
+        if (lapsCompleted > 0) {
+            lapLength = raceStatus.GetFirstLapLength();
+        }
+        if (lapsCompleted > 1) {
+            lapLength += raceStatus.GetSubsequentLapLength() * (lapsCompleted - 1);
         }
 
-        mPctRaceComplete = bClamp(lapLength / raceLength, 0.0f, 1.0f) * 100.0f;
+        int checkpointsHit = mCheckpointsHitThisLap;
+        float pctLap = 0.0f;
+        for (int i = 0; i < checkpointsHit; i++) {
+            pctLap += raceStatus.GetSegmentLength(i, lapsCompleted);
+        }
+        float distToNext = mDistToNextCheckpoint;
+        float segmentLength = raceStatus.GetSegmentLength(checkpointsHit, lapsCompleted);
+
+        if (distToNext != 0.0f) {
+            pctLap += segmentLength - distToNext;
+
+            lapLength += pctLap;
+
+            float lapFrac = raceStatus.GetLapLength(lapsCompleted);
+
+            if (lapFrac > 0.0f) {
+                mPctLapComplete = bClamp(pctLap / lapFrac, 0.0f, 1.0f) * 100.0f;
+            } else {
+                mPctLapComplete = 100.0f;
+            }
+
+            mPctRaceComplete = bClamp(lapLength / raceLength, 0.0f, 1.0f) * 100.0f;
+        }
     }
 }
 
@@ -1988,9 +2215,19 @@ void GRacerInfo::SaveStartPosition() {
     }
 
     IPerpetrator *perp = NULL;
+#ifdef EA_BUILD_A124
+    // La A124 limita el calor guardado a 4.0; en la version final se guarda tal cual.
+    if (simable->QueryInterface(&perp)) {
+        mSavedHeatLevel = perp->GetHeat();
+        if (mSavedHeatLevel > 4.0f) {
+            mSavedHeatLevel = 4.0f;
+        }
+    }
+#else
     if (simable->QueryInterface(&perp)) {
         mSavedHeatLevel = perp->GetHeat();
     }
+#endif
 }
 
 void GRacerInfo::RestoreStartPosition() {
@@ -2030,8 +2267,8 @@ void GRacerInfo::StartRace() {
     StartLap(1);
 }
 
-void GRacerInfo::StartLap(int lapIndex) {
-    mLapsCompleted = lapIndex - 1;
+void GRacerInfo::StartLap(int lapIndexOneBased) {
+    mLapsCompleted = lapIndexOneBased - 1;
     mCheckpointsHitThisLap = 0;
 
     float start_time = 0.0f;
@@ -2042,9 +2279,9 @@ void GRacerInfo::StartLap(int lapIndex) {
     StartCheckpoint(0);
 }
 
-void GRacerInfo::StartCheckpoint(int checkpointIndex) {
-    if (checkpointIndex == mCheckpointsHitThisLap + 1) {
-        mCheckpointsHitThisLap = checkpointIndex;
+void GRacerInfo::StartCheckpoint(int checkIndex) {
+    if (checkIndex == mCheckpointsHitThisLap + 1) {
+        mCheckpointsHitThisLap = checkIndex;
     }
 
     float start_time = 0.0f;
@@ -2079,7 +2316,11 @@ void GRacerInfo::FinishRace() {
 }
 
 bool GRacerInfo::AreStatsReady() const {
+#ifdef EA_BUILD_A124
+    return GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_Online || IsFinishedRacing() || GetIsEngineBlown() || GetIsTotalled();
+#else
     return GRaceStatus::Get().GetRaceContext() != GRace::kRaceContext_TimeTrial || IsFinishedRacing() || GetIsEngineBlown() || GetIsTotalled();
+#endif
 }
 
 void GRacerInfo::ChooseRandomName() {
@@ -2172,13 +2413,26 @@ void GRacerInfo::FinalizeRaceStats() {
         adjustedTime = raceTime / (pct * 0.01f);
     }
 
+#ifdef EA_BUILD_A124
+    // La A124 solo penaliza el tiempo de mas en el radar: no hay abandonos, ni vueltas, ni parciales.
+    if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_SpeedTrap) {
+        GRaceParameters *parms = GRaceStatus::Get().GetRaceParameters();
+        if (parms != NULL) {
+            float overtime = static_cast<float>(parms->GetGameplayObj()->OvertimePenaltyPerSec());
+            float extra = adjustedTime - raceTime;
+            if (extra > 0.0f) {
+                AddToPointTotal(-(extra * overtime));
+            }
+        }
+    }
+    mRaceTimer.SetTime(adjustedTime);
+    FinishRace();
+#else
     GRace::Type raceType = GRaceStatus::Get().GetRaceType();
     if (raceType == GRace::kRaceType_Drag) {
         if (mTotalled || mEngineBlown || pct < 0.4f) {
             adjustedTime = 0.0f;
-#ifndef EA_BUILD_A124
             mDNF = true;
-#endif
         }
     }
 
@@ -2203,12 +2457,7 @@ void GRacerInfo::FinalizeRaceStats() {
             int lapIndex = mLapsCompleted;
             int i = 0;
             while (i < numLaps) {
-                float t = GRaceStatus::Get().GetLapTime(i, mIndex
-#ifndef EA_BUILD_A124
-                                                        ,
-                                                        false
-#endif
-                );
+                float t = GRaceStatus::Get().GetLapTime(i, mIndex, false);
                 if (t == 0.0f) {
                     lapIndex = i;
                     break;
@@ -2220,42 +2469,32 @@ void GRacerInfo::FinalizeRaceStats() {
         }
     }
 
-#ifndef EA_BUILD_A124
     if (mGameCharacter != NULL) {
-        float comparePct;
+        float deathPercent;
         if (mDNF) {
-            comparePct = pct;
+            deathPercent = pct;
         } else {
-            comparePct = 1.0f;
+            deathPercent = 1.0f;
         }
-        const float thresholds[4] = {0.2f, 0.4f, 0.6f, 0.8f};
-        int i = 0;
-        while (i <= 3) {
-            bool missing = mSplitTimes[i] == 0.0f;
-            bool reached = comparePct >= thresholds[i];
-            if (missing) {
-                if (reached) {
-                    mSplitTimes[i] = adjustedTime * thresholds[i];
+        const float pct[4] = {0.2f, 0.4f, 0.6f, 0.8f};
+        for (int onSplit = 0; onSplit <= 3; onSplit++) {
+            bool wasAliveAtPct = deathPercent >= pct[onSplit];
+            if (mSplitTimes[onSplit] == 0.0f) {
+                if (wasAliveAtPct) {
+                    mSplitTimes[onSplit] = adjustedTime * pct[onSplit];
                 } else {
-                    mSplitTimes[i] = 0.0f;
+                    mSplitTimes[onSplit] = 0.0f;
                 }
             }
-            if (mSplitRankings[i] == 0) {
-                mSplitRankings[i] = mRanking;
+            if (mSplitRankings[onSplit] == 0) {
+                mSplitRankings[onSplit] = mRanking;
             }
-            i = i + 1;
         }
     }
-#endif
 
-#ifndef EA_BUILD_A124
     if (!mDNF) {
         mRaceTimer.SetTime(adjustedTime);
         FinishRace();
     }
-#else
-    // sin mDNF no hay a quien excluir: en la alpha 124 cierran todos.
-    mRaceTimer.SetTime(adjustedTime);
-    FinishRace();
 #endif
 }

@@ -4,6 +4,13 @@
 
 namespace EAGL4 {
 
+// Solo existe en PS2 (en GameCube esta estripado): la A124 llama al destructor de las dos tablas y despues, al
+// salir, a los de los miembros.
+ConstructorPool::~ConstructorPool() {
+    conspool.~SymbolPool();
+    despool.~SymbolPool();
+}
+
 void ConstructorPool::AddType(const char *type, Constructor c, Destructor d) {
     conspool.AddSymbol(type, (void *)c);
     despool.AddSymbol(type, (void *)d);
@@ -25,6 +32,11 @@ Destructor ConstructorPool::FindDestructor(const char *type) {
         d = nullptr;
     }
     return d;
+}
+
+RuntimeAllocConstructorPool::~RuntimeAllocConstructorPool() {
+    conspool.~SymbolPool();
+    despool.~SymbolPool();
 }
 
 RuntimeAllocConstructor RuntimeAllocConstructorPool::FindConstructor(const char *type) {

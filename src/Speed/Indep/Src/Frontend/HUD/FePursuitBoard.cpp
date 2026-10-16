@@ -80,7 +80,9 @@ void PursuitBoard::Update(IPlayer *player) {
 
             if (!FEngIsScriptSet(mpDataPursuitCooldownMeterGroup, FEHASH_ROTATE_IN)) {
                 FEngSetScript(mpDataPursuitMeterGroup, FEHASH_ROTATE_OUT, true);
+#ifndef EA_BUILD_A124 // la A124 no suena al girar el marcador
                 g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0xc));
+#endif
             }
 
             originalLeftX = FEngGetTopLeftX(mpDataCooldownBar);
@@ -104,7 +106,9 @@ void PursuitBoard::Update(IPlayer *player) {
 
             if (FEngIsScriptSet(mpDataPursuitCooldownMeterGroup, FEHASH_ROTATE_IN)) {
                 FEngSetScript(mpDataPursuitCooldownMeterGroup, FEHASH_ROTATE_OUT, true);
+#ifndef EA_BUILD_A124
                 g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0xc));
+#endif
             } else {
                 if (FEngIsScriptSet(mpDataPursuitMeterGroup, 0x16a259) || FEngIsScriptSet(mpDataPursuitMeterGroup, 0x33113ac)) {
                     FEngSetScript(mpDataPursuitMeterGroup, FEHASH_APPEAR, true);
@@ -124,6 +128,11 @@ void PursuitBoard::Update(IPlayer *player) {
             FEPrintf(mpDataCopsDamaged, "%$d", mNumCopsDamaged);
 
             if (mTimeUntilBackup > 0.0f) {
+#ifdef EA_BUILD_A124 // la A124 no avisa de los ultimos diez segundos
+                if (!FEngIsScriptSet(mpDataBackupBacking, FEHASH_APPEAR)) {
+                    FEngSetScript(mpDataBackupBacking, FEHASH_APPEAR, true);
+                }
+#else
                 if (mTimeUntilBackup > 10.0f) {
                     if (!FEngIsScriptSet(mpDataBackupBacking, FEHASH_APPEAR)) {
                         FEngSetScript(mpDataBackupBacking, FEHASH_APPEAR, true);
@@ -133,6 +142,7 @@ void PursuitBoard::Update(IPlayer *player) {
                         FEngSetScript(mpDataBackupBacking, 0x26ded57, true);
                     }
                 }
+#endif
                 timer = Timer(mTimeUntilBackup);
                 timer.PrintToString(timeToPrint, 4);
                 FEPrintf(mpDataBackupTimer, "%s", timeToPrint);
@@ -315,11 +325,13 @@ void PursuitBoard::SetNumCopsInPursuit(int numCops) {
             if (!FEngIsScriptSet(GetPackageName(), 0x3787231c, FEHASH_INACTIVE)) {
                 FEngSetScript(GetPackageName(), 0x3787231c, FEHASH_INACTIVE, true);
             }
+#ifndef EA_BUILD_A124
             if (numCops < mNumCopsFullyEngaged) {
                 if (!FEngIsScriptSet(GetPackageName(), 0x3b9919a8, FEHASH_COP_REMOVED)) {
                     FEngSetScript(GetPackageName(), 0x3b9919a8, FEHASH_COP_REMOVED, true);
                 }
             }
+#endif
         }
         mNumCopsFullyEngaged = numCops;
     }
@@ -356,7 +368,11 @@ void PursuitBoard::SetNumCopsDestroyed(int numCops, UCrc32 lastCopDestroyedType,
         }
         if (pCopString) {
             char copCarString[64];
+#ifdef EA_BUILD_A124
+            bSNPrintf(copCarString, 64, pCopString, lastCopDestroyedRep, lastCopDestroyedMultiplier);
+#else
             bSNPrintf(copCarString, 64, pCopString, lastCopDestroyedRep * lastCopDestroyedMultiplier);
+#endif
             IGenericMessage *igenericmessage;
             if (IPlayer::First(PLAYER_LOCAL)->GetHud()->QueryInterface(&igenericmessage)) {
                 igenericmessage->RequestGenericMessage(copCarString, false, FEHASH_ZOOMIN, bStringHash("COPS_TAKENOUT_ICON"), 0x13ff94,

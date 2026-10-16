@@ -1,3 +1,4 @@
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 #include "Speed/Indep/Src/AI/AIAction.h"
@@ -17,21 +18,33 @@ class AIActionHeliPursuit : public AIAction, public Debugable, public Sim::Colli
   public:
     enum kPursuitMode {
         kStraight_Line = 0,
+#ifdef EA_BUILD_A124
+        // El helicoptero del prototipo aun sigue carreteras (los stabs de la A124 traen kFollow_Roads).
+        kFollow_Roads = 1,
+        kSearch_Pattern = 2,
+        kSkid_Hit_Approach = 3,
+        kSkid_Hit_Strike = 4,
+#else
         kSearch_Pattern = 1,
         kSkid_Hit_Approach = 2,
         kSkid_Hit_Strike = 3,
+#endif
     };
 
     static AIAction *Construct(struct AIActionParams *params);
 
     AIActionHeliPursuit(AIActionParams *params, float score);
+  private:
     void StartPathToPlayerCar();
     float UpdateNavPos(float lookAheadDistance);
     void StraightLinePursuit();
+#ifdef EA_BUILD_A124
+    void FollowRoadPursuit();
+#endif
     void SkidHitPursuit();
     void SetNextPerpSearchDest();
     void SearchForPerp();
-
+  public:
     // Virtual functions
     virtual void OnDebugDraw();
 
@@ -59,7 +72,9 @@ class AIActionHeliPursuit : public AIAction, public Debugable, public Sim::Colli
     // IListener
     void OnCollision(const COLLISION_INFO &cinfo) override;
 
-    WRoadNav *GetPursuitNav() {}
+    WRoadNav *GetPursuitNav() {
+        return mIVehicleAI->GetDriveToNav();
+    }
 
   private:
     IVehicleAI *mIVehicleAI;                  // offset 0x50, size 0x4
@@ -72,10 +87,10 @@ class AIActionHeliPursuit : public AIAction, public Debugable, public Sim::Colli
     float mPathTime;                          // offset 0x6C, size 0x4
     bool mBuildingPath;                       // offset 0x70, size 0x1
     float mSearchPatternAngle;                // offset 0x74, size 0x4
-    ALIGN_16 UMath::Vector3 mSearchDestPoint; // offset 0x78, size 0xC
+    ALIGNVEC UMath::Vector3 mSearchDestPoint; // offset 0x78, size 0xC
     IRigidBody *mPlayerRigidBody;             // offset 0x84, size 0x4
-    ALIGN_16 UMath::Vector3 mPlayerPosition;  // offset 0x88, size 0xC
-    ALIGN_16 UMath::Vector3 mSkidHitOffset;   // offset 0x94, size 0xC
+    ALIGNVEC UMath::Vector3 mPlayerPosition;  // offset 0x88, size 0xC
+    ALIGNVEC UMath::Vector3 mSkidHitOffset;   // offset 0x94, size 0xC
     int mCollisionAbort;                      // offset 0xA0, size 0x4
     float mPlayerSpeed;                       // offset 0xA4, size 0x4
     kPursuitMode mPursuitMode;                // offset 0xA8, size 0x4
@@ -90,7 +105,11 @@ AIActionHeliPursuit::AIActionHeliPursuit(AIActionParams *params, float score)
       mSearchPatternAngle(0.0f),               //
       mBuildingPath(false),                    //
       mPlayerSpeed(0.0f),                      //
-      mPursuitMode(kStraight_Line),            //
+#ifdef EA_BUILD_A124
+      mPursuitMode(kFollow_Roads), //
+#else
+      mPursuitMode(kStraight_Line), //
+#endif
       mCollisionAbort(0) {
     MakeDebugable(DBG_AI);
 
@@ -108,27 +127,32 @@ AIActionHeliPursuit::AIActionHeliPursuit(AIActionParams *params, float score)
 }
 
 void AIActionHeliPursuit::OnCollision(const COLLISION_INFO &cinfo) {
-    if (mSkidKnockTimer <= 0.0f) {
-        return;
-    }
-    if (cinfo.type == COLLISION_INFO::GROUND) {
-        mCollisionAbort += 2;
-    } else if (cinfo.type == COLLISION_INFO::OBJECT) {
-        ISimable *obja = ISimable::FindInstance(cinfo.objA);
-        if (!obja || !obja->IsPlayer()) {
-            ISimable *objb = ISimable::FindInstance(cinfo.objB);
-            if (objb && objb->IsPlayer()) {
+    if (mSkidKnockTimer > 0.0f) {
+        if (cinfo.type == COLLISION_INFO::GROUND) {
+            mCollisionAbort += 2;
+        } else if (cinfo.type == COLLISION_INFO::OBJECT) {
+            ISimable *obja = ISimable::FindInstance(cinfo.objA);
+            if (!obja || !obja->IsPlayer()) {
+                ISimable *objb = ISimable::FindInstance(cinfo.objB);
+                if (objb && objb->IsPlayer()) {
+                    mCollisionAbort += 5;
+                }
+            } else {
                 mCollisionAbort += 5;
             }
-        } else {
-            mCollisionAbort += 5;
+        }
+
+        if (mCollisionAbort > 20) {
+            mSkidKnockTimer = 0.0f;
         }
     }
-
-    if (mCollisionAbort > 20) {
-        mSkidKnockTimer = 0.0f;
-    }
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// La velocidad de SteerToNav cuando el helicoptero sigue carreteras (FollowRoadPursuit, solo en la A124; SLUS conserva
+// el simbolo en .data).
+float RoadNetSpeed = 85.0f;
+#endif
 
 UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeliPursuit("AIActionHeliPursuit", AIActionHeliPursuit::Construct);
 
@@ -137,7 +161,10 @@ AIAction *AIActionHeliPursuit::Construct(AIActionParams *params) {
 }
 
 bool AIActionHeliPursuit::IsFinished() {
-    return mPursuitTime > 10.0f;
+    if (mPursuitTime > 10.0f) {
+        return true;
+    }
+    return false;
 }
 
 void AIActionHeliPursuit::FinishAction(float dT) {
@@ -157,6 +184,43 @@ void AIActionHeliPursuit::BeginAction(float dT) {
     StartPathToPlayerCar();
 }
 
+#ifdef EA_BUILD_A124
+float AIActionHeliPursuit::UpdateNavPos(float lookAheadDistance) {
+    WRoadNav *road_nav = GetPursuitNav();
+    if (road_nav->HitDeadEnd()) {
+        return 0.0f;
+    }
+
+    UMath::Vector3 navPos = road_nav->GetPosition();
+    UMath::Vector3 heliPosition = mIRigidBody->GetPosition();
+    UMath::Vector3 heliToNav;
+    UMath::Vector3 navForwardVector = road_nav->GetForwardVector();
+    UMath::Sub(navPos, heliPosition, heliToNav);
+    float length = UMath::Length(heliToNav);
+    float dot = UMath::Dot(navForwardVector, heliToNav);
+
+    if (dot < lookAheadDistance) {
+        road_nav->IncNavPosition(fabsf(lookAheadDistance - dot), UMath::Vector3::kZero, 0.0f);
+    }
+
+    if (mBuildingPath == true) {
+        float newdot;
+        do {
+            navPos = road_nav->GetPosition();
+            navForwardVector = road_nav->GetForwardVector();
+            UMath::Sub(navPos, heliPosition, heliToNav);
+            length = UMath::Length(heliToNav);
+            newdot = UMath::Dot(navForwardVector, heliToNav);
+            if (newdot < dot) {
+                road_nav->IncNavPosition(lookAheadDistance, UMath::Vector3::kZero, 0.0f);
+            }
+        } while (newdot < dot && road_nav->IsValid() && !road_nav->HitDeadEnd());
+        mBuildingPath = false;
+    }
+    return length;
+}
+#endif
+
 void AIActionHeliPursuit::StraightLinePursuit() {
     UMath::Vector3 myPosition = mIRigidBody->GetPosition();
     UMath::Vector3 seekPosition;
@@ -169,7 +233,9 @@ void AIActionHeliPursuit::StraightLinePursuit() {
 
     bool SkidHitEnabled = false;
     if (mIVehicleAI->GetPursuit()->SkidHitEnabled()) {
-        SkidHitEnabled = mSkidKnockTimer < -5.0f;
+        if (mSkidKnockTimer < -5.0f) {
+            SkidHitEnabled = true;
+        }
     }
     float heliAheadOfPerpDot = UMath::Length(perp2Me);
     float distToPerp;
@@ -228,7 +294,14 @@ void AIActionHeliPursuit::StraightLinePursuit() {
     if (distToSeekPos > 15.0f) {
         desiredClosingSpeed = 30.0f;
         if (distToSeekPos > 300.0f) {
+#ifdef EA_BUILD_A124
+            // La A124 vuelve a buscar el camino al coche del jugador (StartPathToPlayerCar en su asm).
+            chaseHeight += 30.0f;
+            StartPathToPlayerCar();
+            mPursuitMode = kFollow_Roads;
+#else
             desiredClosingSpeed = 50.0f;
+#endif
         }
     } else {
         if (distToSeekPos > 3.0f) {
@@ -252,6 +325,30 @@ void AIActionHeliPursuit::StraightLinePursuit() {
 
     mIVehicleAI->DoDriving(7);
 }
+
+#ifdef EA_BUILD_A124
+void AIActionHeliPursuit::FollowRoadPursuit() {
+    UMath::Vector3 myPosition = mIRigidBody->GetPosition();
+    if (UMath::Distancexz(mPlayerPosition, myPosition) < 50.0f) {
+        mPursuitMode = kStraight_Line;
+        mIAIHelicopter->SetDestinationVelocity(mPlayerRigidBody->GetLinearVelocity());
+        return;
+    }
+
+    WRoadNav *road_nav = mIVehicleAI->GetDriveToNav();
+    if (road_nav->GetNavType() == WRoadNav::kTypePath) {
+        UpdateNavPos(bClamp(mIRigidBody->GetSpeed() * 0.7f, 15.0f, 35.0f));
+    }
+
+    if (mPursuitTime - mPathTime > 0.6f && !road_nav->FindingPath()) {
+        StartPathToPlayerCar();
+    }
+
+    mIAIHelicopter->SteerToNav(road_nav, 20.0f, RoadNetSpeed, false);
+
+    mIVehicleAI->DoDriving(7);
+}
+#endif
 
 void AIActionHeliPursuit::SkidHitPursuit() {
     UMath::Vector3 seekPosition;
@@ -346,7 +443,7 @@ void AIActionHeliPursuit::SetNextPerpSearchDest() {
         return;
     }
     float radius = pl->SearchModeRoadblockRadius();
-    float workingRadius = Sim::GetRandom()._SimRandom_FloatRange(radius * 0.7f) + radius * 0.2f;
+    float workingRadius = radius * 0.2f + Sim::GetRandom()._SimRandom_FloatRange(radius * 0.7f);
     UMath::Vector3 baseVector = UMath::Vector3Make(workingRadius, 0.0f, 0.0f);
 
     mSearchPatternAngle += 0.125f;
@@ -402,6 +499,11 @@ void AIActionHeliPursuit::Update(float dT) {
         case kStraight_Line:
             StraightLinePursuit();
             break;
+#ifdef EA_BUILD_A124
+        case kFollow_Roads:
+            FollowRoadPursuit();
+            break;
+#endif
         case kSkid_Hit_Approach:
         case kSkid_Hit_Strike:
             if (!NeverIgnoreHeliSheet) {

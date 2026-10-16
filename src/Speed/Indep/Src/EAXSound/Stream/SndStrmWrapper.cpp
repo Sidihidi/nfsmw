@@ -31,15 +31,15 @@ int SndStrmWrapper::CreateStream(const int maxChunks, const int maxRequests, cha
     m_handle = SNDSTRM_create((SNDPLAYOPTS *) pplayopts, maxRequests, maxChunks, pmem, buffersize);
     m_BufferSize = buffersize;
 
-    if (m_handle >= 0) {
-        m_vol = 0;
-        SNDSYS_entercritical();
-        SNDSTRM_autovol(m_handle, 0, 0);
-        SNDSYS_leavecritical();
-    } else {
+    if (m_handle < 0) {
         gAudioMemoryManager.FreeMemory(m_buffer);
+        return m_handle;
     }
 
+    m_vol = 0;
+    SNDSYS_entercritical();
+    SNDSTRM_autovol(m_handle, 0, 0);
+    SNDSYS_leavecritical();
     return m_handle;
 }
 

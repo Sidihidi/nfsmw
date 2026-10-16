@@ -120,9 +120,14 @@ void SFXObj_Woosh::InitSFX() {
 
     float fVelRatio = bClamp(g_WooshVol_vs_Vel.GetValue(this->m_pDriveByState->m_DriveByInfo.ClosingVelocity), 0.0f, 0.99f);
     float fVelInensity = bClamp(fVelRatio * 127.0f, 0.0f, 127.0f);
+    // A124: el prototipo no tiene el chequeo de PURSUITBREAKER (oraculo A124: en InitSFX 0x1DDAA8 el
+    // clamp (min.s $f20) cae directo al jal de GetWooshBlockSizeParams, sin lw de g_pEAXSound, sin
+    // li 10 y sin 60.0f (0x42700000); con el chequeo el marco es -96 con s2, sin el es -80).
+#ifndef EA_BUILD_A124
     if (g_pEAXSound->GetSndGameMode() == SND_PURSUITBREAKER) {
         fVelInensity = 60.0f;
     }
+#endif
 
     int StitchID;
     int numblocks;
@@ -156,7 +161,14 @@ void SFXObj_Woosh::InitSFX() {
             GEN_RND_OFFSET(StitchID, fVelInensity, base, numblocks, sizeperblock);
             // fallthrough
 #endif
+        // PS2: la tabla de saltos original cubre los tipos 1-12 ((tipo-1) < 12 en SLUS, (tipo-1) < 9 en la
+        // A124 sin CAMERA_BY): el caso es DRIVE_BY_TREE (=1, vacio, cae al final) y no hay caso UNKNOWN (=0).
+        // En GC el rango es tipo < 13 con caso UNKNOWN (100 % con la forma vieja: no tocar).
+#ifdef EA_PLATFORM_PLAYSTATION2
+        case DRIVE_BY_TREE:
+#else
         case DRIVE_BY_UNKNOWN:
+#endif
         default:
             break;
     }
@@ -169,8 +181,10 @@ void SFXObj_Woosh::InitSFX() {
 
     this->m_pWooshStich = new cStichWrapper(*this->m_pStitchData);
     this->m_pWooshStich->Play(&this->m_SndParams);
-    this->SetDMIX_Input(11, 0x7FFF);
-    this->SetDMIX_Input(12, bClamp(static_cast<int>(fVelInensity) << 8, 0, 0x7FFF) >> 15);
+    // Literales 11/12 -> nombres: en la A124 TRIG_WOOSH_EVENT/TRIG_WOOSH_INTENSITY valen 10/11
+    // (sin eVOL_WOOSH_CAMERA_BY); en retail 11/12. El original A124 escribe a0+0x28/0x2c.
+    this->SetDMIX_Input(TRIG_WOOSH_EVENT, 0x7FFF);
+    this->SetDMIX_Input(TRIG_WOOSH_INTENSITY, bClamp(static_cast<int>(fVelInensity) << 8, 0, 0x7FFF) >> 15);
 }
 
 void SFXObj_Woosh::UpdateParams(float t) {

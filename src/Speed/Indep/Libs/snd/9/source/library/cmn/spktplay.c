@@ -300,6 +300,8 @@ extern "C" int SNDPKTPLAY_submitspace(int packetinstancehandle) {
 extern "C" unsigned int SNDPKTPLAY_framesoutstanding(int packetinstancehandle) {
     SNDPACKETCHAN *ppchan;
 
+    SNDI_CHECKINSTALLED();
+
     ppchan = sndpps.ppc[packetinstancehandle];
 
     return ppchan->outstandingframes + ppchan->outstandingplatformframes;
@@ -312,6 +314,8 @@ extern "C" int SNDPKTPLAY_purge(int packetinstancehandle, int starthandle, int e
 extern "C" int SNDPKTPLAY_stop(int packetinstancehandle) {
     SNDPACKETCHAN *ppchan;
     int i;
+
+    SNDI_CHECKINSTALLED();
 
     ppchan = sndpps.ppc[packetinstancehandle];
 
@@ -333,6 +337,7 @@ extern "C" int SNDPKTPLAY_stop(int packetinstancehandle) {
 }
 
 extern "C" int SNDPKTPLAY_destroy(int packetinstancehandle) {
+    SNDI_CHECKINSTALLED();
     SNDSYS_entercritical();
 
     SNDPLATFORM_packetplaydestroy(packetinstancehandle);

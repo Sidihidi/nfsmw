@@ -42,9 +42,9 @@ void ENISWorldAnimTrigger_MakeEvent_Callback(const void *staticData) {
     new ENISWorldAnimTrigger(((ENISWorldAnimTrigger::StaticData *) staticData)->fAnimTreeName, ((ENISWorldAnimTrigger::StaticData *) staticData)->fTimeSet, ((ENISWorldAnimTrigger::StaticData *) staticData)->fAnimPause, ((ENISWorldAnimTrigger::StaticData *) staticData)->fAnimHide);
 }
 
-int ENISWorldAnimTrigger_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 4) {
-        new ENISWorldAnimTrigger(lua_tostring(L, 1), lua_tonumber(L, 2), (int) lua_tonumber(L, 3), (int) lua_tonumber(L, 4));
+int ENISWorldAnimTrigger_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 4) {
+        new ENISWorldAnimTrigger(lua_tostring(luaState, 1), lua_tonumber(luaState, 2), (int) lua_tonumber(luaState, 3), (int) lua_tonumber(luaState, 4));
     }
     return 0;
 }

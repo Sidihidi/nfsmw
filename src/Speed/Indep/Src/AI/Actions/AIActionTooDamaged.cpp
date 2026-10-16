@@ -54,11 +54,13 @@ AIAction *AIActionTooDamaged::Construct(AIActionParams *params) {
 }
 
 bool AIActionTooDamaged::CanBeAttempted(float dT) {
-    if (mIVehicle && mIInput) {
-        return mIVehicle->IsDestroyed();
-    } else {
+    if (!mIVehicle) {
         return false;
     }
+    if (!mIInput) {
+        return false;
+    }
+    return mIVehicle->IsDestroyed();
 }
 
 void AIActionTooDamaged::BeginAction(float dT) {

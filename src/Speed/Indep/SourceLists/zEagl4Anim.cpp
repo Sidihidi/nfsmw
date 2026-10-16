@@ -1,8 +1,25 @@
+// Prefijo comun de las unidades de juego del original (como zFe.cpp y zSim.cpp): el DWARF de GameCube de zEagl4Anim
+// abre con los mismos tipos y en el mismo orden (bHash32, FastMem, UTransform, UTL::COM::Object, _type_UStorage,
+// _KeyedNode, bVector2, bChunk, UCrc32). En PC hace falta: sin UCollections.h (UTLVector.h -> UMath.h) antes del
+// primer global con constructor, cl 7.1 hace dinamicos UMath::PI, OOPI, TWOPI y OOTWOPI, y speed.exe no los tiene.
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/Support/Utility/UStandard.h"
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UCollections.h"
+
 #include "Speed/Indep/Src/EAGL4Anim/eagl4AnimBank.cpp"
+
+#include "Speed/Indep/Src/EAGL4Anim/AnimStat.cpp"
+
+#include "Speed/Indep/Src/EAGL4Anim/AnimUtil.cpp"
 
 #include "Speed/Indep/Src/EAGL4Anim/Attribute.cpp"
 
 #include "Speed/Indep/Src/EAGL4Anim/AttributeDictionary.cpp"
+
+#include "Speed/Indep/Src/EAGL4Anim/BoneMask.cpp"
+
+#include "Speed/Indep/Src/EAGL4Anim/ClipSet.cpp"
 
 #include "Speed/Indep/Src/EAGL4Anim/CompoundChannel.cpp"
 
@@ -18,9 +35,13 @@
 
 #include "Speed/Indep/Src/EAGL4Anim/eagl4supportdlopen.cpp"
 
+#include "Speed/Indep/Src/EAGL4Anim/eagl4supportprintmessage.cpp"
+
 #include "Speed/Indep/Src/EAGL4Anim/eagl4supportsympool.cpp"
 
 #include "Speed/Indep/Src/EAGL4Anim/eagl4runtimetransform.cpp"
+
+#include "Speed/Indep/Src/EAGL4Anim/EventTarget.cpp"
 
 #include "Speed/Indep/Src/EAGL4Anim/FnAnim.cpp"
 
@@ -52,9 +73,9 @@
 
 #include "Speed/Indep/Src/EAGL4Anim/FnTurnBlender.cpp"
 
-#include "Speed/Indep/Src/EAGL4Anim/MemoryPoolManager.cpp"
+#include "Speed/Indep/Src/EAGL4Anim/IK.cpp"
 
-#include "Speed/Indep/Src/EAGL4Anim/FnCycle.cpp"
+#include "Speed/Indep/Src/EAGL4Anim/MemoryPoolManager.cpp"
 
 #include "Speed/Indep/Src/EAGL4Anim/PhaseChan.cpp"
 

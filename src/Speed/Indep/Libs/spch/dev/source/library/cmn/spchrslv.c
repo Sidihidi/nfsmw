@@ -26,9 +26,18 @@ static int iSPCH_BindData(char *dataFile, unsigned int inChannel) {
     int projID;
 
     result = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // r18 (stash 712d44e1): el original PS2 lee la magia como halfword
+    // (`lhu` + 0x1203: bytes `03 12` en LE); la forma word+mascara cierra GC
+    // y rompe PS2, y viceversa (~91 %).
+    if (*(unsigned short *)dataFile != 0x1203) {
+        goto abort;
+    }
+#else
     if ((*(unsigned int *)dataFile & ~0xFFFF) != (0x0312 << 16)) {
         goto abort;
     }
+#endif
     SPCH_GetEventDatInfo(dataFile, &projID, &datID);
     for (i = 0; i < 8; i++) {
         data = gEventDats[i].data;

@@ -128,7 +128,11 @@ struct stSndAssetQueue {
             return false;
         }
 
-        return !(this->Asset.FileName != cmp.Asset.FileName);
+        if (this->Asset.FileName != cmp.Asset.FileName) {
+            return false;
+        }
+
+        return true;
     }
 
     stAssetDescription Asset; // offset 0x0, size 0x20, Decl: 279

@@ -5,7 +5,16 @@
 #pragma once
 #endif
 
+// Los datos de DMA de un material (los stabs de la A124: 0x60 bytes); AttachDmaDataListMain los manda tal cual.
+struct eLightMaterialPlatInfo {
+    // total size: 0x60
+    unsigned int feDmaData[24]; // offset 0x0, size 0x60
+};
+
 struct eLightMaterialPlatInterface {
+    // total size: 0x4 (los stabs de la A124)
+    void *PlatInfo; // offset 0x0, size 0x4
+
     void CreatePlatInfo();
     void UpdatePlatInfo();
 };

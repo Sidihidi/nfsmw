@@ -184,7 +184,7 @@ void cStichWrapper::Play(const SND_Params *Params) {
 
     this->bIsPlaying = true;
 
-    int num_to_prune = cSTICH_PlayBack::GetQueueList(stitch_type).size() + cSampleWarpper::GetList(stitch_type).size() - 25;
+    int num_to_prune = cSTICH_PlayBack::GetQueueList(stitch_type).size() + cSampleWarpper::GetList(stitch_type).size() - STICH_MAX_SAMPLES;
     if (num_to_prune > 0) {
         bool continueloop = true;
         int priority_to_prune = 0;
@@ -265,9 +265,11 @@ cSampleWarpper::~cSampleWarpper() {
 }
 
 void *cSampleWarpper::operator new(unsigned int obj_size) {
+#ifndef EA_BUILD_A124 // el prototipo pide la ranura sin mirar el pool
     if (!cSTICH_PlayBack::mSampleRefSlotPool || cSTICH_PlayBack::mSampleRefSlotPool->IsFull()) {
         return nullptr;
     }
+#endif
     return cSTICH_PlayBack::mSampleRefSlotPool->Malloc(1, nullptr);
 }
 
@@ -318,7 +320,7 @@ void cSampleWarpper::Update(const SND_Params *Params) {
         this->AEMS_ActiveSampleWsh->SetPitch(TempPitch);
         this->AEMS_ActiveSampleWsh->SetFilter_WetFX(Params->RVerb);
         this->AEMS_ActiveSampleWsh->CommitMemberData();
-        if (this->AEMS_ActiveSampleWsh->GetRefCount() < 2) {
+        if (this->AEMS_ActiveSampleWsh->GetRefCount() <= 1) {
             this->Destroy();
         }
     }
@@ -330,7 +332,7 @@ void cSampleWarpper::Update(const SND_Params *Params) {
         this->AEMS_ActiveSampleCol->SetPitch(TempPitch);
         this->AEMS_ActiveSampleCol->SetFilter_WetFX(Params->RVerb);
         this->AEMS_ActiveSampleCol->CommitMemberData();
-        if (this->AEMS_ActiveSampleCol->GetRefCount() < 2) {
+        if (this->AEMS_ActiveSampleCol->GetRefCount() <= 1) {
             this->Destroy();
         }
     }
@@ -342,7 +344,7 @@ void cSampleWarpper::Update(const SND_Params *Params) {
         this->AEMS_ActiveSampleStatic->SetPitch(TempPitch);
         this->AEMS_ActiveSampleStatic->SetFilter_WetFX(Params->RVerb);
         this->AEMS_ActiveSampleStatic->CommitMemberData();
-        if (this->AEMS_ActiveSampleStatic->GetRefCount() < 2) {
+        if (this->AEMS_ActiveSampleStatic->GetRefCount() <= 1) {
             this->Destroy();
         }
     }
@@ -453,11 +455,11 @@ int cSampleWarpper::Prune(STICH_TYPE type, int priority, int num_to_clear) {
     return num_pruned;
 }
 
-UTL::FixedVector<SampleQueueItem, 43, 16> cSTICH_PlayBack::mQueuedSampleList[3];
+UTL::FixedVector<SampleQueueItem, STICH_MAX_QUEUED_SAMPLES, 16> cSTICH_PlayBack::mQueuedSampleList[3];
 
 template <>
-UTL::Collections::ListableSet<cSampleWarpper, 25, STICH_TYPE, MAX_NUM_STICH_TYPE>::_ListSet
-    UTL::Collections::ListableSet<cSampleWarpper, 25, STICH_TYPE, MAX_NUM_STICH_TYPE>::_mLists =
-        UTL::Collections::ListableSet<cSampleWarpper, 25, STICH_TYPE, MAX_NUM_STICH_TYPE>::_ListSet();
+UTL::Collections::ListableSet<cSampleWarpper, STICH_MAX_SAMPLES, STICH_TYPE, MAX_NUM_STICH_TYPE>::_ListSet
+    UTL::Collections::ListableSet<cSampleWarpper, STICH_MAX_SAMPLES, STICH_TYPE, MAX_NUM_STICH_TYPE>::_mLists =
+        UTL::Collections::ListableSet<cSampleWarpper, STICH_MAX_SAMPLES, STICH_TYPE, MAX_NUM_STICH_TYPE>::_ListSet();
 
-template class UTL::Collections::ListableSet<cSampleWarpper, 25, STICH_TYPE, MAX_NUM_STICH_TYPE>::List;
+template class UTL::Collections::ListableSet<cSampleWarpper, STICH_MAX_SAMPLES, STICH_TYPE, MAX_NUM_STICH_TYPE>::List;

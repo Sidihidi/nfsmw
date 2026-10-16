@@ -26,6 +26,9 @@
 #include "Speed/Indep/Src/World/CarPartID.h"
 #include "Speed/Indep/Src/World/Player.hpp"
 #include "Speed/Indep/Src/World/Sun.hpp"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/Src/World/TimeOfDay.hpp"
+#endif
 #include "Speed/Indep/Src/World/VehicleFragmentConn.h"
 #include "Speed/Indep/Src/World/VehiclePartDamage.h"
 #include "Speed/Indep/Src/World/VehicleRenderConn.h"
@@ -287,8 +290,8 @@ void CarPartCuller::CullParts(bVector3 *camera_eye, bAngle stang) {
         float modifier;
 
         if (!IsGameFlowInFrontEnd()) {
-            // TODO
-            camera_eye = (static_cast<unsigned int>(type) - 4 > 1) ? unModcamera_eyeP : &Modcamera_eye;
+            bool front_brake = type >= CULLABLE_CAR_PART_BRAKE_FL && type <= CULLABLE_CAR_PART_BRAKE_FR;
+            camera_eye = front_brake ? &Modcamera_eye : unModcamera_eyeP;
 
             if (type <= CULLABLE_CAR_PART_TIRE_FR) {
                 if (stang > 0x8000) {
@@ -356,7 +359,11 @@ void CarPartCuller::CullParts(bVector3 *camera_eye, bAngle stang) {
 
 extern SlotPool *CarEmitterPositionSlotPool;
 
+#ifdef EA_PLATFORM_WIN32
+const int MAX_CAR_PART_MODELS = 500;
+#else
 const int MAX_CAR_PART_MODELS = 250;
+#endif
 SlotPool *CarPartModelPool = nullptr;
 
 class CarEmitterPosition : public bSNode<CarEmitterPosition> {
@@ -617,7 +624,7 @@ class CarRenderInfo {
         if (this->mFlashing) {
             this->mFlashInterval += RealTimeElapsed;
 
-            if (Tweak_ResetFlashOff < this->mFlashInterval) {
+            if (this->mFlashInterval > Tweak_ResetFlashOff) {
                 this->mFlashInterval -= Tweak_ResetFlashOn + Tweak_ResetFlashOff;
             }
         }
@@ -633,7 +640,11 @@ class CarRenderInfo {
     void DrawKeithProjShadow(eView *view, const bVector3 *position, bMatrix4 *localWorld, bMatrix4 *worldLocal, bMatrix4 *biasedIdentity,
                              int body_lod);
 
-    void SetCarRenderFlags(int draw_solid, int draw_alpha, int draw_shadows) {}
+    void SetCarRenderFlags(int draw_solid, int draw_alpha, int draw_shadows) {
+        AAdraw_solid = draw_solid;
+        AAdraw_alpha = draw_alpha;
+        AAdraw_shadows = draw_shadows;
+    }
 
     void RenderFlaresOnCar(eView *view, const bVector3 *position, const bMatrix4 *body_matrix, int force_light_state, int reflexion,
                            int renderFlareFlags);
@@ -693,11 +704,11 @@ class CarRenderInfo {
     }
 
     bool IsLightBroken(VehicleFX::ID id) const {
-        return (this->mBrokenLights & id) != 0;
+        return (this->mBrokenLights & id) == 0 ? false : true;
     }
 
     bool IsLightOn(VehicleFX::ID id) const {
-        return (this->mOnLights & id) != 0;
+        return (this->mOnLights & id) == 0 ? false : true;
     }
 
     void RenderPart(eView *view, CarPartModel *carPart, bMatrix4 *local_to_world, eDynamicLightContext *light_context, uint32 flags);
@@ -910,7 +921,12 @@ int PrintLightMatY = 0;
 static const float DashVibrationAmplitude = 0.048f;
 static const float CarBodyLodSwapSize[5] = {120.0f, 25.0f, 20.0f, 10.0f, 0.0f};
 static const float TrafficCarBodyLodSwapSize[5] = {20.0, 10.0f, 4.0f, 0.0f, 0.0f};
+// 5 solo en GameCube; las dos PS2 y PC comparan con 18.
+#ifdef EA_PLATFORM_GAMECUBE
 static const float DisableEnvMapSize = 5.0f;
+#else
+static const float DisableEnvMapSize = 18.0f;
+#endif
 static const float CarTwoPlayerLODFactor = 0.7f;
 static const CARPART_LOD CarBodyMaxLOD = CARPART_LOD_D;
 
@@ -1093,7 +1109,13 @@ void FrontEndRenderingCar::ReInit(struct RideInfo *ride_info) {
 
     if (ride_info != nullptr) {
         this->mRideInfo = *ride_info;
-        this->RenderInfo = new ("CarRenderInfo", 0) CarRenderInfo(&this->mRideInfo);
+#ifdef EA_PLATFORM_XENON
+        // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto (operator new de 3 args).
+        this->RenderInfo = ::new (static_cast<CarRenderInfo *>(bMalloc(sizeof(CarRenderInfo), "CarRenderInfo", 0, 0)))
+#else
+        this->RenderInfo = new ("CarRenderInfo", 0)
+#endif
+            CarRenderInfo(&this->mRideInfo);
     }
 }
 
@@ -1899,8 +1921,8 @@ void CarRenderInfo::UpdateCarParts() {
         bool hidden = true;
         CarPart *base_part = ride_info->GetPart(CARSLOTID_SPOILER);
 
-        if (base_part != nullptr) {
-            hidden = base_part->GetUpgradeLevel() == 0;
+        if (base_part != nullptr && base_part->GetUpgradeLevel() != 0) {
+            hidden = false;
         }
 
         for (int model_number = 0; model_number < CARPART_MODEL_NUM; model_number++) {
@@ -1915,6 +1937,13 @@ void CarRenderInfo::UpdateCarParts() {
     this->SetCarDamageState(false, CARSLOTID_DAMAGE0_FRONT, CARSLOTID_DAMAGE0_REARRIGHT);
 }
 
+// r75-medianas, UpdateWheelYRenderOffset (99,38 %): el objetivo iza TRES bases
+// al prebucle --r14 Front@ha, r15 0x4330, r16 LITERAL 0.0f@ha-- y REMATERIALIZA
+// `lis r9, TweakKitWheelOffsetRear@ha` dentro de la rama trasera (0x4c30); el
+// literal del prebucle (r19, fila 42) sirve al compare del ternario y al de
+// model_radius, y el r16 SOLO al de model_width. Nosotros izamos Rear@ha en r16
+// y compartimos r19 entre los tres compares: una menos. Palancas descartadas de
+// raiz: los sitios de 0.0f son cinco expresiones identicas y CSE las funde.
 int TweakKitWheelOffsetFront = 0;
 int TweakKitWheelOffsetRear = 0;
 
@@ -2144,11 +2173,15 @@ void CarRenderInfo::UpdateLightStateTextures() {
         this->CarbonReplacementTextureTable[REPLACETEX_OLD_HEADLIGHT_GLASS_LEFT].SetNewNameHash(left_light_glass_state_hash);
         this->CarbonReplacementTextureTable[REPLACETEX_OLD_HEADLIGHT_GLASS_RIGHT].SetNewNameHash(right_light_glass_state_hash);
 
+        // Solo GameCube tapa el cristal de los faros con la textura del parabrisas: las dos PS2, PC y Xbox 360
+        // no tienen estas cuatro llamadas (SLUS, A124 y PC casan al 100 % sin ellas).
+#ifdef EA_PLATFORM_GAMECUBE
         unsigned int new_headlight_hash = this->MasterReplacementTextureTable[REPLACETEX_WINDOW_FRONT].GetNewNameHash();
         this->MasterReplacementTextureTable[REPLACETEX_HEADLIGHT_GLASS_LEFT].SetNewNameHash(new_headlight_hash);
         this->MasterReplacementTextureTable[REPLACETEX_HEADLIGHT_GLASS_RIGHT].SetNewNameHash(new_headlight_hash);
         this->MasterReplacementTextureTable[REPLACETEX_OLD_HEADLIGHT_GLASS_LEFT].SetNewNameHash(new_headlight_hash);
         this->MasterReplacementTextureTable[REPLACETEX_OLD_HEADLIGHT_GLASS_RIGHT].SetNewNameHash(new_headlight_hash);
+#endif
     }
 
     {
@@ -2216,31 +2249,51 @@ void CarRenderInfo::CreateCarLightFlares() {
 
                     switch (position_marker_namehash) {
                         case STRINGHASH_LEFT_HEADLIGHT:
-                        case STRINGHASH_CENTRE_HEADLIGHT:
+                            type_name = "Left Headlight";
+                            flare_type = 0;
+                            break;
                         case STRINGHASH_RIGHT_HEADLIGHT:
+                            type_name = "Right Headlight";
+                            flare_type = 0;
+                            break;
+                        case STRINGHASH_CENTRE_HEADLIGHT:
+                            type_name = "Centre Headlight";
                             flare_type = 0;
                             break;
                         case STRINGHASH_LEFT_BRAKELIGHT:
-                        case STRINGHASH_CENTRE_BRAKELIGHT:
+                            type_name = "Left Brakelight";
+                            flare_type = 1;
+                            break;
                         case STRINGHASH_RIGHT_BRAKELIGHT:
+                            type_name = "Right Brakelight";
+                            flare_type = 1;
+                            break;
+                        case STRINGHASH_CENTRE_BRAKELIGHT:
+                            type_name = "Centre Brakelight";
                             flare_type = 1;
                             break;
                         case STRINGHASH_COPLIGHTRED:
+                            type_name = "Cop Light Red";
                             flare_type = 5;
                             break;
                         case STRINGHASH_COPLIGHTBLUE:
+                            type_name = "Cop Light Blue";
                             flare_type = 6;
                             break;
                         case STRINGHASH_COPLIGHTWHITE:
+                            type_name = "Cop Light White";
                             flare_type = 7;
                             break;
                         case STRINGHASH_COPLIGHTBRIGHTRED:
+                            type_name = "Cop Light Bright Red";
                             flare_type = 10;
                             break;
                         case STRINGHASH_COPLIGHTBRIGHTBLUE:
+                            type_name = "Cop Light Bright Blue";
                             flare_type = 11;
                             break;
                         case STRINGHASH_COPLIGHTORANGE:
+                            type_name = "Cop Light Orange";
                             flare_type = 12;
                             break;
                         case STRINGHASH_LEFT_REVERSE:
@@ -2248,6 +2301,7 @@ void CarRenderInfo::CreateCarLightFlares() {
                                 continue;
                             }
                             found_STRINGHASH_LEFT_REVERSE_slot = slotIndex;
+                            type_name = "Left Reverse light";
                             flare_type = 3;
                             break;
                         case STRINGHASH_RIGHT_REVERSE:
@@ -2255,9 +2309,11 @@ void CarRenderInfo::CreateCarLightFlares() {
                                 continue;
                             }
                             found_STRINGHASH_RIGHT_REVERSE_slot = slotIndex;
+                            type_name = "Right Reverse Light";
                             flare_type = 3;
                             break;
                         default:
+                            type_name = "<none>";
                             flare_type = -1;
                             break;
                     }
@@ -2267,7 +2323,7 @@ void CarRenderInfo::CreateCarLightFlares() {
 
                         light_flare->NameHash = position_marker_namehash;
                         light_flare->Type = static_cast<char>(flare_type);
-                        if ((flare_type >= ELF_CAR_COPLIGHTRED && flare_type <= ELF_CAR_COPLIGHTWHITE) || flare_type == ELF_CAR_COPLIGHTBRIGHTRED ||
+                        if (flare_type == ELF_CAR_COPLIGHTRED || flare_type == ELF_CAR_COPLIGHTBLUE || flare_type == ELF_CAR_COPLIGHTWHITE || flare_type == ELF_CAR_COPLIGHTBRIGHTRED ||
                             flare_type == ELF_CAR_COPLIGHTBRIGHTBLUE || flare_type == ELF_CAR_COPLIGHTORANGE) {
                             light_flare->Flags = 2;
                         } else {
@@ -2474,7 +2530,7 @@ void CarRenderInfo::RenderFlaresOnCar(eView *view, const bVector3 *position, con
 
     int car_pixel_size = view->GetPixelSize(position, this->mRadius);
     if (eGetCurrentViewMode() == EVIEWMODE_TWOH) {
-        car_pixel_size = static_cast<int>(car_pixel_size * CarTwoPlayerLODFactor);
+        car_pixel_size = bFloatToInt(car_pixel_size * CarTwoPlayerLODFactor);
     }
 
     if (car_pixel_size < view->GetPixelMinSize()) {
@@ -2810,7 +2866,7 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
 #endif
     int car_pixel_size = view->GetPixelSize(&position, this->mRadius);
     if (eGetCurrentViewMode() == EVIEWMODE_TWOH && !IsGameFlowInFrontEnd()) {
-        car_pixel_size = static_cast<int>(static_cast<float>(car_pixel_size) * CarTwoPlayerLODFactor);
+        car_pixel_size = bFloatToInt(static_cast<float>(car_pixel_size) * CarTwoPlayerLODFactor);
     }
     if (car_pixel_size < view->GetPixelMinSize()) {
         if (static_cast<unsigned int>(view->ID - 13) > 1) {
@@ -2990,7 +3046,7 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
         nisPlaying = nis->IsPlaying();
     }
 
-    if (reflexion == 0) {
+    if (!reflexion) {
         biased_local_world->v3.z += fCarFudgeElevation;
         float fBias = (fDistanceToCamera - fCarFudgeBias) / fDistanceToCamera;
         if (in_front_end) {
@@ -3025,7 +3081,7 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
     this->TheCarPartCuller.CullParts(&camera_eye_in_car_space, steerAngle);
 
     unsigned int body_render_flags;
-    if (DrawCarShadow != 0 && reflexion == 0) {
+    if (DrawCarShadow != 0 && !reflexion) {
         this->DrawAmbientShadow(view, &position, shadow_scale, local_world, &world_local, biased_identity);
         if (!IsGameFlowInFrontEnd() && this->pRideInfo->Type != CARTYPE_COPHELI && !is_traffic_car) {
             this->DrawKeithProjShadow(view, &position, local_world, &world_local, biased_identity, car_body_lod);
@@ -3033,7 +3089,7 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
     }
 
     body_render_flags = 0;
-    if (IsGameFlowInGame() && view->GetID() != 3) {
+    if (IsGameFlowInGame() && view->GetID() != EVIEW_PLAYER1_RVM) {
         body_render_flags = 0x8000;
     }
 
@@ -3211,7 +3267,7 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
                         continue;
                     case CARSLOTID_LEFT_SIDE_MIRROR:
                     case CARSLOTID_RIGHT_SIDE_MIRROR:
-                        if (reflexion == 0) {
+                        if (!reflexion) {
                             eModel *model = model_lod_base[current_model_lod].GetModel();
                             model->ReplaceLightMaterial(STRINGHASH_CARSKIN, this->LightMaterial_CarSkin);
                             view->Render(model, biased_local_world, light_context,
@@ -3812,7 +3868,7 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
 int cmpl(const void *a, const void *b) {
     float v = (*reinterpret_cast<float *const *>(a))[0] - (*reinterpret_cast<float *const *>(b))[0];
 
-    if (0.0f < v) {
+    if (v > 0.0f) {
         return 1;
     }
     if (v < 0.0f) {
@@ -3821,7 +3877,7 @@ int cmpl(const void *a, const void *b) {
 
     v = (*reinterpret_cast<float *const *>(b))[1] - (*reinterpret_cast<float *const *>(a))[1];
 
-    if (0.0f < v) {
+    if (v > 0.0f) {
         return 1;
     }
     if (v < 0.0f) {
@@ -3840,7 +3896,7 @@ static inline bool ccw(float **P, int i, int j, int k) {
     float b = P[i][1] - P[j][1];
     float c = P[k][0] - P[j][0];
     float d = P[k][1] - P[j][1];
-    return a * d - b * c > 0.0f;
+    return a * d - b * c <= 0.0f;
 }
 
 // UNSOLVED
@@ -3853,7 +3909,7 @@ int make_chain(float **V, int n, int (*cmp)(const void *, const void *)) {
     qsort(V, n, 4, cmp);
 
     for (i = 2; i < n; i++) {
-        for (j = s; j >= 1 && !ccw(V, i, j, j - 1); j--) {
+        for (j = s; j >= 1 && ccw(V, i, j, j - 1); j--) {
         }
 
         s = j + 1;
@@ -4078,7 +4134,7 @@ void sh_Setup(bVector3 *car_pos) {
         cs_lightV.y = (fY / fTotal) * fLength * fCos;
     }
 
-    cs_OneOverZ = (cs_lightV.z != 0.0f) ? (1.0f / cs_lightV.z) : 0.0f;
+    cs_OneOverZ = (cs_lightV.z == 0.0f) ? 0.0f : (1.0f / cs_lightV.z);
 }
 
 inline bVector3 sh_Adjust(const bVector3 &p, const bVector3 &mid) {
@@ -4146,17 +4202,22 @@ void CarRenderInfo::DrawKeithProjShadow(eView *view, const bVector3 *position, b
         p = hullVertArray2;
     }
 
-    if (nVert > 2) {
+    if (nVert >= 3) {
         bVector3 v = p[0] + p[nVert / 2];
 
         mid = v;
         mid *= 0.5f;
 
         float alpha_min;
+        // 27 solo en GameCube; las dos PS2 y PC cargan 55.
+#ifdef EA_PLATFORM_GAMECUBE
         float alpha_max = 27.0f;
+#else
+        float alpha_max = 55.0f;
+#endif
         float shadow_alpha = (1.0f - car_elevation_scale) * alpha_max;
         FancyCarShadowEdgeMult = car_elevation_scale * -0.29999995f + 1.4f;
-        i = static_cast<int>(shadow_alpha);
+        i = bFloatToInt(shadow_alpha);
         unsigned int colour = static_cast<unsigned int>(bClamp(i, 0, 0xFE) << 24) | 0x00808080;
 
         if (dshad != 0) {
@@ -4198,7 +4259,7 @@ void CarRenderInfo::DrawKeithProjShadow(eView *view, const bVector3 *position, b
             int nStep;
 
             for (int j = 0; j < 3; j++) {
-                int nSubVerts = (j + 1 > 2) ? nVert - nStart : fake;
+                int nSubVerts = (j + 1 >= 3) ? nVert - nStart : fake;
 
                 if (exBeginStrip(this->ShadowRampTexture, (nSubVerts + 1) * 2, biasedIdentity)) {
                     int nMax = nStart + nSubVerts;
@@ -4282,6 +4343,11 @@ void CarRenderInfo::DrawAmbientShadow(eView *view, const bVector3 *position, flo
     min.x *= scale * scaleW;
     max.x *= scale * scaleW;
 
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x743FDE): la sombra va hacia el sol de la hora del dia; sin SunInfo ni SunCarVector.
+    bVector3 light_pos(TimeOfDayPointer->SunPosition.x, TimeOfDayPointer->SunPosition.y, TimeOfDayPointer->SunPosition.z);
+    float SunScale = (1.0f - TimeOfDayPointer->SunDirection.z) * TweakCarShadowSunScale;
+#else
     bVector3 SunCarVector;
     bVector3 light_pos;
     SunChunkInfo *sun_info = SunInfo;
@@ -4300,6 +4366,7 @@ void CarRenderInfo::DrawAmbientShadow(eView *view, const bVector3 *position, flo
     bNormalize(&SunCarVector, &SunCarVector);
 
     float SunScale = (1.0f - SunCarVector.z) * TweakCarShadowSunScale;
+#endif
     bVector3 sunpos_in_car_space;
 
     bMulMatrix(&sunpos_in_car_space, worldLocal, &light_pos);
@@ -4431,10 +4498,15 @@ void CarRenderInfo::DrawAmbientShadow(eView *view, const bVector3 *position, flo
     shadow_alpha_scale *= 1.0f - car_elevation_scale;
 
     float shadow_alpha_min = in_front_end != 0 ? 110.0f : 0.0f;
+    // Fuera del frontend las dos PS2 llegan a 50 y GameCube a 25 (PC y X360 calculan esta sombra de otra forma).
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float shadow_alpha_max = in_front_end != 0 ? 110.0f : 50.0f;
+#else
     float shadow_alpha_max = in_front_end != 0 ? 110.0f : 25.0f;
+#endif
 
     float shadow_alpha = (shadow_alpha_max - shadow_alpha_min) * shadow_alpha_scale + shadow_alpha_min;
-    int shadow_alphai = bClamp(static_cast<int>(shadow_alpha), 0, 0xFE);
+    int shadow_alphai = bClamp(bFloatToInt(shadow_alpha), 0, 0xFE);
 
     shadow_colour = static_cast<unsigned int>(shadow_alphai << 24);
     TextureInfo *texture_info = this->ShadowTexture;
@@ -4452,7 +4524,7 @@ void CarRenderInfo::DrawAmbientShadow(eView *view, const bVector3 *position, flo
         bVector2 *u1 = uv + 4;
 
         for (int y = 0; y < 3; y++) {
-            if (bad_points[y] + bad_points[y + 1] <= 3) {
+            if (bad_points[y] + bad_points[y + 1] < 4) {
                 if (exBeginStrip(texture_info, 8, biasedIdentity)) {
                     for (int x = 0; x < 4; x++) {
                         exAddVertex(*p0);
@@ -4485,8 +4557,11 @@ void CarRenderInfo::RenderPart(eView *view, CarPartModel *carPart, bMatrix4 *loc
         if (carPart->IsLodMissing()) {
             view->Render(&StandardDebugModel, local_to_world, light_context, flags, nullptr);
         } else {
-            view->Render(carPart->GetModel(), local_to_world, light_context, flags, nullptr);
+            if (carPart->GetModel()) {
+                view->Render(carPart->GetModel(), local_to_world, light_context, flags, nullptr);
+            }
         }
+
     }
 }
 
@@ -4633,7 +4708,12 @@ int CarRenderInfo::GetEmitterPositions(bSList<CarEmitterPosition> &markers_out, 
 // STRIPPED
 void CarRenderInfo::GetLightPositions(bSList<CarEmitterPosition> &pos, unsigned int position) {}
 
+// Las dos PS2 lo inicializan a cero (mtc1 zero en su _GLOBAL_$I) y GameCube a uno (.rodata 0x8040DC58).
+#ifdef EA_PLATFORM_PLAYSTATION2
+static const bVector3 EPfe(0.0f, 0.0f, 0.0f);
+#else
 static const bVector3 EPfe(1.0f, 1.0f, 1.0f);
+#endif
 
 void UpdateEnvironmentMapCameras() {
     bVector3 *car_world_position = nullptr;
@@ -4679,21 +4759,34 @@ void UpdateEnvironmentMapCameras() {
         bVector3 camera_eye_position(*eGetView(1, false)->GetCamera()->GetPosition());
         bVector3 envmap_position;
         bAdd(&envmap_position, &EnvMapEyeOffset, car_world_position);
+#ifndef EA_BUILD_A124 // la A124 no desplaza la camara del mapa de entorno
         bAdd(&camera_eye_position, &EnvMapCamOffset, &camera_eye_position);
+#endif
 
         eEnvMap *envmap = eGetEnvMap();
         envmap->UpdateCameras(&camera_eye_position, &envmap_position);
     }
 }
 
-// STRIPPED
-int IsAnyFrontEndCars() {}
+// STRIPPED en GameCube; las dos PS2 la tienen
+int IsAnyFrontEndCars() {
+    return !FrontEndRenderingCarList.IsEmpty();
+}
 
 // STRIPPED
 void RenderFrontEndCarNeon(eView *view, int reflection) {}
 
-// STRIPPED
-void SetFeCarRenderFlagsGlob(int draw_solid, int draw_alpha, int draw_shadows) {}
+// STRIPPED en GameCube; las dos PS2 la tienen y en Xbox 360 esta vacia (4 B)
+void SetFeCarRenderFlagsGlob(int draw_solid, int draw_alpha, int draw_shadows) {
+#ifndef EA_PLATFORM_XENON
+    for (FrontEndRenderingCar *fecar = FrontEndRenderingCarList.GetHead(); fecar != FrontEndRenderingCarList.EndOfList(); fecar = fecar->GetNext()) {
+        CarRenderInfo *info = fecar->RenderInfo;
+        if (info != nullptr && fecar->Visible) {
+            info->SetCarRenderFlags(draw_solid, draw_alpha, draw_shadows);
+        }
+    }
+#endif
+}
 
 void RefreshAllFrontEndCarRenderInfos(CarType type) {
     for (FrontEndRenderingCar *fecar = FrontEndRenderingCarList.GetHead(); fecar != FrontEndRenderingCarList.EndOfList(); fecar = fecar->GetNext()) {
@@ -4754,7 +4847,25 @@ void RenderFrontEndCars(eView *view, int reflection) {
     }
 }
 
-void RenderFEFlares(eView *view, int reflexion) {}
+void RenderFEFlares(eView *view, int reflexion) {
+#ifdef EA_BUILD_A124
+    // Vacia en la final; la A124 dibuja aqui los destellos de los coches del frontend (CarRender.cpp:7711-7737).
+    if (!view) {
+        return;
+    }
+    if (!DrawCars || !DrawLightFlares) {
+        return;
+    }
+    for (FrontEndRenderingCar *fecar = FrontEndRenderingCarList.GetHead(); fecar != FrontEndRenderingCarList.EndOfList(); fecar = fecar->GetNext()) {
+        if (fecar->Visible && !fecar->Reflection && fecar->ViewID == view->GetID()) {
+            CarRenderInfo *info = fecar->RenderInfo;
+            if (info) {
+                info->RenderFlaresOnCar(view, &fecar->Position, &fecar->BodyMatrix, 0, reflexion, 0);
+            }
+        }
+    }
+#endif
+}
 
 // STRIPEPD
 void SetSpecialFX(Car *car, int fx) {}

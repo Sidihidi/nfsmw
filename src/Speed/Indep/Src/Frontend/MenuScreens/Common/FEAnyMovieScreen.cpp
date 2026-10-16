@@ -18,6 +18,10 @@
 void DismissChyron();
 
 char FEAnyMovieScreen::MovieFilename[64] = "unknown";
+#ifdef EA_BUILD_A124
+// La A124 no tiene GetFEngPackageName (sin la variante panoramica): usa este nombre fijo.
+static const char *FEMovieScreenName = "FEAnyMovie.fng";
+#endif
 char FEAnyMovieScreen::ReturnToPackageName[64];
 
 FEAnyMovieScreen::FEAnyMovieScreen(ScreenConstructorData *sd) : MenuScreen(sd), mSubtitler(), bHidGarage(false) {
@@ -85,7 +89,11 @@ void FEAnyMovieScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u
 void FEAnyMovieScreen::LaunchMovie(const char *return_to_pkg, const char *filename) {
     bStrNCpy(ReturnToPackageName, return_to_pkg, FEMOVIENAMESIZE);
     SetMovieName(filename);
+#ifdef EA_BUILD_A124
+    cFEng::Get()->QueuePackageSwitch(FEMovieScreenName, 0, 0, 0);
+#else
     cFEng::Get()->QueuePackageSwitch(GetFEngPackageName(), 0, 0, 0);
+#endif
 }
 
 void FEAnyMovieScreen::PlaySafehouseIntroMovie() {
@@ -97,6 +105,7 @@ void FEAnyMovieScreen::DismissMovie() {
     if (ReturnToPackageName[0] != 0) {
         cFEng::Get()->QueuePackageSwitch(ReturnToPackageName, 0, 0, 0);
         ReturnToPackageName[0] = 0;
+        return;
     } else if (FEDatabase->IsPostRivalMode()) {
         uiRepSheetRivalFlow::Get()->Next();
     } else {
@@ -104,8 +113,8 @@ void FEAnyMovieScreen::DismissMovie() {
     }
 }
 
-void FEAnyMovieScreen::SetMovieName(const char *movie_name) {
-    bStrNCpy(MovieFilename, movie_name, FEMOVIENAMESIZE);
+void FEAnyMovieScreen::SetMovieName(const char *filename) {
+    bStrNCpy(MovieFilename, filename, FEMOVIENAMESIZE);
 }
 
 const char *FEAnyMovieScreen::GetFEngPackageName() {

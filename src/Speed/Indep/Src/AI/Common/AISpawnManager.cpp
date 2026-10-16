@@ -166,8 +166,7 @@ bool AISpawnManager::CheckSpawnPosition(const UMath::Vector3 &checkPos, bool che
         return false;
     }
 
-    for (IVehicle *const *iter = UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, 10>::GetList(VEHICLE_ALL).begin();
-         iter != UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, 10>::GetList(VEHICLE_ALL).end(); ++iter) {
+    for (IVehicle *const *iter = IVehicle::GetList(VEHICLE_ALL).begin(); iter != IVehicle::GetList(VEHICLE_ALL).end(); ++iter) {
 
         IVehicle *ivehicle = *iter;
 

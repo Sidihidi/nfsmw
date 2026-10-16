@@ -26,7 +26,11 @@ enum eVehicleList {
     VEHICLE_MAX,
 };
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class IVehicle : public UTL::COM::IUnknown, public UTL::Collections::ListableSet<IVehicle, 20, eVehicleList, VEHICLE_MAX> {
+#else
 class IVehicle : public UTL::COM::IUnknown, public UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, VEHICLE_MAX> {
+#endif
   public:
     DECL_INTERFACE(IVehicle);
 

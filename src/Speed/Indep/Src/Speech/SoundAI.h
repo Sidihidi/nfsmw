@@ -9,7 +9,7 @@
 #include "Observer.h"
 #include "Speed/Indep/Src/EAXSound/EAXSoundTypes.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/speechtune.h"
-#include "Speed/Indep/Src/Generated/Messages/MUnspawnCop.h"
+class MUnspawnCop; // datos-gc: en la CU zSpeech del original MUnspawnCop.h se parsea tarde (guarda _34, en SoundAI.cpp), no desde esta cabecera
 #include "Speed/Indep/Src/Interfaces/IListener.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
@@ -184,12 +184,14 @@ class SoundAI : public Sim::Activity, public Sim::Collision::IListener, public U
     SoundAI();
     ~SoundAI() override;
 
+  private:
     void MessagePerpBusted(const struct MPerpBusted &message);
     void MessageAIPerpBusted(const struct MPerpBusted &message);
     void MessageInfraction(const struct MMiscSound &message);
     void MessageRestart(const struct MRestartRace &message);
     void MessageUnspawnCop(const MUnspawnCop &message);
     void MessageTireBlown(const struct MGamePlayMoment &message);
+  public:
     void OnVehicleAdded(IVehicle *ivehicle);
     void OnVehicleRemoved(IVehicle *ivehicle);
     EAXCop *GetCopInRB();
@@ -199,11 +201,13 @@ class SoundAI : public Sim::Activity, public Sim::Collision::IListener, public U
     IRoadBlock *GetRoadblock();
     bool IsMusicActive();
     PursuitState GetPursuitState() {
-        return mPursuitState;
+        return this->mPursuitState;
     }
     void DealWithDeadAir();
     void UpdateStateMachines();
+  private:
     void AttemptReattachPursuit();
+  public:
     void SyncPursuit();
     void TerminatePursuit(BailoutType type);
     void ResetPursuit(bool including_music);
@@ -218,21 +222,33 @@ class SoundAI : public Sim::Activity, public Sim::Collision::IListener, public U
     void RemoveCop(HSIMABLE seeya);
     void AddNewHeli(IVehicle *heli);
     EAXCop *SpawnCop();
+  private:
     int GetBattalionFromRoadID(int roadID);
     int GetBattalionFromKey(unsigned int theKey);
+  public:
     void AddNewCop(IVehicle *newcop);
     bool MakeLeader(EAXCop *newprim);
+  private:
     int GetCallsign(Csis::Type_speaker_battalion battalion);
     void RandomizeCallsign(Speech::voiceIDs &cs, Csis::Type_speaker_call_sign_id start, Csis::Type_speaker_call_sign_id finish);
     int GetVoice(int type);
+  public:
     EAXCop *GetCop(int speaker);
     void RandomBailoutDeny(EAXCop *wimp);
     unsigned int CalcPlayerDirection(bool force_set);
+  private:
     void ForceGlobalVoiceChange();
     unsigned char GetCustomized(IVehicle *vehicle, CarCustomizations &custrec);
+  public:
     bool IsHighIntensity();
+#ifdef EA_BUILD_A124
+    const float GetTimeLastNailedCop() {
+        return (WorldTimer - mT_lastCopNailed).GetSeconds();
+    }
+#else
     const float GetTimeLastNailedCop();
-
+#endif
+  protected:
     // Virtual overrides
     // IListener
     void OnCollision(const COLLISION_INFO &cinfo) override;
@@ -240,24 +256,31 @@ class SoundAI : public Sim::Activity, public Sim::Collision::IListener, public U
     //  IAttachable
     void OnAttached(IAttachable *pOther) override;
     void OnDetached(IAttachable *pOther) override;
-
+  public:
     // ITaskable
     bool OnTask(HSIMTASK htask, float dT) override;
 
     // IActivity
     void Release() override;
 
-    // void EnableObservations() {}
+    void EnableObservations() {
+        ModifyTask(mProcessObservations, 0.25f);
+    }
 
     // void DisableObservations() {}
 
     // void ObserveOnly(unsigned int m) {}
 
-    // void EnableAI() {}
+    void EnableAI() {
+        ModifyTask(mMainUpdate, 0.1f);
+    }
 
     // void DisableAI() {}
 
-    // void Enable() {}
+    void Enable() {
+        EnableAI();
+        EnableObservations();
+    }
 
     // void Disable() {}
 

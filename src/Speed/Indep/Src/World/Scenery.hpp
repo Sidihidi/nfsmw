@@ -66,9 +66,9 @@ class SceneryInstance : public SceneryBoundingBox {
         matrix->v2.w = 0.0f;
     }
 
-    void GetPosition(bVector4 *position) {
-        *position = *reinterpret_cast<bVector4 *>(Position);
-        position->w = 1.0f;
+    void GetPosition(bVector4 *pos) {
+        *pos = *reinterpret_cast<bVector4 *>(Position);
+        pos->w = 1.0f;
     }
 
     bVector3 *GetPosition() {
@@ -83,15 +83,15 @@ class SceneryInstance : public SceneryBoundingBox {
 
     void SetMatrix(const bMatrix4 *matrix) {
         const float rotation_conversion = 8192.0f;
-        Rotation[0] = static_cast<short>(matrix->v0.x * rotation_conversion);
-        Rotation[1] = static_cast<short>(matrix->v0.y * rotation_conversion);
-        Rotation[2] = static_cast<short>(matrix->v0.z * rotation_conversion);
-        Rotation[3] = static_cast<short>(matrix->v1.x * rotation_conversion);
-        Rotation[4] = static_cast<short>(matrix->v1.y * rotation_conversion);
-        Rotation[5] = static_cast<short>(matrix->v1.z * rotation_conversion);
-        Rotation[6] = static_cast<short>(matrix->v2.x * rotation_conversion);
-        Rotation[7] = static_cast<short>(matrix->v2.y * rotation_conversion);
-        Rotation[8] = static_cast<short>(matrix->v2.z * rotation_conversion);
+        Rotation[0] = static_cast<short>(bFloatToInt(matrix->v0.x * rotation_conversion));
+        Rotation[1] = static_cast<short>(bFloatToInt(matrix->v0.y * rotation_conversion));
+        Rotation[2] = static_cast<short>(bFloatToInt(matrix->v0.z * rotation_conversion));
+        Rotation[3] = static_cast<short>(bFloatToInt(matrix->v1.x * rotation_conversion));
+        Rotation[4] = static_cast<short>(bFloatToInt(matrix->v1.y * rotation_conversion));
+        Rotation[5] = static_cast<short>(bFloatToInt(matrix->v1.z * rotation_conversion));
+        Rotation[6] = static_cast<short>(bFloatToInt(matrix->v2.x * rotation_conversion));
+        Rotation[7] = static_cast<short>(bFloatToInt(matrix->v2.y * rotation_conversion));
+        Rotation[8] = static_cast<short>(bFloatToInt(matrix->v2.z * rotation_conversion));
         Position[0] = matrix->v3.x;
         Position[1] = matrix->v3.y;
         Position[2] = matrix->v3.z;
@@ -198,8 +198,8 @@ class tPrecullerInfo {
 };
 
 inline int GetPrecullerSectionNumber(float x, float y) {
-    int nx = (static_cast<unsigned int>(static_cast<int>(x)) >> 5) & 0x1F;
-    int ny = static_cast<int>(y) & 0x3E0;
+    int nx = (bFloatToInt(x) >> 5) & 0x1F;
+    int ny = bFloatToInt(y) & 0x3E0;
     return ny + nx;
 }
 
@@ -279,6 +279,20 @@ struct SceneryOverrideInfo {
         AssignOverrides();
     }
 
+    void EnableRendering() {
+        SetExcludeFlags(0xFFEF, 0);
+    }
+
+    void DisableRendering() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Las dos PS2 materializan 0xFFEF (`ori a1,zero,0xffef`), no 0xFFFF: el resultado es el mismo
+        // ((x & 0xFFEF) | 0x10 == (x & 0xFFFF) | 0x10). Fuera de PS2 se queda como estaba (PC al 100 %).
+        SetExcludeFlags(0xFFEF, 0x10);
+#else
+        SetExcludeFlags(0xFFFF, 0x10);
+#endif
+    }
+
     void AssignOverrides();
     void AssignOverrides(ScenerySectionHeader *section_header);
 
@@ -309,8 +323,7 @@ struct SceneryGroup : public bTNode<SceneryGroup> {
     // SceneryGroup(unsigned int name_hash) {}
 
     int GetMemoryImageSize() {
-        // TODO magic
-        int size = (NumObjects * sizeof(*OverrideInfoNumbers) + 0x17U) & ~3;
+        int size = (NumObjects * static_cast<int>(sizeof(*OverrideInfoNumbers)) + static_cast<int>(offsetof(SceneryGroup, OverrideInfoNumbers)) + 3) & ~3;
         return size;
     }
 
@@ -359,11 +372,11 @@ struct SceneryGroup : public bTNode<SceneryGroup> {
 
     void DisableRendering() {
         for (int n = 0; n < GetNumObjects(); n++) {
-            SceneryOverrideInfo *override_info = GetOverrideInfo(n);
-#ifdef EA_BUILD_A124
-            override_info->SetExcludeFlags(0xFFEF, 0x10);
+            // Las dos PS2 dejan el bit 0x10 fuera de la mascara; GameCube la pone entera.
+#ifdef EA_PLATFORM_PLAYSTATION2
+            GetOverrideInfo(n)->SetExcludeFlags(0xFFEF, 0x10);
 #else
-            override_info->SetExcludeFlags(0xFFFF, 0x10);
+            GetOverrideInfo(n)->SetExcludeFlags(0xFFFF, 0x10);
 #endif
         }
     }
@@ -417,12 +430,22 @@ class GrandSceneryCullInfo {
 // extern RegionQuery RegionInfo;
 extern SceneryDetailLevel ForceAllSceneryDetailLevels;
 extern bTList<SceneryGroup> SceneryGroupList;
+enum ePrecullerMode {
+    PRECULLER_MODE_OFF = 0,
+    PRECULLER_MODE_ON = 1,
+    PRECULLER_MODE_BLINKING = 2,
+    PRECULLER_MODE_HIGH_SPEED = 3,
+};
+
+extern ePrecullerMode PrecullerMode;
 extern int DisablePrecullerCounter;
 
 void InitVisibleZones();
 void CloseVisibleZones();
 void ServicePreculler();
 void LoadPrecullerBooBooScripts();
+void SetPrecullerBooBoo();
+void ClrPrecullerBooBoo();
 void EnableSceneryGroup(unsigned int group_name_hash, bool flip_artwork);
 void DisableSceneryGroup(unsigned int name_hash);
 SceneryGroup *FindSceneryGroup(unsigned int name_hash);
@@ -445,7 +468,11 @@ inline int InlinedViewGetPixelSize(SceneryCullInfo *scenery_cull_info, const bVe
     if (distance_away > radius) {
         pixel_size = (radius * pixel_size) / distance_away;
     }
-    return static_cast<int>(pixel_size);
+    return bFloatToInt(pixel_size);
+}
+
+inline void SetPrecullerMode(ePrecullerMode mode) {
+    PrecullerMode = mode;
 }
 
 inline void EnablePreculler() {

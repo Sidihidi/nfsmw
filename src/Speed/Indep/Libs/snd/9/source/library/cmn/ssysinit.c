@@ -127,9 +127,12 @@ int SNDSYSI_init(void *psndheap, int heapsize, int headerversion) {
 
     SNDSYS_entercritical();
     SNDSYSI_chanpubinit();
-    sndgs.banklist = (BANKLIST *)SNDMEMI_allocz(sndgs.sso.set.maxbanks * 12);
+    sndgs.banklist = (BANKLIST *)SNDMEMI_allocz(sndgs.sso.set.maxbanks * sizeof(BANKLIST));
     SNDSYS_leavecritical();
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    sndgs.servertick = 0;
+#endif
     Snd::gMasterVol = 1.0f;
     sndgs.audiotick = 0;
     sndgs.numuserdataclients = 0;
@@ -236,12 +239,32 @@ int SNDSYSI_updatesso(SNDSYSOPTS *pSndSysOpts) {
             }
             break;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+        case Snd::DEVICE_IOP:
+            if (Snd::gVoicesNext[device].changed != 0) {
+                pSndSysOpts->set.voicesiopcpu = Snd::gVoicesNext[device].value;
+                Snd::gVoicesNext[device].changed = 0;
+            }
+            if (Snd::gOutputSampleRateNext[device].changed != 0) {
+                pSndSysOpts->set.outputrateiopcpu = Snd::gOutputSampleRateNext[device].value;
+                Snd::gOutputSampleRateNext[device].changed = 0;
+            }
+            break;
+
+        case Snd::DEVICE_HARDWARE:
+            if (Snd::gVoicesNext[device].changed != 0) {
+                pSndSysOpts->set.voicesspu = Snd::gVoicesNext[device].value;
+                Snd::gVoicesNext[device].changed = 0;
+            }
+            break;
+#else
         case Snd::DEVICE_HARDWARE:
             if (Snd::gVoicesNext[device].changed != 0) {
                 pSndSysOpts->set.voicesdsp = Snd::gVoicesNext[device].value;
                 Snd::gVoicesNext[device].changed = 0;
             }
             break;
+#endif
 
         default:
             return -5;

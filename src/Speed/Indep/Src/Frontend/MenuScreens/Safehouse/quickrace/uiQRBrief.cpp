@@ -38,7 +38,9 @@ UIQRBrief::UIQRBrief(ScreenConstructorData *sd)
       pSelectedTrack(nullptr), //
       randomCount(0) {
     Setup();
+#ifndef EA_BUILD_A124
     raceSettings.CopsOn = false;
+#endif
     AccelerationSlider.Init(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "ACCELERATION", 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 160.0f);
     TopSpeedSlider.Init(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "TOPSPEED", 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 160.0f);
     HandlingSlider.Init(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), "HANDLING", 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 160.0f);
@@ -100,7 +102,9 @@ void UIQRBrief::RefreshHeader() {
             break;
     }
     race_type = track_params->GetRaceType();
-    if (race_type == static_cast<GRace::Type>(0) || track_params->GetRaceType() == static_cast<GRace::Type>(2)) {
+    if (race_type == static_cast<GRace::Type>(0)) {
+        ai_hash = 0x7f2f7ad6;
+    } else if (track_params->GetRaceType() == static_cast<GRace::Type>(2)) {
         ai_hash = 0x7f2f7ad6;
     }
     FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xb515499d, ai_hash);
@@ -171,16 +175,28 @@ void UIQRBrief::Setup() {
     }
     for (unsigned int i = 0; i < GRaceDatabase::Get().GetRaceCount(); i++) {
         GRaceParameters *parms = GRaceDatabase::Get().GetRaceParameters(i);
-        if (parms->GetRaceType() != static_cast<GRace::Type>(8) && parms->GetRaceType() != static_cast<GRace::Type>(9) &&
-            parms->GetRaceType() != static_cast<GRace::Type>(10) && parms->GetRaceType() != static_cast<GRace::Type>(-1) &&
-            parms->GetRaceType() != static_cast<GRace::Type>(4)) {
-            if (parms->GetEventHash() != Attrib::StringHash32("19.8.31")) {
-                if (UnlockSystem::IsEventAvailable(parms->GetEventHash())) {
-                    if (UnlockSystem::IsTrackUnlocked(static_cast<eUnlockFilters>(1), parms->GetEventHash(), 0)) {
-                        FilteredTracksList.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true, 0));
-                    }
-                }
-            }
+        // La A124 descarta aqui los peajes, no las carreras sin tipo, y no tiene los otros filtros de abajo.
+        if (parms->GetRaceType() == GRace::kRaceType_Challenge || parms->GetRaceType() == GRace::kRaceType_JumpToSpeedTrap ||
+#ifdef EA_BUILD_A124
+            parms->GetRaceType() == GRace::kRaceType_JumpToMilestone || parms->GetRaceType() == GRace::kRaceType_Tollbooth) {
+#else
+            parms->GetRaceType() == GRace::kRaceType_JumpToMilestone || parms->GetRaceType() == GRace::kRaceType_None) {
+#endif
+            continue;
+        }
+#ifndef EA_BUILD_A124
+        if (parms->GetRaceType() == GRace::kRaceType_Tollbooth) {
+            continue;
+        }
+        if (parms->GetEventHash() == Attrib::StringHash32("19.8.31")) {
+            continue;
+        }
+        if (!UnlockSystem::IsEventAvailable(parms->GetEventHash())) {
+            continue;
+        }
+#endif
+        if (UnlockSystem::IsTrackUnlocked(static_cast<eUnlockFilters>(1), parms->GetEventHash(), 0)) {
+            FilteredTracksList.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true, 0));
         }
     }
     cFEng::Get()->QueueGameMessage(0xc519bfc4, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xff);
@@ -214,7 +230,11 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             if (unlocked_at < FEDatabase->GetUserProfile(0)->GetCareer()->GetCurrentBin()) {
                 FEngSetScript(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xfe8fdbf7, FEHASH_APPEAR, true);
                 char buf[128];
+#ifdef EA_PLATFORM_PLAYSTATION2
+                int req_bin = unlocked_at;
+#else
                 int req_bin = unlocked_at + 1;
+#endif
                 FEngSNPrintf(buf, 128, "blacklist_rival_%02d_aka", req_bin);
                 const char *pkg = reinterpret_cast<MenuScreen *>(this)->GetPackageName();
                 const char *locked_str = GetLocalizedString(0x4ef2a115);
@@ -230,9 +250,7 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             break;
         }
         case 0x406415e3: {
-            cFrontendDatabase *db = FEDatabase;
-            char port = FEngMapJoyParamToJoyport(param1);
-            db->SetPlayersJoystickPort(0, port);
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
             break;
         }
         case 0xe1fde1d1: {

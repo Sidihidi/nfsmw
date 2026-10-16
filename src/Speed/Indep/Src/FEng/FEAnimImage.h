@@ -4,6 +4,21 @@
 #include "FEImage.h"
 #include "Speed/Indep/Src/FEng/FEObject.h"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // File: speed/indep/src/feng/FEAnimImage.h
 // total size: 0x58
 // Decl: speed/indep/src/feng/FEAnimImage.h:25
@@ -12,24 +27,20 @@ class FEAnimImageData : public FEImageData {
     i32 FrameNum; // offset 0x54, size 0x4, Decl: speed/indep/src/feng/FEAnimImage.h:27
 };
 
+
+
+
 // total size: 0x60
 // Decl: speed/indep/src/feng/FEAnimImage.h:35
 class FEAnimImage : public FEImage {
   public:
-    FEAnimImage() { // Decl: speed/indep/src/feng/FEAnimImage.h:37
-        Type = FE_AnimImage;
-    }
-    FEAnimImage(const FEAnimImage &Object, bool bReference) : FEImage(Object, bReference) {
-    }
+    FEAnimImage() { Type = FE_AnimImage; } // Decl: speed/indep/src/feng/FEAnimImage.h:37
+    FEAnimImage(const FEAnimImage &Object, bool bReference) : FEImage(Object, bReference) {}
     ~FEAnimImage() override {}
 
-    FEAnimImageData *GetImageData() {
-        return reinterpret_cast<FEAnimImageData *>(pData);
-    } // Decl: speed/indep/src/feng/FEAnimImage.h:41
+    FEAnimImageData *GetImageData() { return reinterpret_cast<FEAnimImageData *>(pData); } // Decl: speed/indep/src/feng/FEAnimImage.h:41
 
-    FEObject *Clone(bool bReference) override { // Decl: speed/indep/src/feng/FEAnimImage.h:43
-        return FNEW FEAnimImage(*this, bReference);
-    }
+    FEObject *Clone(bool bReference) override { return FNEW FEAnimImage(*this, bReference); } // Decl: speed/indep/src/feng/FEAnimImage.h:43
 
     void SetTopLeft(const FEVector2 &topright, bool bRelative) {
         SetTrackValue(FETrack_UpperLeft, topright, bRelative);

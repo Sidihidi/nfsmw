@@ -1,6 +1,10 @@
 #include "FEngStandard.h"
 
 #include <string.h>
+#ifdef EA_BUILD_A124
+#include <stdarg.h>
+#include <stdio.h>
+#endif
 
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
@@ -24,17 +28,30 @@ void InitFEngMemoryPool() {
     }
 }
 
-void *FEngMalloc(unsigned int Size, const char *pFile, int Line) {
+void *FEngMalloc(unsigned int size, const char *pFilename, int Line) {
     int Pool = 0;
 
     if (FEngMemoryPoolNumber != -1) {
-        if (bLargestMalloc(FEngMemoryPoolNumber) > (int) (Size + 64)) {
+        if (bLargestMalloc(FEngMemoryPoolNumber) > (int) (size + 64)) {
             Pool = FEngMemoryPoolNumber;
         }
     }
 
-    return bMalloc(Size, pFile, Line, (Pool & 0xF) | 0x100);
+// 0x400 tambien en PC (speed.exe 0x5B0E10 y 0x5B7BF0): solo GameCube usa 0x100.
+#ifdef EA_PLATFORM_GAMECUBE
+    return bMalloc(size, pFilename, Line, (Pool & 0xF) | 0x100);
+#else
+    return bMalloc(size, pFilename, Line, (Pool & 0xF) | 0x400);
+#endif
 }
+
+#ifdef EA_BUILD_A124
+int FEngPrintf(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    return vprintf(format, args);
+}
+#endif
 
 void FEngMemCpy(void *pDest, const void *pSrc, int Size) {
     memcpy(pDest, pSrc, Size);
@@ -56,12 +73,12 @@ int FEngStrICmp(const char *pStr1, const char *pStr2) {
     return bStrICmp(pStr1, pStr2);
 }
 
-float FEngAbs(float Value) {
-    return bAbs(Value);
+float FEngAbs(float x) {
+    return bAbs(x);
 }
 
-float FEngSqrt(float Value) {
-    return bSqrt(Value);
+float FEngSqrt(float x) {
+    return bSqrt(x);
 }
 
 float FEngSin(float Value) {

@@ -411,15 +411,15 @@ bool LGWheels::SameDamperForceParams(long channel, short coefficient) {
 }
 
 // Colision frontal: ranura 0 de periodic, tipo 3 (cuadrada), duracion 0x96 con
-// fade 0x14. Todas las ramas terminan arrancando el efecto.
-// r76: retirado el pin `register unsigned int magnitude asm("r27")` que copiaba el
-// parametro. El DWARF-1 del original da esta misma firma (this r29, channel r31,
-// magnitude r27, ret r30) y NINGUNA otra local ni bloque lexico. Sin el pin queda una
-// sola permutacion r27<->r28 entre magnitude y el pseudo de &this->periodic (440/440 B,
-// 99,45%): prioridad de global-alloc 2673 contra 1250 (6 refs / 96 insns), y no hay forma
-// de fuente que la invierta (harian falta 13 refs o la mitad de vida). Medidas de la r76:
-// sin `playing` 97,68%; con periodic al principio 97,14%; sin la variable periodic 95,95%
-// y 444 B; con guarda temprana en vez de else 0%.
+// fade 0x14. Todas las ramas terminan arrancando el efecto, con el Start escrito
+// en cada hoja (como en PlayDirtRoadEffect): el cross-jumping lo funde en una
+// sola cola, pero antes del reparto cada Start es una referencia mas al pseudo
+// de &this->periodic, y eso le da prioridad sobre magnitude (r28 contra r27).
+// Con un unico Start comun el pseudo se queda en 6 refs / 96 insns (prioridad
+// 1250 contra las 2673 de magnitude) y los dos registros salen cruzados:
+// 99,45 %. Las locales playing/periodic no estan en el DWARF del original
+// (this r29, channel r31, magnitude r27, ret r30 y nada mas), pero sin ellas
+// se cae a 95,95 % y 444 B.
 void LGWheels::PlayFrontalCollisionForce(long channel, unsigned char magnitude) {
     int ret = 0;
 
@@ -433,6 +433,9 @@ void LGWheels::PlayFrontalCollisionForce(long channel, unsigned char magnitude) 
                 if (ret >= 0) {
                     this->FrontalCollisionParams[channel].magnitude = magnitude;
                 }
+                periodic->Start(channel, 0);
+            } else {
+                periodic->Start(channel, 0);
             }
         } else {
             if (periodic->EffectID[channel][0] == -1) {
@@ -441,15 +444,17 @@ void LGWheels::PlayFrontalCollisionForce(long channel, unsigned char magnitude) 
                 if (ret >= 0) {
                     this->FrontalCollisionParams[channel].magnitude = magnitude;
                 }
+                periodic->Start(channel, 0);
             } else if (!this->SameFrontalCollisionForceParams(channel, magnitude)) {
                 ret = periodic->UpdateForce(channel, 0, 3, 0x96, 0, magnitude, 0x5A, 0x4B, 0, 0, 0, 0x14, 0, 0);
                 if (ret >= 0) {
                     this->FrontalCollisionParams[channel].magnitude = magnitude;
                 }
+                periodic->Start(channel, 0);
+            } else {
+                periodic->Start(channel, 0);
             }
         }
-
-        periodic->Start(channel, 0);
     } else {
         OSReport("ERROR: trying to play a force on channel %d but no wheel opened.
 ", channel);

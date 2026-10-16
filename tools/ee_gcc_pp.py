@@ -11,7 +11,12 @@ then compiled as cpp-output from <preprocessed-dir>, under the same relative nam
 the line markers use. Line information is kept, and the object is otherwise the
 same as with a single call.
 
-DEPENDENCIES_OUTPUT (set by the caller) only applies to the preprocessing step.
+SUNPRO_DEPENDENCIES or DEPENDENCIES_OUTPUT (set by the caller) only applies to the preprocessing step.
+
+With `--as <assembler>` first (ee_gcc_pp.py --as <Ps2EeAs> <preprocessed-dir> ...), the second step stops at
+the assembly (-S, <out>.s) and that file is assembled with the given assembler instead of the GNU as the driver
+calls: SN built its PS2 libc that way, with its Ps2EeAs. The assembler gets the -G option of the gcc flags and
+everything given with -Wa,. Any wrapper in front of the compiler (wibo, wine) also runs the assembler.
 """
 
 import os
@@ -21,6 +26,10 @@ import sys
 
 def main() -> int:
     argv = sys.argv[1:]
+    assembler = None
+    if argv[:1] == ["--as"] and len(argv) > 1:
+        assembler = argv[1]
+        argv = argv[2:]
     if "--" not in argv or len(argv) < 4:
         print(__doc__, file=sys.stderr)
         return 2
@@ -47,6 +56,10 @@ def main() -> int:
         os.remove(output)
 
     preprocessed = os.path.join(ppdir, source)
+    # An absolute source makes os.path.join drop ppdir, and the preprocessed text would be
+    # written over the source itself (it happened once with a bench script).
+    if os.path.isabs(source) or os.path.abspath(preprocessed) == os.path.abspath(source):
+        sys.exit(f"ee_gcc_pp: refusing to preprocess {source} over itself; pass a source path relative to the build root")
     os.makedirs(os.path.dirname(preprocessed) or ".", exist_ok=True)
     result = subprocess.run(compiler + flags + ["-E", "-o", preprocessed, source])
     if result.returncode:
@@ -54,6 +67,30 @@ def main() -> int:
 
     env = dict(os.environ)
     env.pop("DEPENDENCIES_OUTPUT", None)
+    env.pop("SUNPRO_DEPENDENCIES", None)
+    if assembler is not None:
+        assembly = os.path.abspath(output) + ".s"
+        result = subprocess.run(
+            compiler + flags + ["-x", language, "-S", "-o", assembly, source],
+            cwd=ppdir,
+            env=env,
+        )
+        if result.returncode:
+            return result.returncode
+        as_flags = []
+        for i, a in enumerate(flags):
+            if a == "-G" and i + 1 < len(flags):
+                as_flags += ["-G" + flags[i + 1]]
+            elif a.startswith("-G"):
+                as_flags.append(a)
+            elif a.startswith("-Wa,"):
+                as_flags += [f for f in a[4:].split(",") if f]
+        result = subprocess.run(compiler[:-1] + [assembler, *as_flags, "-o", os.path.abspath(output), assembly])
+        if result.returncode or not os.path.exists(output):
+            if os.path.exists(output):
+                os.remove(output)
+            return result.returncode or 1
+        return 0
     result = subprocess.run(
         compiler + flags + ["-x", language, "-c", "-o", os.path.abspath(output), source],
         cwd=ppdir,

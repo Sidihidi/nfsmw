@@ -40,9 +40,7 @@ void DefaultUnlockData() {
 }
 
 void UnlockUnlockableThing(eUnlockableEntity entity, uint32 filter, int level, const char *part_name) {
-    if (level < 0) {
-        level = 0;
-    }
+    level = bMax(0, level);
     if (filter & UNLOCK_QUICK_RACE) {
         TheUnlockData[entity].QuickRaceUnlockLevel = level;
         TheUnlockData[entity].QuickRaceIsNewPart = level;
@@ -59,7 +57,7 @@ void UnlockUnlockableThing(eUnlockableEntity entity, uint32 filter, int level, c
 void MarkUnlockableThingSeen(eUnlockableEntity entity, uint32 filter) {
     char count;
     if (filter & UNLOCK_QUICK_RACE) {
-        if (++TheUnlockData[entity].QuickRaceTimesSeen < 4) {
+        if (++TheUnlockData[entity].QuickRaceTimesSeen <= 3) {
             return;
         }
         TheUnlockData[entity].QuickRaceTimesSeen = 0;
@@ -67,7 +65,7 @@ void MarkUnlockableThingSeen(eUnlockableEntity entity, uint32 filter) {
         return;
     }
     if (filter & UNLOCK_CAREER_MODE) {
-        if (++TheUnlockData[entity].CareerTimesSeen < 4) {
+        if (++TheUnlockData[entity].CareerTimesSeen <= 3) {
             return;
         }
         TheUnlockData[entity].CareerTimesSeen = 0;
@@ -76,10 +74,48 @@ void MarkUnlockableThingSeen(eUnlockableEntity entity, uint32 filter) {
     }
 }
 
-bool DoesCategoryHaveNewUnlock(eUnlockableEntity ent) {
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (switch con |= y default: return false),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool DoesCategoryHaveNewUnlock(eUnlockableEntity entity) {
     bool answer = false;
 
-    switch (ent) {
+    switch (entity) {
+        case UNLOCKABLE_THING_CUSTOMIZE_PARTS:
+            answer |= (TheUnlockData[UNLOCKABLE_THING_BODY_KIT].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_SPOILERS].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_RIM_BRANDS].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_HOODS].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_ROOF_SCOOPS].CareerIsNewPart != UNLOCK_IS_OLD);
+            break;
+        case UNLOCKABLE_THING_CUSTOMIZE_PERFORMANCE:
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_TIRES].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_BRAKES].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_CHASSIS].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_TRANSMISSION].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_ENGINE].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_INDUCTION].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_NOS].CareerIsNewPart != UNLOCK_IS_OLD);
+            break;
+        case UNLOCKABLE_THING_CUSTOMIZE_VISUAL:
+            answer |= (TheUnlockData[UNLOCKABLE_DECAL_HOOD].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_CUSTOM_HUD].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_DECAL_NUMBERS].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PAINTABLE_BODY].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_THING_WINDOW_TINT].CareerIsNewPart != UNLOCK_IS_OLD);
+            answer |= (TheUnlockData[UNLOCKABLE_VINYLS_GROUP_BODY].CareerIsNewPart != UNLOCK_IS_OLD);
+            break;
+        default:
+            return false;
+    }
+
+    return answer;
+}
+#else
+bool DoesCategoryHaveNewUnlock(eUnlockableEntity entity) {
+    bool answer = false;
+
+    switch (entity) {
         case UNLOCKABLE_THING_CUSTOMIZE_PARTS:
             if (TheUnlockData[UNLOCKABLE_THING_BODY_KIT].CareerIsNewPart != UNLOCK_IS_OLD) {
                 answer = true;
@@ -113,46 +149,262 @@ bool DoesCategoryHaveNewUnlock(eUnlockableEntity ent) {
     }
     return false;
 }
+#endif
 
 static inline bool AllThingsUnlocked() {
     return UnlockAllThings != 0;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (bool + |= (firma del DWARF)),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool QuickRaceUnlocker::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, int player, bool backroom) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+#ifndef EA_BUILD_A124
+    answer |= FEDatabase->GetCareerSettings()->HasBeatenCareer();
+#endif
+    answer |= (level <= TheUnlockData[ent].QuickRaceUnlockLevel);
+    answer |= FEDatabase->GetUserProfile(0)->CareerModeHasBeenCompletedAtLeastOnce;
+    return answer;
+}
+#else
 int QuickRaceUnlocker::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, int player, bool backroom) {
     bool answer = AllThingsUnlocked();
+#ifndef EA_BUILD_A124
     answer = answer | FEDatabase->GetUserProfile(0)->GetCareer()->HasBeatenCareer();
+#endif
     answer |= (level <= TheUnlockData[ent].QuickRaceUnlockLevel);
     return (answer != 0) | (FEDatabase->GetUserProfile(0)->CareerModeHasBeenCompletedAtLeastOnce != 0);
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (bool + |=),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool QuickRaceUnlocker::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, int player, bool backroom) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    answer |= (part->GetUpgradeLevel() == 0);
+#ifdef FIX_BUGS // BUG: backroom is passed as the player argument (also below); harmless, both are unused
+    answer |= QuickRaceUnlocker::IsUnlockableUnlocked(filter, MapCarPartToUnlockable(carslot, part), part->GetUpgradeLevel(), 0, backroom);
+#else
+    answer |= QuickRaceUnlocker::IsUnlockableUnlocked(filter, MapCarPartToUnlockable(carslot, part), part->GetUpgradeLevel(), backroom, 0);
+#endif
+    return answer;
+}
+#else
 int QuickRaceUnlocker::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, int player, bool backroom) {
     bool answer = AllThingsUnlocked();
     answer |= (part->GetUpgradeLevel() == 0);
     return (answer != 0) |
            (QuickRaceUnlocker::IsUnlockableUnlocked(filter, MapCarPartToUnlockable(carslot, part), part->GetUpgradeLevel(), backroom, false) != 0);
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (bool + |=),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool QuickRaceUnlocker::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, int player, bool backroom) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+
+#ifdef FIX_BUGS
+    answer |= QuickRaceUnlocker::IsUnlockableUnlocked(filter, MapPerfPkgToUnlockable(pkg_type), level, 0, backroom);
+#else
+    answer |= QuickRaceUnlocker::IsUnlockableUnlocked(filter, MapPerfPkgToUnlockable(pkg_type), level, backroom, 0);
+#endif
+
+    return answer;
+}
+#else
 int QuickRaceUnlocker::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, int player, bool backroom) {
     bool answer = AllThingsUnlocked();
     answer = (answer != 0) | (QuickRaceUnlocker::IsUnlockableUnlocked(filter, MapPerfPkgToUnlockable(pkg_type), level, backroom, false) != 0);
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (StringHash32 en la comparacion),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
 bool QuickRaceUnlocker::IsTrackUnlocked(eUnlockFilters filter, int event_hash, int player) {
-    bool answer = AllThingsUnlocked();
+    bool answer = false;
+    answer |= UnlockAllThings;
     answer = answer | GRaceDatabase::Get().IsQuickRaceUnlocked(event_hash);
-    int tutorialHash = Attrib::StringHash32("19.8.31");
-    if (event_hash == tutorialHash) {
+    if (event_hash == Attrib::StringHash32("19.8.31")) {
         return true;
     }
     return answer;
 }
+#else
+bool QuickRaceUnlocker::IsTrackUnlocked(eUnlockFilters filter, int event_hash, int player) {
+    bool answer = AllThingsUnlocked();
+    answer = answer | GRaceDatabase::Get().IsQuickRaceUnlocked(event_hash);
+#ifndef EA_BUILD_A124
+    int tutorialHash = Attrib::StringHash32("19.8.31");
+    if (event_hash == tutorialHash) {
+        return true;
+    }
+#endif
+    return answer;
+}
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (polaridad bin<=N return true),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool QuickRaceUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car, int player) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(player);
+    FECarRecord *fe_car = stable->GetCarRecordByHandle(car);
+
+    Attrib::Gen::frontend CarAttribs(fe_car->FEKey, 0, nullptr);
+    answer |= (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
+
+    if (fe_car->MatchesFilter(FE_CAR_FILTER_REGION_ALL | FE_CAR_FILTER_LIST_STOCK | FE_CAR_FILTER_LIST_CAREER | FE_CAR_FILTER_LIST_QUICK_RACE)) {
+        switch (fe_car->GetType()) {
+            case CARTYPE_RX8:
+            case CARTYPE_IMPREZAWRX:
+            case CARTYPE_MUSTANGGT:
+            case CARTYPE_SL500:
+            case CARTYPE_997S:
+            case CARTYPE_IS300:
+            case CARTYPE_GTI:
+            case CARTYPE_GALLARDO:
+            case CARTYPE_COBALTSS:
+            case CARTYPE_PUNTO:
+                answer = true;
+                break;
+        }
+    } else if (fe_car->MatchesFilter(FE_CAR_FILTER_REGION_ALL | FE_CAR_FILTER_LIST_BONUS)) {
+        switch (fe_car->Handle) {
+            case STRINGHASH_BL2:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 1) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL3:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 2) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL4:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 3) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL5:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 4) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL6:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 5) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL7:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 6) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL8:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 7) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL9:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 8) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL10:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 9) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL11:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 10) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL12:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 11) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL13:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 12) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL14:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 13) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BL15:
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 14) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_E3_DEMO_BMW:
+            case STRINGHASH_BONUS_C6R:
+#ifndef EA_BUILD_A124
+                if (FEDatabase->GetCareerSettings()->HasBeatenCareer()) {
+                    return true;
+                }
+                break;
+#else
+                break;
+#endif
+            case STRINGHASH_BONUS_SL65:
+                if (FEDatabase->GetCareerSettings()->HasBeatenSpecialChallengeEvent()) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_BONUS_GT2:
+                if (FEDatabase->GetCareerSettings()->HasBeatenChallengeSeries()) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_CASTROLGT:
+                if (FEDatabase->GetCareerSettings()->HasBeenAwardedCastrolGT()) {
+                    return true;
+                }
+                break;
+            case STRINGHASH_CE_ELISE:
+            case STRINGHASH_CE_SL500:
+            case STRINGHASH_CE_SUPRA:
+            case STRINGHASH_CE_GTRSTREET:
+            case STRINGHASH_CE_C6R:
+            case STRINGHASH_CE_GT2:
+            case STRINGHASH_CE_CAMARO:
+            case STRINGHASH_CE_CORVETTE:
+            case STRINGHASH_CE_997S:
+            case STRINGHASH_CE_SL65:
+                if (GetIsCollectorsEdition()) {
+                    return true;
+                }
+                break;
+        }
+        return false;
+    }
+
+    return answer;
+}
+#else
 bool QuickRaceUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car, int player) {
     bool answer = AllThingsUnlocked();
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(player);
     FECarRecord *fe_car = stable->GetCarRecordByHandle(car);
     Attrib::Gen::frontend CarAttribs(fe_car->FEKey, 0, nullptr);
+#ifdef EA_BUILD_A124
+    answer |= (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
+    return answer;
+#else
     if (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin()) {
         answer = true;
     } else {
@@ -178,72 +430,72 @@ bool QuickRaceUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car, i
     } else if (fe_car->MatchesFilter(0xF0008)) {
         switch (fe_car->Handle) {
             case 0x965F:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 2) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 1) {
                     break;
                 }
                 return true;
             case 0x9660:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 3) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 2) {
                     break;
                 }
                 return true;
             case 0x9661:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 4) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 3) {
                     break;
                 }
                 return true;
             case 0x9662:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 5) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 4) {
                     break;
                 }
                 return true;
             case 0x9663:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 6) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 5) {
                     break;
                 }
                 return true;
             case 0x9664:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 7) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 6) {
                     break;
                 }
                 return true;
             case 0x9665:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 8) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 7) {
                     break;
                 }
                 return true;
             case 0x9666:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 9) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 8) {
                     break;
                 }
                 return true;
             case 0x13624E:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 10) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 9) {
                     break;
                 }
                 return true;
             case 0x13624F:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 11) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 10) {
                     break;
                 }
                 return true;
             case 0x136250:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 12) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 11) {
                     break;
                 }
                 return true;
             case 0x136251:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 13) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 12) {
                     break;
                 }
                 return true;
             case 0x136252:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 14) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 13) {
                     break;
                 }
                 return true;
             case 0x136253:
-                if (FEDatabase->GetCareerSettings()->GetCurrentBin() >= 15) {
+                if (FEDatabase->GetCareerSettings()->GetCurrentBin() > 14) {
                     break;
                 }
                 return true;
@@ -288,40 +540,105 @@ bool QuickRaceUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car, i
         return false;
     }
     return answer;
+#endif
 }
+#endif
 
 bool QuickRaceUnlocker::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level, int player) {
     bool answer = false;
     return answer;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|= wrapper),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool OnlineUnlocker::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, bool backroom) {
+    bool answer = false;
+#ifdef FIX_BUGS
+    answer |= QuickRaceUnlocker::IsUnlockableUnlocked(filter, ent, level, 0, backroom);
+#else
+    answer |= QuickRaceUnlocker::IsUnlockableUnlocked(filter, ent, level, backroom, 0);
+#endif
+    return answer;
+}
+#else
 bool OnlineUnlocker::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, bool backroom) {
     bool answer;
     answer = QuickRaceUnlocker::IsUnlockableUnlocked(filter, ent, level, backroom, false);
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|= wrapper),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool OnlineUnlocker::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, bool backroom) {
+    bool answer = false;
+#ifdef FIX_BUGS
+    answer |= QuickRaceUnlocker::IsCarPartUnlocked(filter, carslot, part, 0, backroom);
+#else
+    answer |= QuickRaceUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom, 0);
+#endif
+    return answer;
+}
+#else
 bool OnlineUnlocker::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, bool backroom) {
     bool answer;
     answer = QuickRaceUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom, false);
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|= wrapper),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool OnlineUnlocker::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, bool backroom) {
+    bool answer = false;
+#ifdef FIX_BUGS
+    answer |= QuickRaceUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, 0, backroom);
+#else
+    answer |= QuickRaceUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom, 0);
+#endif
+    return answer;
+}
+#else
 bool OnlineUnlocker::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, bool backroom) {
     bool answer;
     answer = QuickRaceUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom, false);
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|= UnlockAllThings),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool OnlineUnlocker::IsTrackUnlocked(eUnlockFilters filter, int event_hash) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    answer = answer | GRaceDatabase::Get().CheckRaceScoreFlags(event_hash, GRaceDatabase::kUnlocked_QuickRace);
+    answer = answer | GRaceDatabase::Get().CheckRaceScoreFlags(event_hash, GRaceDatabase::kUnlocked_Online);
+    return answer;
+}
+#else
 bool OnlineUnlocker::IsTrackUnlocked(eUnlockFilters filter, int event_hash) {
     bool answer = AllThingsUnlocked();
     answer = answer | GRaceDatabase::Get().CheckRaceScoreFlags(event_hash, GRaceDatabase::kUnlocked_QuickRace);
     answer = answer | GRaceDatabase::Get().CheckRaceScoreFlags(event_hash, GRaceDatabase::kUnlocked_Online);
     return answer;
 }
+#endif
 
 bool OnlineUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car) {
+#ifdef EA_BUILD_A124
+    bool answer = AllThingsUnlocked();
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+    FECarRecord *fe_car = stable->GetCarRecordByHandle(car);
+    Attrib::Gen::frontend CarAttribs(fe_car->FEKey, 0, nullptr);
+    answer |= (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
+    return answer;
+#else
     return QuickRaceUnlocker::IsCarUnlocked(filter, car, 0);
+#endif
 }
 
 bool OnlineUnlocker::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level) {
@@ -329,43 +646,110 @@ bool OnlineUnlocker::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntit
     return answer;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (GetCareerSettings()->HasBeatenCareer),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool CareerUnlocker::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, bool backroom) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+#ifndef EA_BUILD_A124
+    answer |= FEDatabase->GetCareerSettings()->HasBeatenCareer();
+#endif
+    answer |= (level <= TheUnlockData[ent].CareerUnlockLevel);
+    answer |= FEDatabase->GetUserProfile(0)->CareerModeHasBeenCompletedAtLeastOnce;
+    if (backroom) {
+        answer |= (level <= TheUnlockData[ent].CareerUnlockLevel + 1);
+        if (TheUnlockData[ent].CareerUnlockLevel == gMaxPartLevels[ent]) {
+            answer |= (level <= 7);
+        }
+    }
+    return answer;
+}
+#else
 bool CareerUnlocker::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity ent, int level, bool backroom) {
     bool answer = AllThingsUnlocked();
+#ifndef EA_BUILD_A124
     answer = answer | FEDatabase->GetUserProfile(0)->GetCareer()->HasBeatenCareer();
+#endif
     answer |= (level <= TheUnlockData[ent].CareerUnlockLevel);
     answer = answer | FEDatabase->GetUserProfile(0)->CareerModeHasBeenCompletedAtLeastOnce;
 
-    if (!backroom)
-        return answer;
-
-    answer |= (level <= TheUnlockData[ent].CareerUnlockLevel + 1);
-
-    if (TheUnlockData[ent].CareerUnlockLevel != gMaxPartLevels[ent])
-        return answer;
-
-    answer |= (level <= 7);
+    if (backroom) {
+        answer |= (level <= TheUnlockData[ent].CareerUnlockLevel + 1);
+        if (TheUnlockData[ent].CareerUnlockLevel == gMaxPartLevels[ent]) {
+            answer |= (level <= 7);
+        }
+    }
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|=),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool CareerUnlocker::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, bool backroom) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    answer |= (part->GetUpgradeLevel() == 0);
+    answer |= CareerUnlocker::IsUnlockableUnlocked(filter, MapCarPartToUnlockable(carslot, part), part->GetUpgradeLevel(), backroom);
+    return answer;
+}
+#else
 bool CareerUnlocker::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, bool backroom) {
     bool answer = AllThingsUnlocked();
     answer |= (part->GetUpgradeLevel() == 0);
     return (answer != 0) |
            (CareerUnlocker::IsUnlockableUnlocked(filter, MapCarPartToUnlockable(carslot, part), part->GetUpgradeLevel(), backroom) != 0);
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|=),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool CareerUnlocker::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, bool backroom) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    answer |= CareerUnlocker::IsUnlockableUnlocked(filter, MapPerfPkgToUnlockable(pkg_type), level, backroom);
+    return answer;
+}
+#else
 bool CareerUnlocker::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, bool backroom) {
     bool answer = AllThingsUnlocked();
     answer = static_cast<bool>(answer | CareerUnlocker::IsUnlockableUnlocked(filter, MapPerfPkgToUnlockable(pkg_type), level, backroom));
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|=),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool CareerUnlocker::IsTrackUnlocked(eUnlockFilters filter, int event_hash) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    answer |= GRaceDatabase::Get().IsCareerRaceUnlocked(event_hash);
+    return answer;
+}
+#else
 bool CareerUnlocker::IsTrackUnlocked(eUnlockFilters filter, int event_hash) {
     bool answer = AllThingsUnlocked();
     answer = answer | GRaceDatabase::Get().IsCareerRaceUnlocked(event_hash);
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|= directo),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool CareerUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car) {
+    bool answer = false;
+    answer |= UnlockAllThings;
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+    FECarRecord *fe_car = stable->GetCarRecordByHandle(car);
+    Attrib::Gen::frontend CarAttribs(fe_car->FEKey, 0, nullptr);
+    answer |= (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
+    return answer;
+}
+#else
 bool CareerUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car) {
     bool answer = AllThingsUnlocked();
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
@@ -374,37 +758,37 @@ bool CareerUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car) {
     answer = answer | (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
     return answer;
 }
+#endif
 
-static inline bool BackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level) {
-    return CareerUnlocker::IsBackroomAvailable(filter, ent, level) != 0;
-}
-
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (switch + |= + return final),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
 bool CareerUnlocker::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level) {
     bool answer = false;
     FEMarkerManager::ePossibleMarker marker = FEMarkerManager::MARKER_NONE;
     switch (ent) {
         case UNLOCKABLE_THING_CUSTOMIZE_PARTS:
-            answer = BackroomAvailable(filter, UNLOCKABLE_THING_BODY_KIT, level);
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_SPOILERS, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_RIM_BRANDS, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_HOODS, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_ROOF_SCOOPS, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_CUSTOM_HUD, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_RIM_BRAND_5_ZIGEN, level));
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_BODY_KIT, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_SPOILERS, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_RIM_BRANDS, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_HOODS, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_ROOF_SCOOPS, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_CUSTOM_HUD, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_RIM_BRAND_5_ZIGEN, level);
             break;
         case UNLOCKABLE_THING_CUSTOMIZE_PERFORMANCE:
-            answer = BackroomAvailable(filter, UNLOCKABLE_THING_PUT_TIRES, level);
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_BRAKES, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_CHASSIS, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_TRANSMISSION, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_ENGINE, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_INDUCTION, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_NOS, level));
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_TIRES, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_BRAKES, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_CHASSIS, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_TRANSMISSION, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_ENGINE, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_INDUCTION, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_NOS, level);
             break;
         case UNLOCKABLE_THING_CUSTOMIZE_VISUAL:
-            answer = BackroomAvailable(filter, UNLOCKABLE_THING_PAINT_METALLIC, level);
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_VINYLS_GROUP_FLAME, level));
-            answer = static_cast<bool>(answer) | static_cast<bool>(CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_DECAL_WINDSHIELD, level));
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PAINT_METALLIC, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_VINYLS_GROUP_FLAME, level);
+            answer |= CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_DECAL_WINDSHIELD, level);
             break;
         case UNLOCKABLE_THING_PUT_TIRES:
             marker = FEMarkerManager::MARKER_TIRES;
@@ -490,88 +874,306 @@ bool CareerUnlocker::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntit
         default:
             return false;
     }
-    return static_cast<bool>(answer) | static_cast<bool>(TheFEMarkerManager.IsMarkerAvailable(marker, 0));
+    answer |= TheFEMarkerManager.IsMarkerAvailable(marker, 0);
+    return answer;
 }
+#else
+bool CareerUnlocker::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level) {
+    bool answer = false;
+    FEMarkerManager::ePossibleMarker marker = FEMarkerManager::MARKER_NONE;
+    switch (ent) {
+        case UNLOCKABLE_THING_CUSTOMIZE_PARTS:
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_BODY_KIT, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_SPOILERS, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_RIM_BRANDS, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_HOODS, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_ROOF_SCOOPS, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_CUSTOM_HUD, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_RIM_BRAND_5_ZIGEN, level);
+            break;
+        case UNLOCKABLE_THING_CUSTOMIZE_PERFORMANCE:
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_TIRES, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_BRAKES, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_CHASSIS, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_TRANSMISSION, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_ENGINE, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_INDUCTION, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PUT_NOS, level);
+            break;
+        case UNLOCKABLE_THING_CUSTOMIZE_VISUAL:
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_THING_PAINT_METALLIC, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_VINYLS_GROUP_FLAME, level);
+            answer = answer | CareerUnlocker::IsBackroomAvailable(filter, UNLOCKABLE_DECAL_WINDSHIELD, level);
+            break;
+        case UNLOCKABLE_THING_PUT_TIRES:
+            marker = FEMarkerManager::MARKER_TIRES;
+            break;
+        case UNLOCKABLE_THING_PUT_BRAKES:
+            marker = FEMarkerManager::MARKER_BRAKES;
+            break;
+        case UNLOCKABLE_THING_PUT_CHASSIS:
+            marker = FEMarkerManager::MARKER_CHASSIS;
+            break;
+        case UNLOCKABLE_THING_PUT_TRANSMISSION:
+            marker = FEMarkerManager::MARKER_TRANSMISSION;
+            break;
+        case UNLOCKABLE_THING_PUT_ENGINE:
+            marker = FEMarkerManager::MARKER_ENGINE;
+            break;
+        case UNLOCKABLE_THING_PUT_INDUCTION:
+            marker = FEMarkerManager::MARKER_INDUCTION;
+            break;
+        case UNLOCKABLE_THING_PUT_NOS:
+            marker = FEMarkerManager::MARKER_NOS;
+            break;
+        case UNLOCKABLE_THING_BODY_KIT:
+            marker = FEMarkerManager::MARKER_BODY;
+            break;
+        case UNLOCKABLE_THING_SPOILERS:
+            marker = FEMarkerManager::MARKER_SPOILER;
+            break;
+        case UNLOCKABLE_THING_HOODS:
+            marker = FEMarkerManager::MARKER_HOOD;
+            break;
+        case UNLOCKABLE_THING_ROOF_SCOOPS:
+            marker = FEMarkerManager::MARKER_ROOF_SCOOP;
+            break;
+        case UNLOCKABLE_THING_CUSTOM_HUD:
+            marker = FEMarkerManager::MARKER_CUSTOM_HUD;
+            break;
+        case UNLOCKABLE_THING_PAINT_METALLIC:
+        case UNLOCKABLE_THING_PAINT_PEARL:
+        case UNLOCKABLE_THING_PAINT_GLOSS:
+        case UNLOCKABLE_THING_PAINT_STOCK:
+        case UNLOCKABLE_THING_PAINTABLE_BODY:
+            marker = FEMarkerManager::MARKER_PAINT;
+            break;
+        case UNLOCKABLE_THING_RIM_BRANDS:
+        case UNLOCKABLE_THING_RIM_BRAND_5_ZIGEN:
+        case UNLOCKABLE_THING_RIM_BRAND_ADR:
+        case UNLOCKABLE_THING_RIM_BRAND_BBS:
+        case UNLOCKABLE_THING_RIM_BRAND_ENKEI:
+        case UNLOCKABLE_THING_RIM_BRAND_KONIG:
+        case UNLOCKABLE_THING_RIM_BRAND_LOWENHART:
+        case UNLOCKABLE_THING_RIM_BRAND_RACING_HART:
+        case UNLOCKABLE_THING_RIM_BRAND_OZ:
+        case UNLOCKABLE_THING_RIM_BRAND_VOLK:
+        case UNLOCKABLE_THING_RIM_BRAND_ROJA:
+            marker = FEMarkerManager::MARKER_RIMS;
+            break;
+        case UNLOCKABLE_VINYLS_GROUP_FLAME:
+        case UNLOCKABLE_VINYLS_GROUP_TRIBAL:
+        case UNLOCKABLE_VINYLS_GROUP_STRIPE:
+        case UNLOCKABLE_VINYLS_GROUP_RACING_FLAG:
+        case UNLOCKABLE_VINYLS_GROUP_NATIONAL_FLAG:
+        case UNLOCKABLE_VINYLS_GROUP_BODY:
+        case UNLOCKABLE_VINYLS_GROUP_UNIQUE:
+        case UNLOCKABLE_VINYLS_GROUP_CONTEST:
+            marker = FEMarkerManager::MARKER_VINYL;
+            break;
+        case UNLOCKABLE_DECAL_WINDSHIELD:
+        case UNLOCKABLE_DECAL_REAR_WINDOW:
+        case UNLOCKABLE_DECAL_LEFT_DOOR:
+        case UNLOCKABLE_DECAL_RIGHT_DOOR:
+        case UNLOCKABLE_DECAL_LEFT_QP:
+        case UNLOCKABLE_DECAL_RIGHT_QP:
+        case UNLOCKABLE_DECAL_HOOD:
+        case UNLOCKABLE_DECAL_SLOT_1:
+        case UNLOCKABLE_DECAL_SLOT_2:
+        case UNLOCKABLE_DECAL_SLOT_3:
+        case UNLOCKABLE_DECAL_SLOT_4:
+        case UNLOCKABLE_DECAL_SLOT_5:
+        case UNLOCKABLE_DECAL_SLOT_6:
+            marker = FEMarkerManager::MARKER_DECAL;
+            break;
+        default:
+            return false;
+    }
+    return answer | TheFEMarkerManager.IsMarkerAvailable(marker, 0);
+}
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (primer branch asigna (desensamblado)),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool UnlockSystem::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity thing, int level, int player, bool backroom) {
+    if (UnlockAllThings)
+        return true;
+    bool answer = false;
+    if (filter & UNLOCK_QUICK_RACE) {
+        answer = QuickRaceUnlocker::IsUnlockableUnlocked(filter, thing, level, player, backroom);
+    }
+    if (filter & UNLOCK_CAREER_MODE) {
+        answer |= CareerUnlocker::IsUnlockableUnlocked(filter, thing, level, backroom);
+    }
+    if (filter & UNLOCK_ONLINE) {
+        answer |= OnlineUnlocker::IsUnlockableUnlocked(filter, thing, level, backroom);
+    }
+    return answer;
+}
+#else
 bool UnlockSystem::IsUnlockableUnlocked(eUnlockFilters filter, eUnlockableEntity thing, int level, int player, bool backroom) {
     if (UnlockAllThings)
         return true;
     bool answer = false;
     if (filter & 1) {
-        answer = static_cast<bool>(answer | QuickRaceUnlocker::IsUnlockableUnlocked(filter, thing, level, player, backroom));
+        answer = (answer != 0) | (QuickRaceUnlocker::IsUnlockableUnlocked(filter, thing, level, player, backroom) != 0);
     }
     if (filter & 2) {
-        answer = static_cast<bool>(answer | CareerUnlocker::IsUnlockableUnlocked(filter, thing, level, backroom));
+        answer = (answer != 0) | (CareerUnlocker::IsUnlockableUnlocked(filter, thing, level, backroom) != 0);
     }
     if (filter & 4) {
-        answer = static_cast<bool>(answer | OnlineUnlocker::IsUnlockableUnlocked(filter, thing, level, backroom));
+        answer = (answer != 0) | (OnlineUnlocker::IsUnlockableUnlocked(filter, thing, level, backroom) != 0);
     }
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|=),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool UnlockSystem::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, int player, bool backroom) {
+    if (UnlockAllThings)
+        return true;
+    bool answer = false;
+    if (filter & UNLOCK_QUICK_RACE) {
+        answer |= QuickRaceUnlocker::IsCarPartUnlocked(filter, carslot, part, player, backroom);
+    }
+    if (filter & UNLOCK_CAREER_MODE) {
+        answer |= CareerUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom);
+    }
+    if (filter & UNLOCK_ONLINE) {
+        answer |= OnlineUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom);
+    }
+    return answer;
+}
+#else
 bool UnlockSystem::IsCarPartUnlocked(eUnlockFilters filter, int carslot, CarPart *part, int player, bool backroom) {
     if (UnlockAllThings)
         return true;
     bool answer = false;
     if (filter & 1) {
-        answer = static_cast<bool>(answer | QuickRaceUnlocker::IsCarPartUnlocked(filter, carslot, part, player, backroom));
+        answer = (answer != 0) | (QuickRaceUnlocker::IsCarPartUnlocked(filter, carslot, part, player, backroom) != 0);
     }
     if (filter & 2) {
-        answer = static_cast<bool>(answer | CareerUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom));
+        answer = (answer != 0) | (CareerUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom) != 0);
     }
     if (filter & 4) {
-        answer = static_cast<bool>(answer | OnlineUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom));
+        answer = (answer != 0) | (OnlineUnlocker::IsCarPartUnlocked(filter, carslot, part, backroom) != 0);
     }
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (primer branch asigna (desensamblado)),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool UnlockSystem::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, int player, bool backroom) {
+    if (UnlockAllThings)
+        return true;
+    bool answer = false;
+    if (filter & UNLOCK_QUICK_RACE) {
+        answer = QuickRaceUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, player, backroom);
+    }
+    if (filter & UNLOCK_CAREER_MODE) {
+        answer |= CareerUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom);
+    }
+    if (filter & UNLOCK_ONLINE) {
+        answer |= OnlineUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom);
+    }
+    return answer;
+}
+#else
 bool UnlockSystem::IsPerfPackageUnlocked(eUnlockFilters filter, Physics::Upgrades::Type pkg_type, int level, int player, bool backroom) {
     if (UnlockAllThings)
         return true;
     bool answer = false;
     if (filter & 1) {
-        answer = static_cast<bool>(answer | QuickRaceUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, player, backroom));
+        answer = (answer != 0) | (QuickRaceUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, player, backroom) != 0);
     }
     if (filter & 2) {
-        answer = static_cast<bool>(answer | CareerUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom));
+        answer = (answer != 0) | (CareerUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom) != 0);
     }
     if (filter & 4) {
-        answer = static_cast<bool>(answer | OnlineUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom));
+        answer = (answer != 0) | (OnlineUnlocker::IsPerfPackageUnlocked(filter, pkg_type, level, backroom) != 0);
     }
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (primer branch asigna (desensamblado)),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool UnlockSystem::IsTrackUnlocked(eUnlockFilters filter, int event_hash, int player) {
+    if (UnlockAllThings)
+        return true;
+    bool answer = false;
+    if (filter & UNLOCK_QUICK_RACE) {
+        answer = QuickRaceUnlocker::IsTrackUnlocked(filter, event_hash, player);
+    }
+    if (filter & UNLOCK_CAREER_MODE) {
+        answer |= CareerUnlocker::IsTrackUnlocked(filter, event_hash);
+    }
+    if (filter & UNLOCK_ONLINE) {
+        answer |= OnlineUnlocker::IsTrackUnlocked(filter, event_hash);
+    }
+    return answer;
+}
+#else
 bool UnlockSystem::IsTrackUnlocked(eUnlockFilters filter, int event_hash, int player) {
     if (UnlockAllThings)
         return true;
     bool answer = false;
     if (filter & 1) {
-        answer = static_cast<bool>(answer | QuickRaceUnlocker::IsTrackUnlocked(filter, event_hash, player));
+        answer = (answer != 0) | (QuickRaceUnlocker::IsTrackUnlocked(filter, event_hash, player) != 0);
     }
     if (filter & 2) {
-        answer = static_cast<bool>(answer | CareerUnlocker::IsTrackUnlocked(filter, event_hash));
+        answer = (answer != 0) | (CareerUnlocker::IsTrackUnlocked(filter, event_hash) != 0);
     }
     if (filter & 4) {
-        answer = static_cast<bool>(answer | OnlineUnlocker::IsTrackUnlocked(filter, event_hash));
+        answer = (answer != 0) | (OnlineUnlocker::IsTrackUnlocked(filter, event_hash) != 0);
     }
     return answer;
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (|= + CE&&IsBonusCarCEOnly),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool UnlockSystem::IsCarUnlocked(eUnlockFilters filter, unsigned int handle, int player) {
+    if (UnlockAllThings)
+        return true;
+    bool answer = false;
+    if (filter & UNLOCK_QUICK_RACE) {
+        answer |= QuickRaceUnlocker::IsCarUnlocked(filter, handle, player);
+    }
+    if (filter & UNLOCK_CAREER_MODE) {
+        answer |= CareerUnlocker::IsCarUnlocked(filter, handle);
+    }
+    if (filter & UNLOCK_ONLINE) {
+        answer |= OnlineUnlocker::IsCarUnlocked(filter, handle);
+    }
+    answer |= (GetIsCollectorsEdition() && UnlockSystem::IsBonusCarCEOnly(handle));
+    return answer;
+}
+#else
 bool UnlockSystem::IsCarUnlocked(eUnlockFilters filter, unsigned int handle, int player) {
     if (UnlockAllThings)
         return true;
     bool answer = false;
     if (filter & 1) {
-        answer = static_cast<bool>(answer | QuickRaceUnlocker::IsCarUnlocked(filter, handle, player));
+        answer = (answer != 0) | (QuickRaceUnlocker::IsCarUnlocked(filter, handle, player) != 0);
     }
     if (filter & 2) {
-        answer = static_cast<bool>(answer | CareerUnlocker::IsCarUnlocked(filter, handle));
+        answer = (answer != 0) | (CareerUnlocker::IsCarUnlocked(filter, handle) != 0);
     }
     if (filter & 4) {
-        answer = static_cast<bool>(answer | OnlineUnlocker::IsCarUnlocked(filter, handle));
+        answer = (answer != 0) | (OnlineUnlocker::IsCarUnlocked(filter, handle) != 0);
     }
-    return static_cast<bool>(answer | (GetIsCollectorsEdition() && UnlockSystem::IsBonusCarCEOnly(handle)));
+    answer = static_cast<bool>(answer | (GetIsCollectorsEdition() && UnlockSystem::IsBonusCarCEOnly(handle)));
+    return answer;
 }
+#endif
 
 bool UnlockSystem::IsBackroomAvailable(eUnlockFilters filter, eUnlockableEntity ent, int level) {
     bool answer = false;
@@ -720,7 +1322,7 @@ int UnlockSystem::GetPerfPackageCost(eUnlockFilters filter, Physics::Upgrades::T
             price = info->Cost;
         }
     }
-    return static_cast<int>(price);
+    return bFloatToInt(price);
 }
 
 int UnlockSystem::GetCarPartCost(eUnlockFilters filter, int carslot, CarPart *part, int player) {
@@ -732,13 +1334,15 @@ int UnlockSystem::GetCarPartCost(eUnlockFilters filter, int carslot, CarPart *pa
             price = info->Cost;
         }
     }
-    return static_cast<int>(price);
+    return bFloatToInt(price);
 }
 
 bool UnlockSystem::IsEventAvailable(unsigned int event_hash) {
+#ifndef EA_BUILD_A124
     if (event_hash == Attrib::StringHash32("99.1.1")) {
         return false;
     }
+#endif
     if (event_hash == Attrib::StringHash32("21.1.1") || event_hash == Attrib::StringHash32("21.2.1") ||
         event_hash == Attrib::StringHash32("21.2.2") || event_hash == Attrib::StringHash32("19.9.70")) {
         if (GetIsCollectorsEdition()) {
@@ -751,6 +1355,13 @@ bool UnlockSystem::IsEventAvailable(unsigned int event_hash) {
             return true;
         }
         return false;
+    }
+    return true;
+}
+
+bool UnlockSystem::IsBonusCarAvailable(unsigned int name_hash) {
+    if (IsBonusCarCEOnly(name_hash)) {
+        return GetIsCollectorsEdition();
     }
     return true;
 }
@@ -773,6 +1384,23 @@ bool UnlockSystem::IsBonusCarCEOnly(unsigned int name_hash) {
     }
 }
 
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (switch STRINGHASH_CE01..03),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+bool UnlockSystem::IsUnlockableAvailable(uint32 part_name_hash) {
+
+    switch (part_name_hash) {
+        case STRINGHASH_CE01:
+        case STRINGHASH_CE02:
+        case STRINGHASH_CE03:
+            if (GetIsCollectorsEdition()) {
+                return true;
+            }
+            return false;
+    }
+    return true;
+}
+#else
 bool UnlockSystem::IsUnlockableAvailable(unsigned int part_name_hash) {
     if (part_name_hash <= 0x13D0CA) {
         unsigned int collectors_edition_start = 0x13D0C8;
@@ -783,6 +1411,7 @@ bool UnlockSystem::IsUnlockableAvailable(unsigned int part_name_hash) {
     }
     return true;
 }
+#endif
 
 FEMarkerManager TheFEMarkerManager;
 
@@ -797,6 +1426,22 @@ void FEMarkerManager::Default() {
         OwnedMarkers[i].State = MARKER_STATE_NOT_OWNED;
     }
     ClearMarkersForLaterSelection();
+#ifdef EA_BUILD_A124
+    // La A124 empieza con cuatro marcadores para salir de la carcel.
+    AddMarkerToInventory(MARKER_GET_OUT_OF_JAIL, 0);
+    AddMarkerToInventory(MARKER_GET_OUT_OF_JAIL, 0);
+    AddMarkerToInventory(MARKER_GET_OUT_OF_JAIL, 0);
+    AddMarkerToInventory(MARKER_GET_OUT_OF_JAIL, 0);
+#endif
+}
+
+void FEMarkerManager::CheatToGetMarkers() {
+    for (int i = MARKER_FIRST; i <= MARKER_LAST; i++) {
+        if (i == MARKER_PINK_SLIP || i == MARKER_CASH) {
+            continue;
+        }
+        AddMarkerToInventory(static_cast<ePossibleMarker>(i), 0);
+    }
 }
 
 void FEMarkerManager::GetMarkerForLaterSelection(int index, ePossibleMarker &marker, int &param) {
@@ -838,8 +1483,12 @@ void FEMarkerManager::AddMarkerToInventory(ePossibleMarker marker, int param) {
 void FEMarkerManager::UtilizeMarker(ePossibleMarker marker, int param) {
     for (int i = 0; i < 63; i++) {
         if (OwnedMarkers[i].Marker == marker && OwnedMarkers[i].Param == param && OwnedMarkers[i].State == MARKER_STATE_OWNED) {
+#ifdef EA_BUILD_A124
+            OwnedMarkers[i].State = MARKER_STATE_USED;
+#else
             OwnedMarkers[i].Marker = MARKER_NONE;
             OwnedMarkers[i].State = MARKER_STATE_NOT_OWNED;
+#endif
             return;
         }
     }
@@ -957,6 +1606,96 @@ int FEMarkerManager::GetNumMarkers(ePossibleMarker marker, int param) {
     return count;
 }
 
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); las dos PS2 la tienen
+int FEMarkerManager::GetNumMarkers(CarPart *part) {
+    switch (part->GetPartID()) {
+    case CARPARTID_BODY:
+        return GetNumMarkers(MARKER_BODY, 0);
+    case CARPARTID_HOOD:
+        return GetNumMarkers(MARKER_HOOD, 0);
+    case CARPARTID_SPOILER:
+        return GetNumMarkers(MARKER_SPOILER, 0);
+    case CARPARTID_BRAKE:
+        return GetNumMarkers(MARKER_RIMS, 0);
+    case CARPARTID_WHEEL:
+        return GetNumMarkers(MARKER_RIMS, 0);
+    case CARPARTID_ROOF:
+        return GetNumMarkers(MARKER_ROOF_SCOOP, 0);
+    case CARPARTID_VINYL_PAINT:
+        return GetNumMarkers(MARKER_VINYL, part->GetPartNameHash());
+    case CARPARTID_PAINT:
+        return GetNumMarkers(MARKER_PAINT, 0);
+    }
+    return 0;
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); las dos PS2 la tienen
+int FEMarkerManager::GetNumMarkers(Physics::Upgrades::Type pkg_type) {
+    switch (pkg_type) {
+    case Physics::Upgrades::PUT_TIRES:
+        return GetNumMarkers(MARKER_TIRES, 0);
+    case Physics::Upgrades::PUT_BRAKES:
+        return GetNumMarkers(MARKER_BRAKES, 0);
+    case Physics::Upgrades::PUT_CHASSIS:
+        return GetNumMarkers(MARKER_CHASSIS, 0);
+    case Physics::Upgrades::PUT_TRANSMISSION:
+        return GetNumMarkers(MARKER_TRANSMISSION, 0);
+    case Physics::Upgrades::PUT_ENGINE:
+        return GetNumMarkers(MARKER_ENGINE, 0);
+    case Physics::Upgrades::PUT_INDUCTION:
+        return GetNumMarkers(MARKER_INDUCTION, 0);
+    case Physics::Upgrades::PUT_NOS:
+        return GetNumMarkers(MARKER_NOS, 0);
+    }
+    return 0;
+}
+
+#ifdef EA_PLATFORM_WIN32
+// forma del repo hermano dbalatoni13/nfsmw commit d1f7e2e (i < 21 / nullptr),
+// verificada contra SPEED_EXE_1_3 con el banco PC (ronda del 2026-10-10)
+FEMarkerManager::ePossibleMarker FEMarkerManager::ConvertBigBangMarkerAward(const char *marker_name, const char *partid) {
+    static struct {
+        const char *MarkerName;
+        const char *PartName;
+        FEMarkerManager::ePossibleMarker Marker;
+    } unlockType[21] = {
+        {"backroom", "brakes", FEMarkerManager::MARKER_BRAKES},
+        {"backroom", "chassis", FEMarkerManager::MARKER_CHASSIS},
+        {"backroom", "engine", FEMarkerManager::MARKER_ENGINE},
+        {"backroom", "induction", FEMarkerManager::MARKER_INDUCTION},
+        {"backroom", "nos", FEMarkerManager::MARKER_NOS},
+        {"backroom", "tires", FEMarkerManager::MARKER_TIRES},
+        {"backroom", "transmission", FEMarkerManager::MARKER_TRANSMISSION},
+        {"backroom", "bodykit", FEMarkerManager::MARKER_BODY},
+        {"backroom", "decals", FEMarkerManager::MARKER_DECAL},
+        {"backroom", "hood", FEMarkerManager::MARKER_HOOD},
+        {"backroom", "hud", FEMarkerManager::MARKER_CUSTOM_HUD},
+        {"backroom", "paint", FEMarkerManager::MARKER_PAINT},
+        {"backroom", "rims", FEMarkerManager::MARKER_RIMS},
+        {"backroom", "roofscoop", FEMarkerManager::MARKER_ROOF_SCOOP},
+        {"backroom", "spoiler", FEMarkerManager::MARKER_SPOILER},
+        {"backroom", "vinyls", FEMarkerManager::MARKER_VINYL},
+        {"add_impound_box", nullptr, FEMarkerManager::MARKER_ADD_IMPOUND_BOX},
+        {"cash_bonus", nullptr, FEMarkerManager::MARKER_CASH},
+        {"out_of_jail_free", nullptr, FEMarkerManager::MARKER_GET_OUT_OF_JAIL},
+        {"pink_slip", nullptr, FEMarkerManager::MARKER_PINK_SLIP},
+        {"release_car_from_impound", nullptr, FEMarkerManager::MARKER_IMPOUND_RELEASE},
+    };
+
+    for (int i = 0; i < 21; i++) {
+        if (bStrICmp(marker_name, unlockType[i].MarkerName) == 0) {
+            if (unlockType[i].PartName == nullptr) {
+                return unlockType[i].Marker;
+            }
+            if (bStrICmp(partid, unlockType[i].PartName) == 0) {
+                return unlockType[i].Marker;
+            }
+        }
+    }
+
+    return MARKER_NONE;
+}
+#else
 FEMarkerManager::ePossibleMarker FEMarkerManager::ConvertBigBangMarkerAward(const char *marker_name, const char *partid) {
     static struct {
         const char *MarkerName;
@@ -998,38 +1737,34 @@ FEMarkerManager::ePossibleMarker FEMarkerManager::ConvertBigBangMarkerAward(cons
 
     return MARKER_NONE;
 }
+#endif
 
 void FEMarkerManager::AwardMarker(Attrib::Gen::gameplay &inst, bool immediate_reward) {
     ePossibleMarker marker = ConvertBigBangMarkerAward(inst.RewardMarkerType(), inst.UpgradePartID());
     if (marker != MARKER_NONE) {
         int param = 0;
         if (immediate_reward) {
-            if (marker == MARKER_PINK_SLIP) {
-                goto award_pink_slip;
+            switch (marker) {
+                case MARKER_CASH:
+                    param = bFloatToInt(inst.CashReward());
+                    FEDatabase->GetCareerSettings()->AwardCash(param);
+                    break;
+                case MARKER_PINK_SLIP:
+                    param = FEngHashString("BL%d", FEDatabase->GetCareerSettings()->GetCurrentBin());
+                    FEDatabase->GetPlayerCarStable(0)->AwardRivalCar(param);
+                    break;
+                default:
+                    AddMarkerToInventory(marker, 0);
+                    break;
             }
-            if (marker != MARKER_CASH) {
-                goto add_inventory;
-            }
-            param = static_cast<int>(inst.CashReward());
-            FEDatabase->GetCareerSettings()->CurrentCash = FEDatabase->GetCareerSettings()->CurrentCash + param;
-            goto award_done;
-
-        award_pink_slip:
-            param = FEngHashString("BL%d", FEDatabase->GetCareerSettings()->GetCurrentBin());
-            FEDatabase->GetPlayerCarStable(0)->AwardRivalCar(param);
-            goto award_done;
-
-        add_inventory:
-            AddMarkerToInventory(marker, 0);
-
-        award_done:;
         } else {
-            if (marker != MARKER_PINK_SLIP) {
-                if (marker == MARKER_CASH) {
-                    param = static_cast<int>(inst.CashReward());
-                }
-            } else {
-                param = FEngHashString("BL%d", FEDatabase->GetCareerSettings()->GetCurrentBin());
+            switch (marker) {
+                case MARKER_CASH:
+                    param = bFloatToInt(inst.CashReward());
+                    break;
+                case MARKER_PINK_SLIP:
+                    param = FEngHashString("BL%d", FEDatabase->GetCareerSettings()->GetCurrentBin());
+                    break;
             }
             AddMarkerForLaterSelection(marker, param);
         }
@@ -1089,6 +1824,7 @@ void AwardUnlockUpgrade(Attrib::Gen::gameplay &inst) {
     int upgradeLevel = inst.UpgradeLevel();
     eUnlockableEntity entity = ConvertBigBangUpgradeAward(upgradePartID);
     if (entity != UNLOCKABLE_THING_UNKNOWN) {
+#ifndef EA_BUILD_A124
         if (entity == static_cast<eUnlockableEntity>(0x32)) {
             switch (upgradeLevel) {
             case 1:
@@ -1102,6 +1838,7 @@ void AwardUnlockUpgrade(Attrib::Gen::gameplay &inst) {
                 break;
             }
         }
+#endif
         UnlockUnlockableThing(entity, 2, upgradeLevel, "");
     }
 }

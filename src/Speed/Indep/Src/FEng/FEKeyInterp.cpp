@@ -20,14 +20,14 @@ void FEKeyInterp(FEScript *pScript, u8 TrackNum, i32 tTime, FEObject *pOutObj) {
     }
 }
 
-void FEKeyInterp(FEKeyTrack *pTrack, i32 tTime, void *pOutData) {
+void FEKeyInterp(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
     switch (pTrack->InterpType) {
         case 0:
-            FEInterpNone(pTrack, tTime, pOutData);
+            FEInterpNone(pTrack, tTime, pOutDataPtr);
             break;
         case 1:
         case 3:
-            FEInterpLinear(pTrack, tTime, pOutData);
+            FEInterpLinear(pTrack, tTime, pOutDataPtr);
             break;
         case 2:
         case 4:
@@ -36,18 +36,18 @@ void FEKeyInterp(FEKeyTrack *pTrack, i32 tTime, void *pOutData) {
     }
 }
 
-void FEKeyInterpFast(FEKeyTrack *pTrack, i32 tTime, void *pOutData) {
+void FEKeyInterpFast(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
     if (pTrack->InterpAction & 0x80) {
         return;
     }
 
     switch (pTrack->InterpType) {
         case 0:
-            FEInterpNone(pTrack, tTime, pOutData);
+            FEInterpNone(pTrack, tTime, pOutDataPtr);
             break;
         case 1:
         case 3:
-            FEInterpLinear(pTrack, tTime, pOutData);
+            FEInterpLinear(pTrack, tTime, pOutDataPtr);
             break;
         case 2:
         case 4:

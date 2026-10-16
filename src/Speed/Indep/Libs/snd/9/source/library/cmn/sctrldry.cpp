@@ -2,6 +2,8 @@
 
 int SNDCTRL_drylevel(int shandle, int level) {
     int setvoice;
+
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
 
     if (voice >= 0) {

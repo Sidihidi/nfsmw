@@ -9,7 +9,10 @@
 #include "Speed/Indep/Src/Speech/MiscSpeech.h"
 #include "Speed/Indep/Src/Speech/Observer.h"
 #include "Speed/Indep/Src/Speech/SoundAI.h"
-#include "Speed/Indep/Src/World/WRoadNetwork.h"
+// m1b 2026-10-13 (regresion zSpeech): fuera WRoadNetwork.h -- no se usa ni una linea de la clase en
+// este .cpp y su cadena de includes (WorldConn.h con DECLARE_WORLDPACKET/DECLARE_SIMPACKET) emitia
+// 12 statics `hash` + 12 guardas en .bss de zSpeech. El original no la parsea (sin "WorldConn" ni
+// "WRoadNetwork" en los stabs de la A124 de zSpeech).
 #include "Speed/Indep/Libs/Support/Utility/UCollections.h"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/Src/EAXSound/Stream/SpeechModule.hpp"
@@ -21,9 +24,9 @@ EAXCop::EAXCop(int speakerID, HSIMABLE handle, int bID, int cID)
       mT_closingDist(0), mOrigin(static_cast<RoadNames>(0x6B)), mCurrRoad(static_cast<RoadNames>(0x6B)), mTgtOffset(UMath::Vector3::kZero) {
     ISimable *simable = ISimable::FindInstance(handle);
     if (simable != nullptr) {
-        IVehicleAI *ivai;
-        if (simable->QueryInterface(&ivai)) {
-            WRoadNav *nav = ivai->GetDriveToNav();
+        IVehicleAI *vai;
+        if (simable->QueryInterface(&vai)) {
+            WRoadNav *nav = vai->GetDriveToNav();
             if (nav != nullptr) {
                 if (nav->GetRoadSpeechId() != 0x6B) {
                     mOrigin = static_cast<RoadNames>(nav->GetRoadSpeechId());
@@ -75,7 +78,11 @@ void EAXCop::Update() {
         SetTgtOffset(UMath::Vector3::kZero);
     }
     if (suspension != nullptr && mActive) {
+#ifdef EA_PLATFORM_WIN32
+        mPctTractiveTires = suspension->GetNumWheels() > 0 ? suspension->GetNumWheelsOnGround() / suspension->GetNumWheels() : 1.0f;
+#else
         mPctTractiveTires = suspension->GetNumWheels() != 0 ? suspension->GetNumWheelsOnGround() / suspension->GetNumWheels() : 1.0f;
+#endif
         if (mPctTractiveTires > 0.25f) {
             mTimeAirborne = WorldTimer;
         }
@@ -112,9 +119,9 @@ void EAXCop::Update() {
 bool EAXCop::SetRank(int newrank) {
     bool rval = false;
     if (newrank == 0 && mRank > 0) {
-        Csis::Setup_PrimaryEngageStruct data;
-        data.speaker_id = mSpeakerID;
-        SCHEDULE_SPEECH(Setup_PrimaryEngage, data, this);
+        Csis::Setup_PrimaryEngageStruct takeover;
+        takeover.speaker_id = mSpeakerID;
+        SCHEDULE_SPEECH(Setup_PrimaryEngage, takeover, this);
         Reset();
         rval = true;
     }
@@ -125,13 +132,13 @@ bool EAXCop::SetRank(int newrank) {
 void EAXCop::SwapVoices(EAXCop *cop) {
     int callsign = cop->GetCallsign();
     int unitnum = cop->GetUnitNumber();
-    int speaker = cop->GetSpeakerID();
+    int spkrID = cop->GetSpeakerID();
 
     cop->SetSpeakerID(mSpeakerID);
     cop->SetCallsign(mCallsign.name);
     cop->SetUnitNumber(mCallsign.number);
 
-    mSpeakerID = speaker;
+    mSpeakerID = spkrID;
     mCallsign.name = callsign;
     mCallsign.number = unitnum;
 }
@@ -162,32 +169,37 @@ void EAXCop::SetActive(bool activity) {
                 }
             } else {
                 float t_lastactivity = (WorldTimer - mT_lastactivity).GetSeconds();
-                if (t_lastactivity >= 2.0f) {
-                    int num_events_flushed = Speech::Manager::FlushSpeechForActor(this);
-                    if (mInFormation || mInPosition) {
-                        mT_lastactivity = WorldTimer;
-                        if (mTrafficHitCount > 1) {
-                            BailoutTraffic();
-                            mTrafficHitCount = 0;
-                            if (ai->GetPursuitState() == SoundAI::kActive || ai->GetPursuitState() == SoundAI::kSearching) {
-                                ai->RandomBailoutDeny(this);
-                            }
-                        } else if (IsHeli()) {
-                            Bailout();
-                        } else if (mDestroyed) {
-                            EAXCop *rand_cop = ai->FindClosestCop(true, true);
-                            if (rand_cop != nullptr) {
-                                rand_cop->UnitDisabled(rand_cop->GetSpeakerID() == GetSpeakerID() ? 0 : 1);
-                            } else {
-                                UnitDisabled(0);
-                            }
-                        } else if (mHealth < ai->GetTune().MinHealthForCommentary()) {
-                            HiBailout();
+                if (t_lastactivity < 2.0f) {
+                    return;
+                }
+                int num_events_flushed = Speech::Manager::FlushSpeechForActor(this);
+                if (mInFormation || mInPosition) {
+                    mT_lastactivity = WorldTimer;
+#ifdef EA_PLATFORM_WIN32
+                    if (mTrafficHitCount >= 2) {
+#else
+                    if (mTrafficHitCount > 1) {
+#endif
+                        BailoutTraffic();
+                        mTrafficHitCount = 0;
+                        if (ai->GetPursuitState() == SoundAI::kActive || ai->GetPursuitState() == SoundAI::kSearching) {
+                            ai->RandomBailoutDeny(this);
+                        }
+                    } else if (IsHeli()) {
+                        Bailout();
+                    } else if (mDestroyed) {
+                        EAXCop *rand_cop = ai->FindClosestCop(true, true);
+                        if (rand_cop != nullptr) {
+                            rand_cop->UnitDisabled(rand_cop->GetSpeakerID() == GetSpeakerID() ? 0 : 1);
                         } else {
-                            LoBailout();
-                            if (ai->GetPursuitState() == SoundAI::kActive || ai->GetPursuitState() == SoundAI::kSearching) {
-                                ai->RandomBailoutDeny(this);
-                            }
+                            UnitDisabled(0);
+                        }
+                    } else if (mHealth < ai->GetTune().MinHealthForCommentary()) {
+                        HiBailout();
+                    } else {
+                        LoBailout();
+                        if (ai->GetPursuitState() == SoundAI::kActive || ai->GetPursuitState() == SoundAI::kSearching) {
+                            ai->RandomBailoutDeny(this);
                         }
                     }
                 }
@@ -198,7 +210,11 @@ void EAXCop::SetActive(bool activity) {
 
 bool EAXCop::IsPrimary() {
     int speaker = mSpeakerID;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (speaker == 3 || speaker == 4 || speaker == 5 || speaker == 2 || speaker == 9) {
+#else
     if (static_cast<unsigned int>(speaker - 2) <= 3 || speaker == 9) {
+#endif
         return true;
     }
     return false;
@@ -225,11 +241,11 @@ void EAXCop::Collision(int collisionType, float force, EAXCop *spkr) {
     }
     switch (collisionType) {
         // El arbol del objetivo pivota en 0xb (nosotros en 0xc) y su subarbol
-        // izquierdo pivota en 4: son DOS nodos vacios, un RANGO contiguo (0..2,
+        // izquierdo pivota en 4: son DOS nodos vacios, un RANGO contiguo (1..2,
         // que resta 2 al indice del pivote) mas el `case 4` suelto (que resta 1).
         // 95,02% -> 100% (384 B). Un solo `case 4` deja el pivote en 0xc y el
-        // rango 0..4 se funde con el nodo 5.
-        case 0:
+        // rango 0..4 se funde con el nodo 5. No hay `case 0`: la tabla de saltos
+        // de las dos PS2 empieza en 1 (`addiu v1, a1, -1`).
         case 1:
         case 2:
             break;
@@ -275,7 +291,11 @@ void EAXCop::AttemptVehicleStop() {
     }
     Csis::Setup_AttmptVehStpStruct data;
     Speech::EventHistory &g_hist = Speech::Manager::GetHistory();
+#ifdef EA_BUILD_A124
+    if (mNumRammed > 0 && GetTimeLastRammed() < 10.0f) {
+#else
     if (ai->GetTimeLastNailedCop() < 5.0f) {
+#endif
         data.pursuit_type = Csis::Type_pursuit_type_Unit_Rammed;
     } else if (ai->GetLastInfraction() > 0) {
         switch (ai->GetLastInfraction()) {
@@ -361,6 +381,7 @@ void EAXCop::ReinitiatePursuit() {
     if (ai == nullptr) {
         return;
     }
+#ifndef EA_BUILD_A124
     if (ai->GetTimeSinceLastChase() < ai->GetTune().TimeConsideredLostNoLOS()) {
         if (IsAhead() != 0.0f) {
             Spotted();
@@ -369,12 +390,20 @@ void EAXCop::ReinitiatePursuit() {
         }
         return;
     }
+#endif
     Csis::Setup_ReInitPursuitStruct data;
+#ifdef EA_BUILD_A124
+    // La A124 siempre reanuda la persecucion y mide "hace poco" desde que se perdio de vista al sospechoso.
+    data.time_since_lost = ai->GetPerpLostTime() < ai->GetTune().PursuitInactivityTimer(0) + ai->GetTune().TimeConsideredLostNoLOS()
+                               ? Csis::Type_time_since_lost_lost_recently
+                               : Csis::Type_time_since_lost_lost_for_X_time;
+#else
     if (ai->GetTimeSinceLastChase() < 30.0f) {
         data.time_since_lost = Csis::Type_time_since_lost_lost_recently;
     } else {
         data.time_since_lost = Csis::Type_time_since_lost_lost_for_X_time;
     }
+#endif
     data.num_suspects = ai->AreRacersNearby() ? Csis::Type_num_suspects_multiple_suspects : Csis::Type_num_suspects_one_suspect;
     data.speaker_id = mSpeakerID;
     SCHEDULE_SPEECH(Setup_ReInitPursuit, data, this);
@@ -410,7 +439,10 @@ void EAXCop::VehicleReport() {
     } else {
         data.measurement = Csis::Type_measurement_imperial_only;
     }
-    while (ndx < 11 && speedo >= speed_test[ndx]) {
+    while (ndx < 11) {
+        if (speedo < speed_test[ndx]) {
+            break;
+        }
         ++ndx;
     }
     if (ndx == 0) {
@@ -470,8 +502,9 @@ void EAXCop::SelfStrategy(int type) {
     }
     Csis::Setup_SelfStrategyStruct data;
     switch (type) {
-    case 1:
-        switch ((int) bRandom(4)) {
+    case 1: {
+        int select = bRandom(4);
+        switch (select) {
         case 0:
             data.self_strategy_type = static_cast<Csis::Type_self_strategy_type>(0x20);
             break;
@@ -486,15 +519,21 @@ void EAXCop::SelfStrategy(int type) {
             break;
         }
         break;
+    }
     case 2:
     case 3:
-    case 6:
-        if (bRandom(1.0f) > 0.5f) {
-            data.self_strategy_type = static_cast<Csis::Type_self_strategy_type>(2);
-        } else {
-            data.self_strategy_type = static_cast<Csis::Type_self_strategy_type>(4);
-        }
+    case 6: {
+        int select = bRandom(1.0f) > 0.5f;
+            data.self_strategy_type = static_cast<Csis::Type_self_strategy_type>(select ? 2 : 4);
         break;
+    }
+#ifndef EA_PLATFORM_GAMECUBE
+    // PS2 y PC tienen estos casos (tabla de saltos de 1 a 7); GameCube no.
+    case 4:
+    case 5:
+    case 7:
+        return;
+#endif
     default:
         return;
     }
@@ -512,6 +551,17 @@ void EAXCop::CallforEV(unsigned int type) {
         return;
     }
     Csis::AnytimeEvents_CallForEVStruct data;
+#ifdef EA_PLATFORM_WIN32
+    if (type > 0) {
+        data.ev_type = static_cast<Csis::Type_ev_type>(type);
+    } else if (IsHeli()) {
+        data.ev_type = static_cast<Csis::Type_ev_type>(4);
+    } else if (ai->GetPursuit()->GetNumCopsDestroyed() <= 1) {
+        return;
+    } else {
+        data.ev_type = static_cast<Csis::Type_ev_type>(1);
+    }
+#else
     if (type != 0) {
         data.ev_type = static_cast<Csis::Type_ev_type>(type);
     } else if (IsHeli()) {
@@ -521,6 +571,7 @@ void EAXCop::CallforEV(unsigned int type) {
     } else {
         return;
     }
+#endif
     data.speaker_id = mSpeakerID;
     SCHEDULE_SPEECH(AnytimeEvents_CallForEV, data, this);
 }
@@ -604,51 +655,51 @@ void EAXCop::NegativeBackupReply() {
 }
 
 void EAXCop::InitiateStrategy(int type) {
-    Csis::RollingStrategy_InitStrategyStruct data;
-    data.code = GetRandomizedCode();
+    Csis::RollingStrategy_InitStrategyStruct init;
+    init.code = GetRandomizedCode();
     switch (type) {
     case E_BRAKE:
-        data.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(0x20);
+        init.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(0x20);
         break;
     case COORDINATED_E_BRAKE:
-        data.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(4);
+        init.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(4);
         break;
     case RAM:
-        data.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(2);
+        init.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(2);
         break;
     case CROSS_BRAKE:
-        data.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(0x10);
+        init.rolling_strategy_type = static_cast<Csis::Type_rolling_strategy_type>(0x10);
         break;
     case CROSS_PLUS_V_BLOCK:
         return;
     default:
         return;
     }
-    data.speaker_id = mSpeakerID;
-    SCHEDULE_SPEECH(RollingStrategy_InitStrategy, data, this);
+    init.speaker_id = mSpeakerID;
+    SCHEDULE_SPEECH(RollingStrategy_InitStrategy, init, this);
 }
 
 void EAXCop::CallToPosition(EAXCop *cop) {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    Csis::RollingStrategy_CallToPositionStruct data;
-    data.intensity = ai->IsHighIntensity() ? Csis::Type_intensity_High : Csis::Type_intensity_Normal;
-    data.speaker_id = mSpeakerID;
-    data.subject_battalion = static_cast<Csis::Type_subject_battalion>(cop->GetCallsign());
-    data.subject_call_sign_id = static_cast<Csis::Type_subject_call_sign_id>(cop->GetUnitNumber());
+    Csis::RollingStrategy_CallToPositionStruct call;
+    call.intensity = ai->IsHighIntensity() ? Csis::Type_intensity_High : Csis::Type_intensity_Normal;
+    call.speaker_id = mSpeakerID;
+    call.subject_battalion = static_cast<Csis::Type_subject_battalion>(cop->GetCallsign());
+    call.subject_call_sign_id = static_cast<Csis::Type_subject_call_sign_id>(cop->GetUnitNumber());
     float absz = UMath::Abs(mTgtOffset.z);
     if (UMath::Abs(mTgtOffset.x) > absz)
-        data.position = static_cast<Csis::Type_position>((mTgtOffset.x > 0.0f) ? 1 : 2);
+        call.position = static_cast<Csis::Type_position>((mTgtOffset.x > 0.0f) ? 1 : 2);
     else
-        data.position = static_cast<Csis::Type_position>((mTgtOffset.z > 0.0f) ? 4 : 8);
-    SCHEDULE_SPEECH(RollingStrategy_CallToPosition, data, this);
+        call.position = static_cast<Csis::Type_position>((mTgtOffset.z > 0.0f) ? 4 : 8);
+    SCHEDULE_SPEECH(RollingStrategy_CallToPosition, call, this);
 }
 
 void EAXCop::CallToPositionReminder() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    Csis::RollingStrategy_CallToPositionRemStruct data;
-    data.intensity = ai->IsHighIntensity() ? Csis::Type_intensity_High : Csis::Type_intensity_Normal;
-    data.speaker_id = mSpeakerID;
-    SCHEDULE_SPEECH(RollingStrategy_CallToPositionRem, data, this);
+    Csis::RollingStrategy_CallToPositionRemStruct reminder;
+    reminder.intensity = ai->IsHighIntensity() ? Csis::Type_intensity_High : Csis::Type_intensity_Normal;
+    reminder.speaker_id = mSpeakerID;
+    SCHEDULE_SPEECH(RollingStrategy_CallToPositionRem, reminder, this);
 }
 
 void EAXCop::StrategyExecute() {
@@ -934,12 +985,16 @@ void EAXCop::PursuitUpdateReply() {
 
 void EAXCop::Bailout() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai != nullptr && ai->GetPursuitDuration() >= ai->GetTune().MinPursuitDurationForBailouts()) {
-        Csis::AnytimeEvents_BailoutStruct data;
-        data.speaker_id = mSpeakerID;
-        data.bailout_type = static_cast<Csis::Type_bailout_type>(8);
-        SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
+    if (ai == nullptr) {
+        return;
     }
+    if (ai->GetPursuitDuration() < ai->GetTune().MinPursuitDurationForBailouts()) {
+        return;
+    }
+    Csis::AnytimeEvents_BailoutStruct data;
+    data.speaker_id = mSpeakerID;
+    data.bailout_type = static_cast<Csis::Type_bailout_type>(8);
+    SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
 }
 
 void EAXCop::DenyBailout() {
@@ -950,42 +1005,58 @@ void EAXCop::DenyBailout() {
 
 void EAXCop::LoBailout() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai != nullptr && ai->GetPursuitDuration() >= ai->GetTune().MinPursuitDurationForBailouts()) {
-        Csis::AnytimeEvents_BailoutStruct data;
-        data.speaker_id = mSpeakerID;
-        data.bailout_type = static_cast<Csis::Type_bailout_type>(1);
-        SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
+    if (ai == nullptr) {
+        return;
     }
+    if (ai->GetPursuitDuration() < ai->GetTune().MinPursuitDurationForBailouts()) {
+        return;
+    }
+    Csis::AnytimeEvents_BailoutStruct data;
+    data.speaker_id = mSpeakerID;
+    data.bailout_type = static_cast<Csis::Type_bailout_type>(1);
+    SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
 }
 
 void EAXCop::HiBailout() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai != nullptr && ai->GetPursuitDuration() >= ai->GetTune().MinPursuitDurationForBailouts()) {
-        Csis::AnytimeEvents_BailoutStruct data;
-        data.speaker_id = mSpeakerID;
-        data.bailout_type = static_cast<Csis::Type_bailout_type>(0x10);
-        SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
+    if (ai == nullptr) {
+        return;
     }
+    if (ai->GetPursuitDuration() < ai->GetTune().MinPursuitDurationForBailouts()) {
+        return;
+    }
+    Csis::AnytimeEvents_BailoutStruct data;
+    data.speaker_id = mSpeakerID;
+    data.bailout_type = static_cast<Csis::Type_bailout_type>(0x10);
+    SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
 }
 
 void EAXCop::BailoutBadRoad() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai != nullptr && ai->GetPursuitDuration() >= ai->GetTune().MinPursuitDurationForBailouts()) {
-        Csis::AnytimeEvents_BailoutStruct data;
-        data.speaker_id = mSpeakerID;
-        data.bailout_type = static_cast<Csis::Type_bailout_type>(4);
-        SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
+    if (ai == nullptr) {
+        return;
     }
+    if (ai->GetPursuitDuration() < ai->GetTune().MinPursuitDurationForBailouts()) {
+        return;
+    }
+    Csis::AnytimeEvents_BailoutStruct data;
+    data.speaker_id = mSpeakerID;
+    data.bailout_type = static_cast<Csis::Type_bailout_type>(4);
+    SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
 }
 
 void EAXCop::BailoutTraffic() {
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
-    if (ai != nullptr && ai->GetPursuitDuration() >= ai->GetTune().MinPursuitDurationForBailouts()) {
-        Csis::AnytimeEvents_BailoutStruct data;
-        data.speaker_id = mSpeakerID;
-        data.bailout_type = static_cast<Csis::Type_bailout_type>(2);
-        SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
+    if (ai == nullptr) {
+        return;
     }
+    if (ai->GetPursuitDuration() < ai->GetTune().MinPursuitDurationForBailouts()) {
+        return;
+    }
+    Csis::AnytimeEvents_BailoutStruct data;
+    data.speaker_id = mSpeakerID;
+    data.bailout_type = static_cast<Csis::Type_bailout_type>(2);
+    SCHEDULE_SPEECH(AnytimeEvents_Bailout, data, this);
 }
 
 void EAXCop::CallForRB() {
@@ -1028,13 +1099,13 @@ void EAXCop::RBApproach() {
     if (ai == nullptr) {
         return;
     }
-    IRoadBlock *roadblock = ai->GetRoadblock();
-    if (roadblock == nullptr) {
+    IRoadBlock *block = ai->GetRoadblock();
+    if (block == nullptr) {
         return;
     }
     Csis::StaticRoadblock_RBApproachStruct data;
     data.speaker_id = mSpeakerID;
-    data.roadblock_type = static_cast<Csis::Type_roadblock_type>(roadblock->GetNumSpikeStrips() > 0 ? 2 : 1);
+    data.roadblock_type = static_cast<Csis::Type_roadblock_type>(block->GetNumSpikeStrips() > 0 ? 2 : 1);
     SCHEDULE_SPEECH(StaticRoadblock_RBApproach, data, this);
 }
 

@@ -42,7 +42,7 @@ class CDActionTrackCop : public CameraAI::Action, public IAttachable, public ITr
     CameraMover *GetMover() override {
         return mMover;
     }
-    void SetSpecial(float scale) override {}
+    void SetSpecial(float val) override {}
     bool Attach(UTL::COM::IUnknown *pOther) override {
         return mAttachments->Attach(pOther);
     }
@@ -110,7 +110,7 @@ CDActionTrackCop::CDActionTrackCop(CameraAI::Director *director, IPlayer *player
     mAttachments = new Sim::Attachments(this);
     Attach(mPlayer);
 
-    int render_pov = 1;
+    bool render_pov = true;
     CameraMover *prev = director->GetMover();
     if (prev) {
         render_pov = prev->OutsidePOV();

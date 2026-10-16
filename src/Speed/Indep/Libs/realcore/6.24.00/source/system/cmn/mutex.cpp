@@ -18,11 +18,14 @@ RealSystem::Mutex::Mutex() {
 // cuenta de bloqueos por hilo, con las interrupciones cortadas alrededor.
 
 // total size: 0x10
+// Las dos cuentas las comparten los hilos y el manejador del temporizador: el original las relee de memoria despues de
+// cada escritura y de cada DI() (Unlock guarda mnLockCount y lo vuelve a cargar; Lock lo relee tras comparar
+// mnThreadId), y no lo hace con mSemaphore ni con mnThreadId. Con las cuatro volatile Lock/Unlock dejan de casar.
 struct MutexPrivate {
-    int mSemaphore;  // offset 0x0, size 0x4
-    int mnThreadId;  // offset 0x4, size 0x4
-    int mnLockCount; // offset 0x8, size 0x4
-    int mnWaitCount; // offset 0xC, size 0x4
+    int mSemaphore;           // offset 0x0, size 0x4
+    int mnThreadId;           // offset 0x4, size 0x4
+    volatile int mnLockCount; // offset 0x8, size 0x4
+    volatile int mnWaitCount; // offset 0xC, size 0x4
 };
 
 // realcore/source/system/ps2 (inittmr.cpp): distinto de cero dentro del

@@ -169,7 +169,7 @@ class ArrayScroller {
     void AddSlot(ArraySlot *slot);
 
     void AddDatum(ArrayDatum *datum);
-
+  private:
     void SetSelection(ArrayDatum *newDatum, int newStartDatum);
 
     void SetSelectionAsOffScreen();
@@ -181,7 +181,7 @@ class ArrayScroller {
     void ScrollVer(enum eScrollDir dir);
 
     void UpdateScrollbar();
-
+  public:
     ArraySlot *GetSlotAt(int index);
 
     ArrayDatum *GetDatumAt(int index);
@@ -216,7 +216,12 @@ class ArrayScroller {
 
     int GetStartDatumNum() { return startDatum; }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // speed.exe 0x510680 and X360 0x822589F8: PC and 360 count from 0
+    int GetCurrentDatumNum() { return data.GetNodeNumber(currentDatum) - 1; }
+#else
     int GetCurrentDatumNum() { return data.GetNodeNumber(currentDatum); }
+#endif
 
     int GetNumDatum() { return data.CountElements(); }
 
@@ -293,6 +298,15 @@ class ImageArraySlot : public ArraySlot {
     ~ImageArraySlot() override {}
     void Update(ArrayDatum *datum, bool isSelected) override;
     void SetTexture(unsigned int tex_hash);
+};
+
+// total size: 0x14
+class StringArraySlot : public ArraySlot {
+  public:
+    StringArraySlot(FEString *str);
+    ~StringArraySlot() override {}
+    void SetNameHash(unsigned int name_hash);
+    void Update(ArrayDatum *datum, bool isSelected) override;
 };
 
 #endif

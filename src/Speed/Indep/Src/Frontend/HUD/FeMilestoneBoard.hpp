@@ -21,6 +21,7 @@ class MilestoneBoard_Milestone {
 class MilestoneBoard : public HudElement, public IMilestoneBoard {
   public:
     MilestoneBoard(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~MilestoneBoard() override {}
     void Update(IPlayer *player) override;
     void SetInPursuit(bool inPursuit) override {
         mInPursuit = inPursuit;
@@ -28,8 +29,8 @@ class MilestoneBoard : public HudElement, public IMilestoneBoard {
     void SetChallengeSeries(bool challenge) override {
         mChallengeSeries = challenge;
     };
-    void SetNumberOfMilestones(int num) override {
-        mNumMilestones = num;
+    void SetNumberOfMilestones(int numMilestones) override {
+        mNumMilestones = numMilestones;
     };
     void SetMilestoneIconHash(int milestoneNum, int hash) override {
         mMilestones[milestoneNum].mMilestoneIconHash = hash;

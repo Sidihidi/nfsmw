@@ -11,8 +11,8 @@ int FILE_exists(const char *name) {
     return FILESYS_existssync(name, 100);
 }
 
-static int filesizeatom(int priority, void *arg) {
-    int filehandle = FILESYS_opensync(*(char **)arg, 1, priority);
+static int filesizeatom(int priority, void *userdata) {
+    int filehandle = FILESYS_opensync(*(char **)userdata, 1, priority);
 
     if (filehandle != 0) {
         int filesize = FILESYS_sizesync(filehandle, priority - 1);

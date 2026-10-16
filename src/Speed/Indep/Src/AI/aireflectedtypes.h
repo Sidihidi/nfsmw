@@ -2,6 +2,7 @@
 #define _aireflectedtypes_h_
 
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
+#include "Speed/Indep/Src/Misc/attribuserinclude.h"
 
 enum FormationType {
     PIT = 1,

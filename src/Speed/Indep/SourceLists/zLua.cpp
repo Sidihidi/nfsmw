@@ -1,3 +1,21 @@
+// Prefijo comun de las unidades de juego del original (como zFEng.cpp): en la A124 los 402 primeros tipos de
+// los stabs son los mismos en todas, y la .rodata empieza por las cadenas de bWare.hpp.
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/Support/Utility/UStandard.h"
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UCollections.h"
+
+// datos-gc 2026-10-14: en la CU original los tres primeros estaticos dinamicos
+// ajenos a los hash de WorldConn son MGeneric (_.tmp_0), MAudioReflection (_13)
+// y VehicleParams::TypeName (_14); sin ellos MNISComplete y las demas guardas
+// duenyas del slice (_15.._18, _26, _27) caen tres numeros antes. Solo GameCube
+// (contador _.tmp_ del slice), como los prefijos de zWorld/zMain.
+#ifdef EA_PLATFORM_GAMECUBE
+#include "Speed/Indep/Src/Generated/Messages/MGeneric.h"
+#include "Speed/Indep/Src/Generated/Messages/MAudioReflection.h"
+#include "Speed/Indep/Src/Physics/PVehicle.h"
+#endif
+
 #include "Speed/Indep/Src/Lua/LuaRuntime.cpp"
 
 #include "Speed/Indep/Src/Lua/LuaPostOffice.cpp"

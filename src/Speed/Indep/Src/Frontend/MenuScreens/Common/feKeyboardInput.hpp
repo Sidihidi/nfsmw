@@ -51,7 +51,9 @@ class KeyboardEditString {
     void Enable() {
         mEnabled = true;
     }
-    void Disable() {}
+    void Disable() {
+        mEnabled = false;
+    }
     void NotifyChar(int keycode);
     void ProcessHotkeys(int keycode);
     void CursorLeft();
@@ -60,14 +62,27 @@ class KeyboardEditString {
     void CursorEnd();
     void GetStringForDisplay(char *buffer, int size);
     void RevertToOriginalString();
+#ifdef EA_BUILD_A124
+    // La A124 edita la cadena de 8 bits y la devuelve en linea (ReturnPressed: bStrLen de gKeyboardManager + 0x100).
+    char *GetEditedString() {
+        return EditString;
+    }
+#else
     void SyncEditIntoPacked();
     char *GetEditedString();
+#endif
 
   private:
     char InitialString[256];              // offset 0x0, size 0x100
+#ifdef EA_BUILD_A124
+    // Sin UCS2 en la A124 (stabs: KeyboardEditString de 0x218).
+    char EditString[256];                 // offset 0x100, size 0x100
+    int CursorPos;                        // offset 0x200, size 0x4
+#else
     uint16 EditStringUCS2[256];           // offset 0x100, size 0x200
     int CursorPosUCS2;                    // offset 0x300, size 0x4
     char EditStringPacked[256];           // offset 0x304, size 0x100
+#endif
     uint32 ModeFlags;                     // offset 0x404, size 0x4
     int KeysProcessed;                    // offset 0x408, size 0x4
     int MaxTextLength;                    // offset 0x40C, size 0x4

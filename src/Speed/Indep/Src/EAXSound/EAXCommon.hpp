@@ -28,7 +28,9 @@ struct EAXCommon {
     virtual int Play(void *peventst);
     virtual void Update(void *peventst);
     virtual void *GetEventPointer(int neventindex);
+  private:
     void MsgPlayMiscSound(const MMiscSound &msg);
+  public:
     void Reset();
 };
 

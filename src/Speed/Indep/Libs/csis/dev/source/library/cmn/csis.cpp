@@ -3,11 +3,25 @@
 #ifdef EA_PLATFORM_GAMECUBE
 #include <dolphin/os/OSMutex.h>
 #endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include <eekernel.h>
+#endif
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/PC/Src/Win32Min.hpp"
+#endif
 
 #include <csis/csis.h>
 #include "csisi.h"
 
 namespace Csis {
+
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x831304/0x8313F3/0x8314E4): Valid se llama como funcion libre
+// estatica de dos argumentos (handle, 0); en las demas plataformas es miembro.
+#define CSIS_VALID(cls, handle) cls::Valid(handle, 0)
+#else
+#define CSIS_VALID(cls, handle) (handle)->Valid()
+#endif
 
 bool gIsAllocSet = false;
 EA::Allocator::IAllocator *gpAllocator = NULL;
@@ -17,13 +31,22 @@ bool gIsCoreAllocatorCreated = false;
 bool gIsInited = false;
 static short gUniqueKeyId = 0;
 CListDStack gSystems;
+#ifdef EA_PLATFORM_PLAYSTATION2
+int gMutexLocks;
+int gMutexHandle;
+int gMutexOwner;
+#elif defined(EA_PLATFORM_WIN32)
+// PC: un mutex de Win32 (speed.exe 0x8319CB, 0x831029, 0x83103A: CreateMutexA, WaitForSingleObject, ReleaseMutex).
+HANDLE gMutexHandle;
+#else
 OSMutex gMutexHandle;
+#endif
 
 struct NullAllocatorFlags : public EA::TagValuePair {
     NullAllocatorFlags() {
         mTag = 0;
-        mNext = NULL;
         mValue.mInt = 0;
+        mNext = NULL;
     }
 };
 
@@ -188,6 +211,25 @@ Result FunctionHandle::SetFast(const InterfaceId *pInterfaceId) {
     return SetHandle(this, pInterfaceId, static_cast<FunctionDesc *>(NULL), 0x14, 0xA);
 }
 
+#ifdef EA_PLATFORM_WIN32
+Result FunctionHandle::Valid(FunctionHandle *pHandle, int line) {
+    InterfaceHandleData *pInterfaceHandleData = reinterpret_cast<InterfaceHandleData *>(pHandle);
+
+    if (pInterfaceHandleData->mKey < 0) {
+        return static_cast<Result>(pInterfaceHandleData->mKey);
+    }
+    if (pInterfaceHandleData->mpPrivate == NULL) {
+        return RESULT_ERR_UNINITIALIZED;
+    }
+    FunctionDesc *pFunctionDesc = reinterpret_cast<FunctionDesc *>(pInterfaceHandleData->mpPrivate);
+    if (pInterfaceHandleData->mKey != pFunctionDesc->u.key) {
+        pInterfaceHandleData->mpPrivate = NULL;
+        pInterfaceHandleData->mKey = RESULT_ERR_HANDLEEXPIRED;
+        return RESULT_ERR_HANDLEEXPIRED;
+    }
+    return RESULT_OK;
+}
+#else
 Result FunctionHandle::Valid() {
     if (this->mKey < 0) {
         return static_cast<Result>(this->mKey);
@@ -196,6 +238,8 @@ Result FunctionHandle::Valid() {
     pFunctionDesc = reinterpret_cast<FunctionDesc *>(this->mpPrivate);
     return ValidHandle(this, pFunctionDesc);
 }
+
+#endif
 
 ClassHandle::ClassHandle() {
     this->mKey = RESULT_ERR_HANDLEEXPIRED;
@@ -214,6 +258,25 @@ Result ClassHandle::SetFast(const InterfaceId *pInterfaceId) {
     return SetHandle(this, pInterfaceId, static_cast<FunctionDesc *>(NULL), 0x18, 0xC);
 }
 
+#ifdef EA_PLATFORM_WIN32
+Result ClassHandle::Valid(ClassHandle *pHandle, int line) {
+    InterfaceHandleData *pInterfaceHandleData = reinterpret_cast<InterfaceHandleData *>(pHandle);
+
+    if (pInterfaceHandleData->mKey < 0) {
+        return static_cast<Result>(pInterfaceHandleData->mKey);
+    }
+    if (pInterfaceHandleData->mpPrivate == NULL) {
+        return RESULT_ERR_UNINITIALIZED;
+    }
+    FunctionDesc *pClassDesc = reinterpret_cast<FunctionDesc *>(pInterfaceHandleData->mpPrivate);
+    if (pInterfaceHandleData->mKey != pClassDesc->u.key) {
+        pInterfaceHandleData->mpPrivate = NULL;
+        pInterfaceHandleData->mKey = RESULT_ERR_HANDLEEXPIRED;
+        return RESULT_ERR_HANDLEEXPIRED;
+    }
+    return RESULT_OK;
+}
+#else
 Result ClassHandle::Valid() {
     if (this->mKey < 0) {
         return static_cast<Result>(this->mKey);
@@ -223,10 +286,31 @@ Result ClassHandle::Valid() {
     return ValidHandle(this, pClassDesc);
 }
 
+#endif
+
 Result GlobalVariableHandle::SetFast(const InterfaceId *pInterfaceId) {
     return SetHandle(this, pInterfaceId, static_cast<GlobalVariableDesc *>(NULL), 0x1C, 0xE);
 }
 
+#ifdef EA_PLATFORM_WIN32
+Result GlobalVariableHandle::Valid(GlobalVariableHandle *pHandle, int line) {
+    InterfaceHandleData *pInterfaceHandleData = reinterpret_cast<InterfaceHandleData *>(pHandle);
+
+    if (pInterfaceHandleData->mKey < 0) {
+        return static_cast<Result>(pInterfaceHandleData->mKey);
+    }
+    if (pInterfaceHandleData->mpPrivate == NULL) {
+        return RESULT_ERR_UNINITIALIZED;
+    }
+    GlobalVariableDesc *pGlobalVariableDesc = reinterpret_cast<GlobalVariableDesc *>(pInterfaceHandleData->mpPrivate);
+    if (pInterfaceHandleData->mKey != pGlobalVariableDesc->u.key) {
+        pInterfaceHandleData->mpPrivate = NULL;
+        pInterfaceHandleData->mKey = RESULT_ERR_HANDLEEXPIRED;
+        return RESULT_ERR_HANDLEEXPIRED;
+    }
+    return RESULT_OK;
+}
+#else
 Result GlobalVariableHandle::Valid() {
     if (this->mKey < 0) {
         return static_cast<Result>(this->mKey);
@@ -235,6 +319,8 @@ Result GlobalVariableHandle::Valid() {
     pGlobalVariableDesc = reinterpret_cast<GlobalVariableDesc *>(this->mpPrivate);
     return ValidHandle(this, pGlobalVariableDesc);
 }
+
+#endif
 
 void ClassData::SendParameters(Parameter *pParameters) {
     FunctionClient *pClient = reinterpret_cast<FunctionClient *>(this->mUpdateClients.GetHead());
@@ -248,7 +334,7 @@ void ClassData::SendParameters(Parameter *pParameters) {
 
 inline short GenerateUniqueKeyId() {
     gUniqueKeyId++;
-    if (gUniqueKeyId & 0x8000) {
+    if (gUniqueKeyId < 0) {
         gUniqueKeyId = 1;
     }
     return gUniqueKeyId;
@@ -297,19 +383,58 @@ Result System::Init() {
         gpAllocator = IAllocatorToICoreAdaptor::CreateInstance(gpCoreAllocator);
         gIsAllocatorCreated = true;
     }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    static SemaParam semaParam;
+
+    semaParam.maxCount = 20;
+    semaParam.initCount = 1;
+    gMutexOwner = -1;
+    gMutexHandle = CreateSema(&semaParam);
+#elif defined(EA_PLATFORM_WIN32)
+    gMutexHandle = CreateMutexA(NULL, FALSE, NULL);
+#else
     OSInitMutex(&gMutexHandle);
+#endif
     gSystems.Reset();
     gIsInited = true;
     return RESULT_OK;
 }
 
 Result System::Lock() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int threadID = GetThreadId();
+
+    if (gMutexOwner != threadID) {
+        WaitSema(gMutexHandle);
+        gMutexOwner = threadID;
+    }
+    gMutexLocks++;
+#elif defined(EA_PLATFORM_WIN32)
+    WaitForSingleObject(gMutexHandle, INFINITE);
+#else
     OSLockMutex(&gMutexHandle);
+#endif
     return RESULT_OK;
 }
 
 Result System::Unlock() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int threadID = GetThreadId();
+
+    if (gMutexOwner == threadID) {
+        gMutexLocks--;
+        if (gMutexLocks == 0) {
+            gMutexOwner = -1;
+        }
+    }
+    if (gMutexLocks <= 0) {
+        SignalSema(gMutexHandle);
+    }
+#elif defined(EA_PLATFORM_WIN32)
+    ReleaseMutex(gMutexHandle);
+#else
     OSUnlockMutex(&gMutexHandle);
+#endif
     return RESULT_OK;
 }
 
@@ -373,7 +498,7 @@ Result Function::Call(FunctionHandle *pFunctionHandle, void *pParameters) {
 }
 
 Result Function::CallFast(FunctionHandle *pFunctionHandle, void *pParameters) {
-    Result result = pFunctionHandle->Valid();
+    Result result = CSIS_VALID(FunctionHandle, pFunctionHandle);
     FunctionDesc *pFunctionDesc;
     FunctionClient *pClient;
 
@@ -403,7 +528,7 @@ Result Function::Subscribe(FunctionHandle *pFunctionHandle, FunctionClient *pFun
 }
 
 Result Function::SubscribeFast(FunctionHandle *pFunctionHandle, FunctionClient *pFunctionClient) {
-    Result result = pFunctionHandle->Valid();
+    Result result = CSIS_VALID(FunctionHandle, pFunctionHandle);
     FunctionDesc *pFunctionDesc;
 
     if (result >= 0) {
@@ -415,7 +540,7 @@ Result Function::SubscribeFast(FunctionHandle *pFunctionHandle, FunctionClient *
 }
 
 Result Function::UnsubscribeFast(FunctionHandle *pFunctionHandle, FunctionClient *pFunctionClient) {
-    Result result = pFunctionHandle->Valid();
+    Result result = CSIS_VALID(FunctionHandle, pFunctionHandle);
     FunctionDesc *pFunctionDesc;
 
     if (result >= 0) {
@@ -441,7 +566,7 @@ Result Class::CreateInstanceFast(ClassHandle *pClassHandle, void *pMemberData, C
     Result result;
 
     *ppClass = NULL;
-    result = pClassHandle->Valid();
+    result = CSIS_VALID(ClassHandle, pClassHandle);
     if (result < 0) {
         return result;
     }
@@ -507,7 +632,7 @@ Result Class::SetMemberDataFast(void *pMemberData) {
 }
 
 Result Class::SubscribeConstructorFast(ClassHandle *pClassHandle, ClassConstructorClient *pClient) {
-    Result result = pClassHandle->Valid();
+    Result result = CSIS_VALID(ClassHandle, pClassHandle);
     FunctionDesc *pClassDesc;
 
     if (result >= 0) {
@@ -528,7 +653,7 @@ Result Class::UnsubscribeConstructor(ClassHandle *pClassHandle, ClassConstructor
 }
 
 Result Class::UnsubscribeConstructorFast(ClassHandle *pClassHandle, ClassConstructorClient *pClient) {
-    Result result = pClassHandle->Valid();
+    Result result = CSIS_VALID(ClassHandle, pClassHandle);
     FunctionDesc *pClassDesc;
 
     if (result >= 0) {
@@ -604,7 +729,7 @@ Result Class::UnsubscribeMemberDataFast(MemberDataClient *pClient) {
 }
 
 Result GlobalVariable::SetFast(GlobalVariableHandle *pHandle, void *pGlobalVariable) {
-    Result result = pHandle->Valid();
+    Result result = CSIS_VALID(GlobalVariableHandle, pHandle);
     GlobalVariableDesc *pGlobalVariableDesc;
     FunctionClient *pClient;
 
@@ -626,7 +751,7 @@ Result GlobalVariable::SetFast(GlobalVariableHandle *pHandle, void *pGlobalVaria
 }
 
 Result GlobalVariable::SubscribeFast(GlobalVariableHandle *pHandle, GlobalVariableClient *pClient) {
-    Result result = pHandle->Valid();
+    Result result = CSIS_VALID(GlobalVariableHandle, pHandle);
     GlobalVariableDesc *pGlobalVariableDesc;
 
     if (result >= 0) {
@@ -639,7 +764,7 @@ Result GlobalVariable::SubscribeFast(GlobalVariableHandle *pHandle, GlobalVariab
 }
 
 Result GlobalVariable::UnsubscribeFast(GlobalVariableHandle *pHandle, GlobalVariableClient *pClient) {
-    Result result = pHandle->Valid();
+    Result result = CSIS_VALID(GlobalVariableHandle, pHandle);
     GlobalVariableDesc *pGlobalVariableDesc;
 
     if (result >= 0) {

@@ -10,7 +10,11 @@
 
 // total size: 0xA0
 // Decl: 15
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class EAX_HeliState : public UTL::Collections::Listable<EAX_HeliState, 20> {
+#else
 class EAX_HeliState : public UTL::Collections::Listable<EAX_HeliState, 10> {
+#endif
   public:
     static EAX_HeliState *Find(WUID objectid) {} // Decl: 17
 

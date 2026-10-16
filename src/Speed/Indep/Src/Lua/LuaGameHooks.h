@@ -156,7 +156,9 @@ bool Game_AllowEngageSafehouse();
 void Game_SetHasRapSheet();
 void Game_SetWorldHeat(float heat);
 bool Game_SetTimeOfDay(GRuntimeInstance *timeOfDayInstance);
+#ifndef EA_BUILD_A124
 void Game_ReloadWorld(GRuntimeInstance *worldInstance);
+#endif
 void Game_PreventPlayerBeingBusted();
 bool Game_DoSpecialSetup(GRuntimeInstance *activityInstance);
 void Game_DoSpecialFinalization(GRuntimeInstance *activityInstance);

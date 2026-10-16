@@ -20,9 +20,9 @@ void EShowMessageScreen_MakeEvent_Callback(const void *staticData) {
     new EShowMessageScreen(((EShowMessageScreen::StaticData *) staticData)->fID);
 }
 
-int EShowMessageScreen_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EShowMessageScreen((unsigned int) lua_tonumber(L, 1));
+int EShowMessageScreen_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EShowMessageScreen((unsigned int) lua_tonumber(luaState, 1));
     }
     return 0;
 }

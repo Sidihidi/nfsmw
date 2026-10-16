@@ -144,6 +144,11 @@ class TrackPathManager {
         Clear();
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Las PS2 lo destruyen al salir (_GLOBAL_$D de zTrack): un destructor vacio que si existe.
+    ~TrackPathManager() {}
+#endif
+
     int Loader(bChunk *chunk);
     int Unloader(bChunk *chunk);
     void Clear();

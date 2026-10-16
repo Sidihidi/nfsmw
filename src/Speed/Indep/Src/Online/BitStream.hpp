@@ -15,7 +15,7 @@ class BitStream {
     void AddBits(uint32 value, int num_bits);
     void GetBits(uint32 &value, int num_bits);
     uint32 GetBits(int num_bits) {
-        uint32 temp;
+        uint32 temp = 0;
         GetBits(temp, num_bits);
         return temp;
     }

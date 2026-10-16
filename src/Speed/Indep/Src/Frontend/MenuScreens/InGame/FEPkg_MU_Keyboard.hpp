@@ -112,59 +112,14 @@ class FEKeyboard : public MenuScreen {
     u32 mnDeclineHash;             // offset 0x330, size 0x4
     MODE mnMode;                   // offset 0x334, size 0x4
 
+#ifndef EA_BUILD_A124 // la A124 no tiene la ventana de texto: su FEKeyboard mide 0x338 (stabs y new de CreateFEKeyboard)
     static const int WindowSize;     // size: 0x4, address: 0xFFFFFFFF
     static const int WindowSkipSize; // size: 0x4, address: 0xFFFFFFFF
     int mnWindowStartIdx;            // offset 0x338, size 0x4
     FEString *mpCursorTestString;    // offset 0x33C, size 0x4
     char mDisplayString[31];         // offset 0x340, size 0x1F
+#endif
 };
-
-const FEColor FEKeyboard::ButtonHighlight(0xC8CFE9F2); // size: 0x10, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:87
-
-const FEColor FEKeyboard::LetterHighlight(0xFFFFFFFF); // size: 0x10, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:88
-
-const FEColor
-    FEKeyboard::ButtonIdle(0x50549AC0); // size: 0x10, address: 0x80473048, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:89
-
-const FEColor
-    FEKeyboard::LetterIdle(0xFF323232); // size: 0x10, address: 0x80473058, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:90
-
-const char FEKeyboard::mLetterMap[8][2][45] = {
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
-     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
-    {{0xFA, 0xF9, 0xFB, 0xFC, 0xDF, 0xA1, 0xBF, 0,    0,    0,    0,    0,    0,    0,    0,    0xE1, 0xE0, 0xE2, 0xE5, 0xE4, 0xE6, 0xE7, 0xE9,
-      0xE8, 0xEA, 0xEB, 0,    0,    0,    0,    0xED, 0xEC, 0xEE, 0xEF, 0xF1, 0xF8, 0xF3, 0xF2, 0xF4, 0xF6, 0x9C, 0,    0,    0,    0},
-     {0xDA, 0xD9, 0xDB, 0xDC, 0, 0, 0, 0,    0,    0,    0,    0,    0,    0,    0,    0xC1, 0xC0, 0xC2, 0xC5, 0xC4, 0xC6, 0xC7, 0xC9,
-      0xC8, 0xCA, 0xCB, 0,    0, 0, 0, 0xCD, 0xCC, 0xCE, 0xCF, 0xD1, 0xD8, 0xD3, 0xD2, 0xD4, 0xD6, 0,    0,    0,    0,    0}}};
-; // size: 0x2D0, address: 0x803E59E5, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:106
-
-const char mEmailSymbols[45] = {}; // size: 0x2D, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:107
 
 extern Timer KBCreationTimer;
 

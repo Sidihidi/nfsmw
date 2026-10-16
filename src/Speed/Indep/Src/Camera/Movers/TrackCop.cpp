@@ -9,22 +9,6 @@
 #include "Speed/Indep/Src/Misc/Point.hpp"
 #include "Speed/Indep/Src/AI/AITarget.h"
 
-// Inlined tCubic1D::tCubic1D(short type, float dur) ctor (Spline.hpp is shared; replicated here).
-static inline void TrackCopCubic1DInit(tCubic1D *cubic, short type, float dur) {
-    cubic->duration = dur;
-    cubic->state = 0;
-    cubic->flags = type;
-    cubic->Val = 0.0f;
-    cubic->dVal = 0.0f;
-    cubic->ValDesired = 0.0f;
-    cubic->dValDesired = 0.0f;
-    cubic->time = 0.0f;
-    cubic->Coeff[0] = 0.0f;
-    cubic->Coeff[1] = 0.0f;
-    cubic->Coeff[2] = 0.0f;
-    cubic->Coeff[3] = 0.0f;
-}
-
 // Original bMath.hpp has bAngToDeg(unsigned short) = angle * (360/65536); the shared header's
 // signature differs, so the conversion is replicated here.
 static inline float TrackCopAngToDeg(unsigned short angle) {
@@ -67,13 +51,10 @@ TrackCopCameraMover::TrackCopCameraMover(int nView, CameraAnchor *pCar, bool foc
       CarToFollow(pCar),
       ZoomSplineParam(0.0f),
       EyeSplineParam(0.0f),
-      LookSplineParam(0.0f) {
-    TrackCopCubic1DInit(&FocalDistCubic, 1, 1.0f);
-
-    FocusEffects = focus_effects;
-
-    bRenderCarPOV = 1;
-
+      LookSplineParam(0.0f),
+      FocalDistCubic(1, 1.0f),
+      FocusEffects(focus_effects),
+      bRenderCarPOV(1) {
     Init();
 }
 
@@ -120,11 +101,7 @@ bool TrackCopCameraMover::FindPursuitVehiclePosition(bVector3 *copPos) {
 
             IPursuitAI *p_pursuitai;
             if (p_car->QueryInterface(&p_pursuitai) && p_pursuitai != NULL) {
-                if (p_pursuitai->GetInPursuit()) {
-                    if (p_pursuitai->GetTimeSinceTargetSeen() > 0.0f) {
-                        continue;
-                    }
-
+                if (p_pursuitai->GetInPursuit() && p_pursuitai->GetTimeSinceTargetSeen() <= 0.0f) {
                     UMath::Vector3 upos = p_car->GetPosition();
 
                     bVector3 bpos;
@@ -151,7 +128,10 @@ bool TrackCopCameraMover::FindPursuitVehiclePosition(bVector3 *copPos) {
 
 void TrackCopCameraMover::Init() {
     TrackCopCameraMover_IdleSim = 1;
+#ifndef EA_BUILD_A124
+    // La A124 no esconde el HUD aqui: su Init mide 4 bytes menos que el de SLUS y no tiene la llamada.
     HideEverySingleHud();
+#endif
 
     bCopy(&EyeVerts.v0, pCamera->GetPosition(), 0.0f);
     bCopy(&EyeVerts.v1, pCamera->GetPosition(), 0.0f);
@@ -321,6 +301,10 @@ void TrackCopCameraMover::Update(float dT) {
     bVector3 hcomp;
     bCross(&hcomp, &displacement, &up);
     bScale(&hcomp, &hcomp, vert_comp);
+    // Las dos PS2 suman x e y de hcomp a Look (el producto de la VU0 no se pliega). En GameCube -ffast-math
+    // pliega hcomp a cero y la suma no deja codigo, pero sin ella cambia el orden de los stfs.
+    Look.x += hcomp.x;
+    Look.y += hcomp.y;
 
     bVector3 look_offset;
     look_offset.x = 0.0f;

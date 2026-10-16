@@ -26,7 +26,6 @@ class MQuitToFrontEnd : public Hermes::Message {
 
     MQuitToFrontEnd() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MQuitToFrontEnd() {}
 };
 
 
@@ -34,9 +33,9 @@ class MQuitToFrontEnd : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MQuitToFrontEnd::HandleMessage_LuaBinding(const MQuitToFrontEnd &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MQuitToFrontEnd::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

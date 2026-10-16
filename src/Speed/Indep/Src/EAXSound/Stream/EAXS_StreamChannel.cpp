@@ -9,9 +9,9 @@ void EAXS_StreamChannel::InitParams(EAXS_StreamManager *pstrmmgr) {
     this->m_SChP.StrmState = STRM_UNINIT;
     this->m_SChP.StrmType = STYPE_NONE;
 
-    for (int i = 0; i < 16; i++) {
-        this->m_SChP.StrmOffsets[i] = -1;
-        this->m_SChP.StrmStartTicks[i] = 0;
+    for (int n = 0; n < 16; n++) {
+        this->m_SChP.StrmOffsets[n] = -1;
+        this->m_SChP.StrmStartTicks[n] = 0;
     }
 
     this->m_SChP.StrmRequests = 0;

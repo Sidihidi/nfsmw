@@ -99,7 +99,10 @@ bool WTrigger::HasEvent(unsigned int eventID, const CARP::EventStaticData **foun
 }
 
 bool WTrigger::TestDirection(const UMath::Vector3 &vec) const {
-    return UMath::Dot(UMath::Vector4To3(this->fMatRow2Length), vec) >= 0.0f;
+    if (UMath::Dot(UMath::Vector4To3(this->fMatRow2Length), vec) < 0.0f) {
+        return false;
+    }
+    return true;
 }
 
 void WTrigger::UpdateBox(const UMath::Matrix4 &mat, const UMath::Vector3 &dimension) {
@@ -273,7 +276,7 @@ void WTriggerManager::ProcessSRB(IRigidBody *srBody, float dT) {
 // UNSOLVED
 bool WTriggerManager::CheckCollideRB(const IRigidBody *rBody, const WTrigger *trig, float dT) const {
     const float rbRadius = rBody->GetRadius();
-    const float rbRadiusPlusVel = rBody->GetSpeed() * dT + rbRadius;
+    const float rbRadiusPlusVel = rbRadius + rBody->GetSpeed() * dT;
     UMath::Vector3 rPos;
     UMath::Vector3 cp;
 
@@ -285,55 +288,57 @@ bool WTriggerManager::CheckCollideRB(const IRigidBody *rBody, const WTrigger *tr
     UMath::Add(rBody->GetPosition(), dP, rPos);
 
     if (trig->fShape == 2) {
-        if (UMath::DistanceSquare(cp, rPos) <= radsSq) {
-            if (trig->fFlags & 0x800) {
-                if (!trig->TestDirection(rBody->GetLinearVelocity())) {
-                    return false;
-                }
-            }
-            return true;
+        if (UMath::DistanceSquare(cp, rPos) > radsSq) {
+            return false;
         }
+        if (trig->fFlags & 0x800) {
+            if (!trig->TestDirection(rBody->GetLinearVelocity())) {
+                return false;
+            }
+        }
+        return true;
     } else {
-        if (UMath::DistanceSquarexz(cp, rPos) <= radsSq) {
-            if (trig->fFlags & 0x800) {
-                if (!trig->TestDirection(rBody->GetLinearVelocity())) {
-                    return false;
-                }
-            }
-            if (trig->fShape == 3) {
-                if ((rPos.y + rbRadius >= trig->fPosRadius.y - trig->fHeight * 0.5f) &&
-                    (rPos.y - rbRadius < trig->fPosRadius.y + trig->fHeight * 0.5f)) {
-                    return true;
-                }
-                return false;
-            } else if (trig->fShape == 1) {
-                UMath::Vector3 dim3;
-                UMath::Matrix4 bodyMat;
-                rBody->GetDimension(dim3);
-                rBody->GetMatrix4(bodyMat);
-
-                Dynamics::Collision::Geometry carOBB(bodyMat, rPos, dim3, Dynamics::Collision::Geometry::BOX, dP);
-
-                UMath::Matrix4 m;
-                trig->MakeMatrix(m, false, false);
-
-                UMath::Vector4 trigPos = trig->fPosRadius;
-                trigPos.w = 1.0f;
-
-                UMath::Vector3 trigDimension;
-                trigDimension.x = trig->fMatRow0Width.w * 0.5f;
-                trigDimension.y = trig->fHeight * 0.5f;
-                trigDimension.z = trig->fMatRow2Length.w * 0.5f;
-
-                Dynamics::Collision::Geometry trigOBB(m, UMath::Vector4To3(trigPos), trigDimension, Dynamics::Collision::Geometry::BOX,
-                                                      UMath::Vector3::kZero);
-                if (Dynamics::Collision::Geometry::FindIntersection(&carOBB, &trigOBB, &carOBB)) {
-                    return true;
-                }
-            } else {
-                unsigned char shapeNum;
+        if (UMath::DistanceSquarexz(cp, rPos) > radsSq) {
+            return false;
+        }
+        if (trig->fFlags & 0x800) {
+            if (!trig->TestDirection(rBody->GetLinearVelocity())) {
                 return false;
             }
+        }
+        if (trig->fShape == 3) {
+            if ((rPos.y + rbRadius >= trig->fPosRadius.y - trig->fHeight * 0.5f) &&
+                (rPos.y - rbRadius < trig->fPosRadius.y + trig->fHeight * 0.5f)) {
+                return true;
+            }
+            return false;
+        } else if (trig->fShape == 1) {
+            UMath::Vector3 dim3;
+            UMath::Matrix4 bodyMat;
+            rBody->GetDimension(dim3);
+            rBody->GetMatrix4(bodyMat);
+
+            Dynamics::Collision::Geometry carOBB(bodyMat, rPos, dim3, Dynamics::Collision::Geometry::BOX, dP);
+
+            UMath::Matrix4 m;
+            trig->MakeMatrix(m, false, false);
+
+            UMath::Vector4 trigPos = trig->fPosRadius;
+            trigPos.w = 1.0f;
+
+            UMath::Vector3 trigDimension;
+            trigDimension.x = trig->fMatRow0Width.w * 0.5f;
+            trigDimension.y = trig->fHeight * 0.5f;
+            trigDimension.z = trig->fMatRow2Length.w * 0.5f;
+
+            Dynamics::Collision::Geometry trigOBB(m, UMath::Vector4To3(trigPos), trigDimension, Dynamics::Collision::Geometry::BOX,
+                                                  UMath::Vector3::kZero);
+            if (Dynamics::Collision::Geometry::FindIntersection(&carOBB, &trigOBB, &carOBB)) {
+                return true;
+            }
+        } else {
+            unsigned char shapeNum;
+            return false;
         }
     }
     return false;
@@ -342,7 +347,7 @@ bool WTriggerManager::CheckCollideRB(const IRigidBody *rBody, const WTrigger *tr
 bool WTriggerManager::CheckCollideSRB(const IRigidBody *srBody, const WTrigger *trig, float dT) const {
     UMath::Vector3 rPos = srBody->GetPosition();
     float srRadius = srBody->GetRadius();
-    float srRadiusPlusVel = srBody->GetSpeed() * dT + srRadius;
+    float srRadiusPlusVel = srRadius + srBody->GetSpeed() * dT;
     UMath::Vector3 dVdT;
     UMath::Scale(srBody->GetLinearVelocity(), dT, dVdT);
     UMath::Add(rPos, dVdT, rPos);
@@ -396,12 +401,14 @@ bool WTriggerManager::CheckCollideSRB(const IRigidBody *srBody, const WTrigger *
                 }
             }
 
-            if (!(rPos.y + srRadius >= trig->fPosRadius.y - trig->fHeight * 0.5f && rPos.y - srRadius < trig->fPosRadius.y + trig->fHeight * 0.5f)) {
-                unsigned char shapeNum;
-                return false;
+            if ((rPos.y + srRadius >= trig->fPosRadius.y - trig->fHeight * 0.5f) &&
+                (rPos.y - srRadius < trig->fPosRadius.y + trig->fHeight * 0.5f)) {
+                return true;
             }
-            return true;
         }
+    } else {
+        unsigned char shapeNum;
+        return false;
     }
     return false;
 }

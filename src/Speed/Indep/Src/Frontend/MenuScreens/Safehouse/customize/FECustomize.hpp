@@ -250,7 +250,11 @@ class ShoppingCartItem : public bTNode<ShoppingCartItem> {
         return ToBuy->GetPrice();
     }
     int GetTradeInPrice() {
+#ifdef EA_BUILD_A124
+        return TradeIn ? TradeIn->GetPrice() / 4 : 0;
+#else
         return TradeIn ? static_cast<int>(static_cast<float>(TradeIn->GetPrice()) * gTradeInFactor) : 0;
+#endif
     }
     void ToggleActive() {
         bActive = !bActive;

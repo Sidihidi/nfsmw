@@ -36,12 +36,13 @@ class AIActionTraffic : public AIAction, public Debugable, public Sim::Collision
     static AIAction *Construct(struct AIActionParams *params);
 
     AIActionTraffic(AIActionParams *params, float score);
+  private:
     void MessageSetSpeed(const MSetTrafficSpeed &message);
     float ComputeSpeed(float current_speed, float dT);
     void UpdateNavPos(float lookAheadDistance);
     bool ShouldPullOver(const UMath::Vector3 &my_position, WRoadNav *road_nav);
     void OnAccident(HSIMABLE hobject, const UMath::Vector3 &speed, const UMath::Vector3 &position);
-
+  public:
     // Virtual functions
     virtual void OnDebugDraw();
 
@@ -71,7 +72,7 @@ class AIActionTraffic : public AIAction, public Debugable, public Sim::Collision
     IInput *mInput;                                         // offset 0x6C, size 0x4
     Hermes::HHANDLER mSetSpeedHandler;                      // offset 0x70, size 0x4
     Attrib::Gen::pursuitlevels *mDefaultPursuitLevelAttrib; // offset 0x74, size 0x4
-    PS2ALIGN16 UMath::Matrix4 mNavMatrix;                   // offset 0x78, size 0x40
+    ALIGNVEC UMath::Matrix4 mNavMatrix;                     // offset 0x78, size 0x40 (0x70 en X360: UpdateNavPos)
     eAccident mAccident;                                    // offset 0xB8, size 0x4
     float mAccidentTimer;                                   // offset 0xBC, size 0x4
     PullOverState nPullOverState;                           // offset 0xC0, size 0x4
@@ -141,7 +142,10 @@ void AIActionTraffic::OnAccident(HSIMABLE hobject, const UMath::Vector3 &speed, 
     }
     ISimable *object = ISimable::FindInstance(hobject);
     IVehicle *vehicle;
-    if (object && object->QueryInterface(&vehicle) && (vehicle->GetAbsoluteSpeed() >= MPH2MPS(5.0f) || mAccident != ACCIDENT_OVER)) {
+    if (object && object->QueryInterface(&vehicle)) {
+        if (vehicle->GetAbsoluteSpeed() < MPH2MPS(5.0f) && mAccident == ACCIDENT_OVER) {
+            return;
+        }
         switch (vehicle->GetDriverClass()) {
             // TODO
             case DRIVER_HUMAN:
@@ -162,7 +166,10 @@ void AIActionTraffic::OnAccident(HSIMABLE hobject, const UMath::Vector3 &speed, 
 }
 
 void AIActionTraffic::OnCollision(const COLLISION_INFO &cinfo) {
-    if (GetVehicle()->GetDriverClass() != DRIVER_COP && cinfo.type == COLLISION_INFO::OBJECT) {
+    if (GetVehicle()->GetDriverClass() == DRIVER_COP) {
+        return;
+    }
+    if (cinfo.type == COLLISION_INFO::OBJECT) {
         OnAccident(cinfo.objA, cinfo.closingVel, cinfo.position);
         OnAccident(cinfo.objB, cinfo.closingVel, cinfo.position);
     }
@@ -178,35 +185,51 @@ bool AIActionTraffic::IsFinished() {
 }
 
 bool AIActionTraffic::CanBeAttempted(float dT) {
-    if (mRigidBody && GetAI() && GetVehicle() && mInput) {
-        if (GetAI()->GetPursuit()) {
-            return GetAI()->GetPursuit()->IsPerpInSight() == false;
-        }
-
-        WRoadNav test_nav;
-        const float dir_weight = 1.0f;
-        const bool force_centre_lane = true;
-        UMath::Vector3 forwardVector;
-
-        mRigidBody->GetForwardVector(forwardVector);
-        test_nav.SetNavType(WRoadNav::kTypeTraffic);
-        test_nav.SetLaneType(WRoadNav::kLaneTraffic);
-        test_nav.InitAtPoint(mRigidBody->GetPosition(), forwardVector, force_centre_lane, dir_weight);
-        if (test_nav.IsValid()) {
-            return true;
-        }
+    if (!mRigidBody) {
+        return false;
     }
-    return false;
+    if (!GetAI()) {
+        return false;
+    }
+    if (!GetVehicle()) {
+        return false;
+    }
+    if (!mInput) {
+        return false;
+    }
+    if (GetAI()->GetPursuit()) {
+        return GetAI()->GetPursuit()->IsPerpInSight() == false;
+    }
+
+    WRoadNav test_nav;
+    const float dir_weight = 1.0f;
+    const bool force_centre_lane = true;
+    UMath::Vector3 forwardVector;
+
+    mRigidBody->GetForwardVector(forwardVector);
+    test_nav.SetNavType(WRoadNav::kTypeTraffic);
+    test_nav.SetLaneType(WRoadNav::kLaneTraffic);
+    test_nav.InitAtPoint(mRigidBody->GetPosition(), forwardVector, force_centre_lane, dir_weight);
+    if (!test_nav.IsValid()) {
+        return false;
+    }
+    return true;
 }
 
 void AIActionTraffic::BeginAction(float dT) {
     GetAI()->GetDriveToNav()->SetNavType(WRoadNav::kTypeTraffic);
     GetAI()->GetDriveToNav()->SetLaneType(WRoadNav::kLaneTraffic);
     GetAI()->ResetDriveToNav(SELECT_VALID_LANE);
-    mAccidentTimer = 0.0f;
     mAccident = ACCIDENT_NONE;
+    mAccidentTimer = 0.0f;
+#ifndef EA_BUILD_A124
+    // La A124 no llama a UpdateNavPos aqui (oraculo A124: 312 B frente a 328 B de SLUS, sin el jal).
     UpdateNavPos(30.0f);
-    if (GetAI()->GetLastSpawnTime() > 0.0f && GetAI() && GetAI()->GetPursuit() && !GetAI()->GetPursuit()->IsPerpInSight()) {
+#endif
+    if (GetAI()->GetLastSpawnTime() <= 0.0f) {
+        return;
+    }
+    if (GetAI() && GetAI()->GetPursuit() && !GetAI()->GetPursuit()->IsPerpInSight()) {
         mTargetSpeedDefault = MPH2MPS(mDefaultPursuitLevelAttrib->SearchModeCityMPH());
         mTargetSpeedHighway = MPH2MPS(mDefaultPursuitLevelAttrib->SearchModeHwyMPH());
     }
@@ -224,7 +247,7 @@ float AIActionTraffic::ComputeSpeed(float current_speed, float dT) {
     const WRoadSegment *segment = roadNetwork.GetSegment(road_nav->GetSegmentInd());
 
     bool is_cop = GetVehicle()->GetDriverClass() == DRIVER_COP;
-    const float posted_speed = roadNetwork.GetSegmentNumTrafficLanes(*segment) > 3 ? mTargetSpeedHighway : mTargetSpeedDefault;
+    const float posted_speed = roadNetwork.GetSegmentNumTrafficLanes(*segment) >= 4 ? mTargetSpeedHighway : mTargetSpeedDefault;
     float desired_speed = posted_speed;
 
     if (!mFixedSpeed) {
@@ -364,8 +387,16 @@ void AIActionTraffic::Update(float dT) {
     if (mAccident == ACCIDENT_INPROGRESS) {
         mAccidentTimer = mAccidentTimer - 1.0f;
         if (mAccidentTimer <= 0.0f) {
+#ifdef EA_PLATFORM_WIN32
+            // SPEED_EXE_1_3 guarda mAccident antes que mAccidentTimer
+            // (`mov [esi+0xac], 0x2` y luego `mov [esi+0xb0], 0x0`); en las
+            // demas versiones es al reves (Update al 100 % en GC/SLUS asi).
+            mAccident = ACCIDENT_OVER;
+            mAccidentTimer = 0.0f;
+#else
             mAccidentTimer = 0.0f;
             mAccident = ACCIDENT_OVER;
+#endif
         }
         if (mInput) {
             mInput->SetControlGas(0.0f);
@@ -378,7 +409,9 @@ void AIActionTraffic::Update(float dT) {
         do_driving = false;
     } else if (mAccident == ACCIDENT_OVER) {
         if (mInput) {
+#ifndef EA_BUILD_A124
             mInput->SetControlGas(0.0f);
+#endif
             mInput->SetControlBrake(1.0f);
             if (!mIsTractor) {
                 mInput->SetControlSteering(1.0f);
@@ -388,7 +421,11 @@ void AIActionTraffic::Update(float dT) {
     }
 
     if (do_driving) {
+#ifdef EA_BUILD_A124
+        GetAI()->DoDriving(7);
+#else
         GetAI()->DoDriving(3);
+#endif
     }
 }
 

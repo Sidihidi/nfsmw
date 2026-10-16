@@ -5,6 +5,7 @@
 
 class BootFlowScreen : public bTNode<BootFlowScreen> {
   public:
+    BootFlowScreen(const char *name) : Name(name) {}
     virtual ~BootFlowScreen() {}
 
     const char *Name; // offset 0x8

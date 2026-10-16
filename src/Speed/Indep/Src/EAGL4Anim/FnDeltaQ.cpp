@@ -31,8 +31,15 @@ inline void FnDeltaQ::InitBuffersAsRequired() {
 
         if (deltaQ->mNumBones != 0) {
 
-            mPrevQBlock = MemoryPoolManager::NewBlock(deltaQ->mNumBones * sizeof(UMath::Vector4));
-            mPrevQs = reinterpret_cast<UMath::Vector4 *>(mPrevQBlock);
+            // PS2: lqc2/sqc2 exigen mPrevQs alineado a 16. La A124 pide 15 bytes de mas
+            // y alinea el puntero (`ori 0xf' al pedir; `addiu 15; sra 4; sll 4' despues).
+#ifdef EA_PLATFORM_PLAYSTATION2
+            mPrevQBlock = MemoryPoolManager::NewBlock(deltaQ->mNumBones * sizeof(COORD4) + 15);
+            mPrevQs = reinterpret_cast<COORD4 *>(AlignSize16(reinterpret_cast<intptr_t>(mPrevQBlock)));
+#else
+            mPrevQBlock = MemoryPoolManager::NewBlock(deltaQ->mNumBones * sizeof(COORD4));
+            mPrevQs = reinterpret_cast<COORD4 *>(mPrevQBlock);
+#endif
 
             mMinRanges = minRanges;
         }
@@ -60,9 +67,16 @@ void FnDeltaQ::Eval(float prevTime, float currTime, float *sqt) {
     EvalSQTMasked(currTime, nullptr, sqt);
 }
 
-inline void FastPolarizedQuatBlend(float t, const UMath::Vector4 &q0, const UMath::Vector4 &q1, UMath::Vector4 &result) {
+inline void FastPolarizedQuatBlend(float t, const COORD4 &q0, const COORD4 &q1, COORD4 &result) {
 
-    UMath::Vector4 temp;
+    COORD4 temp;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // El .mdebug de la A124 lista los parametros de estas tres VU0_ (b, b,
+    // scaleby, result y el _t0 de la unitaria), no los de UMath::Sub/ScaleAdd/Unit.
+    VU0_v4sub(q1, q0, temp);
+    VU0_v4scaleadd(temp, t, q0, temp);
+    VU0_v4unit(temp, result);
+#else
     float s;
 
     temp.x = t * (q1.x - q0.x) + q0.x;
@@ -80,6 +94,7 @@ inline void FastPolarizedQuatBlend(float t, const UMath::Vector4 &q0, const UMat
     temp.w *= s;
 
     result = temp;
+#endif
 }
 
 bool FnDeltaQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
@@ -191,15 +206,19 @@ bool FnDeltaQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
 
                 for (int ibone = 0; ibone < deltaQ->mNumBones; ibone++) {
 
-                    UMath::Vector4 deltaf;
+                    COORD4 deltaf;
                     DeltaQMinRangef minRangef;
 
                     mMinRanges[ibone].UnQuantize(minRangef);
                     floorDelta->UnQuantize(minRangef, deltaf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    VU0_v4addxyz(mPrevQs[ibone], deltaf, mPrevQs[ibone]);
+#else
                     mPrevQs[ibone].x += deltaf.x;
                     mPrevQs[ibone].y += deltaf.y;
                     mPrevQs[ibone].z += deltaf.z;
+#endif
 
                     floorDelta++;
                 }
@@ -222,15 +241,19 @@ bool FnDeltaQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
 
                 for (int ibone = deltaQ->mNumBones - 1; ibone >= 0; ibone--) {
 
-                    UMath::Vector4 deltaf;
+                    COORD4 deltaf;
                     DeltaQMinRangef minRangef;
 
                     mMinRanges[ibone].UnQuantize(minRangef);
                     floorDelta->UnQuantize(minRangef, deltaf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    VU0_v4subxyz(mPrevQs[ibone], deltaf, mPrevQs[ibone]);
+#else
                     mPrevQs[ibone].x -= deltaf.x;
                     mPrevQs[ibone].y -= deltaf.y;
                     mPrevQs[ibone].z -= deltaf.z;
+#endif
 
                     floorDelta--;
                 }
@@ -282,7 +305,7 @@ bool FnDeltaQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
 
                 for (int ibone = 0; ibone < deltaQ->mNumBones; ibone++) {
 
-                    UMath::Vector4 ceilq;
+                    COORD4 ceilq;
 
                     ceilPhys[ibone].UnQuantize(ceilq);
 
@@ -295,15 +318,19 @@ bool FnDeltaQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
 
                 for (int ibone = 0; ibone < deltaQ->mNumBones; ibone++) {
 
-                    UMath::Vector4 ceilq;
+                    COORD4 ceilq;
                     DeltaQMinRangef minRangef;
 
                     mMinRanges[ibone].UnQuantize(minRangef);
                     ceilDelta->UnQuantize(minRangef, ceilq);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    VU0_v4addxyz(ceilq, mPrevQs[ibone], ceilq);
+#else
                     ceilq.x += mPrevQs[ibone].x;
                     ceilq.y += mPrevQs[ibone].y;
                     ceilq.z += mPrevQs[ibone].z;
+#endif
 
                     DeltaQRecoverW(ceilDelta->mW, ceilq);
 
@@ -441,15 +468,19 @@ bool FnDeltaQ::EvalSQTMasked(float currTime, const BoneMask *boneMask, float *sq
 
                     if (boneMask->GetBone(boneIdxs[ibone])) {
 
-                        UMath::Vector4 deltaf;
+                        COORD4 deltaf;
                         DeltaQMinRangef minRangef;
 
                         mMinRanges[ibone].UnQuantize(minRangef);
                         floorDelta->UnQuantize(minRangef, deltaf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                        VU0_v4addxyz(mPrevQs[ibone], deltaf, mPrevQs[ibone]);
+#else
                         mPrevQs[ibone].x += deltaf.x;
                         mPrevQs[ibone].y += deltaf.y;
                         mPrevQs[ibone].z += deltaf.z;
+#endif
                     }
 
                     floorDelta++;
@@ -478,15 +509,19 @@ bool FnDeltaQ::EvalSQTMasked(float currTime, const BoneMask *boneMask, float *sq
 
                     if (boneMask->GetBone(boneIdxs[ibone])) {
 
-                        UMath::Vector4 deltaf;
+                        COORD4 deltaf;
                         DeltaQMinRangef minRangef;
 
                         mMinRanges[ibone].UnQuantize(minRangef);
                         floorDelta->UnQuantize(minRangef, deltaf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                        VU0_v4subxyz(mPrevQs[ibone], deltaf, mPrevQs[ibone]);
+#else
                         mPrevQs[ibone].x -= deltaf.x;
                         mPrevQs[ibone].y -= deltaf.y;
                         mPrevQs[ibone].z -= deltaf.z;
+#endif
                     }
 
                     floorDelta--;
@@ -544,7 +579,7 @@ bool FnDeltaQ::EvalSQTMasked(float currTime, const BoneMask *boneMask, float *sq
 
                     if (boneMask->GetBone(boneIdxs[ibone])) {
 
-                        UMath::Vector4 ceilq;
+                        COORD4 ceilq;
 
                         ceilPhys[ibone].UnQuantize(ceilq);
 
@@ -560,15 +595,19 @@ bool FnDeltaQ::EvalSQTMasked(float currTime, const BoneMask *boneMask, float *sq
 
                     if (boneMask->GetBone(boneIdxs[ibone])) {
 
-                        UMath::Vector4 ceilq;
+                        COORD4 ceilq;
                         DeltaQMinRangef minRangef;
 
                         mMinRanges[ibone].UnQuantize(minRangef);
                         ceilDelta->UnQuantize(minRangef, ceilq);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                        VU0_v4addxyz(ceilq, mPrevQs[ibone], ceilq);
+#else
                         ceilq.x += mPrevQs[ibone].x;
                         ceilq.y += mPrevQs[ibone].y;
                         ceilq.z += mPrevQs[ibone].z;
+#endif
 
                         DeltaQRecoverW(ceilDelta->mW, ceilq);
 

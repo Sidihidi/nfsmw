@@ -3,18 +3,6 @@
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Src/World/WCollisionAssets.h"
 
-static inline unsigned int ReadTriggerFlags(const WTrigger *trigger) {
-    const unsigned char *b = (const unsigned char *)trigger;
-    unsigned int hi = (unsigned int)b[0x11] << 16;
-    return (unsigned int)b[0x13] | (((unsigned int)b[0x12] << 8) | hi);
-}
-
-static inline void WriteTriggerFlags(WTrigger *trigger, unsigned int v) {
-    unsigned char *b = (unsigned char *)trigger;
-    unsigned int w = *(unsigned int *)(b + 0x10);
-    *(unsigned int *)(b + 0x10) = (w & 0xFF000000u) | v;
-}
-
 SmackableTrigger::SmackableTrigger(HMODEL hmodel, bool virgin, const UMath::Matrix4 &objectmatrix, const UMath::Vector3 &dim,
                                    unsigned int extra_flags) {
     unsigned int flags = extra_flags | 0x40143u;
@@ -35,7 +23,7 @@ SmackableTrigger::SmackableTrigger(HMODEL hmodel, bool virgin, const UMath::Matr
     mEventData->fVirginSpawn = virgin;
     UMath::Matrix4ToQuaternion(objectmatrix, mEventData->fOrientation);
     mEventData->fPosition = UMath::Vector4To3(objectmatrix.v3);
-    WriteTriggerFlags(mTrigger, ReadTriggerFlags(mTrigger) | 1u);
+    mTrigger->Enable();
 }
 
 void SmackableTrigger::Fire() {
@@ -43,18 +31,15 @@ void SmackableTrigger::Fire() {
 }
 
 void SmackableTrigger::Disable() {
-    WriteTriggerFlags(mTrigger, ReadTriggerFlags(mTrigger) & 0x00FFFFFEu);
+    mTrigger->Disable();
 }
 
 void SmackableTrigger::Enable() {
-    WriteTriggerFlags(mTrigger, ReadTriggerFlags(mTrigger) | 1u);
+    mTrigger->Enable();
 }
 
 bool SmackableTrigger::IsEnabled() const {
-    if (((unsigned char *)mTrigger)[0x13] & 1) {
-        return true;
-    }
-    return false;
+    return mTrigger->IsEnabled(true);
 }
 
 void SmackableTrigger::GetObjectMatrix(UMath::Matrix4 &matrix) const {

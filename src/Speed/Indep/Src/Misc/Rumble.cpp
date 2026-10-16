@@ -161,7 +161,7 @@ void tShaker::Update(float fDeltaTime) {
 
 void tShaker::GetValue(bVector3 *pV) {
     float fShake = this->fTime * this->fFrequency;
-    int nShake = static_cast<int>(fShake);
+    int nShake = bFloatToInt(fShake);
     bool bShake = (nShake ^ 1) & 1;
     float fAmplitude;
 
@@ -219,9 +219,9 @@ void ApplyCameraShake(int nViewID, bMatrix4 *pMatrix) {
     bIdentity(&m);
     eMulVector(&m.v3, pMatrix, &vShake);
     m.v3.w = 1.0f;
-    eRotateX(&m, &m, static_cast<unsigned short>(vShakeRotation.x * (m.v3.z + m.v3.y)));
-    eRotateY(&m, &m, static_cast<unsigned short>(vShakeRotation.y * m.v3.x));
-    eRotateZ(&m, &m, static_cast<unsigned short>(vShakeRotation.z * (m.v3.x + m.v3.y)));
+    eRotateX(&m, &m, static_cast<unsigned short>(bFloatToInt(vShakeRotation.x * (m.v3.z + m.v3.y))));
+    eRotateY(&m, &m, static_cast<unsigned short>(bFloatToInt(vShakeRotation.y * m.v3.x)));
+    eRotateZ(&m, &m, static_cast<unsigned short>(bFloatToInt(vShakeRotation.z * (m.v3.x + m.v3.y))));
     eMulMatrix(pMatrix, pMatrix, &m);
 }
 
@@ -232,17 +232,26 @@ void ForceCameraShake(int nPlayer, bVector3 *pShake) {
 void MaybeCameraShake(int nPlayer, bVector3 *pAccel) {
     bVector3 vAccel(vShakeAccelBias.x * pAccel->x, vShakeAccelBias.y * pAccel->y, vShakeAccelBias.z * pAccel->z);
     float fRatio = bLength(vAccel);
-    if (fRatio >= fShakeIntensityCoeffs[0]) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // EE-GCC: con `fRatio >= coeffs[0]' emite c.le.s con los operandos al reves; el original
+    // compila la salida temprana `coeffs[0] > fRatio' (c.lt.s f20,f4 + bc1t)
+    if (fShakeIntensityCoeffs[0] > fRatio) {
+        return;
+    }
+#else
+    if (fRatio >= fShakeIntensityCoeffs[0])
+#endif
+    {
         if (fRatio > fShakeIntensityCoeffs[1]) {
             fRatio = fShakeIntensityCoeffs[1];
         }
         fRatio -= fShakeIntensityCoeffs[0];
         fRatio /= fShakeIntensityCoeffs[1] - fShakeIntensityCoeffs[0];
 
-        float fMagnitude = fRatio * (fShakeIntensityCoeffs[3] - fShakeIntensityCoeffs[2]) + fShakeIntensityCoeffs[2];
+        float fMagnitude = fShakeIntensityCoeffs[2] + fRatio * (fShakeIntensityCoeffs[3] - fShakeIntensityCoeffs[2]);
         if (fMagnitude > CameraShakers[nPlayer].GetAmplitude()) {
             bVector3 vShake;
-            float fDuration = fRatio * (fShakeIntensityCoeffs[5] - fShakeIntensityCoeffs[4]) + fShakeIntensityCoeffs[4];
+            float fDuration = fShakeIntensityCoeffs[4] + fRatio * (fShakeIntensityCoeffs[5] - fShakeIntensityCoeffs[4]);
             bNormalize(&vShake, &vAccel, fMagnitude);
             CameraShakers[nPlayer].StartShaking(&vShake, fDuration, 11.74265f);
         }

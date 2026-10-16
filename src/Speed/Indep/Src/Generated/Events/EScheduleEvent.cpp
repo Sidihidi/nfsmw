@@ -31,9 +31,9 @@ void EScheduleEvent_MakeEvent_Callback(const void *staticData) {
     new EScheduleEvent(((EScheduleEvent::StaticData *) staticData)->fEventList, ((EScheduleEvent::StaticData *) staticData)->fTimeDelay);
 }
 
-int EScheduleEvent_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new EScheduleEvent((CARP::EventList *) lua_tostring(L, 1), lua_tonumber(L, 2));
+int EScheduleEvent_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new EScheduleEvent((CARP::EventList *) lua_tostring(luaState, 1), lua_tonumber(luaState, 2));
     }
     return 0;
 }

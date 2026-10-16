@@ -13,7 +13,10 @@ EShowRaceOverMessage::EShowRaceOverMessage(IPlayer *pPlayer) : Event(0x10), fPla
 }
 
 EShowRaceOverMessage::~EShowRaceOverMessage() {
-    if (Sim::Exists()) {
+#ifndef EA_BUILD_A124 // la A124 no comprueba que exista la simulacion
+    if (Sim::Exists())
+#endif
+    {
         GRacerInfo *racerInfo = GRaceStatus::Get().GetRacerInfo(fPlayer->GetSimable());
 
         if (racerInfo->GetIsTotalled()) {
@@ -36,9 +39,9 @@ void EShowRaceOverMessage_MakeEvent_Callback(const void *staticData) {
     new EShowRaceOverMessage(((EShowRaceOverMessage::StaticData *) staticData)->fPlayer);
 }
 
-int EShowRaceOverMessage_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EShowRaceOverMessage((IPlayer *) lua_tostring(L, 1));
+int EShowRaceOverMessage_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EShowRaceOverMessage((IPlayer *) lua_tostring(luaState, 1));
     }
     return 0;
 }

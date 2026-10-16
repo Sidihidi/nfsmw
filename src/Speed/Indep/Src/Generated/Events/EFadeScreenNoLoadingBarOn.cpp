@@ -7,7 +7,9 @@
 
 EFadeScreenNoLoadingBarOn::EFadeScreenNoLoadingBarOn() : Event(0x10) {
     if (!cFEng::Get()->IsPackagePushed("FadeScreenNoLoadingBar.fng")) {
+#ifndef EA_BUILD_A124
         FEManager::Get()->SuppressControllerError(true);
+#endif
         cFEng::Get()->PushNoControlPackage("FadeScreenNoLoadingBar.fng", FE_PACKAGE_PRIORITY_SECOND_CLOSEST);
     }
 }
@@ -22,8 +24,8 @@ void EFadeScreenNoLoadingBarOn_MakeEvent_Callback(const void *staticData) {
     new EFadeScreenNoLoadingBarOn();
 }
 
-int EFadeScreenNoLoadingBarOn_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EFadeScreenNoLoadingBarOn_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EFadeScreenNoLoadingBarOn();
     }
     return 0;

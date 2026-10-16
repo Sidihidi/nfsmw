@@ -1,152 +1,12 @@
-typedef struct {
-    unsigned int lowvalue;
-    unsigned int range;
-    unsigned int value;
-    int count;
-    unsigned int pos;
-    unsigned char *buffer;
-    unsigned int MeasureCost;
-    unsigned int BitCounter;
-} BOOL_CODER;
+#include <string.h>
+
+#include "pbdll.h"
 
 typedef struct {
-    unsigned int value : 7;
-    unsigned int selector : 1;
-} tokenorptr;
-
-typedef struct {
-    union {
-        char l;
-        tokenorptr left;
-    } leftunion;
-    union {
-        char r;
-        tokenorptr right;
-    } rightunion;
-    unsigned char freq;
-} HUFF_NODE;
-
-typedef struct {
-    unsigned char Token;
-    int Mode;
-    unsigned short Frame;
-    short Dc;
-    unsigned char unused[3];
-} BLOCK_CONTEXT;
-
-typedef struct {
-    unsigned char pad0[0x13C];
-    unsigned int *transIndex;
-} QUANTIZER;
-
-typedef struct {
-    unsigned short MinVal;
-    short Length;
-    unsigned char Probs[11];
+    UINT16 MinVal;
+    INT16 Length;
+    UINT8 Probs[11];
 } TOKENEXTRABITS;
-
-typedef struct {
-    unsigned char pad000[0x004];
-    short (*Coeffs)[64];                        /* 0x004 */
-    unsigned char pad008[0x0CC - 0x008];
-    BLOCK_CONTEXT LeftY[2];                     /* 0x0CC */
-    BLOCK_CONTEXT LeftU;                        /* 0x0EC */
-    BLOCK_CONTEXT LeftV;                        /* 0x0FC */
-    BLOCK_CONTEXT *AboveY;                      /* 0x10C */
-    BLOCK_CONTEXT *AboveU;                      /* 0x110 */
-    BLOCK_CONTEXT *AboveV;                      /* 0x114 */
-    BLOCK_CONTEXT *AboveYAlloc;                 /* 0x118 */
-    BLOCK_CONTEXT *AboveUAlloc;                 /* 0x11C */
-    BLOCK_CONTEXT *AboveVAlloc;                 /* 0x120 */
-    short LastDcY[4];                           /* 0x124 */
-    short LastDcU[4];                           /* 0x12C */
-    short LastDcV[4];                           /* 0x134 */
-    QUANTIZER *quantizer;                       /* 0x13C */
-    unsigned char pad140[0x150 - 0x140];
-    BOOL_CODER br;                              /* 0x150 */
-    BOOL_CODER br2;                             /* 0x170 */
-    unsigned char pad190[0x19C - 0x190];
-    unsigned char Vp3VersionNo;                 /* 0x19C */
-    unsigned char VpProfile;                    /* 0x19D */
-    unsigned char pad19E[0x1AC - 0x19E];
-    unsigned char FrameType;                    /* 0x1AC */
-    unsigned char pad1AD[0x1DC - 0x1AD];
-    unsigned int Interlaced;                    /* 0x1DC */
-    unsigned char pad1E0[0x1F8 - 0x1E0];
-    unsigned int HFragments;                    /* 0x1F8 */
-    unsigned char pad1FC[0x228 - 0x1FC];
-    unsigned int MacroBlocks;                   /* 0x228 */
-    unsigned int MBRows;                        /* 0x22C */
-    unsigned int MBCols;                        /* 0x230 */
-    unsigned char pad234[0x3A0 - 0x234];
-    int LastMode;                               /* 0x3A0 */
-    unsigned char DcProbs[2][11];               /* 0x3A4 */
-    unsigned char AcProbs[396];                 /* 0x3BA */
-    unsigned char DcNodeContexts[2][3][5];      /* 0x546 */
-    unsigned char ZeroRunProbs[2][14];          /* 0x564 */
-    unsigned char MergedScanOrder[64];          /* 0x580 */
-    unsigned char ModifiedScanOrder[64];        /* 0x5C0 */
-    unsigned char EobOffsetTable[64];           /* 0x600 */
-    unsigned char ScanBands[64];                /* 0x640 */
-    unsigned char MBModeProb[11];               /* 0x680 */
-    unsigned char BModeProb[11];                /* 0x68B */
-    unsigned char pad696[0x6EC - 0x696];
-    int probInterlaced;                         /* 0x6EC */
-    unsigned char pad6F0[0x6F4 - 0x6F0];
-    char *predictionMode;                       /* 0x6F4 */
-    unsigned char pad6F8[0x708 - 0x6F8];
-    unsigned char MvSignProbs[2];               /* 0x708 */
-    unsigned char IsMvShortProb[2];             /* 0x70A */
-    unsigned char MvShortProbs[2][7];           /* 0x70C */
-    unsigned char pad71A[0x720 - 0x71A];
-    unsigned char MvSizeProbs[2][8];            /* 0x720 */
-    unsigned char probXmitted[10][2][4];        /* 0x730 */
-    unsigned char pad780[0x948 - 0x780];
-    int MultiStream;                            /* 0x948 */
-    unsigned int DcHuffCode[2][12];             /* 0x94C */
-    unsigned char DcHuffLength[2][12];          /* 0x9AC */
-    unsigned int DcHuffProbs[2][12];            /* 0x9C4 */
-    HUFF_NODE DcHuffTree[2][12];                /* 0xA24 */
-    unsigned int AcHuffCode[3][2][6][12];       /* 0xB44 */
-    unsigned char AcHuffLength[3][2][6][12];    /* 0x1204 */
-    unsigned int AcHuffProbs[3][2][6][12];      /* 0x13B4 */
-    HUFF_NODE AcHuffTree[3][2][6][12];          /* 0x1A74 */
-    unsigned int ZeroHuffCode[2][14];           /* 0x2EB4 */
-    unsigned char ZeroHuffLength[2][14];        /* 0x2F24 */
-    unsigned int ZeroHuffProbs[2][14];          /* 0x2F40 */
-    HUFF_NODE ZeroHuffTree[2][14];              /* 0x2FB0 */
-    unsigned short DcHuffLUT[2][64];            /* 0x3100 */
-    unsigned short AcHuffLUT[3][2][6][64];      /* 0x3200 */
-    unsigned short ZeroHuffLUT[2][64];          /* 0x4400 */
-    unsigned char pad4500[0x4524 - 0x4500];
-    int UseHuffman;                             /* 0x4524 */
-    int CurrentDcRunLen[2];                     /* 0x4528 */
-    int CurrentAc1RunLen[2];                    /* 0x4530 */
-} PB_INSTANCE;
-
-extern int nDecodeBool(BOOL_CODER *br, int probability);
-extern int VP6_bitread(BOOL_CODER *br, int bits);
-extern void VP6_BuildHuffTree(HUFF_NODE *tree, unsigned int *probs, int entries);
-extern void VP6_BuildHuffLookupTable(HUFF_NODE *tree, unsigned short *lut);
-extern void VP6_CreateCodeArray(HUFF_NODE *tree, int node, unsigned int *codes,
-                                unsigned char *lengths, int code, int length);
-extern void VP6_ConfigureContexts(PB_INSTANCE *pbi);
-extern void VP6_DecodeModeProbs(PB_INSTANCE *pbi);
-extern void VP6_ConfigureMvEntropyDecoder(PB_INSTANCE *pbi, unsigned char FrameType);
-extern void VP6_DecodeMacroBlock(PB_INSTANCE *pbi, unsigned int MBrow, unsigned int MBcol);
-
-extern const unsigned char VP6_DcUpdateProbs[2][11];
-extern const unsigned char VP6_AcUpdateProbs[3][2][6][11];
-extern const unsigned char ScanBandUpdateProbs[64];
-extern const unsigned char ZrlUpdateProbs[2][14];
-extern const unsigned char ZeroRunProbDefaults[2][14];
-extern const unsigned char VP6_BaselineXmittedProbs[10][2][4];
-extern const unsigned char DefaultMvShortProbs[2][7];
-extern const unsigned char DefaultMvLongProbs[2][8];
-extern const unsigned char DefaultIsShortProbs[2];
-extern const unsigned char DefaultSignProbs[2];
-extern const unsigned char DefaultNonInterlacedScanBands[64];
-extern const unsigned char DefaultInterlacedScanBands[64];
 
 static const TOKENEXTRABITS VP6_TokenExtraBits2[12] = {
     {0, -1, {0}},
@@ -163,7 +23,7 @@ static const TOKENEXTRABITS VP6_TokenExtraBits2[12] = {
     {0, -1, {0}},
 };
 
-const int VP6_CoeffToBand[65] = {
+const INT32 VP6_CoeffToBand[65] = {
     -1, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
     3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
     4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
@@ -171,7 +31,13 @@ const int VP6_CoeffToBand[65] = {
     7,
 };
 
-static inline int nDecodeBool128(BOOL_CODER *br) {
+/* La 1.0.6 (GameCube) la expande en cada llamada; la 1.0.3 (PS2) la emite aparte y la llama. */
+#if VP6_VERSION >= 106
+static inline int nDecodeBool128(BOOL_CODER *br)
+#else
+static int nDecodeBool128(BOOL_CODER *br)
+#endif
+{
     unsigned int bit;
     unsigned int split;
     unsigned int bigsplit;
@@ -206,11 +72,11 @@ static inline int nDecodeBool128(BOOL_CODER *br) {
     return bit;
 }
 
-void BuildScanOrder(PB_INSTANCE *pbi, unsigned char *ScanBands) {
-    unsigned int i;
-    unsigned int j;
-    unsigned int ScanOrderIndex;
-    unsigned int MaxOffset;
+void BuildScanOrder(PB_INSTANCE *pbi, UINT8 *ScanBands) {
+    UINT32 i;
+    UINT32 j;
+    UINT32 ScanOrderIndex;
+    UINT32 MaxOffset;
 
     pbi->ModifiedScanOrder[0] = 0;
     ScanOrderIndex = 1;
@@ -236,9 +102,9 @@ void BuildScanOrder(PB_INSTANCE *pbi, unsigned char *ScanBands) {
     }
 }
 
-void BoolTreeToHuffCodes(unsigned char *BoolTreeProbs, unsigned int *HuffProbs) {
-    unsigned int Prob;
-    unsigned int Prob1;
+void BoolTreeToHuffCodes(UINT8 *BoolTreeProbs, UINT32 *HuffProbs) {
+    UINT32 Prob;
+    UINT32 Prob1;
 
     HuffProbs[11] = ((unsigned int)BoolTreeProbs[0] * BoolTreeProbs[1]) >> 8;
     HuffProbs[0] = ((unsigned int)BoolTreeProbs[0] * (255 - BoolTreeProbs[1])) >> 8;
@@ -268,8 +134,8 @@ void BoolTreeToHuffCodes(unsigned char *BoolTreeProbs, unsigned int *HuffProbs) 
     HuffProbs[10] = (Prob * (255 - BoolTreeProbs[10])) >> 8;
 }
 
-void ZerosBoolTreeToHuffCodes(unsigned char *BoolTreeProbs, unsigned int *HuffProbs) {
-    unsigned int Prob;
+void ZerosBoolTreeToHuffCodes(UINT8 *BoolTreeProbs, UINT32 *HuffProbs) {
+    UINT32 Prob;
 
     Prob = ((unsigned int)BoolTreeProbs[0] * BoolTreeProbs[1]) >> 8;
     HuffProbs[0] = (Prob * BoolTreeProbs[2]) >> 8;
@@ -294,13 +160,13 @@ void ZerosBoolTreeToHuffCodes(unsigned char *BoolTreeProbs, unsigned int *HuffPr
 }
 
 void ConvertBoolTrees(PB_INSTANCE *pbi) {
-    unsigned int i;
-    unsigned int Plane;
-    unsigned int Band;
-    int Prec;
+    UINT32 i;
+    UINT32 Plane;
+    UINT32 Band;
+    INT32 Prec;
 
     for (Plane = 0; Plane <= 1; Plane++) {
-        BoolTreeToHuffCodes(pbi->DcProbs[Plane], pbi->DcHuffProbs[Plane]);
+        BoolTreeToHuffCodes(&pbi->DcProbs[Plane * 11], pbi->DcHuffProbs[Plane]);
         VP6_BuildHuffTree(pbi->DcHuffTree[Plane], pbi->DcHuffProbs[Plane], 12);
         VP6_BuildHuffLookupTable(pbi->DcHuffTree[Plane], pbi->DcHuffLUT[Plane]);
         VP6_CreateCodeArray(pbi->DcHuffTree[Plane], 0, pbi->DcHuffCode[Plane],
@@ -332,23 +198,25 @@ void ConvertBoolTrees(PB_INSTANCE *pbi) {
     }
 }
 
-void VP6_ConfigureEntropyDecoder(PB_INSTANCE *pbi, unsigned char FrameType) {
-    unsigned int i;
-    unsigned int j;
-    unsigned int Plane;
-    unsigned int Band;
-    int Prec;
-    unsigned char LastProb[11];
+void VP6_ConfigureEntropyDecoder(PB_INSTANCE *pbi, UINT8 FrameType) {
+    UINT32 i;
+    UINT32 j;
+    UINT32 Plane;
+    UINT32 Band;
+    INT32 Prec;
+    UINT8 PrecNonZero;
+    UINT8 LastProb[11];
 
     memset(LastProb, 128, 11);
 
     for (Plane = 0; Plane <= 1; Plane++) {
         for (i = 0; i <= 10; i++) {
             if (nDecodeBool(&pbi->br, VP6_DcUpdateProbs[Plane][i])) {
-                unsigned char Prob = VP6_bitread(&pbi->br, 7) << 1;
-                pbi->DcProbs[Plane][i] = LastProb[i] = Prob + (Prob == 0);
+                LastProb[i] = VP6_bitread(&pbi->br, 7) << 1;
+                LastProb[i] += (LastProb[i] == 0);
+                pbi->DcProbs[Plane * 11 + i] = LastProb[i];
             } else if (FrameType == 0) {
-                pbi->DcProbs[Plane][i] = LastProb[i];
+                pbi->DcProbs[Plane * 11 + i] = LastProb[i];
             }
         }
     }
@@ -369,8 +237,8 @@ void VP6_ConfigureEntropyDecoder(PB_INSTANCE *pbi, unsigned char FrameType) {
     for (i = 0; i <= 1; i++) {
         for (j = 0; j <= 13; j++) {
             if (nDecodeBool(&pbi->br, ZrlUpdateProbs[i][j])) {
-                unsigned char Prob = VP6_bitread(&pbi->br, 7) << 1;
-                pbi->ZeroRunProbs[i][j] = Prob + (Prob == 0);
+                pbi->ZeroRunProbs[i][j] = VP6_bitread(&pbi->br, 7) << 1;
+                pbi->ZeroRunProbs[i][j] += (pbi->ZeroRunProbs[i][j] == 0);
             }
         }
     }
@@ -380,9 +248,9 @@ void VP6_ConfigureEntropyDecoder(PB_INSTANCE *pbi, unsigned char FrameType) {
             for (Band = 0; Band <= 5; Band++) {
                 for (i = 0; i <= 10; i++) {
                     if (nDecodeBool(&pbi->br, VP6_AcUpdateProbs[Prec][Plane][Band][i])) {
-                        unsigned char Prob = VP6_bitread(&pbi->br, 7) << 1;
-                        pbi->AcProbs[Plane * 198 + Prec * 66 + Band * 11 + i] = LastProb[i] =
-                            Prob + (Prob == 0);
+                        LastProb[i] = VP6_bitread(&pbi->br, 7) << 1;
+                        LastProb[i] += (LastProb[i] == 0);
+                        pbi->AcProbs[Plane * 198 + Prec * 66 + Band * 11 + i] = LastProb[i];
                     } else if (FrameType == 0) {
                         pbi->AcProbs[Plane * 198 + Prec * 66 + Band * 11 + i] = LastProb[i];
                     }
@@ -395,76 +263,81 @@ void VP6_ConfigureEntropyDecoder(PB_INSTANCE *pbi, unsigned char FrameType) {
 }
 
 void VP6_ResetLeftContext(PB_INSTANCE *pbi) {
-    memset(&pbi->LeftY[0], 0, sizeof(BLOCK_CONTEXT));
-    memset(&pbi->LeftY[1], 0, sizeof(BLOCK_CONTEXT));
-    memset(&pbi->LeftU, 0, sizeof(BLOCK_CONTEXT));
-    memset(&pbi->LeftV, 0, sizeof(BLOCK_CONTEXT));
+    memset(&pbi->fc.LeftY[0], 0, sizeof(BLOCK_CONTEXT));
+    memset(&pbi->fc.LeftY[1], 0, sizeof(BLOCK_CONTEXT));
+    memset(&pbi->fc.LeftU, 0, sizeof(BLOCK_CONTEXT));
+    memset(&pbi->fc.LeftV, 0, sizeof(BLOCK_CONTEXT));
 
-    pbi->LeftY[0].Mode = -1;
-    pbi->LeftY[1].Mode = -1;
-    pbi->LeftU.Mode = -1;
-    pbi->LeftV.Mode = -1;
-    pbi->LeftY[0].Frame = 4;
-    pbi->LeftY[1].Frame = 4;
-    pbi->LeftU.Frame = 4;
-    pbi->LeftV.Frame = 4;
+    pbi->fc.LeftY[0].Mode = -1;
+    pbi->fc.LeftY[1].Mode = -1;
+    pbi->fc.LeftU.Mode = -1;
+    pbi->fc.LeftV.Mode = -1;
+    pbi->fc.LeftY[0].Frame = 4;
+    pbi->fc.LeftY[1].Frame = 4;
+    pbi->fc.LeftU.Frame = 4;
+    pbi->fc.LeftV.Frame = 4;
 }
 
 void VP6_ResetAboveContext(PB_INSTANCE *pbi) {
-    unsigned int i;
+    UINT32 i;
 
     for (i = 0; i < pbi->HFragments + 8; i++) {
-        pbi->AboveY[i].Mode = -1;
-        pbi->AboveY[i].Frame = 4;
-        pbi->AboveY[i].Dc = 0;
-        pbi->AboveY[i].Token = 0;
+        pbi->fc.AboveY[i].Mode = -1;
+        pbi->fc.AboveY[i].Frame = 4;
+        pbi->fc.AboveY[i].Dc = 0;
+        pbi->fc.AboveY[i].Token = 0;
     }
 
     for (i = 0; i < pbi->HFragments / 2 + 8; i++) {
-        pbi->AboveU[i].Mode = -1;
-        pbi->AboveU[i].Frame = 4;
-        pbi->AboveU[i].Token = 0;
-        pbi->AboveU[i].Dc = 0;
-        pbi->AboveV[i].Mode = -1;
-        pbi->AboveV[i].Frame = 4;
-        pbi->AboveV[i].Token = 0;
-        pbi->AboveV[i].Dc = 0;
+        pbi->fc.AboveU[i].Mode = -1;
+        pbi->fc.AboveU[i].Frame = 4;
+        pbi->fc.AboveU[i].Token = 0;
+        pbi->fc.AboveU[i].Dc = 0;
+        pbi->fc.AboveV[i].Mode = -1;
+        pbi->fc.AboveV[i].Frame = 4;
+        pbi->fc.AboveV[i].Token = 0;
+        pbi->fc.AboveV[i].Dc = 0;
     }
 
+    /* PC (speed.exe 0x800899): el original compara contra 6, no contra 5. */
+#if defined(EA_PLATFORM_WIN32)
+    if (pbi->Vp3VersionNo < 6) {
+#else
     if (pbi->Vp3VersionNo <= 5) {
-        pbi->AboveU[1].Mode = 0;
-        pbi->AboveU[1].Frame = 0;
-        pbi->AboveV[1].Mode = 0;
-        pbi->AboveV[1].Frame = 0;
+#endif
+        pbi->fc.AboveU[1].Mode = 0;
+        pbi->fc.AboveU[1].Frame = 0;
+        pbi->fc.AboveV[1].Mode = 0;
+        pbi->fc.AboveV[1].Frame = 0;
     }
 
-    pbi->LastDcY[0] = 0;
-    pbi->LastDcU[0] = 128;
-    pbi->LastDcV[0] = 128;
+    pbi->fc.LastDcY[0] = 0;
+    pbi->fc.LastDcU[0] = 128;
+    pbi->fc.LastDcV[0] = 128;
 
     for (i = 1; i <= 2; i++) {
-        pbi->LastDcY[i] = 0;
-        pbi->LastDcU[i] = 0;
-        pbi->LastDcV[i] = 0;
+        pbi->fc.LastDcY[i] = 0;
+        pbi->fc.LastDcU[i] = 0;
+        pbi->fc.LastDcV[i] = 0;
     }
 }
 
-unsigned char VP6_ReadTokensPredictA(PB_INSTANCE *pbi, short *CoeffData, unsigned int Plane,
-                                     BLOCK_CONTEXT *Above, BLOCK_CONTEXT *Left) {
-    int token;
+UINT8 VP6_ReadTokensPredictA(PB_INSTANCE *pbi, INT16 *CoeffData, UINT32 Plane, BLOCK_CONTEXT *Above,
+                             BLOCK_CONTEXT *Left) {
+    INT32 token;
     BOOL_CODER *br;
-    unsigned char EncodedCoeffs;
-    unsigned char *BaselineProbsPtr;
-    unsigned char *ContextProbsPtr;
-    unsigned char PrecTokenIndex;
-    int SignBit;
-    int BitsCount;
-    unsigned char *AcProbsPtr;
-    unsigned int *TransIndex;
-    int value;
-    unsigned int ZeroRunCount;
-    unsigned char *ZeroRunProbPtr;
-    int ThisTokeNonZero;
+    UINT8 EncodedCoeffs;
+    UINT8 *BaselineProbsPtr;
+    UINT8 *ContextProbsPtr;
+    UINT8 PrecTokenIndex;
+    INT32 SignBit;
+    INT32 BitsCount;
+    UINT8 *AcProbsPtr;
+    UINT32 *TransIndex;
+    INT32 value;
+    UINT32 ZeroRunCount;
+    UINT8 *ZeroRunProbPtr;
+    BOOL ThisTokeNonZero;
 
     TransIndex = pbi->quantizer->transIndex;
     AcProbsPtr = &pbi->AcProbs[Plane * 198];
@@ -475,7 +348,7 @@ unsigned char VP6_ReadTokensPredictA(PB_INSTANCE *pbi, short *CoeffData, unsigne
         br = &pbi->br;
     }
 
-    BaselineProbsPtr = pbi->DcProbs[Plane];
+    BaselineProbsPtr = &pbi->DcProbs[Plane * 11];
     ContextProbsPtr = pbi->DcNodeContexts[Plane][Left->Token + Above->Token];
 
     if (!nDecodeBool(br, ContextProbsPtr[0])) {
@@ -614,11 +487,11 @@ unsigned char VP6_ReadTokensPredictA(PB_INSTANCE *pbi, short *CoeffData, unsigne
 }
 
 void VP6_DecodeFrameMbs(PB_INSTANCE *pbi) {
-    unsigned int MBrow;
-    unsigned int MBcol;
-    unsigned int MBRows;
-    unsigned int MBCols;
-    int i;
+    UINT32 MBrow;
+    UINT32 MBcol;
+    UINT32 MBRows;
+    UINT32 MBCols;
+    INT32 i;
 
     MBRows = pbi->MBRows;
     MBCols = pbi->MBCols;
@@ -638,7 +511,7 @@ void VP6_DecodeFrameMbs(PB_INSTANCE *pbi) {
         memset(pbi->BModeProb, 128, 11);
         memset(pbi->predictionMode, 1, pbi->MacroBlocks);
 
-        if (pbi->Interlaced == 1) {
+        if (pbi->Configuration.Interlaced == 1) {
             memcpy(pbi->ScanBands, DefaultInterlacedScanBands, sizeof(pbi->ScanBands));
         } else {
             memcpy(pbi->ScanBands, DefaultNonInterlacedScanBands, sizeof(pbi->ScanBands));
@@ -657,13 +530,13 @@ void VP6_DecodeFrameMbs(PB_INSTANCE *pbi) {
         ConvertBoolTrees(pbi);
     }
 
-    if (pbi->Interlaced == 1) {
-        pbi->probInterlaced = (unsigned char)VP6_bitread(&pbi->br, 8);
+    if (pbi->Configuration.Interlaced == 1) {
+        pbi->probInterlaced = (UINT8)VP6_bitread(&pbi->br, 8);
     }
 
     VP6_ResetAboveContext(pbi);
 
-    memset(pbi->Coeffs, 0, 768);
+    memset(pbi->mbi.Coeffs, 0, 768);
 
     pbi->CurrentDcRunLen[0] = 0;
     pbi->CurrentDcRunLen[1] = 0;

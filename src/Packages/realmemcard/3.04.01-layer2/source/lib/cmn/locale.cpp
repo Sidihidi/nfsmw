@@ -107,9 +107,50 @@ const wchar_t *GetString(int strID, char *parameterTypes, ...) {
     } while (*stri++ != 0);
 
     *strd = 0;
+#if REALMEMCARD_VERSION < 30401
+    gTrcMsgBufferIndex++;
+    gTrcMsgBufferIndex %= NUM_TRC_MSG_BUFFERS;
+#else
     gTrcMsgBufferIndex = (gTrcMsgBufferIndex + 1) % NUM_TRC_MSG_BUFFERS;
+#endif
     return reinterpret_cast<const wchar_t *>(gTrcMsgBuffer[bufindex]);
 }
+
+// GameCube tambien la tenia (DWARF: rango 0xFFFFFFFF, con isunicodemarkup, unicode, digit e i) y su enlazador la
+// estripa entera; en PS2 se queda.
+#ifdef EA_PLATFORM_PLAYSTATION2
+void ConvertAsciiToUnicode(const char *src, unsigned short *dst) {
+    while (*src != 0) {
+        bool isunicodemarkup = false;
+        int unicode = 0;
+
+        if (src[0] == '\\' && src[1] == 'x') {
+            int digit;
+
+            isunicodemarkup = true;
+            for (int i = 0; i < 4 && src[i + 2] != 0; i++) {
+                if (src[i + 2] >= '0' && src[i + 2] <= '9') {
+                    digit = static_cast<unsigned char>(src[i + 2]) - '0';
+                } else if (src[i + 2] >= 'a' && src[i + 2] <= 'f') {
+                    digit = static_cast<unsigned char>(src[i + 2]) - 'a' + 10;
+                } else {
+                    isunicodemarkup = false;
+                    break;
+                }
+                unicode = unicode * 16 + digit;
+            }
+        }
+
+        if (isunicodemarkup) {
+            *dst++ = unicode;
+            src += 6;
+        } else {
+            *dst++ = static_cast<unsigned char>(*src++);
+        }
+    }
+    *dst = 0;
+}
+#endif
 
 int GetWstrLength(const wchar_t *str) {
     int len = 0;

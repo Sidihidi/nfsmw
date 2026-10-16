@@ -7,6 +7,7 @@
 class OnlineHUDSupport : public HudElement {
   public:
     OnlineHUDSupport(const char *pkg_name);
+    ~OnlineHUDSupport() override;
     void Update(IPlayer *player) override;
     void DisplayGenericMessage(const char *message);
 

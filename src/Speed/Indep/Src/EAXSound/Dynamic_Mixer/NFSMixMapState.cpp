@@ -169,6 +169,8 @@ void NFSMixMapState::CreateSubMixChannels() {
     if (offset < 0) {
         return;
     }
+
+    this->m_SubMixChannelsAdded = 0;
     this->m_pSubChHdr = reinterpret_cast<stMixChHdr *>(reinterpret_cast<char *>(&this->m_pMMStateHdr->StateIndex) + offset);
 
     if (this->m_pSubChHdr->NumMixChannels > 0) {
@@ -177,15 +179,15 @@ void NFSMixMapState::CreateSubMixChannels() {
         this->m_MixStateParams.pSubMixChProcs = this->m_pNFSMixMap->GetNextSubMixProc(false);
         pSubMixParms = reinterpret_cast<stSubMixChParams *>(&this->m_pSubChHdr[1]);
 
-        for (int n = 0; n < this->m_pSubChHdr->NumMixChannels;) {
+        for (int n = 0; n < this->m_pSubChHdr->NumMixChannels; n++) {
             stSubMixChProc *pSMCP;
             stMixChSharedData *pSMSD;
             stMixChUniqueData *pSMUD;
             int numin;
 
             if (this->m_ObjectIndex != 0) {
-                int nOffset = n * sizeof(stSubMixChProc);
-                pSMSD = reinterpret_cast<stSubMixChProc *>(reinterpret_cast<char *>(this->m_pFirstInstance->m_MixStateParams.pSubMixChProcs) + nOffset)->pMixChData_S;
+                pSMCP = &this->m_pFirstInstance->m_MixStateParams.pSubMixChProcs[n];
+                pSMSD = pSMCP->pMixChData_S;
                 pSMCP = this->m_pNFSMixMap->GetNextSubMixProc(true);
                 pSMUD = this->m_pNFSMixMap->GetNextSubMixUnique(true);
             } else {
@@ -201,23 +203,18 @@ void NFSMixMapState::CreateSubMixChannels() {
                 MixInID |= n;
 
                 pSMSD->MIXCHINID = MixInID;
-                numin = *reinterpret_cast<unsigned char *>(reinterpret_cast<char *>(&pSubMixParms->MIXCHID) + 1);
+                pSMSD->NumInputs = (pSubMixParms->MIXCHID & 0xFF0000) >> 16;
                 pSMSD->pMapParams = pSubMixParms;
-                pSMSD->NumInputs = numin;
             }
 
             pSMCP->pMixChData_S = pSMSD;
-            n++;
             pSMUD->Output = 0;
             pSMUD->pInputs = nullptr;
             pSMCP->pMixChData_U = pSMUD;
 
-            int nextin = *reinterpret_cast<unsigned char *>(reinterpret_cast<char *>(&pSubMixParms->MIXCHID) + 1);
-            numin = nextin;
-
+            numin = (pSubMixParms->MIXCHID & 0xFF0000) >> 16;
+            pSubMixParms = reinterpret_cast<stSubMixChParams *>(reinterpret_cast<int *>(pSubMixParms) + numin) + 1;
             this->m_SubMixChannelsAdded++;
-            pSubMixParms = reinterpret_cast<stSubMixChParams *>(reinterpret_cast<char *>(reinterpret_cast<int *>(pSubMixParms) + nextin) +
-                                                                sizeof(stSubMixChParams));
         }
     }
 }
@@ -277,7 +274,7 @@ void NFSMixMapState::CreateMasterMixChannels() {
                 MixInID |= n;
 
                 pMMSD->MIXCHINID = MixInID;
-                pMMSD->NumInputs = *reinterpret_cast<unsigned char *>(reinterpret_cast<char *>(&pMasterParms->MIXCHID) + 1);
+                pMMSD->NumInputs = (pMasterParms->MIXCHID & 0xFF0000) >> 16;
             }
 
             pMMCP->pMixChData_S = pMMSD;
@@ -311,7 +308,7 @@ void NFSMixMapState::CreateMasterMixChannels() {
             pMMCP->pMixChData_U = pMMUD;
             nid = pMMSD->pMapParams->SFXOBJID;
 
-            int numin = *reinterpret_cast<unsigned char *>(reinterpret_cast<char *>(&pMasterParms->MIXCHID) + 1);
+            int numin = (pMasterParms->MIXCHID & 0xFF0000) >> 16;
 
             this->m_MasterChannelsAdded++;
 
@@ -339,8 +336,10 @@ void NFSMixMapState::CreateEvtMixCtls() {
             stEvtMixCtlProc *pEVP;
             stEvtMixCtlSharedData *pEVS;
             stEvtMixCtlUniqueData *pEVU;
+#ifndef EA_BUILD_A124
             eDMIXENVELOPS ntype;
             int nID;
+#endif
             int numscale;
 
             if (this->m_ObjectIndex != 0) {
@@ -356,6 +355,7 @@ void NFSMixMapState::CreateEvtMixCtls() {
 
             pEVP->pData_S = pEVS;
 
+#ifndef EA_BUILD_A124
             nID = (pEVS->pMapParms->nEVTCTLID >> 24) & 0xF;
             ntype = static_cast<eDMIXENVELOPS>(nID);
 
@@ -387,6 +387,7 @@ void NFSMixMapState::CreateEvtMixCtls() {
                 case DMENV_LFO:
                     break;
             }
+#endif
 
             pEVP->pData_U = pEVU;
 

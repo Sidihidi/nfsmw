@@ -43,6 +43,8 @@ DECLARE_CONTAINER_TYPE(BankSlotSystem);
 class BankSlotSystem : public UTL::Std::list<stBankSlot, _type_BankSlotSystem> {
   public:
     BankSlotSystem() {} // Decl: 44
+    // Destructor declarado: las dos PS2 lo llaman fuera de linea (_$_14BankSlotSystem) desde ~EAXAemsManager.
+    ~BankSlotSystem() {}
 
     // TODO
     void *operator new(size_t size, void *ptr) {}
@@ -51,7 +53,11 @@ class BankSlotSystem : public UTL::Std::list<stBankSlot, _type_BankSlotSystem> {
 
     void *operator new(size_t size) {}
 
-    void operator delete(void *mem, size_t size) {}
+    void operator delete(void *mem, size_t size) {
+        if (mem) {
+            gFastMem.Free(mem, size, nullptr);
+        }
+    }
 
     void *operator new(size_t size, const char *name) {}
 
@@ -78,7 +84,11 @@ class AsyncQueue : public UTL::Std::deque<stSndDataLoadParams *, _type_AsyncQueu
 
     void *operator new(size_t size) {}
 
-    void operator delete(void *mem, size_t size) {}
+    void operator delete(void *mem, size_t size) {
+        if (mem) {
+            gFastMem.Free(mem, size, nullptr);
+        }
+    }
 
     void *operator new(size_t size, const char *name) {}
 
@@ -94,6 +104,8 @@ DECLARE_CONTAINER_TYPE(SndAssetQueue);
 class SndAssetQueue : public UTL::Std::list<stSndAssetQueue, _type_SndAssetQueue> {
   public:
     SndAssetQueue() {} // Decl: 66
+    // Destructor declarado: las dos PS2 lo llaman fuera de linea (_$_13SndAssetQueue) desde ~EAXAemsManager.
+    ~SndAssetQueue() {}
 
     // TODO
     void *operator new(size_t size, void *ptr) {}
@@ -104,7 +116,11 @@ class SndAssetQueue : public UTL::Std::list<stSndAssetQueue, _type_SndAssetQueue
 
     void operator delete(void *mem, const char *name) {} // Decl: 67
 
-    void operator delete(void *mem, size_t size) {}
+    void operator delete(void *mem, size_t size) {
+        if (mem) {
+            gFastMem.Free(mem, size, nullptr);
+        }
+    }
 
     void *operator new(size_t size, const char *name) {}
 
@@ -230,7 +246,9 @@ class EAXAemsManager : public AudioMemBase {
     static int m_RequiredSlots[eBANK_SLOT_MAX_NUM];      // size: 0x10, address: 0x804FE700
 
     BankSlotSystem mBankSlots;             // offset 0xA4, size 0x8, Decl: 211
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     BankSlotSystem mPFBankSlot;            // offset 0xAC, size 0x8
+#endif
     int m_SPUMainAllocsEnd;                // offset 0xB4, size 0x4, Decl: 213
     int m_SPU_UpperAddress;                // offset 0xB8, size 0x4, Decl: 214
     SndAssetQueue mWaitForResolve;         // offset 0xBC, size 0x8, Decl: 221
@@ -246,12 +264,11 @@ class EAXAemsManager : public AudioMemBase {
     intptr_t m_nCallbackEvtSys;            // offset 0x114, size 0x4, Decl: 229
     stSndDataLoadParams *m_pCurLoadSDLP;   // offset 0x118, size 0x4, Decl: 230
     stSndDataLoadParams *m_pCurUNLOADSDLP; // offset 0x11C, size 0x4, Decl: 231
-    // La A124 tampoco tiene estos tres (m_IsWaitingForFileCB en 0x118, tamano 0x11C), pero m_pAsyncLoadSDLP y
-    // m_ItemsPendingAsyncResolve se quedan: AreResourceLoadsPending, CompleteAsyncLoad y AsyncResidentAllocCB
-    // son otras funciones en la A124.
+    // La A124 tampoco tiene estos tres (m_IsWaitingForFileCB en 0x118, tamano 0x11C): AreResourceLoadsPending,
+    // CompleteAsyncLoad y AsyncResidentAllocCB son alli las versiones sin carga asincrona en bloque.
+#ifndef EA_BUILD_A124
     stSndDataLoadParams *m_pAsyncLoadSDLP; // offset 0x120, size 0x4, Decl: 235
     int m_ItemsPendingAsyncResolve;        // offset 0x124, size 0x4, Decl: 236
-#ifndef EA_BUILD_A124
     bool m_bBulkLoad;                      // offset 0x128, size 0x1, Decl: 237
 #endif
     bool m_IsWaitingForFileCB;             // offset 0x12C, size 0x1, Decl: 239

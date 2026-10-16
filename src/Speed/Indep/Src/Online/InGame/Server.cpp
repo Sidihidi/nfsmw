@@ -3,6 +3,13 @@
 #include "CSCommon.hpp"
 #include "OnlinePlayerMgr.hpp"
 
+ServerStateEnum Server::m_state = SERVERSTATE_INITIAL;
+int Server::m_driverNumber = -1;
+bool Server::m_bForceClientShutdown = false;
+uint32 Server::m_syncAnimationSendId = 0;
+Timer Server::m_readyStateStartTime;
+int32 Server::m_ticker;
+
 void Server::Init() {
     OnlinePlayerMgr::Init();
     ConnectionCore::Instance().SetCallback(ConnectionCoreCB, nullptr);

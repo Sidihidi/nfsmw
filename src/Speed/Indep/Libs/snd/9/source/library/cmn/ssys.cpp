@@ -157,6 +157,44 @@ Result System::CapOutputMode(OutputMode mode, bool *psupported) {
     return RESULT_OK;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+Result System::GetOutputModeName(OutputMode mode, const char **pmodename) {
+    switch (mode) {
+    case OUTPUTMODE_MONO:
+        *pmodename = "Mono";
+        break;
+    case OUTPUTMODE_STEREO:
+        *pmodename = "Stereo";
+        break;
+    case OUTPUTMODE_4POINT0:
+        *pmodename = "4.0";
+        break;
+    case OUTPUTMODE_5POINT1:
+        *pmodename = "5.1";
+        break;
+    case OUTPUTMODE_DTS4POINT0:
+        *pmodename = "DTS 4.0";
+        break;
+    case OUTPUTMODE_DTS5POINT1:
+        *pmodename = "DTS 5.1";
+        break;
+    case OUTPUTMODE_DD5POINT1:
+        *pmodename = "Dolby Digital 5.1";
+        break;
+    case OUTPUTMODE_PROLOGIC:
+        *pmodename = "Dolby ProLogic";
+        break;
+    case OUTPUTMODE_PROLOGIC2:
+        *pmodename = "Dolby ProLogic II";
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+#endif
+
 Result System::SetOutputMode(OutputMode mode) {
     bool modesupported;
 
@@ -193,6 +231,16 @@ Result System::SetOutputSampleRate(Device device, int samplerate) {
             gOutputSampleRateNext[device].changed = 1;
         }
         break;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    case DEVICE_IOP:
+        if (sndgs.installed == 0) {
+            sso.set.outputrateiopcpu = samplerate;
+        } else {
+            gOutputSampleRateNext[device].value = samplerate;
+            gOutputSampleRateNext[device].changed = 1;
+        }
+        break;
+#endif
     default:
         return RESULT_ERR_INVOPT;
     }
@@ -218,6 +266,24 @@ Result System::SetVoices(Device device, int voices) {
             gVoicesNext[device].changed = 1;
         }
         break;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    case DEVICE_IOP:
+        if (sndgs.installed == 0) {
+            sso.set.voicesiopcpu = voices;
+        } else {
+            gVoicesNext[device].value = voices;
+            gVoicesNext[device].changed = 1;
+        }
+        break;
+    case DEVICE_HARDWARE:
+        if (sndgs.installed == 0) {
+            sso.set.voicesspu = voices;
+        } else {
+            gVoicesNext[device].value = voices;
+            gVoicesNext[device].changed = 1;
+        }
+        break;
+#else
     case DEVICE_HARDWARE:
         if (sndgs.installed == 0) {
             sso.set.voicesdsp = voices;
@@ -226,6 +292,7 @@ Result System::SetVoices(Device device, int voices) {
             gVoicesNext[device].changed = 1;
         }
         break;
+#endif
     default:
         return RESULT_ERR_INVOPT;
     }
@@ -237,6 +304,16 @@ Result System::SetVoices(Device device, int voices) {
     return RESULT_OK;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+Result System::SetSndLoadsIopModules(bool loadIopModules) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.set.loadiopmodules = loadIopModules;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+#else
 Result System::SetSndInitsAram(bool sndInitsAram) {
     SNDSYSOPTS sso;
 
@@ -245,6 +322,7 @@ Result System::SetSndInitsAram(bool sndInitsAram) {
     SafeSetOpts(&sso);
     return RESULT_OK;
 }
+#endif
 
 Result System::Init(const int headerversion) {
     int i;
@@ -337,6 +415,7 @@ Result Memory::SetHeap(Device device, void *pmem, int size) {
         heapsize = size;
         break;
 
+#ifdef EA_PLATFORM_GAMECUBE
     case DEVICE_HARDWARE: {
         SNDSYSOPTS sso;
 
@@ -346,6 +425,7 @@ Result Memory::SetHeap(Device device, void *pmem, int size) {
         SafeSetOpts(&sso);
         break;
     }
+#endif
 
     default:
         return RESULT_ERR_INVOPT;

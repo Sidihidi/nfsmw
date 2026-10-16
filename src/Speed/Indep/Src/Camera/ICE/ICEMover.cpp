@@ -15,9 +15,9 @@ static ICE::Vector3 vIceAccelLagMin(-1.0f, -1.0f, -0.2f);
 static ICE::Vector3 vIceAccelLagMax(1.0f, 1.0f, 1.0f);
 static ICE::Vector3 vIceAccelLagScale(0.05f, 0.05f, 0.02f);
 
-bAngle ConvertLensLengthToFovAngle(float f_lens) {
+bAngle ConvertLensLengthToFovAngle(float f_lens_mm) {
 
-    return ICE::ATan(f_lens) * 2;
+    return ICE::ATan(f_lens_mm) * 2;
 }
 
 float ConvertFovAngleToLensLength(bAngle a_fov) {
@@ -33,7 +33,7 @@ float ConvertFovAngleToLensLength(bAngle a_fov) {
 
 float ConvertLensDeltaToFovDelta(float f_lens_mm, float f_lens_slope) {
 
-    bAngle a = ICE::ATan(f_lens_mm) * 2;
+    bAngle a = ICE::ATan(f_lens_mm) << 1;
     bAngle b = ICE::ATan(f_lens_mm + f_lens_slope * 0.01f) * 2;
 
     return (ICE::SignExtendAng(b) - ICE::SignExtendAng(a)) * 100.0f;
@@ -72,9 +72,9 @@ static void CreateLookAtMatrix(ICE::Matrix4 *mat, ICE::Vector3 &eye, ICE::Vector
     m->v2.x = side.z; m->v2.y = up.z; m->v2.z = look.z; m->v2.w = 0.0f;
     m->v3.x = 0.0f; m->v3.y = 0.0f; m->v3.z = 0.0f; m->v3.w = 1.0f;
 
-    eRotateZ(m, m, dutch);
+    ICE::RotateZ(mat, mat, dutch);
 
-    bMatrix4 tl;
+    ICE::Matrix4 tl;
     tl.v0.x = 1.0f;
     tl.v0.y = 0.0f;
     tl.v0.z = 0.0f;
@@ -91,26 +91,33 @@ static void CreateLookAtMatrix(ICE::Matrix4 *mat, ICE::Vector3 &eye, ICE::Vector
     tl.v3.y = -eye.y;
     tl.v3.z = -eye.z;
     tl.v3.w = 1.0f;
-    bMulMatrix(m, m, &tl);
+    ICE::MulMatrix(mat, mat, &tl);
 }
+
+// La A124 nombra cada reserva con el nombre de su clase ("ICE::Cubic3D", "ICE::Cubic1D", cadenas del binario).
+#ifdef EA_BUILD_A124
+#define ICEMOVER_NEW(T) new (#T, 0) T
+#else
+#define ICEMOVER_NEW(T) new ("ICEMover", 0) T
+#endif
 
 ICEMover::ICEMover(int nView, ICEAnchor *pCar) : CameraMover(nView, CM_ICE), pCar(pCar) {
 
     pCamera->ClearVelocity();
 
-    pEye = new ("ICEMover", 0) ICE::Cubic3D;
-    pLook = new ("ICEMover", 0) ICE::Cubic3D;
-    pDutch = new ("ICEMover", 0) ICE::Cubic1D;
-    pFov = new ("ICEMover", 0) ICE::Cubic1D;
-    pNearClip = new ("ICEMover", 0) ICE::Cubic1D;
-    pNoiseAmplitude = new ("ICEMover", 0) ICE::Cubic1D;
-    pNoiseFrequency = new ("ICEMover", 0) ICE::Cubic1D;
-    pFocalDistance = new ("ICEMover", 0) ICE::Cubic1D;
-    pAperture = new ("ICEMover", 0) ICE::Cubic1D;
-    pLetterbox = new ("ICEMover", 0) ICE::Cubic1D;
-    pSimSpeed = new ("ICEMover", 0) ICE::Cubic1D;
+    pEye = ICEMOVER_NEW(ICE::Cubic3D);
+    pLook = ICEMOVER_NEW(ICE::Cubic3D);
+    pDutch = ICEMOVER_NEW(ICE::Cubic1D);
+    pFov = ICEMOVER_NEW(ICE::Cubic1D);
+    pNearClip = ICEMOVER_NEW(ICE::Cubic1D);
+    pNoiseAmplitude = ICEMOVER_NEW(ICE::Cubic1D);
+    pNoiseFrequency = ICEMOVER_NEW(ICE::Cubic1D);
+    pFocalDistance = ICEMOVER_NEW(ICE::Cubic1D);
+    pAperture = ICEMOVER_NEW(ICE::Cubic1D);
+    pLetterbox = ICEMOVER_NEW(ICE::Cubic1D);
+    pSimSpeed = ICEMOVER_NEW(ICE::Cubic1D);
 
-    pAccelOffset = new ("ICEMover", 0) ICE::Cubic3D(1);
+    pAccelOffset = ICEMOVER_NEW(ICE::Cubic3D)(1);
     pICEData = 0;
     nSpaceEye = 0;
     nSpaceLook = 0;
@@ -306,10 +313,10 @@ void ICEMover::SetDesired(bool b_snap, bool b_refresh) {
                 ICE::Matrix4 mWorldToCar;
 
                 ICE::Copy(&mCarToWorld, pCar->GetGeometryOrientation(), pCar->GetGeometryPosition());
-                ICE::Invert(&mWorldToCar, &mCarToWorld);
+                ICE::InvertTransformationMatrix(&mWorldToCar, &mCarToWorld);
 
                 ICE::Matrix4 mWorldToHybrid;
-                ICE::Invert(&mWorldToHybrid, &mHybridToWorld);
+                ICE::InvertTransformationMatrix(&mWorldToHybrid, &mHybridToWorld);
 
                 ICE::Cubic3D cEye(1);
                 ICE::Cubic3D cLook(1);
@@ -324,7 +331,7 @@ void ICEMover::SetDesired(bool b_snap, bool b_refresh) {
                     if (pScene) {
 
                         pAnimMatrix = &mWorldToAnim;
-                        ICE::Invert(pAnimMatrix, reinterpret_cast<const ICE::Matrix4 *>(&pScene->GetSceneTransformMatrix()));
+                        ICE::InvertTransformationMatrix(pAnimMatrix, reinterpret_cast<const ICE::Matrix4 *>(&pScene->GetSceneTransformMatrix()));
                     }
                 }
                 ICE::Matrix4 *pMatrixEye;

@@ -26,8 +26,6 @@ class MNotifyChallengePassed : public Hermes::Message {
 
     MNotifyChallengePassed(const char *_ChallengeName) : Hermes::Message(_GetKind(), _GetSize(), 0), fChallengeName(_ChallengeName) {}
 
-    ~MNotifyChallengePassed() {}
-
     const char *GetChallengeName() const {
         return fChallengeName;
     }
@@ -45,9 +43,9 @@ class MNotifyChallengePassed : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyChallengePassed::HandleMessage_LuaBinding(const MNotifyChallengePassed &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyChallengePassed::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

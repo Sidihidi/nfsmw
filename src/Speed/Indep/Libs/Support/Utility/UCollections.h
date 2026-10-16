@@ -10,6 +10,9 @@
 
 #include <algorithm>
 
+// r29: el original declara UStorage antes que UContainer (DIE _type_UStorage 0xb3127d,
+// _type_UContainer 0xb31310 en el DWARF-1 del GOWE69; bloques 6+2 con los 5 std + UComObject).
+DECLARE_CONTAINER_TYPE(UStorage);
 DECLARE_CONTAINER_TYPE(UContainer);
 
 namespace UTL {
@@ -38,7 +41,9 @@ template <typename T, int Size> class _Storage : public FixedVector<T, Size, 16>
   public:
     _Storage() {}
 
+#ifdef EA_PLATFORM_XENON
     ~_Storage() override {}
+#endif
 };
 
 template <typename T> class Singleton {
@@ -257,47 +262,59 @@ template <typename T, int Size> class GarbageNode {
 /**
  * @brief A list of owned pointers: destroying the container destroys the elements too.
  */
-template <typename T, typename Tag> class Container : public UTL::Std::list<T *, Tag> {
+template <typename T, typename Tag> class Container {
   public:
-    typedef UTL::Std::list<T *, Tag> Elements;
+    // El DWARF de GC y los stabs de la A124: un miembro `Elements _mElements`, no herencia de list. La A124 lo
+    // prueba en ~PhysicsObject: el dtor de Elements se llama con __in_chrg 2 (miembro), no 0 (base).
+    struct Elements : public UTL::Std::list<T *, Tag> {};
 
-    template <typename K, typename P> T *Create(K key, const P &params) {
-        T *instance = T::CreateInstance(key, params);
-
-        if (instance) {
-            this->push_back(instance);
-        }
-
-        return instance;
-    }
-
-    void Destroy(T *instance) {
-        typename Elements::iterator last = this->end();
-
-        for (typename Elements::iterator iter = this->begin(); iter != last; iter++) {
-            if ((*iter) == instance) {
-                this->erase(iter);
-
-                delete instance;
-                break;
-            }
-        }
-    }
+  protected:
+    Container() {}
 
     ~Container() {
-        typename Elements::iterator last = this->end();
+        typename Elements::iterator endIter = _mElements.end();
 
-        for (typename Elements::iterator iter = this->begin(); iter != last; ++iter) {
-            delete (*iter);
+        for (typename Elements::iterator iter = _mElements.begin(); iter != endIter; ++iter) {
+            T::Destroy(*iter);
         }
 
-        this->clear();
+        _mElements.clear();
     }
+
+    // El DWARF de GC da los typedefs FACTORY_PRODUCT, FACTORY_PRODUCT_SIGNATURE y FACTORY_BUILD_PARAMETERS (Behavior,
+    // UCrc32 y const BehaviorParams &), pero aqui T aun es incompleto (PhysicsObject.h): plantilla con esos tipos.
+    template <typename K, typename P> T *BuildElement(K sig, const P &parms) {
+        T *e = T::CreateInstance(sig, parms);
+
+        if (e) {
+            _mElements.push_back(e);
+        }
+
+        return e;
+    }
+
+    bool DestroyElement(T &el) {
+        typename Elements::iterator last = _mElements.end();
+
+        for (typename Elements::iterator first = _mElements.begin(); first != last; first++) {
+            if (*first == &el) {
+                _mElements.erase(first);
+                T::Destroy(&el);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+  private:
+    Elements _mElements;
 };
 
 }; // namespace Collections
 }; // namespace UTL
 
-#define IMPLEMENT_INSTANCABLE(HANDLETYPE,TYPE) template<> UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_List UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_mList=UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_List(); template<> unsigned UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_mHNext=0;
+#define IMPLEMENT_INSTANCABLE(HANDLETYPE,TYPE) template<> UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_List UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_mList=UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_List(); template<> uintptr_t UTL::Collections::Instanceable<HANDLETYPE,TYPE,TYPE::InstanceLimit>::_mHNext=0;
 
 #endif

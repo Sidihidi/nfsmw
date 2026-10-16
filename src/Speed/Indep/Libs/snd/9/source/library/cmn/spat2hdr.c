@@ -21,7 +21,13 @@ void SNDI_patchtohdrgen(void *pbank, Sndgendef::GENTAGGEDPATCH *ptp, SNDSAMPLEFO
 void SNDI_patchtohdr(void *pbank /* r23 */, struct TAGGEDPATCH *ptp /* r30 */, struct SNDSAMPLEFORMAT *pssf /* r28 */, struct SNDSAMPLEATTR *pssa /* r31 */, struct SNDSAMPLEDESC *pssd /* r29 */, unsigned char *isgeneric /* r27 */) {
     SNDTAGINFO sti;
     int userdatachunks = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int playloc = 8;
+#elif defined(EA_PLATFORM_WIN32)
+    int playloc = 0; // speed.exe 0x821C82: and [ebp-4], 0
+#else
     int playloc = 0x200;
+#endif
     int *paudioramaddr = NULL;
     int i;
     unsigned char *tempID;
@@ -50,9 +56,20 @@ void SNDI_patchtohdr(void *pbank /* r23 */, struct TAGGEDPATCH *ptp /* r30 */, s
     SND_attrsetdef(pssa);
 
     sti.p = (unsigned char *)ptp + 4;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    pssf->samplerate = 22050;
+    pssf->channels = 1;
+    pssf->samplerep = 5;
+#elif defined(EA_PLATFORM_WIN32)
+    // speed.exe 0x821D10: 22050 Hz, mono y EA-XA (10)
+    pssf->samplerate = 22050;
+    pssf->channels = 1;
+    pssf->samplerep = 10;
+#else
     pssf->samplerate = 24000;
     pssf->channels = 1;
     pssf->samplerep = 7;
+#endif
     pssd->totalframes = 0;
 
     while (SNDI_gettag(&sti)) {

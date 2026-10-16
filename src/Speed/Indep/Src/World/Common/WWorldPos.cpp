@@ -113,8 +113,10 @@ bool WWorldPos::FindClosestFace(const WCollisionTriList &triList, const UMath::V
         pt.y += this->fYOffset;
 
         for (WCollisionTriList::const_iterator bIter = triList.begin(); bIter != triList.end(); ++bIter) {
+#ifndef EA_BUILD_A124 // la A124 recorre todos los bloques (sin foundFace en los stabs)
             if (foundFace && !this->fFace.fSurface.HasFlag(4))
                 break;
+#endif
 
             const WCollisionTriBlock &triBlock = **bIter;
             for (WCollisionTriBlock::const_iterator iIter = triBlock.begin(); iIter != triBlock.end(); ++iIter) {
@@ -124,24 +126,25 @@ bool WWorldPos::FindClosestFace(const WCollisionTriList &triList, const UMath::V
                     UMath::Vector3 norm;
                     tri.GetNormal(&norm);
 
-                    if (norm.y < 0.0f) {
-                        norm.y = -norm.y;
-                        norm.x = -norm.x;
-                        norm.z = -norm.z;
-                    }
-                    if (0.9999f <= norm.y) {
-                        norm.y = 0.9999f;
-                    }
-
                     float dist = pt.y - WWorldMath::GetPlaneY(norm, tri.fPt0, pt);
                     if (dist < bestDist && -1.0f < dist) {
                         this->fFaceValid = 1;
                         this->fFace = tri;
                         foundFace = true;
-                        this->fSurface = reinterpret_cast<const Attrib::Collection *>(tri.fSurfaceRef);
+#ifdef EA_BUILD_A124
+                        // La A124 guarda el hash del triangulo y solo busca la superficie si ha cambiado.
+                        this->fSurfaceHash = tri.fSurfaceHash;
+                        if (!this->fSurface || Attrib::GetCollectionKey(this->fSurface) != tri.fSurfaceHash.GetValue()) {
+                            this->fSurface = SimSurface::Lookup(tri.fSurfaceHash);
+                        }
+#else
+                        this->fSurface = tri.fSurfaceRef;
+#endif
                         bestDist = dist;
+#ifndef EA_BUILD_A124 // la A124 sigue buscando en el bloque
                         if (!this->fFace.fSurface.HasFlag(4))
                             break;
+#endif
                     }
                 }
             }
@@ -183,6 +186,9 @@ bool WWorldPos::Update(const UMath::Vector3 &pos, UMath::Vector4 &dest, bool use
     bool was_valid = this->OnValidFace();
     bool recalcNormal = this->FindClosestFace(collider, pos, usecache);
     if (!this->OnValidFace()) {
+#ifdef EA_BUILD_A124
+        this->fSurfaceHash = nullptr; // la A124 tambien borra el hash (stringhash32(0) y la local tmp de los stabs)
+#endif
         this->fSurface = SimSurface::kNull.GetConstCollection();
         if (keep_valid && was_valid) {
             this->ForceFaceValidity();
@@ -208,5 +214,13 @@ float WWorldPos::HeightAtPoint(const UMath::Vector3 &pt) const {
 }
 
 void WWorldPos::FindSurface(const WCollisionArticle &cArt) {
+#ifdef EA_BUILD_A124
+    // La A124 lee el hash del articulo y solo busca la superficie si ha cambiado (stabs: hash en la pila).
+    UCrc32 hash(cArt.GetSurface(this->fFace.fSurface.Surface()));
+    if (!this->fSurface || Attrib::GetCollectionKey(this->fSurface) != hash.GetValue()) {
+        this->fSurface = SimSurface::Lookup(hash);
+    }
+#else
     this->fSurface = cArt.GetSurface(this->fFace.fSurface.Surface());
+#endif
 }

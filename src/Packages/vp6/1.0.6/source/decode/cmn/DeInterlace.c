@@ -1,28 +1,30 @@
+#include "type_aliases.h"
 
+/* Sin prototipo, como en el original: en GameCube las dos llamadas llevan crclr. */
 extern void *memcpy();
 
-void CFastDeInterlace(unsigned char *SrcBuffer, unsigned char *DesBuffer,
-                      int Width, int Height, int Stride) {
-    unsigned char *PrevRow;
-    unsigned char *CurRow;
-    unsigned char *NextRow;
-    unsigned char *DesPtr;
-    int i, j;
+void CFastDeInterlace(UINT8 *SrcPtr, UINT8 *DstPtr, INT32 Width, INT32 Height, INT32 Stride) {
+    INT32 i, j;
+    UINT32 x0, x1, x2;
+    UINT8 *PrevSrcPtr, *NextSrcPtr;
+    UINT8 *CurrentSrcPtr = SrcPtr;
+    UINT8 *CurrentDstPtr = DstPtr;
 
-    CurRow = SrcBuffer;
-    DesPtr = DesBuffer;
-
-    memcpy(DesBuffer, SrcBuffer, Width);
+    memcpy(CurrentDstPtr, CurrentSrcPtr, Width);
 
     for (i = 1; i < Height - 1; i++) {
-        PrevRow = CurRow;
-        CurRow += Stride;
-        NextRow = CurRow + Stride;
-        DesPtr += Stride;
+        PrevSrcPtr = CurrentSrcPtr;
+        CurrentSrcPtr += Stride;
+        NextSrcPtr = CurrentSrcPtr + Stride;
+        CurrentDstPtr += Stride;
+
         for (j = 0; j < Width; j++) {
-            DesPtr[j] = ((unsigned int)(PrevRow[j] + (CurRow[j] << 1) + NextRow[j] + 2)) >> 2;
+            x0 = PrevSrcPtr[j];
+            x1 = CurrentSrcPtr[j] << 1;
+            x2 = NextSrcPtr[j];
+            CurrentDstPtr[j] = (UINT8)((x0 + x1 + x2 + 2) >> 2);
         }
     }
 
-    memcpy(DesPtr + Stride, CurRow + Stride, Width);
+    memcpy(CurrentDstPtr + Stride, CurrentSrcPtr + Stride, Width);
 }

@@ -55,7 +55,7 @@ void MyEAGLFreeOverride(void *ptr, size_t) {
 void CAnimEngineManager::Init() {
     EAGL4Internal::SetMallocOverride(&MyEAGLMallocOverride);
     EAGL4Internal::SetFreeOverride(&MyEAGLFreeOverride);
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
     EAGL4Anim::Init(0xC800, true);
 #else
     EAGL4Anim::Init(0x14000, false);

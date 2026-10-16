@@ -26,7 +26,9 @@ void UIMemcardBoot::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
 
             } else {
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
                 SetStringCheckingCard();
+#endif
 
                 MemoryCard::GetInstance()->BootupCheck(nullptr);
 
@@ -62,15 +64,17 @@ MenuScreen *CreateMemCardBootScreen(ScreenConstructorData *sd) {
 }
 
 MenuScreen *CreateMemcardMainMenu(ScreenConstructorData *sd) {
-    UIMemcardMain *pScreen = new ("UIMemcardMain", 0) UIMemcardMain(sd);
+    UIMemcardMain *pRes = new ("UIMemcardMain", 0) UIMemcardMain(sd);
 
-    pScreen->Setup();
+    pRes->Setup();
 
-    return pScreen;
+    return pRes;
 }
 
 UIMemcardMain::UIMemcardMain(ScreenConstructorData *sd) : UIMemcardBase(sd) {
+#ifdef EA_PLATFORM_GAMECUBE
     FEngFindString(GetPackageName(), 0x1E2640FA)->Flags &= ~0x200;
+#endif
 }
 
 void UIMemcardMain::DoSelect(const char *pName) {
@@ -79,11 +83,15 @@ void UIMemcardMain::DoSelect(const char *pName) {
     switch (m_pChild->GetListOp()) {
         case UIMemcardList::MCLO_Load:
             MemoryCard::GetInstance()->RequestTask(5, m_FileName);
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // ni las dos PS2 ni PC cambian el texto aqui
             SetStringCheckingCard();
+#endif
             break;
         case UIMemcardList::MCLO_Delete:
             MemoryCard::GetInstance()->RequestTask(6, m_FileName);
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
             SetStringCheckingCard();
+#endif
             break;
     }
 
@@ -126,10 +134,19 @@ void UIMemcardMain::ListDone() {
                 bStrCpy(m_FileName, pFile + MemoryCard::GetInstance()->GetPrefixLength());
                 MemoryCard::GetInstance()->Load(m_FileName);
             } else {
+#ifdef EA_PLATFORM_GAMECUBE
                 MemoryCard::GetInstance()->BootupCheck(nullptr);
+#else // PS2 y PC: sin sitio en la tarjeta se avisa; si no, a crear el perfil (SLUS y speed.exe 0x563E90)
+                if (MemoryCard::GetSpecialError() == RealmcIface::STATUS_INSUFFICIENT_SPACE) {
+                    cFEng::Get()->QueueGameMessage(0x8867412D, GetPackageName(), 0xff);
+                } else {
+                    DoSaveFlow(MCSF_PromptForCreate);
+                }
+#endif
             }
             break;
 
+#ifdef EA_PLATFORM_GAMECUBE
         case 0xF0:
             if (nSize > 1) {
                 bCreateChild = true;
@@ -142,6 +159,7 @@ void UIMemcardMain::ListDone() {
                 DoSaveFlow(MCSF_PromptForCreate);
             }
             break;
+#endif
 
         case MCO_SaveCreate:
             if (FEDatabase->bProfileLoaded) {
@@ -153,7 +171,7 @@ void UIMemcardMain::ListDone() {
             break;
 
         case MCO_CreateNew:
-            if (FEDatabase->bProfileLoaded && (gMemcardSetup.mOp & MCE_NewCareer) == 0) {
+            if (FEDatabase->bProfileLoaded && (gMemcardSetup.GetExtraOptions() & MCE_NewCareer) == 0) {
                 DoSaveFlow(MCSF_PromptForDestoryCreate);
             } else {
                 DoSaveFlow(MCSF_PromptForCreate);

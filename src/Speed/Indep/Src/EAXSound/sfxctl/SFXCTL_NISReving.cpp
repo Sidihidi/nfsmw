@@ -16,7 +16,7 @@
 static const float NIS_ENG_RESUME = 500.0f;
 
 extern int GetCsisEventIndex(unsigned int anim_id);
-extern unsigned int uNIS_STRINGHASHMAP[][3];
+extern uintptr_t uNIS_STRINGHASHMAP[][3];
 
 NIS_RevManager *g_pNISRevMgr = nullptr;
 
@@ -451,7 +451,7 @@ void SFXCTL_Physics::UpdateNIS(float TotalTime, float deltaTime) {
             }
         }
 
-        if (timeLeft < 1.0f && 0.0f < timeLeft) {
+        if (timeLeft < 1.0f && timeLeft > 0.0f) {
             this->eCurNisRevingState = NIS_MERGE_WITH_PHYSICS;
         }
         break;
@@ -470,10 +470,11 @@ ClampAndStore:
     this->NISRPM = bClamp(this->NISRPM, 1000.0f, 10000.0f);
     this->NISTRQ = bClamp(this->NISTRQ, 0.0f, 100.0f);
 
+    // Orden del mapa de lineas: PhysicsTRQ (563), PhysicsRPM (564), IsAccelerating (565), m_fThrottle (566).
+    this->PhysicsTRQ = this->NISTRQ;
     this->PhysicsRPM = this->NISRPM;
     this->IsAccelerating = this->NISTRQ > 30.0f;
     this->m_fThrottle = this->NISTRQ;
-    this->PhysicsTRQ = this->NISTRQ;
     this->m_pEAXCar->SetPhysTRQ(this->NISTRQ);
     this->m_pEAXCar->SetPhysRPM(this->PhysicsRPM);
     this->m_pEAXCar->SetIsAccelerating(static_cast<float>(this->IsAccelerating));
@@ -484,10 +485,11 @@ ClampAndStore:
 void SFXCTL_Physics::MsgRevEngine(const MAIEngineRev &message) {
     (void)message;
     this->eCurNisRevingState = NIS_OFF;
-    if (this->m_pStateBase->m_eStateType == eMM_AIRACECAR) {
-        this->PattternPlay = true;
-        this->PatternNumber = bRandom(7) + 5;
+    if (this->m_pStateBase->m_eStateType != eMM_AIRACECAR) {
+        return;
     }
+    this->PattternPlay = true;
+    this->PatternNumber = bRandom(7) + 5;
 }
 
 void SFXCTL_Physics::MsgRevOff(const MAIEngineRev &message) {
@@ -602,7 +604,7 @@ void NIS_RevManager::Update(float t) {
                 ISimable *isim;
                 EAX_CarState *state;
 
-                if (i <= 7) {
+                if (i < 8) {
                     bSPrintf(channelName, "car%d", i + 1);
                 } else {
                     bSPrintf(channelName, "cop%d", i - 7);

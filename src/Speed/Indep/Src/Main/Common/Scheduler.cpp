@@ -2,6 +2,10 @@
 
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Sim/Simulation.h"
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
+#endif
 
 bool LOCK_TO_30 = false;
 
@@ -43,10 +47,22 @@ void Scheduler::RunNormalSpeed(unsigned int delta_tick) {
 
     unsigned int max_elapsed = LOCK_TO_30 ? MinCatchup : MaxCatchup;
 
+#ifdef EA_BUILD_A124
+    // La A124 no recorta los ticks en una carrera en linea y cuenta desde el tick de la simulacion.
+    if (TheOnlineManager.GetState() != OLS_RACING) {
+        if (delta_tick > max_elapsed)
+            delta_tick = max_elapsed;
+    }
+
+    unsigned int start_tick = Sim::GetTime() / fTimeStep;
+    unsigned int end_tick = start_tick + delta_tick;
+    for (unsigned int i = start_tick; i < end_tick; i++) {
+#else
     if (delta_tick > max_elapsed)
         delta_tick = max_elapsed;
 
     for (unsigned int i = 0; i < delta_tick; i++) {
+#endif
         for (int priority = 0; priority < kNumPriorityLevels; priority++) {
             for (ScheduleList::iterator iter = fScheduleList->begin(); iter != fScheduleList->end(); ++iter)
                 (*iter)->Process(mEventTick, priority);
@@ -56,6 +72,11 @@ void Scheduler::RunNormalSpeed(unsigned int delta_tick) {
         mEventTick++;
     }
 
+#ifdef EA_BUILD_A124
+    if (TheOnlineManager.GetState() == OLS_RACING) {
+        TheOnlineManager.UpdateOutgoing();
+    }
+#endif
     for (int priority = 0; priority < kNumPriorityLevels; priority++)
         fSchedule_OncePerGameLoop->Process(0, priority);
 
@@ -63,6 +84,15 @@ void Scheduler::RunNormalSpeed(unsigned int delta_tick) {
 }
 
 Timer Scheduler::GetTargetTimer() {
+#ifdef EA_BUILD_A124
+    // En una carrera en linea la A124 sigue el reloj maestro y pone mTimer al tiempo de la simulacion.
+    if (TheOnlineManager.GetState() == OLS_RACING) {
+        Timer result;
+        result.SetTime(static_cast<float>(TheOnlineManager.GetMasterTime()) * 0.001f);
+        mTimer.SetTime(Sim::GetTime());
+        return result;
+    }
+#endif
     return RealTimer;
 }
 

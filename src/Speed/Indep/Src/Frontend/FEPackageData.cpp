@@ -1,11 +1,17 @@
 #include "Speed/Indep/Src/Frontend/FEPackageData.hpp"
 #include "Speed/Indep/Src/Frontend/FEPackageManager.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEIconScrollerMenu.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/uiMain.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsMain.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsScreen.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsTrailers.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsController.hpp"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiOptionsPCController.hpp"
+#endif
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiCredits.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/options/uiEATraxJukebox.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/career/uiCareerMain.hpp"
@@ -77,7 +83,13 @@
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/Src/Frontend/Database/uiProfileManager.hpp"
-
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineLogin.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/UIOnlineMainMenu.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/StatsMainMenu.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineQuickJoin.hpp"
+#include "Speed/Indep/Src/Online/WebOfferUG2.hpp"
+#endif
 
 // Local declaration of the world map screen class (implemented in
 // SourceLists/zFe, uiWorldMap.cpp). The gameplay-side WorldMap stub in
@@ -93,7 +105,9 @@ class WorldMap : public UIWidgetMenu {
     ~WorldMap() override;
 
     FEObject *Cursor;                // offset 0x138, size 0x4
+#ifndef EA_PLATFORM_WIN32 // PC no tiene la cola del mando (como uiWorldMap.cpp)
     ActionQueue *mActionQ;           // offset 0x13C, size 0x4
+#endif
     bVector2 CurrentVelocity;        // offset 0x140, size 0x8
     Timer TimeSinceLastMove;         // offset 0x148, size 0x4
     bVector2 CursorMoveFrom;         // offset 0x14C, size 0x8
@@ -110,7 +124,10 @@ class WorldMap : public UIWidgetMenu {
     bool bInToggleMode;              // offset 0x188, size 0x1
     bool bCursorOn;                  // offset 0x18C, size 0x1
     bool bCursorMoving;              // offset 0x190, size 0x1
+#ifndef EA_BUILD_A124
+    // La A124 no lo tiene: sus stabs dan WorldMap de 0x198 con fSnapDist en 0x194 (new de 0x198 en CreateWorldMap).
     bool bLeftHeldOnMap;             // offset 0x194, size 0x1
+#endif
     float fSnapDist;                 // offset 0x198, size 0x4
 
     static GIcon *mGPSingIcon; // size: 0x4, address: 0x8041B640
@@ -134,33 +151,57 @@ static MenuScreen *CreateMainMenu(ScreenConstructorData *sd) {
 }
 
 static MenuScreen *CreateSubMenu(ScreenConstructorData *sd) {
-    if (FEDatabase->GetGameMode() & eFE_GAME_MODE_OPTIONS) {
+    if (FEDatabase->IsOptionsMode()) {
         if (FEDatabase->GetOptionsSettings()->CurrentCategory == OC_TRAILERS) {
             return new ("UIOptionsTrailers", 0) UIOptionsTrailers(sd);
         }
         return new ("UIOptionsMain", 0) UIOptionsMain(sd);
     }
-    if (FEDatabase->GetGameMode() & eFE_GAME_MODE_CAREER) {
+    if (FEDatabase->IsCareerMode()) {
         return new ("uiCareerCrib", 0) uiCareerCrib(sd);
     }
-    if (FEDatabase->GetGameMode() & eFE_GAME_MODE_CAREER_MANAGER) {
+    if (FEDatabase->IsCareerManagerMode()) {
         return new ("uiCareerManager", 0) uiCareerManager(sd);
     }
-    if (FEDatabase->GetGameMode() & eFE_GAME_MODE_MODE_SELECT) {
+    if (FEDatabase->IsModeSelectMode()) {
         return new ("UIQRModeSelect", 0) UIQRModeSelect(sd);
     }
-    if (FEDatabase->GetGameMode() & eFE_GAME_MODE_QUICK_RACE) {
+    if (FEDatabase->IsQuickRaceMode()) {
         return new ("UIQRMainMenu", 0) UIQRMainMenu(sd);
     }
     return new ("UIOptionsMain", 0) UIOptionsMain(sd);
 }
 
 static MenuScreen *CreateCommonPauseMenu(ScreenConstructorData *sd) {
-    if (FEDatabase->GetGameMode() & eFE_GAME_MODE_OPTIONS) {
+    if (FEDatabase->IsOptionsMode()) {
         return new ("UIOptionsMain", 0) UIOptionsMain(sd);
     }
     return new ("PauseMenu", 0) PauseMenu(sd);
 }
+
+#ifdef EA_BUILD_A124
+static MenuScreen *CreateOLConnectingScreen(ScreenConstructorData *sd) {
+    switch (FEDatabase->GetOnlineSettings()->SelectedConnectingScreen) {
+    case eOnlineConnecting_ISP:
+        return new ("UIOnlineLogin", 0) UIOnlineLogin(sd);
+    case eOnlineConnecting_QuickMatchSearch:
+        FEDatabase->GetOnlineSettings()->SelectedConnectingScreen = eOnlineConnecting_ISP;
+        return CreateOnlineGameSessionSearch(sd, eOnlineConnecting_QuickMatchSearch);
+    case eOnlineConnecting_LobbyMatchSearch:
+        FEDatabase->GetOnlineSettings()->SelectedConnectingScreen = eOnlineConnecting_ISP;
+        return CreateOnlineGameSessionSearch(sd, eOnlineConnecting_LobbyMatchSearch);
+    }
+    return 0;
+}
+
+static MenuScreen *CreateNewsAndTerms(ScreenConstructorData *sd) {
+    if (FEDatabase->GetOnlineSettings()->ShowForeignReg) {
+        FEDatabase->GetOnlineSettings()->ShowForeignReg = false;
+        return CreateForeignReg(sd);
+    }
+    return CreateOnlineNews(sd);
+}
+#endif
 
 static MenuScreen *CreateOptionsScreen(ScreenConstructorData *sd) {
     return new ("UIOptionsScreen", 0) UIOptionsScreen(sd);
@@ -310,9 +351,11 @@ static MenuScreen *CreateUISafeHouseMarkers(ScreenConstructorData *sd) {
     return new ("FEMarkerSelection", 0) FEMarkerSelection(sd);
 }
 
+#ifndef EA_BUILD_A124
 static MenuScreen *CreateGameWonScreen(ScreenConstructorData *sd) {
     return new ("FEGameWonScreen", 0) FEGameWonScreen(sd);
 }
+#endif
 
 static MenuScreen *CreateDebugCarCustomize(ScreenConstructorData *sd) {
     return new ("DebugCarCustomizeScreen", 0) DebugCarCustomizeScreen(sd);
@@ -394,6 +437,21 @@ static MenuScreen *CreateUIEATraxScreen(ScreenConstructorData *sd) {
     return new ("UIEATraxScreen", 0) UIEATraxScreen(sd);
 }
 
+#ifdef EA_BUILD_A124
+static MenuScreen *CreateOnlineMenu(ScreenConstructorData *sd) {
+    if (EnterRankingsMenu) {
+        return new ("StatsMainMenu", 0) StatsMainMenu(sd);
+    }
+    if (FEDatabase->IsOptionsMode()) {
+        return new ("UIOptionsMain", 0) UIOptionsMain(sd);
+    }
+    if (FEDatabase->IsModeSelectMode()) {
+        return new ("UIQRModeSelect", 0) UIQRModeSelect(sd);
+    }
+    return new ("UIOnlineMainMenu", 0) UIOnlineMainMenu(sd);
+}
+#endif
+
 static MenuScreen *CreateLoadingScreen(ScreenConstructorData *sd) {
     return new LoadingScreen(sd);
 }
@@ -405,6 +463,14 @@ static MenuScreen *CreateLoadingControllerScreen(ScreenConstructorData *sd) {
 static MenuScreen *CreateOptionsControllerScreen(ScreenConstructorData *sd) {
     return new ("UIOptionsController", 0) UIOptionsController(sd);
 }
+
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x571D00): la pantalla de controles de PC, desde Opciones y desde la pausa. La cadena del `new` es la
+// del exe (su limpieza de excepcion, 0x871D20).
+static MenuScreen *CreatePausePCController(ScreenConstructorData *sd) {
+    return new ("UIPCOptionsController", 0) UIOptionsPCController(sd);
+}
+#endif
 
 static ScreenFactoryDatum ScreenFactoryData[] = {
     {"MainMenu.fng", CreateMainMenu},
@@ -426,8 +492,14 @@ static ScreenFactoryDatum ScreenFactoryData[] = {
     {"HUD_SingleRace.fng", 0},
     {"HUD_Drag.fng", 0},
     {"InGameAnyMovie.fng", InGameAnyMovieScreen::Create},
+#ifndef EA_BUILD_A124
     {"WS_InGameAnyMovie.fng", InGameAnyMovieScreen::Create},
+#endif
     {"InGameAnyTutorial.fng", InGameAnyTutorialScreen::Create},
+#ifdef EA_PLATFORM_WIN32 // PC: la tabla de speed.exe (0x8F43C8 y 0x8F43D0)
+    {"Pause_PCDisplayOptions.fng", CreateOptionsScreen},
+    {"Pause_PC_Controller.fng", CreatePausePCController},
+#endif
     {"EngageEventDialog.fng", CreateEngageEventDialog},
     {"SafehouseRaceSheet.fng", CreateUISafeHouseRaceSheet},
     {"OPM_SafehouseRaceSheet.fng", CreateUISafeHouseRaceSheet},
@@ -458,10 +530,12 @@ static ScreenFactoryDatum ScreenFactoryData[] = {
     {"InGameBounty.fng", CreateUISafeHouseBounty},
     {"SMS_Mailboxes.fng", CreateSMS},
     {"SMS_Message.fng", CreateSMSMessage},
+#ifndef EA_BUILD_A124
     {"GameWon.fng", CreateGameWonScreen},
     {"RapSheetLogin_ENDGAME.fng", CreateGameWonScreen},
     {"RapSheetLogin2_ENDGAME.fng", CreateGameWonScreen},
     {"RapSheetMain_ENDGAME.fng", CreateGameWonScreen},
+#endif
     {"ControllerUnplugged.fng", CreateControllerUnplugged},
     {"UI_DebugCarCustomize.fng", CreateDebugCarCustomize},
     {"MyCarsManager.fng", CreateMyCarsManager},
@@ -494,17 +568,23 @@ static ScreenFactoryDatum ScreenFactoryData[] = {
     {"DiscError.fng", 0},
     {"Dialog.fng", 0},
     {"GenericDialog_ThreeButton.fng", 0},
+#ifndef EA_BUILD_A124
     {"GameOver.fng", 0},
+#endif
     {"EA_Trax_Jukebox.fng", CreateUIEATraxScreen},
     {"EA_Trax.fng", CreateChyronScreen},
     {"Chyron_IG.fng", CreateChyronScreen},
     {"InGameDialog.fng", 0},
     {"Keyboard.fng", CreateFEKeyboard},
+#ifndef EA_BUILD_A124
     {"Keyboard_GC.fng", CreateFEKeyboard},
+#endif
     {"ScreenPrintf.fng", 0},
     {"Credits.fng", CreateCreditsScreen},
     {"FEAnyMovie.fng", FEAnyMovieScreen::Create},
+#ifndef EA_BUILD_A124
     {"WS_FEAnyMovie.fng", FEAnyMovieScreen::Create},
+#endif
     {"FEAnyTutorial.fng", FEAnyTutorialScreen::Create},
     {"LS_EALogo.fng", CreateMovieScreen},
     {"LS_EA_hidef.fng", CreateMovieScreen},
@@ -522,6 +602,9 @@ static ScreenFactoryDatum ScreenFactoryData[] = {
     {"Loading_Tips.fng", CreateLoadingTipsScreen},
     {"loading_boot.fng", 0},
     {"LS_LangSelect.fng", CreateLanguageSelectScreen},
+#ifdef EA_PLATFORM_WIN32 // PC: la tabla de speed.exe (0x8F46C8)
+    {"Options_PC_Controller.fng", CreatePausePCController},
+#endif
     {"Loading.fng", CreateLoadingScreen},
     {"WS_Loading.fng", CreateLoadingScreen},
     {"Loading_Controller.fng", CreateLoadingControllerScreen},
@@ -535,6 +618,50 @@ static ScreenFactoryDatum ScreenFactoryData[] = {
     {"InGamePhotoMaster.fng", PhotoFinishScreen::Create},
     {"PostRace_Pursuit.fng", CreatePostRacePursuitScreen},
     {"PostRace_MilestoneRewards.fng", CreatePostRaceMilestonesScreen},
+#ifdef EA_BUILD_A124
+    {"UI_OL_Disconnect.fng", CreateOnlineDisconnectDialog},
+    {"UI_OL_Disconnect_BG.fng", CreateOnlineDisconnectBG},
+    {"UI_OL_WebOffer2.fng", CreateUIOLEATermsScreen},
+    {"OL_News_and_Terms.fng", CreateNewsAndTerms},
+    {"OL_LobbyRoom.fng", CreateUIOLLobbyRoomScreen},
+    {"OL_GameRoom.fng", CreateUIOLGameRoomScreen},
+    {"OL_GameRoom_Player_Details.fng", CreateUIOLGameRoomHostScreen},
+    {"OL_GameRoom_Edit_Race.fng", CreateEditGameDetailsScreen},
+    {"OL_GameRoom_Car_Select.fng", CreateGameRoomCarSelectScreen},
+    {"UI_OLViewTrack.fng", CreateOnlineViewTrack},
+    {"OL_MAIN.fng", CreateOnlineMenu},
+    {"OL_Quickrace_Main.fng", CreateOnlineQuickJoin},
+    {"UI_DateEntry.fng", CreateUIDateMenu},
+    {"OL_Dialog.fng", 0},
+    {"OL_Dialog_Stacked_Buttons.fng", 0},
+    {"UI_OLISPConnect.fng", CreateOLConnectingScreen},
+    {"UI_OLFilters.fng", CreateOnlineFilters},
+    {"UI_OLX_OptiMatch_Available.fng", CreateUIOLLobbyRoomScreen},
+    {"UI_OLX_OptiMatch_Filters.fng", CreateOnlineFilters},
+    {"OLX_Connecting2XBL.fng", CreateOLConnectingScreen},
+    {"OL_Rankings.fng", CreateOnlineOverallRankings},
+    {"OL_Rankings_Personal.fng", CreateOnlinePersonalRankings},
+    {"OL_Rankings_Personal_Overlay.fng", CreateOnlinePersonalRankings},
+    {"OL_Rankings_Leaderboard.fng", CreateOnlineRankingsLeaderboard},
+    {"OL_EAMessenger.fng", CreateOnlineEA_Messenger},
+    {"OL_FriendDialogue.fng", CreateUIOnlineEAM_Options},
+    {"OLX_Message.fng", CreateUIOnlineChatDialog},
+    {"OLX_FindResults.fng", CreateUIOnlineSearchResult},
+    {"OL_Feedback.fng", CreateUIOnlineEAM_Feedback},
+    {"OL_Challenge.fng", CreateuiOnlineChallengeInvite},
+    {"OL_VoiceChat.fng", CreateOnlineVoiceInvite},
+    {"UI_OLNetSelect.fng", CreateUIOLNetSelectScreen},
+    {"UI_OLAuthDNAS.fng", CreateUIOLAuthDNASScreen},
+    {"UI_OLISPConnect.fng", CreateOLConnectingScreen},
+    {"OL_SelectPersona.fng", CreateUIOLSelectPersonaScreen},
+    {"OL_Create_Account.fng", CreateUIOLCreateUserScreenPart1},
+    {"UI_OLX_Info_Sharing.fng", CreateUIOLCreateUserScreenPart2},
+    {"OL_Create_Account_Country.fng", CreateUIOLCreateUserCountry},
+    {"UI_OLAgeVerif.fng", CreateUIOLAgeVerf},
+    {"OL_UseExisting.fng", CreateUIOLUseExistingScreen},
+    {"OL_ForgotAccountName.fng", CreateUIGetUserEmailAddress},
+    {"OLEALogin.fng", CreateUIOLEALoginScreen},
+#endif
     {"MC_ProfileManager.fng", CreateUIProfileManager},
     {"MC_Deleteprofile.fng", CreateUIDeleteProfile},
     {"MC_Bootup.fng", CreateMemCardBootScreen},
@@ -551,12 +678,12 @@ int FEPackageData::mInScreenConstructor = 0;
 
 static MenuScreen *ScreenFactory(uint32 hash, FEPackage *pkg, int arg) {
     ScreenConstructorData sd;
-    for (int i = 0; i <= 136; i++) {
+    for (int i = 0; i < NUM_ELEMENTS(ScreenFactoryData); i++) {
         if (hash == FEHashUpper(ScreenFactoryData[i].FEngPackageFilename) && ScreenFactoryData[i].ConstructorFunction != 0) {
             ScreenConstructorData data = {0};
+            data.PackageFilename = ScreenFactoryData[i].FEngPackageFilename;
             data.pPackage = pkg;
             data.Arg = arg;
-            data.PackageFilename = ScreenFactoryData[i].FEngPackageFilename;
             sd = data;
             return ScreenFactoryData[i].ConstructorFunction(&sd);
         }
@@ -564,9 +691,9 @@ static MenuScreen *ScreenFactory(uint32 hash, FEPackage *pkg, int arg) {
     return 0;
 }
 
-static ScreenFactoryDatum *FindScreenCreateData(uint32 hash) {
-    for (int i = 0; i <= 136; i++) {
-        if (hash == FEHashUpper(ScreenFactoryData[i].FEngPackageFilename)) {
+static ScreenFactoryDatum *FindScreenCreateData(uint32 screen_filename_hash) {
+    for (int i = 0; i < NUM_ELEMENTS(ScreenFactoryData); i++) {
+        if (screen_filename_hash == FEHashUpper(ScreenFactoryData[i].FEngPackageFilename)) {
             return &ScreenFactoryData[i];
         }
     }
@@ -616,7 +743,7 @@ void FEngSetLastButton(const char *pkg_name, uint8 button_hash) {
 }
 
 void FEngSetCreateCallback(const char *abstract_pkg_name, MenuScreenCreateFunction function) {
-    for (int i = 0; i <= 136; i++) {
+    for (int i = 0; i < NUM_ELEMENTS(ScreenFactoryData); i++) {
         ScreenFactoryDatum &sfd = ScreenFactoryData[i];
         if (bStrICmp(abstract_pkg_name, sfd.FEngPackageFilename) == 0) {
             sfd.ConstructorFunction = function;
@@ -626,7 +753,11 @@ void FEngSetCreateCallback(const char *abstract_pkg_name, MenuScreenCreateFuncti
 
 static inline uint32 ReadLEu32(void *ptr) {
     uint32 w = *(uint32 *)ptr;
+#ifdef NATIVE_ENDIAN_BIG
     return (w >> 24) | (w << 24) | ((w << 8) & 0xFF0000) | ((w >> 8) & 0xFF00);
+#else
+    return w;
+#endif
 }
 
 FEPackageData::FEPackageData(bChunk *chunk) {
@@ -657,12 +788,27 @@ FEPackageData::~FEPackageData() {
 }
 
 void FEPackageData::Activate(FEPackage *pkg, int arg) {
+#ifdef EA_BUILD_A124
+    if (pScreen) {
+        char oldPackageName[1000] = "(unknown)";
+        if (pScreen->GetPackageName()) {
+            bStrCpy(oldPackageName, pScreen->GetPackageName());
+        }
+        char newPackageName[1000] = "(unknown)";
+        if (pkg && pkg->GetFilename()) {
+            bStrCpy(newPackageName, pkg->GetFilename());
+        }
+    }
+#endif
     pPackage = pkg;
     pkg->SetUserParam((u32)this);
     mInScreenConstructor = mInScreenConstructor + 1;
     pScreen = ScreenFactory(GetNameHash(), pkg, arg);
     LastKnownControlMask = pkg->GetControlMask();
     mInScreenConstructor = mInScreenConstructor - 1;
+#ifdef EA_BUILD_A124
+    Juice::MWCommands::LoadingNewFEngPackage(pkg->GetNameHash());
+#endif
 }
 
 void FEPackageData::UnActivate() {
@@ -693,15 +839,17 @@ void FEPackageData::Close() {
 }
 
 void *FEPackageData::GetDataChunk() {
-    if (MyChunk->GetID() != BCHUNK_FENG_PACKAGE) {
-        if (MyChunk->GetID() != BCHUNK_FENG_COMPRESSED_PACKAGE) {
-            return 0;
-        }
-        LZHeader *lz = (LZHeader *)((uint8 *)MyChunk->GetData() + 4);
-        DataChunk = bMalloc(lz->UncompressedSize, GetVirtualMemoryAllocParams());
-        LZDecompress((uint8 *)lz, (uint8 *)DataChunk);
+    if (MyChunk->GetID() == BCHUNK_FENG_PACKAGE) {
+        return DataChunk;
+    } else if (MyChunk->GetID() == BCHUNK_FENG_COMPRESSED_PACKAGE) {
+        unsigned int *chunkdata = reinterpret_cast<unsigned int *>(MyChunk->GetData());
+        LZHeader *header = reinterpret_cast<LZHeader *>(&chunkdata[1]);
+        int data_bytes = header->UncompressedSize;
+        DataChunk = bMalloc(data_bytes, "DECOMPRESSED FENG PACKAGE", 0, GetVirtualMemoryAllocParams());
+        LZDecompress(reinterpret_cast<uint8 *>(header), reinterpret_cast<uint8 *>(DataChunk));
+        return DataChunk;
     }
-    return DataChunk;
+    return 0;
 }
 
 uint32 FEPackageData::GetNameHash() {

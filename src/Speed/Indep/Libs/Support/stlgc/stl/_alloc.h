@@ -232,7 +232,10 @@ template <bool __threads, int __inst> class __node_alloc {
 #endif
 #define _STLP_MEM_TAG "STL"
     /* __n must be > 0      */
-    static void *_STLP_CALL allocate(size_t __n) {
+    // `inline` como en el original (su DWARF las lista "static inline"): con -fkeep-inline-functions ProDG
+    // emite la copia fuera de linea y con ella el literal "STL", sexto del pool comun de .rodata de las 33
+    // unidades de juego (el linker original la estripa del binario; el nuestro tambien).
+    static inline void *_STLP_CALL allocate(size_t __n) {
 #ifndef CLANGD_DAMNIT
         return gFastMem.Alloc(__n, _STLP_MEM_TAG);
 #else
@@ -240,7 +243,7 @@ template <bool __threads, int __inst> class __node_alloc {
 #endif
     }
     /* __p may not be 0 */
-    static void _STLP_CALL deallocate(void *__p, size_t __n) {
+    static inline void _STLP_CALL deallocate(void *__p, size_t __n) {
 #ifndef CLANGD_DAMNIT
         gFastMem.Free(__p, __n, _STLP_MEM_TAG);
 #else
@@ -256,7 +259,33 @@ template <bool __threads, int __inst> class __node_alloc {
 _STLP_EXPORT_TEMPLATE_CLASS __malloc_alloc<0>;
 _STLP_EXPORT_TEMPLATE_CLASS __node_alloc<_STLP_NODE_ALLOCATOR_THREADS, 0>;
 #endif /* _STLP_USE_TEMPLATE_EXPORT */
+
+// Sonda de parseo del pool: el cuerpo de un inline NO plantilla se procesa al parsear, y su llamada
+// a allocate fuerza la instanciacion implicita de __node_alloc<false,0> en este punto de la cabecera:
+// el literal "STL" se interna aqui (con el orden de UStandard.h, el sexto del pool comun, 0x58) en
+// vez de al final de la TU, adonde nuestro GCC difiere la instanciacion explicita de abajo (medido
+// en banco: sin sonda cae en 0x1AC en zDynamics; el v1.76 del original lo internaba al parsear la
+// plantilla). El miembro es inline de clase no plantilla y nadie lo llama: no emite simbolo; la
+// emision de las copias fuera de linea sigue siendo la de la instanciacion explicita de abajo, que
+// es la que el DWARF del original muestra al final de cada CU. La especializacion explicita de
+// b59fc tambien ponia el literal en su sitio pero dejaba de emitir esas copias en TU sin
+// contenedores (zMission/zOnline) y el DOL enlazado cambiaba (-64 B en .data, revertido en aa41b52).
+class _Node_alloc_pool {
+  public:
+    static inline void *_STLP_CALL _S_use(size_t __n) {
+        return __node_alloc<false, 0>::allocate(__n);
+    }
+};
+
+// Instanciacion explicita de la clase: asi allocate/deallocate se compilan en TODA unidad que incluya
+// esta cabecera y su "STL" cae al pool comun de .rodata (sexto literal, el ultimo — tambien en
+// zOnline/zMission, que no usan contenedores). El linker estripa las copias; el original tambien.
+// Efecto colateral medido y corregido en el poste-compilacion: el nombre del _GLOBAL_.I pasa a
+// _S_round_up (la instanciacion roba el "ultimo nombre" del TU) — zOnline lo renombra de vuelta con
+// rename_section.py (sym:...); las unidades con codigo propio definen variables detras y no lo sufren.
 typedef __node_alloc<_STLP_NODE_ALLOCATOR_THREADS, 0> _Node_alloc;
+
+__extension__ template class __node_alloc<_STLP_NODE_ALLOCATOR_THREADS, 0>;
 #if defined(_STLP_USE_TEMPLATE_EXPORT)
 _STLP_EXPORT_TEMPLATE_CLASS __debug_alloc<_Node_alloc>;
 _STLP_EXPORT_TEMPLATE_CLASS __debug_alloc<__new_alloc>;

@@ -4,7 +4,6 @@ char *bStrChr(const char *string, int character);
 
 extern "C" {
 DispListRef *LobbyApiListAlloc(LobbyApiRefT *lobbyRef, LobbyRanks::RankListMapping mapping, LobbyApiCallbackT *callback, void *context);
-void DispListSort(DispListRef *list, int sortcon, int sortdir, int (*sortfn)(void *, int, void *, void *));
 void *DispListIndex(DispListRef *list, int index);
 int DispListCount(DispListRef *list);
 void LobbyApiListFree(LobbyApiRefT *lobbyRef, int selector, DispListRef *list);

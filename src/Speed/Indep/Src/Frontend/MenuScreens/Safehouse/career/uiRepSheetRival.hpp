@@ -49,13 +49,15 @@ struct uiRepSheetRival : public MenuScreen {
     ~uiRepSheetRival() override;
     eMenuSoundTriggers NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) override;
     void NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) override;
-
+  private:
     void Setup();
+  public:
 #ifndef EA_BUILD_A124
     void NotifyTextureLoaded();
     unsigned int GetDefeatedTexture();
 #endif
     void RefreshHeader();
+  private:
     void SetupRace(unsigned int num, GRaceParameters* race);
 };
 

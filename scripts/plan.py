@@ -108,7 +108,9 @@ def read_fn_block(offset):
         fh.seek(offset)
         first = fh.readline()
         out.append((0, first.rstrip('\n')))
-        depth = 1
+        # El volcado tambien indexa declaraciones/definiciones sin hijos: {}.
+        # Su cierre ya esta en la cabecera; partir de 1 tragaba el resto del CU.
+        depth = first.count('{') - first.count('}')
         while depth > 0:
             line = fh.readline()
             if not line:

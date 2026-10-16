@@ -7,8 +7,8 @@ EAXTrafficCar::EAXTrafficCar() {}
 EAXTrafficCar::~EAXTrafficCar() {}
 
 void EAXTrafficCar::Attach(void *pAttachment) {
-    IsLargeTrafficCar = false;
     m_pCar = (EAX_CarState *)pAttachment;
+    IsLargeTrafficCar = false;
     CSTATE_Base::Attach(pAttachment);
 }
 

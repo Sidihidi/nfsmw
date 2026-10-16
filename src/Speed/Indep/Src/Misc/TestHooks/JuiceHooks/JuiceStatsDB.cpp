@@ -15,38 +15,17 @@ JuiceStatsDB *JuiceStatsDB::Instance() {
 }
 
 JuiceStatsDB::JuiceStatsDB() {
-    int index = 1;
-    mCurrentOptions.TheVideoSettings.Default();
-    mCurrentOptions.TheGameplaySettings.Default();
-    mCurrentOptions.TheAudioSettings.Default();
-    PlayerSettings *playerSettings = mCurrentOptions.ThePlayerSettings;
-    do {
-        index--;
-        playerSettings->Default();
-        playerSettings++;
-    } while (index != -1);
-    mCurrentOptions.Default();
     ResetPerRaceStats();
     ResetCareerData();
 }
 
 void JuiceStatsDB::ResetCareerData() {
-    int row = 0;
-    int *intBase = mCareerIntDataDB[0];
-    float *floatBase = mCareerFloatDataDB[0];
-    do {
-        int column = 2;
-        float *floatData = reinterpret_cast<float *>(row * 0xc + reinterpret_cast<char *>(floatBase));
-        int *intData = reinterpret_cast<int *>(row * 0xc + reinterpret_cast<char *>(intBase));
-        do {
-            *intData = 0;
-            column--;
-            *floatData = 0.0f;
-            intData++;
-            floatData++;
-        } while (column >= 0);
-        row++;
-    } while (row < 0xf);
+    for (int bucketCounter = 0; bucketCounter < 15; bucketCounter++) {
+        for (int dataCounter = 0; dataCounter < 3; dataCounter++) {
+            mCareerIntDataDB[bucketCounter][dataCounter] = 0;
+            mCareerFloatDataDB[bucketCounter][dataCounter] = 0.0f;
+        }
+    }
     mShouldDumpCareerData = false;
 }
 
@@ -115,7 +94,7 @@ void JuiceStatsDB::SubmitStats(JuiceRaceType raceType) {
         }
 
         {
-            int counter = 5;
+            int counter = 0;
             do {
                 if (mTimeInRaceType[counter] > 0.0f) {
                     Juice::GameHook::Instance()->LogText(
@@ -124,8 +103,8 @@ void JuiceStatsDB::SubmitStats(JuiceRaceType raceType) {
                         "RACE_TYPE_TIME", raceTypeString, "", 0,
                         mTimeInRaceType[counter], "", "", "");
                 }
-                counter--;
-            } while (counter > -1);
+                counter++;
+            } while (counter < 6);
         }
         ResetPerRaceStats();
     }
@@ -136,63 +115,63 @@ void JuiceStatsDB::CompareOptions(OptionsSettings *compare) {
     char cameraString[32];
     if (compare->TheAudioSettings.AmbientVol != mCurrentOptions.TheAudioSettings.AmbientVol) {
         bSPrintf(tempStr, "Ambient Volume - %f", compare->TheAudioSettings.AmbientVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.AudioMode != mCurrentOptions.TheAudioSettings.AudioMode) {
         bSPrintf(tempStr, "Audio Mode - %d", compare->TheAudioSettings.AudioMode);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.CarVol != mCurrentOptions.TheAudioSettings.CarVol) {
         bSPrintf(tempStr, "Car Volume - %f", compare->TheAudioSettings.CarVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.EngineVol != mCurrentOptions.TheAudioSettings.EngineVol) {
         bSPrintf(tempStr, "Engine Volume - %f", compare->TheAudioSettings.EngineVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.FEMusicVol != mCurrentOptions.TheAudioSettings.FEMusicVol) {
         bSPrintf(tempStr, "Music Volume - %f", compare->TheAudioSettings.FEMusicVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.MasterVol != mCurrentOptions.TheAudioSettings.MasterVol) {
         bSPrintf(tempStr, "Master Volume - %f", compare->TheAudioSettings.MasterVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.SoundEffectsVol != mCurrentOptions.TheAudioSettings.SoundEffectsVol) {
         bSPrintf(tempStr, "Sound Effects Volume - %f", compare->TheAudioSettings.SoundEffectsVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.SpeechVol != mCurrentOptions.TheAudioSettings.SpeechVol) {
         bSPrintf(tempStr, "Speech Volume - %d", compare->TheAudioSettings.SpeechVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheAudioSettings.SpeedVol != mCurrentOptions.TheAudioSettings.SpeedVol) {
         bSPrintf(tempStr, "Speed Volume - %d", compare->TheAudioSettings.SpeedVol);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheVideoSettings.FEScale != mCurrentOptions.TheVideoSettings.FEScale) {
         bSPrintf(tempStr, "FE Scale - %f", compare->TheVideoSettings.FEScale);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheGameplaySettings.Damage != mCurrentOptions.TheGameplaySettings.Damage) {
         bSPrintf(tempStr, "Damage - %d", compare->TheGameplaySettings.Damage);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheGameplaySettings.HighlightCam != mCurrentOptions.TheGameplaySettings.HighlightCam) {
         bSPrintf(tempStr, "Highlight Camera - %f", compare->TheGameplaySettings.HighlightCam);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheGameplaySettings.JumpCam != mCurrentOptions.TheGameplaySettings.JumpCam) {
         bSPrintf(tempStr, "Jump Camera - %d", compare->TheGameplaySettings.JumpCam);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->TheGameplaySettings.RearviewOn != mCurrentOptions.TheGameplaySettings.RearviewOn) {
         bSPrintf(tempStr, "Rear View - %d", compare->TheGameplaySettings.RearviewOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].LapInfoOn != mCurrentOptions.ThePlayerSettings[0].LapInfoOn) {
         bSPrintf(tempStr, "Lap Info - %d", compare->ThePlayerSettings[0].LapInfoOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
 
     ePlayerSettingsCameras camera = compare->ThePlayerSettings[0].CurCam;
@@ -224,35 +203,35 @@ void JuiceStatsDB::CompareOptions(OptionsSettings *compare) {
         }
 camera_string_ready:
         bSPrintf(tempStr, "Current Camera - %s", cameraString);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].GaugesOn != mCurrentOptions.ThePlayerSettings[0].GaugesOn) {
         bSPrintf(tempStr, "Gauges - %d", compare->ThePlayerSettings[0].GaugesOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].Config != mCurrentOptions.ThePlayerSettings[0].Config) {
         bSPrintf(tempStr, "Controller Config - %d", compare->ThePlayerSettings[0].Config + 1);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].LapInfoOn != mCurrentOptions.ThePlayerSettings[0].LapInfoOn) {
         bSPrintf(tempStr, "Lap Info - %d", compare->ThePlayerSettings[0].LapInfoOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].LeaderboardOn != mCurrentOptions.ThePlayerSettings[0].LeaderboardOn) {
         bSPrintf(tempStr, "Leaderboard - %d", compare->ThePlayerSettings[0].LeaderboardOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].PositionOn != mCurrentOptions.ThePlayerSettings[0].PositionOn) {
         bSPrintf(tempStr, "Position - %d", compare->ThePlayerSettings[0].PositionOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].Rumble != mCurrentOptions.ThePlayerSettings[0].Rumble) {
         bSPrintf(tempStr, "Rumble - %d", compare->ThePlayerSettings[0].Rumble);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
     if (compare->ThePlayerSettings[0].ScoreOn != mCurrentOptions.ThePlayerSettings[0].ScoreOn) {
         bSPrintf(tempStr, "Score - %d", compare->ThePlayerSettings[0].ScoreOn);
-        reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->AssetHit("OPTIONS", tempStr);
+        Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
 }
 

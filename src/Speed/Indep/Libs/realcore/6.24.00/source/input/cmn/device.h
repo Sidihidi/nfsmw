@@ -19,6 +19,10 @@ public:
     class Info {
       public:
         unsigned int mFullStop;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // PS2: 8 B como en include/common/realcore/input.h (ver ahi).
+        unsigned int mPad04;
+#endif
         Info();
     };
 
@@ -56,9 +60,17 @@ public:
 protected:
     int mPlatform;                 // +0x000
     int mType;                     // +0x004
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2: InitData llena 0x18 y el segundo bloque va en +0x18, y GetData
+    // devuelve this+0x24 (medido en las dos PS2: 0x18/0x18/0xC y addiu 0x24).
+    unsigned char mPad0[0x10];     // +0x008
+    struct { int a, b, c; } mStat; // +0x018 (0xC bytes)
+    unsigned char mData[0x118];    // +0x024 (GetData)
+#else
     unsigned char mPad0[0xC];      // +0x008
     struct { int a, b, c; } mStat; // +0x014 (0xC bytes)
     unsigned char mData[0x118];    // +0x020 (GetData)
+#endif
 };
 
 class Device : public DeviceImp {

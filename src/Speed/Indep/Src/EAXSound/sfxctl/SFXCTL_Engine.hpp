@@ -23,8 +23,9 @@ struct _h_HHANDLER__;
 typedef Hermes::_h_HHANDLER__ *HHANDLER;
 
 struct SFXCTL_Engine : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:
@@ -38,14 +39,16 @@ struct SFXCTL_Engine : public SFXCTL {
     Average VisRpmAvg;                           // offset 0x98, size 0x28
     // La A124 no tiene tMergeWithPhysicsOffStart, bPreRace, bWasRedlining ni mmsgMCoundown: sus stabs pasan
     // de VisRpmAvg (0xA0) a m_iEngineVol (0xC8), de bIsRedlining (0xCC) a RedLineSampFactor (0xD0) y acaban
-    // en mmsgMVehicleDestroyed (0x1D8, tamano 0x1E0). Tampoco existe MsgCountdownDone.
+    // en mmsgMVehicleDestroyed (0x1D8, tamano 0x1E0). Tampoco existe MsgCountdownDone. SLUS tiene los ocho bytes
+    // de tMergeWithPhysicsOffStart y bPreRace pero tampoco bWasRedlining: GetEngRPM lee m_fEng_RPM en 0x118 (la A124
+    // en 0x110) y UpdateParams usa bClutchStateOn en 0x130.
 #ifndef EA_BUILD_A124
     float tMergeWithPhysicsOffStart;             // offset 0xC0, size 0x4
     bool bPreRace;                               // offset 0xC4, size 0x1
 #endif
     int m_iEngineVol;                            // offset 0xC8, size 0x4
     bool bIsRedlining;                           // offset 0xCC, size 0x1
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     bool bWasRedlining;                          // offset 0xD0, size 0x1
 #endif
     cInterpLine RedLineSampFactor;               // offset 0xD4, size 0x1C

@@ -36,7 +36,33 @@ inline bool PtsEqual(const UMath::Vector3 &p0, const UMath::Vector3 &p1, float t
 }
 
 inline float PtDir4(const UMath::Vector4 &p1, const UMath::Vector4 &p2, const UMath::Vector3 &tp) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Lineas 145-157 del original, con la VU0 y los vf repartidos por el compilador. Las tres cargas (146-148) son
+    // de C y no asm: en InTri el compilador reaprovecha las de la llamada anterior aunque vengan de otra linea, cosa
+    // que con un asm no haria. Despues, las dos restas en xz (153 y 154), el producto cruzado en x (156) y la salida
+    // (157). Los stabs dan va..vf como u_long128 en registros de la VU0 y result como float.
+    // La salida es la de bVU0Float::operator float (bMath.hpp, 379): el asm es el mtc1 y el qmfc2 lo pone el
+    // compilador, asi que el GPR lleva un valor de 128 bits. Lo prueba SLUS: FindFaceInTriStrip deja ese valor en s0,
+    // lo guarda con sq, y desde ahi todo zWorld2 guarda s0 con sq (el sq pegajoso, +195 funciones en SLUS).
+    u_long128 va;
+    u_long128 vb;
+    u_long128 vc;
+    u_long128 vd;
+    u_long128 ve;
+    u_long128 vf;
+    float result;
+
+    va = *reinterpret_cast<const u_long128 *>(&p1);
+    vb = *reinterpret_cast<const u_long128 *>(&p2);
+    vc = *reinterpret_cast<const u_long128 *>(&tp);
+    asm("vsub.xz %0, %1, %2" : "=j"(vd) : "j"(va), "j"(vb));
+    asm("vsub.xz %0, %1, %2" : "=j"(ve) : "j"(vc), "j"(vb));
+    asm("vmulaz.x ACC, %1, %2z\n\tvmsubz.x %0, %2, %1z" : "=j"(vf) : "j"(vd), "j"(ve));
+    asm("mtc1 %1, %0" : "=f"(result) : "r"(vf));
+    return result;
+#else
     return (p1.x - p2.x) * (tp.z - p2.z) - (tp.x - p2.x) * (p1.z - p2.z);
+#endif
 }
 
 inline bool InTri(const UMath::Vector3 &pt, const UMath::Vector4 *pts) {

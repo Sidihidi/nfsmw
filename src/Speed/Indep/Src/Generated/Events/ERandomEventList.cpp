@@ -27,9 +27,9 @@ void ERandomEventList_MakeEvent_Callback(const void *staticData) {
     new ERandomEventList(((ERandomEventList::StaticData *) staticData)->fEventList);
 }
 
-int ERandomEventList_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ERandomEventList((CARP::EventList *) lua_tostring(L, 1));
+int ERandomEventList_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ERandomEventList((CARP::EventList *) lua_tostring(luaState, 1));
     }
     return 0;
 }

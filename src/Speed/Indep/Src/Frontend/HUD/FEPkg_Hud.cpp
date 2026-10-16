@@ -63,6 +63,9 @@
 #include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
 #include "Speed/Indep/Src/Sim/Simulation.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/HUD/FeAutoSaveIcon.hpp"
+#endif
 #include "Speed/Indep/Src/World/OnlineManager.hpp"
 #include "Speed/Indep/Src/World/TrackInfo.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
@@ -110,6 +113,25 @@ const char *HudResourceManager::GetHudTexPackFilename(ePlayerHudType ht) {
 }
 
 CarPart *HudResourceManager::GetCarPart(ePlayerHudType ht, CAR_SLOT_ID carSlotId) {
+#ifdef EA_BUILD_A124
+    // La A124 (oraculo 0x28d9d0, 196 B; banco 100%): Exists() + ramas Career/QuickRace sin checks de raceParams ni
+    // de pursuit, y sin check de car nulo (solo de record). El resto ya casa (bnel con delay-fill y coloring a2).
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+    FECarRecord *car = nullptr;
+
+    if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
+        car = stable->GetCarRecordByHandle(FEDatabase->GetCareerSettings()->GetCurrentCar());
+    } else {
+        car = stable->GetCarRecordByHandle(FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->GetSelectedCar(0));
+    }
+
+    FECustomizationRecord *record = stable->GetCustomizationRecordByHandle(car->Customization);
+    if (record != nullptr) {
+        return record->GetInstalledPart(car->GetType(), carSlotId);
+    }
+
+    return nullptr;
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FECarRecord *car = nullptr;
 
@@ -130,6 +152,7 @@ CarPart *HudResourceManager::GetCarPart(ePlayerHudType ht, CAR_SLOT_ID carSlotId
     }
 
     return nullptr;
+#endif
 }
 
 int HudResourceManager::GetCustomHudColour(ePlayerHudType ht, CAR_SLOT_ID carSlotId) {
@@ -251,9 +274,9 @@ void HudResourceManager::ChooseLoadableTextures(ePlayerHudType hudType, int &tex
 
     char textureHashString[32];
     if (isDrag) {
-        sprintf(textureHashString, "DRAG_RPM_%d_LINES", static_cast<int>(maxRpmTextureNum));
+        sprintf(textureHashString, "DRAG_RPM_%d_LINES", bFloatToInt(maxRpmTextureNum));
     } else {
-        sprintf(textureHashString, "%d_LINES_%2.2d", static_cast<int>(maxRpmTextureNum), mCustIndex);
+        sprintf(textureHashString, "%d_LINES_%2.2d", bFloatToInt(maxRpmTextureNum), mCustIndex);
     }
     textureHash = bStringHash(textureHashString);
 
@@ -361,8 +384,12 @@ void HudResourceManager::LoadingCompleteCallback() {
             FEngSetMultiImageRot(reinterpret_cast<FEMultiImage *>(FEngFindObject(mPackageName, 0xCDFCE1B0)), redlineRotation);
             FEngSetTextureHash(mPackageName, 0x309878BC, mTachLinesHash);
 
+#ifdef EA_BUILD_A124 // la A124 carga la textura con la version de un solo hash
+            eLoadStreamingTexture(mTachLinesHash, LoadingCompleteCallbackBridge, reinterpret_cast<uintptr_t>(this), 0);
+#else
             uint32 nameHash = mTachLinesHash;
             eLoadStreamingTexture(&nameHash, 1, LoadingCompleteCallbackBridge, reinterpret_cast<uintptr_t>(this), 0);
+#endif
         }
         return;
     }
@@ -370,7 +397,9 @@ void HudResourceManager::LoadingCompleteCallback() {
     if (mPhase == 3) {
         TheHudResourceManager.mHudResourcesState = HRM_LOADED;
         cFEng::Get()->MakeLoadedPackagesDirty();
+#ifndef EA_BUILD_A124 // la A124 no tiene SNDSTATE_STOP_MUSIC y no toca el sonido al cargar el HUD
         SetSoundControlState(false, SNDSTATE_STOP_MUSIC, "HUDLoaded");
+#endif
     }
 }
 
@@ -417,7 +446,7 @@ void HudResourceManager::LoadedCustomHudTexturesCallback() {
 
         custColour = GetCustomHudColour(LoadingResourcesForHudType, carSlotIdForColour);
         if (custColour != 0) {
-            FEngSetColor(FEngFindObject(mPackageName, fengObjHash), static_cast<unsigned int>(custColour));
+            FEngSetColor(mPackageName, fengObjHash, static_cast<unsigned int>(custColour));
         }
         unsigned int tex = mCustomizeHUDTexTextureResources[mPhaseCust];
         FEImage *img = FEngFindImage(mPackageName, fengObjHash);
@@ -426,13 +455,15 @@ void HudResourceManager::LoadedCustomHudTexturesCallback() {
 
     int custColour = GetCustomHudColour(LoadingResourcesForHudType, CARSLOTID_HUD_CHARACTER_COLOUR);
     if (custColour != 0) {
-        FEngSetColor(FEngFindObject(mPackageName, 0xC3383B63), static_cast<unsigned int>(custColour));
+        FEngSetColor(mPackageName, 0xC3383B63, static_cast<unsigned int>(custColour));
     }
     LoadingCompleteCallback();
 }
 
 void HudResourceManager::UnloadRequiredResources(ePlayerHudType ht) {
+#ifndef EA_BUILD_A124
     eWaitForStreamingTexturePackLoading(nullptr);
+#endif
     mHudResourcesState = HRM_UNLOADING_IN_PROGRESS;
     eWaitUntilRenderingDone();
     cFEng::Get()->MakeLoadedPackagesDirty();
@@ -457,8 +488,7 @@ void HudResourceManager::UnloadRequiredResources(ePlayerHudType ht) {
 
     if (bStrCmp(mCustHudTexPackName, "") == 0) {
         if (mTachLinesHash != 0) {
-            unsigned int tex = mTachLinesHash;
-            eUnloadStreamingTexture(&tex, 1);
+            eUnloadStreamingTexture(mTachLinesHash);
             mTachLinesHash = 0;
         }
     } else {
@@ -596,6 +626,9 @@ FEngHud::~FEngHud() {
     delete pSpeedBreakerMeter, pSpeedBreakerMeter = nullptr;
     delete pRaceOverMessage, pRaceOverMessage = nullptr;
     delete pGenericMessage, pGenericMessage = nullptr;
+#ifdef EA_BUILD_A124
+    delete pAutoSaveIcon, pAutoSaveIcon = nullptr; // la A124 lo borra aqui (0x318); SLUS y GC no
+#endif
     delete pRaceInformation, pRaceInformation = nullptr;
     delete pLeaderBoard, pLeaderBoard = nullptr;
     delete pPursuitBoard, pPursuitBoard = nullptr;
@@ -625,6 +658,16 @@ FEngHud::~FEngHud() {
 
 void FEngHud::Update(IPlayer *player, float dT) {
     ProfileNode profile_node;
+#ifdef EA_BUILD_A124
+    // La A124 pide el icono de autoguardado desde aqui (SLUS y GC lo hacen en AutoSaveIcon::Update).
+    if (Sim::GetUserMode() != Sim::USER_SPLIT_SCREEN) {
+        if (MemoryCard::GetInstance()->IsAutoSaving()) {
+            if (!static_cast<AutoSaveIcon *>(pAutoSaveIcon)->IsAutoSaveIconShowing()) {
+                static_cast<AutoSaveIcon *>(pAutoSaveIcon)->RequestAutoSaveIcon();
+            }
+        }
+    }
+#endif
     HudFeaturesType hudFeatures = DetermineHudFeatures(player);
 
     if (hudFeatures != CurrentHudFeatures) {
@@ -714,6 +757,11 @@ void FEngHud::Update(IPlayer *player, float dT) {
     if (pWrongWIndi != nullptr && pWrongWIndi->IsElementVisible()) {
         pWrongWIndi->Update(player);
     }
+#ifdef EA_BUILD_A124
+    if (pAutoSaveIcon != nullptr && pAutoSaveIcon->IsElementVisible()) {
+        pAutoSaveIcon->Update(player);
+    }
+#endif
     if (pOnlineSupport != nullptr) {
         pOnlineSupport->Update(player);
     }
@@ -804,7 +852,7 @@ void FEngHud::JoyHandle(IPlayer *player) {
                     break;
                 }
                 case 0x2E: {
-                    if (!(FEDatabase->GetGameMode() & eFE_GAME_MODE_LAN) && !(FEDatabase->GetGameMode() & eFE_GAME_MODE_ONLINE)) {
+                    if (!FEDatabase->IsLanMode() && !FEDatabase->IsOnlineMode()) {
                         IVehicleAI *vehicleAI;
                         if (player->GetSimable()->QueryInterface(&vehicleAI)) {
                             IPursuit *pursuit = vehicleAI->GetPursuit();
@@ -858,7 +906,7 @@ void FEngHud::JoyHandle(IPlayer *player) {
                 }
                 case 0x30: {
                     if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
-                        if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 15) {
+                        if (!FEDatabase->IsDDay()) {
                             new ERaceSheetOn(0);
                         }
                     }
@@ -870,6 +918,12 @@ void FEngHud::JoyHandle(IPlayer *player) {
                     }
                     break;
                 }
+#ifdef EA_PLATFORM_PLAYSTATION2
+                // La tabla de saltos de PS2 tiene siete entradas: 0x32 y 0x33 van al final del switch.
+                case 0x32:
+                case 0x33:
+                    break;
+#endif
             }
         }
     }
@@ -1067,6 +1121,11 @@ void FEngHud::SetHudFeatures(HudFeaturesType hud_features) {
     if (pGenericMessage != nullptr && (xor_hud_features & HUD_FEATURE_GENERIC_MESSAGE) != 0) {
         pGenericMessage->Toggle(hud_features);
     }
+#ifdef EA_BUILD_A124
+    if (pAutoSaveIcon != nullptr && (xor_hud_features & HUD_FEATURE_AUTO_SAVE_ICON) != 0) {
+        pAutoSaveIcon->Toggle(hud_features);
+    }
+#endif
     if (pRadarDetector != nullptr && (xor_hud_features & HUD_FEATURE_WINGMAN_METER) != 0) {
         pRadarDetector->Toggle(hud_features);
     }

@@ -10,11 +10,42 @@
 // TODO move to D:/env/egami/rcmp/dev/source/av/cmn/avplayer.cpp
 namespace RealShape {
 
+// ElementInfo, ShapeElement y TextureElement: miembros del DWARF de GC (realgraph shape.h).
+// total size: 0x4
+struct ElementInfo {
+    unsigned int mType : 8;   // offset 0x0, size 0x4
+    unsigned int mFlags : 24; // offset 0x0, size 0x4
+};
+
+// total size: 0x10
+struct ShapeElement {
+    struct ElementInfo mElementInfo; // offset 0x0, size 0x4
+    int mNextOffset;                 // offset 0x4, size 0x4
+    int mDataOffset;                 // offset 0x8, size 0x4
+    int mDataSize;                   // offset 0xC, size 0x4
+};
+
+// total size: 0x20
+struct TextureElement : public ShapeElement {
+    inline int GetWidth() const {
+        return mWidth;
+    }
+
+    inline int GetHeight() const {
+        return mHeight;
+    }
+
+    int mShapeX; // offset 0x10, size 0x4
+    int mShapeY; // offset 0x14, size 0x4
+    int mWidth;  // offset 0x18, size 0x4
+    int mHeight; // offset 0x1C, size 0x4
+};
+
 // total size: 0x1
 struct Shape {
     // Functions
-    // GetTexture__CQ29RealShape5Shape en el ELF; la usa Movie_GC.cpp.
-    unsigned int *GetTexture() const;
+    // GetTexture__CQ29RealShape5Shape en el ELF; la usan Movie_GC.cpp y el Play de PS2.
+    struct TextureElement *GetTexture() const;
 
     static inline void Destroy(struct Shape *shape) {}
 
@@ -26,9 +57,13 @@ struct Shape {
 
     inline bool GetConverterList(const struct ConvertStruct &convertStruct, struct Converter *converterList, int *converterListLength) const {}
 
-    inline int GetWidth() const {}
+    inline int GetWidth() const {
+        return GetTexture()->GetWidth();
+    }
 
-    inline int GetHeight() const {}
+    inline int GetHeight() const {
+        return GetTexture()->GetHeight();
+    }
 
     // inline enum CubeMapFlag GetCubeMapFlag() const {}
 
@@ -644,8 +679,12 @@ class MoviePlayer {
         // rango dentro de FEngMovieStarter::Callback: la inicializacion de los
         // campos que aqui estaba en el cuerpo es la del constructor.
         Settings() {
-            bufferSize = 0x40000;
             activeController = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+            bufferSize = 0x64000; // las dos PS2
+#else
+            bufferSize = 0x40000;
+#endif
             preload = false;
             volume = 0;
             filename[0] = '\0';
@@ -718,14 +757,27 @@ class MoviePlayer {
         return fLiveStatus;
     }
 
-    bool IsMoviePlaying() {} // Decl: speed/indep/src/frontend/movieplayer/MoviePlayer.hpp:217
+    bool IsMoviePlaying() { // Decl: speed/indep/src/frontend/movieplayer/MoviePlayer.hpp:217
+        return fStatus == 3 || fStatus == 4 || fStatus == 5;
+    }
 
     char *const GetMovieFilename();
 
   protected:
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // Solo PS2 (stabs de la A124): llaman a UpdateFunction y a GetFirstFrame de gMoviePlayer con la pila en la
+    // memoria principal (DoWithMainMemoryStack), guardando antes el scratchpad en StackCopy.
+    static void UpdateBridgeFunction();
+    static void GetFirstFrameBridge();
+#endif
     void UpdateFunction();
 
     void GetFirstFrame(); // Decl: speed/indep/src/frontend/movieplayer/MoviePlayer.hpp:237
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En PS2 los stabs de la A124 ponen delante un bufer de 16 kB (el objeto mide 0x4158, y SLUS reserva
+    // lo mismo en MoviePlayer_StartUp).
+    char StackCopy[16384]; // offset 0x0, size 0x4000
+#endif
 
   private:
     uint32 GetMillisecondsPerFrame();
@@ -751,12 +803,16 @@ class MoviePlayer {
 };
 
 extern MoviePlayer *gMoviePlayer;
+#ifndef EA_BUILD_A124
 extern int gMovieStartTime;
+#endif
 
 #define MoviePlayer_Init(_a) gMoviePlayer->Init(_a) // :308
 
+#ifndef EA_BUILD_A124
 bool MoviePlayer_Bypass();
 void MoviePlayer_Play();
+#endif
 void MoviePlayer_StartUp();
 void MoviePlayer_ShutDown();
 bool GiveTheMoviePlayerBandwidth();

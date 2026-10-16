@@ -127,9 +127,20 @@ class MemoryCard {
     void ReleasePendingMessage();
     void HandleAutoSaveError();
     void HandleAutoSaveOverwriteMessage();
+#ifdef EA_BUILD_A124
+    // El prototipo no tiene el icono de autoguardado: avisa con mensajes TRC.
+    void ShowTRCLoadWarning();
+    void ShowTRCCheckCardMessage();
+    void HideTRCMessage();
+    void ShowTRCMessage(const wchar_t *msg, unsigned int nOptions, const wchar_t **options);
+#else
     void ShowAutoSaveIcon();
     void HideAutoSaveIcon();
     bool IsAutoSaveIconVisible();
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+    unsigned short *GetPortString();
+#endif
 
     bool ShouldDoAutoSave(bool b);
 
@@ -154,9 +165,11 @@ class MemoryCard {
         return s_pThis;
     }
 
+#ifndef EA_BUILD_A124
     void CancelNextAutoSave() {
         m_bCancelNextAutoSave = true;
     }
+#endif
 
     void SetCardRemovedWithAutoSaveEnabled(bool bRemoved) {
         m_bCardRemoved = bRemoved;
@@ -186,6 +199,7 @@ class MemoryCard {
         m_bInitialized = bInit;
     }
 
+#ifdef EA_PLATFORM_GAMECUBE
     void SetMemcardScreenExiting(bool bExiting) {
         m_bMemcardScreenExiting = bExiting;
     }
@@ -197,6 +211,7 @@ class MemoryCard {
     void SetAutoLoadDone(bool bDone) {
         m_bAutoLoadDone = bDone;
     }
+#endif
 
     void ShowMessages(bool bShow);
 
@@ -229,9 +244,11 @@ class MemoryCard {
         return m_nPlayer;
     }
 
+#ifndef EA_BUILD_A124
     bool PromptForAutoSave() {
         return m_bNonSilentAutoSave;
     }
+#endif
 
     bool IsCheckingCardForAutoSave() {
         return m_bCheckingCardForAutoSave;
@@ -253,9 +270,11 @@ class MemoryCard {
         m_bHUDLoaded = true;
     }
 
+#ifndef EA_BUILD_A124
     bool IsMonitorOn() {
         return m_bMonitorOn;
     }
+#endif
 
     bool IsAutoLoading() {
         return m_bAutoLoading;
@@ -289,9 +308,11 @@ class MemoryCard {
         return m_bManualSave;
     }
 
+#ifdef EA_PLATFORM_GAMECUBE
     bool IsMemcardScreenExiting() {
         return m_bMemcardScreenExiting;
     }
+#endif
 
     MemoryCardMessage *GetPendingMessage() {
         return m_PendingMessage;
@@ -305,6 +326,7 @@ class MemoryCard {
         return m_bWaitingForResponse;
     }
 
+#ifdef EA_PLATFORM_GAMECUBE
     GCIconDataInfo *GetSaveIcon() {
         return m_pRMIcon;
     }
@@ -312,6 +334,7 @@ class MemoryCard {
     GCBannerDataInfo *GetSaveBanner() {
         return m_pRMBanner;
     }
+#endif
 
     static int GetLastError() {
         return s_pThis->m_LastError;
@@ -339,9 +362,15 @@ class MemoryCard {
 
     static MemoryCard *s_pThis; // size: 0x4
 
+    // Los offsets de los comentarios son los de GameCube.  En PS2, PC y 360 faltan el icono y el banner
+    // de GC, m_bMemcardScreenExiting, m_bAutoLoadDone y m_BootupFilename (SLUS: m_pIMemcard en 0x15C,
+    // m_bInBootSequence en 0x24); el prototipo A124 no tiene tampoco m_bCancelNextAutoSave, los
+    // indicadores de autoguardado, m_pGameInfo ni m_GameTitle (0xD0 en su volcado de tipos).
     RealmcIface::BootupCheckParams m_BootupParams; // offset: 0x0, size 0x10
+#ifdef EA_PLATFORM_GAMECUBE
     struct GCIconDataInfo *m_pRMIcon;           // offset: 0x10, size 0x4
     struct GCBannerDataInfo *m_pRMBanner;       // offset: 0x14, size 0x4
+#endif
     void *m_pLocaleFileHandler;                 // offset: 0x18, size 0x4
     bool m_bWaitingForResponse;                 // offset: 0x1C, size 0x1
     bool m_bBootFoundFile;                      // offset: 0x20, size 0x1
@@ -366,15 +395,21 @@ class MemoryCard {
     bool m_bAutoLoading;                        // offset: 0x6C, size 0x1
     bool m_bListingForCreate;                   // offset: 0x70, size 0x1
     bool m_bHUDLoaded;                          // offset: 0x74, size 0x1
+#ifndef EA_BUILD_A124
     bool m_bCancelNextAutoSave;                 // offset: 0x78, size 0x1
     bool m_bMonitorOn;                          // offset: 0x7C, size 0x1
     bool m_bAutoSaveIconShowing;                // offset: 0x80, size 0x1
     bool m_bNeedToAllowControllerErrors;        // offset: 0x84, size 0x1
     bool m_bNonSilentAutoSave;                  // offset: 0x88, size 0x1
+#endif
+#ifdef EA_PLATFORM_GAMECUBE
     bool m_bAutoLoadDone;                       // offset: 0x8C, size 0x1
     bool m_bMemcardScreenExiting;               // offset: 0x90, size 0x1
+#endif
     struct MemoryCardMessage *m_PendingMessage; // offset: 0x94, size 0x4
+#ifndef EA_BUILD_A124
     RealmcIface::GameInfo *m_pGameInfo;         // offset: 0x98, size 0x4
+#endif
     int m_ReqOp;                                // offset: 0x9C, size 0x4
     const char *m_ReqFilename;                  // offset: 0xA0, size 0x4
     int m_MemOp;                                // offset: 0xA4, size 0x4
@@ -385,8 +420,16 @@ class MemoryCard {
     int m_nPlayer;                              // offset: 0xB4, size 0x4
     unsigned int m_Header[2];                   // offset: 0xB8, size 0x8
     char m_Filename[32];                        // offset: 0xC0, size 0x20
+#ifdef EA_PLATFORM_GAMECUBE
     char m_BootupFilename[32];                  // offset: 0xE0, size 0x20
+#endif
+#ifndef EA_BUILD_A124
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    unsigned short m_GameTitle[32];             // PC: offset 0x7C, size 0x40 (el wchar_t de MSVC es de 2 bytes)
+#else
     unsigned short m_GameTitle[64];             // offset: 0x100, size 0x80
+#endif
+#endif
     SaveType m_Type;                            // offset: 0x180, size 0x4
     unsigned int m_DataSize;                    // offset: 0x184, size 0x4
     int m_TimeOffsetSec;                        // offset: 0x188, size 0x4

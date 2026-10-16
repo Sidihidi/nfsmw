@@ -27,8 +27,6 @@ class MTriggerExit : public Hermes::Message {
 
     MTriggerExit(GCollectionKey _Sender, HSIMABLE _Element) : Hermes::Message(_GetKind(), _GetSize(), 0), fSender(_Sender), fElement(_Element) {}
 
-    ~MTriggerExit() {}
-
     GCollectionKey GetSender() const {
         return fSender;
     }
@@ -55,9 +53,9 @@ class MTriggerExit : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MTriggerExit::HandleMessage_LuaBinding(const MTriggerExit &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MTriggerExit::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

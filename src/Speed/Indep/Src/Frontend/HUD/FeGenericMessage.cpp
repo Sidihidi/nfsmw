@@ -21,7 +21,7 @@ GenericMessage::GenericMessage(UTL::COM::Object *pOutter, const char *pkg_name, 
 
 void GenericMessage::Update(IPlayer *player) {
     if (mPriority > GenericMessage_Priority_None) {
-        if (!FEngIsScriptRunning(mpMessageFirstLine, mFengHash) || (mPlayOneFrame && mNumFramesPlayed != 0)) {
+        if (!FEngIsScriptRunning(mpMessageFirstLine, mFengHash) || (mPlayOneFrame && mNumFramesPlayed > 0)) {
             if (!FEngIsScriptSet(mpMessageFirstLine, 0x16a259)) {
                 FEngSetScript(mpMessageFirstLine, 0x16a259, true);
             }
@@ -44,9 +44,9 @@ bool GenericMessage::RequestGenericMessage(const char *string, bool singleFrame,
         FEngSetScript(GetPackageName(), 0xe0ba07ec, 0x1744b3, true);
     }
     mPriority = priority;
+    mFengHash = fengHash;
     mNumFramesPlayed = 0;
     mPlayOneFrame = singleFrame;
-    mFengHash = fengHash;
     if (string) {
         bSafeStrCpy(mStringBuffer, string, 0x40);
         if (fengHash) {
@@ -87,6 +87,6 @@ bool GenericMessage::IsGenericMessageShowing() {
     return mPriority > 0;
 }
 
-// El asm() de `_IHandle__15IGenericMessage` VIVE AHORA AL FINAL DE zFe2.cpp:
-// GCC emite un asm() de ambito de fichero donde esta escrito, y el objetivo lo
-// tiene en 0x8017CCF4, dentro de la cola de finish_file, 222 kB por detras.
+// _IHandle se emite desde IFengHud.h: RequestGenericMessage es virtual pura.
+// La ranura del ELF A124 confirma el = 0; no necesita un cuerpo ASM auxiliar.
+// Evidencia: docs/analisis/2026-09-22_fe_local_ihandle.md.

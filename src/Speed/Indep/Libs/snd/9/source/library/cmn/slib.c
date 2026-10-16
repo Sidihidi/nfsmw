@@ -1,24 +1,15 @@
 #include "./sndcmn.h"
 
-void iSNDcalcvol(int chan) {
-    CHANPUB *pc = &sndgs.chan[chan];
-    float v;
+void iSNDcalcvol(int voice) {
+    CHANPUB *pv;
 
-    v = (float)pc->builtinvol * pc->programmedVol * (float)*(short *)&pc->envvol *
-        (1.0f / 127.0f / 127.0f);
-    pc->finalvol = v;
-    if (pc->pvollfo != 0) {
-        pc->finalvol = v * (float)pc->pvollfo->xlate[pc->curvollfoentry] * (1.0f / 127.0f);
+    pv = &sndgs.chan[voice];
+    pv->finalvol = (float)pv->builtinvol * pv->programmedVol * (float)(pv->envvol >> 16) * (1.0f / 127.0f / 127.0f);
+    if (pv->pvollfo != 0) {
+        pv->finalvol = pv->finalvol * (float)pv->pvollfo->xlate[pv->curvollfoentry] * (1.0f / 127.0f);
     }
-    if (pc->pvoltable != 0) {
-        float t = pc->finalvol * 127.0f;
-        int idx;
-        if (t >= 0.0f) {
-            idx = (int)(t + 0.5f);
-        } else {
-            idx = (int)(t - 0.5f);
-        }
-        pc->finalvol = (float)pc->pvoltable->xlate[idx];
+    if (pv->pvoltable != 0) {
+        pv->finalvol = (float)pv->pvoltable->xlate[SNDI_ftoifast(pv->finalvol * 127.0f)];
     }
-    pc->finalvol = pc->finalvol * Snd::gMasterVol;
+    pv->finalvol = pv->finalvol * Snd::gMasterVol;
 }

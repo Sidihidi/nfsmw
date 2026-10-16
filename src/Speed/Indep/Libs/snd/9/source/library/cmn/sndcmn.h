@@ -5,16 +5,12 @@
 #include <snd/sndo.h>
 
 /* Entero del tamano de un puntero.  El original hace `(int)puntero` en trece
- * unidades: en GameCube y PS2 es correcto porque son 32 bits, pero en el port
- * Android (LP64) trunca.  Aqui es `int` en todo lo que no sea Android, asi que
- * el codigo generado para GameCube es IDENTICO -- un typedef no emite nada. */
-#if defined(__ANDROID__)
-typedef long sndptrint;
-typedef unsigned long sndptruint;
-#else
-typedef int sndptrint;
-typedef unsigned int sndptruint;
-#endif
+ * unidades, que solo vale con punteros de 32 bits: ptrdiff_t y size_t son
+ * int y unsigned int en las cuatro versiones del juego (el codigo no cambia)
+ * y crecen solos con punteros de 64 bits, sin guarda de plataforma. */
+#include <stddef.h>
+typedef ptrdiff_t sndptrint;
+typedef size_t sndptruint;
 
 // total size: 0xFC
 // Decl: 470
@@ -65,9 +61,12 @@ struct SNDIPATCHHEADER {
     void *ptimestretchdata[6];         // offset 0x98, size 0x18, Decl: 525
     unsigned short timestretchsize[6]; // offset 0xB0, size 0xC, Decl: 526
     unsigned short azimuth[6];         // offset 0xBC, size 0xC, Decl: 529
+#ifndef EA_PLATFORM_PLAYSTATION2
+    // snd 9.06.00-ps2 no lleva los libros de codigos ni los estados de bucle del ADPCM de la DSP (mide 0xCC)
     void *pcodebookdata[6];            // offset 0xC8, size 0x18
     void *ploopstatedata[6];           // offset 0xE0, size 0x18
-    void *ptimbre;                     // offset 0xF8, size 0x4, Decl: 531
+#endif
+    void *ptimbre;                     // offset 0xF8 (PS2: 0xC8), size 0x4, Decl: 531
 };
 
 // total size: 0x8
@@ -109,9 +108,12 @@ typedef struct BANKVER5 {
 // Decl: 577
 typedef struct BANKLIST {
     BANKVER5 *phdr;     // offset 0x0, size 0x4
-    void *pspuram;      // offset 0x4, size 0x4
-    signed char locked; // offset 0x8, size 0x1
-    char pad[3];        // offset 0x9, size 0x3
+#ifdef EA_PLATFORM_PLAYSTATION2
+    void *piopram;      // offset 0x4, size 0x4 (snd 9.06.00-ps2: la memoria de la IOP)
+#endif
+    void *pspuram;      // offset 0x4 (PS2: 0x8), size 0x4
+    signed char locked; // offset 0x8 (PS2: 0xC), size 0x1
+    char pad[3];        // offset 0x9 (PS2: 0xD), size 0x3
 } BANKLIST;
 
 // total size: 0x4
@@ -478,6 +480,36 @@ typedef struct SNDSTREAMSTATE {
 
 extern SNDGLOBALSTATE sndgs; // Decl: 861
 
+// PC (speed.exe 1.3): las funciones de la API de snd empiezan comprobando que el controlador esta instalado
+// (`cmp byte [sndgs.installed], 0`; sin el, -10). GameCube y PS2 no lo hacen.
+#ifdef EA_PLATFORM_WIN32
+#define SNDI_CHECKINSTALLED()    \
+    if (sndgs.installed == 0) {  \
+        return SNDERR_NO_DRIVER; \
+    }
+#else
+#define SNDI_CHECKINSTALLED()
+#endif
+
+// Los tipos de las transferencias DMA; en GameCube estan en el DWARF de todas las unidades de cmn/, pero solo las
+// usa PS2 (SNDPLATFORM_downloadNew y la carga de bancos por la IOP).
+// total size: 0x8
+typedef struct CmnRequestHandle {
+    int handle;           // offset 0x0, size 0x4
+    void *requestDetails; // offset 0x4, size 0x4
+} CmnRequestHandle;
+
+typedef enum DmaPriority {
+    LOW = 0,
+    MEDIUM = 1,
+    HIGH = 2
+} DmaPriority;
+
+typedef enum DmaTransferType {
+    ASYNC = 0,
+    SYNC = 1
+} DmaTransferType;
+
 #include "sndenum.h"
 
 namespace Snd {
@@ -515,6 +547,25 @@ extern FoldDownTarget gFoldDownTarget;
 
 // Decl: 1041
 inline int SNDI_ftoiround(float val) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // snd 9.06.00-ps2 (sndcmn.h:1690 y 1699 en el .mdebug de la A124, con las locales tmp y result): elige el medio
+    // redondeo por el signo y suma una sola vez. La suma y la conversion son asm de EA (sndcmn.h:1699): add.s,
+    // cvt.w.s a $f4 y mfc1 en la misma linea, $f4 en 8 de 8 expansiones, como SNDI_ftoitruncpositive
+    float tmp;
+    int result;
+
+    tmp = val < 0.0f ? -0.5f : 0.5f;
+    asm volatile("add.s %1, %1, %2\n\tcvt.w.s $f4, %1\n\tmfc1 %0, $f4" : "=r"(result), "+f"(tmp) : "f"(val) : "$f4");
+    return result;
+#elif defined(EA_PLATFORM_WIN32)
+    // asm de EA (speed.exe): fld + fistp, que redondea con el modo de la FPU. La copia fuera de linea de 0x820056
+    // (51 d9442408 db1c24 8b0424 59 c3) es byte a byte la de este bloque; MSVC 7.1 sin /QIfist convierte con __ftol2.
+    int result;
+
+    __asm fld val
+    __asm fistp result
+    return result;
+#else
     int result;
 
     if (val >= 0.0f) {
@@ -524,21 +575,48 @@ inline int SNDI_ftoiround(float val) {
     }
 
     return result;
+#endif
 }
 
 inline int SNDI_ftoitruncpositive(float val) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // asm de EA (sndcmn.h:1845 del original): cvt.w.s a $f4 y mfc1, $f4 en 29 de 29 expansiones (el C da $f4 en 8 de
+    // 540), como el ftoi.h de sdriver
+    int result;
+
+    asm volatile("cvt.w.s $f4, %1\n\tmfc1 %0, $f4" : "=r"(result) : "f"(val) : "$f4");
+    return result;
+#else
     return SNDI_ftoiround(val - 0.5f);
+#endif
 }
 
 inline int SNDI_ftoiroundpositive(float val) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // asm de EA (sndcmn.h:1794 del original): el mismo add.s + cvt.w.s a $f4 + mfc1 que SNDI_ftoiround
+    float tmp;
+    int result;
+
+    tmp = 0.5f;
+    asm volatile("add.s %1, %1, %2\n\tcvt.w.s $f4, %1\n\tmfc1 %0, $f4" : "=r"(result), "+f"(tmp) : "f"(val) : "$f4");
+    return result;
+#else
     int result = static_cast<int>(val + 0.5f);
 
     return result;
+#endif
 }
 
 // 1202
 inline int SNDI_ftoifast(float val) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int result; // el mismo asm de EA que SNDI_ftoitruncpositive
+
+    asm volatile("cvt.w.s $f4, %1\n\tmfc1 %0, $f4" : "=r"(result) : "f"(val) : "$f4");
+    return result;
+#else
     return SNDI_ftoiround(val);
+#endif
 }
 
 // 1610
@@ -651,11 +729,16 @@ void SNDPLATFORM_lowpass(int voice, int cutofffreq);
 void SNDPLATFORM_highpass(int voice, int cutofffreq);
 int SNDPLATFORM_getcurframe(int voice);
 unsigned int SNDPLATFORM_memalloc(int playloc, int size);
-unsigned int SNDPLATFORM_memfree(int playloc, unsigned int addr);
+int SNDPLATFORM_memfree(int playloc, unsigned int addr);
 int SNDPLATFORM_memlimits(int startaddr, int endaddr);
 int SNDPLATFORM_memlargestunused(int *paddr);
 int SNDPLATFORM_download(int playloc, void *psrc, void *pdst, int size);
 int SNDPLATFORM_downloadcomplete(int dlhandle);
+#ifdef EA_PLATFORM_PLAYSTATION2
+CmnRequestHandle SNDPLATFORM_downloadNew(int playloc, void *psrc, void *pdst, int size, DmaPriority priority,
+                                         DmaTransferType transferType);
+int SNDPLATFORM_downloadcompleteNew(CmnRequestHandle cmnRequestHandle);
+#endif
 
 // ssine.c
 int iSNDsin(int angle);
@@ -685,8 +768,21 @@ int SNDBANKI_playpatch(void *psampledata, TAGGEDPATCH *ptp, int bhandle, int pat
 // sclcptch.c
 void iSNDcalcpitch(int chan /* r3 */);
 
+// sserver.c
+void SNDSYSI_100hzserver();
+
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/* Poner a cero: en PC snd tiene su rutina (SNDI_memclear, speed.exe 0x822050, asm de x87 de EA con `fst qword`; la
+ * llaman 40 sitios de snd y ninguno llama a memset); GameCube y PS2 usan memset. Solo donde el exe de PC llama a
+ * 0x822050: donde PC pone `rep stosd`, el original escribe memset. Con enlace de C (snd es C); pc/sdsound.c la
+ * vuelve a declarar sin especificacion y conserva este enlace. */
+#ifdef EA_PLATFORM_WIN32
+void SNDI_memclear(void *p, int bytes);
+#else
+#define SNDI_memclear(p, bytes) memset((p), 0, (bytes))
 #endif
 
 // s3dlow.c

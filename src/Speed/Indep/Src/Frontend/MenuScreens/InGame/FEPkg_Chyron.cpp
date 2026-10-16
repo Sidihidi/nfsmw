@@ -37,12 +37,9 @@ MenuScreen *CreateChyronScreen(ScreenConstructorData *sd) {
 void Chyron::NotificationMessage(u32 msg, FEObject *pobject, u32 param1, u32 param2) {
 #ifndef EA_BUILD_A124
     if (mDelayTimer.IsSet()) {
-        if (!TheGameFlowManager.IsInFrontend()) {
-            if ((RealTimer - mDelayTimer).GetSeconds() < 5.0f) {
-                return;
-            }
+        if (TheGameFlowManager.IsInFrontend() || (RealTimer - mDelayTimer).GetSeconds() >= 5.0f) {
+            Start();
         }
-        Start();
     }
 #endif
 }
@@ -90,8 +87,12 @@ void Chyron::Start() {
     if (TheGameFlowManager.IsInFrontend()) {
         cFEng::Get()->QueuePackageMessage(FEHashUpper("TRAX_POS_2"), GetPackageName(), nullptr);
     } else {
-        if ((MemoryCard::GetInstance()->IsAutoSaving() || MemoryCard::GetInstance()->AutoSaveRequested()) && GRaceStatus::Exists() &&
-            GRaceStatus::Get().GetRaceParameters() != nullptr && GRaceStatus::Get().GetRaceParameters()->GetIsDDayRace()) {
+        if ((MemoryCard::GetInstance()->IsAutoSaving() || MemoryCard::GetInstance()->AutoSaveRequested())
+#ifndef EA_BUILD_A124
+            && GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters() != nullptr &&
+            GRaceStatus::Get().GetRaceParameters()->GetIsDDayRace()
+#endif
+        ) {
             cFEng::Get()->QueuePackageMessage(FEHashUpper("TRAX_POS_3"), GetPackageName(), nullptr);
         } else {
             cFEng::Get()->QueuePackageMessage(FEHashUpper("TRAX_POS_1"), GetPackageName(), nullptr);
@@ -112,6 +113,27 @@ void DismissChyron() {
     }
 }
 
+#ifdef EA_BUILD_A124 // la A124 espera al retardo de EA Trax y arranca el chyron en el acto
+void SummonChyron(char *title, char *artist, char *album) {
+    if (!TheICEManager.IsEditorOn()) {
+        if (title != nullptr && artist != nullptr && album != nullptr) {
+            Chyron::mTitle = title;
+            Chyron::mArtist = artist;
+            Chyron::mAlbum = album;
+        }
+        if (FEManager::Get()->GetEATraxDelay() <= 0) {
+            DismissChyron();
+            if (!cFEng::Get()->IsPackagePushed("EA_Trax.fng")) {
+                cFEng::Get()->PushNoControlPackage("EA_Trax.fng", FE_PACKAGE_PRIORITY_CLOSEST);
+            }
+            Chyron *chyron = static_cast<Chyron *>(FEngFindScreen("EA_Trax.fng"));
+            if (chyron != nullptr) {
+                chyron->Start();
+            }
+        }
+    }
+}
+#else
 void SummonChyron(char *title, char *artist, char *album) {
     if (!TheICEManager.IsEditorOn()) {
         if (title != nullptr && artist != nullptr && album != nullptr) {
@@ -125,9 +147,8 @@ void SummonChyron(char *title, char *artist, char *album) {
         }
         Chyron *chyron = static_cast<Chyron *>(FEngFindScreen("EA_Trax.fng"));
         if (chyron != nullptr) {
-#ifndef EA_BUILD_A124
             chyron->mDelayTimer = RealTimer;
-#endif
         }
     }
 }
+#endif

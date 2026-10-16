@@ -68,8 +68,9 @@ class PursuitFlow : public SpeechFlow {
     void ChangeTarget();
     void Terminal();
     bool IsTransitionable() override;
+  private:
     void MessageEventComplete(const MNotifySpeechStatus &message);
-
+  public:
     PursuitCause GetPursuitCause() { return mCauseofPursuit; }
 
     void SetPursuitCause(PursuitCause cause) { mCauseofPursuit = cause; }

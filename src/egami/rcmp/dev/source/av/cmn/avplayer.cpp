@@ -2,7 +2,11 @@ typedef unsigned int u32;
 
 #include "snd/sndo.h"
 
+#ifdef EA_PLATFORM_WIN32
+unsigned int __OSBusClock;
+#else
 unsigned int __OSBusClock __attribute__((address((0x800000F8))));
+#endif
 
 #define OS_BUS_CLOCK (u32)__OSBusClock
 #define OS_TIMER_CLOCK (OS_BUS_CLOCK / 4)

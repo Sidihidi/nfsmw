@@ -20,7 +20,7 @@ class BoneMask {
 
     bool GetBone(int boneIdx) const {
         // TODO magic
-        return (mMask[boneIdx >> 5] & (1 << (boneIdx & 0x1F))) != 0;
+        return (mMask[boneIdx >> 5] & (1 << (boneIdx & 0x1F))) ? true : false;
     }
 
     void SetBone(int boneIdx, bool on);

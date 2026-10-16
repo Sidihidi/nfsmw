@@ -28,8 +28,6 @@ class MNotifyPursuitLength : public Hermes::Message {
     MNotifyPursuitLength(HSIMABLE _Perpetrator, float _PursuitLength)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fPerpetrator(_Perpetrator), fPursuitLength(_PursuitLength) {}
 
-    ~MNotifyPursuitLength() {}
-
     HSIMABLE GetPerpetrator() const {
         return fPerpetrator;
     }
@@ -56,9 +54,9 @@ class MNotifyPursuitLength : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyPursuitLength::HandleMessage_LuaBinding(const MNotifyPursuitLength &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyPursuitLength::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

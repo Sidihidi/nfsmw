@@ -8,7 +8,9 @@ namespace Gen {
 
 struct explosion : Instance {
     struct _LayoutStruct {
+#ifndef EA_BUILD_A124
         RefSpec BaseMaterial;                      // offset 0x0, size 0xc
+#endif
         EA::Reflection::Float triggerThreshold;    // offset 0xc, size 0x4
         EA::Reflection::Float explosionForceLimit; // offset 0x10, size 0x4
         EA::Reflection::Float fallOffUnit;         // offset 0x14, size 0x4
@@ -80,10 +82,12 @@ struct explosion : Instance {
         Instance::operator=(rhs);
         return *this;
     }
+#ifndef EA_BUILD_A124
     bool BaseMaterial(TAttrib<RefSpec> &result) const;
     bool BaseMaterial(RefSpec &result) const;
     const RefSpec &BaseMaterial() const;
     bool SET_BaseMaterial(const RefSpec &input);
+#endif
 
     bool damageMultiplier(TAttrib<EA::Reflection::Float> &result) const;
     bool damageMultiplier(EA::Reflection::Float &result) const;
@@ -142,6 +146,7 @@ inline Key Gen::explosion::ClassKey() {
     return ClassName::explosion;
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::explosion::BaseMaterial(TAttrib<RefSpec> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(RefSpec, 0x5497a394);
 }
@@ -155,6 +160,7 @@ inline bool Gen::explosion::BaseMaterial(RefSpec &result) const {
 inline bool Gen::explosion::SET_BaseMaterial(const RefSpec &input) {
     ATTRIB_CODEGEN_SETLAYOUT(BaseMaterial, input);
 }
+#endif
 
 inline bool Gen::explosion::damageMultiplier(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0xa6f789cb);

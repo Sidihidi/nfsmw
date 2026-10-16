@@ -15,9 +15,9 @@ void ENISFakeFar_MakeEvent_Callback(const void *staticData) {
     new ENISFakeFar(((ENISFakeFar::StaticData *)staticData)->fFakeFar);
 }
 
-int ENISFakeFar_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ENISFakeFar(lua_tonumber(L, 1));
+int ENISFakeFar_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ENISFakeFar(lua_tonumber(luaState, 1));
     }
     return 0;
 }

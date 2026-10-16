@@ -1,3 +1,17 @@
+// Fuera del programa ([0, 0x100000) y desde el final del .bss): los pares lui/addiu con esos valores son
+// constantes (coeficientes de VU0_Sin, 0xFFFF...), no direcciones; vedados salen como inmediatos.
+fuera_del_programa_bajo = 0x0; // ignore:true size:0x10
+vuInitMicroCode = 0x10; // absolute:True can_be_referenced:False size:0x1 etiqueta del microcodigo VU1 en .DVP.overlay..0x0.463841787.208.0
+fuera_del_programa_bajo_1 = 0x11; // ignore:true size:0xf
+vuDoNothing = 0x20; // absolute:True can_be_referenced:False size:0x1 etiqueta del microcodigo VU1 en .DVP.overlay..0x0.463841787.208.0
+fuera_del_programa_bajo_2 = 0x21; // ignore:true size:0xf
+vuLoadMatricies00 = 0x30; // absolute:True can_be_referenced:False size:0x1 etiqueta del microcodigo VU1 en .DVP.overlay..0x0.463841787.208.0
+fuera_del_programa_bajo_3 = 0x31; // ignore:true size:0x17
+vuLoadMatricies01 = 0x48; // absolute:True can_be_referenced:False size:0x1 etiqueta del microcodigo VU1 en .DVP.overlay..0x0.463841787.208.0
+fuera_del_programa_bajo_4 = 0x49; // ignore:true size:0x47
+vuSetTextureEnv = 0x90; // absolute:True can_be_referenced:False size:0x1 etiqueta del microcodigo VU1 en .DVP.overlay..0x0.463841787.208.0
+fuera_del_programa_bajo_5 = 0x91; // ignore:true size:0xfff6f
+fuera_del_programa_alto = 0x68c4dc; // ignore:true size:0xff973b24
 ///////////////////////////////////////////////////////////////////
 // d:\p4_apex1666_d1001856\mw\speed\psx2\obj\mweuropemilestone\sourcelists\zai.cpp.obj
 ///////////////////////////////////////////////////////////////////
@@ -2477,7 +2491,7 @@ AllocateMemory__10MemoryPooliiiiiPi = 0x160fd0; // type:func
 TraceAllocateMemory__10MemoryPoolPvi = 0x161b38; // type:func
 GetAmountFree__10MemoryPool = 0x1612e8; // type:func
 GetLargestFreeBlock__10MemoryPool = 0x161360; // type:func
-VerifyPoolIntegrity__10MemoryPoolb = 0x1613d8; // type:func
+VerifyPoolIntegrity__10MemoryPoolb = 0x1613d8; // type:func size:0x21C
 bGetSharedString__Fi = 0x163de0; // type:func
 CheckFlipMemoryByAddress__FP16AllocationHeaderT0 = 0x161600; // type:func
 CheckFlipMemoryByAllocationNumber__FP16AllocationHeaderT0 = 0x161620; // type:func
@@ -5300,7 +5314,7 @@ GenerateRoadNoise__16CARSFX_RoadNoise = 0x1d78d8; // type:func
 ProcessUpdate__16CARSFX_RoadNoise = 0x1d6bd0; // type:func
 Play__16CARSFX_RoadNoise16FXROADNOISE_LOOPi = 0x1d7bc8; // type:func
 PlayTransition__16CARSFX_RoadNoise22FXROADNOISE_TRANSITIONi = 0x1d7658; // type:func
-MapLoopToVolume__16CARSFX_RoadNoise16FXROADNOISE_LOOP = 0x1d75f0; // type:func
+MapLoopToVolume__16CARSFX_RoadNoise16FXROADNOISE_LOOP = 0x1d75f0; // type:func size:0x68
 CommitMemberData__Q24Csis12FX_ROADNOISE = 0x1f3848; // type:func
 CommitMemberData__Q24Csis18FX_ROADNOISE_TRANS = 0x1f37c8; // type:func
 CreateObject__20SFXCTL_3DLeftWindPosUi = 0x1d7d88; // type:func
@@ -5437,7 +5451,7 @@ Destroy__18CARSFX_PreColWoosh = 0x1db688; // type:func
 BailOnWoosh__18CARSFX_PreColWoosh = 0x1db738; // type:func
 Detach__18CARSFX_PreColWoosh = 0x1db790; // type:func
 UpdateParams__18CARSFX_PreColWooshf = 0x1db798; // type:func
-GetWooshBlockSizeParams__F14eDRIVE_BY_TYPER17STICH_WHOOSH_TYPERiT2 = 0x1dd890; // type:func
+GetWooshBlockSizeParams__F14eDRIVE_BY_TYPER17STICH_WHOOSH_TYPERiT2 = 0x1dd890; // type:func size:0xCC
 ProcessUpdate__18CARSFX_PreColWoosh = 0x1db9e8; // type:func
 CreateObject__14CARSFX_NitrousUi = 0x1dbac8; // type:func
 GetTypeInfo__C14CARSFX_Nitrous = 0x1dbaa8; // type:func
@@ -6678,7 +6692,7 @@ SetLightMaterial__12eDmaDataListP14eLightMaterial = 0x1ff900; // type:func
 SetLightContext__12eDmaDataListP13eLightContext = 0x1ff990; // type:func
 SetMatrixPack__12eDmaDataListP23eRenderTargetMatrixPack = 0x1ffa28; // type:func
 SetBoneMatrixPack__12eDmaDataListP8bMatrix4 = 0x1ffa58; // type:func
-eCreateActiveTexture__FP11TextureInfo = 0x1ffae8; // type:func
+eCreateActiveTexture__FP11TextureInfo = 0x1ffae8; // type:func size:0xA8
 eNewAlphaSortKey__Fv = 0x1ffc70; // type:func
 RadixSortAlphaKeys__FP13eAlphaSortKeyT0P10eAlphaList = 0x1ffd00; // type:func
 SortAlphaKeys__FP10eAlphaList = 0x2000d8; // type:func
@@ -6729,7 +6743,7 @@ FillVramWithStaticTextures__18eTextureDownloaderP9eDmaChain = 0x206ad0; // type:
 FillVramWithTextures__18eTextureDownloaderP9eDmaChainT1P14eActiveTextureP12VramFillInfob = 0x206ce8; // type:func
 DownloadDoubleBuffered__18eTextureDownloaderP9eDmaChainT1b = 0x206880; // type:func
 GetPS2VramInfo__Fi = 0x206b80; // type:func
-GetPS2VramSize__Fiii = 0x206bd8; // type:func
+GetPS2VramSize__Fiii = 0x206bd8; // type:func allow_duplicated:true
 UpdateDmaStats__Fv = 0x207550; // type:func
 AttachDmaDataListMain__FP9eDmaChainP12eDmaDataListP8DMAState = 0x207558; // type:func
 GetTex0__FP11TextureInfoUiUi = 0x207ba8; // type:func
@@ -6810,7 +6824,7 @@ ComputeReflectionST__FP8bVector3P8bVector2 = 0x211c08; // type:func
 CreateEnvMap__FiP13eRenderTargetT1 = 0x212370; // type:func
 CreateBackEnvMap__FiP13eRenderTargetT1 = 0x212780; // type:func
 AttachImageDataPacketDMA__FP9eDmaChainPvUiUiUiUiUiUii = 0x212df8; // type:func
-RemapLinearIntoClut8__FPUiT0 = 0x212f70; // type:func
+RemapLinearIntoClut8__FPUiT0 = 0x212f70; // type:func size:0x68
 GetFogPalette__FP5eViewi = 0x2139c0; // type:func
 GetAlphaPalette__FP5eView = 0x2139f8; // type:func
 CreateAlphaPalette__FPUif = 0x213a28; // type:func
@@ -6858,7 +6872,7 @@ popTag__4DMAC = 0x21b5a0; // type:func
 getNextDmaTag__4DMACP10sDmaSrcTag = 0x21b5c8; // type:func
 vifUnpackNumInts__4DMACP7sVifTag = 0x21b750; // type:func
 getNextVifTag__4DMACP7sVifTag = 0x21b7f0; // type:func
-DumpVifPacket__4DMACiPv = 0x21b8a0; // type:func
+DumpVifPacket__4DMACiPv = 0x21b8a0; // type:func size:0xA8
 FastSync__4DMACPV10DmaChannelUi = 0x21b9b0; // type:func
 OpenVisualTreatment__Fv = 0x21bcd8; // type:func
 __20IVisualTreatmentPlat = 0x21bd50; // type:func
@@ -6948,7 +6962,7 @@ __uninitialized_copy_aux__H2ZPQ213EmitterSystem8LibEntryZPQ213EmitterSystem8LibE
 _M_deallocate__t18_Vector_alloc_base3ZQ213EmitterSystem8LibEntryZQ33UTL3Stdt9Allocator2ZQ213EmitterSystem8LibEntryZ12_type_vectorb0PQ213EmitterSystem8LibEntryUi = 0x2285a0; // type:func
 PlatRotateScaleParticle__FP15EmitterParticleRQ25UMath7Vector3T1T1T1T1 = 0x220930; // type:func
 afxGetWorldViewMatrix__FP5eViewP8bMatrix4 = 0x220ad0; // type:func
-Init__13EmitterSystem = 0x220dc8; // type:func
+Init__13EmitterSystem = 0x220dc8; // type:func size:0x24
 _M_erase__t8_Rb_tree5ZUiZt4pair2ZCUiZP24EmitterDataAttribWrapperZt10_Select1st1Zt4pair2ZCUiZP24EmitterDataAttribWrapperZt4less1ZUiZQ33UTL3Stdt9Allocator2ZP24EmitterDataAttribWrapperZ9_type_mapPt13_Rb_tree_node1Zt4pair2ZCUiZP24EmitterDataAttribWrapper = 0x224e80; // type:func
 find__t8_Rb_tree5ZUiZt4pair2ZCUiZP24EmitterDataAttribWrapperZt10_Select1st1Zt4pair2ZCUiZP24EmitterDataAttribWrapperZt4less1ZUiZQ33UTL3Stdt9Allocator2ZP24EmitterDataAttribWrapperZ9_type_mapRCUi = 0x224f90; // type:func
 lower_bound__t8_Rb_tree5ZUiZt4pair2ZCUiZP24EmitterDataAttribWrapperZt10_Select1st1Zt4pair2ZCUiZP24EmitterDataAttribWrapperZt4less1ZUiZQ33UTL3Stdt9Allocator2ZP24EmitterDataAttribWrapperZ9_type_mapRCUi = 0x225000; // type:func
@@ -8633,6 +8647,7 @@ AnswerInviteCB__19UIOnlineEAM_Optionsii = 0x25ee38; // type:func
 call__t23options_hlb_op_callback1PM19UIOnlineEAM_OptionsFP19UIOnlineEAM_Optionsii_v0_m1_39CancelInviteCB__19UIOnlineEAM_OptionsiiP10HLBApiRefTiiPv = 0x27f830; // type:func
 CancelInviteCB__19UIOnlineEAM_Optionsii = 0x25f908; // type:func
 CreateOnlineVoiceInvite__FP21ScreenConstructorData = 0x25f978; // type:func
+SetupVoiceInvite__Fv = 0x25f9b8; // type:func
 __19uiOnlineVoiceInviteP21ScreenConstructorData = 0x25f9c8; // type:func
 Setup__19uiOnlineVoiceInvite = 0x2602b0; // type:func
 _$_19uiOnlineVoiceInvite = 0x25fa68; // type:func
@@ -18996,6 +19011,7 @@ StopCarAirborne__8LGWheelsi = 0x3c75d0; // type:func
 StopSlipperyRoadEffect__8LGWheelsi = 0x3c6fc8; // type:func
 PlaySpringForce__8LGWheelsiiii = 0x3c5e98; // type:func
 RCMP_GetMaxFramesOutStanding__Fv = 0x3c79e0; // type:func
+CalculateChecksum__FPCvi = 0x3c79e8; // type:func
 FillInTextureInfo__11MoviePlayerPUiP11TextureInfoPQ29RealShape5Shape = 0x3c78b0; // type:func
 GetPrefix__13MemoryCardImp = 0x3ca300; // type:func
 GetTitleId__13MemoryCardImp = 0x3ca310; // type:func
@@ -19005,6 +19021,7 @@ DestructSaveInfo__13MemoryCardImp = 0x3ca6b0; // type:func
 BootupCheckDone__13MemoryCardImpQ211RealmcIface10CardStatusPQ211RealmcIface18BootupCheckResults = 0x3ca708; // type:func
 PS2_GetOSLanguage__Fv = 0x3c1998; // type:func
 SetEndReason__15DemoDiscManager17DemoDiscEndReason = 0x3c7628; // type:func
+DescramblePS2MovieFrame__FPUiPQ29RealShape5Shape = 0x3c7700; // type:func
 IsMultiturnCapable__8LGWheelsi = 0x3c5e40; // type:func
 IsMultiturnEnabled__8LGWheelsi = 0x3c5e60; // type:func
 SetMultiturn__8LGWheelsii = 0x3c5e80; // type:func
@@ -19029,10 +19046,12 @@ bInvalidateCodeineFileCache__FPCc = 0x3c8a60; // type:func
 FlushCaches__Fv = 0x3c1678; // type:func
 SuperBenderGetCommandLineArgc__Fv = 0x3beeb8; // type:func
 SuperBenderGetCommandLineArgv__Fv = 0x3beee0; // type:func
+DelayMilliseconds__Fi = 0x3bef70; // type:func
 DisableInterruptsByCause__Fv = 0x3befe0; // type:func
 RestoreInterruptsByCause__FUi = 0x3bf030; // type:func
 MyDisableInterrupts__Fv = 0x3bf088; // type:func
 MyEnableInterrupts__Fv = 0x3bf0c8; // type:func
+NetMonitorSyscall__Fiiii = 0x3bf0d8; // type:func
 __10NetMonitor = 0x3bf108; // type:func
 _$_10NetMonitor = 0x3bf1e8; // type:func
 __dl__10NetMonitorPv = 0x3cb678; // type:func
@@ -19079,6 +19098,8 @@ EnterMonitor__10NetMonitor = 0x3c0d40; // type:func
 ExitMonitor__10NetMonitor = 0x3c0f60; // type:func
 SendPacketNetMonitor__FP17bFunkPacketHeaderPCvi = 0x3c1240; // type:func
 ServiceNetMonitor__Fv = 0x3c1370; // type:func
+_HackFpToSi = 0x3c1390; // type:func
+_HackFpToUi = 0x3c13a0; // type:func
 SendPacket__10NetMonitorP17bFunkPacketHeaderPCvi = 0x3c0380; // type:func
 GetSendPacket__16FastPacketBufferi = 0x3c7e70; // type:func
 AdvanceSendPacket__16FastPacketBuffer = 0x3c7f20; // type:func
@@ -19182,6 +19203,7 @@ DoDma__16FastPacketBufferPvT1i = 0x3c7ae0; // type:func
 GetNumBytesToReceive__16FastPacketBuffer = 0x3c7b88; // type:func
 CanSendPacket__16FastPacketBufferi = 0x3c7da8; // type:func
 bRefreshCachedCodeineDirs__Fv = 0x3c8210; // type:func
+bGetDirNameHash__FPCc = 0x3c82c0; // type:func
 Open__12bCodeineFilePCci = 0x3c8340; // type:func
 Close__12bCodeineFile = 0x3c8610; // type:func
 Service__12bCodeineFile = 0x3c8678; // type:func
@@ -24239,17 +24261,17 @@ _$_t13_Rb_tree_base2Zt4pair2ZCiZ16ExtraSessionDataZQ33UTL3Stdt9Allocator2Z16Extr
 _$_t19_Rb_tree_alloc_base3Zt4pair2ZCiZ16ExtraSessionDataZQ33UTL3Stdt9Allocator2Z16ExtraSessionDataZ9_type_mapb0 = 0x5af928; // type:func
 _$_Q33UTL3Stdt9Allocator2Zt13_Rb_tree_node1Zt4pair2ZCiZ16ExtraSessionDataZ9_type_map = 0x5af980; // type:func
 _vt$12CWebOfferUG2 = 0x5b2c38; // size:0xa0
-_9BitStream$BIT_DEPTH = 0x5afa38; // type:func
-_9BitStream$MAX_BITS = 0x5afa34; // type:func
+_9BitStream$BIT_DEPTH = 0x5afa38; // size:0x4
+_9BitStream$MAX_BITS = 0x5afa34; // size:0x4
 _vt$19PlatformNetworkCore = 0x5b2d88; // size:0x10
-_11NetworkCore$msecPerThreadInterval = 0x5b03e4; // type:func
+_11NetworkCore$msecPerThreadInterval = 0x5b03e4; // size:0x4
 _vt$11NetworkCore = 0x5b2d78; // size:0x10
-_9LobbyChat$maxActiveInvites = 0x5b148c; // type:func
+_9LobbyChat$maxActiveInvites = 0x5b148c; // size:0x4
 _vt$9CWebOffer = 0x5b2cd8; // size:0xa0
 _vt$15CUIWebOfferNews = 0x5b2bf8; // size:0x20
 _vt$21CUIWebOfferForeignReg = 0x5b2bd8; // size:0x20
-ShowSentPacketTypes = 0x5b2830; // type:func
-ShowReceivedPacketTypes = 0x5b282c; // type:func
+ShowSentPacketTypes = 0x5b2830; // size:0x4
+ShowReceivedPacketTypes = 0x5b282c; // size:0x4
 _9VoiceCore$mInstance = 0x64a580; // size:0x4
 _11NetworkCore$mInstance = 0x649fc8; // size:0x10
 NetworkUseLobbies = 0x649fbc; // size:0x4
@@ -24840,7 +24862,7 @@ _vt$7CatchUp = 0x5d9348; // size:0x80
 _vt$10CopDensity = 0x5d93c8; // size:0x80
 _vt$24QRCarSelectBustedManager = 0x5d9a18; // size:0x10
 _vt$13UIQRCarSelect = 0x5d99f8; // size:0x20
-CarLoadDelay = 0x5d79e4; // type:func
+CarLoadDelay = 0x5d79e4; // size:0x4
 _vt$14uiQRPressStart = 0x5d9188; // size:0x20
 _vt$19UIQRChallengeSeries$13ArrayScroller = 0x5d9130; // size:0x20
 _vt$19UIQRChallengeSeries = 0x5d9150; // size:0x20
@@ -26629,6 +26651,23 @@ ClampLevels = 0x673980; // size:0x4
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/quantize.c
 ///////////////////////////////////////////////////////////////////
+quant_indexC = 0x58e068; // size:0x100
+transIndexC = 0x58df68; // size:0x100
+dequant_index = 0x58de68; // size:0x100
+VP6_ZlrZbinCorrection = 0x58dd68; // size:0x100
+VP6_UvDcRTable = 0x58dc68; // size:0x100
+VP6_DcRTable = 0x58db68; // size:0x100
+VP6_UvDcZBinTable = 0x58da68; // size:0x100
+VP6_DcZBinTable = 0x58d968; // size:0x100
+VP6_UvDcQuant = 0x58d8e8; // size:0x80
+VP6_UvRTable = 0x58d768; // size:0x100
+VP6_RTable = 0x58d668; // size:0x100
+VP6_UvZBinTable = 0x58d568; // size:0x100
+VP6_ZBinTable = 0x58d468; // size:0x100
+VP6_UvQThreshTable = 0x58d368; // size:0x100
+VP6_QThreshTable = 0x58d268; // size:0x100
+DeleteQuantizerBuffers = 0x4c1e08; // type:func
+AllocateQuantizerBuffers = 0x4c1e60; // type:func
 VP6_DeleteQuantizer = 0x4c1ee8; // type:func
 VP6_InitQTables = 0x4c1bb8; // type:func
 VP6_BuildQuantIndex_Generic = 0x4c1c60; // type:func
@@ -26640,12 +26679,15 @@ VP6_quantize = 0x67398c; // size:0x4
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/simpledeblocker.c
 ///////////////////////////////////////////////////////////////////
+DeblockLimitValuesV1 = 0x58e170; // size:0x100
 SimpleDeblockFrame = 0x4c21a8; // type:func
 FilterHoriz_Simple_C = 0x4c1f90; // type:func
 FilterVert_Simple_C = 0x4c2088; // type:func
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/vfwpbdll_if.c
 ///////////////////////////////////////////////////////////////////
+vp31dVersion = 0x58e270; // size:0x8
+VP6_DecodeFrameToYUV_internal = 0x4c2a98; // type:func
 VP6_StopDecoder = 0x4c2c78; // type:func
 VP6_StartDecoder = 0x4c2480; // type:func
 VP6_SetPbParam = 0x4c2558; // type:func
@@ -26655,6 +26697,8 @@ CurrentFrame = 0x64c3d8; // size:0x4
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/vputil.c
 ///////////////////////////////////////////////////////////////////
+BilinearFilters = 0x64c460; // size:0x40 allow_duplicated:true
+BicubicFilters = 0x64c3e0; // size:0x80 allow_duplicated:true
 InitVPUtil = 0x4c2f10; // type:func
 ClearSysState_C = 0x4c2cd8; // type:func
 AverageBlock_C = 0x4c2ce0; // type:func
@@ -26742,6 +26786,8 @@ DeblockLimitValuesV2 = 0x673d40; // size:0x4
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/decodembs.c
 ///////////////////////////////////////////////////////////////////
+VP6_TokenExtraBits2 = 0x58e2e8; // size:0xc0
+nDecodeBool128 = 0x4c6d98; // type:func
 VP6_DecodeFrameMbs = 0x4c7fd0; // type:func
 BuildScanOrder = 0x4c6e10; // type:func
 BoolTreeToHuffCodes = 0x4c6eb0; // type:func
@@ -26779,6 +26825,7 @@ DeringModifierV1 = 0x673d48; // size:0x100
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/DFrameR.c
 ///////////////////////////////////////////////////////////////////
+LoadFrameHeader = 0x4caa30; // type:func
 InitHeaderBuffer = 0x4ca958; // type:func
 VP6_LoadFrame = 0x4cb000; // type:func
 VP6_bitread = 0x4cb028; // type:func
@@ -26786,6 +26833,7 @@ ReadHeaderBits = 0x4ca9a0; // type:func
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/FrameIni.c
 ///////////////////////////////////////////////////////////////////
+NearMacroBlocks = 0x58e918; // size:0x60
 VP6_InitFrameDetails = 0x4cb440; // type:func
 VP6_InitialiseConfiguration = 0x4cb668; // type:func
 VP6_DeleteFragmentInfo = 0x4cb088; // type:func
@@ -26795,6 +26843,7 @@ VP6_AllocateFrameInfo = 0x4cb380; // type:func
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/Huffman.c
 ///////////////////////////////////////////////////////////////////
+InsertSorted = 0x4cb678; // type:func
 VP6_BuildHuffTree = 0x4cb730; // type:func
 VP6_BuildHuffLookupTable = 0x4cb938; // type:func
 VP6_CreateCodeArray = 0x4cb9f8; // type:func
@@ -26839,13 +26888,21 @@ CenterImage = 0x4cd158; // type:func
 ///////////////////////////////////////////////////////////////////
 // Packages/vp6/1.0.3/source/decode/cmn/TokenEntropy.c
 ///////////////////////////////////////////////////////////////////
+VP6_DcNodeEqs = 0x58eff0; // size:0x78
 VP6_ConfigureContexts = 0x4cd3f0; // type:func
 ///////////////////////////////////////////////////////////////////
-// Packages/vp6/1.0.3/source/decode/cmn/criticalpath.c
+// Packages/vp6/1.0.3/source/decode/ps2/criticalpath.c
 ///////////////////////////////////////////////////////////////////
+BilinearFilters = 0x64cf20; // size:0x40 allow_duplicated:true
+BicubicFilters = 0x64cea0; // size:0x80 allow_duplicated:true
+loMaskTbl_VP60 = 0x58f268; // size:0x84
+VP6_CoeffToHuffBand = 0x58f0a0; // size:0x104
+VP6_HuffTokenMinVal = 0x58f070; // size:0x30
+bitread = 0x4cd618; // type:func
+bitread1 = 0x4cd6a8; // type:func
 IDct1_PS2 = 0x4d0440; // type:func
-IDct10_PS2 = 0x4d0068; // type:func
-IDct64_PS2 = 0x4cf8e0; // type:func
+IDct10_PS2 = 0x4d0068; // type:func size:0x3D8
+IDct64_PS2 = 0x4cf8e0; // type:func size:0x784
 ScalarReconIntra_PS2 = 0x4d0488; // type:func
 ScalarReconInter_PS2 = 0x4d0590; // type:func
 UnpackBlock_PS2 = 0x4cf1e0; // type:func
@@ -31515,7 +31572,7 @@ threadParam.205 = 0x67f418; // size:0x30
 dmaData.224 = 0x67f448; // size:0x18
 commandData.225 = 0x67f460; // size:0x30
 semaParam.270 = 0x67f4f0; // size:0x18
-gEventChoice = 0x67f728; // size:0x10
+gEventChoice = 0x67f728; // size:0x500
 hashcollision = 0x680680; // size:0x8
 nulldrv = 0x680688; // size:0x10
 gpFileSysInfo = 0x68069c; // size:0x4
@@ -31655,3 +31712,3246 @@ eh.39 = 0x68b028; // size:0x10
 initialized.40 = 0x68b038; // size:0x8
 top_elt.41 = 0x68b040; // size:0x8
 objects = 0x68b048; // size:0x8
+
+// Nombres recuperados por codigo (tools/nombra_ps2.py): la funcion del original no tenia
+// nombre y nuestro objeto define una identica palabra a palabra.
+RandomSortTC__FP14ITrafficCenterT0 = 0x1015e0; // type:func
+KillVehicle__FP8IVehicle = 0x10a030; // type:func
+hash32__6AttribPCUcUiUi = 0x154960; // type:func
+hash64__6AttribPCUcUiUl = 0x154c40; // type:func
+GetCodeineString__FPcii = 0x15b0f0; // type:func
+FindPlayer__F8EVIEW_ID = 0x169b60; // type:func
+FindDirector__F8EVIEW_ID = 0x169c10; // type:func
+FindDirector__FUi = 0x169c60; // type:func
+IsRightSide__Fv = 0x16eb18; // type:func
+IsBeingPursued__Fi = 0x173a48; // type:func
+CrossXY__FPC8bVector3T0 = 0x174a98; // type:func
+GetICEAnchor__Fv = 0x17bcf8; // type:func
+GetOverlayIndex__FUc = 0x17e0b8; // type:func
+GetCurrentCamera__Fv = 0x17e248; // type:func
+ReplayNosScore__FP9ICEAnchor = 0x17e290; // type:func
+ReplayJumpScore__FP9ICEAnchor = 0x17e2d0; // type:func
+ReplayCornerScore__FP9ICEAnchor = 0x17e3e8; // type:func
+ReplayCornerMirror__FP9ICEAnchor = 0x17e450; // type:func
+ReplayPowerSlideScore__FP9ICEAnchor = 0x17e538; // type:func
+ReplayPowerSlideMirror__FP9ICEAnchor = 0x17e5b8; // type:func
+DefaultMalloc__13EAGL4InternalUiPCc = 0x1911c0; // type:func
+elfhash__5EAGL4PCc = 0x191408; // type:func
+QuatMultXxYxZ__FRCQ25UMath7Vector4T0T0RQ25UMath7Vector4 = 0x19aa38; // type:func
+QuatMultXxQ__FRCQ25UMath7Vector4T0RQ25UMath7Vector4 = 0x19aae0; // type:func
+QuatMultQxZ__FRCQ25UMath7Vector4T0RQ25UMath7Vector4 = 0x19ab70; // type:func
+validatehandle__FiPP15STREAMHEADERtagPP12TAPSTRUCTtag = 0x1b6b18; // type:func
+inbetween__FPcT0T0 = 0x1b6b48; // type:func
+decbufferusage__FP15STREAMHEADERtagi = 0x1b6b88; // type:func
+getfreerequest__FP15STREAMHEADERtag = 0x1b6c30; // type:func
+locaterequest__FP15STREAMHEADERtagi = 0x1b6d40; // type:func
+opencallback__FiiPv = 0x1b7038; // type:func
+closecallback__FiiPv = 0x1b70c0; // type:func
+lexicographical_compare__H2ZPCScZPCSc_X01X01X11X11_b = 0x222cc0; // type:func
+__lexicographical_compare_3way__H2ZPCScZPCSc_X01X01X11X11_i = 0x222d28; // type:func
+Get__CQ26Attribt7TAttrib1Z14CopCountRecordUi = 0x223ba8; // type:func
+Get__CQ26Attribt7TAttrib1Z13LeaderSupportUi = 0x223c50; // type:func
+Get__CQ26Attribt7TAttrib1ZQ25UMath7Matrix4Ui = 0x224120; // type:func
+_M_erase__t8_Rb_tree5ZPQ26Hermes13_h_HHANDLER__Zt4pair2ZCPQ26Hermes13_h_HHANDLER__ZQ26Hermes7PortKeyZt10_Select1st1Zt4pair2ZCPQ26Hermes13_h_HHANDLER__ZQ26Hermes7PortKeyZt4less1ZPQ26Hermes13_h_HHANDLER__ZQ33UTL3Stdt9Allocator2ZQ26Hermes7PortKeyZ9_type_mapPt13_Rb_tree_node1Zt4pair2ZCPQ26Hermes13_h_HHANDLER__ZQ26Hermes7PortKey = 0x2244c0; // type:func filename:func_002244C0
+DoFEngPrintf__FP8FEStringPCcPc = 0x268b78; // type:func
+GetMovieNameEnum__FPCc = 0x269010; // type:func
+CalculateMovieFilename__FPciPCc10eLanguages = 0x269080; // type:func
+CalcAngleForRPM__Fff = 0x289390; // type:func
+LoadingTips_FinishLoadingTexBridge__FUi = 0x29b770; // type:func
+rotate_uvs__FP8bVector2fff = 0x2ac698; // type:func
+CreateQRBrief__FP21ScreenConstructorData = 0x2ae1e8; // type:func
+CreateQRTrackSelect__FP21ScreenConstructorData = 0x2ae228; // type:func
+CreateQRTrackOptions__FP21ScreenConstructorData = 0x2ae268; // type:func
+CreateQRCarSelect__FP21ScreenConstructorData = 0x2ae2a8; // type:func
+CreateQRChallengeSeries__FP21ScreenConstructorData = 0x2ae328; // type:func
+CreateSMS__FP21ScreenConstructorData = 0x2ae428; // type:func
+CreateSMSMessage__FP21ScreenConstructorData = 0x2ae468; // type:func
+CreateControllerUnplugged__FP21ScreenConstructorData = 0x2ae4a8; // type:func
+CreateMovieScreen__FP21ScreenConstructorData = 0x2ae4e8; // type:func
+CreateLanguageSelectScreen__FP21ScreenConstructorData = 0x2ae590; // type:func
+CreateSixDaysLaterScreen__FP21ScreenConstructorData = 0x2ae5d0; // type:func
+CreateUISafeHouseRaceSheet__FP21ScreenConstructorData = 0x2ae650; // type:func
+CreateUIRapSheetMain__FP21ScreenConstructorData = 0x2ae6d0; // type:func
+CreateUIRapSheetVD__FP21ScreenConstructorData = 0x2ae790; // type:func
+CreateUIRapSheetCTS__FP21ScreenConstructorData = 0x2ae7d0; // type:func
+CreateUIRapSheetTEP__FP21ScreenConstructorData = 0x2ae810; // type:func
+CreateUIRapSheetPD__FP21ScreenConstructorData = 0x2ae850; // type:func
+CreateUIRapSheetRankingsDetail__FP21ScreenConstructorData = 0x2ae8d0; // type:func
+CreateUISafeHouseMilestones__FP21ScreenConstructorData = 0x2ae9d0; // type:func
+CreateUISafeHouseBounty__FP21ScreenConstructorData = 0x2aea50; // type:func
+CreateDebugCarCustomize__FP21ScreenConstructorData = 0x2aead0; // type:func
+CreateMyCarsManager__FP21ScreenConstructorData = 0x2aeb10; // type:func
+CreateCustomizeMainScreen__FP21ScreenConstructorData = 0x2aeb50; // type:func
+CreateCustomizeSubScreen__FP21ScreenConstructorData = 0x2aeb90; // type:func
+CreateCustomizeShoppingCartScreen__FP21ScreenConstructorData = 0x2aebd0; // type:func
+CreateCustomizePartsScreen__FP21ScreenConstructorData = 0x2aec10; // type:func
+CreateCustomHUDColorScreen__FP21ScreenConstructorData = 0x2aec50; // type:func
+CreateDecalsScreen__FP21ScreenConstructorData = 0x2aec90; // type:func
+CreateNumbersScreen__FP21ScreenConstructorData = 0x2aecd0; // type:func
+CreatePaintScreen__FP21ScreenConstructorData = 0x2aed10; // type:func
+CreateRimmingScreen__FP21ScreenConstructorData = 0x2aed50; // type:func
+CreateSpoilersScreen__FP21ScreenConstructorData = 0x2aed90; // type:func
+CreateCustomizePerformanceScreen__FP21ScreenConstructorData = 0x2aedd0; // type:func
+CreateCustomTuningScreen__FP21ScreenConstructorData = 0x2aee10; // type:func
+CreatePostRaceResultsScreen__FP21ScreenConstructorData = 0x2aee50; // type:func
+CreatePostRacePursuitScreen__FP21ScreenConstructorData = 0x2aeed0; // type:func
+CreatePostRaceMilestonesScreen__FP21ScreenConstructorData = 0x2aef10; // type:func
+CreateCreditsScreen__FP21ScreenConstructorData = 0x2aef50; // type:func
+CreateUIEATraxScreen__FP21ScreenConstructorData = 0x2aef90; // type:func
+CreateOptionsControllerScreen__FP21ScreenConstructorData = 0x2af108; // type:func
+FindScreenButtonDatum__FUi = 0x2af280; // type:func
+FindAvailableButtonDatum__Fv = 0x2af2f0; // type:func
+Callback__CQ313FEPlayerCarDB74GetNumInfraction__13FEPlayerCarDBQ218GInfractionManager14InfractionTypeb.0_13NumInfractionRC14FECareerRecord = 0x2c0f18; // type:func
+Close__Fiii = 0x2ce9b0; // type:func
+SearchTagArray__FRPC9TagStructUiUi = 0x2d8218; // type:func
+compare_entry_string__FPCvT0 = 0x2d99b8; // type:func
+EventSeqEngineResolver__4CARPPC5UDataPC6UGroup = 0x2db210; // type:func
+EventSeqSystemResolver__4CARPPC5UDataPC6UGroup = 0x2db2b8; // type:func
+EventSeqStateResolver__4CARPPC5UDataPC6UGroup = 0x2db350; // type:func
+EventSeqActionResolver__4CARPPC5UDataPC6UGroup = 0x2db3f8; // type:func
+EventListResolver__4CARPPC5UDataPC6UGroup = 0x2db4a8; // type:func
+StimulusFilterResolver__4CARPPC5UDataPC6UGroup = 0x2db538; // type:func
+CollisionInstanceResolver__4CARPPC5UDataPC6UGroup = 0x2db5f0; // type:func
+cosf__FGQ24CARP11ExprValType = 0x2dc560; // type:func
+tanf__FGQ24CARP11ExprValType = 0x2dc588; // type:func
+asinf__FGQ24CARP11ExprValType = 0x2dc5b0; // type:func
+acosf__FGQ24CARP11ExprValType = 0x2dc5d8; // type:func
+atanf__FGQ24CARP11ExprValType = 0x2dc600; // type:func
+atan2f__FGQ24CARP11ExprValTypeT0 = 0x2dc628; // type:func
+sinhf__FGQ24CARP11ExprValType = 0x2dc658; // type:func
+coshf__FGQ24CARP11ExprValType = 0x2dc680; // type:func
+tanhf__FGQ24CARP11ExprValType = 0x2dc6a8; // type:func
+expf__FGQ24CARP11ExprValType = 0x2dc6d0; // type:func
+logf__FGQ24CARP11ExprValType = 0x2dc6f8; // type:func
+log10f__FGQ24CARP11ExprValType = 0x2dc720; // type:func
+fmodf__FGQ24CARP11ExprValTypeT0 = 0x2dc748; // type:func
+powf__FGQ24CARP11ExprValTypeT0 = 0x2dc778; // type:func
+sqrtf__FGQ24CARP11ExprValType = 0x2dc7a8; // type:func
+ceilf__FGQ24CARP11ExprValType = 0x2dc7c0; // type:func
+fabsf__FGQ24CARP11ExprValType = 0x2dc7e8; // type:func
+floorf__FGQ24CARP11ExprValType = 0x2dc800; // type:func
+roundf__FGQ24CARP11ExprValType = 0x2dc828; // type:func
+hypotf__FGQ24CARP11ExprValTypeT0 = 0x2dc870; // type:func
+hypot3d__FGQ24CARP11ExprValTypeT0T0 = 0x2dc898; // type:func
+InitializeTables__Fv = 0x2dc8c8; // type:func
+BindRawFunction__FP9lua_StatePCcPFP9lua_State_iT1 = 0x305e70; // type:func
+Table_Randomize__FP9lua_State = 0x306180; // type:func
+PushAttribValueFloat__FRC19LuaAttribAccessInfo = 0x307198; // type:func
+PushAttribValueDouble__FRC19LuaAttribAccessInfo = 0x3071d0; // type:func
+PushAttribValueInt64__FRC19LuaAttribAccessInfo = 0x307210; // type:func
+PushAttribValueInt32__FRC19LuaAttribAccessInfo = 0x307250; // type:func
+PushAttribValueInt16__FRC19LuaAttribAccessInfo = 0x307288; // type:func
+PushAttribValueInt8__FRC19LuaAttribAccessInfo = 0x3072c8; // type:func
+PushAttribValueUInt64__FRC19LuaAttribAccessInfo = 0x307308; // type:func
+PushAttribValueUInt32__FRC19LuaAttribAccessInfo = 0x307368; // type:func
+PushAttribValueUInt16__FRC19LuaAttribAccessInfo = 0x3073c8; // type:func
+PushAttribValueUInt8__FRC19LuaAttribAccessInfo = 0x307408; // type:func
+PushAttribValueBool__FRC19LuaAttribAccessInfo = 0x307448; // type:func
+PushAttribValueStringKey__FRC19LuaAttribAccessInfo = 0x307480; // type:func
+PushAttribValueText__FRC19LuaAttribAccessInfo = 0x3074c0; // type:func
+PushAttribValueChar__FRC19LuaAttribAccessInfo = 0x3074f8; // type:func
+PushAttribValueRefSpec__FRC19LuaAttribAccessInfo = 0x307540; // type:func
+IsSameInstance__FPC16GRuntimeInstanceT0 = 0x3075c0; // type:func
+GRuntimeInstanceMeta__eq__FP9lua_State = 0x307850; // type:func
+LuaAttribArrayInfoMeta__index__FP9lua_State = 0x307900; // type:func
+LuaAttribArrayInfoMeta__eq__FP9lua_State = 0x307a70; // type:func
+Game_FindPerformanceCandidates__FRQ33UTL3Stdt4list2ZUiZ10_type_listUiRCQ37Physics4Info11Performance = 0x3089f0; // type:func
+negindex = 0x30ce40; // type:func
+luaA_index = 0x30ceb0; // type:func
+luaA_indexAcceptable = 0x30cee8; // type:func
+currentpc = 0x30dc40; // type:func
+currentline = 0x30dc90; // type:func
+getluaproto = 0x30ddf0; // type:func
+funcinfo = 0x30de30; // type:func
+travglobals = 0x30deb0; // type:func
+info_tailcall = 0x30df70; // type:func
+auxgetinfo = 0x30dff0; // type:func
+precheck = 0x30e280; // type:func
+checkopenop = 0x30e2d0; // type:func
+checkRK = 0x30e330; // type:func
+luaG_symbexec = 0x30e368; // type:func
+kname = 0x30e818; // type:func
+getobjname = 0x30e858; // type:func
+getfuncname = 0x30e9d0; // type:func
+isinstack = 0x30ea78; // type:func
+addinfo = 0x30ec70; // type:func
+seterrorobj = 0x30ee20; // type:func
+restore_stack_limit = 0x30ef98; // type:func
+correctstack = 0x30f000; // type:func
+luaD_growCI = 0x30f1e8; // type:func
+adjust_varargs = 0x30f360; // type:func
+tryfuncTM = 0x30f530; // type:func
+callrethooks = 0x30f800; // type:func
+f_parser = 0x30fb20; // type:func
+pushstr = 0x310408; // type:func
+mallocstate = 0x310848; // type:func
+stack_init = 0x310880; // type:func
+freestack = 0x310938; // type:func
+f_luaopen = 0x3109a0; // type:func
+preinit_state = 0x310b28; // type:func
+close_state = 0x310b70; // type:func
+newlstr = 0x310e50; // type:func
+hashnum = 0x3110d0; // type:func
+arrayindex = 0x311210; // type:func
+luaH_index = 0x311260; // type:func
+computesizes = 0x311440; // type:func
+numuse = 0x3114e8; // type:func
+setarrayvector = 0x3116c0; // type:func
+setnodevector = 0x311740; // type:func
+resize = 0x311838; // type:func
+rehash = 0x311a10; // type:func
+newkey = 0x311b30; // type:func
+luaH_getany = 0x311c80; // type:func
+unexpectedEOZ = 0x3120b0; // type:func
+ezgetc = 0x3120c8; // type:func
+ezread = 0x312140; // type:func
+LoadBlock = 0x312180; // type:func
+LoadVector = 0x312218; // type:func
+LoadInt = 0x312318; // type:func
+LoadSize = 0x312368; // type:func
+LoadNumber = 0x312390; // type:func
+LoadString = 0x3123b8; // type:func
+LoadCode = 0x312430; // type:func
+LoadLocals = 0x3124a0; // type:func
+LoadLines = 0x312568; // type:func
+LoadUpvalues = 0x3125d8; // type:func
+LoadConstants = 0x312690; // type:func
+LoadFunction = 0x312810; // type:func
+LoadSignature = 0x312908; // type:func
+TestSize = 0x312980; // type:func
+LoadHeader = 0x3129f0; // type:func
+LoadChunk = 0x312bb0; // type:func
+traceexec = 0x312d58; // type:func
+callTMres = 0x312e90; // type:func
+callTM = 0x312f30; // type:func
+luaV_index = 0x312fd8; // type:func
+luaV_getnotable = 0x313098; // type:func
+call_binTM = 0x313380; // type:func
+get_compTM = 0x313440; // type:func
+call_orderTM = 0x313528; // type:func
+luaV_strcmp = 0x3135f8; // type:func
+luaV_lessequal = 0x313750; // type:func
+Arith = 0x313bb0; // type:func
+checkint = 0x3153a8; // type:func
+getsizes = 0x315420; // type:func
+callalert = 0x315680; // type:func
+aux_do = 0x315760; // type:func
+VoidFunctionArg2Thunk__H2ZPCcZb_P9lua_State_i = 0x316ad8; // type:func
+FunctionArg1Thunk__H2ZiZi_P9lua_State_i = 0x316c40; // type:func
+VoidFunctionArg2Thunk__H2ZPCcZPCc_P9lua_State_i = 0x316d28; // type:func
+VoidFunctionArg6Thunk__H6ZP16GRuntimeInstanceZPCcZPCcZiZPCcZPCc_P9lua_State_i = 0x316e10; // type:func
+VoidFunctionArg2Thunk__H2ZPCcZf_P9lua_State_i = 0x316ff8; // type:func
+VoidFunctionArg2Thunk__H2ZP8ISimableZf_P9lua_State_i = 0x317160; // type:func
+VoidFunctionArg2Thunk__H2ZiZP16GRuntimeInstance_P9lua_State_i = 0x317388; // type:func
+VoidFunctionArg2Thunk__H2ZiZi_P9lua_State_i = 0x317480; // type:func
+VoidFunctionArg3Thunk__H3ZP16GRuntimeInstanceZP8ISimableZi_P9lua_State_i = 0x317568; // type:func
+VoidFunctionArg4Thunk__H4ZP16GRuntimeInstanceZP16GRuntimeInstanceZP8ISimableZf_P9lua_State_i = 0x3176b8; // type:func
+VoidFunctionArg2Thunk__H2ZP8ISimableZi_P9lua_State_i = 0x317828; // type:func
+VoidFunctionArg2Thunk__H2ZP16GRuntimeInstanceZPCc_P9lua_State_i = 0x3179d8; // type:func
+VoidFunctionArg3Thunk__H3ZP16GRuntimeInstanceZfZf_P9lua_State_i = 0x317ac8; // type:func
+VoidFunctionArg4Thunk__H4ZP16GRuntimeInstanceZPCcZbZb_P9lua_State_i = 0x317bd8; // type:func
+VoidFunctionArg4Thunk__H4ZP16GRuntimeInstanceZP16GRuntimeInstanceZP16GRuntimeInstanceZf_P9lua_State_i = 0x317d00; // type:func
+FunctionArg1Thunk__H2ZbZP16GRuntimeInstance_P9lua_State_i = 0x317e38; // type:func
+FunctionArg1Thunk__H2ZiZP8ISimable_P9lua_State_i = 0x317fa0; // type:func
+FunctionArg1Thunk__H2ZP8ISimableZi_P9lua_State_i = 0x3180b8; // type:func
+FunctionArg1Thunk__H2ZP16GRuntimeInstanceZi_P9lua_State_i = 0x3181d8; // type:func
+FunctionArg1Thunk__H2ZfZP8ISimable_P9lua_State_i = 0x318370; // type:func
+FunctionArg1Thunk__H2ZbZi_P9lua_State_i = 0x318480; // type:func
+FunctionArg2Thunk__H3ZfZP8ISimableZP16GRuntimeInstance_P9lua_State_i = 0x318560; // type:func
+BindSingleton__H1Z11GRaceStatus_P9lua_StatePCcPX01T1_v = 0x3186a0; // type:func
+VoidMethodArg2Thunk__H3Z11GRaceStatusZP16GRuntimeInstanceZP16GRuntimeInstance_P9lua_State_i = 0x318820; // type:func
+VoidFunctionArg3Thunk__H3ZP16GRuntimeInstanceZP16GRuntimeInstanceZf_P9lua_State_i = 0x318b38; // type:func
+VoidFunctionArg2Thunk__H2ZbZPCc_P9lua_State_i = 0x318c50; // type:func
+EAccelerate_MakeEvent_Callback__FPCv = 0x31b600; // type:func
+EAccelerate_MakeEvent_LuaBinding__FP9lua_State = 0x31b658; // type:func
+EAIEngineRev_MakeEvent_Callback__FPCv = 0x31baa0; // type:func
+EAIEngineRev_MakeEvent_LuaBinding__FP9lua_State = 0x31bae0; // type:func
+EBreakerStopCops_MakeEvent_Callback__FPCv = 0x31cc00; // type:func
+EBreakerStopCops_MakeEvent_LuaBinding__FP9lua_State = 0x31cc68; // type:func
+ECinematicMoment_MakeEvent_Callback__FPCv = 0x31d348; // type:func
+ECinematicMoment_MakeEvent_LuaBinding__FP9lua_State = 0x31d380; // type:func
+EDeliverMessage_MakeEvent_Callback__FPCv = 0x31e168; // type:func
+EDynamicRegion_MakeEvent_Callback__FPCv = 0x31e8a0; // type:func
+EDynamicRegion_MakeEvent_LuaBinding__FP9lua_State = 0x31e950; // type:func
+EFireEventList_MakeEvent_Callback__FPCv = 0x3200d8; // type:func
+EFireEventList_MakeEvent_LuaBinding__FP9lua_State = 0x320110; // type:func
+EFireRandomTrigger_MakeEvent_Callback__FPCv = 0x320340; // type:func
+EFireRandomTrigger_MakeEvent_LuaBinding__FP9lua_State = 0x320398; // type:func
+EFireRandomTrigger_ResolveEvent_Callback__FPvPC6UGroup = 0x3204c8; // type:func
+EFireTriggerSpeedCondition_MakeEvent_Callback__FPCv = 0x3206d8; // type:func
+EFireTriggerSpeedCondition_MakeEvent_LuaBinding__FP9lua_State = 0x320718; // type:func
+EGTriggerInternal_MakeEvent_Callback__FPCv = 0x320c58; // type:func
+EKillObject_MakeEvent_Callback__FPCv = 0x321770; // type:func
+EKillObject_MakeEvent_LuaBinding__FP9lua_State = 0x3217a0; // type:func
+EMomentStrm_MakeEvent_Callback__FPCv = 0x322460; // type:func
+EMomentStrm_MakeEvent_LuaBinding__FP9lua_State = 0x322518; // type:func
+ENISCarShake_MakeEvent_Callback__FPCv = 0x323208; // type:func
+ENISCarShake_MakeEvent_LuaBinding__FP9lua_State = 0x323250; // type:func
+ENISCopCarDoors_MakeEvent_Callback__FPCv = 0x3235a8; // type:func
+ENISCopCarDoors_MakeEvent_LuaBinding__FP9lua_State = 0x3235e8; // type:func
+ENISCopLights_MakeEvent_Callback__FPCv = 0x323780; // type:func
+ENISCopLights_MakeEvent_LuaBinding__FP9lua_State = 0x3237c0; // type:func
+ENISNeutralRev_MakeEvent_Callback__FPCv = 0x3245d0; // type:func
+ENISNeutralRev_MakeEvent_LuaBinding__FP9lua_State = 0x324610; // type:func
+ENISNitro_MakeEvent_LuaBinding__FP9lua_State = 0x324838; // type:func
+ENISOverlayMessage_MakeEvent_LuaBinding__FP9lua_State = 0x324be0; // type:func
+ENISPixelate_MakeEvent_Callback__FPCv = 0x324d80; // type:func
+ENISPixelate_MakeEvent_LuaBinding__FP9lua_State = 0x324db8; // type:func
+ENISPlayEffect_MakeEvent_Callback__FPCv = 0x324fe8; // type:func
+ENISPlayEffect_MakeEvent_LuaBinding__FP9lua_State = 0x325030; // type:func
+ENISVisualLook_MakeEvent_Callback__FPCv = 0x325e08; // type:func
+ENISVisualLook_MakeEvent_LuaBinding__FP9lua_State = 0x325e50; // type:func
+EPlayerShift_MakeEvent_Callback__FPCv = 0x326e60; // type:func
+EPlayObjectEffect_MakeEvent_Callback__FPCv = 0x327570; // type:func
+EPlayObjectEffect_MakeEvent_LuaBinding__FP9lua_State = 0x327600; // type:func
+EPlayRaceNIS_MakeEvent_Callback__FPCv = 0x328118; // type:func
+EPlayRaceNIS_MakeEvent_LuaBinding__FP9lua_State = 0x328160; // type:func
+EPlayRaceNIS_ResolveEvent_Callback__FPvPC6UGroup = 0x328270; // type:func
+EProcessAreaStimulus_MakeEvent_Callback__FPCv = 0x328540; // type:func
+EProcessAreaStimulus_MakeEvent_LuaBinding__FP9lua_State = 0x3285d0; // type:func
+EProcessStimulus_MakeEvent_Callback__FPCv = 0x328928; // type:func
+EProcessStimulus_MakeEvent_LuaBinding__FP9lua_State = 0x328990; // type:func
+EResetSystem_MakeEvent_Callback__FPCv = 0x32a5f0; // type:func
+EResetSystem_MakeEvent_LuaBinding__FP9lua_State = 0x32a630; // type:func
+EScheduleEventUpdate_MakeEvent_Callback__FPCv = 0x32ac20; // type:func
+ESetSimRate_MakeEvent_Callback__FPCv = 0x32b1f8; // type:func
+ESetSimRate_MakeEvent_LuaBinding__FP9lua_State = 0x32b230; // type:func
+EShowMessageScreen_MakeEvent_LuaBinding__FP9lua_State = 0x32b868; // type:func
+ESndGameState_MakeEvent_LuaBinding__FP9lua_State = 0x32c608; // type:func
+ESpawnExplosion_MakeEvent_Callback__FPCv = 0x32ca20; // type:func
+ESpawnExplosion_MakeEvent_LuaBinding__FP9lua_State = 0x32ca88; // type:func
+ESpawnFragment_MakeEvent_Callback__FPCv = 0x32d360; // type:func
+ESpawnFragment_MakeEvent_LuaBinding__FP9lua_State = 0x32d470; // type:func
+ESpawnSmackable_MakeEvent_Callback__FPCv = 0x32dac8; // type:func
+ETriggerMomentNIS_MakeEvent_LuaBinding__FP9lua_State = 0x32e838; // type:func
+EVehicleReset_MakeEvent_Callback__FPCv = 0x32efd8; // type:func
+GetEmbeddedObjectSize__H1ZCc_PX01_Ui = 0x333338; // type:func
+StimulusFilterLookup__FUiUiPCvPCQ24CARP11ExprValType = 0x3333a0; // type:func
+RegisterEngines__14EventSequencerPC6UGroup = 0x333540; // type:func
+UnregisterEngines__14EventSequencerPC6UGroup = 0x333688; // type:func
+FindEngineData__14EventSequencerG6UCrc32 = 0x333740; // type:func
+EraseActiveSystem__14EventSequencerUi = 0x333bc0; // type:func
+Main_MyAssert__FPCce = 0x3469d0; // type:func
+Main_AnimateFrame__Ff = 0x347d30; // type:func
+LoaderStub__FP6bChunk = 0x3485b0; // type:func
+Compare__FPUcT0i = 0x3566e8; // type:func
+ShortMove__FPUcT0i = 0x356738; // type:func
+GetTableHash__FPUc = 0x356860; // type:func
+HUFF_writebits__FP17HuffEncodeContextP13HUFFMemStructUiUi = 0x357da0; // type:func
+HUFF_treechase__FP17HuffEncodeContextUiUi = 0x357e90; // type:func
+HUFF_maketree__FP17HuffEncodeContext = 0x357f10; // type:func
+HUFF_minrep__FP17HuffEncodeContextUiUi = 0x358128; // type:func
+HUFF_writenum__FP17HuffEncodeContextP13HUFFMemStructUi = 0x358238; // type:func
+HUFF_writeexp__FP17HuffEncodeContextP13HUFFMemStructUi = 0x3583e8; // type:func
+HUFF_writecode__FP17HuffEncodeContextP13HUFFMemStructUi = 0x358460; // type:func
+HUFF_init__FP17HuffEncodeContext = 0x358490; // type:func
+HUFF_analysis__FP17HuffEncodeContextUiUi = 0x358610; // type:func
+HUFF_packfile__FP17HuffEncodeContextP13HUFFMemStructT1i = 0x3597e0; // type:func
+IntToString2__FPciib = 0x35d910; // type:func
+PrintToString__FPciiiii = 0x35d990; // type:func
+GetDropTimer__FRCQ36Attrib3Gen9smackable = 0x36ddc8; // type:func
+Init__13VehicleSystemv = 0x371a98; // type:func
+DownGradeInternal__FRQ36Attrib3Gen8pvehicleQ37Physics8Upgrades4Type = 0x375b20; // type:func
+UpgradeInternal__FRQ36Attrib3Gen8pvehicleQ37Physics8Upgrades4Typeif = 0x3770c0; // type:func
+CSISAllocatorMemAlloc__FUi = 0x3e4d00; // type:func
+__tcf_0 = 0x3e9e28; // type:func allow_duplicated:true
+MyIsPointInPoly__FPC8bVector2T0i = 0x419be8; // type:func
+HideNonRaceSmackable__FP6IModel = 0x422aa0; // type:func
+World_Init__Fv = 0x422d18; // type:func
+World_Shutdown__Fv = 0x422db8; // type:func
+_$_Q39CarLoader28ServiceLoading__9CarLoader.0_24QueuedFilePrioritySetter = 0x4453a0; // type:func
+contest__Fiiii = 0x448f48; // type:func
+altersingle__Fiiiiii = 0x4490e8; // type:func
+alterneigh__Fiiiiii = 0x4491a0; // type:func
+TimeToClosestApproach__FRCQ25UMath7Vector3T0T0T0Pf = 0x469b58; // type:func
+crossfade__FPfN20ii = 0x4e9678; // type:func
+determineaction__FifPPUcPf = 0x4e9778; // type:func
+applyaction__FP16TIMESTRETCHSTATEPPfi = 0x4e9878; // type:func
+transferframes__FP16TIMESTRETCHSTATEPiPPf = 0x4e99e0; // type:func
+getbits__3SndPQ23Snd15UTALKSTATE_CODAi = 0x4f3790; // type:func
+interpolate__3SndPf = 0x4f3ab8; // type:func
+reftolpc__3SndPfT1 = 0x4f3b30; // type:func
+iSPCH_FindInsertPosition__FP10VOXBANKHDR = 0x4f67a0; // type:func
+iSPCH_SearchEventDat__FP7VoxDatai = 0x4f6f08; // type:func
+iSPCH_FindEventSlot__FUiUi = 0x4f7238; // type:func
+iSPCH_CheckLastEventIndex__FUi = 0x4f7380; // type:func
+iSPCH_EventInFollowGroup__FUsP19SPCHType_FollowData = 0x4f7658; // type:func
+iSPCH_Callback_EventRule__FP9EventSpec = 0x4f7c40; // type:func
+iSPCH_InitCallbacks__Fv = 0x4f8018; // type:func
+iSPCH_PostMatchParmValue__FP11VoxSentenceP9VoxPhrasePUc = 0x4f81b0; // type:func
+iSPCH_HasMatchParmToPost__FP9VoxPhrase = 0x4f8248; // type:func
+iSPCH_ClearCycleBit__FP10VOXBANKHDRi = 0x4f8558; // type:func
+iSPCH_TestBit__FPUci = 0x4f85c8; // type:func
+iSPCH_CheckTemplateSample__FP14PhrasePickInfoP10VOXBANKHDRi = 0x4f8600; // type:func
+iSPCH_SampleExists__FP14PhrasePickInfoP10VOXBANKHDRi = 0x4f86b0; // type:func
+iSPCH_AddSampleToValidPicks__FP16SentencePickInfoi = 0x4f8768; // type:func
+iSPCH_BankHasValidSamples__FP9VoxPhraseP10VOXBANKHDRPUi = 0x4f87a0; // type:func
+iSPCH_ConvertTime__Fi = 0x4f8a08; // type:func
+iSPCH_OrderSentences__FP8VoxEventPc = 0x4f8b18; // type:func
+iSPCH_ShortRuleStatus__FP11VoxSentencei = 0x4f8cd0; // type:func
+iSPCH_InitMatchParmIO__FP11VoxSentence = 0x4f8d10; // type:func
+iSPCH_IterateChoice__FP11VoxSentenceP16SentencePickInfo = 0x4f9298; // type:func
+iSPCH_PickPhraseSample__FP14PhrasePickInfo = 0x4f9408; // type:func
+iSPCH_PostGlobalMatchParms__FP9EventSpecP16SentencePickInfoP11VoxSentence = 0x4f9448; // type:func
+iSPCH_SentenceMakeChoice__FP9EventSpecP16SentencePickInfoP11VoxSentenceii = 0x4f95a8; // type:func
+iSPCH_InitSentencePickInfo__FP16SentencePickInfo = 0x4f9a90; // type:func
+iSPCH_SaveChosenSentence__FP16SentencePickInfoUiP8VoxEventP11VoxSentenceiPUi = 0x4f9c10; // type:func
+iSPCH_TestValidParm__FUiUii = 0x4f9ee8; // type:func
+iSPCH_CheckFrequency__FP11VoxSentence = 0x4fa048; // type:func
+iSPCH_FindRandInQueue__FUsiUs = 0x4fa678; // type:func
+iSPCH_AddRandToQueue__FUsUs = 0x4fa720; // type:func
+iSPCH_SentenceUsesParm__FP11VoxSentencei = 0x4fab20; // type:func
+iSPCH_GetSentenceRuleSettings__FP8VoxEventiPUiT2 = 0x4faf58; // type:func
+iSPCH_CsisCb__FPQ24Csis9ParameterPv = 0x4fb190; // type:func
+iStartDevice__FP10FILEDEVICE = 0x4fed50; // type:func
+iAllocateFileSysHandle__Fv = 0x4ff258; // type:func
+iCloseFileSysHandle__FP13FILESYSHANDLE = 0x4ff570; // type:func
+iGetOpFromHandle__FP10FILEDEVICEiPi = 0x4ff5b8; // type:func
+queueadd__FP12REQUESTQUEUEP16REQUESTSTRUCTtag = 0x5017b0; // type:func
+queuefetch__FP12REQUESTQUEUE = 0x501818; // type:func
+newrequestid__FP16REQUESTSTRUCTtag = 0x501880; // type:func
+locaterequest__Fi = 0x5018b0; // type:func
+releaserequest__FP16REQUESTSTRUCTtag = 0x501900; // type:func
+finishrequest__FP16REQUESTSTRUCTtag = 0x501978; // type:func
+loadfileclosecallback__FiiPv = 0x501a08; // type:func
+loadfilereadcallback__FiiPv = 0x501a40; // type:func
+loadfilesizecallback__FiiPv = 0x501b38; // type:func
+loadfileopencallback__FiiPv = 0x501cc0; // type:func
+filesizeatom__FiPv = 0x5021b0; // type:func
+SYSTEM_abortmessage__FPCce = 0x503978; // type:func
+GetCurrentGarageName__Fv = 0x5b43f0; // type:func
+FindGarageCameraInfo__FPCc = 0x5b4498; // type:func
+FindScreenCameraInfo__FUi = 0x5b4590; // type:func
+
+// Nombres recuperados por codigo (tools/nombra_ps2.py): la funcion del original no tenia
+// nombre y nuestro objeto define una identica palabra a palabra.
+CreateQRPressStart__FP21ScreenConstructorData = 0x2ae2e8; // type:func
+CreateUIRapSheetLogin__FP21ScreenConstructorData = 0x2ae690; // type:func
+CreateUIRapSheetUS__FP21ScreenConstructorData = 0x2ae750; // type:func
+CreateUIRapSheetRankings__FP21ScreenConstructorData = 0x2ae890; // type:func
+BindVoidMethod__H3Z11GRaceStatusZP16GRuntimeInstanceZP16GRuntimeInstance_P9lua_StatePCcT1PMX01FPX01X11X21_v_v = 0x318918; // type:func
+
+// Nombres recuperados por codigo (tools/nombra_ps2.py): la funcion del original no tenia
+// nombre y nuestro objeto define una identica palabra a palabra.
+eCreateTextureInfo__Fv = 0x1fd028; // type:func
+BindVoidMethod__H1Z11GRaceStatus_P9lua_StatePCcT1PMX01FPX01_v_v = 0x318710; // type:func
+BindVoidMethod__H2Z11GRaceStatusZP16GRuntimeInstance_P9lua_StatePCcT1PMX01FPX01X11_v_v = 0x318798; // type:func
+BindVoidMethod__H2Z11GRaceStatusZb_P9lua_StatePCcT1PMX01FPX01X11_v_v = 0x3189a0; // type:func
+BindVoidMethod__H2Z11GRaceStatusZf_P9lua_StatePCcT1PMX01FPX01X11_v_v = 0x318a28; // type:func
+BindMethod__H2ZbZ8ISimable_P9lua_StatePCcT1PMX11CFPCX11_X01_v = 0x318ab0; // type:func
+
+// Nombres de la .symtab del ELF de la A124 que faltaban (scripts/nombra_symtab.py): casi todos
+// estaticos; la direccion es la de la .symtab, comprobada como entrada de funcion.
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zAI.cpp
+///////////////////////////////////////////////////////////////////
+DoesSpotOverlapCar__FRCQ25UMath7Vector3f = 0x104110; // type:func
+CopAndAngleSortPredicate__FPCvT0 = 0x12c9e8; // type:func
+CopAndAngleDistanceSortPredicate__FPCvT0 = 0x12ca10; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zBWare.cpp
+///////////////////////////////////////////////////////////////////
+MUTEX_unlock__FP5MUTEX = 0x164f40; // type:func allow_duplicated:true
+MUTEX_lock__FP5MUTEX = 0x164f48; // type:func allow_duplicated:true
+MUTEX_destroy__FP5MUTEX = 0x164f50; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zCamera.cpp
+///////////////////////////////////////////////////////////////////
+AverageAir__FP8ISimablefPfT2b = 0x16a2c8; // type:func
+FixWorldHeight__FPQ25UMath7Vector3i = 0x173b40; // type:func
+CreateLookAtMatrix__FPQ23ICE7Matrix4RQ23ICE7Vector3T1Us = 0x1791d8; // type:func
+ICEGetPlayerCarTransform__FPQ23ICE7Matrix4 = 0x17c1c0; // type:func
+PredictAverageAir__FfPfT1b = 0x17e270; // type:func
+GetRecentCurvature__Fv = 0x17e280; // type:func
+ReplayNosMirror__FP9ICEAnchor = 0x17e2c8; // type:func
+ReplayJumpMirror__FP9ICEAnchor = 0x17e378; // type:func
+ReplaySpeedScore__FP9ICEAnchor = 0x17e380; // type:func
+ReplaySpeedMirror__FP9ICEAnchor = 0x17e3e0; // type:func
+ReplayBurnoutScore__FP9ICEAnchor = 0x17e488; // type:func
+ReplayBurnoutMirror__FP9ICEAnchor = 0x17e530; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zEagl4Anim.cpp
+///////////////////////////////////////////////////////////////////
+DefaultFree__13EAGL4InternalPvUi = 0x1911e8; // type:func
+dlsym__FPvPCc = 0x192448; // type:func
+MatrixMultiplyDefault__FPQ25EAGL49TransformPCQ25EAGL49TransformT1 = 0x1a4530; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zEAXSound.cpp
+///////////////////////////////////////////////////////////////////
+KillSample__FP14cSampleWarpper = 0x1b1040; // type:func
+queuerequest__FP15STREAMHEADERtagP16REQUESTSTRUCTtag = 0x1b6cc0; // type:func
+freerequest__FP15STREAMHEADERtagP16REQUESTSTRUCTtag = 0x1b6d80; // type:func
+filterchunk__FP15STREAMHEADERtagP14STREAMCHUNKHDR = 0x1b6df0; // type:func
+parsechunks__FP15STREAMHEADERtag = 0x1b6e40; // type:func
+readcallback__FiiPv = 0x1b7120; // type:func
+startnextrequest__FP15STREAMHEADERtagi = 0x1b7228; // type:func
+restartstream__FP15STREAMHEADERtagi = 0x1b73d8; // type:func
+MUTEX_unlock__FP5MUTEX = 0x1cb128; // type:func allow_duplicated:true
+MUTEX_lock__FP5MUTEX = 0x1cb130; // type:func allow_duplicated:true
+MUTEX_destroy__FP5MUTEX = 0x1cb138; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zFe.cpp
+///////////////////////////////////////////////////////////////////
+gGetDisqRatingHighlightsFor__Fi = 0x24d8e0; // type:func
+is_this_guy_voice_chatting__FPCcRC13BuddySettings = 0x24fd70; // type:func
+DoFEngPrintf__FP8FEStringPci = 0x268b08; // type:func
+GetBaseName__FPcPCc = 0x2694c0; // type:func
+MUTEX_unlock__FP5MUTEX = 0x27f708; // type:func allow_duplicated:true
+MUTEX_lock__FP5MUTEX = 0x27f710; // type:func allow_duplicated:true
+MUTEX_destroy__FP5MUTEX = 0x27f718; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zFe2.cpp
+///////////////////////////////////////////////////////////////////
+LoaderMiniMap__FP6bChunk = 0x285b38; // type:func
+UnloaderMiniMap__FP6bChunk = 0x285b60; // type:func
+SearchForString__FUi = 0x29da70; // type:func
+FixWidescreen__FRi = 0x29e2e8; // type:func
+FormatMessage__FPciPCcT0 = 0x29fcb0; // type:func
+CreateMainMenu__FP21ScreenConstructorData = 0x2ade78; // type:func
+CreateSubMenu__FP21ScreenConstructorData = 0x2adeb8; // type:func
+CreateCommonPauseMenu__FP21ScreenConstructorData = 0x2ae018; // type:func
+CreateOLConnectingScreen__FP21ScreenConstructorData = 0x2ae0a0; // type:func
+CreateNewsAndTerms__FP21ScreenConstructorData = 0x2ae160; // type:func
+CreateOptionsScreen__FP21ScreenConstructorData = 0x2ae1a8; // type:func
+CreateShowcase__FP21ScreenConstructorData = 0x2ae368; // type:func
+CreateFadeScreen__FP21ScreenConstructorData = 0x2ae3a8; // type:func
+CreateWorldMap__FP21ScreenConstructorData = 0x2ae3e8; // type:func
+CreateSplashScreen__FP21ScreenConstructorData = 0x2ae528; // type:func
+CreateLoadingTipsScreen__FP21ScreenConstructorData = 0x2ae568; // type:func
+CreateEngageEventDialog__FP21ScreenConstructorData = 0x2ae610; // type:func
+CreateUIRapSheetRS__FP21ScreenConstructorData = 0x2ae710; // type:func
+CreateUISafeHouseRepSheetMain__FP21ScreenConstructorData = 0x2ae910; // type:func
+CreateUISafeHouseRivalChallenge__FP21ScreenConstructorData = 0x2ae950; // type:func
+CreateUISafeHouseRivalBio__FP21ScreenConstructorData = 0x2ae990; // type:func
+CreateUISafeHouseRegionUnlock__FP21ScreenConstructorData = 0x2aea10; // type:func
+CreateUISafeHouseMarkers__FP21ScreenConstructorData = 0x2aea90; // type:func
+CreateBustedOverlayScreen__FP21ScreenConstructorData = 0x2aee90; // type:func
+CreateOnlineMenu__FP21ScreenConstructorData = 0x2aefd0; // type:func
+CreateLoadingScreen__FP21ScreenConstructorData = 0x2af0b8; // type:func
+CreateLoadingControllerScreen__FP21ScreenConstructorData = 0x2af0e0; // type:func
+ScreenFactory__FUiP9FEPackagei = 0x2af148; // type:func
+FindScreenCreateData__FUi = 0x2af218; // type:func
+Callback__CQ313FEPlayerCarDB46GetNumCareerCarsWithARecord__13FEPlayerCarDB.0_7NumCarsRC14FECareerRecord = 0x2c0db8; // type:func
+_$_Q313FEPlayerCarDB46GetNumCareerCarsWithARecord__13FEPlayerCarDB.0_7NumCars = 0x2c0dc0; // type:func
+Callback__CQ313FEPlayerCarDB33GetTotalFines__13FEPlayerCarDBb.0_5FinesRC14FECareerRecord = 0x2c0de0; // type:func
+_$_Q313FEPlayerCarDB33GetTotalFines__13FEPlayerCarDBb.0_5Fines = 0x2c0e08; // type:func
+Callback__CQ313FEPlayerCarDB38GetNumImpoundedCars__13FEPlayerCarDB.0_11IsImpoundedRC14FECareerRecord = 0x2c0e28; // type:func
+_$_Q313FEPlayerCarDB38GetNumImpoundedCars__13FEPlayerCarDB.0_11IsImpounded = 0x2c0e38; // type:func
+Callback__CQ313FEPlayerCarDB41GetTotalBustedPursuits__13FEPlayerCarDB.0_14BustedPursuitsRC14FECareerRecord = 0x2c0e58; // type:func
+_$_Q313FEPlayerCarDB41GetTotalBustedPursuits__13FEPlayerCarDB.0_14BustedPursuits = 0x2c0e60; // type:func
+Callback__CQ313FEPlayerCarDB41GetTotalEvadedPursuits__13FEPlayerCarDB.0_14EvadedPursuitsRC14FECareerRecord = 0x2c0e80; // type:func
+_$_Q313FEPlayerCarDB41GetTotalEvadedPursuits__13FEPlayerCarDB.0_14EvadedPursuits = 0x2c0e88; // type:func
+Callback__CQ313FEPlayerCarDB33GetTotalBounty__13FEPlayerCarDB.0_6BountyRC14FECareerRecord = 0x2c0ea8; // type:func
+_$_Q313FEPlayerCarDB33GetTotalBounty__13FEPlayerCarDB.0_6Bounty = 0x2c0eb0; // type:func
+Callback__CQ313FEPlayerCarDB42GetTotalNumInfractions__13FEPlayerCarDBb.0_19TotalNumInfractionsRC14FECareerRecord = 0x2c0ed0; // type:func
+_$_Q313FEPlayerCarDB42GetTotalNumInfractions__13FEPlayerCarDBb.0_19TotalNumInfractions = 0x2c0ef8; // type:func
+_$_Q313FEPlayerCarDB74GetNumInfraction__13FEPlayerCarDBQ218GInfractionManager14InfractionTypeb.0_13NumInfraction = 0x2c0f40; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zFEng.cpp
+///////////////////////////////////////////////////////////////////
+GrowArrayBy__FRPUiRUiUi = 0x2caf40; // type:func
+MsgIndex__FPUiUiUi = 0x2cafc0; // type:func
+Close__Ffff = 0x2ce980; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zFoundation.cpp
+///////////////////////////////////////////////////////////////////
+GroupCompare__FPCvT0 = 0x2d8130; // type:func
+DataCompare__FPCvT0 = 0x2d8158; // type:func
+SearchTagArray__FRPC5UDataUiUi = 0x2d8318; // type:func
+SearchTagArray__FRPC6UGroupUiUi = 0x2d8338; // type:func
+compare_entry_number__FPCvT0 = 0x2d99d8; // type:func
+hash32__FPCUcUiUi = 0x2dbd98; // type:func
+hash64__FPCUcUiUl = 0x2dc0b0; // type:func
+sinf__FGQ24CARP11ExprValType = 0x2dc538; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zGameplay.cpp
+///////////////////////////////////////////////////////////////////
+Compare__Q38GManager48GatherVisibleIcons__8GManagerPP5GIconP7IPlayer.0_8IconSortPCvT1 = 0x2f5748; // type:func
+GetPaddedObjectSize__H1Z8GTrigger_v_Ui = 0x2ff490; // type:func
+GetPaddedObjectSize__H1Z7GMarker_v_Ui = 0x2ff578; // type:func
+GetPaddedObjectSize__H1Z10GCharacter_v_Ui = 0x2ff660; // type:func
+GetPaddedObjectSize__H1Z9GActivity_v_Ui = 0x2ff748; // type:func
+GetPaddedObjectSize__H1Z6GState_v_Ui = 0x2ff830; // type:func
+GetPaddedObjectSize__H1Z8GHandler_v_Ui = 0x2ff918; // type:func
+FindInstances__H1Z8GHandler_P6GVaultPQ33UTL3Stdt4list2ZUiZ22_type_ID_AttribKeyListPUiT2_Ui = 0x2ffa00; // type:func
+FindInstances__H1Z6GState_P6GVaultPQ33UTL3Stdt4list2ZUiZ22_type_ID_AttribKeyListPUiT2_Ui = 0x2ffe30; // type:func
+FindInstances__H1Z9GActivity_P6GVaultPQ33UTL3Stdt4list2ZUiZ22_type_ID_AttribKeyListPUiT2_Ui = 0x300260; // type:func
+FindInstances__H1Z10GCharacter_P6GVaultPQ33UTL3Stdt4list2ZUiZ22_type_ID_AttribKeyListPUiT2_Ui = 0x300690; // type:func
+FindInstances__H1Z7GMarker_P6GVaultPQ33UTL3Stdt4list2ZUiZ22_type_ID_AttribKeyListPUiT2_Ui = 0x300ac0; // type:func
+FindInstances__H1Z8GTrigger_P6GVaultPQ33UTL3Stdt4list2ZUiZ22_type_ID_AttribKeyListPUiT2_Ui = 0x300ef0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zLua.cpp
+///////////////////////////////////////////////////////////////////
+BindVoidFunction__FP9lua_StatePCcPFv_vT1 = 0x305ee0; // type:func
+GRuntimeInstanceMeta__index__FP9lua_State = 0x307680; // type:func
+GRuntimeInstanceMeta__newindex__FP9lua_State = 0x307798; // type:func
+LuaAttribArrayInfoMeta__newindex__FP9lua_State = 0x307a68; // type:func
+Game_AddPlayer__FP8IVehicle = 0x308900; // type:func
+f_call = 0x30d9b0; // type:func
+default_panic = 0x310840; // type:func
+freestate = 0x310870; // type:func
+callallgcTM = 0x310c90; // type:func
+getS = 0x315630; // type:func
+BindVoidFunction__H1ZP16GRuntimeInstance_P9lua_StatePCcPFX01_vT1_v = 0x316a58; // type:func
+BindVoidFunction__H2ZPCcZb_P9lua_StatePCcPFX01X11_vT1_v = 0x316b40; // type:func
+BindFunction__H1Zb_P9lua_StatePCcPFv_X01T1_v = 0x316bc0; // type:func
+BindFunction__H2ZiZi_P9lua_StatePCcPFX11_X01T1_v = 0x316ca8; // type:func
+BindVoidFunction__H2ZPCcZPCc_P9lua_StatePCcPFX01X11_vT1_v = 0x316d90; // type:func
+BindVoidFunction__H6ZP16GRuntimeInstanceZPCcZPCcZiZPCcZPCc_P9lua_StatePCcPFX01X11X21X31X41X51_vT1_v = 0x316ef8; // type:func
+BindVoidFunction__H1ZPCc_P9lua_StatePCcPFX01_vT1_v = 0x316f78; // type:func
+BindVoidFunction__H2ZPCcZf_P9lua_StatePCcPFX01X11_vT1_v = 0x317060; // type:func
+BindVoidFunction__H1Zf_P9lua_StatePCcPFX01_vT1_v = 0x3170e0; // type:func
+BindVoidFunction__H2ZP8ISimableZf_P9lua_StatePCcPFX01X11_vT1_v = 0x317208; // type:func
+BindVoidFunction__H1ZP8ISimable_P9lua_StatePCcPFX01_vT1_v = 0x317288; // type:func
+BindVoidFunction__H1Zi_P9lua_StatePCcPFX01_vT1_v = 0x317308; // type:func
+BindVoidFunction__H2ZiZP16GRuntimeInstance_P9lua_StatePCcPFX01X11_vT1_v = 0x317400; // type:func
+BindVoidFunction__H2ZiZi_P9lua_StatePCcPFX01X11_vT1_v = 0x3174e8; // type:func
+BindVoidFunction__H3ZP16GRuntimeInstanceZP8ISimableZi_P9lua_StatePCcPFX01X11X21_vT1_v = 0x317638; // type:func
+BindVoidFunction__H4ZP16GRuntimeInstanceZP16GRuntimeInstanceZP8ISimableZf_P9lua_StatePCcPFX01X11X21X31_vT1_v = 0x3177a8; // type:func
+BindVoidFunction__H2ZP8ISimableZi_P9lua_StatePCcPFX01X11_vT1_v = 0x3178d8; // type:func
+BindVoidFunction__H1Zb_P9lua_StatePCcPFX01_vT1_v = 0x317958; // type:func
+BindVoidFunction__H2ZP16GRuntimeInstanceZPCc_P9lua_StatePCcPFX01X11_vT1_v = 0x317a48; // type:func
+BindVoidFunction__H3ZP16GRuntimeInstanceZfZf_P9lua_StatePCcPFX01X11X21_vT1_v = 0x317b58; // type:func
+BindVoidFunction__H4ZP16GRuntimeInstanceZPCcZbZb_P9lua_StatePCcPFX01X11X21X31_vT1_v = 0x317c80; // type:func
+BindVoidFunction__H4ZP16GRuntimeInstanceZP16GRuntimeInstanceZP16GRuntimeInstanceZf_P9lua_StatePCcPFX01X11X21X31_vT1_v = 0x317db8; // type:func
+BindFunction__H2ZbZP16GRuntimeInstance_P9lua_StatePCcPFX11_X01T1_v = 0x317ea0; // type:func
+BindFunction__H1Zf_P9lua_StatePCcPFv_X01T1_v = 0x317f20; // type:func
+BindFunction__H2ZiZP8ISimable_P9lua_StatePCcPFX11_X01T1_v = 0x318038; // type:func
+BindFunction__H2ZP8ISimableZi_P9lua_StatePCcPFX11_X01T1_v = 0x318158; // type:func
+BindFunction__H2ZP16GRuntimeInstanceZi_P9lua_StatePCcPFX11_X01T1_v = 0x318270; // type:func
+BindFunction__H1Zi_P9lua_StatePCcPFv_X01T1_v = 0x3182f0; // type:func
+BindFunction__H2ZfZP8ISimable_P9lua_StatePCcPFX11_X01T1_v = 0x318400; // type:func
+BindFunction__H2ZbZi_P9lua_StatePCcPFX11_X01T1_v = 0x3184e0; // type:func
+BindFunction__H3ZfZP8ISimableZP16GRuntimeInstance_P9lua_StatePCcPFX11X21_X01T1_v = 0x318620; // type:func
+BindVoidFunction__H3ZP16GRuntimeInstanceZP16GRuntimeInstanceZf_P9lua_StatePCcPFX01X11X21_vT1_v = 0x318bd0; // type:func
+BindVoidFunction__H2ZbZPCc_P9lua_StatePCcPFX01X11_vT1_v = 0x318cb8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zMain.cpp
+///////////////////////////////////////////////////////////////////
+E911Call_MakeEvent_Callback__FPCv = 0x31b2b8; // type:func
+E911Call_MakeEvent_LuaBinding__FP9lua_State = 0x31b2d8; // type:func
+E911Call_ResolveEvent_Callback__FPvPC6UGroup = 0x31b310; // type:func
+EAccelerate_ResolveEvent_Callback__FPvPC6UGroup = 0x31b758; // type:func
+EAddSMS_MakeEvent_Callback__FPCv = 0x31b810; // type:func
+EAddSMS_MakeEvent_LuaBinding__FP9lua_State = 0x31b840; // type:func
+EAddSMS_ResolveEvent_Callback__FPvPC6UGroup = 0x31b8a8; // type:func
+EAIEngineRev_ResolveEvent_Callback__FPvPC6UGroup = 0x31bb80; // type:func
+EAudioRigidBodyTest_MakeEvent_Callback__FPCv = 0x31bc18; // type:func
+EAudioSmackableTest_MakeEvent_Callback__FPCv = 0x31bcc8; // type:func
+EAudioWorldTest_MakeEvent_Callback__FPCv = 0x31c038; // type:func
+EAutoSave_MakeEvent_Callback__FPCv = 0x31c118; // type:func
+EAutoSave_MakeEvent_LuaBinding__FP9lua_State = 0x31c138; // type:func
+EAutoSave_ResolveEvent_Callback__FPvPC6UGroup = 0x31c170; // type:func
+EAwardUpgrade_MakeEvent_Callback__FPCv = 0x31c2f8; // type:func
+EBailPursuit_MakeEvent_Callback__FPCv = 0x31c468; // type:func
+EBailPursuit_MakeEvent_LuaBinding__FP9lua_State = 0x31c4a0; // type:func
+EBailPursuit_ResolveEvent_Callback__FPvPC6UGroup = 0x31c520; // type:func
+EBecomeAiCar_MakeEvent_Callback__FPCv = 0x31c6a8; // type:func
+EBecomeAiCar_MakeEvent_LuaBinding__FP9lua_State = 0x31c6c8; // type:func
+EBecomeAiCar_ResolveEvent_Callback__FPvPC6UGroup = 0x31c700; // type:func
+EBecomePlayerCar_MakeEvent_Callback__FPCv = 0x31c850; // type:func
+EBecomePlayerCar_MakeEvent_LuaBinding__FP9lua_State = 0x31c870; // type:func
+EBecomePlayerCar_ResolveEvent_Callback__FPvPC6UGroup = 0x31c8a8; // type:func
+EBecomePursuitCar_MakeEvent_Callback__FPCv = 0x31c9e0; // type:func
+EBecomePursuitCar_MakeEvent_LuaBinding__FP9lua_State = 0x31ca08; // type:func
+EBecomePursuitCar_ResolveEvent_Callback__FPvPC6UGroup = 0x31ca48; // type:func
+EBreakerStopCops_ResolveEvent_Callback__FPvPC6UGroup = 0x31cd10; // type:func
+ECameraPhotoFinish_MakeEvent_Callback__FPCv = 0x31ce38; // type:func
+ECameraPhotoFinish_MakeEvent_LuaBinding__FP9lua_State = 0x31ce58; // type:func
+ECameraPhotoFinish_ResolveEvent_Callback__FPvPC6UGroup = 0x31ce90; // type:func
+ECameraShake_MakeEvent_Callback__FPCv = 0x31cf70; // type:func
+ECameraShake_MakeEvent_LuaBinding__FP9lua_State = 0x31cf90; // type:func
+ECameraShake_ResolveEvent_Callback__FPvPC6UGroup = 0x31cfc8; // type:func
+ECellCall_MakeEvent_Callback__FPCv = 0x31d070; // type:func
+ECellCall_MakeEvent_LuaBinding__FP9lua_State = 0x31d0a0; // type:func
+ECellCall_ResolveEvent_Callback__FPvPC6UGroup = 0x31d108; // type:func
+EChangeState_MakeEvent_Callback__FPCv = 0x31d200; // type:func
+ECinematicMoment_ResolveEvent_Callback__FPvPC6UGroup = 0x31d418; // type:func
+ECommitAudioAssets_MakeEvent_Callback__FPCv = 0x31d968; // type:func
+ECommitRenderAssets_MakeEvent_Callback__FPCv = 0x31da30; // type:func
+EDamageLights_MakeEvent_Callback__FPCv = 0x31db80; // type:func
+EDamageLights_MakeEvent_LuaBinding__FP9lua_State = 0x31dbb8; // type:func
+EDamageLights_ResolveEvent_Callback__FPvPC6UGroup = 0x31dc20; // type:func
+EDDaySpeech_MakeEvent_Callback__FPCv = 0x31dcc0; // type:func
+EDDaySpeech_MakeEvent_LuaBinding__FP9lua_State = 0x31dce0; // type:func
+EDDaySpeech_ResolveEvent_Callback__FPvPC6UGroup = 0x31dd18; // type:func
+EDebugPrint_MakeEvent_Callback__FPCv = 0x31ddd0; // type:func
+EDebugPrint_MakeEvent_LuaBinding__FP9lua_State = 0x31de00; // type:func
+EDebugPrint_ResolveEvent_Callback__FPvPC6UGroup = 0x31de60; // type:func
+EDebugScreenMessage_MakeEvent_Callback__FPCv = 0x31df78; // type:func
+EDebugScreenMessage_MakeEvent_LuaBinding__FP9lua_State = 0x31dfb8; // type:func
+EDebugScreenMessage_ResolveEvent_Callback__FPvPC6UGroup = 0x31e070; // type:func
+EDestroyVehicle_MakeEvent_Callback__FPCv = 0x31e2a0; // type:func
+EDestroyVehicle_MakeEvent_LuaBinding__FP9lua_State = 0x31e2c8; // type:func
+EDestroyVehicle_ResolveEvent_Callback__FPvPC6UGroup = 0x31e308; // type:func
+EDisablePursuitVehicle_MakeEvent_Callback__FPCv = 0x31e408; // type:func
+EDisablePursuitVehicle_MakeEvent_LuaBinding__FP9lua_State = 0x31e430; // type:func
+EDisablePursuitVehicle_ResolveEvent_Callback__FPvPC6UGroup = 0x31e470; // type:func
+EDisableTrigger_MakeEvent_Callback__FPCv = 0x31e538; // type:func
+EDisableTrigger_MakeEvent_LuaBinding__FP9lua_State = 0x31e568; // type:func
+EDisableTrigger_ResolveEvent_Callback__FPvPC6UGroup = 0x31e5c8; // type:func
+EDispIntroRace_MakeEvent_Callback__FPCv = 0x31e680; // type:func
+EDispIntroRace_MakeEvent_LuaBinding__FP9lua_State = 0x31e6a0; // type:func
+EDispIntroRace_ResolveEvent_Callback__FPvPC6UGroup = 0x31e6d8; // type:func
+EDynamicRegion_ResolveEvent_Callback__FPvPC6UGroup = 0x31ea30; // type:func
+EEnableCollisionElement_MakeEvent_Callback__FPCv = 0x31eaf8; // type:func
+EEnableCollisionElement_MakeEvent_LuaBinding__FP9lua_State = 0x31eb30; // type:func
+EEnableCollisionElement_ResolveEvent_Callback__FPvPC6UGroup = 0x31ebb0; // type:func
+EEnableModeling_MakeEvent_Callback__FPCv = 0x31ecf0; // type:func
+EEnableModeling_MakeEvent_LuaBinding__FP9lua_State = 0x31ed28; // type:func
+EEnableModeling_ResolveEvent_Callback__FPvPC6UGroup = 0x31ed98; // type:func
+EEnableTrigger_MakeEvent_Callback__FPCv = 0x31ee58; // type:func
+EEnableTrigger_MakeEvent_LuaBinding__FP9lua_State = 0x31ee88; // type:func
+EEnableTrigger_ResolveEvent_Callback__FPvPC6UGroup = 0x31eee8; // type:func
+EEndCarStop_MakeEvent_Callback__FPCv = 0x31f008; // type:func
+EEndCarStop_MakeEvent_LuaBinding__FP9lua_State = 0x31f040; // type:func
+EEndCarStop_ResolveEvent_Callback__FPvPC6UGroup = 0x31f0b0; // type:func
+EEngineBlown_MakeEvent_Callback__FPCv = 0x31f288; // type:func
+EEnterBin_MakeEvent_Callback__FPCv = 0x31f4d8; // type:func
+EEnterBin_MakeEvent_LuaBinding__FP9lua_State = 0x31f508; // type:func
+EEnterBin_ResolveEvent_Callback__FPvPC6UGroup = 0x31f570; // type:func
+EEnterEngagableTrigger_MakeEvent_Callback__FPCv = 0x31f680; // type:func
+EEnterEngagableTrigger_MakeEvent_LuaBinding__FP9lua_State = 0x31f6b0; // type:func
+EEnterEngagableTrigger_ResolveEvent_Callback__FPvPC6UGroup = 0x31f710; // type:func
+EExitEngagableTrigger_MakeEvent_Callback__FPCv = 0x31f838; // type:func
+EExitEngagableTrigger_MakeEvent_LuaBinding__FP9lua_State = 0x31f868; // type:func
+EExitEngagableTrigger_ResolveEvent_Callback__FPvPC6UGroup = 0x31f8c8; // type:func
+EFadeScreenNoLoadingBarOff_MakeEvent_Callback__FPCv = 0x31f9c8; // type:func
+EFadeScreenNoLoadingBarOff_MakeEvent_LuaBinding__FP9lua_State = 0x31f9e8; // type:func
+EFadeScreenNoLoadingBarOff_ResolveEvent_Callback__FPvPC6UGroup = 0x31fa20; // type:func
+EFadeScreenNoLoadingBarOn_MakeEvent_Callback__FPCv = 0x31fb10; // type:func
+EFadeScreenNoLoadingBarOn_MakeEvent_LuaBinding__FP9lua_State = 0x31fb30; // type:func
+EFadeScreenNoLoadingBarOn_ResolveEvent_Callback__FPvPC6UGroup = 0x31fb68; // type:func
+EFadeScreenOff_MakeEvent_Callback__FPCv = 0x31fd80; // type:func
+EFadeScreenOn_MakeEvent_Callback__FPCv = 0x31ffb8; // type:func
+EFireEventList_ResolveEvent_Callback__FPvPC6UGroup = 0x3201a8; // type:func
+EFireTriggerSpeedCondition_ResolveEvent_Callback__FPvPC6UGroup = 0x3207c0; // type:func
+EForceCarStop_MakeEvent_Callback__FPCv = 0x3208f8; // type:func
+EForceCarStop_MakeEvent_LuaBinding__FP9lua_State = 0x320938; // type:func
+EForceCarStop_ResolveEvent_Callback__FPvPC6UGroup = 0x3209c0; // type:func
+EGPSFinished_MakeEvent_Callback__FPCv = 0x320a58; // type:func
+EGPSLost_MakeEvent_Callback__FPCv = 0x320b08; // type:func
+EHideAutoSaveEngage_MakeEvent_Callback__FPCv = 0x320d78; // type:func
+EHideAutoSaveEngage_MakeEvent_LuaBinding__FP9lua_State = 0x320d98; // type:func
+EHideAutoSaveEngage_ResolveEvent_Callback__FPvPC6UGroup = 0x320dd0; // type:func
+EHideObject_MakeEvent_Callback__FPCv = 0x320ec0; // type:func
+EHideObject_MakeEvent_LuaBinding__FP9lua_State = 0x320ee8; // type:func
+EHideObject_ResolveEvent_Callback__FPvPC6UGroup = 0x320f28; // type:func
+EHidePart_MakeEvent_Callback__FPCv = 0x321020; // type:func
+EHidePart_MakeEvent_LuaBinding__FP9lua_State = 0x321058; // type:func
+EHidePart_ResolveEvent_Callback__FPvPC6UGroup = 0x3210c0; // type:func
+EHideRaceOverMessage_MakeEvent_Callback__FPCv = 0x3211b8; // type:func
+EHideRaceOverMessage_MakeEvent_LuaBinding__FP9lua_State = 0x3211e8; // type:func
+EHideRaceOverMessage_ResolveEvent_Callback__FPvPC6UGroup = 0x321248; // type:func
+EJointDetached_MakeEvent_Callback__FPCv = 0x3213f0; // type:func
+EJumpToStrategyFlow_MakeEvent_Callback__FPCv = 0x3214c8; // type:func
+EJumpToStrategyFlow_MakeEvent_LuaBinding__FP9lua_State = 0x3214e8; // type:func
+EJumpToStrategyFlow_ResolveEvent_Callback__FPvPC6UGroup = 0x321520; // type:func
+EKillJoint_MakeEvent_Callback__FPCv = 0x321610; // type:func
+EKillJoint_MakeEvent_LuaBinding__FP9lua_State = 0x321638; // type:func
+EKillJoint_ResolveEvent_Callback__FPvPC6UGroup = 0x321678; // type:func
+EKillObject_ResolveEvent_Callback__FPvPC6UGroup = 0x3217e8; // type:func
+EKnockoutRacer_MakeEvent_Callback__FPCv = 0x321a20; // type:func
+ELoadingScreenOff_MakeEvent_Callback__FPCv = 0x321b90; // type:func
+ELoadingScreenOn_MakeEvent_Callback__FPCv = 0x321da8; // type:func
+ELoadLost_MakeEvent_Callback__FPCv = 0x321fd8; // type:func
+ELoadLost_MakeEvent_LuaBinding__FP9lua_State = 0x322000; // type:func
+ELoadLost_ResolveEvent_Callback__FPvPC6UGroup = 0x322040; // type:func
+EMissShift_MakeEvent_Callback__FPCv = 0x322178; // type:func
+EMomentStrm_ResolveEvent_Callback__FPvPC6UGroup = 0x322630; // type:func
+ENISAeroDynamics_MakeEvent_Callback__FPCv = 0x3226e8; // type:func
+ENISAeroDynamics_MakeEvent_LuaBinding__FP9lua_State = 0x322718; // type:func
+ENISAeroDynamics_ResolveEvent_Callback__FPvPC6UGroup = 0x322778; // type:func
+ENISBrakelock_MakeEvent_Callback__FPCv = 0x3228b0; // type:func
+ENISBrakelock_MakeEvent_LuaBinding__FP9lua_State = 0x3228f0; // type:func
+ENISBrakelock_ResolveEvent_Callback__FPvPC6UGroup = 0x322988; // type:func
+ENISBurnout_MakeEvent_Callback__FPCv = 0x322ab0; // type:func
+ENISBurnout_MakeEvent_LuaBinding__FP9lua_State = 0x322ae8; // type:func
+ENISBurnout_ResolveEvent_Callback__FPvPC6UGroup = 0x322b50; // type:func
+ENISCarDamageReset_MakeEvent_Callback__FPCv = 0x322c70; // type:func
+ENISCarDamageReset_MakeEvent_LuaBinding__FP9lua_State = 0x322c98; // type:func
+ENISCarDamageReset_ResolveEvent_Callback__FPvPC6UGroup = 0x322cd8; // type:func
+ENISCarPitch_MakeEvent_Callback__FPCv = 0x322e08; // type:func
+ENISCarPitch_MakeEvent_LuaBinding__FP9lua_State = 0x322e48; // type:func
+ENISCarPitch_ResolveEvent_Callback__FPvPC6UGroup = 0x322ed0; // type:func
+ENISCarRoll_MakeEvent_Callback__FPCv = 0x323000; // type:func
+ENISCarRoll_MakeEvent_LuaBinding__FP9lua_State = 0x323040; // type:func
+ENISCarRoll_ResolveEvent_Callback__FPvPC6UGroup = 0x3230c8; // type:func
+ENISCarShake_ResolveEvent_Callback__FPvPC6UGroup = 0x323310; // type:func
+ENISConstraint_MakeEvent_Callback__FPCv = 0x323438; // type:func
+ENISConstraint_MakeEvent_LuaBinding__FP9lua_State = 0x323470; // type:func
+ENISConstraint_ResolveEvent_Callback__FPvPC6UGroup = 0x3234d8; // type:func
+ENISCopCarDoors_ResolveEvent_Callback__FPvPC6UGroup = 0x3236a0; // type:func
+ENISCopLights_ResolveEvent_Callback__FPvPC6UGroup = 0x323898; // type:func
+ENISDetach_MakeEvent_Callback__FPCv = 0x3239a0; // type:func
+ENISDetach_MakeEvent_LuaBinding__FP9lua_State = 0x3239d8; // type:func
+ENISDetach_ResolveEvent_Callback__FPvPC6UGroup = 0x323a40; // type:func
+ENISDetail_MakeEvent_Callback__FPCv = 0x323b48; // type:func
+ENISDetail_MakeEvent_LuaBinding__FP9lua_State = 0x323b78; // type:func
+ENISDetail_ResolveEvent_Callback__FPvPC6UGroup = 0x323be0; // type:func
+ENISFakeFar_MakeEvent_Callback__FPCv = 0x323c78; // type:func
+ENISFakeFar_MakeEvent_LuaBinding__FP9lua_State = 0x323ca8; // type:func
+ENISFakeFar_ResolveEvent_Callback__FPvPC6UGroup = 0x323d08; // type:func
+ENISFreeze_MakeEvent_Callback__FPCv = 0x323df8; // type:func
+ENISFreeze_MakeEvent_LuaBinding__FP9lua_State = 0x323e28; // type:func
+ENISFreeze_ResolveEvent_Callback__FPvPC6UGroup = 0x323e90; // type:func
+ENISHideCharacter_MakeEvent_Callback__FPCv = 0x323ff8; // type:func
+ENISHideCharacter_MakeEvent_LuaBinding__FP9lua_State = 0x324030; // type:func
+ENISHideCharacter_ResolveEvent_Callback__FPvPC6UGroup = 0x3240b0; // type:func
+ENISLights_MakeEvent_Callback__FPCv = 0x324260; // type:func
+ENISLights_MakeEvent_LuaBinding__FP9lua_State = 0x3242a0; // type:func
+ENISLights_ResolveEvent_Callback__FPvPC6UGroup = 0x324338; // type:func
+ENISMotionBlur_MakeEvent_Callback__FPCv = 0x3243d0; // type:func
+ENISMotionBlur_MakeEvent_LuaBinding__FP9lua_State = 0x324400; // type:func
+ENISMotionBlur_ResolveEvent_Callback__FPvPC6UGroup = 0x324468; // type:func
+ENISNeutralRev_ResolveEvent_Callback__FPvPC6UGroup = 0x3246b8; // type:func
+ENISNitro_MakeEvent_Callback__FPCv = 0x324800; // type:func
+ENISNitro_ResolveEvent_Callback__FPvPC6UGroup = 0x3248a8; // type:func
+ENISNukeSmack_MakeEvent_Callback__FPCv = 0x324998; // type:func
+ENISNukeSmack_MakeEvent_LuaBinding__FP9lua_State = 0x3249d8; // type:func
+ENISNukeSmack_ResolveEvent_Callback__FPvPC6UGroup = 0x324a90; // type:func
+ENISOverlayMessage_MakeEvent_Callback__FPCv = 0x324ba8; // type:func
+ENISOverlayMessage_ResolveEvent_Callback__FPvPC6UGroup = 0x324c60; // type:func
+ENISPixelate_ResolveEvent_Callback__FPvPC6UGroup = 0x324e58; // type:func
+ENISPlayEffect_ResolveEvent_Callback__FPvPC6UGroup = 0x325138; // type:func
+ENISRain_MakeEvent_Callback__FPCv = 0x325218; // type:func
+ENISRain_MakeEvent_LuaBinding__FP9lua_State = 0x325248; // type:func
+ENISRain_ResolveEvent_Callback__FPvPC6UGroup = 0x3252a8; // type:func
+ENISReattach_MakeEvent_Callback__FPCv = 0x3253f8; // type:func
+ENISReattach_MakeEvent_LuaBinding__FP9lua_State = 0x325430; // type:func
+ENISReattach_ResolveEvent_Callback__FPvPC6UGroup = 0x3254a0; // type:func
+ENISRoadNoise_MakeEvent_Callback__FPCv = 0x325540; // type:func
+ENISRoadNoise_MakeEvent_LuaBinding__FP9lua_State = 0x325570; // type:func
+ENISRoadNoise_ResolveEvent_Callback__FPvPC6UGroup = 0x3255d8; // type:func
+ENISScreenFlash_MakeEvent_Callback__FPCv = 0x3256a8; // type:func
+ENISScreenFlash_MakeEvent_LuaBinding__FP9lua_State = 0x3256d8; // type:func
+ENISScreenFlash_ResolveEvent_Callback__FPvPC6UGroup = 0x325738; // type:func
+ENISSteering_MakeEvent_Callback__FPCv = 0x325878; // type:func
+ENISSteering_MakeEvent_LuaBinding__FP9lua_State = 0x3258b8; // type:func
+ENISSteering_ResolveEvent_Callback__FPvPC6UGroup = 0x325940; // type:func
+ENISStopEffects_MakeEvent_Callback__FPCv = 0x325a10; // type:func
+ENISStopEffects_MakeEvent_LuaBinding__FP9lua_State = 0x325a30; // type:func
+ENISStopEffects_ResolveEvent_Callback__FPvPC6UGroup = 0x325a68; // type:func
+ENISTimeOfDay_MakeEvent_Callback__FPCv = 0x325b10; // type:func
+ENISTimeOfDay_MakeEvent_LuaBinding__FP9lua_State = 0x325b50; // type:func
+ENISTimeOfDay_ResolveEvent_Callback__FPvPC6UGroup = 0x325c08; // type:func
+ENISVisualLook_ResolveEvent_Callback__FPvPC6UGroup = 0x325f40; // type:func
+ENISWolrdGeometry_MakeEvent_Callback__FPCv = 0x326050; // type:func
+ENISWolrdGeometry_MakeEvent_LuaBinding__FP9lua_State = 0x326088; // type:func
+ENISWolrdGeometry_ResolveEvent_Callback__FPvPC6UGroup = 0x326108; // type:func
+ENISWorldAnimTrigger_MakeEvent_Callback__FPCv = 0x3262a0; // type:func
+ENISWorldAnimTrigger_MakeEvent_LuaBinding__FP9lua_State = 0x3262e0; // type:func
+ENISWorldAnimTrigger_ResolveEvent_Callback__FPvPC6UGroup = 0x326398; // type:func
+EPause_MakeEvent_Callback__FPCv = 0x3265f0; // type:func
+EPauseForMemcard_MakeEvent_Callback__FPCv = 0x3266f8; // type:func
+EPerfectLaunch_MakeEvent_Callback__FPCv = 0x3268d0; // type:func
+EPerfectShift_MakeEvent_Callback__FPCv = 0x326a60; // type:func
+EPlayDDFlyInNIS_MakeEvent_Callback__FPCv = 0x326b68; // type:func
+EPlayDDFlyInNIS_MakeEvent_LuaBinding__FP9lua_State = 0x326b88; // type:func
+EPlayDDFlyInNIS_ResolveEvent_Callback__FPvPC6UGroup = 0x326bc0; // type:func
+EPlayerAirborne_MakeEvent_Callback__FPCv = 0x326cd0; // type:func
+EPlayerTriggeredNOS_MakeEvent_Callback__FPCv = 0x327070; // type:func
+EPlayObjectEffect_ResolveEvent_Callback__FPvPC6UGroup = 0x327740; // type:func
+EPlayRaceMovie_MakeEvent_Callback__FPCv = 0x327890; // type:func
+EPlayRaceMovie_MakeEvent_LuaBinding__FP9lua_State = 0x3278c0; // type:func
+EPlayRaceMovie_ResolveEvent_Callback__FPvPC6UGroup = 0x327920; // type:func
+EProcessAreaStimulus_ResolveEvent_Callback__FPvPC6UGroup = 0x3286c8; // type:func
+EProcessStimulus_ResolveEvent_Callback__FPvPC6UGroup = 0x328a40; // type:func
+EPursuitBreaker_MakeEvent_Callback__FPCv = 0x328c58; // type:func
+EQuitDemo_MakeEvent_Callback__FPCv = 0x328da8; // type:func
+EQuitToFE_MakeEvent_Callback__FPCv = 0x3292b8; // type:func
+ERaceSheetOff_MakeEvent_Callback__FPCv = 0x329398; // type:func
+ERaceSheetOn_MakeEvent_Callback__FPCv = 0x3294f8; // type:func
+ERandomEventList_MakeEvent_Callback__FPCv = 0x329618; // type:func
+ERandomEventList_MakeEvent_LuaBinding__FP9lua_State = 0x329648; // type:func
+ERandomEventList_ResolveEvent_Callback__FPvPC6UGroup = 0x3296a8; // type:func
+ERandomExplosion_MakeEvent_Callback__FPCv = 0x329760; // type:func
+ERandomExplosion_MakeEvent_LuaBinding__FP9lua_State = 0x3297a0; // type:func
+ERandomExplosion_ResolveEvent_Callback__FPvPC6UGroup = 0x329828; // type:func
+EReloadHud_MakeEvent_Callback__FPCv = 0x329a30; // type:func
+EReloadHud_MakeEvent_LuaBinding__FP9lua_State = 0x329a50; // type:func
+EReloadHud_ResolveEvent_Callback__FPvPC6UGroup = 0x329a88; // type:func
+EReportInfraction_MakeEvent_Callback__FPCv = 0x329cd0; // type:func
+EReportMilestoneAtStake_MakeEvent_Callback__FPCv = 0x329e98; // type:func
+EReportMilestoneAtStake_MakeEvent_LuaBinding__FP9lua_State = 0x329ec8; // type:func
+EReportMilestoneAtStake_ResolveEvent_Callback__FPvPC6UGroup = 0x329f28; // type:func
+ERequestEventInfoDialog_MakeEvent_Callback__FPCv = 0x32a008; // type:func
+ERequestEventInfoDialog_MakeEvent_LuaBinding__FP9lua_State = 0x32a040; // type:func
+ERequestEventInfoDialog_ResolveEvent_Callback__FPvPC6UGroup = 0x32a0c0; // type:func
+EResetPlayerCar_MakeEvent_Callback__FPCv = 0x32a1a8; // type:func
+EResetPlayerCar_MakeEvent_LuaBinding__FP9lua_State = 0x32a1c8; // type:func
+EResetPlayerCar_ResolveEvent_Callback__FPvPC6UGroup = 0x32a200; // type:func
+EResetProps_MakeEvent_Callback__FPCv = 0x32a2a0; // type:func
+EResetProps_MakeEvent_LuaBinding__FP9lua_State = 0x32a2c0; // type:func
+EResetProps_ResolveEvent_Callback__FPvPC6UGroup = 0x32a2f8; // type:func
+EResetSequencer_MakeEvent_Callback__FPCv = 0x32a418; // type:func
+EResetSequencer_MakeEvent_LuaBinding__FP9lua_State = 0x32a440; // type:func
+EResetSequencer_ResolveEvent_Callback__FPvPC6UGroup = 0x32a480; // type:func
+EResetSystem_ResolveEvent_Callback__FPvPC6UGroup = 0x32a6a0; // type:func
+ERestartRace_MakeEvent_Callback__FPCv = 0x32a8d0; // type:func
+EScheduleEvent_MakeEvent_Callback__FPCv = 0x32aa10; // type:func
+EScheduleEvent_MakeEvent_LuaBinding__FP9lua_State = 0x32aa48; // type:func
+EScheduleEvent_ResolveEvent_Callback__FPvPC6UGroup = 0x32aac8; // type:func
+ESetCopAutoSpawnMode_MakeEvent_Callback__FPCv = 0x32ad50; // type:func
+ESetCopAutoSpawnMode_MakeEvent_LuaBinding__FP9lua_State = 0x32ad80; // type:func
+ESetCopAutoSpawnMode_ResolveEvent_Callback__FPvPC6UGroup = 0x32ade8; // type:func
+ESetPlayerCarReset_MakeEvent_Callback__FPCv = 0x32af88; // type:func
+ESetPlayerCarReset_MakeEvent_LuaBinding__FP9lua_State = 0x32afc0; // type:func
+ESetPlayerCarReset_ResolveEvent_Callback__FPvPC6UGroup = 0x32b040; // type:func
+ESetPlayerCollisionCache_MakeEvent_Callback__FPCv = 0x32b0f0; // type:func
+ESetPlayerCollisionCache_MakeEvent_LuaBinding__FP9lua_State = 0x32b118; // type:func
+ESetPlayerCollisionCache_ResolveEvent_Callback__FPvPC6UGroup = 0x32b158; // type:func
+ESetSimRate_ResolveEvent_Callback__FPvPC6UGroup = 0x32b2b0; // type:func
+EShockObject_MakeEvent_Callback__FPCv = 0x32b3b8; // type:func
+EShockObject_MakeEvent_LuaBinding__FP9lua_State = 0x32b3f0; // type:func
+EShockObject_ResolveEvent_Callback__FPvPC6UGroup = 0x32b458; // type:func
+EShowAutoSaveEngage_MakeEvent_Callback__FPCv = 0x32b540; // type:func
+EShowAutoSaveEngage_MakeEvent_LuaBinding__FP9lua_State = 0x32b560; // type:func
+EShowAutoSaveEngage_ResolveEvent_Callback__FPvPC6UGroup = 0x32b598; // type:func
+EShowMarketingScreen_MakeEvent_Callback__FPCv = 0x32b6b8; // type:func
+EShowMarketingScreen_MakeEvent_LuaBinding__FP9lua_State = 0x32b6e8; // type:func
+EShowMarketingScreen_ResolveEvent_Callback__FPvPC6UGroup = 0x32b750; // type:func
+EShowMessageScreen_MakeEvent_Callback__FPCv = 0x32b838; // type:func
+EShowMessageScreen_ResolveEvent_Callback__FPvPC6UGroup = 0x32b8d0; // type:func
+EShowMilestones_MakeEvent_Callback__FPCv = 0x32ba58; // type:func
+EShowRaceCountdown_MakeEvent_Callback__FPCv = 0x32bbc8; // type:func
+EShowRaceCountdown_MakeEvent_LuaBinding__FP9lua_State = 0x32bbe8; // type:func
+EShowRaceCountdown_ResolveEvent_Callback__FPvPC6UGroup = 0x32bc20; // type:func
+EShowRaceOverMessage_MakeEvent_Callback__FPCv = 0x32bd48; // type:func
+EShowRaceOverMessage_MakeEvent_LuaBinding__FP9lua_State = 0x32bd78; // type:func
+EShowRaceOverMessage_ResolveEvent_Callback__FPvPC6UGroup = 0x32bdd8; // type:func
+EShowResults_MakeEvent_Callback__FPCv = 0x32c010; // type:func
+EShowSMS_MakeEvent_Callback__FPCv = 0x32c1f0; // type:func
+EShowSMS_MakeEvent_LuaBinding__FP9lua_State = 0x32c220; // type:func
+EShowSMS_ResolveEvent_Callback__FPvPC6UGroup = 0x32c288; // type:func
+EShowTimeExtension_MakeEvent_Callback__FPCv = 0x32c370; // type:func
+EShowTimeExtension_MakeEvent_LuaBinding__FP9lua_State = 0x32c3a8; // type:func
+EShowTimeExtension_ResolveEvent_Callback__FPvPC6UGroup = 0x32c428; // type:func
+ESimulate_MakeEvent_Callback__FPCv = 0x32c4e0; // type:func
+ESndGameState_MakeEvent_Callback__FPCv = 0x32c5d0; // type:func
+ESndGameState_ResolveEvent_Callback__FPvPC6UGroup = 0x32c688; // type:func
+ESpawnExplosion_ResolveEvent_Callback__FPvPC6UGroup = 0x32cbf8; // type:func
+ESpawnFragment_ResolveEvent_Callback__FPvPC6UGroup = 0x32d690; // type:func
+EStopObjectEffect_MakeEvent_Callback__FPCv = 0x32dc50; // type:func
+EStopObjectEffect_MakeEvent_LuaBinding__FP9lua_State = 0x32dc88; // type:func
+EStopObjectEffect_ResolveEvent_Callback__FPvPC6UGroup = 0x32dcf0; // type:func
+EStopObjectEffects_MakeEvent_Callback__FPCv = 0x32dde0; // type:func
+EStopObjectEffects_MakeEvent_LuaBinding__FP9lua_State = 0x32de08; // type:func
+EStopObjectEffects_ResolveEvent_Callback__FPvPC6UGroup = 0x32de48; // type:func
+ETerminateMusic_MakeEvent_Callback__FPCv = 0x32df30; // type:func
+ETerminateMusic_MakeEvent_LuaBinding__FP9lua_State = 0x32df50; // type:func
+ETerminateMusic_ResolveEvent_Callback__FPvPC6UGroup = 0x32df88; // type:func
+ETips_MakeEvent_Callback__FPCv = 0x32e028; // type:func
+ETips_MakeEvent_LuaBinding__FP9lua_State = 0x32e060; // type:func
+ETips_ResolveEvent_Callback__FPvPC6UGroup = 0x32e0e0; // type:func
+ETireBlown_MakeEvent_Callback__FPCv = 0x32e370; // type:func
+ETirePunctured_MakeEvent_Callback__FPCv = 0x32e660; // type:func
+ETriggerMomentNIS_MakeEvent_Callback__FPCv = 0x32e800; // type:func
+ETriggerMomentNIS_ResolveEvent_Callback__FPvPC6UGroup = 0x32e8a0; // type:func
+ETuneVehicle_MakeEvent_Callback__FPCv = 0x32e9c8; // type:func
+EUnPause_MakeEvent_Callback__FPCv = 0x32eb28; // type:func
+EUnPauseForMemcard_MakeEvent_Callback__FPCv = 0x32ec18; // type:func
+EVehicleDestroyed_MakeEvent_Callback__FPCv = 0x32ee08; // type:func
+EWakeObject_MakeEvent_Callback__FPCv = 0x32f1a8; // type:func
+EWakeObject_MakeEvent_LuaBinding__FP9lua_State = 0x32f1d0; // type:func
+EWakeObject_ResolveEvent_Callback__FPvPC6UGroup = 0x32f210; // type:func
+EWorldMapOff_MakeEvent_Callback__FPCv = 0x32f2e0; // type:func
+EWorldMapOn_MakeEvent_Callback__FPCv = 0x32f3e8; // type:func
+EWorldMapOn_MakeEvent_LuaBinding__FP9lua_State = 0x32f408; // type:func
+EWorldMapOn_ResolveEvent_Callback__FPvPC6UGroup = 0x32f440; // type:func
+QSimTime_Resolver__5QueryPvPC6UGroup = 0x331298; // type:func
+QSimTime_ByteSwapper__5QueryPv = 0x3312a0; // type:func
+GetEmbeddedObjectSize__H1ZQ26Hermes7Message_PX01_Ui = 0x333358; // type:func
+__tcf_0 = 0x335db8; // type:func allow_duplicated:true
+IsPadSupported__FPQ39RealInput6Device4Info = 0x337448; // type:func
+MyEnumDeviceCallback__FPQ29RealInput6DeviceUiPQ29RealInput9Interface = 0x337478; // type:func
+InitEffects__Fv = 0x337568; // type:func
+InitPads__Fv = 0x3375d0; // type:func
+UpdatePads__Ffb = 0x337648; // type:func
+ReleasePads__Fv = 0x3379e0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zMisc.cpp
+///////////////////////////////////////////////////////////////////
+DoBuddyCoreProcessing__Fv = 0x347f18; // type:func
+__tcf_0 = 0x34a6f0; // type:func allow_duplicated:true
+__tcf_1 = 0x34b7e0; // type:func allow_duplicated:true
+__tcf_2 = 0x34f458; // type:func allow_duplicated:true
+HUFF_decompress__FPUcT0 = 0x356ef0; // type:func
+HUFF_pack__FP17HuffEncodeContextP13HUFFMemStructUi = 0x359280; // type:func
+MUTEX_unlock__FP5MUTEX = 0x362ae0; // type:func allow_duplicated:true
+MUTEX_lock__FP5MUTEX = 0x362ae8; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zPhysics.cpp
+///////////////////////////////////////////////////////////////////
+InitializeVehicleGlobals__13VehicleSystemv = 0x371a88; // type:func
+InitializeGlobals__13VehicleSystemv = 0x371a90; // type:func
+Shutdown__13VehicleSystemv = 0x371ab8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zPlatform.cpp
+///////////////////////////////////////////////////////////////////
+MyGetTicker__Fv = 0x3bef60; // type:func
+GetPS2VramSize__Fiii = 0x3c7638; // type:func allow_duplicated:true
+DoNothing__Fv = 0x3c7a20; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zSim.cpp
+///////////////////////////////////////////////////////////////////
+PauseFFB__FP7IPlayer = 0x3cf628; // type:func
+__tcf_0 = 0x3d0068; // type:func allow_duplicated:true
+IsValidModelToNuke__FPC6IModel = 0x3de158; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zSpeech.cpp
+///////////////////////////////////////////////////////////////////
+CSISAllocatorMemFree__FPv = 0x3e4d28; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zWorld.cpp
+///////////////////////////////////////////////////////////////////
+GetMasterTime__Fv = 0x422f70; // type:func
+StopEffect__FPQ217VehicleRenderConn6Effect = 0x43a7f0; // type:func
+__tcf_0 = 0x44e150; // type:func allow_duplicated:true
+__tcf_1 = 0x44e1c0; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zWorld2.cpp
+///////////////////////////////////////////////////////////////////
+CalcCollisionFaceNormal__FPQ25UMath7Vector3PQ25UMath7Vector4 = 0x45a0b0; // type:func
+__tcf_0 = 0x45b880; // type:func allow_duplicated:true
+__tcf_1 = 0x45c010; // type:func allow_duplicated:true
+__tcf_2 = 0x465eb0; // type:func allow_duplicated:true
+__tcf_4 = 0x466240; // type:func allow_duplicated:true
+ChooseAudioAttributes__FRCQ36Attrib3Gen7effectsPC8bMatrix4PC8bVector3 = 0x4758d0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/Runtime/crt0.s
+///////////////////////////////////////////////////////////////////
+_root = 0x47cbd0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/contrib/lobbyglue/connapi.c
+///////////////////////////////////////////////////////////////////
+_ConnApiInitClient = 0x47d0c8; // type:func
+_ConnApiUpdateClientFlags = 0x47d1f8; // type:func
+_ConnApiInitClientList = 0x47d248; // type:func
+_ConnApiFindClientByName = 0x47d3a8; // type:func
+_ConnApiParseAdvertField = 0x47d428; // type:func
+_ConnApiCheckAdvert = 0x47d498; // type:func
+_ConnApiGetConnectAddr = 0x47d5e8; // type:func
+_ConnApiGetConnectParms = 0x47d610; // type:func
+_ConnApiSetGamelinkOpt = 0x47d6d8; // type:func
+_ConnApiDemangleReport = 0x47d6f8; // type:func
+_ConnApiDestroyGameConnection = 0x47d750; // type:func
+_ConnApiDestroyVoipConnection = 0x47d7a8; // type:func
+_ConnApiDisconnectClient = 0x47d7f0; // type:func
+_ConnApiRemoveClient = 0x47d840; // type:func
+_ConnApiDefaultCallback = 0x47d8d0; // type:func
+_ConnApiUpdateCallback = 0x47d8d8; // type:func
+_ConnApiUpdateGameClient = 0x47d930; // type:func
+_ConnApiUpdateVoipClient = 0x47dc00; // type:func
+_ConnApiGenerateSessionKey = 0x47ddc8; // type:func
+_ConnApiUpdateDemangleReport = 0x47de38; // type:func
+_ConnApiUpdateDemangle = 0x47de88; // type:func
+_ConnApiUpdateRemoval = 0x47e008; // type:func
+_ConnApiUpdateConnections = 0x47e080; // type:func
+_ConnApiIdle = 0x47e210; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/contrib/voip/voip-e.c
+///////////////////////////////////////////////////////////////////
+_VoipCallRpc2 = 0x47eb08; // type:func
+_VoipCallRpc = 0x47ec28; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/contrib/ps2isp/ps2isp.c
+///////////////////////////////////////////////////////////////////
+_PS2IspSetAlert = 0x47f1d8; // type:func
+_PS2IspReset = 0x47f1e8; // type:func
+_PS2IspFilterText = 0x47f238; // type:func
+_PS2IspCheckMemcard = 0x47f270; // type:func
+_PS2IspSyncMemcard = 0x47f2f0; // type:func
+_PS2IspInitMemcardTracking = 0x47f330; // type:func
+_PS2IspCheckMemcardAsync = 0x47f368; // type:func
+_PS2IspHwSupported = 0x47f3d8; // type:func
+_PS2IspConnect = 0x47f428; // type:func
+_PS2IspUpdate = 0x47f4f8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/contrib/ps2isp/sloginread.c
+///////////////////////////////////////////////////////////////////
+_SLoginFindTag = 0x480168; // type:func
+_SLoginExtractTag = 0x480230; // type:func
+_SLoginCalcCRC32 = 0x480278; // type:func
+_SLoginCalcCRC32Str = 0x4802b0; // type:func
+_SLoginExtract = 0x480340; // type:func
+_SLoginCheckFile = 0x480410; // type:func
+_SLoginLoad = 0x480480; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/contrib/dirtydnas/dirtydnas.c
+///////////////////////////////////////////////////////////////////
+DirtyDnasUpdate = 0x480860; // type:func
+DirtyDnasStop = 0x480868; // type:func
+DirtyDnasSimulateError = 0x480870; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/contrib/dirtyelf/dirtyelf.c
+///////////////////////////////////////////////////////////////////
+_DirtyElfValidateHeader = 0x480948; // type:func
+_DirtyElfGetSectionByNum = 0x480960; // type:func
+_DirtyElfGetSectionByName = 0x480980; // type:func
+_DirtyElfGetSectionOffset = 0x480a28; // type:func
+_DirtyElfCalcPatchTableSize = 0x480a68; // type:func
+_DirtyElfSetPatchTable = 0x480ab8; // type:func
+_DirtyElfPatchAddr = 0x480b10; // type:func
+_DirtyElfRelocateSection = 0x480b48; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/rpc-e.c
+///////////////////////////////////////////////////////////////////
+_RpcVertical = 0x4817d8; // type:func
+_WakeupThread = 0x481810; // type:func
+_RpcCall = 0x481830; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapi.c
+///////////////////////////////////////////////////////////////////
+_LobbyApiInitRequest = 0x483140; // type:func
+_LobbyApiEnqueueRequestCallback = 0x4831b8; // type:func
+_LobbyApiDequeueRequestCallback = 0x483270; // type:func
+_LobbyApiClearQueue = 0x483350; // type:func
+_LobbyApiOneShotCB = 0x483390; // type:func
+_LobbyApiSetOneShotCB = 0x4833e0; // type:func
+_LobbyApiCancelOneShotCB = 0x483480; // type:func
+_LobbyApiUpdatePing = 0x4834e0; // type:func
+_LobbyApiPingServerCb = 0x4835e0; // type:func
+_LobbyApiPingServer = 0x483648; // type:func
+_LobbyApiResetServerIcmpPingState = 0x483680; // type:func
+_LobbyApiConfigCallback = 0x483698; // type:func
+_LobbyApiUpdateInit = 0x4836f8; // type:func
+_LobbyApiCheckTimeout = 0x4837c8; // type:func
+_LobbyApiDisconnect = 0x483888; // type:func
+_LobbyApiUpdateRdir = 0x483918; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiasync.c
+///////////////////////////////////////////////////////////////////
+_LobbyApiAsyncProcessRoomChange = 0x484fc0; // type:func
+_LobbyApiAsyncProcess_agm = 0x485068; // type:func
+_LobbyApiAsyncProcess_bud = 0x4852b8; // type:func
+_LobbyApiAsyncProcess_gam = 0x4852e8; // type:func
+_LobbyApiAsyncProcess_koh = 0x485528; // type:func
+_LobbyApiAsyncProcess_mgm = 0x485558; // type:func
+_LobbyApiAsyncProcess_mlg = 0x485588; // type:func
+_LobbyApiAsyncProcess_msg = 0x4855b8; // type:func
+_LobbyApiAsyncProcess_pop = 0x485620; // type:func
+_LobbyApiAsyncProcess_rom = 0x4857d8; // type:func
+_LobbyApiAsyncProcess_ses = 0x485a18; // type:func
+_LobbyApiAsyncProcess_snp = 0x485a48; // type:func
+_LobbyApiAsyncProcess_sst = 0x485c00; // type:func
+_LobbyApiAsyncProcess_usm = 0x485d30; // type:func
+_LobbyApiAsyncProcess_usr = 0x485f88; // type:func
+_LobbyApiAsyncProcess_uss = 0x4862e0; // type:func
+_LobbyApiAsyncProcess_ust = 0x4864a8; // type:func
+_LobbyApiAsyncProcess_who = 0x4865e8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapilist.c
+///////////////////////////////////////////////////////////////////
+_LobbyApiListFlush = 0x4869c8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiutil.c
+///////////////////////////////////////////////////////////////////
+_LobbyApiSynthesizeMachineAddr = 0x487040; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbychal.c
+///////////////////////////////////////////////////////////////////
+_LobbyChalReset = 0x488040; // type:func
+_LobbyChalSetName = 0x488050; // type:func
+_LobbyChalSetTimeout = 0x488090; // type:func
+_LobbyChalClassifyMesg = 0x4880e8; // type:func
+_LobbyChalMesgCallback = 0x488168; // type:func
+_LobbyChalMesg = 0x4881d0; // type:func
+_LobbyChalMesgAccept = 0x4882e0; // type:func
+_LobbyChalMesgBlock = 0x488308; // type:func
+_LobbyChalMesgBusy = 0x488330; // type:func
+_LobbyChalMesgCancel = 0x488358; // type:func
+_LobbyChalMesgDecline = 0x488380; // type:func
+_LobbyChalMesgChallenge = 0x4883a8; // type:func
+_LobbyChalChalCallback = 0x4883d0; // type:func
+_LobbyChalSendChal = 0x4884b0; // type:func
+_LobbyChalSendCancel = 0x488550; // type:func
+_LobbyChalChatCallback = 0x4885c0; // type:func
+_LobbyChalEvntCallback = 0x488918; // type:func
+_LobbyChalIdleCallback = 0x488990; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbydisplist.c
+///////////////////////////////////////////////////////////////////
+DispListExpand = 0x488e18; // type:func
+DispListCompare = 0x488fa0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyhasher.c
+///////////////////////////////////////////////////////////////////
+HashStrHash = 0x489790; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbylogin.c
+///////////////////////////////////////////////////////////////////
+_LobbyLoginParseNameList = 0x489c80; // type:func
+_LobbyLoginSetAlert = 0x489d28; // type:func
+_LobbyLoginSetCallback = 0x489d40; // type:func
+_LobbyLoginSetContext = 0x489dc8; // type:func
+_LobbyLoginRequest = 0x489e70; // type:func
+_LobbyLoginSaveResponse = 0x489f78; // type:func
+_LobbyLoginTransitionBack = 0x489fd0; // type:func
+_LobbyLoginValidateTransition = 0x48a020; // type:func
+_LobbyLoginPersCallback = 0x48a088; // type:func
+_LobbyLoginAuthCallback = 0x48a0e8; // type:func
+_LobbyLoginConnCallback = 0x48a358; // type:func
+_LobbyLoginIdleCallback = 0x48a488; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbypingmanager.c
+///////////////////////////////////////////////////////////////////
+_PingManagerFindRecordByAddress = 0x48ad58; // type:func
+_PingManagerFindRecordLRU = 0x48add8; // type:func
+_PingManagerInvalidateRecord = 0x48ae30; // type:func
+_PingManagerUpdateTimer = 0x48ae50; // type:func
+_PingManagerGetPing = 0x48ae90; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbytagfield.c
+///////////////////////////////////////////////////////////////////
+_ParseNumber = 0x48b900; // type:func
+_SecsToTime = 0x48b968; // type:func
+_TimeToSecs = 0x48bb38; // type:func
+_TagFieldSetupAppend = 0x48bc48; // type:func
+_TagFieldSetupCancel = 0x48bec8; // type:func
+_TagFieldSetupTerm = 0x48bef8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyutf8.c
+///////////////////////////////////////////////////////////////////
+_Utf8GetNumBytes = 0x48e4c8; // type:func
+_Utf8DecodeToUCS2 = 0x48e510; // type:func
+_Utf8Translate = 0x48e620; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/hlbudapi.c
+///////////////////////////////////////////////////////////////////
+_preConnTempBudAdd = 0x48ee30; // type:func
+_HLBMsgCallback = 0x490658; // type:func
+_HLBBuddyDelMemCallback = 0x490738; // type:func
+_HLBBuddyChangeCallback = 0x490768; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/netgamelink-e.c
+///////////////////////////////////////////////////////////////////
+NetGameLinkStatusCB = 0x492600; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/protoaries-e.c
+///////////////////////////////////////////////////////////////////
+ProtoAriesRecvCB = 0x493648; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/protoping-e.c
+///////////////////////////////////////////////////////////////////
+ProtoPingResponseCB = 0x4941d0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/weboffer.c
+///////////////////////////////////////////////////////////////////
+_WebOfferUrl = 0x494c20; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbycheat.c
+///////////////////////////////////////////////////////////////////
+_CheatParseHex = 0x496a78; // type:func
+_CheatParseRange = 0x496ae8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/buddyapi.c
+///////////////////////////////////////////////////////////////////
+_BuddyApiProd = 0x496c48; // type:func
+_BuddyApiDebug = 0x496cf8; // type:func
+_BuddyApiTransact = 0x496d90; // type:func
+_BuddyApiTruncUsername = 0x496f08; // type:func
+_BuddyApiParseResource = 0x496f60; // type:func
+_BuddyApiRecv = 0x497010; // type:func
+_BuddyApiPresSend = 0x497588; // type:func
+_BuddyApiStatus = 0x4977b0; // type:func
+_BuddyApiSetCallback = 0x497808; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/protohttp-e.c
+///////////////////////////////////////////////////////////////////
+_ProtoHttpDataCB = 0x49ac40; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/protoname-e.c
+///////////////////////////////////////////////////////////////////
+_SocketLookupDone = 0x49b1e0; // type:func
+_SocketLookupFree = 0x49b2c0; // type:func
+_SocketLookup = 0x49b348; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/dirtysock/source/library/ps2/final/cryptmd5.c
+///////////////////////////////////////////////////////////////////
+_CryptMD5Transform = 0x49b438; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/libmc.c
+///////////////////////////////////////////////////////////////////
+mceSifRpcEndFunc = 0x49c998; // type:func
+mceIntrReadFixAlign = 0x49ccb8; // type:func
+mceGetInfoApdx = 0x49d0a8; // type:func
+mceStorePwd = 0x49d3d0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/libmtap.c
+///////////////////////////////////////////////////////////////////
+DPRINT = 0x49da38; // type:func
+///////////////////////////////////////////////////////////////////
+// Packages/realmemcard/3.04.00-layer2/source/lib/ps2/ps2_memcard_interface_impl.cpp
+///////////////////////////////////////////////////////////////////
+_ChangeFileTime__11RealmcIfaceGQ26Realmc8DateTime = 0x4a0d60; // type:func
+///////////////////////////////////////////////////////////////////
+// Packages/realmemcard/3.04.00-layer2/source/lib/cmn/interfaceimp.cpp
+///////////////////////////////////////////////////////////////////
+GetVersionNumber__6RealmcRPCs = 0x4aea20; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/juice/1.5.2a/source/ps2/Juice.cpp
+///////////////////////////////////////////////////////////////////
+__tcf_0 = 0x4af328; // type:func allow_duplicated:true
+__tcf_1 = 0x4af338; // type:func allow_duplicated:true
+__tcf_2 = 0x4af348; // type:func allow_duplicated:true
+__tcf_3 = 0x4af358; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// egami/rcmp/dev/source/av/cmn/avsubtitle.cpp
+///////////////////////////////////////////////////////////////////
+SkipWhiteSpace__FPPcPUi = 0x4bc908; // type:func
+MyStrCmpi__FPCcT0 = 0x4bc980; // type:func
+FindJust__FPcUi = 0x4bca30; // type:func
+ReadNumber__FPPcPUiPi = 0x4bcb68; // type:func
+FindFirstCommand__FPPcPUiT0T1UiT1 = 0x4bcc78; // type:func
+///////////////////////////////////////////////////////////////////
+// egami/rcmp/dev/source/decoder/cmn/rcmpbase.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x4be090; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// egami/rcmp/dev/source/decoder/ps2/rcmp_ps2_sony_codec.cpp
+///////////////////////////////////////////////////////////////////
+C_mpegNodata__FP7sceMpegP13sceMpegCbDataPv = 0x4be4a8; // type:func
+C_mpegError__FP7sceMpegP13sceMpegCbDataPv = 0x4be4d8; // type:func
+///////////////////////////////////////////////////////////////////
+// egami/rcmp/dev/source/decoder/cmn/gethdr.cpp
+///////////////////////////////////////////////////////////////////
+sequence_header__Fv = 0x4bef00; // type:func
+group_of_pictures_header__Fv = 0x4bf0f0; // type:func
+picture_header__Fv = 0x4bf1b8; // type:func
+extension_and_user_data__Fv = 0x4bf290; // type:func
+sequence_extension__Fv = 0x4bf3b8; // type:func
+sequence_display_extension__Fv = 0x4bf5c8; // type:func
+quant_matrix_extension__Fv = 0x4bf660; // type:func
+sequence_scalable_extension__Fv = 0x4bf7e8; // type:func
+picture_display_extension__Fv = 0x4bf8b0; // type:func
+picture_coding_extension__Fv = 0x4bf9a0; // type:func
+picture_spatial_scalable_extension__Fv = 0x4bfb18; // type:func
+picture_temporal_scalable_extension__Fv = 0x4bfbe0; // type:func
+extra_bit_information__Fv = 0x4bfbe8; // type:func
+user_data__Fv = 0x4bfc50; // type:func
+copyright_extension__Fv = 0x4bfc70; // type:func
+Update_Temporal_Reference_Tacking_Data__Fv = 0x4bfd10; // type:func
+///////////////////////////////////////////////////////////////////
+// egami/rcmp/dev/source/decoder/cmn/rcmp_vp6_codec.cpp
+///////////////////////////////////////////////////////////////////
+GetChunkType__FPQ24RCMP5CHUNK = 0x4bfdf8; // type:func
+__static_initialization_and_destruction_0 = 0x4c0728; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x4d23e8; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/snd/9/source/library/cmn/saemsamb.c
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x4dc820; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/snd/9/source/library/cmn/sserver.c
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x4e1dd8; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/snd/9/source/library/cmn/svecreal6.cpp
+///////////////////////////////////////////////////////////////////
+SNDREAL6_systemtask__3SndPvi = 0x4e6868; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/snd/9/source/library/cmn/dma.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x4ee858; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/mtdecf.cpp
+///////////////////////////////////////////////////////////////////
+filter__3SndPQ23Snd15UTALKSTATE_CODAii = 0x4f3c30; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x4f6528; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/spch/dev/source/library/cmn/spchevnt.c
+///////////////////////////////////////////////////////////////////
+iSPCH_InitFollowData__FP19SPCHType_FollowData = 0x4f7648; // type:func
+iSPCH_ChooseEventSearch__FP19SPCHType_FollowDataUi = 0x4f76b0; // type:func
+iSPCH_ChooseEvent__FUi = 0x4f7910; // type:func
+iSPCH_ClearOldEvents__Fi = 0x4f7b38; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/spch/dev/source/library/cmn/spchpick.c
+///////////////////////////////////////////////////////////////////
+iSPCH_MatchSample__FP11VoxSentenceP9VoxPhrasePUiPUc = 0x4f82a0; // type:func
+iSPCH_GetPhraseBank__FP9VoxPhrasePUiP14PhrasePickInfo = 0x4f8438; // type:func
+iSPCH_ChooseSamples__FP16SentencePickInfoP11VoxSentenceP14PhrasePickInfoP9VoxPhrasePUi = 0x4f8840; // type:func
+iSPCH_SentenceLength__FP11VoxSentenceP16SentencePickInfo = 0x4f8a40; // type:func
+iSPCH_RepeatEvent__FP8VoxEventUi = 0x4f8c88; // type:func
+iSPCH_MatchParmInputsSet__FP11VoxSentenceP9VoxPhrase = 0x4f8d70; // type:func
+iSPCH_TestMatchParms__FP16SentencePickInfoP11VoxSentence = 0x4f8e18; // type:func
+iSPCH_SentenceGetChoices__FP16SentencePickInfoP11VoxSentencePUii = 0x4f9050; // type:func
+iSPCH_RandomizeSentencePicks__FP11VoxSentenceP16SentencePickInfo = 0x4f91c8; // type:func
+iSPCH_ChooseSentenceIteratively__FP11VoxSentenceP16SentencePickInfoi = 0x4f9328; // type:func
+iSPCH_ConstantRuleSet__FP9EventSpecP8VoxEventP11VoxSentence = 0x4f9698; // type:func
+iSPCH_MakeSampleRequests__FP8VoxEventP11VoxSentenceP9EventSpec = 0x4f9840; // type:func
+iSPCH_SentenceIsContextMatch__FP8VoxEventP11VoxSentencePUi = 0x4f9f38; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/spch/dev/source/library/cmn/spchrand.c
+///////////////////////////////////////////////////////////////////
+iSPCH_EACseedrandom__FUi = 0x4fa608; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/spch/dev/source/library/cmn/spchrslv.c
+///////////////////////////////////////////////////////////////////
+iSPCH_BindData__FPcUi = 0x4fa9e8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realgraph/6.09.01/source/ps2/oldfontkern.cpp
+///////////////////////////////////////////////////////////////////
+findkern16__11RealFontOldiPCQ211RealFontOld8FontKernUi = 0x4fb348; // type:func
+findkern12__11RealFontOldiPCQ211RealFontOld8FontKernUii = 0x4fb380; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realgraph/6.09.01/source/ps2/shpcreate.cpp
+///////////////////////////////////////////////////////////////////
+GetNumberOfColours__9RealShapei = 0x4fb948; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realgraph/6.09.01/source/ps2/abortmsg.cpp
+///////////////////////////////////////////////////////////////////
+DefaultAbortMessage__9RealShapePCce = 0x4fc8f8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/file/ps2/cddvd_device.cpp
+///////////////////////////////////////////////////////////////////
+StartReadWithRetry__Fv = 0x4fcff8; // type:func
+DvdRead__Fv = 0x4fd0c8; // type:func
+fi_cmp__FPCvT0 = 0x4fd508; // type:func
+CDVD_hashname__FPCcUi = 0x4fd548; // type:func
+ComputeHashNames__FP12NAMEDDIRFILEP8FILEINFOiUi = 0x4fd5a8; // type:func
+iAllocateCdFileHandle__Fv = 0x4fd6a8; // type:func
+iFreeCdFileHandle__FP12CDFILEHANDLE = 0x4fd6f0; // type:func
+__static_initialization_and_destruction_0 = 0x4fe590; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/filesys.cpp
+///////////////////////////////////////////////////////////////////
+iDefaultFilesysCallbackFunc__FiiPv = 0x4fec48; // type:func
+iFreeFileSysHandle__FP13FILESYSHANDLE = 0x4ff2e0; // type:func
+iOpenFileSysHandle__FPCciP10FILEDEVICE = 0x4ff358; // type:func
+iDeviceCommandProcessorThreadFunc__FPv = 0x4ff790; // type:func
+__static_initialization_and_destruction_0 = 0x500d10; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/filesysopts.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x501758; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/file/cmn/hlafile.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x502140; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/file/ps2/host0_device.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x5026e0; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/system/ps2/inittmr.cpp
+///////////////////////////////////////////////////////////////////
+tmrint__Fi = 0x502ab0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/system/ps2/threads.cpp
+///////////////////////////////////////////////////////////////////
+library_thread_entry__FPv = 0x502ca8; // type:func
+alarmhandler__FiUsPv = 0x502f30; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/debug/ps2/printdrv.cpp
+///////////////////////////////////////////////////////////////////
+PRINT_debuggerfunc__F12PRINTCHANNELPCc = 0x503b08; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/std/cmn/locale.cpp
+///////////////////////////////////////////////////////////////////
+compare__FPCvT0 = 0x503d78; // type:func
+getstringidbyindex__FUsPC12LOCALE_INDEX = 0x503d88; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/Libs/realcore/6.24.00/source/input/ps2/ps2_interface.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x5046e8; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/libdma.c
+///////////////////////////////////////////////////////////////////
+WaitDma = 0x5063a0; // type:func
+CheckAddress = 0x506418; // type:func
+memclr = 0x506440; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/devvu0.c
+///////////////////////////////////////////////////////////////////
+sceDevVu0Sync = 0x506940; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/devvu1.c
+///////////////////////////////////////////////////////////////////
+sceDevVu1Sync = 0x506a20; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/libpad.c
+///////////////////////////////////////////////////////////////////
+_send_to_iop = 0x506a78; // type:func
+scePadInit2 = 0x506cd0; // type:func
+scePadGetDmaStr = 0x507090; // type:func
+scePadSetReqState = 0x5072d8; // type:func
+scePadGetButtonMask = 0x507848; // type:func
+scePadSetButtonInfo = 0x507900; // type:func
+scePadGetModVersion = 0x507a80; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/thread.c
+///////////////////////////////////////////////////////////////////
+topThread = 0x508a28; // type:func
+_DelayThreadHandler = 0x508d40; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/tty.c
+///////////////////////////////////////////////////////////////////
+QueueInit = 0x508d68; // type:func
+QueuePeekWriteDone = 0x508d90; // type:func
+QueuePeekReadDone = 0x508dd0; // type:func
+sceTtyHandler = 0x508e10; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/kprintf.c
+///////////////////////////////////////////////////////////////////
+kputchar = 0x5092b0; // type:func
+deci2Putchar = 0x5092f0; // type:func
+serialPutchar = 0x5093a0; // type:func
+ftoi = 0x5093d8; // type:func
+printfloat = 0x509470; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/sifcmd.c
+///////////////////////////////////////////////////////////////////
+_set_sreg = 0x509c68; // type:func
+_change_addr = 0x509c88; // type:func
+_sceSifSendCmd = 0x50a070; // type:func
+_sceSifCmdIntrHdlr = 0x50a228; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/sifrpc.c
+///////////////////////////////////////////////////////////////////
+_sceRpcGetPacket = 0x50a5e8; // type:func allow_duplicated:true
+_sceRpcFreePacket = 0x50a690; // type:func allow_duplicated:true
+_sceRpcGetFPacket = 0x50a6b0; // type:func
+_sceRpcGetFPacket2 = 0x50a6e0; // type:func
+_request_end = 0x50a720; // type:func allow_duplicated:true
+_alarm_rdata = 0x50a7f0; // type:func
+_request_rdata = 0x50a830; // type:func
+_search_svdata = 0x50a900; // type:func
+_alarm_bind = 0x50a950; // type:func
+_request_bind = 0x50a990; // type:func
+_request_call = 0x50aba0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/filestub.c
+///////////////////////////////////////////////////////////////////
+_sceFsIobSemaMK = 0x50ae80; // type:func
+new_iob = 0x50aee0; // type:func
+get_iob = 0x50af68; // type:func
+_sceFs_Rcv_Intr = 0x50afd8; // type:func
+_sceFsSemInit = 0x50b390; // type:func
+_sceFsWaitS = 0x50b3e0; // type:func
+_sceFsSigSema = 0x50b410; // type:func
+_sceFs_Poff_Intr = 0x50b428; // type:func
+_fs_version = 0x50b678; // type:func
+_sceCallCode = 0x50c2b0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/eeloadfile.c
+///////////////////////////////////////////////////////////////////
+_lf_bind = 0x50ca60; // type:func
+_lf_version = 0x50cb60; // type:func
+_sceSifLoadModuleBuffer = 0x50cbf0; // type:func
+_sceSifLoadModule = 0x50d158; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/tlbfunc.c
+///////////////////////////////////////////////////////////////////
+Copy = 0x50d708; // type:func allow_duplicated:true
+kCopy = 0x50d718; // type:func allow_duplicated:true
+GetEntryAddress = 0x50d750; // type:func allow_duplicated:true
+setup = 0x50d760; // type:func allow_duplicated:true
+_SetTLBEntry = 0x50d838; // type:func
+InitTLB32MB = 0x50d888; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/initsys.c
+///////////////////////////////////////////////////////////////////
+supplement_crt0 = 0x50dd50; // type:func
+kCopy = 0x50dda0; // type:func allow_duplicated:true
+kFindAddress = 0x50ddd8; // type:func
+FindAddress = 0x50de18; // type:func
+InitSystemCallTableAddress = 0x50de30; // type:func
+setup = 0x50df30; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/libosd.c
+///////////////////////////////////////////////////////////////////
+setup = 0x50df98; // type:func allow_duplicated:true
+Copy = 0x50dfa8; // type:func allow_duplicated:true
+kCopy = 0x50dfb8; // type:func allow_duplicated:true
+GetEntryAddress = 0x50dff0; // type:func allow_duplicated:true
+PatchIsNeeded = 0x50e000; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/exit.c
+///////////////////////////////////////////////////////////////////
+Copy = 0x50e118; // type:func allow_duplicated:true
+kCopy = 0x50e128; // type:func allow_duplicated:true
+setup = 0x50e158; // type:func allow_duplicated:true
+SetArg = 0x50e168; // type:func
+TerminateLibrary = 0x50e280; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/alarm.c
+///////////////////////////////////////////////////////////////////
+setup = 0x50e300; // type:func allow_duplicated:true
+Copy = 0x50e310; // type:func allow_duplicated:true
+kCopy = 0x50e320; // type:func allow_duplicated:true
+GetEntryAddress = 0x50e358; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/timer.c
+///////////////////////////////////////////////////////////////////
+SetNextComp = 0x50e6d8; // type:func
+InsertAlarm = 0x50e868; // type:func
+UnlinkAlarm = 0x50e8f0; // type:func
+cbTimerHandler = 0x50e928; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/timeralarm.c
+///////////////////////////////////////////////////////////////////
+AlarmHandler = 0x50f1c0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/mpeg.c
+///////////////////////////////////////////////////////////////////
+_getpic = 0x50fdf8; // type:func
+_decodeOrSkipFrame = 0x50ffb0; // type:func
+_decodeOrSkip = 0x5100d0; // type:func
+_decodeOrSkipField = 0x510118; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/init.c
+///////////////////////////////////////////////////////////////////
+_RefImageInit = 0x510650; // type:func
+_initRefImages = 0x510a40; // type:func
+_setDefaultQM = 0x510b20; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/mpc.c
+///////////////////////////////////////////////////////////////////
+_motionComp0 = 0x510e50; // type:func
+_doMC = 0x511bc8; // type:func
+_sliceA0 = 0x513228; // type:func
+_slice0 = 0x513358; // type:func
+_skipMB0 = 0x513558; // type:func
+_decMB0 = 0x513618; // type:func
+_decode_motion_vector = 0x513ac0; // type:func
+_updateTempTackData = 0x514d98; // type:func
+_isOutSizeOK = 0x515518; // type:func
+_markOutput = 0x515848; // type:func
+_getPtsDtsFlags = 0x515870; // type:func
+dmaRefImage = 0x515cb0; // type:func
+receiveDataFromIPU = 0x515e20; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/csc.c
+///////////////////////////////////////////////////////////////////
+_doCSC = 0x515ea8; // type:func
+_ch3dmaCSC = 0x515fd0; // type:func
+_doCSC2 = 0x516118; // type:func
+_ch4dma = 0x5162d8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/libipu.c
+///////////////////////////////////////////////////////////////////
+setD3_CHCR = 0x516638; // type:func
+setD4_CHCR = 0x5166b0; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/ipuinit.c
+///////////////////////////////////////////////////////////////////
+setD4_CHCR = 0x5169c8; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/cdvd000.c
+///////////////////////////////////////////////////////////////////
+cmd_sem_init = 0x516dd8; // type:func
+cdvd_exit = 0x516e90; // type:func
+_sceCd_Poff_Intr = 0x516fb0; // type:func
+PowerOffCB = 0x517008; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/lib/msifrpc.c
+///////////////////////////////////////////////////////////////////
+_iopnotify = 0x518978; // type:func
+_sceRpcGetPacket = 0x5189d0; // type:func allow_duplicated:true
+_sceRpcFreePacket = 0x518a78; // type:func allow_duplicated:true
+_request_end = 0x518a98; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/lib/liblgdev.c
+///////////////////////////////////////////////////////////////////
+printversions = 0x5190f8; // type:func
+fnReadEndFunc = 0x519ca0; // type:func
+fnNOPEndFunc = 0x519ce0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/libscf.c
+///////////////////////////////////////////////////////////////////
+GetRomName = 0x51a038; // type:func
+IsT10K = 0x51a0a8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/ee/findfp.c
+///////////////////////////////////////////////////////////////////
+std = 0x51b3a8; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/ee/refill.c
+///////////////////////////////////////////////////////////////////
+lflush = 0x51bd90; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/ee/vfprintf.c
+///////////////////////////////////////////////////////////////////
+_vfwrite = 0x51ef40; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/ee/vfiprintf.c
+///////////////////////////////////////////////////////////////////
+_vfwrite = 0x520310; // type:func allow_duplicated:true
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/ee/mallocr.c
+///////////////////////////////////////////////////////////////////
+malloc_extend_top = 0x523f00; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/dp-bit.c
+///////////////////////////////////////////////////////////////////
+_fpadd_parts = 0x52feb0; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/_eh.c
+///////////////////////////////////////////////////////////////////
+new_eh_context = 0x531440; // type:func
+eh_context_initialize = 0x5314e8; // type:func
+eh_context_static = 0x531510; // type:func
+old_find_exception_handler = 0x531888; // type:func
+find_exception_handler = 0x531960; // type:func
+get_reg_addr = 0x531aa8; // type:func
+copy_reg = 0x531b30; // type:func
+next_stack_level = 0x531bb0; // type:func
+throw_helper = 0x531c48; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/bware/sce/ee/gcc/frame.c
+///////////////////////////////////////////////////////////////////
+decode_uleb128 = 0x532a98; // type:func
+decode_sleb128 = 0x532ae0; // type:func
+fde_merge = 0x532b30; // type:func
+end_fde_sort = 0x532c30; // type:func
+count_fdes = 0x532e98; // type:func
+add_fdes = 0x532ee0; // type:func
+frame_init = 0x532f68; // type:func
+find_fde = 0x5330a8; // type:func
+extract_cie_info = 0x533190; // type:func
+execute_cfa_insn = 0x533298; // type:func
+fde_split = 0x5338a8; // type:func
+///////////////////////////////////////////////////////////////////
+// Packages/eathread/1.1.0/source/eathread_thread.cpp
+///////////////////////////////////////////////////////////////////
+__static_initialization_and_destruction_0 = 0x534c90; // type:func allow_duplicated:true
+IsClutType__Q29RealShape15TexelTypeHelperQ29RealShape9TexelType = 0x534d20; // type:func
+GetDepth__Q29RealShape15TexelTypeHelperQ29RealShape9TexelType = 0x534d40; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zOnline.cpp
+///////////////////////////////////////////////////////////////////
+__tcf_0 = 0x5979c8; // type:func allow_duplicated:true
+__tcf_1 = 0x598f70; // type:func allow_duplicated:true
+_LoginSubmitCallback__FP14LobbyLoginRefT18LobbyLoginContextE17LobbyLoginStatusEPv = 0x599510; // type:func
+__tcf_2 = 0x599b38; // type:func allow_duplicated:true
+__tcf_3 = 0x59b2d0; // type:func allow_duplicated:true
+__tcf_4 = 0x59bf10; // type:func allow_duplicated:true
+__tcf_5 = 0x59dd88; // type:func
+__tcf_6 = 0x59f0a0; // type:func
+__tcf_7 = 0x5a1f88; // type:func
+__tcf_8 = 0x5a6038; // type:func
+__tcf_9 = 0x5a7f98; // type:func
+__tcf_10 = 0x5a8138; // type:func
+__tcf_11 = 0x5a9358; // type:func
+__tcf_12 = 0x5ab5a0; // type:func
+__tcf_13 = 0x5ab670; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/Indep/SourceLists/zFeOverlay.cpp
+///////////////////////////////////////////////////////////////////
+FindScreenInfo__FPCci = 0x5b40c0; // type:func
+FindGarageEntryCameraInfo__Fv = 0x5b4550; // type:func
+FindGarageFinalCameraInfo__Fv = 0x5b4570; // type:func
+HaveAttributesChanged__FRQ36Attrib3Gen8frontend = 0x5b4670; // type:func
+__tcf_0 = 0x5b67f8; // type:func allow_duplicated:true
+_SetQRMode__Fi = 0x5b7920; // type:func
+
+// Rutinas de asm escrito a mano que la .symtab de la A124 declara OBJECT/NOTYPE (globales, tamano 0) y splat
+// ya trocea como funcion (scripts/nombra_symtab.py).
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/Runtime/superbenderasm.s
+///////////////////////////////////////////////////////////////////
+NetMonitorSyscall = 0x47cbe0; // type:func
+MySyscallExceptionHandler = 0x47cc10; // type:func
+PolitelyServiceMonitor = 0x47ce94; // type:func
+SaveMultiplyRegisters = 0x47cfc4; // type:func
+RestoreMultiplyRegisters = 0x47cfdc; // type:func
+WritebackDCache = 0x47cff4; // type:func
+InvalidateICache = 0x47d024; // type:func
+///////////////////////////////////////////////////////////////////
+// Speed/PSX2/Runtime/bmiscasm.s
+///////////////////////////////////////////////////////////////////
+DoMonitorSyscall = 0x47d068; // type:func
+bDoWithStack = 0x47d08c; // type:func
+bGetStackPointer = 0x47d0c0; // type:func
+// Huecos sin funcion entre funciones (scripts/relleno_ps2.py): no hay nada que decompilar.
+pad_01_0049E3D0_text = 0x49e3d0; // type:func
+pad_01_0049E470_text = 0x49e470; // type:func
+pad_01_0049E5D8_text = 0x49e5d8; // type:func
+pad_01_0049E640_text = 0x49e640; // type:func
+pad_01_0049E670_text = 0x49e670; // type:func
+pad_01_0049E6A0_text = 0x49e6a0; // type:func
+pad_01_0049E880_text = 0x49e880; // type:func
+pad_01_0049F0A0_text = 0x49f0a0; // type:func
+pad_01_0049F0E8_text = 0x49f0e8; // type:func
+pad_01_0049F148_text = 0x49f148; // type:func
+pad_01_0049F8A8_text = 0x49f8a8; // type:func
+pad_01_004A1398_text = 0x4a1398; // type:func
+pad_01_004A4148_text = 0x4a4148; // type:func
+pad_01_004A4298_text = 0x4a4298; // type:func
+pad_01_004A5B50_text = 0x4a5b50; // type:func
+pad_01_004A5E00_text = 0x4a5e00; // type:func
+pad_01_004A6070_text = 0x4a6070; // type:func
+pad_01_004A74B8_text = 0x4a74b8; // type:func
+pad_01_004AEA18_text = 0x4aea18; // type:func
+pad_01_004AED78_text = 0x4aed78; // type:func
+pad_01_004AF178_text = 0x4af178; // type:func
+// Huecos sin funcion entre funciones (scripts/relleno_ps2.py): no hay nada que decompilar.
+pad_01_0010AC98_text = 0x10ac98; // type:func
+pad_01_00112048_text = 0x112048; // type:func
+pad_01_00116130_text = 0x116130; // type:func
+pad_01_00117658_text = 0x117658; // type:func
+pad_01_00122360_text = 0x122360; // type:func
+pad_01_00126DE8_text = 0x126de8; // type:func
+pad_01_00127288_text = 0x127288; // type:func
+pad_01_001279C0_text = 0x1279c0; // type:func
+pad_01_00135D10_text = 0x135d10; // type:func
+pad_01_0013E2B0_text = 0x13e2b0; // type:func
+pad_01_00140100_text = 0x140100; // type:func
+pad_01_00140C18_text = 0x140c18; // type:func
+pad_01_00140CA8_text = 0x140ca8; // type:func
+pad_01_00141CC8_text = 0x141cc8; // type:func
+pad_01_00142260_text = 0x142260; // type:func
+pad_01_00142480_text = 0x142480; // type:func
+pad_01_001449A8_text = 0x1449a8; // type:func
+pad_01_00144C98_text = 0x144c98; // type:func
+pad_01_00145978_text = 0x145978; // type:func
+pad_01_001459C0_text = 0x1459c0; // type:func
+pad_01_00145AA0_text = 0x145aa0; // type:func
+pad_01_00145C80_text = 0x145c80; // type:func
+pad_01_00145D80_text = 0x145d80; // type:func
+pad_01_00146038_text = 0x146038; // type:func
+pad_01_001465C0_text = 0x1465c0; // type:func
+pad_01_00146CB0_text = 0x146cb0; // type:func
+pad_01_001472D0_text = 0x1472d0; // type:func
+pad_01_00147548_text = 0x147548; // type:func
+pad_01_001475B8_text = 0x1475b8; // type:func
+pad_01_00147628_text = 0x147628; // type:func
+pad_01_00147D78_text = 0x147d78; // type:func
+pad_01_001486D0_text = 0x1486d0; // type:func
+pad_01_00148908_text = 0x148908; // type:func
+pad_01_00149048_text = 0x149048; // type:func
+pad_01_00149060_text = 0x149060; // type:func
+pad_01_00149128_text = 0x149128; // type:func
+pad_01_001493F0_text = 0x1493f0; // type:func
+pad_01_00149780_text = 0x149780; // type:func
+pad_01_00149A58_text = 0x149a58; // type:func
+pad_01_00149B28_text = 0x149b28; // type:func
+pad_01_00149C58_text = 0x149c58; // type:func
+pad_01_00149FF0_text = 0x149ff0; // type:func
+pad_01_0014A548_text = 0x14a548; // type:func
+pad_01_0014AC80_text = 0x14ac80; // type:func
+pad_01_0014AD80_text = 0x14ad80; // type:func
+pad_01_0014C398_text = 0x14c398; // type:func
+pad_01_0014C830_text = 0x14c830; // type:func
+pad_01_0014C970_text = 0x14c970; // type:func
+pad_01_0014D308_text = 0x14d308; // type:func
+pad_01_0014D678_text = 0x14d678; // type:func
+pad_01_0014D980_text = 0x14d980; // type:func
+pad_01_0014DAB8_text = 0x14dab8; // type:func
+pad_01_0014DB00_text = 0x14db00; // type:func
+pad_01_0014DE90_text = 0x14de90; // type:func
+pad_01_0014E000_text = 0x14e000; // type:func
+pad_01_0014E168_text = 0x14e168; // type:func
+pad_01_0014EB58_text = 0x14eb58; // type:func
+pad_01_0014ED00_text = 0x14ed00; // type:func
+pad_01_0014F368_text = 0x14f368; // type:func
+pad_01_0014F6F8_text = 0x14f6f8; // type:func
+pad_01_0014F858_text = 0x14f858; // type:func
+pad_01_0014F880_text = 0x14f880; // type:func
+pad_01_00150138_text = 0x150138; // type:func
+pad_01_001512C8_text = 0x1512c8; // type:func
+pad_01_001518D8_text = 0x1518d8; // type:func
+pad_01_00152B20_text = 0x152b20; // type:func
+pad_01_00152F50_text = 0x152f50; // type:func
+pad_01_001538D8_text = 0x1538d8; // type:func
+pad_01_00153AA8_text = 0x153aa8; // type:func
+pad_01_00154958_text = 0x154958; // type:func
+pad_01_00155120_text = 0x155120; // type:func
+pad_01_001557D8_text = 0x1557d8; // type:func
+pad_01_001558B8_text = 0x1558b8; // type:func
+pad_01_00155A10_text = 0x155a10; // type:func
+pad_01_00155AC8_text = 0x155ac8; // type:func
+pad_01_00156778_text = 0x156778; // type:func
+pad_01_001567C0_text = 0x1567c0; // type:func
+pad_01_00156850_text = 0x156850; // type:func
+pad_01_00156918_text = 0x156918; // type:func
+pad_01_00156C40_text = 0x156c40; // type:func
+pad_01_00156E28_text = 0x156e28; // type:func
+pad_01_00156EC8_text = 0x156ec8; // type:func
+pad_01_00156F40_text = 0x156f40; // type:func
+pad_01_001579B8_text = 0x1579b8; // type:func
+pad_01_0015A450_text = 0x15a450; // type:func
+pad_01_0015A888_text = 0x15a888; // type:func
+pad_01_0015B098_text = 0x15b098; // type:func
+pad_01_0015B160_text = 0x15b160; // type:func
+pad_01_0015B408_text = 0x15b408; // type:func
+pad_01_0015BA58_text = 0x15ba58; // type:func
+pad_01_0015BAC8_text = 0x15bac8; // type:func
+pad_01_0015BAE8_text = 0x15bae8; // type:func
+pad_01_0015C510_text = 0x15c510; // type:func
+pad_01_0015C528_text = 0x15c528; // type:func
+pad_01_0015C560_text = 0x15c560; // type:func
+pad_01_0015C5D8_text = 0x15c5d8; // type:func
+pad_01_0015C728_text = 0x15c728; // type:func
+pad_01_0015CB10_text = 0x15cb10; // type:func
+pad_01_0015CC98_text = 0x15cc98; // type:func
+pad_01_0015CE40_text = 0x15ce40; // type:func
+pad_01_0015FBB0_text = 0x15fbb0; // type:func
+pad_01_0015FC58_text = 0x15fc58; // type:func
+pad_01_001601C8_text = 0x1601c8; // type:func
+pad_01_00160738_text = 0x160738; // type:func
+pad_01_00160780_text = 0x160780; // type:func
+pad_01_001615F8_text = 0x1615f8; // type:func
+pad_01_00161B28_text = 0x161b28; // type:func
+pad_01_00162910_text = 0x162910; // type:func
+pad_01_00162990_text = 0x162990; // type:func
+pad_01_00162AF0_text = 0x162af0; // type:func
+pad_01_00163750_text = 0x163750; // type:func
+pad_01_00163D38_text = 0x163d38; // type:func
+pad_01_00163D58_text = 0x163d58; // type:func
+pad_01_00163D98_text = 0x163d98; // type:func
+pad_01_00163F10_text = 0x163f10; // type:func
+pad_01_00164970_text = 0x164970; // type:func
+pad_01_00164A30_text = 0x164a30; // type:func
+pad_01_00164BF8_text = 0x164bf8; // type:func
+pad_01_00164C70_text = 0x164c70; // type:func
+pad_01_001650E0_text = 0x1650e0; // type:func
+pad_01_00165B98_text = 0x165b98; // type:func
+pad_01_00167E50_text = 0x167e50; // type:func
+pad_01_00167E80_text = 0x167e80; // type:func
+pad_01_00167EF8_text = 0x167ef8; // type:func
+pad_01_00168700_text = 0x168700; // type:func
+pad_01_00169FA0_text = 0x169fa0; // type:func
+pad_01_0016B1E8_text = 0x16b1e8; // type:func
+pad_01_001757E0_text = 0x1757e0; // type:func
+pad_01_00177978_text = 0x177978; // type:func
+pad_01_00177D70_text = 0x177d70; // type:func
+pad_01_00178160_text = 0x178160; // type:func
+pad_01_00178308_text = 0x178308; // type:func
+pad_01_001783D0_text = 0x1783d0; // type:func
+pad_01_00178470_text = 0x178470; // type:func
+pad_01_00178510_text = 0x178510; // type:func
+pad_01_001787B0_text = 0x1787b0; // type:func
+pad_01_00178C60_text = 0x178c60; // type:func
+pad_01_0017BD48_text = 0x17bd48; // type:func
+pad_01_0017DE40_text = 0x17de40; // type:func
+pad_01_0017E050_text = 0x17e050; // type:func
+pad_01_0017E098_text = 0x17e098; // type:func
+pad_01_0017E680_text = 0x17e680; // type:func
+pad_01_0017F030_text = 0x17f030; // type:func
+pad_01_0017F378_text = 0x17f378; // type:func
+pad_01_0017F5D8_text = 0x17f5d8; // type:func
+pad_01_0017F720_text = 0x17f720; // type:func
+pad_01_0017F800_text = 0x17f800; // type:func
+pad_01_00181928_text = 0x181928; // type:func
+pad_01_00181C68_text = 0x181c68; // type:func
+pad_01_00181F00_text = 0x181f00; // type:func
+pad_01_00181F88_text = 0x181f88; // type:func
+pad_01_00181FA8_text = 0x181fa8; // type:func
+pad_01_00182078_text = 0x182078; // type:func
+pad_01_001820B0_text = 0x1820b0; // type:func
+pad_01_00183150_text = 0x183150; // type:func
+pad_01_00183F30_text = 0x183f30; // type:func
+pad_01_00184568_text = 0x184568; // type:func
+pad_01_00184818_text = 0x184818; // type:func
+pad_01_00184E28_text = 0x184e28; // type:func
+pad_01_001850F8_text = 0x1850f8; // type:func
+pad_01_00185750_text = 0x185750; // type:func
+pad_01_001867C0_text = 0x1867c0; // type:func
+pad_01_001867E0_text = 0x1867e0; // type:func
+pad_01_0018D440_text = 0x18d440; // type:func
+pad_01_0018D598_text = 0x18d598; // type:func
+pad_01_0018D6F8_text = 0x18d6f8; // type:func
+pad_01_00190290_text = 0x190290; // type:func
+pad_01_001922E0_text = 0x1922e0; // type:func
+pad_01_00192678_text = 0x192678; // type:func
+pad_01_00192A10_text = 0x192a10; // type:func
+pad_01_00192BF0_text = 0x192bf0; // type:func
+pad_01_00192CA8_text = 0x192ca8; // type:func
+pad_01_00192F98_text = 0x192f98; // type:func
+pad_01_00193110_text = 0x193110; // type:func
+pad_01_00193528_text = 0x193528; // type:func
+pad_01_0019D518_text = 0x19d518; // type:func
+pad_01_0019D730_text = 0x19d730; // type:func
+pad_01_0019EBB0_text = 0x19ebb0; // type:func
+pad_01_0019F8E0_text = 0x19f8e0; // type:func
+pad_01_001A2090_text = 0x1a2090; // type:func
+pad_01_001A2230_text = 0x1a2230; // type:func
+pad_01_001A2A18_text = 0x1a2a18; // type:func
+pad_01_001A3140_text = 0x1a3140; // type:func
+pad_01_001A3A90_text = 0x1a3a90; // type:func
+pad_01_001A3B08_text = 0x1a3b08; // type:func
+pad_01_001A3F60_text = 0x1a3f60; // type:func
+pad_01_001A4188_text = 0x1a4188; // type:func
+pad_01_001A4448_text = 0x1a4448; // type:func
+pad_01_001A45F0_text = 0x1a45f0; // type:func
+pad_01_001A4818_text = 0x1a4818; // type:func
+pad_01_001A5168_text = 0x1a5168; // type:func
+pad_01_001A51B8_text = 0x1a51b8; // type:func
+pad_01_001A51F8_text = 0x1a51f8; // type:func
+pad_01_001A5238_text = 0x1a5238; // type:func
+pad_01_001A5378_text = 0x1a5378; // type:func
+pad_01_001A53D0_text = 0x1a53d0; // type:func
+pad_01_001A5440_text = 0x1a5440; // type:func
+pad_01_001A5468_text = 0x1a5468; // type:func
+pad_01_001A54A8_text = 0x1a54a8; // type:func
+pad_01_001A5A48_text = 0x1a5a48; // type:func
+pad_01_001A5A88_text = 0x1a5a88; // type:func
+pad_01_001A5AF8_text = 0x1a5af8; // type:func
+pad_01_001A5C90_text = 0x1a5c90; // type:func
+pad_01_001A5DE8_text = 0x1a5de8; // type:func
+pad_01_001A5F38_text = 0x1a5f38; // type:func
+pad_01_001A6200_text = 0x1a6200; // type:func
+pad_01_001A6248_text = 0x1a6248; // type:func
+pad_01_001A62B0_text = 0x1a62b0; // type:func
+pad_01_001A62F8_text = 0x1a62f8; // type:func
+pad_01_001A6360_text = 0x1a6360; // type:func
+pad_01_001A63E0_text = 0x1a63e0; // type:func
+pad_01_001A6448_text = 0x1a6448; // type:func
+pad_01_001A6490_text = 0x1a6490; // type:func
+pad_01_001A64F8_text = 0x1a64f8; // type:func
+pad_01_001A66F0_text = 0x1a66f0; // type:func
+pad_01_001A6788_text = 0x1a6788; // type:func
+pad_01_001A67D0_text = 0x1a67d0; // type:func
+pad_01_001A6858_text = 0x1a6858; // type:func
+pad_01_001A68A0_text = 0x1a68a0; // type:func
+pad_01_001A6930_text = 0x1a6930; // type:func
+pad_01_001A6B58_text = 0x1a6b58; // type:func
+pad_01_001A6C00_text = 0x1a6c00; // type:func
+pad_01_001A6D68_text = 0x1a6d68; // type:func
+pad_01_001A8B88_text = 0x1a8b88; // type:func
+pad_01_001A9130_text = 0x1a9130; // type:func
+pad_01_001A9170_text = 0x1a9170; // type:func
+pad_01_001AACD8_text = 0x1aacd8; // type:func
+pad_01_001AB2E8_text = 0x1ab2e8; // type:func
+pad_01_001AD290_text = 0x1ad290; // type:func
+pad_01_001ADF50_text = 0x1adf50; // type:func
+pad_01_001AEFF0_text = 0x1aeff0; // type:func
+pad_01_001AFD98_text = 0x1afd98; // type:func
+pad_01_001AFFB8_text = 0x1affb8; // type:func
+pad_01_001B02A8_text = 0x1b02a8; // type:func
+pad_01_001B0420_text = 0x1b0420; // type:func
+pad_01_001B0900_text = 0x1b0900; // type:func
+pad_01_001B0B70_text = 0x1b0b70; // type:func
+pad_01_001B0D38_text = 0x1b0d38; // type:func
+pad_01_001B5CB8_text = 0x1b5cb8; // type:func
+pad_01_001B60F0_text = 0x1b60f0; // type:func
+pad_01_001B6388_text = 0x1b6388; // type:func
+pad_01_001B8618_text = 0x1b8618; // type:func
+pad_01_001C3B08_text = 0x1c3b08; // type:func
+pad_01_001C46B8_text = 0x1c46b8; // type:func
+pad_01_001C5900_text = 0x1c5900; // type:func
+pad_01_001C8C88_text = 0x1c8c88; // type:func
+pad_01_001C8CF0_text = 0x1c8cf0; // type:func
+pad_01_001C8E80_text = 0x1c8e80; // type:func
+pad_01_001C8EF0_text = 0x1c8ef0; // type:func
+pad_01_001C8F58_text = 0x1c8f58; // type:func
+pad_01_001C8FD0_text = 0x1c8fd0; // type:func
+pad_01_001C9058_text = 0x1c9058; // type:func
+pad_01_001C9160_text = 0x1c9160; // type:func
+pad_01_001C9180_text = 0x1c9180; // type:func
+pad_01_001C9198_text = 0x1c9198; // type:func
+pad_01_001C91B0_text = 0x1c91b0; // type:func
+pad_01_001C9208_text = 0x1c9208; // type:func
+pad_01_001C9558_text = 0x1c9558; // type:func
+pad_01_001C95B8_text = 0x1c95b8; // type:func
+pad_01_001C95C8_text = 0x1c95c8; // type:func
+pad_01_001C9A18_text = 0x1c9a18; // type:func
+pad_01_001C9F58_text = 0x1c9f58; // type:func
+pad_01_001CA108_text = 0x1ca108; // type:func
+pad_01_001CA160_text = 0x1ca160; // type:func
+pad_01_001CA1B8_text = 0x1ca1b8; // type:func
+pad_01_001CA1D0_text = 0x1ca1d0; // type:func
+pad_01_001CA4A0_text = 0x1ca4a0; // type:func
+pad_01_001CA648_text = 0x1ca648; // type:func
+pad_01_001CA9A0_text = 0x1ca9a0; // type:func
+pad_01_001CA9B0_text = 0x1ca9b0; // type:func
+pad_01_001CB280_text = 0x1cb280; // type:func
+pad_01_001CC4C8_text = 0x1cc4c8; // type:func
+pad_01_001CE010_text = 0x1ce010; // type:func
+pad_01_001CE0E0_text = 0x1ce0e0; // type:func
+pad_01_001D8798_text = 0x1d8798; // type:func
+pad_01_001DBFD0_text = 0x1dbfd0; // type:func
+pad_01_001E9208_text = 0x1e9208; // type:func
+pad_01_001EA678_text = 0x1ea678; // type:func
+pad_01_001EC868_text = 0x1ec868; // type:func
+pad_01_001EDE90_text = 0x1ede90; // type:func
+pad_01_001EED20_text = 0x1eed20; // type:func
+pad_01_001EEE08_text = 0x1eee08; // type:func
+pad_01_001EF738_text = 0x1ef738; // type:func
+pad_01_001EFA48_text = 0x1efa48; // type:func
+pad_01_001F0560_text = 0x1f0560; // type:func
+pad_01_001F0800_text = 0x1f0800; // type:func
+pad_01_001F1B68_text = 0x1f1b68; // type:func
+pad_01_001F1BA8_text = 0x1f1ba8; // type:func
+pad_01_001F1D20_text = 0x1f1d20; // type:func
+pad_01_001F2378_text = 0x1f2378; // type:func
+pad_01_001F2420_text = 0x1f2420; // type:func
+pad_01_001F2438_text = 0x1f2438; // type:func
+pad_01_001F25C8_text = 0x1f25c8; // type:func
+pad_01_001F2678_text = 0x1f2678; // type:func
+pad_01_001F2698_text = 0x1f2698; // type:func
+pad_01_001F2700_text = 0x1f2700; // type:func
+pad_01_001F2710_text = 0x1f2710; // type:func
+pad_01_001F2738_text = 0x1f2738; // type:func
+pad_01_001F27A0_text = 0x1f27a0; // type:func
+pad_01_001F27C0_text = 0x1f27c0; // type:func
+pad_01_001F2820_text = 0x1f2820; // type:func
+pad_01_001F2850_text = 0x1f2850; // type:func
+pad_01_001F28C0_text = 0x1f28c0; // type:func
+pad_01_001F2948_text = 0x1f2948; // type:func
+pad_01_001F2968_text = 0x1f2968; // type:func
+pad_01_001F29C0_text = 0x1f29c0; // type:func
+pad_01_001F2A20_text = 0x1f2a20; // type:func
+pad_01_001F2AB8_text = 0x1f2ab8; // type:func
+pad_01_001F2B28_text = 0x1f2b28; // type:func
+pad_01_001F2BC8_text = 0x1f2bc8; // type:func
+pad_01_001F2C38_text = 0x1f2c38; // type:func
+pad_01_001F31C8_text = 0x1f31c8; // type:func
+pad_01_001F34B8_text = 0x1f34b8; // type:func
+pad_01_001F3528_text = 0x1f3528; // type:func
+pad_01_001F3BA8_text = 0x1f3ba8; // type:func
+pad_01_001F3C70_text = 0x1f3c70; // type:func
+pad_01_001F3D08_text = 0x1f3d08; // type:func
+pad_01_001F3D78_text = 0x1f3d78; // type:func
+pad_01_001F3DA0_text = 0x1f3da0; // type:func
+pad_01_0023CBF8_text = 0x23cbf8; // type:func
+pad_01_00241BD0_text = 0x241bd0; // type:func
+pad_01_00244340_text = 0x244340; // type:func
+pad_01_0024C718_text = 0x24c718; // type:func
+pad_01_002521A8_text = 0x2521a8; // type:func
+pad_01_00252C78_text = 0x252c78; // type:func
+pad_01_00261A18_text = 0x261a18; // type:func
+pad_01_00263B20_text = 0x263b20; // type:func
+pad_01_002673B8_text = 0x2673b8; // type:func
+pad_01_00267450_text = 0x267450; // type:func
+pad_01_002675D8_text = 0x2675d8; // type:func
+pad_01_00268430_text = 0x268430; // type:func
+pad_01_00269008_text = 0x269008; // type:func
+pad_01_0026A530_text = 0x26a530; // type:func
+pad_01_0026AB50_text = 0x26ab50; // type:func
+pad_01_0026B6F8_text = 0x26b6f8; // type:func
+pad_01_0026BF60_text = 0x26bf60; // type:func
+pad_01_0026E0E8_text = 0x26e0e8; // type:func
+pad_01_0026E1E0_text = 0x26e1e0; // type:func
+pad_01_0026E2B8_text = 0x26e2b8; // type:func
+pad_01_0026E300_text = 0x26e300; // type:func
+pad_01_0026E448_text = 0x26e448; // type:func
+pad_01_0026EAA8_text = 0x26eaa8; // type:func
+pad_01_0026EB00_text = 0x26eb00; // type:func
+pad_01_0026EB88_text = 0x26eb88; // type:func
+pad_01_0026EBC0_text = 0x26ebc0; // type:func
+pad_01_0026EC08_text = 0x26ec08; // type:func
+pad_01_0026EC80_text = 0x26ec80; // type:func
+pad_01_0026ECC0_text = 0x26ecc0; // type:func
+pad_01_0026ECE0_text = 0x26ece0; // type:func
+pad_01_0026ED20_text = 0x26ed20; // type:func
+pad_01_0026ED68_text = 0x26ed68; // type:func
+pad_01_0026ED90_text = 0x26ed90; // type:func
+pad_01_0026EDC0_text = 0x26edc0; // type:func
+pad_01_0026EE18_text = 0x26ee18; // type:func
+pad_01_0026EE58_text = 0x26ee58; // type:func
+pad_01_0026EE90_text = 0x26ee90; // type:func
+pad_01_0026EED0_text = 0x26eed0; // type:func
+pad_01_0026EEE8_text = 0x26eee8; // type:func
+pad_01_0026EF10_text = 0x26ef10; // type:func
+pad_01_0026EF28_text = 0x26ef28; // type:func
+pad_01_0026EFA0_text = 0x26efa0; // type:func
+pad_01_0026EFD0_text = 0x26efd0; // type:func
+pad_01_00274A00_text = 0x274a00; // type:func
+pad_01_002758B0_text = 0x2758b0; // type:func
+pad_01_00276B98_text = 0x276b98; // type:func
+pad_01_00276F60_text = 0x276f60; // type:func
+pad_01_00276FC0_text = 0x276fc0; // type:func
+pad_01_002777D0_text = 0x2777d0; // type:func
+pad_01_0027A748_text = 0x27a748; // type:func
+pad_01_0027B4B8_text = 0x27b4b8; // type:func
+pad_01_0027D6A0_text = 0x27d6a0; // type:func
+pad_01_0027D6D0_text = 0x27d6d0; // type:func
+pad_01_0027D8C0_text = 0x27d8c0; // type:func
+pad_01_0027ECE0_text = 0x27ece0; // type:func
+pad_01_0027F580_text = 0x27f580; // type:func
+pad_01_0027F678_text = 0x27f678; // type:func
+pad_01_00280550_text = 0x280550; // type:func
+pad_01_00281868_text = 0x281868; // type:func
+pad_01_00281B20_text = 0x281b20; // type:func
+pad_01_00282028_text = 0x282028; // type:func
+pad_01_00282048_text = 0x282048; // type:func
+pad_01_00282130_text = 0x282130; // type:func
+pad_01_002821E8_text = 0x2821e8; // type:func
+pad_01_00282388_text = 0x282388; // type:func
+pad_01_002824D8_text = 0x2824d8; // type:func
+pad_01_002824F8_text = 0x2824f8; // type:func
+pad_01_002825A8_text = 0x2825a8; // type:func
+pad_01_00282698_text = 0x282698; // type:func
+pad_01_002826B8_text = 0x2826b8; // type:func
+pad_01_00282760_text = 0x282760; // type:func
+pad_01_00282818_text = 0x282818; // type:func
+pad_01_00282B00_text = 0x282b00; // type:func
+pad_01_00283108_text = 0x283108; // type:func
+pad_01_00283240_text = 0x283240; // type:func
+pad_01_002834D0_text = 0x2834d0; // type:func
+pad_01_002836C8_text = 0x2836c8; // type:func
+pad_01_002836D8_text = 0x2836d8; // type:func
+pad_01_002836F0_text = 0x2836f0; // type:func
+pad_01_00283700_text = 0x283700; // type:func
+pad_01_00283710_text = 0x283710; // type:func
+pad_01_00283720_text = 0x283720; // type:func
+pad_01_00283730_text = 0x283730; // type:func
+pad_01_00283740_text = 0x283740; // type:func
+pad_01_00283750_text = 0x283750; // type:func
+pad_01_00283760_text = 0x283760; // type:func
+pad_01_00283770_text = 0x283770; // type:func
+pad_01_00283780_text = 0x283780; // type:func
+pad_01_00283790_text = 0x283790; // type:func
+pad_01_002837A0_text = 0x2837a0; // type:func
+pad_01_002837B0_text = 0x2837b0; // type:func
+pad_01_002837C0_text = 0x2837c0; // type:func
+pad_01_002837D0_text = 0x2837d0; // type:func
+pad_01_002837E0_text = 0x2837e0; // type:func
+pad_01_002837F0_text = 0x2837f0; // type:func
+pad_01_00283800_text = 0x283800; // type:func
+pad_01_00283810_text = 0x283810; // type:func
+pad_01_00283820_text = 0x283820; // type:func
+pad_01_00283830_text = 0x283830; // type:func
+pad_01_00283840_text = 0x283840; // type:func
+pad_01_00283850_text = 0x283850; // type:func
+pad_01_00283860_text = 0x283860; // type:func
+pad_01_00283870_text = 0x283870; // type:func
+pad_01_00283880_text = 0x283880; // type:func
+pad_01_00283890_text = 0x283890; // type:func
+pad_01_002838A0_text = 0x2838a0; // type:func
+pad_01_002838B0_text = 0x2838b0; // type:func
+pad_01_002838C0_text = 0x2838c0; // type:func
+pad_01_002838D0_text = 0x2838d0; // type:func
+pad_01_002838E0_text = 0x2838e0; // type:func
+pad_01_002838F0_text = 0x2838f0; // type:func
+pad_01_00283900_text = 0x283900; // type:func
+pad_01_00283910_text = 0x283910; // type:func
+pad_01_00283920_text = 0x283920; // type:func
+pad_01_00283930_text = 0x283930; // type:func
+pad_01_00283940_text = 0x283940; // type:func
+pad_01_00283950_text = 0x283950; // type:func
+pad_01_00283960_text = 0x283960; // type:func
+pad_01_00283970_text = 0x283970; // type:func
+pad_01_00283A20_text = 0x283a20; // type:func
+pad_01_00283AD8_text = 0x283ad8; // type:func
+pad_01_00284378_text = 0x284378; // type:func
+pad_01_002856B0_text = 0x2856b0; // type:func
+pad_01_00285848_text = 0x285848; // type:func
+pad_01_00292AD0_text = 0x292ad0; // type:func
+pad_01_00292F00_text = 0x292f00; // type:func
+pad_01_00292F60_text = 0x292f60; // type:func
+pad_01_0029A848_text = 0x29a848; // type:func
+pad_01_0029A8B0_text = 0x29a8b0; // type:func
+pad_01_0029A9F8_text = 0x29a9f8; // type:func
+pad_01_0029BB60_text = 0x29bb60; // type:func
+pad_01_0029BD20_text = 0x29bd20; // type:func
+pad_01_0029C448_text = 0x29c448; // type:func
+pad_01_0029C490_text = 0x29c490; // type:func
+pad_01_0029C4D0_text = 0x29c4d0; // type:func
+pad_01_0029D560_text = 0x29d560; // type:func
+pad_01_0029DD80_text = 0x29dd80; // type:func
+pad_01_0029E070_text = 0x29e070; // type:func
+pad_01_0029E148_text = 0x29e148; // type:func
+pad_01_0029E598_text = 0x29e598; // type:func
+pad_01_0029E760_text = 0x29e760; // type:func
+pad_01_0029FEA0_text = 0x29fea0; // type:func
+pad_01_0029FF18_text = 0x29ff18; // type:func
+pad_01_002A0778_text = 0x2a0778; // type:func
+pad_01_002A07F0_text = 0x2a07f0; // type:func
+pad_01_002A0878_text = 0x2a0878; // type:func
+pad_01_002A2D10_text = 0x2a2d10; // type:func
+pad_01_002A3408_text = 0x2a3408; // type:func
+pad_01_002A3730_text = 0x2a3730; // type:func
+pad_01_002A3CE8_text = 0x2a3ce8; // type:func
+pad_01_002A3F58_text = 0x2a3f58; // type:func
+pad_01_002A5EE0_text = 0x2a5ee0; // type:func
+pad_01_002A5F08_text = 0x2a5f08; // type:func
+pad_01_002A5F90_text = 0x2a5f90; // type:func
+pad_01_002A69D0_text = 0x2a69d0; // type:func
+pad_01_002A6B50_text = 0x2a6b50; // type:func
+pad_01_002A6BA8_text = 0x2a6ba8; // type:func
+pad_01_002A6C00_text = 0x2a6c00; // type:func
+pad_01_002A6C58_text = 0x2a6c58; // type:func
+pad_01_002A6CF0_text = 0x2a6cf0; // type:func
+pad_01_002A7718_text = 0x2a7718; // type:func
+pad_01_002A9378_text = 0x2a9378; // type:func
+pad_01_002A9C28_text = 0x2a9c28; // type:func
+pad_01_002AA2D0_text = 0x2aa2d0; // type:func
+pad_01_002AD990_text = 0x2ad990; // type:func
+pad_01_002ADC48_text = 0x2adc48; // type:func
+pad_01_002ADE48_text = 0x2ade48; // type:func
+pad_01_002ADE70_text = 0x2ade70; // type:func
+pad_01_002AE098_text = 0x2ae098; // type:func
+pad_01_002AF960_text = 0x2af960; // type:func
+pad_01_002AFDE0_text = 0x2afde0; // type:func
+pad_01_002B05C8_text = 0x2b05c8; // type:func
+pad_01_002B3518_text = 0x2b3518; // type:func
+pad_01_002B3840_text = 0x2b3840; // type:func
+pad_01_002B39A0_text = 0x2b39a0; // type:func
+pad_01_002B3A10_text = 0x2b3a10; // type:func
+pad_01_002B3F98_text = 0x2b3f98; // type:func
+pad_01_002B4708_text = 0x2b4708; // type:func
+pad_01_002B47B8_text = 0x2b47b8; // type:func
+pad_01_002B48B0_text = 0x2b48b0; // type:func
+pad_01_002B4940_text = 0x2b4940; // type:func
+pad_01_002B5458_text = 0x2b5458; // type:func
+pad_01_002B6628_text = 0x2b6628; // type:func
+pad_01_002B7028_text = 0x2b7028; // type:func
+pad_01_002B7338_text = 0x2b7338; // type:func
+pad_01_002B86D8_text = 0x2b86d8; // type:func
+pad_01_002BBD60_text = 0x2bbd60; // type:func
+pad_01_002BBF18_text = 0x2bbf18; // type:func
+pad_01_002BEDD0_text = 0x2bedd0; // type:func
+pad_01_002BF210_text = 0x2bf210; // type:func
+pad_01_002BFE18_text = 0x2bfe18; // type:func
+pad_01_002BFF70_text = 0x2bff70; // type:func
+pad_01_002C0C68_text = 0x2c0c68; // type:func
+pad_01_002C0FD0_text = 0x2c0fd0; // type:func
+pad_01_002C1048_text = 0x2c1048; // type:func
+pad_01_002C1128_text = 0x2c1128; // type:func
+pad_01_002C1210_text = 0x2c1210; // type:func
+pad_01_002C1280_text = 0x2c1280; // type:func
+pad_01_002C12B8_text = 0x2c12b8; // type:func
+pad_01_002C14C0_text = 0x2c14c0; // type:func
+pad_01_002C14E8_text = 0x2c14e8; // type:func
+pad_01_002C1570_text = 0x2c1570; // type:func
+pad_01_002C1700_text = 0x2c1700; // type:func
+pad_01_002C1750_text = 0x2c1750; // type:func
+pad_01_002C1980_text = 0x2c1980; // type:func
+pad_01_002C1A58_text = 0x2c1a58; // type:func
+pad_01_002C1D48_text = 0x2c1d48; // type:func
+pad_01_002C2410_text = 0x2c2410; // type:func
+pad_01_002C2AF8_text = 0x2c2af8; // type:func
+pad_01_002C2BC0_text = 0x2c2bc0; // type:func
+pad_01_002C2C20_text = 0x2c2c20; // type:func
+pad_01_002C2D50_text = 0x2c2d50; // type:func
+pad_01_002C2D80_text = 0x2c2d80; // type:func
+pad_01_002C2F68_text = 0x2c2f68; // type:func
+pad_01_002C2FF8_text = 0x2c2ff8; // type:func
+pad_01_002C3070_text = 0x2c3070; // type:func
+pad_01_002C30C8_text = 0x2c30c8; // type:func
+pad_01_002C3120_text = 0x2c3120; // type:func
+pad_01_002C3278_text = 0x2c3278; // type:func
+pad_01_002C3390_text = 0x2c3390; // type:func
+pad_01_002C33B0_text = 0x2c33b0; // type:func
+pad_01_002C3478_text = 0x2c3478; // type:func
+pad_01_002C3508_text = 0x2c3508; // type:func
+pad_01_002C3548_text = 0x2c3548; // type:func
+pad_01_002C3698_text = 0x2c3698; // type:func
+pad_01_002C3758_text = 0x2c3758; // type:func
+pad_01_002C3928_text = 0x2c3928; // type:func
+pad_01_002C3998_text = 0x2c3998; // type:func
+pad_01_002C3F08_text = 0x2c3f08; // type:func
+pad_01_002C3F20_text = 0x2c3f20; // type:func
+pad_01_002C3F60_text = 0x2c3f60; // type:func
+pad_01_002C3F80_text = 0x2c3f80; // type:func
+pad_01_002C4030_text = 0x2c4030; // type:func
+pad_01_002C4050_text = 0x2c4050; // type:func
+pad_01_002C40B0_text = 0x2c40b0; // type:func
+pad_01_002C44A0_text = 0x2c44a0; // type:func
+pad_01_002C4ED8_text = 0x2c4ed8; // type:func
+pad_01_002C5158_text = 0x2c5158; // type:func
+pad_01_002C5248_text = 0x2c5248; // type:func
+pad_01_002C64F8_text = 0x2c64f8; // type:func
+pad_01_002C6668_text = 0x2c6668; // type:func
+pad_01_002C6730_text = 0x2c6730; // type:func
+pad_01_002C67C0_text = 0x2c67c0; // type:func
+pad_01_002C7C18_text = 0x2c7c18; // type:func
+pad_01_002C8768_text = 0x2c8768; // type:func
+pad_01_002C8A38_text = 0x2c8a38; // type:func
+pad_01_002C8B28_text = 0x2c8b28; // type:func
+pad_01_002C8BF8_text = 0x2c8bf8; // type:func
+pad_01_002C8D88_text = 0x2c8d88; // type:func
+pad_01_002C8E08_text = 0x2c8e08; // type:func
+pad_01_002C8E70_text = 0x2c8e70; // type:func
+pad_01_002C9598_text = 0x2c9598; // type:func
+pad_01_002C9FE8_text = 0x2c9fe8; // type:func
+pad_01_002CA5A0_text = 0x2ca5a0; // type:func
+pad_01_002CABE0_text = 0x2cabe0; // type:func
+pad_01_002CB300_text = 0x2cb300; // type:func
+pad_01_002CB990_text = 0x2cb990; // type:func
+pad_01_002CBA48_text = 0x2cba48; // type:func
+pad_01_002CE510_text = 0x2ce510; // type:func
+pad_01_002CE5B0_text = 0x2ce5b0; // type:func
+pad_01_002CE7D8_text = 0x2ce7d8; // type:func
+pad_01_002CE8D8_text = 0x2ce8d8; // type:func
+pad_01_002D0180_text = 0x2d0180; // type:func
+pad_01_002D0FF0_text = 0x2d0ff0; // type:func
+pad_01_002D1248_text = 0x2d1248; // type:func
+pad_01_002D16B8_text = 0x2d16b8; // type:func
+pad_01_002D17B0_text = 0x2d17b0; // type:func
+pad_01_002D1800_text = 0x2d1800; // type:func
+pad_01_002D3F18_text = 0x2d3f18; // type:func
+pad_01_002D3FC8_text = 0x2d3fc8; // type:func
+pad_01_002D4608_text = 0x2d4608; // type:func
+pad_01_002D4828_text = 0x2d4828; // type:func
+pad_01_002D5950_text = 0x2d5950; // type:func
+pad_01_002D5A70_text = 0x2d5a70; // type:func
+pad_01_002D5EA8_text = 0x2d5ea8; // type:func
+pad_01_002D5F50_text = 0x2d5f50; // type:func
+pad_01_002D6010_text = 0x2d6010; // type:func
+pad_01_002D6108_text = 0x2d6108; // type:func
+pad_01_002D6148_text = 0x2d6148; // type:func
+pad_01_002D6FE8_text = 0x2d6fe8; // type:func
+pad_01_002D70C8_text = 0x2d70c8; // type:func
+pad_01_002D7240_text = 0x2d7240; // type:func
+pad_01_002D7290_text = 0x2d7290; // type:func
+pad_01_002D72D8_text = 0x2d72d8; // type:func
+pad_01_002D73C0_text = 0x2d73c0; // type:func
+pad_01_002D73D0_text = 0x2d73d0; // type:func
+pad_01_002D73E8_text = 0x2d73e8; // type:func
+pad_01_002D74B8_text = 0x2d74b8; // type:func
+pad_01_002D79B8_text = 0x2d79b8; // type:func
+pad_01_002D7A78_text = 0x2d7a78; // type:func
+pad_01_002D7AE0_text = 0x2d7ae0; // type:func
+pad_01_002D7B70_text = 0x2d7b70; // type:func
+pad_01_002D80D8_text = 0x2d80d8; // type:func
+pad_01_002D8358_text = 0x2d8358; // type:func
+pad_01_002D8450_text = 0x2d8450; // type:func
+pad_01_002D8510_text = 0x2d8510; // type:func
+pad_01_002D8790_text = 0x2d8790; // type:func
+pad_01_002D88D0_text = 0x2d88d0; // type:func
+pad_01_002D8AE8_text = 0x2d8ae8; // type:func
+pad_01_002D8B68_text = 0x2d8b68; // type:func
+pad_01_002D8E68_text = 0x2d8e68; // type:func
+pad_01_002D8F10_text = 0x2d8f10; // type:func
+pad_01_002D9110_text = 0x2d9110; // type:func
+pad_01_002D9350_text = 0x2d9350; // type:func
+pad_01_002D9428_text = 0x2d9428; // type:func
+pad_01_002D96F0_text = 0x2d96f0; // type:func
+pad_01_002D99A8_text = 0x2d99a8; // type:func
+pad_01_002D9BA8_text = 0x2d9ba8; // type:func
+pad_01_002D9C40_text = 0x2d9c40; // type:func
+pad_01_002DA720_text = 0x2da720; // type:func
+pad_01_002DA8C8_text = 0x2da8c8; // type:func
+pad_01_002DA8E0_text = 0x2da8e0; // type:func
+pad_01_002DAA30_text = 0x2daa30; // type:func
+pad_01_002DAAB0_text = 0x2daab0; // type:func
+pad_01_002DAB98_text = 0x2dab98; // type:func
+pad_01_002DBA80_text = 0x2dba80; // type:func
+pad_01_002DBD80_text = 0x2dbd80; // type:func
+pad_01_002DC528_text = 0x2dc528; // type:func
+pad_01_002DD2F8_text = 0x2dd2f8; // type:func
+pad_01_002DD368_text = 0x2dd368; // type:func
+pad_01_002DD6A0_text = 0x2dd6a0; // type:func
+pad_01_002DD858_text = 0x2dd858; // type:func
+pad_01_002DEC18_text = 0x2dec18; // type:func
+pad_01_002DF0E8_text = 0x2df0e8; // type:func
+pad_01_002DF118_text = 0x2df118; // type:func
+pad_01_002DF188_text = 0x2df188; // type:func
+pad_01_002DF568_text = 0x2df568; // type:func
+pad_01_002DF608_text = 0x2df608; // type:func
+pad_01_002DF660_text = 0x2df660; // type:func
+pad_01_002DF690_text = 0x2df690; // type:func
+pad_01_002DF878_text = 0x2df878; // type:func
+pad_01_002DF8C0_text = 0x2df8c0; // type:func
+pad_01_002DF948_text = 0x2df948; // type:func
+pad_01_002DF980_text = 0x2df980; // type:func
+pad_01_002DFA50_text = 0x2dfa50; // type:func
+pad_01_002E0060_text = 0x2e0060; // type:func
+pad_01_002E18A0_text = 0x2e18a0; // type:func
+pad_01_002E2580_text = 0x2e2580; // type:func
+pad_01_002E7638_text = 0x2e7638; // type:func
+pad_01_002E77A8_text = 0x2e77a8; // type:func
+pad_01_002E8738_text = 0x2e8738; // type:func
+pad_01_002E8C60_text = 0x2e8c60; // type:func
+pad_01_002E9878_text = 0x2e9878; // type:func
+pad_01_002EA720_text = 0x2ea720; // type:func
+pad_01_002EA7C8_text = 0x2ea7c8; // type:func
+pad_01_002EA820_text = 0x2ea820; // type:func
+pad_01_002EAA08_text = 0x2eaa08; // type:func
+pad_01_002EADA0_text = 0x2eada0; // type:func
+pad_01_002EAE18_text = 0x2eae18; // type:func
+pad_01_002EBFC0_text = 0x2ebfc0; // type:func
+pad_01_002EC9E8_text = 0x2ec9e8; // type:func
+pad_01_002ED420_text = 0x2ed420; // type:func
+pad_01_002ED588_text = 0x2ed588; // type:func
+pad_01_002ED8D0_text = 0x2ed8d0; // type:func
+pad_01_002EDA08_text = 0x2eda08; // type:func
+pad_01_002F2F20_text = 0x2f2f20; // type:func
+pad_01_002F4768_text = 0x2f4768; // type:func
+pad_01_002F6570_text = 0x2f6570; // type:func
+pad_01_002F6798_text = 0x2f6798; // type:func
+pad_01_002F9480_text = 0x2f9480; // type:func
+pad_01_002F9E48_text = 0x2f9e48; // type:func
+pad_01_002FA6A0_text = 0x2fa6a0; // type:func
+pad_01_002FA860_text = 0x2fa860; // type:func
+pad_01_002FB318_text = 0x2fb318; // type:func
+pad_01_002FB3C8_text = 0x2fb3c8; // type:func
+pad_01_002FCA80_text = 0x2fca80; // type:func
+pad_01_002FCD98_text = 0x2fcd98; // type:func
+pad_01_00301A68_text = 0x301a68; // type:func
+pad_01_00301B50_text = 0x301b50; // type:func
+pad_01_00301C98_text = 0x301c98; // type:func
+pad_01_00302118_text = 0x302118; // type:func
+pad_01_003024F8_text = 0x3024f8; // type:func
+pad_01_00302618_text = 0x302618; // type:func
+pad_01_00302668_text = 0x302668; // type:func
+pad_01_003028D8_text = 0x3028d8; // type:func
+pad_01_00302940_text = 0x302940; // type:func
+pad_01_00302970_text = 0x302970; // type:func
+pad_01_00302C30_text = 0x302c30; // type:func
+pad_01_00302C98_text = 0x302c98; // type:func
+pad_01_00302D08_text = 0x302d08; // type:func
+pad_01_00302F00_text = 0x302f00; // type:func
+pad_01_00302FD0_text = 0x302fd0; // type:func
+pad_01_003036F0_text = 0x3036f0; // type:func
+pad_01_0030A460_text = 0x30a460; // type:func
+pad_01_0030CDD0_text = 0x30cdd0; // type:func
+pad_01_0030CF28_text = 0x30cf28; // type:func
+pad_01_0030CF40_text = 0x30cf40; // type:func
+pad_01_0030D0B8_text = 0x30d0b8; // type:func
+pad_01_0030D148_text = 0x30d148; // type:func
+pad_01_0030D270_text = 0x30d270; // type:func
+pad_01_0030D328_text = 0x30d328; // type:func
+pad_01_0030D990_text = 0x30d990; // type:func
+pad_01_0030DAD0_text = 0x30dad0; // type:func
+pad_01_0030DC30_text = 0x30dc30; // type:func
+pad_01_0030DD40_text = 0x30dd40; // type:func
+pad_01_0030DE20_text = 0x30de20; // type:func
+pad_01_0030FA38_text = 0x30fa38; // type:func
+pad_01_0030FC70_text = 0x30fc70; // type:func
+pad_01_0030FF60_text = 0x30ff60; // type:func
+pad_01_00310010_text = 0x310010; // type:func
+pad_01_00310C10_text = 0x310c10; // type:func
+pad_01_00311B28_text = 0x311b28; // type:func
+pad_01_00315100_text = 0x315100; // type:func
+pad_01_00315380_text = 0x315380; // type:func
+pad_01_003154E8_text = 0x3154e8; // type:func
+pad_01_00315600_text = 0x315600; // type:func
+pad_01_00315818_text = 0x315818; // type:func
+pad_01_00316010_text = 0x316010; // type:func
+pad_01_00316A00_text = 0x316a00; // type:func
+pad_01_003197F0_text = 0x3197f0; // type:func
+pad_01_00319A78_text = 0x319a78; // type:func
+pad_01_00319B70_text = 0x319b70; // type:func
+pad_01_0031A440_text = 0x31a440; // type:func
+pad_01_0031A538_text = 0x31a538; // type:func
+pad_01_0031A738_text = 0x31a738; // type:func
+pad_01_0031A848_text = 0x31a848; // type:func
+pad_01_0031ACE8_text = 0x31ace8; // type:func
+pad_01_003312A8_text = 0x3312a8; // type:func
+pad_01_003313E8_text = 0x3313e8; // type:func
+pad_01_003314D8_text = 0x3314d8; // type:func
+pad_01_00331C68_text = 0x331c68; // type:func
+pad_01_003328E0_text = 0x3328e0; // type:func
+pad_01_00332CB8_text = 0x332cb8; // type:func
+pad_01_00332FE8_text = 0x332fe8; // type:func
+pad_01_00333118_text = 0x333118; // type:func
+pad_01_00333468_text = 0x333468; // type:func
+pad_01_00333BB8_text = 0x333bb8; // type:func
+pad_01_00334438_text = 0x334438; // type:func
+pad_01_00335B08_text = 0x335b08; // type:func
+pad_01_00336170_text = 0x336170; // type:func
+pad_01_00336450_text = 0x336450; // type:func
+pad_01_00336620_text = 0x336620; // type:func
+pad_01_0033A2F0_text = 0x33a2f0; // type:func
+pad_01_0033A558_text = 0x33a558; // type:func
+pad_01_0033B9D8_text = 0x33b9d8; // type:func
+pad_01_0033C400_text = 0x33c400; // type:func
+pad_01_0033C4C0_text = 0x33c4c0; // type:func
+pad_01_0033C548_text = 0x33c548; // type:func
+pad_01_0033DF58_text = 0x33df58; // type:func
+pad_01_0033E0A8_text = 0x33e0a8; // type:func
+pad_01_0033E1F8_text = 0x33e1f8; // type:func
+pad_01_0033E348_text = 0x33e348; // type:func
+pad_01_0033E498_text = 0x33e498; // type:func
+pad_01_0033E5E8_text = 0x33e5e8; // type:func
+pad_01_0033EAA8_text = 0x33eaa8; // type:func
+pad_01_0033EBF8_text = 0x33ebf8; // type:func
+pad_01_0033ED48_text = 0x33ed48; // type:func
+pad_01_0033F208_text = 0x33f208; // type:func
+pad_01_0033F510_text = 0x33f510; // type:func
+pad_01_0033F660_text = 0x33f660; // type:func
+pad_01_0033F7B0_text = 0x33f7b0; // type:func
+pad_01_0033F900_text = 0x33f900; // type:func
+pad_01_0033FDC0_text = 0x33fdc0; // type:func
+pad_01_0033FF10_text = 0x33ff10; // type:func
+pad_01_00340060_text = 0x340060; // type:func
+pad_01_003401B0_text = 0x3401b0; // type:func
+pad_01_00340300_text = 0x340300; // type:func
+pad_01_00340450_text = 0x340450; // type:func
+pad_01_003405A0_text = 0x3405a0; // type:func
+pad_01_003408A8_text = 0x3408a8; // type:func
+pad_01_003409F8_text = 0x3409f8; // type:func
+pad_01_00340B48_text = 0x340b48; // type:func
+pad_01_00340C98_text = 0x340c98; // type:func
+pad_01_00340DE8_text = 0x340de8; // type:func
+pad_01_00340F38_text = 0x340f38; // type:func
+pad_01_00341240_text = 0x341240; // type:func
+pad_01_00341390_text = 0x341390; // type:func
+pad_01_003414E0_text = 0x3414e0; // type:func
+pad_01_00341630_text = 0x341630; // type:func
+pad_01_00341780_text = 0x341780; // type:func
+pad_01_003418D0_text = 0x3418d0; // type:func
+pad_01_00341A20_text = 0x341a20; // type:func
+pad_01_00341D28_text = 0x341d28; // type:func
+pad_01_00341E78_text = 0x341e78; // type:func
+pad_01_00341FC8_text = 0x341fc8; // type:func
+pad_01_00342118_text = 0x342118; // type:func
+pad_01_00342268_text = 0x342268; // type:func
+pad_01_003423B8_text = 0x3423b8; // type:func
+pad_01_00342508_text = 0x342508; // type:func
+pad_01_00342658_text = 0x342658; // type:func
+pad_01_00342960_text = 0x342960; // type:func
+pad_01_00342E18_text = 0x342e18; // type:func
+pad_01_00342FD8_text = 0x342fd8; // type:func
+pad_01_00343128_text = 0x343128; // type:func
+pad_01_00343288_text = 0x343288; // type:func
+pad_01_003432B8_text = 0x3432b8; // type:func
+pad_01_003436E8_text = 0x3436e8; // type:func
+pad_01_003439C0_text = 0x3439c0; // type:func
+pad_01_00343A00_text = 0x343a00; // type:func
+pad_01_00343B80_text = 0x343b80; // type:func
+pad_01_00343CD0_text = 0x343cd0; // type:func
+pad_01_00343D00_text = 0x343d00; // type:func
+pad_01_00343E00_text = 0x343e00; // type:func
+pad_01_00343E18_text = 0x343e18; // type:func
+pad_01_00343E68_text = 0x343e68; // type:func
+pad_01_00343EA8_text = 0x343ea8; // type:func
+pad_01_00343F78_text = 0x343f78; // type:func
+pad_01_00343FD8_text = 0x343fd8; // type:func
+pad_01_00345E10_text = 0x345e10; // type:func
+pad_01_00346138_text = 0x346138; // type:func
+pad_01_003462D8_text = 0x3462d8; // type:func
+pad_01_00346410_text = 0x346410; // type:func
+pad_01_00346640_text = 0x346640; // type:func
+pad_01_00346870_text = 0x346870; // type:func
+pad_01_00348FC8_text = 0x348fc8; // type:func
+pad_01_003493C0_text = 0x3493c0; // type:func
+pad_01_003494B8_text = 0x3494b8; // type:func
+pad_01_003496E8_text = 0x3496e8; // type:func
+pad_01_00349728_text = 0x349728; // type:func
+pad_01_0034B030_text = 0x34b030; // type:func
+pad_01_0034B720_text = 0x34b720; // type:func
+pad_01_0034EB10_text = 0x34eb10; // type:func
+pad_01_00350390_text = 0x350390; // type:func
+pad_01_003503B8_text = 0x3503b8; // type:func
+pad_01_00352380_text = 0x352380; // type:func
+pad_01_003524A8_text = 0x3524a8; // type:func
+pad_01_00352650_text = 0x352650; // type:func
+pad_01_003526E0_text = 0x3526e0; // type:func
+pad_01_003528F8_text = 0x3528f8; // type:func
+pad_01_00352C18_text = 0x352c18; // type:func
+pad_01_003533F0_text = 0x3533f0; // type:func
+pad_01_00353CD8_text = 0x353cd8; // type:func
+pad_01_00354000_text = 0x354000; // type:func
+pad_01_00354D48_text = 0x354d48; // type:func
+pad_01_00354E08_text = 0x354e08; // type:func
+pad_01_00355850_text = 0x355850; // type:func
+pad_01_00356230_text = 0x356230; // type:func
+pad_01_00356420_text = 0x356420; // type:func
+pad_01_00356668_text = 0x356668; // type:func
+pad_01_0035B0A0_text = 0x35b0a0; // type:func
+pad_01_0035B110_text = 0x35b110; // type:func
+pad_01_0035B310_text = 0x35b310; // type:func
+pad_01_0035B738_text = 0x35b738; // type:func
+pad_01_0035B760_text = 0x35b760; // type:func
+pad_01_0035B8D0_text = 0x35b8d0; // type:func
+pad_01_0035B900_text = 0x35b900; // type:func
+pad_01_0035B928_text = 0x35b928; // type:func
+pad_01_0035BB38_text = 0x35bb38; // type:func
+pad_01_0035BBC8_text = 0x35bbc8; // type:func
+pad_01_0035BC28_text = 0x35bc28; // type:func
+pad_01_0035C170_text = 0x35c170; // type:func
+pad_01_0035D3D0_text = 0x35d3d0; // type:func
+pad_01_0035D430_text = 0x35d430; // type:func
+pad_01_0035E018_text = 0x35e018; // type:func
+pad_01_0035E098_text = 0x35e098; // type:func
+pad_01_0035E128_text = 0x35e128; // type:func
+pad_01_0035E258_text = 0x35e258; // type:func
+pad_01_00360238_text = 0x360238; // type:func
+pad_01_003603A8_text = 0x3603a8; // type:func
+pad_01_00360E40_text = 0x360e40; // type:func
+pad_01_00361D68_text = 0x361d68; // type:func
+pad_01_00362700_text = 0x362700; // type:func
+pad_01_00362970_text = 0x362970; // type:func
+pad_01_00362A90_text = 0x362a90; // type:func
+pad_01_00362C30_text = 0x362c30; // type:func
+pad_01_00362C60_text = 0x362c60; // type:func
+pad_01_00362F20_text = 0x362f20; // type:func
+pad_01_003630B0_text = 0x3630b0; // type:func
+pad_01_003630E0_text = 0x3630e0; // type:func
+pad_01_003631E0_text = 0x3631e0; // type:func
+pad_01_00371A60_text = 0x371a60; // type:func
+pad_01_00376FB0_text = 0x376fb0; // type:func
+pad_01_00378A98_text = 0x378a98; // type:func
+pad_01_00378B38_text = 0x378b38; // type:func
+pad_01_0037B120_text = 0x37b120; // type:func
+pad_01_0037B398_text = 0x37b398; // type:func
+pad_01_0037B508_text = 0x37b508; // type:func
+pad_01_0037B5B0_text = 0x37b5b0; // type:func
+pad_01_0037E9A8_text = 0x37e9a8; // type:func
+pad_01_0037EC50_text = 0x37ec50; // type:func
+pad_01_0037F090_text = 0x37f090; // type:func
+pad_01_00382598_text = 0x382598; // type:func
+pad_01_00382700_text = 0x382700; // type:func
+pad_01_00382D30_text = 0x382d30; // type:func
+pad_01_00382E38_text = 0x382e38; // type:func
+pad_01_003835D8_text = 0x3835d8; // type:func
+pad_01_00383D18_text = 0x383d18; // type:func
+pad_01_00384138_text = 0x384138; // type:func
+pad_01_00384270_text = 0x384270; // type:func
+pad_01_00384348_text = 0x384348; // type:func
+pad_01_003845F0_text = 0x3845f0; // type:func
+pad_01_00384868_text = 0x384868; // type:func
+pad_01_00384E98_text = 0x384e98; // type:func
+pad_01_00384EC8_text = 0x384ec8; // type:func
+pad_01_00384EF8_text = 0x384ef8; // type:func
+pad_01_00384F28_text = 0x384f28; // type:func
+pad_01_003850A0_text = 0x3850a0; // type:func
+pad_01_00385240_text = 0x385240; // type:func
+pad_01_003853B8_text = 0x3853b8; // type:func
+pad_01_00385528_text = 0x385528; // type:func
+pad_01_00385580_text = 0x385580; // type:func
+pad_01_00385708_text = 0x385708; // type:func
+pad_01_00385798_text = 0x385798; // type:func
+pad_01_00385AB0_text = 0x385ab0; // type:func
+pad_01_00385C68_text = 0x385c68; // type:func
+pad_01_00385CF0_text = 0x385cf0; // type:func
+pad_01_00385EA8_text = 0x385ea8; // type:func
+pad_01_003B69A8_text = 0x3b69a8; // type:func
+pad_01_003B7A10_text = 0x3b7a10; // type:func
+pad_01_003B7B30_text = 0x3b7b30; // type:func
+pad_01_003B9B50_text = 0x3b9b50; // type:func
+pad_01_003BA4C0_text = 0x3ba4c0; // type:func
+pad_01_003BA7D8_text = 0x3ba7d8; // type:func
+pad_01_003BAB90_text = 0x3bab90; // type:func
+pad_01_003BBB28_text = 0x3bbb28; // type:func
+pad_01_003BBBB0_text = 0x3bbbb0; // type:func
+pad_01_003BC248_text = 0x3bc248; // type:func
+pad_01_003BC268_text = 0x3bc268; // type:func
+pad_01_003BC318_text = 0x3bc318; // type:func
+pad_01_003BC4B8_text = 0x3bc4b8; // type:func
+pad_01_003BD0A0_text = 0x3bd0a0; // type:func
+pad_01_003BD0D8_text = 0x3bd0d8; // type:func
+pad_01_003BD358_text = 0x3bd358; // type:func
+pad_01_003BD388_text = 0x3bd388; // type:func
+pad_01_003BD3A8_text = 0x3bd3a8; // type:func
+pad_01_003BD798_text = 0x3bd798; // type:func
+pad_01_003BDF58_text = 0x3bdf58; // type:func
+pad_01_003BDFE0_text = 0x3bdfe0; // type:func
+pad_01_003BE040_text = 0x3be040; // type:func
+pad_01_003BE178_text = 0x3be178; // type:func
+pad_01_003BE2A0_text = 0x3be2a0; // type:func
+pad_01_003BE2C0_text = 0x3be2c0; // type:func
+pad_01_003BE3E8_text = 0x3be3e8; // type:func
+pad_01_003BE758_text = 0x3be758; // type:func
+pad_01_003BE780_text = 0x3be780; // type:func
+pad_01_003BE7A8_text = 0x3be7a8; // type:func
+pad_01_003BE7C8_text = 0x3be7c8; // type:func
+pad_01_003BE7E8_text = 0x3be7e8; // type:func
+pad_01_003BE820_text = 0x3be820; // type:func
+pad_01_003BE868_text = 0x3be868; // type:func
+pad_01_003BE900_text = 0x3be900; // type:func
+pad_01_003BE920_text = 0x3be920; // type:func
+pad_01_003BEA48_text = 0x3bea48; // type:func
+pad_01_003BEAA8_text = 0x3beaa8; // type:func
+pad_01_003BEAE8_text = 0x3beae8; // type:func
+pad_01_003C1048_text = 0x3c1048; // type:func
+pad_01_003C10A8_text = 0x3c10a8; // type:func
+pad_01_003C1450_text = 0x3c1450; // type:func
+pad_01_003C14E8_text = 0x3c14e8; // type:func
+pad_01_003C48C8_text = 0x3c48c8; // type:func
+pad_01_003C49F8_text = 0x3c49f8; // type:func
+pad_01_003C4AC0_text = 0x3c4ac0; // type:func
+pad_01_003C4AF8_text = 0x3c4af8; // type:func
+pad_01_003C4FA0_text = 0x3c4fa0; // type:func
+pad_01_003C5DD8_text = 0x3c5dd8; // type:func
+pad_01_003C5E08_text = 0x3c5e08; // type:func
+pad_01_003C5E38_text = 0x3c5e38; // type:func
+pad_01_003C5E88_text = 0x3c5e88; // type:func
+pad_01_003C6120_text = 0x3c6120; // type:func
+pad_01_003C6598_text = 0x3c6598; // type:func
+pad_01_003CA710_text = 0x3ca710; // type:func
+pad_01_003CB570_text = 0x3cb570; // type:func
+pad_01_003CB750_text = 0x3cb750; // type:func
+pad_01_003CB8A8_text = 0x3cb8a8; // type:func
+pad_01_003CE658_text = 0x3ce658; // type:func
+pad_01_003D08E0_text = 0x3d08e0; // type:func
+pad_01_003D0A00_text = 0x3d0a00; // type:func
+pad_01_003D0A68_text = 0x3d0a68; // type:func
+pad_01_003D0D00_text = 0x3d0d00; // type:func
+pad_01_003D0D60_text = 0x3d0d60; // type:func
+pad_01_003D6B58_text = 0x3d6b58; // type:func
+pad_01_003DF728_text = 0x3df728; // type:func
+pad_01_003DF838_text = 0x3df838; // type:func
+pad_01_003E00F0_text = 0x3e00f0; // type:func
+pad_01_003E0A80_text = 0x3e0a80; // type:func
+pad_01_003E0C70_text = 0x3e0c70; // type:func
+pad_01_003E1318_text = 0x3e1318; // type:func
+pad_01_003E13A0_text = 0x3e13a0; // type:func
+pad_01_003E27C8_text = 0x3e27c8; // type:func
+pad_01_003E2AD0_text = 0x3e2ad0; // type:func
+pad_01_003E2BB0_text = 0x3e2bb0; // type:func
+pad_01_003E2DB0_text = 0x3e2db0; // type:func
+pad_01_003E3380_text = 0x3e3380; // type:func
+pad_01_003E3410_text = 0x3e3410; // type:func
+pad_01_003E3D98_text = 0x3e3d98; // type:func
+pad_01_003E3FD0_text = 0x3e3fd0; // type:func
+pad_01_003E42F8_text = 0x3e42f8; // type:func
+pad_01_003E43E0_text = 0x3e43e0; // type:func
+pad_01_003E4440_text = 0x3e4440; // type:func
+pad_01_003E46F8_text = 0x3e46f8; // type:func
+pad_01_003E4760_text = 0x3e4760; // type:func
+pad_01_003E4900_text = 0x3e4900; // type:func
+pad_01_003E4920_text = 0x3e4920; // type:func
+pad_01_003E4A80_text = 0x3e4a80; // type:func
+pad_01_003E4AD8_text = 0x3e4ad8; // type:func
+pad_01_003E4B18_text = 0x3e4b18; // type:func
+pad_01_003E6B28_text = 0x3e6b28; // type:func
+pad_01_003ECC08_text = 0x3ecc08; // type:func
+pad_01_004035E8_text = 0x4035e8; // type:func
+pad_01_00407760_text = 0x407760; // type:func
+pad_01_004081A8_text = 0x4081a8; // type:func
+pad_01_0040AF28_text = 0x40af28; // type:func
+pad_01_0040C398_text = 0x40c398; // type:func
+pad_01_0040DDF0_text = 0x40ddf0; // type:func
+pad_01_0040DE88_text = 0x40de88; // type:func
+pad_01_0040DF18_text = 0x40df18; // type:func
+pad_01_0040E100_text = 0x40e100; // type:func
+pad_01_0040E2F8_text = 0x40e2f8; // type:func
+pad_01_0040E380_text = 0x40e380; // type:func
+pad_01_0040E6A0_text = 0x40e6a0; // type:func
+pad_01_0040E9A8_text = 0x40e9a8; // type:func
+pad_01_0040EC90_text = 0x40ec90; // type:func
+pad_01_0040ECF8_text = 0x40ecf8; // type:func
+pad_01_0040ED18_text = 0x40ed18; // type:func
+pad_01_0040EE30_text = 0x40ee30; // type:func
+pad_01_0040EE90_text = 0x40ee90; // type:func
+pad_01_0040F5C8_text = 0x40f5c8; // type:func
+pad_01_0040F6A8_text = 0x40f6a8; // type:func
+pad_01_0040F788_text = 0x40f788; // type:func
+pad_01_0040F7A0_text = 0x40f7a0; // type:func
+pad_01_004109F8_text = 0x4109f8; // type:func
+pad_01_00410B60_text = 0x410b60; // type:func
+pad_01_00410BB8_text = 0x410bb8; // type:func
+pad_01_00410D50_text = 0x410d50; // type:func
+pad_01_00410E20_text = 0x410e20; // type:func
+pad_01_00410EB8_text = 0x410eb8; // type:func
+pad_01_004117A0_text = 0x4117a0; // type:func
+pad_01_00411D78_text = 0x411d78; // type:func
+pad_01_00411F90_text = 0x411f90; // type:func
+pad_01_00412D38_text = 0x412d38; // type:func
+pad_01_004155D0_text = 0x4155d0; // type:func
+pad_01_004161C8_text = 0x4161c8; // type:func
+pad_01_00418190_text = 0x418190; // type:func
+pad_01_00418E70_text = 0x418e70; // type:func
+pad_01_00419868_text = 0x419868; // type:func
+pad_01_00419B28_text = 0x419b28; // type:func
+pad_01_00419DF8_text = 0x419df8; // type:func
+pad_01_0041A020_text = 0x41a020; // type:func
+pad_01_0041A098_text = 0x41a098; // type:func
+pad_01_0041A360_text = 0x41a360; // type:func
+pad_01_0041B140_text = 0x41b140; // type:func
+pad_01_0041B370_text = 0x41b370; // type:func
+pad_01_0041B470_text = 0x41b470; // type:func
+pad_01_0041CB00_text = 0x41cb00; // type:func
+pad_01_0041CFB8_text = 0x41cfb8; // type:func
+pad_01_0041D348_text = 0x41d348; // type:func
+pad_01_00422250_text = 0x422250; // type:func
+pad_01_00422348_text = 0x422348; // type:func
+pad_01_00422448_text = 0x422448; // type:func
+pad_01_004224B0_text = 0x4224b0; // type:func
+pad_01_00422648_text = 0x422648; // type:func
+pad_01_00422698_text = 0x422698; // type:func
+pad_01_00422F30_text = 0x422f30; // type:func
+pad_01_00425520_text = 0x425520; // type:func
+pad_01_004266B8_text = 0x4266b8; // type:func
+pad_01_00426B70_text = 0x426b70; // type:func
+pad_01_00427008_text = 0x427008; // type:func
+pad_01_00427018_text = 0x427018; // type:func
+pad_01_00427978_text = 0x427978; // type:func
+pad_01_004281F0_text = 0x4281f0; // type:func
+pad_01_0042B780_text = 0x42b780; // type:func
+pad_01_0042C508_text = 0x42c508; // type:func
+pad_01_0042C840_text = 0x42c840; // type:func
+pad_01_00430548_text = 0x430548; // type:func
+pad_01_00435EA8_text = 0x435ea8; // type:func
+pad_01_00436378_text = 0x436378; // type:func
+pad_01_0043CA50_text = 0x43ca50; // type:func
+pad_01_0043CC08_text = 0x43cc08; // type:func
+pad_01_0043CCB8_text = 0x43ccb8; // type:func
+pad_01_0043D8C8_text = 0x43d8c8; // type:func
+pad_01_0043DB90_text = 0x43db90; // type:func
+pad_01_0043DC98_text = 0x43dc98; // type:func
+pad_01_0043E5A0_text = 0x43e5a0; // type:func
+pad_01_0043E888_text = 0x43e888; // type:func
+pad_01_0043EC70_text = 0x43ec70; // type:func
+pad_01_0043ED48_text = 0x43ed48; // type:func
+pad_01_0043F070_text = 0x43f070; // type:func
+pad_01_0043FD90_text = 0x43fd90; // type:func
+pad_01_0043FF50_text = 0x43ff50; // type:func
+pad_01_00440280_text = 0x440280; // type:func
+pad_01_00440438_text = 0x440438; // type:func
+pad_01_00441530_text = 0x441530; // type:func
+pad_01_00442378_text = 0x442378; // type:func
+pad_01_004423E8_text = 0x4423e8; // type:func
+pad_01_00442758_text = 0x442758; // type:func
+pad_01_00442780_text = 0x442780; // type:func
+pad_01_004456E0_text = 0x4456e0; // type:func
+pad_01_004480E8_text = 0x4480e8; // type:func
+pad_01_00448A58_text = 0x448a58; // type:func
+pad_01_0044E238_text = 0x44e238; // type:func
+pad_01_0044E4C8_text = 0x44e4c8; // type:func
+pad_01_0044E9F0_text = 0x44e9f0; // type:func
+pad_01_0044F818_text = 0x44f818; // type:func
+pad_01_00450110_text = 0x450110; // type:func
+pad_01_00451420_text = 0x451420; // type:func
+pad_01_004515A0_text = 0x4515a0; // type:func
+pad_01_00451AD0_text = 0x451ad0; // type:func
+pad_01_00451C30_text = 0x451c30; // type:func
+pad_01_00455828_text = 0x455828; // type:func
+pad_01_00456060_text = 0x456060; // type:func
+pad_01_00456180_text = 0x456180; // type:func
+pad_01_004561C8_text = 0x4561c8; // type:func
+pad_01_00456778_text = 0x456778; // type:func
+pad_01_004568A8_text = 0x4568a8; // type:func
+pad_01_004569C0_text = 0x4569c0; // type:func
+pad_01_00456A20_text = 0x456a20; // type:func
+pad_01_00456A68_text = 0x456a68; // type:func
+pad_01_00456AF0_text = 0x456af0; // type:func
+pad_01_00456B50_text = 0x456b50; // type:func
+pad_01_00456C10_text = 0x456c10; // type:func
+pad_01_00456CE0_text = 0x456ce0; // type:func
+pad_01_00456D38_text = 0x456d38; // type:func
+pad_01_00457D30_text = 0x457d30; // type:func
+pad_01_00458AB8_text = 0x458ab8; // type:func
+pad_01_004590D8_text = 0x4590d8; // type:func
+pad_01_00459500_text = 0x459500; // type:func
+pad_01_00459930_text = 0x459930; // type:func
+pad_01_0045E958_text = 0x45e958; // type:func
+pad_01_0045F9F8_text = 0x45f9f8; // type:func
+pad_01_00460420_text = 0x460420; // type:func
+pad_01_004609D8_text = 0x4609d8; // type:func
+pad_01_00461488_text = 0x461488; // type:func
+pad_01_004619F0_text = 0x4619f0; // type:func
+pad_01_004629B0_text = 0x4629b0; // type:func
+pad_01_00464780_text = 0x464780; // type:func
+pad_01_00464B38_text = 0x464b38; // type:func
+pad_01_004657A8_text = 0x4657a8; // type:func
+pad_01_004657F8_text = 0x4657f8; // type:func
+pad_01_00465AA8_text = 0x465aa8; // type:func
+pad_01_00465BA8_text = 0x465ba8; // type:func
+pad_01_00465CA8_text = 0x465ca8; // type:func
+pad_01_00465FB0_text = 0x465fb0; // type:func
+pad_01_00466238_text = 0x466238; // type:func
+pad_01_0046E490_text = 0x46e490; // type:func
+pad_01_0046F1B8_text = 0x46f1b8; // type:func
+pad_01_00470098_text = 0x470098; // type:func
+pad_01_00470150_text = 0x470150; // type:func
+pad_01_00470620_text = 0x470620; // type:func
+pad_01_00470888_text = 0x470888; // type:func
+pad_01_004712C8_text = 0x4712c8; // type:func
+pad_01_00472E98_text = 0x472e98; // type:func
+pad_01_004731C0_text = 0x4731c0; // type:func
+pad_01_004734D0_text = 0x4734d0; // type:func
+pad_01_00473580_text = 0x473580; // type:func
+pad_01_004736D0_text = 0x4736d0; // type:func
+pad_01_00473920_text = 0x473920; // type:func
+pad_01_00473940_text = 0x473940; // type:func
+pad_01_00475388_text = 0x475388; // type:func
+pad_01_00476F98_text = 0x476f98; // type:func
+pad_01_00477088_text = 0x477088; // type:func
+pad_01_004782B0_text = 0x4782b0; // type:func
+pad_01_004783D8_text = 0x4783d8; // type:func
+pad_01_00478920_text = 0x478920; // type:func
+pad_01_004794B0_text = 0x4794b0; // type:func
+pad_01_00479B90_text = 0x479b90; // type:func
+pad_01_0047AEE0_text = 0x47aee0; // type:func
+pad_01_0047B098_text = 0x47b098; // type:func
+pad_01_0047B3E0_text = 0x47b3e0; // type:func
+pad_01_0047B470_text = 0x47b470; // type:func
+pad_01_0047B5A8_text = 0x47b5a8; // type:func
+pad_01_0047B5C8_text = 0x47b5c8; // type:func
+pad_01_0047B698_text = 0x47b698; // type:func
+pad_01_0047B6C0_text = 0x47b6c0; // type:func
+pad_01_0047B6D0_text = 0x47b6d0; // type:func
+pad_01_0047B718_text = 0x47b718; // type:func
+pad_01_0047B7A0_text = 0x47b7a0; // type:func
+pad_01_0047B808_text = 0x47b808; // type:func
+pad_01_0047C530_text = 0x47c530; // type:func
+pad_01_0047C648_text = 0x47c648; // type:func
+pad_01_0047E5C8_text = 0x47e5c8; // type:func
+pad_01_0047E618_text = 0x47e618; // type:func
+pad_01_0047F1D0_text = 0x47f1d0; // type:func
+pad_01_00480918_text = 0x480918; // type:func
+pad_01_00480FD0_text = 0x480fd0; // type:func
+pad_01_00481388_text = 0x481388; // type:func
+pad_01_004828C8_text = 0x4828c8; // type:func
+pad_01_004834D8_text = 0x4834d8; // type:func
+pad_01_00484838_text = 0x484838; // type:func
+pad_01_00484848_text = 0x484848; // type:func
+pad_01_00486D58_text = 0x486d58; // type:func
+pad_01_00488E00_text = 0x488e00; // type:func
+pad_01_00489AD0_text = 0x489ad0; // type:func
+pad_01_0048B508_text = 0x48b508; // type:func
+pad_01_0048C8B8_text = 0x48c8b8; // type:func
+pad_01_0048C960_text = 0x48c960; // type:func
+pad_01_0048D498_text = 0x48d498; // type:func
+pad_01_0048DB38_text = 0x48db38; // type:func
+pad_01_0048E4B8_text = 0x48e4b8; // type:func
+pad_01_0048E6B8_text = 0x48e6b8; // type:func
+pad_01_0048E740_text = 0x48e740; // type:func
+pad_01_0048EA40_text = 0x48ea40; // type:func
+pad_01_0048F990_text = 0x48f990; // type:func
+pad_01_00490598_text = 0x490598; // type:func
+pad_01_00490A80_text = 0x490a80; // type:func
+pad_01_00490F70_text = 0x490f70; // type:func
+pad_01_004913B8_text = 0x4913b8; // type:func
+pad_01_00491738_text = 0x491738; // type:func
+pad_01_00491760_text = 0x491760; // type:func
+pad_01_00491D60_text = 0x491d60; // type:func
+pad_01_00492078_text = 0x492078; // type:func
+pad_01_00492408_text = 0x492408; // type:func
+pad_01_00492450_text = 0x492450; // type:func
+pad_01_00493348_text = 0x493348; // type:func
+pad_01_00494098_text = 0x494098; // type:func
+pad_01_00495330_text = 0x495330; // type:func
+pad_01_00495D90_text = 0x495d90; // type:func
+pad_01_00496C38_text = 0x496c38; // type:func
+pad_01_00499498_text = 0x499498; // type:func
+pad_01_00499938_text = 0x499938; // type:func
+pad_01_0049AC30_text = 0x49ac30; // type:func
+pad_01_0049B130_text = 0x49b130; // type:func
+pad_01_0049C9A8_text = 0x49c9a8; // type:func
+pad_01_0049DA20_text = 0x49da20; // type:func
+pad_01_004AF850_text = 0x4af850; // type:func
+pad_01_004AFEA0_text = 0x4afea0; // type:func
+pad_01_004AFFA0_text = 0x4affa0; // type:func
+pad_01_004AFFF0_text = 0x4afff0; // type:func
+pad_01_004B0150_text = 0x4b0150; // type:func
+pad_01_004B01F0_text = 0x4b01f0; // type:func
+pad_01_004B0250_text = 0x4b0250; // type:func
+pad_01_004B02D0_text = 0x4b02d0; // type:func
+pad_01_004B0B10_text = 0x4b0b10; // type:func
+pad_01_004B1508_text = 0x4b1508; // type:func
+pad_01_004B1820_text = 0x4b1820; // type:func
+pad_01_004B1A40_text = 0x4b1a40; // type:func
+pad_01_004B3EC0_text = 0x4b3ec0; // type:func
+pad_01_004B4080_text = 0x4b4080; // type:func
+pad_01_004B4E50_text = 0x4b4e50; // type:func
+pad_01_004B4FE0_text = 0x4b4fe0; // type:func
+pad_01_004B5820_text = 0x4b5820; // type:func
+pad_01_004B6780_text = 0x4b6780; // type:func
+pad_01_004B75A8_text = 0x4b75a8; // type:func
+pad_01_004B7718_text = 0x4b7718; // type:func
+pad_01_004B7B70_text = 0x4b7b70; // type:func
+pad_01_004B8408_text = 0x4b8408; // type:func
+pad_01_004B8638_text = 0x4b8638; // type:func
+pad_01_004BA130_text = 0x4ba130; // type:func
+pad_01_004BAA28_text = 0x4baa28; // type:func
+pad_01_004BAFA8_text = 0x4bafa8; // type:func
+pad_01_004BB160_text = 0x4bb160; // type:func
+pad_01_004BB590_text = 0x4bb590; // type:func
+pad_01_004BB680_text = 0x4bb680; // type:func
+pad_01_004BB998_text = 0x4bb998; // type:func
+pad_01_004BC258_text = 0x4bc258; // type:func
+pad_01_004BE108_text = 0x4be108; // type:func
+pad_01_004BEBD0_text = 0x4bebd0; // type:func
+pad_01_004BF288_text = 0x4bf288; // type:func
+pad_01_004C0780_text = 0x4c0780; // type:func
+pad_01_004C09D0_text = 0x4c09d0; // type:func
+pad_01_004C1DF8_text = 0x4c1df8; // type:func
+pad_01_004C26C8_text = 0x4c26c8; // type:func
+pad_01_004C33C8_text = 0x4c33c8; // type:func
+pad_01_004C3A68_text = 0x4c3a68; // type:func
+pad_01_004C79D8_text = 0x4c79d8; // type:func
+pad_01_004CB020_text = 0x4cb020; // type:func
+pad_01_004CBB20_text = 0x4cbb20; // type:func
+pad_01_004CC048_text = 0x4cc048; // type:func
+pad_01_004CC190_text = 0x4cc190; // type:func
+pad_01_004CC2D0_text = 0x4cc2d0; // type:func
+pad_01_004CCA78_text = 0x4cca78; // type:func
+pad_01_004D0888_text = 0x4d0888; // type:func
+pad_01_004D0A88_text = 0x4d0a88; // type:func
+pad_01_004D1248_text = 0x4d1248; // type:func
+pad_01_004D1B90_text = 0x4d1b90; // type:func
+pad_01_004D1CF0_text = 0x4d1cf0; // type:func
+pad_01_004D20F8_text = 0x4d20f8; // type:func
+pad_01_004D22A8_text = 0x4d22a8; // type:func
+pad_01_004D23E0_text = 0x4d23e0; // type:func
+pad_01_004D24E8_text = 0x4d24e8; // type:func
+pad_01_004D27B8_text = 0x4d27b8; // type:func
+pad_01_004D27E0_text = 0x4d27e0; // type:func
+pad_01_004D5470_text = 0x4d5470; // type:func
+pad_01_004D5C08_text = 0x4d5c08; // type:func
+pad_01_004D86B0_text = 0x4d86b0; // type:func
+pad_01_004D9F20_text = 0x4d9f20; // type:func
+pad_01_004DCE80_text = 0x4dce80; // type:func
+pad_01_004DED48_text = 0x4ded48; // type:func
+pad_01_004E0138_text = 0x4e0138; // type:func
+pad_01_004E02D8_text = 0x4e02d8; // type:func
+pad_01_004E4480_text = 0x4e4480; // type:func
+pad_01_004E4648_text = 0x4e4648; // type:func
+pad_01_004E4858_text = 0x4e4858; // type:func
+pad_01_004E48B0_text = 0x4e48b0; // type:func
+pad_01_004E4C28_text = 0x4e4c28; // type:func
+pad_01_004EA488_text = 0x4ea488; // type:func
+pad_01_004EA578_text = 0x4ea578; // type:func
+pad_01_004EF240_text = 0x4ef240; // type:func
+pad_01_004F0320_text = 0x4f0320; // type:func
+pad_01_004F03F8_text = 0x4f03f8; // type:func
+pad_01_004F2BD8_text = 0x4f2bd8; // type:func
+pad_01_004F5208_text = 0x4f5208; // type:func
+pad_01_004F53B8_text = 0x4f53b8; // type:func
+pad_01_004F5510_text = 0x4f5510; // type:func
+pad_01_004F5570_text = 0x4f5570; // type:func
+pad_01_004F57C0_text = 0x4f57c0; // type:func
+pad_01_004F5D00_text = 0x4f5d00; // type:func
+pad_01_004F5F20_text = 0x4f5f20; // type:func
+pad_01_004F6738_text = 0x4f6738; // type:func
+pad_01_004F6798_text = 0x4f6798; // type:func
+pad_01_004F6AE0_text = 0x4f6ae0; // type:func
+pad_01_004F6B30_text = 0x4f6b30; // type:func
+pad_01_004F7640_text = 0x4f7640; // type:func
+pad_01_004F7A80_text = 0x4f7a80; // type:func
+pad_01_004F7D98_text = 0x4f7d98; // type:func
+pad_01_004F7EA0_text = 0x4f7ea0; // type:func
+pad_01_004FAB18_text = 0x4fab18; // type:func
+pad_01_004FB5A0_text = 0x4fb5a0; // type:func
+pad_01_004FB5B8_text = 0x4fb5b8; // type:func
+pad_01_004FC2C8_text = 0x4fc2c8; // type:func
+pad_01_004FC3E0_text = 0x4fc3e0; // type:func
+pad_01_004FC470_text = 0x4fc470; // type:func
+pad_01_004FC500_text = 0x4fc500; // type:func
+pad_01_004FC588_text = 0x4fc588; // type:func
+pad_01_004FC5F8_text = 0x4fc5f8; // type:func
+pad_01_004FC8D0_text = 0x4fc8d0; // type:func
+pad_01_004FC980_text = 0x4fc980; // type:func
+pad_01_004FCA68_text = 0x4fca68; // type:func
+pad_01_004FCAA0_text = 0x4fcaa0; // type:func
+pad_01_004FCB08_text = 0x4fcb08; // type:func
+pad_01_004FD500_text = 0x4fd500; // type:func
+pad_01_004FE640_text = 0x4fe640; // type:func
+pad_01_004FE6D8_text = 0x4fe6d8; // type:func
+pad_01_004FE770_text = 0x4fe770; // type:func
+pad_01_004FE800_text = 0x4fe800; // type:func
+pad_01_004FE828_text = 0x4fe828; // type:func
+pad_01_004FE870_text = 0x4fe870; // type:func
+pad_01_004FE918_text = 0x4fe918; // type:func
+pad_01_004FE940_text = 0x4fe940; // type:func
+pad_01_004FE978_text = 0x4fe978; // type:func
+pad_01_004FE9B8_text = 0x4fe9b8; // type:func
+pad_01_004FEA20_text = 0x4fea20; // type:func
+pad_01_004FEAB8_text = 0x4feab8; // type:func
+pad_01_004FEAE0_text = 0x4feae0; // type:func
+pad_01_004FEB28_text = 0x4feb28; // type:func
+pad_01_004FEBD0_text = 0x4febd0; // type:func
+pad_01_004FEBF8_text = 0x4febf8; // type:func
+pad_01_00500A70_text = 0x500a70; // type:func
+pad_01_00500D08_text = 0x500d08; // type:func
+pad_01_00501DC8_text = 0x501dc8; // type:func
+pad_01_00502138_text = 0x502138; // type:func
+pad_01_00502278_text = 0x502278; // type:func
+pad_01_00502418_text = 0x502418; // type:func
+pad_01_00502740_text = 0x502740; // type:func
+pad_01_00502D30_text = 0x502d30; // type:func
+pad_01_005032B8_text = 0x5032b8; // type:func
+pad_01_00503878_text = 0x503878; // type:func
+pad_01_005038E0_text = 0x5038e0; // type:func
+pad_01_00503AC8_text = 0x503ac8; // type:func
+pad_01_00504710_text = 0x504710; // type:func
+pad_01_00505688_text = 0x505688; // type:func
+pad_01_005057A8_text = 0x5057a8; // type:func
+pad_01_00505938_text = 0x505938; // type:func
+pad_01_005059C8_text = 0x5059c8; // type:func
+pad_01_00505C78_text = 0x505c78; // type:func
+pad_01_005060E0_text = 0x5060e0; // type:func
+pad_01_00506410_text = 0x506410; // type:func
+pad_01_00506758_text = 0x506758; // type:func
+pad_01_005067C8_text = 0x5067c8; // type:func
+pad_01_00506818_text = 0x506818; // type:func
+pad_01_005068B8_text = 0x5068b8; // type:func
+pad_01_00506980_text = 0x506980; // type:func
+pad_01_00506A68_text = 0x506a68; // type:func
+pad_01_005072D0_text = 0x5072d0; // type:func
+pad_01_00507390_text = 0x507390; // type:func
+pad_01_005074B8_text = 0x5074b8; // type:func
+pad_01_00507A68_text = 0x507a68; // type:func
+pad_01_005083B0_text = 0x5083b0; // type:func
+pad_01_00508710_text = 0x508710; // type:func
+pad_01_00508840_text = 0x508840; // type:func
+pad_01_00508C70_text = 0x508c70; // type:func
+pad_01_00509CD0_text = 0x509cd0; // type:func
+pad_01_0050AE68_text = 0x50ae68; // type:func
+pad_01_0050B420_text = 0x50b420; // type:func
+pad_01_0050C2A0_text = 0x50c2a0; // type:func
+pad_01_0050C478_text = 0x50c478; // type:func
+pad_01_0050CA50_text = 0x50ca50; // type:func
+pad_01_0050D150_text = 0x50d150; // type:func
+pad_01_0050D3A0_text = 0x50d3a0; // type:func
+pad_01_0050DD98_text = 0x50dd98; // type:func
+pad_01_0050DE28_text = 0x50de28; // type:func
+pad_01_0050E2F8_text = 0x50e2f8; // type:func
+pad_01_0050E638_text = 0x50e638; // type:func
+pad_01_0050E6D0_text = 0x50e6d0; // type:func
+pad_01_0050EE40_text = 0x50ee40; // type:func
+pad_01_0050EF48_text = 0x50ef48; // type:func
+pad_01_0050F160_text = 0x50f160; // type:func
+pad_01_0050F510_text = 0x50f510; // type:func
+pad_01_0050F718_text = 0x50f718; // type:func
+pad_01_0050F778_text = 0x50f778; // type:func
+pad_01_0050F7F0_text = 0x50f7f0; // type:func
+pad_01_0050FB78_text = 0x50fb78; // type:func
+pad_01_0050FD28_text = 0x50fd28; // type:func
+pad_01_00516D18_text = 0x516d18; // type:func
+pad_01_00518BB8_text = 0x518bb8; // type:func
+pad_01_005198E0_text = 0x5198e0; // type:func
+pad_01_00519A48_text = 0x519a48; // type:func
+pad_01_00519F98_text = 0x519f98; // type:func
+pad_01_0051A030_text = 0x51a030; // type:func
+pad_01_0051A148_text = 0x51a148; // type:func
+pad_01_0051A1A8_text = 0x51a1a8; // type:func
+pad_01_0051A218_text = 0x51a218; // type:func
+pad_01_0051B718_text = 0x51b718; // type:func
+pad_01_0051DF58_text = 0x51df58; // type:func
+pad_01_00524F98_text = 0x524f98; // type:func
+pad_01_005279B8_text = 0x5279b8; // type:func
+pad_01_00530B40_text = 0x530b40; // type:func
+pad_01_005347D0_text = 0x5347d0; // type:func
+pad_01_00534AF0_text = 0x534af0; // type:func
+pad_01_00534B20_text = 0x534b20; // type:func
+pad_01_00534C10_text = 0x534c10; // type:func
+pad_17_00598260_over = 0x598260; // type:func
+pad_17_00598ED0_over = 0x598ed0; // type:func
+pad_17_00599150_over = 0x599150; // type:func
+pad_17_005997E8_over = 0x5997e8; // type:func
+pad_17_0059A870_over = 0x59a870; // type:func
+pad_17_0059B690_over = 0x59b690; // type:func
+pad_17_0059B750_over = 0x59b750; // type:func
+pad_17_0059BED0_over = 0x59bed0; // type:func
+pad_17_0059E890_over = 0x59e890; // type:func
+pad_17_005A0508_over = 0x5a0508; // type:func
+pad_17_005A24E8_over = 0x5a24e8; // type:func
+pad_17_005A34B0_over = 0x5a34b0; // type:func
+pad_17_005A34D8_over = 0x5a34d8; // type:func
+pad_17_005A38E8_over = 0x5a38e8; // type:func
+pad_17_005A8008_over = 0x5a8008; // type:func
+pad_17_005A9020_over = 0x5a9020; // type:func
+pad_17_005A9120_over = 0x5a9120; // type:func
+pad_17_005A9240_over = 0x5a9240; // type:func
+pad_17_005A92B0_over = 0x5a92b0; // type:func
+pad_17_005AA6F0_over = 0x5aa6f0; // type:func
+pad_17_005AAC90_over = 0x5aac90; // type:func
+pad_17_005ADD68_over = 0x5add68; // type:func
+pad_17_005AE430_over = 0x5ae430; // type:func
+pad_17_005AF150_over = 0x5af150; // type:func
+pad_17_005AF478_over = 0x5af478; // type:func
+pad_17_005AF818_over = 0x5af818; // type:func
+pad_17_005AF858_over = 0x5af858; // type:func
+pad_17_005AF870_over = 0x5af870; // type:func
+pad_17_005AF978_over = 0x5af978; // type:func
+pad_17_005B51A8_over = 0x5b51a8; // type:func
+pad_17_005D4AB8_over = 0x5d4ab8; // type:func
+pad_17_005D4F38_over = 0x5d4f38; // type:func
+pad_17_005D5058_over = 0x5d5058; // type:func
+pad_17_005D6468_over = 0x5d6468; // type:func
+pad_17_005D65F8_over = 0x5d65f8; // type:func
+pad_17_005D6708_over = 0x5d6708; // type:func
+pad_17_005D6AB8_over = 0x5d6ab8; // type:func
+pad_17_005D6B98_over = 0x5d6b98; // type:func
+pad_17_005D6C90_over = 0x5d6c90; // type:func
+pad_17_005D6CD0_over = 0x5d6cd0; // type:func
+pad_17_005D6D18_over = 0x5d6d18; // type:func
+pad_17_005D6D40_over = 0x5d6d40; // type:func

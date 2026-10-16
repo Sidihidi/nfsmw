@@ -7,6 +7,9 @@
 #include "Speed/Indep/Src/Generated/Messages/MNotifySpeechStatus.h"
 #include "Speed/Indep/Src/Generated/Messages/MReqBackup.h"
 #include <algorithm>
+#ifdef MILESTONE_BUILD
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 
 extern "C" void SwarmingReply__10MiscSpeech();
 extern "C" void SwarmingReplyFollow__10MiscSpeech();
@@ -49,6 +52,49 @@ void StrategyFlow::Update() {
     int y;
     int x;
 
+#ifdef MILESTONE_BUILD
+    // Pantalla de depuracion de la A124 (cadenas de su .rodata).
+    x = -200;
+    y = -155;
+    if (SPEECHFLOW_DISPLAY) {
+        ScreenPrintf(x, y, 1.0f, "STRATEGY FLOW %s", mBusy ? "busy" : "");
+        y += 15;
+        SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
+        if (ai->GetPursuitState() == SoundAI::kActive) {
+            switch (ai->GetPursuit()->GetFormationType()) {
+            case PIT:
+                ScreenPrintf(x, y, 1.0f, "Pit");
+                y += 15;
+                break;
+            case BOX_IN:
+                ScreenPrintf(x, y, 1.0f, "Box In");
+                y += 15;
+                break;
+            case ROLLING_BLOCK:
+                ScreenPrintf(x, y, 1.0f, "Rolling Block");
+                y += 15;
+                break;
+            case HERD:
+                ScreenPrintf(x, y, 1.0f, "Herd");
+                y += 15;
+                break;
+            case FOLLOW:
+            case STAGGER_FOLLOW:
+                ScreenPrintf(x, y, 1.0f, "Follow");
+                y += 15;
+                break;
+            case HELI_PURSUIT:
+                ScreenPrintf(x, y, 1.0f, "Heli Pursuit");
+                y += 15;
+                break;
+            default:
+                ScreenPrintf(x, y, 1.0f, "Unknown");
+                y += 15;
+                break;
+            }
+        }
+    }
+#else
     if (SPEECHFLOW_DISPLAY != 0) {
         SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
         if (ai->GetPursuitState() == SoundAI::kActive) {
@@ -78,35 +124,86 @@ void StrategyFlow::Update() {
             }
         }
     }
+#endif
 
     switch (mState) {
     case kTransition:
-        return;
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "Transition");
+        }
+#endif
+        break;
     case kCullCheck:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "CullCheck");
+        }
+#endif
         CullCheck();
         return;
     case kSoloCheck:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "SoloCheck");
+        }
+#endif
         SoloCheck();
         return;
     case kWaiting:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "Wait");
+        }
+#endif
         Waiting();
         return;
     case kTerminal:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "Terminal");
+        }
+#endif
         Terminal();
         return;
     case kOutcome:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "Outc");
+        }
+#endif
         Outcome();
         return;
     case kOutrun:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "Outrun");
+        }
+#endif
         Outrun();
         return;
     case kLost:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "Lost");
+        }
+#endif
         Lost();
         return;
     case kReqBackup:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "ReqBackup");
+        }
+#endif
         ReqBackup();
         return;
     case kCallToPos:
+#ifdef MILESTONE_BUILD
+        if (SPEECHFLOW_DISPLAY) {
+            ScreenPrintf(x, y, 1.0f, "CallToPos");
+        }
+#endif
         CallToPos();
         return;
     default:
@@ -280,7 +377,7 @@ void StrategyFlow::ReqBackup() {
                         if (eta_valid && (bRandom(1.0f) > 0.5f) && ((this->mFlags & BUDENIED) == 0)) {
                             ai->GetDispatch()->BackupETA();
                         } else {
-                            ai->GetDispatch()->BackupReply(caller, ((this->mFlags ^ BUDENIED) >> 1) & 1, this->mBackupType);
+                            ai->GetDispatch()->BackupReply(caller, (this->mFlags & BUDENIED) == 0, this->mBackupType);
                             if ((this->mFlags & BUDENIED) != 0) {
                                 caller->NegativeBackupReply();
                             }
@@ -293,7 +390,7 @@ void StrategyFlow::ReqBackup() {
                         if (eta_valid && (bRandom(1.0f) > 0.5f) && ((this->mFlags & BUDENIED) == 0)) {
                             ai->GetDispatch()->BackupETA();
                         } else {
-                            ai->GetDispatch()->BackupReply(caller, ((this->mFlags ^ BUDENIED) >> 1) & 1, this->mBackupType);
+                            ai->GetDispatch()->BackupReply(caller, (this->mFlags & BUDENIED) == 0, this->mBackupType);
                             if ((this->mFlags & BUDENIED) != 0) {
                                 caller->NegativeBackupReply();
                             }
@@ -310,7 +407,7 @@ void StrategyFlow::ReqBackup() {
                         if (eta_valid && (bRandom(1.0f) > 0.5f) && ((this->mFlags & BUDENIED) == 0)) {
                             ai->GetDispatch()->BackupETA();
                         } else {
-                            ai->GetDispatch()->BackupUpdate(caller, ((this->mFlags ^ BUDENIED) >> 1) & 1);
+                            ai->GetDispatch()->BackupUpdate(caller, (this->mFlags & BUDENIED) == 0);
                         }
                         this->mBusy++;
                         return;
@@ -325,7 +422,7 @@ void StrategyFlow::ReqBackup() {
                             }
                             SwarmingReplyFollow__10MiscSpeech();
                         } else {
-                            ai->GetDispatch()->BackupUpdate(caller, ((this->mFlags ^ BUDENIED) >> 1) & 1);
+                            ai->GetDispatch()->BackupUpdate(caller, (this->mFlags & BUDENIED) == 0);
                         }
                         this->mBusy++;
                         return;
@@ -592,11 +689,8 @@ void StrategyFlow::Lost() {
 void StrategyFlow::Terminal() {
     mBusy = 0;
     ChangeStateTo(kTransition);
+    mSpeed[0] = mSpeed[1] = mDistance[0] = mDistance[1] = 0.0f;
     mLOSCount = 0;
-    mDistance[1] = 0.0f;
-    mDistance[0] = 0.0f;
-    mSpeed[1] = 0.0f;
-    mSpeed[0] = 0.0f;
     mFormationCount = 0;
     mBackupType = 0;
     mFormationType = 0;
@@ -673,7 +767,7 @@ void StrategyFlow::MessageEventComplete(const MNotifySpeechStatus &message) {
     if (speech != nullptr) {
         switch (speech->ID) {
         case static_cast<SPCHType_1_EventID>(67): {
-            Csis::Backup_CallForBUStruct *data = static_cast<Csis::Backup_CallForBUStruct *>(speech->GetData(nullptr));
+            Csis::Backup_CallForBUStruct *data = static_cast<Csis::Backup_CallForBUStruct *>(speech->GetData());
             if (data != nullptr) {
                 mLastBackupType = data->backup_type;
                 mT_requested = WorldTimer;
@@ -681,7 +775,7 @@ void StrategyFlow::MessageEventComplete(const MNotifySpeechStatus &message) {
             break;
         }
         case static_cast<SPCHType_1_EventID>(73): {
-            Csis::Backup_BUReminderStruct *data = static_cast<Csis::Backup_BUReminderStruct *>(speech->GetData(nullptr));
+            Csis::Backup_BUReminderStruct *data = static_cast<Csis::Backup_BUReminderStruct *>(speech->GetData());
             if (data != nullptr) {
                 mLastBackupType = data->backup_type;
                 mT_requested = WorldTimer;

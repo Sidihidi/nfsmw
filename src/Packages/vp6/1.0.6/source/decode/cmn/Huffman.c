@@ -1,25 +1,12 @@
-typedef struct {
-    unsigned int value : 7;
-    unsigned int selector : 1;
-} tokenorptr;
+#include "pbdll.h"
 
-typedef union {
-    char l;
-    tokenorptr left;
-} LEFTUNION_TYPE;
+typedef struct _SORT_NODE {
+    int next;
+    int freq;
+    unsigned char value;
+} SORT_NODE;
 
-typedef union {
-    char r;
-    tokenorptr right;
-} RIGHTUNION_TYPE;
-
-typedef struct {
-    LEFTUNION_TYPE leftunion;
-    RIGHTUNION_TYPE rightunion;
-    unsigned char freq;
-} HUFF_NODE;
-
-typedef struct {
+typedef struct _sortnode {
     int next;
     int freq;
     tokenorptr value;
@@ -96,30 +83,43 @@ void VP6_BuildHuffTree(HUFF_NODE *hn, unsigned int *counts, int values) {
     }
 }
 
-void VP6_BuildHuffLookupTable(HUFF_NODE *HuffTreeRoot, unsigned short *HuffTable) {
+void VP6_BuildHuffLookupTable(HUFF_NODE *HuffTreeRoot, UINT16 *HuffTable) {
     int i;
     int j;
+#if VP6_VERSION >= 106
     int bits;
+#endif
     tokenorptr torp;
 
-    for (i = 0; i <= 63; i++) {
+    for (i = 0; i < 64; i++) {
         j = 0;
+#if VP6_VERSION >= 106
         bits = 6;
+#endif
         torp.value = 0;
         torp.selector = 0;
 
         do {
+#if VP6_VERSION >= 106
             bits--;
             j++;
 
-            if ((i >> bits) & 1) {
-                torp = HuffTreeRoot[torp.value].rightunion.right;
-            } else {
-                torp = HuffTreeRoot[torp.value].leftunion.left;
-            }
-        } while (!torp.selector && bits);
+            if ((i >> bits) & 1)
+#else
+            j++;
 
-        HuffTable[i] = (torp.value * 2 + torp.selector) | (j << 12);
+            if ((i >> (6 - j)) & 1)
+#endif
+                torp = HuffTreeRoot[torp.value].rightunion.right;
+            else
+                torp = HuffTreeRoot[torp.value].leftunion.left;
+#if VP6_VERSION >= 106
+        } while (!torp.selector && bits);
+#else
+        } while (!torp.selector && j < 6);
+#endif
+
+        HuffTable[i] = (torp.value << 1 | torp.selector) | (j << 12);
     }
 }
 

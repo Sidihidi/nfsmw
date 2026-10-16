@@ -48,11 +48,31 @@ UIQRChallengeSeries::UIQRChallengeSeries(ScreenConstructorData *sd)
 UIQRChallengeSeries::~UIQRChallengeSeries() {}
 
 eMenuSoundTriggers UIQRChallengeSeries::NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) {
+#ifdef EA_BUILD_A124
+    // La A124 calla el cursor al salirse de la rejilla de cuatro columnas y avisa si no hay desafio elegido.
+    if (msg == 0xb205316c) {
+        if (GetCurrentDatumNum() - 1 < 4) {
+            return static_cast<eMenuSoundTriggers>(-1);
+        }
+    }
+    if (msg == 0x480df13f) {
+        int rowCount = GRaceDatabase::Get().GetBinNumber(19)->GetWorldRaceCount() / 4;
+        int currentRow = (GetCurrentDatumNum() - 1) / 4;
+        if (currentRow >= rowCount) {
+            return static_cast<eMenuSoundTriggers>(-1);
+        }
+    }
+    if (msg == 0x7b6b89d7 && !theChallengeRace) {
+        return static_cast<eMenuSoundTriggers>(7);
+    }
+    return maybe;
+#else
     ArrayScrollerMenu::NotifySoundMessage(msg, maybe);
     if (msg == 0x480c9a58) {
         return static_cast<eMenuSoundTriggers>(5);
     }
     return maybe;
+#endif
 }
 
 void UIQRChallengeSeries::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
@@ -130,7 +150,11 @@ void UIQRChallengeSeries::RefreshHeader() {
     if (!GetCurrentDatum())
         return;
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum() + 1);
+#else
     FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum());
+#endif
     FEPrintf(GetPackageName(), __NUMBER_OF_GROUP__, "%d", GetNumDatum());
 
     GRaceParameters *race = static_cast<ChallengeDatum *>(GetCurrentDatum())->race;
@@ -149,7 +173,7 @@ void UIQRChallengeSeries::RefreshHeader() {
     FEPrintf(GetPackageName(), 0x80c9daa, "%$0.1f %s - %d laps", race->GetRaceLengthMeters() * 0.001f, distUnits,
              race->GetNumLaps());
 
-    FEngSetInvisible(FEngFindObject(GetPackageName(), 0xbbf970cd));
+    FEngSetInvisible(GetPackageName(), 0xbbf970cd);
     int challengeType = race->GetChallengeType();
     unsigned int iconHash;
     if (challengeType == 0) {
@@ -159,7 +183,7 @@ void UIQRChallengeSeries::RefreshHeader() {
         iconHash = FEDatabase->GetMilestoneIconHash(challengeType, true);
         cFEng::Get()->QueuePackageMessage(0xf7b54c7, GetPackageName(), nullptr);
     }
-    FEngSetTextureHash(FEngFindImage(GetPackageName(), __EVENT_ICON__), iconHash);
+    FEngSetTextureHash(GetPackageName(), __EVENT_ICON__, iconHash);
 
     float goal = static_cast<float>(race->GetChallengeGoal());
     if (FEDatabase->IsMilestoneTimeFormat(race->GetChallengeType())) {
@@ -172,7 +196,11 @@ void UIQRChallengeSeries::RefreshHeader() {
 
     if (static_cast<ChallengeDatum *>(GetCurrentDatum())->IsLocked()) {
         cFEng::Get()->QueuePackageMessage(0xc5dd9d68, GetPackageName(), nullptr);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        int index = GetCurrentDatumNum() + 1;
+#else
         int index = GetCurrentDatumNum();
+#endif
         int page = (index / 5) * 5;
         int mod = index - page;
         int prevIndex = index - 1;
@@ -197,10 +225,10 @@ void UIQRChallengeSeries::RefreshHeader() {
         if (datum) {
             if (datum->IsLocked()) {
                 FEngSetScript(GetPackageName(), check_hash, FEHASH_APPEAR, true);
-                FEngSetTextureHash(FEngFindImage(GetPackageName(), check_hash), 0x18ed48);
+                FEngSetTextureHash(GetPackageName(), check_hash, 0x18ed48);
             } else if (datum->IsChecked()) {
                 FEngSetScript(GetPackageName(), check_hash, FEHASH_APPEAR, true);
-                FEngSetTextureHash(FEngFindImage(GetPackageName(), check_hash), 0x28feadd);
+                FEngSetTextureHash(GetPackageName(), check_hash, 0x28feadd);
             } else {
                 FEngSetScript(GetPackageName(), check_hash, 0x16a259, true);
             }
@@ -233,11 +261,19 @@ bool UIQRChallengeSeries::IsRaceValidForMike(GRaceParameters *parms) {
             return true;
         if (bStrCmp(parms->GetEventID(), "19.8.15") == 0)
             return true;
-        return bStrCmp(parms->GetEventID(), "19.8.29") == 0;
+        if (bStrCmp(parms->GetEventID(), "19.8.29") == 0)
+            return true;
+        return false;
     } else if (GetMikeMannBuild() == 2) {
+#ifdef EA_BUILD_A124
+        return bStrICmp(parms->GetEventID(), "19.8.1") == 0;
+#else
         if (bStrICmp(parms->GetEventID(), "19.8.15") == 0)
             return true;
-        return bStrICmp(parms->GetEventID(), "19.8.45") == 0;
+        if (bStrICmp(parms->GetEventID(), "19.8.45") == 0)
+            return true;
+        return false;
+#endif
     }
     return true;
 }

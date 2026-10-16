@@ -25,11 +25,11 @@ extern int NetworkUseLobbies;
 
 uint64 networkTime;
 
-static OnlineMutex networkMutex("networkMutex");
-
+NetworkCore NetworkCore::mInstance;
 uint32 NetworkCore::myIPAddress;
 int NetworkCore::msecPerThreadInterval = 33;
-NetworkCore NetworkCore::mInstance;
+
+static OnlineMutex networkMutex("networkMutex");
 
 NetworkCore::NetworkCore()
     : networkIsInitialized(false) {}

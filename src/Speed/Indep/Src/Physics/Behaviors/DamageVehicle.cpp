@@ -134,8 +134,10 @@ const DamageScaleRecord &DamageVehicle::GetDamageRecord(DamageZone::ID zone) con
             return this->mSpecs.DZ_RREAR();
         case DamageZone::DZ_TOP:
             return this->mSpecs.DZ_TOP();
+#ifndef EA_BUILD_A124
         case DamageZone::DZ_BOTTOM:
             return this->mSpecs.DZ_BOTTOM();
+#endif
         default:
             return null_record;
     }
@@ -144,7 +146,7 @@ const DamageScaleRecord &DamageVehicle::GetDamageRecord(DamageZone::ID zone) con
 void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &normal, float force, float speed, const SimSurface &mysurface,
                              ISimable *iother) {
     float suppress_distance = this->mSpecs.SUPPRESS_DIST();
-    if (0.0f < suppress_distance) {
+    if (suppress_distance > 0.0f) {
         float viewdist = Sim::DistanceToCamera(this->mRB->GetPosition());
         if (viewdist > suppress_distance) {
             return;
@@ -159,8 +161,7 @@ void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &no
     }
 
     float material_strength = this->mSpecs.FORCE() * 1000.0f;
-    if (0.0f >= material_strength) {
-    } else {
+    if (material_strength > 0.0f) {
         UMath::Vector3 dim = this->mRB->GetDimension();
 
         UMath::Vector3 relative_normal = normal;
@@ -171,20 +172,20 @@ void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &no
         const float kZoneThreshold = 0.5f;
 
         if (arm.z > dim.z * kZoneThreshold) {
-            if (arm.x > dim.x * kZoneThreshold && -kDirectionThreshold > relative_normal.x) {
+            if (arm.x > dim.x * kZoneThreshold && relative_normal.x < -kDirectionThreshold) {
                 zone = DamageZone::DZ_RFRONT;
             } else {
-                if (arm.x < -dim.x * kZoneThreshold && kDirectionThreshold < relative_normal.x) {
+                if (arm.x < -dim.x * kZoneThreshold && relative_normal.x > kDirectionThreshold) {
                     zone = DamageZone::DZ_LFRONT;
                 } else {
                     zone = DamageZone::DZ_FRONT;
                 }
             }
         } else if (arm.z < -dim.z * kZoneThreshold) {
-            if (arm.x > dim.x * kZoneThreshold && -kDirectionThreshold > relative_normal.x) {
+            if (arm.x > dim.x * kZoneThreshold && relative_normal.x < -kDirectionThreshold) {
                 zone = DamageZone::DZ_RREAR;
             } else {
-                if (arm.x < -dim.x * kZoneThreshold && kDirectionThreshold < relative_normal.x) {
+                if (arm.x < -dim.x * kZoneThreshold && relative_normal.x > kDirectionThreshold) {
                     zone = DamageZone::DZ_LREAR;
                 } else {
                     zone = DamageZone::DZ_REAR;
@@ -193,10 +194,10 @@ void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &no
         } else if (arm.y > dim.y * kZoneThreshold && relative_normal.y < -kDirectionThreshold) {
             zone = DamageZone::DZ_TOP;
         } else {
-            if (arm.y < -dim.y * kZoneThreshold && kDirectionThreshold < relative_normal.y) {
+            if (arm.y < -dim.y * kZoneThreshold && relative_normal.y > kDirectionThreshold) {
                 zone = DamageZone::DZ_BOTTOM;
             } else {
-                if (0.0f < arm.x) {
+                if (arm.x > 0.0f) {
                     zone = DamageZone::DZ_RIGHT;
                 } else {
                     zone = DamageZone::DZ_LEFT;
@@ -208,20 +209,28 @@ void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &no
             return;
         }
 
+#ifdef EA_BUILD_A124
+        // La A124 busca el registro de la zona por el nombre del sistema (Instance::Get + Get<DamageScaleRecord>).
+        Attrib::Attribute zoneattrib = this->mSpecs.Get(DamageZone::GetSystemName(zone).GetHash32());
+        float ratio = force / material_strength;
+        float visual_scale = zoneattrib.Get<DamageScaleRecord>(0).VisualScale;
+        float hitpoint_scale = zoneattrib.Get<DamageScaleRecord>(0).HitPointScale;
+#else
         const DamageScaleRecord &record = this->GetDamageRecord(zone);
         float visual_scale = record.VisualScale;
         float hitpoint_scale = record.HitPointScale;
         float ratio = force / material_strength;
+#endif
         int newimpact_level = UMath::Min(6, static_cast<int>(ratio * visual_scale));
         int newdamage_level = UMath::Min(2, static_cast<int>(ratio * visual_scale));
 
         float total_hit_points = this->mSpecs.HIT_POINTS();
-        if (0.0f < total_hit_points && this->mDamageTotal < 1.0f) {
+        if (total_hit_points > 0.0f && this->mDamageTotal < 1.0f) {
             float damage_points = (ratio * hitpoint_scale) / total_hit_points;
             float threshold = this->mSpecs.HP_THRESHOLD() / total_hit_points;
             if (damage_points > threshold) {
                 this->mDamageTotal += damage_points;
-                if (1.0f < this->mDamageTotal) {
+                if (this->mDamageTotal > 1.0f) {
                     new EVehicleDestroyed(this->GetOwner()->GetInstanceHandle());
                 }
             }
@@ -255,7 +264,7 @@ void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &no
 
         if (0 < newdamage_level && this->CanDamageVisuals()) {
             int damage_level = this->mZoneDamage.Get(zone);
-            if ((unsigned int)damage_level <= 5U && newdamage_level > damage_level) {
+            if ((unsigned int)damage_level < 6U && newdamage_level > damage_level) {
                 if (system != nullptr) {
                     for (int j = damage_level; j < newdamage_level; ++j) {
                         system->ProcessStimulus(DamageZone::GetDamageStimulus(j).GetValue(), time, this, EventSequencer::QUEUE_ALLOW);
@@ -299,8 +308,8 @@ void DamageVehicle::Destroy() {
 void DamageVehicle::ResetDamage() {
     this->ResetParts();
     this->mLightDamage = 0;
-    this->mShockTimer = 0.0f;
     this->mZoneDamage.Clear();
+    this->mShockTimer = 0.0f;
     this->mDamageTotal = 0.0f;
 
     EventSequencer::IEngine *es = this->GetOwner()->GetEventSequencer();
@@ -311,6 +320,7 @@ void DamageVehicle::ResetDamage() {
     if (this->GetOwner()->QueryInterface(&ienginedamage)) {
         ienginedamage->Repair();
     }
+#ifndef EA_BUILD_A124
     IArticulatedVehicle *iarticulation;
     if (this->GetOwner()->QueryInterface(&iarticulation)) {
         IVehicle *itrailer = iarticulation->GetTrailer();
@@ -319,6 +329,7 @@ void DamageVehicle::ResetDamage() {
             idamage->ResetDamage();
         }
     }
+#endif
 }
 
 void DamageVehicle::SetShockForce(float f) {
@@ -330,8 +341,7 @@ void DamageVehicle::SetShockForce(float f) {
 }
 
 void DamageVehicle::SetInShock(float scale) {
-    if (this->mSpecs.SHOCK_TIME() <= 0.0f || scale <= 0.2f) {
-        return;
+    if (this->mSpecs.SHOCK_TIME() > 0.0f && scale > 0.2f) {
+        this->mShockTimer = UMath::Min(UMath::Max(this->mShockTimer, scale), 1.0f);
     }
-    this->mShockTimer = UMath::Min(UMath::Max(this->mShockTimer, scale), 1.0f);
 }

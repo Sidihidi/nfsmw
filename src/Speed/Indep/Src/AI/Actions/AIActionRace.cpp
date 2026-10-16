@@ -5,7 +5,10 @@
 #include "Speed/Indep/Src/Debug/Debugable.h"
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Gameplay/GTrigger.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/chassis.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/tires.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/rigidbodyspecs.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/nos.h"
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ICheater.h"
@@ -20,6 +23,11 @@
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+#ifdef EA_BUILD_A124
+// Update de la A124 sigue a los coches en red (su .mdebug incluye ExtrapolatedCar.hpp).
+#include "Speed/Indep/Src/Interfaces/SimEntities/IOnlinePlayer.h"
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
+#endif
 
 // total size: 0x48
 class AIActionRace : public AIAction, public Debugable {
@@ -29,6 +37,7 @@ class AIActionRace : public AIAction, public Debugable {
     static AIAction *Construct(AIActionParams *params);
 
     AIActionRace(AIActionParams *params, float score);
+  private:
     void ComputePotentials();
     float GetPotentialSpeed(const float curvature, const float skill
 #ifndef EA_BUILD_A124
@@ -36,14 +45,25 @@ class AIActionRace : public AIAction, public Debugable {
                             bool is_drag
 #endif
     ) const;
-    float GetPotentialAcceleration(const float speed, const float skill, bool using_nos, bool is_drag) const;
+    float GetPotentialAcceleration(const float speed, const float skill, bool using_nos
+#ifndef EA_BUILD_A124
+                                   ,
+                                   bool is_drag
+#endif
+    ) const;
+    // La A124 solo dice si hay nitro que gastar (GetPotentialNOS__C12AIActionRacefb, bool);
+    // la venta devuelve cuanto dura y mira la habilidad.
+#ifdef EA_BUILD_A124
+    bool GetPotentialNOS(float speed, bool was_on) const;
+#else
     float GetPotentialNOS(float speed, bool was_on, float skill) const;
+#endif
     void CheckOffPath(float dT);
     float UpdateNavPos(float lookAheadDistance, const UMath::Vector3 &direction);
 #ifndef EA_BUILD_A124
     bool CheckSpeedTraps(float speed, float skill, float potential_nos, bool was_nos) const;
 #endif
-
+  public:
     virtual void OnDebugDraw();
 
     // Virtual overrides
@@ -87,7 +107,10 @@ class AIActionRace : public AIAction, public Debugable {
     Physics::Info::Performance mPerformanceBias; // offset 0x90, size 0xC
     float mNosCapability;                        // offset 0x9C, size 0x4
     float mUsableNOS;                            // offset 0xA0, size 0x4
+    // La A124 no lo tiene: sus stabs pasan de mUsableNOS (0xe4) a mStartGrip (0xe8).
+#ifndef EA_BUILD_A124
     float mBottleTime;                           // offset 0xA4, size 0x4
+#endif
     float mStartGrip;                            // offset 0xA8, size 0x4
     float mEndGrip;                              // offset 0xAC, size 0x4
     float mTopSpeed;                             // offset 0xB0, size 0x4
@@ -109,7 +132,9 @@ AIActionRace::AIActionRace(AIActionParams *params, float score)
       mNOSTimer(0.0f),                                            //
       mNosCapability(0.0f),                                       //
       mUsableNOS(1.0f),                                           //
+#ifndef EA_BUILD_A124
       mBottleTime(0.0f),                                          //
+#endif
       mStartGrip(0.0f),                                           //
       mEndGrip(0.0f),                                             //
       mTopSpeed(0.0f),                                            //
@@ -216,7 +241,10 @@ void AIActionRace::BeginAction(float dT) {
 
     if (mResetTask == 0) {
         mResetTask = AddTask("Physics", 0.25f, 1.0f, Sim::TASK_FRAME_FIXED);
+        // La A124 no perfila la tarea (como QuickGame): Sim::ProfileTask existe pero aqui no se llama.
+#ifndef EA_BUILD_A124
         Sim::ProfileTask(mResetTask, "AIActionRace");
+#endif
     }
 }
 
@@ -366,16 +394,32 @@ void AIActionRace::ComputePotentials() {
 
     mNosCapability = UMath::Lerp(lowest_nos.Boost, my_nos.Boost, mPerformanceBias.Acceleration);
 
+    // La A124 no guarda la duracion de la botella (no hay mBottleTime) y el nitro usable es
+    // solo la proporcion de capacidades, sin escalar por el empuje.
     if (bIsPursuitMode || bIsFleeMode) {
         mUsableNOS = 1.0f;
+#ifndef EA_BUILD_A124
         mBottleTime = my_nos.Capacity;
+#endif
     } else {
-        if (my_nos.Capacity > UMath::Epsilon && mNosCapability > 0.0f) {
-            mUsableNOS = (lowest_nos.Capacity / my_nos.Capacity) * (mNosCapability / my_nos.Boost);
+        if (my_nos.Capacity > UMath::Epsilon
+#ifndef EA_BUILD_A124
+            && mNosCapability > 0.0f
+#endif
+        ) {
+            mUsableNOS = (lowest_nos.Capacity / my_nos.Capacity)
+#ifndef EA_BUILD_A124
+                         * (mNosCapability / my_nos.Boost)
+#endif
+                ;
+#ifndef EA_BUILD_A124
             mBottleTime = my_nos.Capacity;
+#endif
         } else {
             mUsableNOS = 0.0f;
+#ifndef EA_BUILD_A124
             mBottleTime = 0.0f;
+#endif
         }
     }
 
@@ -416,16 +460,31 @@ float aSpeedScaleDataDrag[2] = {0.85f, 1.0f};
 Table AiSpeedScaleTableDrag(aSpeedScaleDataDrag, 2, 0.0f, 1.0f);
 #endif
 
+// La A124 no tiene tablas de aceleracion para arrancadas: interpola entre una minima y una maxima
+// segun lo cerca que va de la velocidad potencial (valores del .data del prototipo).
+#ifdef EA_BUILD_A124
+float aAccelScaleDataMin[2] = {0.6f, 1.0f};
+Table AiAccelScaleTableMin(aAccelScaleDataMin, 2, 0.0f, 1.0f);
+
+float aAccelScaleDataMax[2] = {0.9f, 1.0f};
+Table AiAccelScaleTableMax(aAccelScaleDataMax, 2, 0.0f, 1.0f);
+#else
 float aAccelScaleData[2] = {0.65f, 1.0f};
 Table AiAccelScaleTable(aAccelScaleData, 2, 0.0f, 1.0f);
 
 float aAccelScaleDataDrag[2] = {0.82f, 1.0f};
 Table AiAccelScaleTableDrag(aAccelScaleDataDrag, 2, 0.0f, 1.0f);
+#endif
 
 float AiCatchupAccelerationData[4] = {1.0f, 1.33f, 1.66f, 2.0f};
 Table AiCatchupAcceleration(AiCatchupAccelerationData, 4, 0.0f, 1.0f);
 
+// En la A124 el tope de la tabla de curvas es 1.0 (.data del prototipo).
+#ifdef EA_BUILD_A124
+float aCorneringScaleData[2] = {0.36f, 1.0f};
+#else
 float aCorneringScaleData[2] = {0.36f, 0.9f};
+#endif
 Table AICorneringScaleTable(aCorneringScaleData, 2, 0.0f, 1.0f);
 
 // UNSOLVED nightmare
@@ -441,14 +500,17 @@ float AIActionRace::GetPotentialSpeed(const float curvature, const float skill
 
     if (mTopSpeed <= 0.0f) {
         result = 0.0f;
-    } else if (
+    }
 #ifdef EA_BUILD_A124
-        // La A124 no recibe is_drag: pregunta el estilo al vehiculo (vtable+0x68, STYLE_DRAG = 1).
-        GetVehicle()->GetDriverStyle() != STYLE_DRAG
+    // La A124 no recibe is_drag: pregunta el estilo al vehiculo (vtable+0x68, STYLE_DRAG = 1) y en
+    // arrancada vuelve a cargar la punta (su .mdebug: el if en la linea 560 y la asignacion en la 562).
+    else if (GetVehicle()->GetDriverStyle() == STYLE_DRAG) {
+        result = mTopSpeed;
+    } else
 #else
-        !is_drag
+    else if (!is_drag)
 #endif
-    ) {
+    {
         if (!bIsPursuitMode || bIsFleeMode) {
             if (GetAI()->GetDriveToNav()->HitDeadEnd()) {
                 return 0.0f;
@@ -568,7 +630,12 @@ struct AccelTor {
     float Accel; // offset 0x4, size 0x4
 };
 
-float AIActionRace::GetPotentialAcceleration(const float speed, const float skill, bool using_nos, bool is_drag) const {
+float AIActionRace::GetPotentialAcceleration(const float speed, const float skill, bool using_nos
+#ifndef EA_BUILD_A124
+                                             ,
+                                             bool is_drag
+#endif
+) const {
     AccelTor my_accel(speed, GetAI());
     AccelTor lowest_accel = IVehicle::ForEach(VEHICLE_PLAYERS, my_accel);
     float result = UMath::Lerp(lowest_accel.Accel, my_accel.Accel, mPerformanceBias.Acceleration);
@@ -583,7 +650,12 @@ float AIActionRace::GetPotentialAcceleration(const float speed, const float skil
         }
     }
 
+#ifdef EA_BUILD_A124
+    const float t = UMath::Ramp(speed, 0.0f, fPotentialSpeed);
+    const float accel_scale = UMath::Lerp(AiAccelScaleTableMin.GetValue(skill), AiAccelScaleTableMax.GetValue(skill), t);
+#else
     const float accel_scale = is_drag ? AiAccelScaleTableDrag.GetValue(skill) : AiAccelScaleTable.GetValue(skill);
+#endif
 
     float nos_scale = using_nos ? mNosCapability + 1.0f : 1.0f;
 
@@ -601,21 +673,37 @@ float AIActionRace::GetPotentialAcceleration(const float speed, const float skil
         catchup_scale = AiCatchupAcceleration.GetValue(mCheater->GetCatchupCheat());
     }
 
-    result = result * attrib_scale * nos_scale * accel_scale * catchup_scale + gravity_acc;
+    // La gravedad va DELANTE: las dos PS2 (A124 y SLUS) suman `add.s dst, gravity, producto`;
+    // GameCube lo funde en un fmadds y no distingue el orden.
+    result = gravity_acc + result * attrib_scale * nos_scale * accel_scale * catchup_scale;
 
     return UMath::Max(result, 0.0f);
 }
 
+#ifdef EA_BUILD_A124
+bool AIActionRace::GetPotentialNOS(float speed, bool was_on) const {
+#else
 float AIActionRace::GetPotentialNOS(float speed, bool was_on, float skill) const {
-    if (speed < 10.0f || speed >= fSpeedLimit) {
+#endif
+    if (speed < 10.0f
+#ifndef EA_BUILD_A124
+        || speed >= fSpeedLimit
+#endif
+    ) {
         return 0.0f;
     }
-    if (mNosCapability <= 0.0f || mUsableNOS <= 0.0f) {
+    if (0.0f >= mNosCapability || 0.0f >= mUsableNOS) {
         return 0.0f;
     }
     if (!mIEngine) {
         return 0.0f;
     }
+#ifdef EA_BUILD_A124
+    // Umbral fijo en vez de depender de la habilidad. Es const: por eso sus stabs no lo
+    // listan (solo bottle_amount), igual que el accel_scale de GetPotentialAcceleration.
+    const float needed_capacity = was_on ? 0.0f : 0.3f;
+    float bottle_amount = mIEngine->GetNOSCapacity() * mUsableNOS;
+#else
     float useable_nos = mUsableNOS * UMath::Lerp(0.33f, 1.0f, skill);
     float off_limit = 1.0f - useable_nos;
     float on_limit; // TODO
@@ -624,10 +712,15 @@ float AIActionRace::GetPotentialNOS(float speed, bool was_on, float skill) const
         needed_capacity = off_limit;
     }
     float bottle_amount = mIEngine->GetNOSCapacity();
+#endif
     if (bottle_amount <= needed_capacity) {
         return 0.0f;
     }
+#ifdef EA_BUILD_A124
+    return true;
+#else
     return (bottle_amount - needed_capacity) * mBottleTime;
+#endif
 }
 
 float aAiNavLookAheadData[2] = {30.0f, 100.0f};
@@ -755,20 +848,18 @@ bool AIActionRace::CheckSpeedTraps(float speed, float skill, float potential_nos
         UMath::Vector3 trapPos;
         trap->GetPosition(trapPos);
         float reach = speed * (skill + skill + 1.0f);
-        if (UMath::DistanceSquare(trapPos, carPos) >= reach * reach) {
-            continue;
-        }
-
-        UMath::Vector3 toTrap;
-        UMath::Sub(trapPos, carPos, toTrap);
-        float dist = UMath::Length(toTrap);
-        if (dist != 0.0f) {
-            UMath::Scale(toTrap, 1.0f / dist, toTrap);
-        }
-        float eta = dist / speed;
-        if (eta < potential_nos || was_nos) {
-            if (UMath::Dot(carFwd, toTrap) > 0.5f) {
-                return true;
+        if (UMath::DistanceSquare(trapPos, carPos) < reach * reach) {
+            UMath::Vector3 toTrap;
+            UMath::Sub(trapPos, carPos, toTrap);
+            float dist = UMath::Length(toTrap);
+            if (dist != 0.0f) {
+                UMath::Scale(toTrap, 1.0f / dist, toTrap);
+            }
+            float eta = dist / speed;
+            if (eta < potential_nos || was_nos) {
+                if (UMath::Dot(carFwd, toTrap) > 0.5f) {
+                    return true;
+                }
             }
         }
     }
@@ -785,95 +876,116 @@ void AIActionRace::Update(float dT) {
     WRoadNav *road_nav = GetAI()->GetDriveToNav();
     UMath::Vector3 desired_direction = UMath::Vector3::kZero;
     const UMath::Vector3 &car_position = mIRigidBody->GetPosition();
+#ifdef EA_BUILD_A124
+    // La A124 aun conduce con IA los coches de un jugador en red que lo pide: sigue su posicion
+    // extrapolada y se salta el resto de la navegacion (su .mdebug: lineas 927-939).
+    IPlayer *player = GetOwner()->GetPlayer();
+    IOnlinePlayer *online;
 
-    if (kFollowLocalPlayer) {
-        IRigidBody *player_rigid_body = IPlayer::First(PLAYER_LOCAL)->GetSimable()->GetRigidBody();
-        UMath::Vector3 player_position = player_rigid_body->GetPosition();
-        WRoadNav *road_nav = GetAI()->GetDriveToNav();
-        road_nav->SetLaneType(WRoadNav::kLaneRacing);
-        desired_direction = UVector3(player_position) - car_position;
-        GetAI()->SetDriveTarget(player_position);
-        {
-            UMath::Vector3 direction;
-            UMath::Sub(player_position, car_position, direction);
-        }
-    }
-
-    if (bIsPursuitMode) {
-        road_nav->SetLaneType(WRoadNav::kLaneRacing);
-        if (!road_nav->FindingPath()) {
-            AITarget *target = GetAI()->GetTarget();
-            IVehicleAI *targetai;
-            target->QueryInterface(&targetai);
-            UMath::Vector3 findPosition;
-            if (bIsFleeMode) {
-                UMath::Vector3 fleecenter;
-                UMath::Vector3 fleeforward;
-                IPlayer *iplayer = IPlayer::First(PLAYER_LOCAL);
-                if (iplayer) {
-                    fleecenter = iplayer->GetSimable()->GetPosition();
-                    iplayer->GetSimable()->GetLinearVelocity(fleeforward);
-                    if (UMath::Normalize(fleeforward) < 1e-05f) {
-                        iplayer->GetSimable()->GetRigidBody()->GetForwardVector(fleeforward);
-                    }
-                } else {
-                    fleecenter = target->GetPosition();
-                    fleeforward = target->GetLinearVelocity();
-                    if (UMath::Normalize(fleeforward) < 1e-05f) {
-                        target->GetSimable()->GetRigidBody()->GetForwardVector(fleeforward);
-                    }
-                }
-                UMath::Vector3 offset;
-                UMath::Sub(fleecenter, mIRigidBody->GetPosition(), offset);
-                float offlen = UMath::Length(offset);
-                if (offlen > 50.0f) {
-                    UMath::Scale(offset, 1.0f / offlen, fleeforward);
-                }
-                UMath::ScaleAdd(fleeforward, -500.0f, fleecenter, findPosition);
-                if (UMath::Distance(mLastFindPosition, findPosition) < 60.0f && UMath::Distance(fleecenter, mLastFindPosition) > 450.0f) {
-                    findPosition = mLastFindPosition;
-                }
-            } else {
-                if (bDontSeekAhead) {
-                    findPosition = target->GetPosition();
-                } else {
-                    findPosition = targetai->GetSeekAheadPosition();
-                }
-            }
-            mLastFindPosition = findPosition;
-            road_nav->FindPath(&findPosition, nullptr, nullptr);
-        }
-        desired_direction = UVector3(mLastFindPosition) - car_position;
-    } else {
-        if (drag_racing) {
-            road_nav->SetLaneType(WRoadNav::kLaneDrag);
-        } else {
+    if (player && player->QueryInterface(&online)) {
+        OnlineRacer *racer = online->GetOnlineRacer();
+        if (racer && racer->WantsDriverAI()) {
             road_nav->SetLaneType(WRoadNav::kLaneRacing);
+            if (!road_nav->FindingPath()) {
+                racer->ExtractExtrapolatedPosition(mLastFindPosition);
+                road_nav->FindPath(&mLastFindPosition, nullptr, nullptr);
+            }
+            racer->ExtractExtrapolatedDirection(desired_direction);
         }
-        if (GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing && GRaceStatus::Get().GetRaceParameters() &&
-            GRaceStatus::Get().GetRaceParameters()->HasFinishLine()) {
-            AITarget *target = GetAI()->GetTarget();
-            if (target->IsValid() && !GRaceStatus::Get().GetRaceRouteError()) {
-                const UMath::Vector3 &target_position = target->GetPosition();
-                UMath::Vector3 car_to_target = UVector3(target_position) - car_position;
-                WRoadNav *road_nav = GetAI()->GetDriveToNav();
-                if (road_nav->GetNavType() != WRoadNav::kTypePath && !road_nav->FindingPath()) {
-                    bool find_path = true;
-                    if (UMath::DistanceSquare(target_position, mLastFindPosition) < 1.0f) {
-                        if (road_nav->IsGoalInCookieTrail()) {
-                            find_path = false;
-                        } else {
-                            UMath::LengthSquare(car_to_target);
+    } else
+#endif
+    {
+        if (kFollowLocalPlayer) {
+            IRigidBody *player_rigid_body = IPlayer::First(PLAYER_LOCAL)->GetSimable()->GetRigidBody();
+            UMath::Vector3 player_position = player_rigid_body->GetPosition();
+            WRoadNav *road_nav = GetAI()->GetDriveToNav();
+            road_nav->SetLaneType(WRoadNav::kLaneRacing);
+            desired_direction = UVector3(player_position) - car_position;
+            GetAI()->SetDriveTarget(player_position);
+            {
+                UMath::Vector3 direction;
+                UMath::Sub(player_position, car_position, direction);
+            }
+        }
+
+        if (bIsPursuitMode) {
+            road_nav->SetLaneType(WRoadNav::kLaneRacing);
+            if (!road_nav->FindingPath()) {
+                AITarget *target = GetAI()->GetTarget();
+                IVehicleAI *targetai;
+                target->QueryInterface(&targetai);
+                UMath::Vector3 findPosition;
+                if (bIsFleeMode) {
+                    UMath::Vector3 fleecenter;
+                    UMath::Vector3 fleeforward;
+                    IPlayer *iplayer = IPlayer::First(PLAYER_LOCAL);
+                    if (iplayer) {
+                        fleecenter = iplayer->GetSimable()->GetPosition();
+                        iplayer->GetSimable()->GetLinearVelocity(fleeforward);
+                        if (UMath::Normalize(fleeforward) < 1e-05f) {
+                            iplayer->GetSimable()->GetRigidBody()->GetForwardVector(fleeforward);
+                        }
+                    } else {
+                        fleecenter = target->GetPosition();
+                        fleeforward = target->GetLinearVelocity();
+                        if (UMath::Normalize(fleeforward) < 1e-05f) {
+                            target->GetSimable()->GetRigidBody()->GetForwardVector(fleeforward);
                         }
                     }
-                    if (find_path) {
-                        UMath::Vector3 target_direction = target->GetDirection();
-                        road_nav->FindPath(&target_position, &target_direction, nullptr);
-                        mLastFindPosition = target_position;
+                    UMath::Vector3 offset;
+                    UMath::Sub(fleecenter, mIRigidBody->GetPosition(), offset);
+                    float offlen = UMath::Length(offset);
+                    if (offlen > 50.0f) {
+                        UMath::Scale(offset, 1.0f / offlen, fleeforward);
+                    }
+                    UMath::ScaleAdd(fleeforward, -500.0f, fleecenter, findPosition);
+                    if (UMath::Distance(mLastFindPosition, findPosition) < 60.0f && UMath::Distance(fleecenter, mLastFindPosition) > 450.0f) {
+                        findPosition = mLastFindPosition;
+                    }
+                } else {
+                    if (bDontSeekAhead) {
+                        findPosition = target->GetPosition();
+                    } else {
+                        findPosition = targetai->GetSeekAheadPosition();
                     }
                 }
+                mLastFindPosition = findPosition;
+                road_nav->FindPath(&findPosition, nullptr, nullptr);
+            }
+            desired_direction = UVector3(mLastFindPosition) - car_position;
+        } else {
+            // El carril de carreras es la rama que cae: las dos PS2 (A124 y SLUS) saltan solo en
+            // arrancada (bnez drag_racing), y el .mdebug de la A124 pone kLaneRacing en la linea del if + 1.
+            if (!drag_racing) {
+                road_nav->SetLaneType(WRoadNav::kLaneRacing);
             } else {
-                need_to_stop = true;
+                road_nav->SetLaneType(WRoadNav::kLaneDrag);
+            }
+            if (GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing && GRaceStatus::Get().GetRaceParameters() &&
+                GRaceStatus::Get().GetRaceParameters()->HasFinishLine()) {
+                AITarget *target = GetAI()->GetTarget();
+                if (target->IsValid() && !GRaceStatus::Get().GetRaceRouteError()) {
+                    const UMath::Vector3 &target_position = target->GetPosition();
+                    UMath::Vector3 car_to_target = UVector3(target_position) - car_position;
+                    WRoadNav *road_nav = GetAI()->GetDriveToNav();
+                    if (road_nav->GetNavType() != WRoadNav::kTypePath && !road_nav->FindingPath()) {
+                        bool find_path = true;
+                        if (UMath::DistanceSquare(target_position, mLastFindPosition) < 1.0f) {
+                            if (road_nav->IsGoalInCookieTrail()) {
+                                find_path = false;
+                            } else {
+                                UMath::LengthSquare(car_to_target);
+                            }
+                        }
+                        if (find_path) {
+                            UMath::Vector3 target_direction = target->GetDirection();
+                            road_nav->FindPath(&target_position, &target_direction, nullptr);
+                            mLastFindPosition = target_position;
+                        }
+                    }
+                } else {
+                    need_to_stop = true;
+                }
             }
         }
     }
@@ -900,8 +1012,18 @@ void AIActionRace::Update(float dT) {
     const float actual_speed = GetVehicle()->GetSpeed();
     const float nos_capacity = mIEngine->GetNOSCapacity();
     const bool was_nos = mIInput->GetControls().fNOS && nos_capacity > 0.0f;
-    const float potential_acceleration = GetPotentialAcceleration(UMath::Max(actual_speed, fSpeedLimit), skill, was_nos, drag_racing);
+    const float potential_acceleration = GetPotentialAcceleration(UMath::Max(actual_speed, fSpeedLimit), skill, was_nos
+#ifndef EA_BUILD_A124
+                                                                  ,
+                                                                  drag_racing
+#endif
+    );
     const float actual_acceleration = (actual_speed - mLastSpeed) / dT;
+#ifdef EA_BUILD_A124
+    // La A124 decide aqui si puede usar nitro, antes de tocar el limite y sin mirar si da la
+    // vuelta: can_nos va a la pila justo detras de la aceleracion (su .mdebug: linea 1110).
+    const bool can_nos = !need_to_stop && !is_staging && GetPotentialNOS(actual_speed, was_nos);
+#endif
     const float delta_acceleration = actual_acceleration;
     mLastSpeed = actual_speed;
     mLastAccel = delta_acceleration;
@@ -926,7 +1048,12 @@ void AIActionRace::Update(float dT) {
 
     UMath::Vector3 drive_target = occluded_position;
     if (is_staging) {
+#ifdef EA_BUILD_A124
+        // En la A124 la velocidad de preparacion es fija (lui 0x4120: 10.0).
+        fSpeedLimit = 10.0f;
+#else
         fSpeedLimit = MPH2MPS(UMath::Lerp(2.5f, 3.0f, skill));
+#endif
         drive_target = nav_position;
     }
     float drive_speed = need_to_stop ? 0.0f : fSpeedLimit;
@@ -952,10 +1079,16 @@ void AIActionRace::Update(float dT) {
     fDriveSpeed = drive_speed;
 
     bool want_nos = false;
+#ifndef EA_BUILD_A124
     const float potential_nos = GetPotentialNOS(actual_speed, was_nos, skill);
     const bool can_nos = !mTurnAroundActive && !need_to_stop && !is_staging && potential_nos > 0.0f;
-    if (can_nos) {
-        if (!GetOwner()->IsPlayer()) {
+#endif
+    // La A124 no excluye al jugador ni escala por los radares: los trata al final del bloque.
+    if (can_nos
+#ifndef EA_BUILD_A124
+        && !GetOwner()->IsPlayer()
+#endif
+    ) {
         float skill_scale = AiNosScaleTable.GetValue(skill);
 #ifndef EA_BUILD_A124
         if (CheckSpeedTraps(actual_speed, skill, potential_nos, was_nos)) {
@@ -965,18 +1098,45 @@ void AIActionRace::Update(float dT) {
         float speed_gap = skill_scale * (fPotentialSpeed - actual_speed);
         float accel_gap = skill_scale * (potential_acceleration - delta_acceleration);
         if (!was_nos) {
+            // Tiempos fijos en la A124 (3.0 y 2.0); la venta los escala con la habilidad.
+#ifdef EA_BUILD_A124
+            const float time_off = 3.0f;
+#else
             float time_off = -UMath::Lerp(20.0f, 4.0f, skill);
+#endif
             if (mNOSTimer < time_off && !road_nav->IsOccluded() && speed_gap > 15.0f && accel_gap > potential_acceleration * 0.5f) {
                 want_nos = true;
             }
         } else {
             want_nos = true;
+#ifdef EA_BUILD_A124
+            const float time_on = 2.0f;
+#else
             float time_on = UMath::Lerp(2.0f, 4.0f, skill);
+#endif
             if (mNOSTimer > time_on && (speed_gap < 5.0f || accel_gap < potential_acceleration * 0.15f)) {
                 want_nos = false;
             }
+#ifdef EA_BUILD_A124
+            if (fPotentialSpeed <= fSpeedLimit) {
+                want_nos = false;
+            }
+#endif
         }
+#ifdef EA_BUILD_A124
+        // Radares: la A124 da nitro si alguno de la carrera cae en el rastro de navegacion.
+        if (!want_nos) {
+            int num_speed_traps = GRaceStatus::Get().GetNumRaceSpeedTraps();
+            for (int i = 0; i < num_speed_traps; i++) {
+                UMath::Vector3 position;
+                GRaceStatus::Get().GetRaceSpeedTrap(i)->GetPosition(position);
+                if (nav->IsPointInCookieTrail(position, 0.0f)) {
+                    want_nos = true;
+                    break;
+                }
+            }
         }
+#endif
     }
 
     if (want_nos) {

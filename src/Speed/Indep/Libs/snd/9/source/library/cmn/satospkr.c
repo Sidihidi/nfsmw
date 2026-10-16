@@ -95,7 +95,7 @@ void SNDI_aztospkrvol(int azimuth, float *balance) {
     int azshift;
     int i;
 
-    azshift = (unsigned short)azimuth >> 8;
+    azshift = (azimuth & 0xFFFF) >> 8;
 
     for (i = 0; i < sndgs.sso.set.outputchannels; i++) {
         balance[i] = (float)sndaztospkr[i][azshift] * (1.0f / 255.0f);
@@ -138,6 +138,23 @@ void SNDI_spkrconfig() {
         Snd::gSpeakerPositions[3] = 225.0f;
         Snd::gSpeakerPositions[4] = 315.0f;
     }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+    {
+        int j;
+
+        if (Snd::gTotalOutputChannels == 2) {
+            for (j = 0; j < sndgs.sso.set.numrendermodes; j++) {
+                if (sndgs.sso.set.rendermode[j] & 0x40) {
+                    Snd::gFoldDownTarget = Snd::FOLDDOWNTARGET_QUAD;
+                    Snd::gSpeakerPositions[0] = 45.0f;
+                    Snd::gSpeakerPositions[1] = 315.0f;
+                    break;
+                }
+            }
+        }
+    }
+#endif
 
     if (sndgs.sso.set.outputchannels == 2) {
         sndgs.srcchancfg3d[1][0] = -0x4000;

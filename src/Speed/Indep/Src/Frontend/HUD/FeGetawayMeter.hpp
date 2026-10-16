@@ -9,9 +9,10 @@
 class GetAwayMeter : public HudElement, public IGetAwayMeter {
   public:
     GetAwayMeter(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~GetAwayMeter() override {}
     void Update(IPlayer *player) override;
-    void SetGetAwayDistance(float distance) override {
-        mGetawayDistance = distance;
+    void SetGetAwayDistance(float getawayDistance) override {
+        mGetawayDistance = getawayDistance;
     };
 
   private:

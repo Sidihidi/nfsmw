@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 int SNDSTRM_pitchmult(int sndstreamhandle, int pitchmult) {
+    SNDI_CHECKINSTALLED();
     SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
 
     if (pssc == NULL) {

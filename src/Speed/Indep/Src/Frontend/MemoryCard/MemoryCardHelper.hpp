@@ -20,6 +20,8 @@ struct THREAD {
     // Opaco y de plataforma, como MUTEX: 0x8 en PS2 (stabs de la A124). MyThread::SetPriority guarda mPriority en
     // 0x1C y pasa this + 0x14 a THREAD_setpriority en las dos builds (SLES 0x27EE80, SLUS 0x24E3D0).
     int reserved[2]; // total size: 0x8
+#elif defined(EA_PLATFORM_WIN32)
+    int reserved[3]; // total size: 0xC (MyThread: mPriority en 0x20 y mActive en 0x24)
 #else
     int reserved[198]; // total size: 0x318
 #endif
@@ -37,6 +39,14 @@ extern int IsAutoSaveEnabled;
 // Sobrecarga ancha de bWare que Strings.hpp no declara.
 unsigned short *bStrNCpy(unsigned short *to, const char *from, int m);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// libscf de la biblioteca de Sony (el arbol no tiene libscf.h): zona horaria y horario de verano.
+extern "C" {
+int sceScfGetTimeZone();
+int sceScfGetSummerTime();
+}
+#endif
+
 enum LOCALESTATE {
     LOCALE_LANGUAGEID = 0,
     LOCALE_LANGUAGECOUNT = 1,
@@ -52,9 +62,9 @@ const char *LOCALE_getstrA(const void *locale, int strID);
 struct MemoryCardMessage {
     MemoryCardMessage(const wchar_t *msg, unsigned int nOptions, const wchar_t **options);
 
-    unsigned short mMsg[2048];        // offset 0x0
+    wchar_t mMsg[1024];               // offset 0x0 (PC: wchar_t de 2 B, mnOptions en 0x800)
     unsigned int mnOptions;           // offset 0x1000
-    unsigned short mOptions[4][256];  // offset 0x1004
+    wchar_t mOptions[4][128];         // offset 0x1004
 };
 
 enum MemoryCardJoyLoggableEvents {
@@ -82,9 +92,7 @@ enum MemoryCardJoyLoggableEvents {
 // total size: 0x24
 class MyMutex : public Realmc::IMutex {
   public:
-    MyMutex() {
-        memset(&mMutex, 0, sizeof(mMutex));
-        mRefcount = 1;
+    MyMutex() : mMutex(), mRefcount(1) {
         bMemSet(&mMutex, sizeof(mMutex), 0);
         MUTEX_create(&mMutex);
     }
@@ -114,14 +122,7 @@ class MyMutex : public Realmc::IMutex {
 // total size: 0x334
 class MyThread : public Realmc::IThread {
   public:
-    MyThread() {
-        mRefcount = 1;
-        mStackSize = 4096;
-        mStackBuffer = 0;
-        memset(&mThreadData, 0, sizeof(mThreadData));
-        mPriority = 0;
-        mActive = false;
-    }
+    MyThread() : mRefcount(1), mStackSize(4096), mStackBuffer(0), mThreadData(), mPriority(0), mActive(false) {}
 
     virtual ~MyThread() {
         if (mActive) {
@@ -172,8 +173,13 @@ class MyThread : public Realmc::IThread {
     void Sleep(int ticks) override { THREAD_yield(ticks); }
 
     void SetPriority(int priority) override {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        mPriority = priority;
+        THREAD_setpriority(&mThreadData, priority);
+#else
         mPriority = 0;
         THREAD_setpriority(&mThreadData, 0);
+#endif
     }
 
     int (*GetEntryFunc())(void *) { return mEntryFunc; }
@@ -271,8 +277,8 @@ class IJoyHelper {
     static void EmulateMemoryCardLibrary(int aJoyOp);
 };
 
-void CaptureJoyOp(MemoryCardJoyLoggableEvents aJoyOp) {
-    Joylog::AddData(aJoyOp, 8, JOYLOG_CHANNEL_MEMORY_CARD);
+void CaptureJoyOp(MemoryCardJoyLoggableEvents op) {
+    Joylog::AddData(op, 8, JOYLOG_CHANNEL_MEMORY_CARD);
 }
 
 int ReplayJoyOp() {

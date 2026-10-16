@@ -61,11 +61,15 @@ UISafehouseRaceSheet::UISafehouseRaceSheet(ScreenConstructorData *sd) : ArrayScr
         }
     }
     TrackMap = reinterpret_cast<FEMultiImage *>(FEngFindObject(GetPackageName(), FEngHashString("TRACK_MAP")));
+#ifdef EA_BUILD_A124 // la A124 tiene un solo titulo, dentro y fuera de la partida
+    FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x84e4a54c);
+#else
     if (bIsInGame) {
         FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x2f32a021);
     } else {
         FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x84e4a54c);
     }
+#endif
     Setup();
 }
 
@@ -137,16 +141,25 @@ void UISafehouseRaceSheet::NotificationMessage(u32 msg, FEObject *obj, u32 param
 
 void UISafehouseRaceSheet::RefreshHeader() {
     ArrayScrollerMenu::RefreshHeader();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum() + 1);
+#else
     FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum());
+#endif
     FEPrintf(GetPackageName(), __NUMBER_OF_GROUP__, "%d", GetNumDatum());
     unsigned int hash = 0x6475236d;
     if (currentEvents) {
         hash = 0xc948ef80;
     }
     FEngSetLanguageHash(GetPackageName(), 0x78008599, hash);
+#ifdef EA_BUILD_A124 // la A124 pone el nombre del perfil y el dinero sin rotulos
+    FEPrintf(GetPackageName(), 0xb514e2d8, "%s", FEDatabase->GetMultiplayerProfile(0)->GetProfileName());
+    FEPrintf(GetPackageName(), 0xf91a59f6, "%$d", FEDatabase->GetCareerSettings()->GetCash());
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FEPrintf(GetPackageName(), 0xb514e2d8, "%s %$d", GetLocalizedString(0xce6b99b1), stable->GetTotalBounty());
     FEPrintf(GetPackageName(), 0xf91a59f6, "%s %$d", GetLocalizedString(0x73b79e0), FEDatabase->GetCareerSettings()->GetCash());
+#endif
     if (GetCurrentDatum() == nullptr) {
         return;
     }
@@ -162,22 +175,49 @@ void UISafehouseRaceSheet::RefreshHeader() {
     FEPrintf(GetPackageName(), 0x80c9daa, "%$0.1f %s", race->GetRaceLengthMeters() * 0.001f, distUnits);
     unsigned int trackNameHash = CalcLanguageHash("TRACKNAME_", race);
     FEngSetLanguageHash(GetPackageName(), 0xf2cd475, trackNameHash);
-    unsigned int copsHash;
-    if (race->GetCopsEnabled()) {
-        copsHash = LANGUAGE_COMMON_MAXIMUM;
-    } else {
-        copsHash = LANGUAGE_COMMON_MINIMUM;
+#ifdef EA_BUILD_A124 // la A124 muestra la densidad de policia y el identificador de la prueba
+    switch (race->GetCopDensity()) {
+        case 1:
+            hash = LANGUAGE_COMMON_MINIMUM;
+            break;
+        case 2:
+            hash = 0xa2cca838;
+            break;
+        case 3:
+            hash = LANGUAGE_COMMON_MAXIMUM;
+            break;
+        case 0:
+            hash = LANGUAGE_COMMON_NONE;
+            break;
+        default:
+            hash = 0;
+            break;
     }
-    FEngSetLanguageHash(GetPackageName(), 0x9b21, copsHash);
+    FEngSetLanguageHash(GetPackageName(), 0x9b21, hash);
+    FEngSetInvisible(GetPackageName(), 0x1c8fc866);
+    FEngSetInvisible(GetPackageName(), 0x7af67920);
+    FEPrintf(GetPackageName(), 0xbbf970cd, race->GetEventID());
+#else
+    if (race->GetCopsEnabled()) {
+        hash = LANGUAGE_COMMON_MAXIMUM;
+    } else {
+        hash = LANGUAGE_COMMON_MINIMUM;
+    }
+    FEngSetLanguageHash(GetPackageName(), 0x9b21, hash);
     FEngSetInvisible(GetPackageName(), 0x1c8fc866);
     FEngSetInvisible(GetPackageName(), 0x7af67920);
     FEngSetInvisible(GetPackageName(), 0xbbf970cd);
+#endif
     GRaceSaveInfo *info = GRaceDatabase::Get().GetScoreInfo(race->GetEventHash());
     if (race->GetRaceType() == GRace::kRaceType_P2P || race->GetRaceType() == GRace::kRaceType_Circuit ||
         race->GetRaceType() == GRace::kRaceType_Drag || race->GetRaceType() == GRace::kRaceType_Knockout ||
         race->GetRaceType() == GRace::kRaceType_Tollbooth) {
         if (info->mHighScores.mBestTime == 0.0f) {
+#ifdef EA_BUILD_A124
+            FEPrintf(GetPackageName(), 0x8fd41bb4, "--:--:--");
+#else
             FEPrintf(GetPackageName(), 0x8fd41bb4, GetLocalizedString(0x472aa00a));
+#endif
         } else {
             Timer t(info->mHighScores.mBestTime);
             char buf[64];
@@ -185,7 +225,11 @@ void UISafehouseRaceSheet::RefreshHeader() {
             FEPrintf(GetPackageName(), 0x8fd41bb4, "%s", buf);
         }
     } else {
+#ifdef EA_BUILD_A124
+        FEPrintf(GetPackageName(), 0x8fd41bb4, "--:--:--");
+#else
         FEPrintf(GetPackageName(), 0x8fd41bb4, "%s", GetLocalizedString(0x472aa00a));
+#endif
     }
     float avg_speed;
     float top_speed;
@@ -219,9 +263,17 @@ void UISafehouseRaceSheet::RefreshHeader() {
     }
     // La A124 no lo hace aqui: NotificationMessage compara el indice de antes y de despues con una local (pendiente).
 #ifndef EA_BUILD_A124
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (currentIndex != GetCurrentDatumNum() && GetCurrentDatum() != nullptr) {
+#else
     if (currentIndex != GetCurrentDatumNum() - 1 && GetCurrentDatum() != nullptr) {
+#endif
         TrackMapStreamer.Init(static_cast<RaceDatum *>(GetCurrentDatum())->race, TrackMap, 0, 0);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        currentIndex = GetCurrentDatumNum();
+#else
         currentIndex = GetCurrentDatumNum() - 1;
+#endif
     }
 #endif
 }

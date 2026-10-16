@@ -26,7 +26,6 @@ class MCountdownDone : public Hermes::Message {
 
     MCountdownDone() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MCountdownDone() {}
 };
 
 
@@ -34,9 +33,9 @@ class MCountdownDone : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MCountdownDone::HandleMessage_LuaBinding(const MCountdownDone &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MCountdownDone::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

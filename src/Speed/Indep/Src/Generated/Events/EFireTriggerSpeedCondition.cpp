@@ -36,9 +36,9 @@ void EFireTriggerSpeedCondition_MakeEvent_Callback(const void *staticData) {
     new EFireTriggerSpeedCondition(((EFireTriggerSpeedCondition::StaticData *) staticData)->fTrigger, ((EFireTriggerSpeedCondition::StaticData *) staticData)->fSpeed, ((EFireTriggerSpeedCondition::StaticData *) staticData)->fTriggerIfSpeedBelow, gEventDynamicData.fhSimable);
 }
 
-int EFireTriggerSpeedCondition_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 3) {
-        new EFireTriggerSpeedCondition((CARP::Trigger *) lua_tostring(L, 1), lua_tonumber(L, 2), (int) lua_tonumber(L, 3), gEventDynamicData.fhSimable);
+int EFireTriggerSpeedCondition_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 3) {
+        new EFireTriggerSpeedCondition((CARP::Trigger *) lua_tostring(luaState, 1), lua_tonumber(luaState, 2), (int) lua_tonumber(luaState, 3), gEventDynamicData.fhSimable);
     }
     return 0;
 }

@@ -4,7 +4,7 @@
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEMenuScreen.hpp"
-#if EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feDialogBox.hpp"
 #endif
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feWidget.hpp"
@@ -68,16 +68,16 @@ class GenericStat : public RaceStat {
 
     ~GenericStat() override {}
     void Draw() override {
-        char text[0x20];
+        char sztemp[0x20];
         FEngSetLanguageHash(GetTitleObject(), TitleHash);
-        bSNPrintf(text, 0x20, Format, StatData);
+        bSNPrintf(sztemp, 0x20, Format, StatData);
         if (UnitsHash != 0) {
             const char *fmt = "%s %s";
             FEString *data = GetDataObject();
             const char *units = GetLocalizedString(UnitsHash);
-            FEPrintf(data, fmt, text, units);
+            FEPrintf(data, fmt, sztemp, units);
         } else {
-            FEPrintf(GetDataObject(), "%s", text);
+            FEPrintf(GetDataObject(), "%s", sztemp);
         }
     };
 
@@ -136,13 +136,16 @@ class GenericResult : public ResultStat {
         FEPrintf(GetTitleObject(), "%s", RacerInfo->GetName());
 
         if (!RacerInfo->IsFinishedRacing()) {
+#ifndef EA_BUILD_A124 // la A124 no muestra el dato a medias en el radar
             bool showData = false;
             if (GRaceStatus::Exists()) {
                 if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_SpeedTrap) {
                     showData = true;
                 }
             }
-            if (!showData) {
+            if (!showData)
+#endif
+            {
                 FEngSetLanguageHash(GetDataObject(), 0x0FC1BF40);
                 goto show_position;
             }
@@ -332,6 +335,13 @@ class StatsPanel {
     const char *ParentPkg;
 };
 
+#ifdef EA_BUILD_A124
+namespace LobbyGamesN {
+struct _GameResultUpdateT;
+}
+struct LobbyApiMsgT;
+#endif
+
 class PostRaceResultsScreen : public MenuScreen {
   public:
     PostRaceResultsScreen(ScreenConstructorData *sd);
@@ -339,7 +349,7 @@ class PostRaceResultsScreen : public MenuScreen {
     void NotificationMessage(u32 msg, FEObject *pObject, u32 Param1, u32 Param2) override;
     eMenuSoundTriggers NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) override;
 
-  public:
+  private:
     void Setup();
     void SetupResults();
     void SetupStat_NosUsed();
@@ -357,18 +367,20 @@ class PostRaceResultsScreen : public MenuScreen {
     void SetupStat_SpeedBehind();
     void SetupRacerStats(int index, GRacerInfo *racer_info);
     void SetupLapStats(int racerIndex, GRacerInfo *racer_info);
-// TODO are the following gated by an online enable define?
-#if 0
-    static void ResultUpdateCB(void *context);
+    // Solo la A124 (en linea): el resultado de la carrera se sube al servidor de EA.
+#ifdef EA_BUILD_A124
+    static void ResultUpdateCB(const LobbyGamesN::_GameResultUpdateT *update, void *context);
     void UploadSavedRaceResults();
-    // TODO
-    // static void SendRaceResultsCB(LobbyApiMsgT *msg, void *context);
+    static void SendRaceResultsCB(LobbyApiMsgT *msg, void *context);
 #endif
 
     StatsPanel RacerStats[16];
     StatsPanel RaceResults;
-#if EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32) // PC: el dialogo del codigo online (0x1c4)
     dialog_handle msgHandle;
+#endif
+#ifdef EA_PLATFORM_WIN32
+    bool mPCOnlineFlag; // PC: 0x1c8, el constructor lo pone a false; lo usa el codigo online de PC. Nombre nuestro.
 #endif
     int mNumberOfRacers;
     int mIndexOfWinner;
@@ -431,8 +443,12 @@ class PursuitResultsDatum : public ArrayDatum {
         PursuitResultsDatumType_Time = 1,
         PursuitResultsDatumType_Milestone_Number = 2,
         PursuitResultsDatumType_Milestone_Time = 3,
+#ifndef EA_BUILD_A124 // los stabs de la A124 no la tienen y su Check vale 4
         PursuitResultsDatumType_Milestone_Time_PursuitRemaining = 4,
         PursuitResultsDatumType_Check = 5
+#else
+        PursuitResultsDatumType_Check = 4
+#endif
     } PursuitResultsDatumType;
 
     typedef enum {
@@ -519,7 +535,7 @@ class PostRacePursuitScreen : public ArrayScrollerMenu {
         return mPursuitData;
     }
 
-  public:
+  private:
     void Initialize();
     void SetupInfractions();
     void SetupMilestones();

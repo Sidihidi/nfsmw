@@ -10,8 +10,8 @@
 #include "./Camera.hpp"
 #include "./CameraAI.hpp"
 #include "CameraInfo.hpp"
-#include "Speed/Indep/Src/Generated/AttribSys/Classes/camerainfo.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/ecar.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/camerainfo.h"
 #include "Speed/Indep/Src/Sim/SimSurface.h"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Src/World/WWorldPos.h"
@@ -27,7 +27,7 @@
 #include "Speed/Indep/Src/Ecstasy/Ecstasy.hpp"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
-#include "Speed/Indep/Src/Physics/PVehicle.h"
+// datos-gc 2026-10-13: sin PVehicle.h aqui (no se usa ningun tipo suyo en esta cabecera): en el DWARF original las TU que parsean CameraMover.hpp no emiten el value de VehicleParams (zTrack: ninguno; zSim: tras GetRandom, guarda _21)
 #include "Speed/Indep/bWare/Inc/Espresso.hpp"
 #include "Speed/Indep/Src/Camera/ICE/ICEManager.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
@@ -327,9 +327,7 @@ class CameraMover : public bTNode<CameraMover>, public WCollisionMgr::ICollision
 
     virtual bool OutsidePOV() { return true; }
 
-    // Original returns the raw 4-byte value (TrackCopCameraMover::RenderCarPOV = lwz+blr with no
-    // bool normalization), so the original signature returned int.
-    virtual int RenderCarPOV() { return 1; }
+    virtual bool RenderCarPOV() { return true; }
 
     virtual float MinDistToWall();
 
@@ -401,7 +399,7 @@ class CubicCameraMover : public CameraMover {
 
     float MinDistToWall() override;
     bool OutsidePOV() override;
-    int RenderCarPOV() override;
+    bool RenderCarPOV() override;
     bool HighliteMode();
 #ifdef EA_BUILD_A124
     // Sin fIgnoreSetSnapNextTimer, la A124 la tiene en la clase: no hay simbolo y MessageJumpCut escribe

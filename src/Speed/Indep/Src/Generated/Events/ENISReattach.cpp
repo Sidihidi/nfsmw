@@ -39,9 +39,9 @@ void ENISReattach_MakeEvent_Callback(const void *staticData) {
     new ENISReattach(((ENISReattach::StaticData *) staticData)->fRepairDamage, gEventDynamicData.fhSimable);
 }
 
-int ENISReattach_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ENISReattach((int) lua_tonumber(L, 1), gEventDynamicData.fhSimable);
+int ENISReattach_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ENISReattach((int) lua_tonumber(luaState, 1), gEventDynamicData.fhSimable);
     }
     return 0;
 }

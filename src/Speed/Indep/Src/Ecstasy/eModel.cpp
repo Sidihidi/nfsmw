@@ -253,7 +253,14 @@ ePositionMarker *eModel::GetPostionMarker(uint32 namehash) {
 }
 
 void eInitModels(void) {
+    // Cuantos modelos caben: 0xa28 en GameCube, 0xdac en las dos PS2 y 0xe74 en PC y X360.
+#if defined(EA_PLATFORM_GAMECUBE)
     eModelSlotPool = bNewSlotPool(0x18, 0xa28, "Ecstacy:ModelSlotPool", 0);
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    eModelSlotPool = bNewSlotPool(0x18, 0xdac, "Ecstacy:ModelSlotPool", 0);
+#else
+    eModelSlotPool = bNewSlotPool(0x18, 0xe74, "Ecstacy:ModelSlotPool", 0);
+#endif
 }
 
 void NotifySolidLoader(eSolidListHeader *solid_list_header) {

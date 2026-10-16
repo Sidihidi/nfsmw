@@ -23,21 +23,21 @@ struct SteeringWheelDevice : public UTL::COM::Object, public ISteeringWheel {
         isActivated = false;
     }
 
-    float ConvertAcceleratorPosition();
+    float ConvertAcceleratorPosition(int channel);
 
-    float ConvertBrakePosition();
+    float ConvertBrakePosition(int channel);
 
-    float GetShiftUpValue();
+    float GetShiftUpValue(int channel);
 
-    float GetShiftDownValue();
+    float GetShiftDownValue(int channel);
 
-    float GetNOSValue();
+    float GetNOSValue(int channel);
 
-    float GetHandbrakeValue();
+    float GetHandbrakeValue(int channel);
 
-    float GetGameBrakerValue();
+    float GetGameBrakerValue(int channel);
 
-    float GetLookBackvalue();
+    float GetLookBackvalue(int channel);
 
     static void InitWheelSupport();
     static void PollWheels();
@@ -48,7 +48,11 @@ struct SteeringWheelDevice : public UTL::COM::Object, public ISteeringWheel {
     SteeringWheelDevice(int deviceIndex) : UTL::COM::Object(0), ISteeringWheel(this) {
         mDeviceIndex = deviceIndex;
         mManualTransmission = false;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        isActivated = false;
+#else
         isActivated = true;
+#endif
     }
 
     // ISteeringWheel

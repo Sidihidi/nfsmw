@@ -28,7 +28,7 @@ class CarCustomizeManager {
 
     bool RemoveFromCart(ShoppingCartItem *item); // Decl: speed/indep/src/frontend/menuscreens/customize/CustomizeManager.hpp:230
 
-    void AddRemovalCarPart(CAR_SLOT_ID slot_id); // Decl: speed/indep/src/frontend/menuscreens/customize/CustomizeManager.hpp:229
+    void AddRemovalCarPart(uint32 slot_id); // Decl: speed/indep/src/frontend/menuscreens/customize/CustomizeManager.hpp:229
 
     ShoppingCartItem *IsPartTypeInCart(SelectablePart *to_find);
 
@@ -62,6 +62,7 @@ class CarCustomizeManager {
 
     void EmptyCart() { // Decl: speed/indep/src/frontend/menuscreens/customize/CustomizeManager.hpp:250
         ShoppingCart.DeleteAllElements();
+        ResetPreview();
     }
 
     bool DoesCartHaveActiveParts();
@@ -72,7 +73,13 @@ class CarCustomizeManager {
         return TheTempColoredPart;
     }
 
+#ifdef EA_BUILD_A124
+    void SetTempColoredPart(SelectablePart *part) {
+        TheTempColoredPart = part;
+    }
+#else
     void SetTempColoredPart(SelectablePart *part);
+#endif
 
     void ClearTempColoredPart();
 

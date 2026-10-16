@@ -21,7 +21,7 @@ void UIQRTrackSelect::Setup() {
         return;
     }
     GRace::Type raceMode = FEDatabase->RaceMode;
-    unsigned int hash;
+    unsigned int hash = 0;
     switch (raceMode) {
         case GRace::kRaceType_Circuit:
             hash = 0x3de80a85;
@@ -57,10 +57,15 @@ void UIQRTrackSelect::Setup() {
 void UIQRTrackSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) {
     switch (msg) {
         case 0xe1fde1d1:
+#ifndef EA_BUILD_A124 // la A124 no tiene la salida directa de pantalla partida
             if (pCurrentTrack) {
+#ifdef EA_PLATFORM_PLAYSTATION2 // SLUS: solo aceleracion, y mira el tipo antes que la pantalla partida
+                if (pCurrentTrack->GetRaceType() == GRace::kRaceType_Drag && FEDatabase->IsSplitScreenMode()) {
+#else
                 if (FEDatabase->IsSplitScreenMode() &&
                     (pCurrentTrack->GetRaceType() == GRace::kRaceType_Drag || pCurrentTrack->GetRaceType() == GRace::kRaceType_P2P ||
                      pCurrentTrack->GetRaceType() == GRace::kRaceType_SpeedTrap)) {
+#endif
                     GRaceCustom *custom_race = GRaceDatabase::Get().AllocCustomRace(pCurrentTrack);
                     custom_race->SetNumOpponents(1);
                     custom_race->SetCopsEnabled(false);
@@ -70,13 +75,23 @@ void UIQRTrackSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u
                     return;
                 }
             }
+#endif
             cFEng::Get()->QueuePackageSwitch("Track_Options.fng", reinterpret_cast<u32>(pCurrentTrack), 0, false);
             RefreshHeader();
             break;
         case 0x911ab364: {
+#ifdef EA_BUILD_A124 // el prototipo borra la carrera elegida en linea y no toca la de arranque
+            if (FEDatabase->IsOnlineMode()) {
+                FEDatabase->GetOnlineSettings()->GetRaceSettings()->EventHash = 0;
+            } else {
+                FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->EventHash = 0;
+            }
+            if (FEDatabase->IsOnlineMode()) {
+#else
             GRaceDatabase::Get().ClearStartupRace();
             FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->EventHash = 0;
             if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+#endif
                 cFEng::Get()->QueuePackageSwitch("OL_MAIN.fng", 0, 0, false);
             } else {
                 cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
@@ -112,10 +127,17 @@ void UIQRTrackSelect::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u
             TrackMapStreamer.UpdateAnimation();
             break;
     }
+    return; // con el return final las PS2 hacen de cola las llamadas de todos los case
 }
 
 void UIQRTrackSelect::SetSelectedTrack(GRaceParameters *track) {
     if (track) {
+#ifdef EA_BUILD_A124
+        if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+            FEDatabase->GetOnlineSettings()->GetRaceSettings()->EventHash = track->GetEventHash();
+            return;
+        }
+#endif
         RaceSettings *settings = FEDatabase->GetQuickRaceSettings(track->GetRaceType());
         settings->EventHash = track->GetEventHash();
     }
@@ -146,6 +168,14 @@ bool UIQRTrackSelect::IsRaceValidForMike(GRaceParameters *parms) {
     return false;
 }
 
+#ifdef EA_BUILD_A124
+int SortTrackByLocked(SelectableTrack *before, SelectableTrack *after) {
+    if (before->bLocked && !after->bLocked) {
+        return 0;
+    }
+    return 1;
+}
+#else
 void UIQRTrackSelect::TryToAddTrack(GRaceParameters *parms, int unlock_filter, int bin_num) {
     if (!UnlockSystem::IsEventAvailable(parms->GetEventHash())) {
         return;
@@ -176,6 +206,7 @@ void UIQRTrackSelect::TryToAddTrack(GRaceParameters *parms, int unlock_filter, i
         }
     }
 }
+#endif
 
 void UIQRTrackSelect::BuildPresetTrackList() {
     Tracks.DeleteAllElements();
@@ -187,6 +218,45 @@ void UIQRTrackSelect::BuildPresetTrackList() {
     } else if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         unlock_filter = 4;
     }
+#ifdef EA_BUILD_A124 // el prototipo recorre todas las carreras de la base, sin cajones, y ordena por bloqueo
+    pCurrentNode = nullptr;
+    for (unsigned int i = 0; i < GRaceDatabase::Get().GetRaceCount(); i++) {
+        GRaceParameters *parms = GRaceDatabase::Get().GetRaceParameters(i);
+        if (!UnlockSystem::IsEventAvailable(parms->GetEventHash())) {
+            continue;
+        }
+        if (parms->GetRaceType() != FEDatabase->RaceMode) {
+            continue;
+        }
+        if (parms->GetIsDDayRace()) {
+            continue;
+        }
+        if (GetMikeMannBuild()) {
+            if (IsRaceValidForMike(parms)) {
+                Tracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, false));
+            }
+        } else {
+            unsigned char regionFilter = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->RegionFilterBits;
+            if (parms->GetRegion() == regionFilter || regionFilter == GRace::kRaceRegion_NumRegions) {
+                bool unlocked = UnlockSystem::IsTrackUnlocked(static_cast<eUnlockFilters>(unlock_filter), parms->GetEventHash(), 0);
+                if ((FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) && !unlocked) {
+                    continue;
+                }
+                Tracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, !unlocked));
+                uint32 hash;
+                if (FEDatabase->IsOnlineMode()) {
+                    hash = FEDatabase->GetOnlineSettings()->GetRaceSettings()->EventHash;
+                } else {
+                    hash = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->EventHash;
+                }
+                if (parms->GetEventHash() == hash) {
+                    pCurrentNode = Tracks.GetTail();
+                }
+            }
+        }
+    }
+    Tracks.Sort(SortTrackByLocked);
+#else
     {
         int bin_num = 0x15;
         pCurrentNode = nullptr;
@@ -208,6 +278,7 @@ void UIQRTrackSelect::BuildPresetTrackList() {
             bin_num--;
         } while (bin_num > 0);
     }
+#endif
     if (!pCurrentNode) {
         pCurrentTrack = nullptr;
         if (Tracks.CountElements() > 0) {
@@ -218,6 +289,7 @@ void UIQRTrackSelect::BuildPresetTrackList() {
         pCurrentTrack = pCurrentNode->pRaceParams;
     }
     TrackMapStreamer.Init(pCurrentTrack, TrackMap, 0, 0);
+    if (Tracks.IsEmpty()) {} // rango de bList::IsEmpty del DWARF tras el Init (sin codigo en esta build)
 }
 
 void UIQRTrackSelect::RefreshHeader() {
@@ -261,7 +333,11 @@ void UIQRTrackSelect::RefreshHeader() {
         FEPrintf(GetPackageName(), 0x5e7b09c9, "");
         FEPrintf(GetPackageName(), 0xdfb7a2e, "");
         FEPrintf(GetPackageName(), 0xb5154999, "--");
+#ifdef EA_BUILD_A124
+        FEPrintf(GetPackageName(), 0xb515499c, "--:--:--");
+#else
         FEPrintf(GetPackageName(), 0xb515499c, "%s", GetLocalizedString(0x472aa00a));
+#endif
         FEngSetLanguageHash(GetPackageName(), 0x68215623, 0xf9c0519a);
         FEngSetInvisible(GetPackageName(), 0xe08434fc);
     } else {
@@ -269,8 +345,10 @@ void UIQRTrackSelect::RefreshHeader() {
             FEngSetInvisible(GetPackageName(), 0x6b67d70b);
             FEngSetVisible(GetPackageName(), 0xe08434fc);
         } else {
-            // La A124 no tiene bin: en su lugar pone el texto fijo 0xbe4f0b38 en 0x68215623 (pendiente).
-#ifndef EA_BUILD_A124
+            // La A124 no tiene bin: en su lugar pone el texto fijo 0xbe4f0b38 en 0x68215623.
+#ifdef EA_BUILD_A124
+            FEngSetLanguageHash(GetPackageName(), 0x68215623, 0xbe4f0b38);
+#else
             char rival_name_locdb[128];
             FEngSNPrintf(rival_name_locdb, 0x80, "blacklist_rival_%02d_aka", pCurrentNode->bin);
             const char *pkg = GetPackageName();
@@ -291,7 +369,11 @@ void UIQRTrackSelect::RefreshHeader() {
             FEPrintf(GetPackageName(), 0xdfb7a2e, pCurrentTrack->GetEventID());
         }
 
+#ifdef EA_BUILD_A124 // el prototipo ensena el codigo de la prueba
+        FEPrintf(GetPackageName(), 0xbbf970cd, pCurrentTrack->GetEventID());
+#else
         FEngSetInvisible(GetPackageName(), 0xbbf970cd);
+#endif
 
         bool kph = true;
         const char *distUnits;
@@ -300,11 +382,14 @@ void UIQRTrackSelect::RefreshHeader() {
             distUnits = GetLocalizedString(0x8569a26a);
             speedUnits = GetLocalizedString(0x8569a25f);
         } else {
+            kph = false;
             distUnits = GetLocalizedString(0x867dcfd9);
             speedUnits = GetLocalizedString(0x8569ab44);
-            kph = false;
         }
 
+#ifdef EA_BUILD_A124 // millas a 1/1600 de metro
+        FEPrintf(GetPackageName(), 0xb5154999, "%$0.1f %s", pCurrentTrack->GetRaceLengthMeters() * (kph ? 0.001f : 0.000625f), distUnits);
+#else
         const char *distFmt = "%$0.1f %s";
         const char *distPkg = GetPackageName();
         float distance = pCurrentTrack->GetRaceLengthMeters();
@@ -314,6 +399,7 @@ void UIQRTrackSelect::RefreshHeader() {
             distance *= 0.00062137277f;
         }
         FEPrintf(distPkg, 0xb5154999, distFmt, distance, distUnits);
+#endif
 
         GRaceSaveInfo *info = GRaceDatabase::Get().GetScoreInfo(pCurrentTrack->GetEventHash());
 
@@ -326,25 +412,34 @@ void UIQRTrackSelect::RefreshHeader() {
             FEPrintf(GetPackageName(), 0xb515499c, "%s", buf);
         } else if (pCurrentTrack->GetRaceType() == GRace::kRaceType_SpeedTrap) {
             float max_speed;
+#ifdef EA_BUILD_A124 // la A124 guarda la velocidad en m/s
+            if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 1) {
+                max_speed = MPS2KPH(info->mHighScores.mBestSpeed);
+            } else {
+                max_speed = MPS2MPH(info->mHighScores.mBestSpeed);
+            }
+#else
             if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 1) {
                 max_speed = info->mHighScores.mBestSpeed;
             } else {
                 max_speed = MPS2MPH(info->mHighScores.mBestSpeed * 0.27778f);
             }
+#endif
             FEngSetLanguageHash(GetPackageName(), 0x28462c64, 0x512e823);
             FEPrintf(GetPackageName(), 0xb515499c, "%$0.0f %s", max_speed, speedUnits);
         } else {
+#ifdef EA_BUILD_A124
+            FEPrintf(GetPackageName(), 0xb515499c, "--:--:--");
+#else
             FEPrintf(GetPackageName(), 0xb515499c, "%s", GetLocalizedString(0x472aa00a));
+#endif
         }
 
         if (pCurrentTrack->GetRaceType() == GRace::kRaceType_Circuit || pCurrentTrack->GetRaceType() == GRace::kRaceType_Knockout) {
             FEngSetLanguageHash(GetPackageName(), 0x28462c64, 0xc5b5a177);
         }
 
-        const char *pkg = GetPackageName();
-        unsigned int raceIconHash = FEDatabase->GetRaceIconHash(pCurrentTrack->GetRaceType());
-        img = FEngFindImage(pkg, 0x8007b4c);
-        FEngSetTextureHash(img, raceIconHash);
+        FEngSetTextureHash(GetPackageName(), 0x8007b4c, FEDatabase->GetRaceIconHash(pCurrentTrack->GetRaceType()));
     }
 }
 
@@ -355,21 +450,19 @@ void UIQRTrackSelect::ScrollTracks(eScrollDir dir) {
     }
     GRaceParameters *oldTrack = pCurrentTrack;
     if (dir == eSD_PREV) {
-        SelectableTrack *prev = pCurrentNode->GetPrev();
-        if (prev == Tracks.EndOfList()) {
-            prev = Tracks.GetTail();
-        }
-        pCurrentNode = prev;
-        pCurrentTrack = prev->pRaceParams;
+        pCurrentNode = Tracks.GetPrevCircular(pCurrentNode);
+        pCurrentTrack = pCurrentNode->pRaceParams;
     } else if (dir == eSD_NEXT) {
-        SelectableTrack *next = pCurrentNode->GetNext();
-        if (next == Tracks.EndOfList()) {
-            next = Tracks.GetHead();
-        }
-        pCurrentNode = next;
-        pCurrentTrack = next->pRaceParams;
+        pCurrentNode = Tracks.GetNextCircular(pCurrentNode);
+        pCurrentTrack = pCurrentNode->pRaceParams;
     }
     if (oldTrack != pCurrentTrack) {
+#ifdef EA_BUILD_A124
+        // la A124 copia el evento a los ajustes online (FEGameMode 0x214 bits 3 y 6, EventHash en 0x29C)
+        if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+            FEDatabase->OnlineSettings.GetRaceSettings()->EventHash = pCurrentTrack->GetEventHash();
+        }
+#endif
         TrackMapStreamer.Init(pCurrentTrack, TrackMap, 0, 0);
         RefreshHeader();
     }

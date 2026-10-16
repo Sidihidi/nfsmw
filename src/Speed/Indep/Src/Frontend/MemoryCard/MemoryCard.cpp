@@ -1,3 +1,6 @@
+// clang-format off
+// Maquetado a las lineas del original de la A124 (solo lineas en blanco de relleno): la A124 es una build milestone y
+// bMalloc pasa __LINE__, asi que el de LoadLocale, Save y Load tiene que caer en la linea del original.
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCardHelper.hpp"
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCardCallbacks.hpp"
@@ -11,6 +14,7 @@
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
+#include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
 
@@ -25,38 +29,82 @@ unsigned short gSaveType2[16];
 // los tres punteros valen gSaveType0/1/2. El zPlatform extraido lo referencia
 // como UND (MemoryCardImp.cpp lo declara con su nombre de ensamblador).
 unsigned short *MemoryCardImp::gEntryType[3] = {gSaveType0, gSaveType1, gSaveType2};
-
+unsigned short MemoryCardImp::gContentName[32];
 MemoryCard *MemoryCard::s_pThis = nullptr;
 
 #if defined(EA_PLATFORM_GAMECUBE) || defined(EA_PLATFORM_PLAYSTATION2)
 // RealMemCard is built with -fshort-wchar on these platforms, so its wide string
 // methods are mangled with `Uw`, while this unit (plain wchar_t) calls the `w`
 // names. These C shims carry the `w` names and forward to the library ones; the
-// original has them with exactly these names and void * parameters.
+// original has them with exactly these names and void * parameters. In PS2 the
+// library also compresses repeated types differently (N21 and bT3 where this unit
+// writes T1T1 and bb), so Save needs one there too (the A124 and SLUS call it).
 extern "C" {
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void Save__Q211RealmcIface16MemcardInterfacePCcN21PCQ211RealmcIface8SaveInfoPCQ211RealmcIface9TitleInfo(void *pthis, void *p1, void *p2,
+                                                                                                        void *p3, void *p4, void *p5);
+#endif
 void Delete__Q211RealmcIface16MemcardInterfacePCcPCUw(void *pthis, void *p1, void *p2);
+#ifdef EA_PLATFORM_PLAYSTATION2
+void *__Q211RealmcIface8GameInfoPCUwPCcbT3(void *pthis, void *p0, void *p1, void *p2);
+void Load__Q211RealmcIface16MemcardInterfacePCcPcT2PCUwPCQ211RealmcIface9TitleInfo(void *pthis, void *p0, void *p1, void *p2, void *p3,
+                                                                                   void *p4, void *p5);
+#else
 void *__Q211RealmcIface8GameInfoPCUwUibT3(void *pthis, void *p0, void *p1, void *p2);
 void Load__Q211RealmcIface16MemcardInterfacePCcPcT2PCUwPCQ211RealmcIface9TitleInfoT4(void *pthis, void *p0, void *p1, void *p2,
                                                                                      void *p3, void *p4, void *p5);
+#endif
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+void Save__Q211RealmcIface16MemcardInterfacePCcT1T1PCQ211RealmcIface8SaveInfoPCQ211RealmcIface9TitleInfo(void *pthis, void *p1, void *p2,
+                                                                                                         void *p3, void *p4, void *p5) {
+    Save__Q211RealmcIface16MemcardInterfacePCcN21PCQ211RealmcIface8SaveInfoPCQ211RealmcIface9TitleInfo(pthis, p1, p2, p3, p4, p5);
+}
+#endif
 
 void Delete__Q211RealmcIface16MemcardInterfacePCcPCw(void *pthis, void *p1, void *p2) {
     Delete__Q211RealmcIface16MemcardInterfacePCcPCUw(pthis, p1, p2);
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void *__Q211RealmcIface8GameInfoPCwPCcbb(void *pthis, void *p0, void *p1, void *p2) {
+    return __Q211RealmcIface8GameInfoPCUwPCcbT3(pthis, p0, p1, p2);
+}
+#else
 void *__Q211RealmcIface8GameInfoPCwUibT3(void *pthis, void *p0, void *p1, void *p2) {
     return __Q211RealmcIface8GameInfoPCUwUibT3(pthis, p0, p1, p2);
 }
+#endif
 
 void Load__Q211RealmcIface16MemcardInterfacePCcPcT2PCwPCQ211RealmcIface9TitleInfo(void *pthis, void *p0, void *p1, void *p2, void *p3,
                                                                                   void *p4, void *p5) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    Load__Q211RealmcIface16MemcardInterfacePCcPcT2PCUwPCQ211RealmcIface9TitleInfo(pthis, p0, p1, p2, p3, p4, p5);
+#else
     Load__Q211RealmcIface16MemcardInterfacePCcPcT2PCUwPCQ211RealmcIface9TitleInfoT4(pthis, p0, p1, p2, p3, p4, p5);
+#endif
 }
 }
 #endif
 
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/PC/Src/Win32Min.hpp" // ListOldSaveFilesPC
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
 void InitMemoryCard() {
-    MemoryCard::s_pThis = new ("MemoryCard", __LINE__) MemoryCard();
+    MemoryCard::s_pThis = new ("MemoryCard", 0) MemoryCard();
 
     bStrCpy(gSaveType0, "");
     bStrCpy(gSaveType1, "");
@@ -66,13 +114,24 @@ void InitMemoryCard() {
     MemoryCard::s_pThis->Init();
 }
 
+
+
+
+
+
+
 MemoryCardMessage::MemoryCardMessage(const wchar_t *msg, unsigned int nOptions, const wchar_t **options) {
-    bStrCpy(mMsg, reinterpret_cast<const unsigned short *>(msg));
+    bStrCpy(reinterpret_cast<unsigned short *>(mMsg), reinterpret_cast<const unsigned short *>(msg));
     mnOptions = nOptions;
     for (unsigned int i = 0; i < nOptions; i++) {
-        bStrCpy(mOptions[i], reinterpret_cast<const unsigned short *>(options[i]));
+        bStrCpy(reinterpret_cast<unsigned short *>(mOptions[i]), reinterpret_cast<const unsigned short *>(options[i]));
     }
 }
+
+
+
+
+
 
 MemoryCard::MemoryCard() {
     m_MemOp = 0;
@@ -107,17 +166,22 @@ MemoryCard::MemoryCard() {
     m_bAutoLoading = false;
     m_bListingForCreate = false;
     m_bHUDLoaded = false;
+#ifndef EA_BUILD_A124
     m_bCancelNextAutoSave = false;
     m_bMonitorOn = false;
     m_bAutoSaveIconShowing = false;
     m_bNeedToAllowControllerErrors = false;
     m_bNonSilentAutoSave = false;
+#endif
 
+#ifdef EA_PLATFORM_GAMECUBE
     m_bAutoLoadDone = false;
     m_bMemcardScreenExiting = false;
+#endif
 
     m_nPlayer = 0;
 
+#ifdef EA_PLATFORM_GAMECUBE
     void *pIcon = bGetFile("memcard/icon1.raw", nullptr, 0);
 
     void *pBanner = bGetFile("memcard/banner.raw", nullptr, 0);
@@ -131,6 +195,7 @@ MemoryCard::MemoryCard() {
 
     m_pRMBanner->mBannerData = pBanner;
     m_pRMBanner->mFormat = 0;
+#endif
 }
 
 bool MemoryCard::IsCardAvailable() {
@@ -150,13 +215,13 @@ bool MemoryCard::IsCardAvailable() {
 }
 
 void MemoryCard::SetExtraParam(SaveType t, const char *filename, void *buf, unsigned int size) {
-    MemoryCard *pThis = GetInstance();
+    // Cinco GetInstance() en el DWARF de GameCube y ninguna local; PC relee s_pThis tras cada store.
 
-    if (pThis != nullptr) {
-        pThis->m_ReqFilename = filename;
-        pThis->m_Type = t;
-        pThis->m_pBuffer = static_cast<char *>(buf);
-        pThis->m_DataSize = size;
+    if (GetInstance() != nullptr) {
+        GetInstance()->m_ReqFilename = filename;
+        GetInstance()->m_Type = t;
+        GetInstance()->m_pBuffer = static_cast<char *>(buf);
+        GetInstance()->m_DataSize = size;
     }
 }
 
@@ -169,10 +234,18 @@ void MemoryCard::InitCommand(int op) {
     m_LastError = 0;
 }
 
+
+
+
+
+
 void MemoryCard::RequestTask(int op, const char *name) {
     m_ReqFilename = name;
     m_ReqOp = op;
 }
+
+
+
 
 void MemoryCard::ProcessTask() {
     if (m_pFEScreen == nullptr) {
@@ -199,7 +272,10 @@ void MemoryCard::ProcessTask() {
 
 bool MemoryCard::IsCardBusy() {
     if (GetInstance() != nullptr) {
-        if (GetInstance()->m_pIMemcard->IsResettable() == 0 || GetInstance()->IsAutoSaveIconVisible() ||
+        if (GetInstance()->m_pIMemcard->IsResettable() == 0 ||
+#ifndef EA_BUILD_A124
+            GetInstance()->IsAutoSaveIconVisible() ||
+#endif
             (GetInstance()->m_bInAutoSave && !GetInstance()->m_bWaitingForResponse)) {
             return true;
         }
@@ -208,6 +284,153 @@ bool MemoryCard::IsCardBusy() {
     return false;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void MemoryCard::Init() {
     static Realmc::SystemInterface iSystem;
     static MemoryCardImp sMemcardImp;
@@ -215,22 +438,43 @@ void MemoryCard::Init() {
 
     if (pSystem == nullptr) {
         iSystem.mAllocator = &gMemoryAllocator;
-        iSystem.mThread = BNEW MyThread;
-        iSystem.mMutex = BNEW MyMutex;
+        // Los nombres estan en el .rodata de GameCube y de las dos PS2; la A124 pasa 0 como linea.
+        iSystem.mThread = new ("MemcardThread", 0) MyThread;
+        iSystem.mMutex = new ("MemcardMutex", 0) MyMutex;
         iSystem.mLocaleGetter = MemoryCard::GetLocaleString;
         pSystem = &iSystem;
     }
 
     m_pImp = &sMemcardImp;
 
+#ifdef EA_BUILD_A124
+    wchar_t wszGameTitle[28];
+
+    bStrCpy(reinterpret_cast<unsigned short *>(wszGameTitle), "Need" "\xA0" "for" "\xA0" "Speed" "\x99" "\xA0" "Most" "\xA0" "Wanted");
+#else
     bStrCpy(m_GameTitle, "Need" "\xA0" "for" "\xA0" "Speed" "\x99" "\xA0" "Most" "\xA0" "Wanted");
+#endif
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    RealmcIface::TitleId titleId;
+
+    bStrCpy(titleId, m_pImp->GetTitleId());
+#else
     unsigned int titleId = 0;
+#endif
 
+#ifdef EA_BUILD_A124
+    RealmcIface::GameInfo gameInfo(wszGameTitle, titleId, false, false);
+
+    m_pIMemcard = RealmcIface::MemcardInterface::CreateInstance(&iSystem, &gMemcardCallbacks, &gameInfo);
+#else
     m_pGameInfo = BNEW RealmcIface::GameInfo(reinterpret_cast<const wchar_t *>(m_GameTitle), titleId, false, false);
     m_pIMemcard = RealmcIface::MemcardInterface::CreateInstance(&iSystem, &gMemcardCallbacks, m_pGameInfo);
+#endif
 
+#ifdef EA_PLATFORM_GAMECUBE
     m_pIMemcard->SetMessage(RealmcIface::MESSAGE_SHOW, 1);
+#endif
 
     m_TimeOffsetSec = 0;
     m_pLocaleFileHandler = nullptr;
@@ -242,10 +486,17 @@ void MemoryCard::StartBootSequence() {
     m_pIMemcard->SetMessage(RealmcIface::MESSAGE_HIDE, 0x4000);
 }
 
+
 void MemoryCard::EndBootSequence() {
     m_bInBootSequence = false;
     m_pIMemcard->SetMessage(RealmcIface::MESSAGE_SHOW, 0x4000);
 }
+
+
+
+
+
+
 
 void MemoryCard::LoadLocale(eLanguages eLang) {
     if (GetInstance() == nullptr) {
@@ -257,6 +508,11 @@ void MemoryCard::LoadLocale(eLanguages eLang) {
     bStrCpy(sPath, "memcard/LOCALE_");
 
     switch (eLang) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        case eLANGUAGE_CHINESE:
+            bStrCat(sPath, sPath, "ENGLISH_ASIAN.loc");
+            break;
+#endif
         case eLANGUAGE_LARGEST:
         case eLANGUAGE_LABELS:
             bStrCat(sPath, sPath, "ENGLISH.loc");
@@ -267,11 +523,20 @@ void MemoryCard::LoadLocale(eLanguages eLang) {
             break;
     }
 
+    // "Locale buffer", "Save Buffer" y "Load Buffer" son los nombres que estan en el .rodata de GameCube
+    // y de las dos PS2; la linea no se puede casar (la A124 dice 531, 1032 y 1079).
     if (GetInstance()->m_pLocaleFileHandler == nullptr) {
-        GetInstance()->m_pLocaleFileHandler = bMalloc(0x2000, __FILE__, __LINE__, 0);
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+        GetInstance()->m_pLocaleFileHandler = bMalloc(0x2400, "Locale buffer", __LINE__, 0);
+#else
+        GetInstance()->m_pLocaleFileHandler = bMalloc(0x2000, "Locale buffer", __LINE__, 0);
+#endif
     }
 
     unsigned int currentsize = bFileSize(sPath);
+
+
 
     bFile *file = bOpen(sPath, 1, 1);
     bRead(file, GetInstance()->m_pLocaleFileHandler, currentsize);
@@ -280,8 +545,12 @@ void MemoryCard::LoadLocale(eLanguages eLang) {
     LOCALE_create(GetInstance()->m_pLocaleFileHandler, 1);
     LOCALE_setstate(GetInstance()->m_pLocaleFileHandler, LOCALE_LANGUAGEID, 0);
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     bStrCpy(gSaveType0, GetLocalizedString(0xe6f55df0));
+#endif
+
 }
+
 
 int MemoryCard::GetPrefixLength() {
     return bStrLen(m_pImp->GetPrefix());
@@ -291,9 +560,51 @@ const char *MemoryCard::GetPrefix() {
     return m_pImp->GetPrefix();
 }
 
+
+
 const char *MemoryCard::GetLocaleString(int strID) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (GetInstance()->m_MemOp == MO_LoadYNCF && strID > 6) {
+        return LOCALE_getstrA(GetInstance()->m_pLocaleFileHandler, 17);
+    }
+#endif
     return LOCALE_getstrA(GetInstance()->m_pLocaleFileHandler, strID);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void MemoryCard::SetMessageMode(unsigned int msg, bool flag) {
     if (GetInstance() != nullptr) {
@@ -324,6 +635,8 @@ void MemoryCard::Tick(int TickCount) {
         }
     }
 
+    // El prototipo no tiene el icono de autoguardado ni este control de los errores del mando.
+#ifndef EA_BUILD_A124
     if (FEDatabase != nullptr && !FEDatabase->IsOptionsMode()) {
         if (cFEng::Get()->IsPackagePushed("MC_Main_GC.fng") || cFEng::Get()->IsPackagePushed("InGame_MC_Main_GC.fng") ||
             IsAutoSaveIconVisible()) {
@@ -345,6 +658,7 @@ void MemoryCard::Tick(int TickCount) {
             }
         }
     }
+#endif
 }
 
 
@@ -356,11 +670,30 @@ void MemoryCard::MessageDone(RealmcIface::MessageChoices nInput) {
 }
 
 void MemoryCard::BootupCheck(const char *entry) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // El reloj de la PS2 va en hora de Japon.
+    m_TimeOffsetSec = sceScfGetTimeZone() * 60 - 32400;
+    m_TimeOffsetSec += sceScfGetSummerTime() * 3600;
+#endif
+    // PS2 y PC buscan con el prefijo y "*" en m_Filename; la A124 lo prepara despues de ConstructSaveInfo.
+#if !defined(EA_PLATFORM_GAMECUBE) && !defined(EA_BUILD_A124)
+    bStrCat(m_Filename, m_pImp->GetPrefix(), "*");
+#endif
+#ifdef EA_PLATFORM_GAMECUBE
     bStrCpy(m_BootupFilename, "");
+#endif
 
     m_pImp->ConstructSaveInfo(ST_PROFILE, "", FEDatabase->GetUserProfileSaveSize(false));
 
+#ifdef EA_BUILD_A124
+    bStrCat(m_Filename, m_pImp->GetPrefix(), "*");
+#endif
+
+#ifndef EA_PLATFORM_GAMECUBE
+    m_BootupParams.mEntryNamePattern = m_Filename;
+#else
     m_BootupParams.mEntryNamePattern = m_BootupFilename;
+#endif
 
     m_BootupParams.mNumSaveTypes = 1;
     m_BootupParams.mSaveReqs = m_pImp->GetSaveReqArray();
@@ -375,52 +708,81 @@ void MemoryCard::BootupCheck(const char *entry) {
 // r56-fe: ShouldDoAutoSave va detras de BootupCheck (zFe.o 0x020130), no
 // detras de Tick.
 bool MemoryCard::ShouldDoAutoSave(bool bForce) {
-    if (!bForce) {
-        if (m_bCancelNextAutoSave) {
-            m_bCancelNextAutoSave = false;
-            return false;
-        }
+    if (bForce) {
+        return true;
+    }
+#ifdef EA_BUILD_A124
+    // En el prototipo la persecucion final guarda siempre, antes de mirar nada mas.
+    if (FEDatabase->IsFinalEpicChase()) {
+        return true;
+    }
+#else
+    if (m_bCancelNextAutoSave) {
+        m_bCancelNextAutoSave = false;
+        return false;
+    }
 
-        if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
-            return false;
-        }
+    if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+        return false;
+    }
+#endif
 
-        if (!IsMemcardEnabled || !IsAutoSaveEnabled) {
-            return false;
-        }
-        if (!FEDatabase->GetUserProfile(0)->GetOptions()->TheGameplaySettings.AutoSaveOn && !m_bCardRemoved) {
-            return false;
-        }
-        if (!FEDatabase->IsFinalEpicChase()) {
-            if (GRaceStatus::Exists()) {
-                if (GRaceStatus::Get().GetRaceParameters() != nullptr && GRaceStatus::Get().GetRaceParameters()->GetIsBossRace()) {
-                    return false;
-                }
+    if (!IsMemcardEnabled || !IsAutoSaveEnabled) {
+        return false;
+    }
+    if (!FEDatabase->GetUserProfile(0)->GetOptions()->TheGameplaySettings.AutoSaveOn && !m_bCardRemoved) {
+        return false;
+    }
+#ifndef EA_BUILD_A124
+    if (FEDatabase->IsFinalEpicChase())
+        return true;
+#endif
+    {
+        if (GRaceStatus::Exists()) {
+            if (GRaceStatus::Get().GetRaceParameters() != nullptr && GRaceStatus::Get().GetRaceParameters()->GetIsBossRace()) {
+                return false;
             }
         }
     }
 
     return true;
 }
-
 void MemoryCard::StartAutoSave(bool bForce) {
-    if (ShouldDoAutoSave(bForce)) {
-        if (FEDatabase->bProfileLoaded) {
-            if (gMemcardSetup.GetCommand() != MCO_AutoSave) {
-                ShowAutoSaveIcon();
-                gMemcardSetup.mOp = 0;
-            }
+    if (!ShouldDoAutoSave(bForce)) { // con return explicito ee-gcc no salta a HandleAutoSaveError ni a CheckCard
+        return;
+    }
+#ifdef EA_BUILD_A124
+    // Sin icono de autoguardado, y la orden se limpia antes de mirar si hay perfil cargado.
+    if (gMemcardSetup.GetCommand() != MCO_AutoSave) {
+        gMemcardSetup.mOp = 0;
+    }
+#endif
+#if !defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_BUILD_A124) // SLUS autoguarda sin mirar si hay perfil
+    if (FEDatabase->bProfileLoaded)
+#endif
+    {
+#ifndef EA_BUILD_A124
+        if (gMemcardSetup.GetCommand() != MCO_AutoSave) {
+            ShowAutoSaveIcon();
+            gMemcardSetup.mOp = 0;
+        }
+#endif
 
-            if (m_bCardRemoved) {
-                HandleAutoSaveError();
-            } else {
-                m_bInAutoSave = true;
-                m_bCheckingCardForAutoSave = true;
-                FEManager::Get()->SuppressControllerError(true);
+        if (m_bCardRemoved) {
+            HandleAutoSaveError();
+        } else {
+            m_bInAutoSave = true;
+            m_bCheckingCardForAutoSave = true;
+#ifndef EA_BUILD_A124
+            FEManager::Get()->SuppressControllerError(true);
+#endif
 
-                ShowMessages(false);
-                CheckCard(0);
-            }
+#ifdef EA_PLATFORM_WIN32 // PC no comprueba la tarjeta: autoguarda en seguida (speed.exe 0x562AB0)
+            DoAutoSave();
+#else
+            ShowMessages(false);
+            CheckCard(0);
+#endif
         }
     }
 }
@@ -430,7 +792,9 @@ void MemoryCard::DoAutoSave() {
 
     if (gMemcardSetup.GetCommand() == MCO_AutoSave) {
         ShowMessages(true);
+#ifndef EA_BUILD_A124
         m_pIMemcard->SetMessage(RealmcIface::MESSAGE_HIDE, 0x100);
+#endif
     } else {
         ShowOnlyAutoSaveMessages();
     }
@@ -445,16 +809,50 @@ void MemoryCard::EndAutoSave() {
     m_bCheckingCardForAutoSave = false;
     m_bCheckingCardForOverwrite = false;
     m_bInAutoSave = false;
+#ifndef EA_BUILD_A124
     FEManager::Get()->SuppressControllerError(false);
+#endif
     ShowMessages(true);
+#ifdef EA_BUILD_A124
+    cFEng::Get()->QueuePackageMessage(FEHashUpper("TRAX_POS_1"), nullptr, nullptr);
+#else
     HideAutoSaveIcon();
+#endif
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void MemoryCard::StartListingOldSaveFiles() {
     m_bListingOldSaveFiles = true;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ListOldSaveFilesPS2();
+#elif defined(EA_PLATFORM_WIN32) // speed.exe 0x5268A0: mov [ecx+0x1D], 1 y jmp a ListOldSaveFilesPC
+    ListOldSaveFilesPC();
+#else
     ListOldSaveFilesNGC();
+#endif
 }
+
+
+
+
+
+
 
 void MemoryCard::EndListingOldSaveFiles() {
     m_bListingOldSaveFiles = false;
@@ -466,15 +864,18 @@ void MemoryCard::EndListingOldSaveFiles() {
     FEDatabase->GetCareerSettings()->AwardOneTimeCashBonus(m_bOldSaveFileExists);
 }
 
+
 void MemoryCard::SetMonitor(bool bEnabled) {
     InitCommand(MO_SetMonitor);
     if (!Joylog::IsReplaying()) {
         m_pIMemcard->SetMonitor(bEnabled ? RealmcIface::MONITOR_ON : RealmcIface::MONITOR_OFF);
     }
 
+#ifndef EA_BUILD_A124
     if (!bEnabled && Joylog::IsReplaying()) {
         ReplayJoyOp();
     }
+#endif
 }
 
 void MemoryCard::SetAutoSaveEnabled(bool bEnabled) {
@@ -488,8 +889,11 @@ void MemoryCard::SetAutoSaveEnabled(bool bEnabled) {
 
     bStrNCpy(MemoryCardImp::gContentName, entryname, 16);
 
+#ifndef EA_BUILD_A124
     if (GetScreen() != nullptr && gMemcardSetup.GetCommand() == MCO_EnableAutoSave) {
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
         GetScreen()->SetStringCheckingCard();
+#endif
 
         ShowMessages(true);
     } else {
@@ -497,6 +901,7 @@ void MemoryCard::SetAutoSaveEnabled(bool bEnabled) {
     }
 
     m_pIMemcard->SetMessage(RealmcIface::MESSAGE_SHOW, 1);
+#endif
 
     if (bEnabled) {
         gMemcardSetup.ClearCommand();
@@ -505,15 +910,28 @@ void MemoryCard::SetAutoSaveEnabled(bool bEnabled) {
         m_bDisablingAutoSaveForSave = true;
     }
 
+#ifdef EA_BUILD_A124
+    // El prototipo no mira la pantalla y oculta los mensajes despues de fijar la orden.
+    ShowMessages(false);
+    m_pIMemcard->SetMessage(RealmcIface::MESSAGE_SHOW, 1);
+#endif
+
     InitCommand(MO_AutoSave);
     if (!Joylog::IsReplaying()) {
+#ifdef EA_BUILD_A124
+        GetInstance()->m_pIMemcard->SetAutosave(bEnabled ? RealmcIface::AUTOSAVE_ENABLE : RealmcIface::AUTOSAVE_DISABLE, 0, nullptr,
+                                                entryname, RealmcIface::CARD_UNKNOWN);
+#else
         m_pIMemcard->SetAutosave(bEnabled ? RealmcIface::AUTOSAVE_ENABLE : RealmcIface::AUTOSAVE_DISABLE, 0, nullptr, entryname,
                                  RealmcIface::CARD_UNKNOWN);
+#endif
     }
 
+#ifndef EA_BUILD_A124
     if (!bEnabled && Joylog::IsReplaying()) {
         ReplayJoyOp();
     }
+#endif
 }
 
 void MemoryCard::ShowOnlyAutoSaveMessages() {
@@ -537,10 +955,18 @@ void MemoryCard::ShowOnlyAutoSaveMessages() {
     m_pIMemcard->SetMessage(RealmcIface::MESSAGE_HIDE, 0x80000);
 }
 
+
+
+
+
+
+
+
 void MemoryCard::ShowMessages(bool bShow) {
     m_bManualSave = bShow;
     m_pIMemcard->SetMessage((RealmcIface::MessageState)(bShow == 0), 0xffffffff);
 }
+
 
 void MemoryCard::CheckCard(int iSlot) {
     InitCommand(MO_CheckCard);
@@ -549,8 +975,52 @@ void MemoryCard::CheckCard(int iSlot) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+void MemoryCard::LoadYNCF(int iSlot) {
+    if (m_MemOp != 0) {
+        return;
+    }
+
+    InitCommand(MO_LoadYNCF);
+    if (!Joylog::IsReplaying()) {
+        m_pIMemcard->CheckCard(static_cast<RealmcIface::CardId>(1));
+    }
+}
+#endif
+
 void MemoryCard::Save(const char *entryName) {
     SetExtraParam(ST_PROFILE, entryName, nullptr, FEDatabase->GetUserProfileSaveSize(false));
+
 
     if (m_pImp->GetSaveInfo() == nullptr) {
         m_pImp->ConstructSaveInfo(ST_PROFILE, entryName, m_DataSize);
@@ -559,8 +1029,10 @@ void MemoryCard::Save(const char *entryName) {
 
     bStrNCpy(MemoryCardImp::gContentName, entryName, 16);
 
-    m_pBuffer = static_cast<char *>(bMalloc(m_DataSize, __FILE__, __LINE__, 0x40));
+    m_pBuffer = static_cast<char *>(bMalloc(m_DataSize, "Save Buffer", __LINE__, 0x40));
     FEDatabase->SaveUserProfileToBuffer(m_pBuffer, m_DataSize);
+
+
 
     m_Header[0] = 0x10d;
     m_Header[1] = m_DataSize;
@@ -570,6 +1042,9 @@ void MemoryCard::Save(const char *entryName) {
         m_pIMemcard->Save(m_Filename, reinterpret_cast<const char *>(m_Header), m_pBuffer, m_pImp->GetSaveInfo(), nullptr);
     }
 }
+
+
+
 
 void MemoryCard::List(const char *filter, RealmcIface::TitleInfo *titleInfo) {
     SetExtraParam(ST_PROFILE, nullptr, nullptr, 0);
@@ -586,14 +1061,28 @@ void MemoryCard::List(const char *filter, RealmcIface::TitleInfo *titleInfo) {
     }
 }
 
+
+
+
+
+
+
+
 void MemoryCard::Load(const char *filename) {
     SetExtraParam(ST_PROFILE, filename, nullptr, FEDatabase->GetUserProfileSaveSize(false));
 
+
+
     FEDatabase->AllocBackupDB(true);
 
-    m_pBuffer = static_cast<char *>(bMalloc(m_DataSize, __FILE__, __LINE__, 0x40));
 
-    if (filename != nullptr) {
+    m_pBuffer = static_cast<char *>(bMalloc(m_DataSize, "Load Buffer", __LINE__, 0x40));
+
+    // El prototipo no comprueba el nombre.
+#ifndef EA_BUILD_A124
+    if (filename != nullptr)
+#endif
+    {
         bStrNCpy(MemoryCardImp::gContentName, filename, 16);
         bStrCat(m_Filename, m_pImp->GetPrefix(), filename);
     }
@@ -601,35 +1090,99 @@ void MemoryCard::Load(const char *filename) {
     InitCommand(MO_Load);
 
     if (!Joylog::IsReplaying()) {
+        // En PS2 la carga no pasa por BootupCheck durante el arranque (A124 y SLUS); en PC tampoco.
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
         if (m_bInBootSequence) {
             m_bAutoLoading = true;
             BootupCheck(filename);
-        } else {
-            m_pIMemcard->Load(m_Filename, nullptr, nullptr, reinterpret_cast<const wchar_t *>(MemoryCardImp::gContentName), nullptr);
+            return;
         }
+#endif
+        m_pIMemcard->Load(m_Filename, nullptr, nullptr, reinterpret_cast<const wchar_t *>(MemoryCardImp::gContentName), nullptr);
     }
 }
 
 void MemoryCard::Delete(const char *filename) {
     InitCommand(MO_Delete);
+    // El prototipo borra por el nombre que recibe, sin prefijo ni copia.
+#ifndef EA_BUILD_A124
     if (filename != nullptr) {
         bStrNCpy(MemoryCardImp::gContentName, filename, 16);
         bStrCat(m_Filename, m_pImp->GetPrefix(), filename);
     }
+#endif
 
     if (!Joylog::IsReplaying()) {
+#ifdef EA_BUILD_A124
+        m_pIMemcard->Delete(filename, reinterpret_cast<const wchar_t *>(MemoryCardImp::gContentName));
+#else
         m_pIMemcard->Delete(m_Filename, reinterpret_cast<const wchar_t *>(MemoryCardImp::gContentName));
+#endif
     }
 }
 
 void MemoryCard::ListOldSaveFilesNGC() {
+    // En PS2 esta vacia (8 bytes en la A124): alli se buscan las partidas antiguas en ListOldSaveFilesPS2.
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PC: vacia (speed.exe 0x518B30, un ret)
     RealmcIface::TitleInfo titleInfo;
 
     titleInfo.Init(RealmcIface::TITLE_ALTERNATE, 0, RealmcIface::NAME_ENTRY, RealmcIface::FORMAT_LAYER2);
 
     GetInstance()->ShowMessages(false);
     List("NFSU2*", &titleInfo);
+#endif
 }
+
+// Orden del original (DWARF de GameCube): NGC, PC, PS2 y Xbox, cada una con cuerpo solo en su plataforma.
+void MemoryCard::ListOldSaveFilesPC() {
+#ifdef EA_PLATFORM_WIN32 // speed.exe 0x518B40 (200 B): las partidas de Underground 2 en la carpeta local del usuario
+    char path[256];
+    WIN32_FIND_DATAA findData;
+    SHGetFolderPathA(0, CSIDL_LOCAL_APPDATA | CSIDL_FLAG_CREATE, 0, 0, path);
+    bStrCat(path, path, "\\");
+    bStrCat(path, path, "NFS Underground 2");
+    bStrCat(path, path, "\\*");
+    HANDLE hFind = FindFirstFileA(path, &findData);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        unsigned int numFiles = 1;
+        while (FindNextFileA(hFind, &findData)) {
+            numFiles++;
+        }
+        if (numFiles > 2) { // "." y ".." no cuentan
+            GetInstance()->m_bOldSaveFileExists = true;
+        }
+        FindClose(hFind);
+    }
+    EndListingOldSaveFiles();
+#endif
+}
+void MemoryCard::ListOldSaveFilesPS2() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    char path[64];
+    char *oldPrefix = GetOldPrefix();
+    RealmcIface::TitleInfo titleInfo;
+
+    bSPrintf(path, "%s*/%s*", oldPrefix, oldPrefix);
+    titleInfo.Init(RealmcIface::TITLE_ALTERNATE, oldPrefix, RealmcIface::NAME_PATH, RealmcIface::FORMAT_LAYER2);
+
+    GetInstance()->ShowMessages(false);
+    List(path, &titleInfo);
+#endif
+}
+
+void MemoryCard::ListOldSaveFilesXbox() {}
+
+
+
+
+
+
+
+
+
+
+
+
 
 void MemoryCard::ReleasePendingMessage() {
     if (m_PendingMessage != nullptr) {
@@ -648,6 +1201,10 @@ void MemoryCard::HandleAutoSaveError() {
     }
 }
 
+
+
+
+
 void MemoryCard::HandleAutoSaveOverwriteMessage() {
     UIMemcardBase *pScreen = m_pFEScreen;
 
@@ -658,6 +1215,42 @@ void MemoryCard::HandleAutoSaveOverwriteMessage() {
     }
 }
 
+
+
+
+
+#ifdef EA_BUILD_A124
+void MemoryCard::ShowTRCCheckCardMessage() {
+    ShowTRCMessage(Realmc::Locale::GetString(6, "s", GetPortString()), 0, nullptr);
+}
+
+
+void MemoryCard::ShowTRCLoadWarning() {
+    ShowTRCMessage(Realmc::Locale::GetString(15, "s", GetPortString()), 0, nullptr);
+}
+
+
+void MemoryCard::HideTRCMessage() {
+    if (GetScreen() != nullptr) {
+        cFEng::Get()->QueueGameMessage(0x461A18EE, nullptr, 0xFF);
+    }
+}
+
+void MemoryCard::ShowTRCMessage(const wchar_t *msg, unsigned int nOptions, const wchar_t **options) {
+    UIMemcardBase *pScreen = GetScreen();
+
+    if (pScreen != nullptr) {
+        if (options != nullptr) {
+            pScreen->ShowMessage(msg, nOptions, options[0], options[1], options[2]);
+        } else {
+            pScreen->ShowMessage(msg, nOptions, nullptr, nullptr, nullptr);
+        }
+    } else {
+        m_PendingMessage = new ("Memcard Msg", 0) MemoryCardMessage(msg, nOptions, options);
+        MemcardEnter(nullptr, nullptr, 0x40E1, nullptr, nullptr, 0, 0);
+    }
+}
+#else
 void MemoryCard::ShowAutoSaveIcon() {
     if (!m_bAutoSaveIconShowing) {
         m_bAutoSaveIconShowing = true;
@@ -702,3 +1295,21 @@ bool MemoryCard::IsAutoSaveIconVisible() {
 
     return false;
 }
+#endif
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+unsigned short *MemoryCard::GetPortString() {
+    static unsigned short sBuf[4];
+
+    sBuf[0] = '1';
+    sBuf[1] = 0;
+    if (GetCurrentLanguage() == eLANGUAGE_FRENCH) {
+        sBuf[0] = 'N';
+        sBuf[1] = '\xb0';
+        sBuf[2] = '1';
+        sBuf[3] = 0;
+    }
+
+    return sBuf;
+}
+#endif

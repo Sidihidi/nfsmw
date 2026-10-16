@@ -12,6 +12,8 @@ EXCEPCION (decidida por el usuario el 2026-09-18, para compartir el trabajo con 
   - scripts/ entero: nuestras herramientas. Antes se quitaron de todos sus ficheros las rutas de la maquina local
     (la raiz se calcula desde el propio script y el temporal es $SCRATCH o build/scratch);
   - docs/BEYOND_UPSTREAM.md: la guia en ingles de lo que este fork aporta sobre upstream.
+DNAS (decidido por el usuario el 2026-09-30): la frase de paso de BuildRegion::GetDnasPassPhrase se publica con
+ceros; si queda en cualquier fichero de la foto, en cualquier forma, no se crea.
 
 Por que es tan estricta: la primera foto (avance-2026-09-18) PUBLICO MATERIAL DEL JUEGO. port/android/app/src/
 main/assets/ llevaba tres .BUN (paquetes de datos del juego), ocho .fng (la interfaz del frontend) y texturas
@@ -81,7 +83,7 @@ docs_up = set(git('ls-tree', '-r', '--name-only', 'upstream/main', '--', 'docs')
 
 # la excepcion: lo que se publica aunque upstream no lo tenga
 EXTRA_DIRECTORIOS = ('scripts/',)
-EXTRA_FICHEROS = {'docs/BEYOND_UPSTREAM.md'}
+EXTRA_FICHEROS = {'docs/BEYOND_UPSTREAM.md', 'docs/PC_PDB.md'}  # PC_PDB.md: decision del usuario 2026-10-08
 
 
 def se_queda(ruta):
@@ -96,12 +98,39 @@ def se_queda(ruta):
     return True
 
 
+# DNAS (decidido por el usuario el 2026-09-30): BuildRegion::GetDnasPassPhrase lleva la frase de paso de 8 bytes de
+# DNAS de cada region. El repo privado la conserva (la funcion casa); la foto la publica con ceros, y esa funcion deja
+# de casar en las dos PS2 solo en la foto.
+DNAS_FICHERO = 'src/Speed/Indep/Src/Misc/BuildRegion.cpp'
+DNAS_FUNCION = re.compile(r'GetDnasPassPhrase\(\)\s*\{.*?\n\}\r?\n', re.S)
+DNAS_LISTA = re.compile(r'\{(?:\s*0x[0-9A-Fa-f]{2}\s*,){7}\s*0x[0-9A-Fa-f]{2}\s*\}')
+FRASES_DNAS = []
+
+
+def sin_dnas(texto):
+    m = DNAS_FUNCION.search(texto)
+    if not m:
+        sys.exit('NO SE CREA LA FOTO: no encuentro GetDnasPassPhrase en %s para taparla' % DNAS_FICHERO)
+    cuerpo = m.group(0)
+    for lista in DNAS_LISTA.findall(cuerpo):
+        FRASES_DNAS.append(bytes(int(x, 16) for x in re.findall(r'0x([0-9A-Fa-f]{2})', lista)))
+    nuevo, n = DNAS_LISTA.subn('{0, 0, 0, 0, 0, 0, 0, 0}', cuerpo)
+    if n != 2:
+        sys.exit('NO SE CREA LA FOTO: esperaba 2 frases de DNAS en %s y hay %d' % (DNAS_FICHERO, n))
+    return texto[:m.start()] + nuevo + texto[m.end():]
+
+
 lineas = []
 fuera = {}
 for l in git('ls-tree', '-r', 'HEAD').split('\n'):
     if not l:
         continue
     ruta = l.split('\t', 1)[1]
+    if ruta == DNAS_FICHERO:
+        modo, tipo, h = l.split('\t', 1)[0].split()
+        texto = git('cat-file', 'blob', h, binario=True).decode('utf-8')
+        h = git('hash-object', '-w', '--stdin', entrada=sin_dnas(texto).encode('utf-8'))
+        l = '%s %s %s\t%s' % (modo, tipo, h, ruta)
     if se_queda(ruta):
         lineas.append(l)
     else:
@@ -173,6 +202,14 @@ r = subprocess.run(['git', 'grep', '-lIiE', r'(Users|home)[\\/][A-Za-z0-9_.-]+[\
                    + list(EXTRA_DIRECTORIOS) + sorted(EXTRA_FICHEROS), capture_output=True)
 malos += ['ruta de la maquina local: %s' % l.split(':', 1)[-1]
           for l in r.stdout.decode('utf-8', 'replace').split('\n') if l]
+# la frase de DNAS no puede quedar en ningun fichero publicado, en ninguna forma
+if not FRASES_DNAS:
+    malos.append('no se tapo la frase de DNAS (%s no esta en HEAD o cambio de forma)' % DNAS_FICHERO)
+for f in FRASES_DNAS:
+    patrones = [',[[:space:]]*'.join('0x%02x' % b for b in f), f.hex(), '[[:space:]]'.join('%02x' % b for b in f)]
+    r = subprocess.run(['git', 'grep', '-lIiE', '|'.join(patrones), arbol], capture_output=True)
+    malos += ['frase de DNAS sin tapar: %s' % l.split(':', 1)[-1]
+              for l in r.stdout.decode('utf-8', 'replace').split('\n') if l]
 if malos:
     print('NO SE CREA LA FOTO:')
     for m in malos:
@@ -182,7 +219,7 @@ extra = [l for l in lineas if se_queda(l.split('\t', 1)[1]) and
          (l.split('\t', 1)[1] in EXTRA_FICHEROS or l.split('\t', 1)[1].startswith(EXTRA_DIRECTORIOS))]
 if PRUEBA:
     print('PRUEBA: la foto se podria crear. %d ficheros, sin nada prohibido (extension, firma binaria, tamano,'
-          ' secretos, rutas locales).' % len(lineas))
+          ' secretos, rutas locales) y con la frase de DNAS tapada (%d frases).' % (len(lineas), len(FRASES_DNAS)))
     print('de la excepcion: %d ficheros (%s)' % (len(extra), ', '.join(list(EXTRA_DIRECTORIOS) + sorted(EXTRA_FICHEROS))))
     faltan = sorted(f for f in EXTRA_FICHEROS if not any(l.endswith('\t' + f) for l in lineas))
     if faltan:

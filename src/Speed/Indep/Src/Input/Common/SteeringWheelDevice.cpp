@@ -1,5 +1,9 @@
 #include "Speed/Indep/Src/Input/SteeringWheelDevice.h"
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/PSX2/Src/Logitech/LGWheels.h"
+#else
 #include "Speed/GameCube/Src/Logitech/LGWheels.h"
+#endif
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
@@ -13,8 +17,15 @@
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+#include "Speed/Indep/Src/Frontend/FEJoyInput.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/ControllerUnplugged.hpp"
+#endif
 
 LGWheels *SteeringWheelDevice::lgwheels = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+float SteeringWheelDevice::sPedalScale = 1.0f / 65535.0f;
+#endif
 
 void SteeringWheelDevice::UpdateForces(IPlayer *player) {
 
@@ -44,9 +55,19 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
         return;
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (lgwheels->IsMultiturnCapable(this->mDeviceIndex)) {
+        if (!lgwheels->IsMultiturnEnabled(this->mDeviceIndex)) {
+            lgwheels->SetMultiturn(this->mDeviceIndex, 1);
+        }
+    }
+#endif
+
     {
         PlayerSettings *settings = player->GetSettings();
+#ifndef EA_BUILD_A124
         Sim::IStateManager *state_manager = UTL::COM::QueryInterface<Sim::IStateManager>(IGameState::Get());
+#endif
 
         {
             ISimable *simable;
@@ -55,7 +76,15 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
             IInput *input;
             IPlayer *localPlayer;
 
-            if (!settings->Rumble || !state_manager || state_manager->ShouldPauseInput() || player == NULL ||
+            if (!settings->Rumble ||
+#ifdef EA_BUILD_A124
+                // Con `!=` y el `player == NULL` de al lado, EE-GCC junta las dos comparaciones en un OR sin
+                // cortocircuito (fold_truthop) y el original salta.
+                !TheGameFlowManager.IsInGame() || !(Sim::GetState() == Sim::STATE_ACTIVE) ||
+#else
+                !state_manager || state_manager->ShouldPauseInput() ||
+#endif
+                player == NULL ||
                 (simable = player->GetSimable()) == NULL ||
                 (vehicle = UTL::COM::QueryInterface<IVehicle>(simable)) == NULL ||
                 (suspension = UTL::COM::QueryInterface<ISuspension>(vehicle)) == NULL) {
@@ -64,24 +93,27 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
                 return;
             }
 
+#ifndef EA_PLATFORM_PLAYSTATION2
             this->mManualTransmission = false;
 
             if (vehicle->QueryInterface(&input)) {
                 this->mManualTransmission = !input->IsAutomaticShift();
             }
+#endif
 
             velocity = vehicle->GetSpeed();
 
-            speedParam = bMin(1.0f, bAbs(velocity * 0.05f));
+            // Aqui no es bAbs: en GC y en PS2 el abs lleva la linea de esta sentencia, no la de bMath.hpp.
+            speedParam = bMin(1.0f, fabsf(velocity * 0.05f));
 
             if (GRaceStatus::IsDragRace()) {
 
-                lgwheels->PlaySpringForce(this->mDeviceIndex, 0, (unsigned char)this->ScaledForceParam(220.0f),
-                                          (short)this->ScaledForceParam(220.0f));
+                lgwheels->PlaySpringForce(this->mDeviceIndex, 0, this->ScaledForceParam(220.0f),
+                                          this->ScaledForceParam(220.0f));
             } else {
 
-                lgwheels->PlaySpringForce(this->mDeviceIndex, 0, (unsigned char)(this->ScaledForceParam(100.0f) * speedParam),
-                                          (short)this->ScaledForceParam(100.0f));
+                lgwheels->PlaySpringForce(this->mDeviceIndex, 0, this->ScaledForceParam(100.0f) * speedParam,
+                                          this->ScaledForceParam(100.0f));
             }
 
             forceLeftWheelAmplitude = suspension->GetWheelSkid(0);
@@ -100,7 +132,7 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
 
             if (localPlayer != NULL && localPlayer->InGameBreaker()) {
 
-                lgwheels->PlayConstantForce(this->mDeviceIndex, (short)this->ScaledForceParam(frontWheelVectorForceAmplitude * 0.5f), 0x10e);
+                lgwheels->PlayConstantForce(this->mDeviceIndex, this->ScaledForceParam(frontWheelVectorForceAmplitude * 0.5f), 0x10e);
 
             } else if (GRaceStatus::IsDragRace()) {
 
@@ -108,10 +140,15 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
 
             } else {
 
-                lgwheels->PlayConstantForce(this->mDeviceIndex, (short)this->ScaledForceParam(frontWheelVectorForceAmplitude), 0x10e);
+                lgwheels->PlayConstantForce(this->mDeviceIndex, this->ScaledForceParam(frontWheelVectorForceAmplitude), 0x10e);
             }
 
-            lgwheels->PlayDamperForce(this->mDeviceIndex, (short)(this->ScaledForceParam(100.0f) * (1.0f - speedParam)));
+#ifdef EA_PLATFORM_PLAYSTATION2
+            if (!lgwheels->IsMultiturnEnabled(this->mDeviceIndex))
+#endif
+            {
+                lgwheels->PlayDamperForce(this->mDeviceIndex, this->ScaledForceParam(100.0f) * (1.0f - speedParam));
+            }
 
             if (!suspension->IsWheelOnGround(0) && !suspension->IsWheelOnGround(1)) {
 
@@ -146,8 +183,8 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
                 } else if (timeBetwCollisions >= 0.15f) {
 
                     timeAtCollision[this->mDeviceIndex] = WorldTimer.GetSeconds();
-                    lgwheels->PlayFrontalCollisionForce(
-                        this->mDeviceIndex, (unsigned char)(this->ScaledForceParam(255.0f) * normalizedCollisionParameter));
+                    lgwheels->PlayFrontalCollisionForce(this->mDeviceIndex,
+                                                        this->ScaledForceParam(255.0f) * normalizedCollisionParameter);
                 }
             }
 
@@ -166,8 +203,8 @@ void SteeringWheelDevice::UpdateForces(IPlayer *player) {
                 surfaceForceType = 2;
             }
 
-            lgwheels->PlaySurfaceEffect(this->mDeviceIndex, (unsigned char)surfaceForceType,
-                                        (unsigned char)(this->ScaledForceParam(surfaceForceMaxMag) * speedParam), surfaceForcePeriod);
+            lgwheels->PlaySurfaceEffect(this->mDeviceIndex, surfaceForceType,
+                                        this->ScaledForceParam(surfaceForceMaxMag) * speedParam, surfaceForcePeriod);
 
             previousVelocity[this->mDeviceIndex] = velocity;
         }
@@ -180,9 +217,80 @@ void SteeringWheelDevice::StopAllForces() {
     lgwheels->StopDamperForce(this->mDeviceIndex);
     lgwheels->StopCarAirborne(this->mDeviceIndex);
     lgwheels->StopSlipperyRoadEffect(this->mDeviceIndex);
-    lgwheels->PlaySpringForce(this->mDeviceIndex, 0, (unsigned char)this->ScaledForceParam(220.0f), (short)this->ScaledForceParam(220.0f));
+    lgwheels->PlaySpringForce(this->mDeviceIndex, 0, this->ScaledForceParam(220.0f), this->ScaledForceParam(220.0f));
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void SteeringWheelDevice::ReadInput(float *inputBuffer) {
+#ifndef EA_BUILD_A124
+    // SLUS activa el volante con el mando requerido o cargando, salvo con la pantalla de mando desenchufado.
+    bool activate = false;
+    if (!bControllerUnpluggedScreenUp &&
+        ((this->mDeviceIndex == 0 && cFEngJoyInput::mInstance->IsRequiredJoy(JOYSTICK_PORT1)) ||
+         TheGameFlowManager.GetState() == GAMEFLOW_STATE_LOADING_REGION ||
+         TheGameFlowManager.GetState() == GAMEFLOW_STATE_LOADING_TRACK)) {
+        activate = true;
+    }
+#endif
+    if (lgwheels->IsConnected(this->mDeviceIndex)) {
+#ifdef EA_BUILD_A124
+        if (TheGameFlowManager.IsInGame() && !FEManager::IsPaused()) {
+#else
+        if (lgwheels->IsMultiturnCapable(this->mDeviceIndex) && !lgwheels->IsMultiturnEnabled(this->mDeviceIndex)) {
+            lgwheels->SetMultiturn(this->mDeviceIndex, 1);
+        }
+        if (activate) {
+#endif
+            this->isActivated = true;
+        } else {
+            this->isActivated = false;
+        }
+
+        float twist = this->ConvertWheelRotation(this->mDeviceIndex);
+        inputBuffer[0] = UMath::Clamp(twist, 0.0f, 1.0f);
+        inputBuffer[1] = -UMath::Clamp(twist, -1.0f, 0.0f);
+
+        float gas = this->ConvertAcceleratorPosition(this->mDeviceIndex);
+        inputBuffer[2] = this->ConvertBrakePosition(this->mDeviceIndex);
+        inputBuffer[3] = gas;
+
+        inputBuffer[5] = this->GetShiftUpValue(this->mDeviceIndex);
+        inputBuffer[4] = this->GetShiftDownValue(this->mDeviceIndex);
+        inputBuffer[6] = this->GetNOSValue(this->mDeviceIndex);
+        inputBuffer[7] = this->GetHandbrakeValue(this->mDeviceIndex);
+        inputBuffer[8] = this->GetGameBrakerValue(this->mDeviceIndex);
+        inputBuffer[9] = this->GetLookBackvalue(this->mDeviceIndex);
+
+        inputBuffer[10] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x80000) ? 1.0f : 0.0f;
+        inputBuffer[11] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x20000) ? 1.0f : 0.0f;
+        inputBuffer[12] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x40000) ? 1.0f : 0.0f;
+        inputBuffer[13] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x10000) ? 1.0f : 0.0f;
+        inputBuffer[14] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x2000000) ? 1.0f : 0.0f;
+        inputBuffer[15] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x1000000) ? 1.0f : 0.0f;
+        inputBuffer[16] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x200000) ? 1.0f : 0.0f;
+        inputBuffer[17] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x400000) ? 1.0f : 0.0f;
+        inputBuffer[18] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x800000) ? 1.0f : 0.0f;
+        inputBuffer[19] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x80000000) ? 1.0f : 0.0f;
+        inputBuffer[20] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x40000000) ? 1.0f : 0.0f;
+        inputBuffer[21] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x80000000) ? 1.0f : 0.0f;
+        inputBuffer[22] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x40000000) ? 1.0f : 0.0f;
+        inputBuffer[23] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x4000000) ? 1.0f : 0.0f;
+        inputBuffer[24] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x8000000) ? 1.0f : 0.0f;
+        inputBuffer[25] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x20000000) ? 1.0f : 0.0f;
+        inputBuffer[26] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x10000000) ? 1.0f : 0.0f;
+        inputBuffer[27] = lgwheels->ButtonIsPressed(this->mDeviceIndex, 0x100000) ? 1.0f : 0.0f;
+    } else {
+#ifndef EA_BUILD_A124
+        if (!activate) {
+            this->isActivated = false;
+        }
+#endif
+        for (int i = 0; i <= 27; i++) {
+            inputBuffer[i] = 0.0f;
+        }
+    }
+}
+#else
 void SteeringWheelDevice::ReadInput(float *inputBuffer) {
     if (lgwheels->IsConnected(this->mDeviceIndex)) {
         {
@@ -227,8 +335,25 @@ void SteeringWheelDevice::ReadInput(float *inputBuffer) {
         }
     }
 }
+#endif
 
 void SteeringWheelDevice::InitWheelSupport() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (lgwheels == 0) {
+        lgwheels = new ("LGWheel", 0) LGWheels;
+        lgwheels->ReadAll();
+        for (int i = 0; i < 2; i++) {
+            if (lgwheels->IsConnected(i)) {
+                lgwheels->PlaySpringForce(i, 0, 180, 180);
+                if (lgwheels->IsMultiturnCapable(i)) {
+                    if (!lgwheels->IsMultiturnEnabled(i)) {
+                        lgwheels->SetMultiturn(i, 1);
+                    }
+                }
+            }
+        }
+    }
+#else
     if (lgwheels == 0) {
         int i = 0;
         LGWheels *wheels = new ("LGWheel", 0) LGWheels;
@@ -240,6 +365,7 @@ void SteeringWheelDevice::InitWheelSupport() {
             }
         }
     }
+#endif
 }
 
 void SteeringWheelDevice::PollWheels() {
@@ -249,14 +375,101 @@ void SteeringWheelDevice::PollWheels() {
 }
 
 float SteeringWheelDevice::ConvertWheelRotation(int channel) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    float val;
+    if (lgwheels->IsMultiturnEnabled(channel)) {
+        float originalVal = lgwheels->Position[channel].X1;
+        if (GRaceStatus::IsDragRace()) {
+            originalVal *= 5.0f;
+        }
+        val = UMath::Clamp(originalVal / 32000.0f, -1.0f, 1.0f);
+        // La misma cuenta en las dos ramas: el compilador las funde y el return queda en la union (mov.s).
+        val = val * 0.8f + val * val * val * 0.2f;
+    } else {
+        float originalVal = lgwheels->Position[channel].X1;
+        val = UMath::Clamp(originalVal / 32000.0f, -1.0f, 1.0f);
+        val = val * 0.8f + val * val * val * 0.2f;
+    }
+    return val;
+#else
     float val = lgwheels->Position[channel].wheel;
     float originalVal = UMath::Clamp(val * 0.007874016f, -1.0f, 1.0f);
     val = originalVal * 0.8f + originalVal * originalVal * originalVal * 0.2f;
     return val;
+#endif
 }
 
-float SteeringWheelDevice::ScaledForceParam(float value) {
-    return value * 0.85f;
+#ifdef EA_PLATFORM_PLAYSTATION2
+float SteeringWheelDevice::ConvertAcceleratorPosition(int channel) {
+    float level = lgwheels->Position[channel].Accelerator;
+    level = UMath::Clamp(level * sPedalScale, 0.0f, 1.0f);
+    return level;
+}
+
+float SteeringWheelDevice::ConvertBrakePosition(int channel) {
+    float level = lgwheels->Position[channel].Brake;
+    level = UMath::Clamp(level * sPedalScale, 0.0f, 1.0f);
+    return level;
+}
+
+float SteeringWheelDevice::GetShiftUpValue(int channel) {
+    if (lgwheels->ButtonIsPressed(channel, 0x2)) {
+        return 1.0f;
+    }
+    return 0.0f;
+}
+
+float SteeringWheelDevice::GetShiftDownValue(int channel) {
+    if (lgwheels->ButtonIsPressed(channel, 0x1)) {
+        return 1.0f;
+    }
+    return 0.0f;
+}
+
+float SteeringWheelDevice::GetNOSValue(int channel) {
+    if (lgwheels->IsWheelClassA(channel)) {
+        if (lgwheels->ButtonIsPressed(channel, 0x20)) {
+            return 1.0f;
+        }
+    }
+    return 0.0f;
+}
+
+float SteeringWheelDevice::GetHandbrakeValue(int channel) {
+    if (lgwheels->IsWheelClassA(channel)) {
+        if (lgwheels->ButtonIsPressed(channel, 0x10)) {
+            return 1.0f;
+        }
+    }
+    return 0.0f;
+}
+
+float SteeringWheelDevice::GetGameBrakerValue(int channel) {
+    if (lgwheels->IsWheelClassA(channel)) {
+        if (lgwheels->ButtonIsPressed(channel, 0x8)) {
+            return 1.0f;
+        }
+    }
+    return 0.0f;
+}
+
+float SteeringWheelDevice::GetLookBackvalue(int channel) {
+    if (lgwheels->IsWheelClassA(channel)) {
+        if (lgwheels->ButtonIsPressed(channel, 0x4)) {
+            return 1.0f;
+        }
+    }
+    return 0.0f;
+}
+#endif
+
+float SteeringWheelDevice::ScaledForceParam(float forceParam) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (lgwheels->IsMultiturnCapable(this->mDeviceIndex)) {
+        return forceParam * 0.75f;
+    }
+#endif
+    return forceParam * 0.85f;
 }
 
 bool SteeringWheelDevice::IsConnected() {
@@ -268,6 +481,11 @@ bool SteeringWheelDevice::IsConnected() {
 
 ISteeringWheel::SteeringType SteeringWheelDevice::GetSteeringType() {
     if (this->IsConnected()) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        if (lgwheels->IsMultiturnEnabled(this->mDeviceIndex)) {
+            return ISteeringWheel::kWheelSpeedInsensitive;
+        }
+#endif
         return ISteeringWheel::kWheelSpeedSensitive;
     }
     return ISteeringWheel::kGamePad;

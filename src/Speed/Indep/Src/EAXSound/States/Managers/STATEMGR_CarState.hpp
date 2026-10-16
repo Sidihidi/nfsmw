@@ -4,7 +4,11 @@
 #include "Speed/Indep/Src/EAXSound/States/Managers/STATEMGR_Base.hpp"
 
 #define MAX_NUM_AI_ENGINES_LOADED 6   // Decl: 13
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+#define MAX_NUM_AI_ENGINES_ATTACHED 3
+#else
 #define MAX_NUM_AI_ENGINES_ATTACHED 4 // Decl: 14
+#endif
 
 #define MAX_NUM_CARS 24 // Decl: 23
 

@@ -13,7 +13,9 @@ struct timeofdaylighting : Instance {
         UMath::Vector4 AmbientColour;             // offset 0x20, size 0x10
         UMath::Vector4 FogHazeColour;             // offset 0x30, size 0x10
         UMath::Vector4 FixedFunctionSkyColor;     // offset 0x40, size 0x10
+#ifndef EA_BUILD_A124
         EA::Reflection::Float FogDistanceScale;   // offset 0x50, size 0x4
+#endif
         EA::Reflection::Float FogHazeColourScale; // offset 0x54, size 0x4
         EA::Reflection::Float FogSkyColourScale;  // offset 0x58, size 0x4
         EA::Reflection::Float EnvSkyBrightness;   // offset 0x5c, size 0x4
@@ -116,10 +118,12 @@ struct timeofdaylighting : Instance {
     const UMath::Vector4 &FixedFunctionSkyColor() const;
     bool SET_FixedFunctionSkyColor(const UMath::Vector4 &input);
 
+#ifndef EA_BUILD_A124
     bool FogDistanceScale(TAttrib<EA::Reflection::Float> &result) const;
     bool FogDistanceScale(EA::Reflection::Float &result) const;
     const EA::Reflection::Float &FogDistanceScale() const;
     bool SET_FogDistanceScale(const EA::Reflection::Float &input);
+#endif
 
     bool FogHazeColour(TAttrib<UMath::Vector4> &result) const;
     bool FogHazeColour(UMath::Vector4 &result) const;
@@ -265,6 +269,7 @@ inline bool Gen::timeofdaylighting::SET_FixedFunctionSkyColor(const UMath::Vecto
     ATTRIB_CODEGEN_SETLAYOUT(FixedFunctionSkyColor, input);
 }
 
+#ifndef EA_BUILD_A124
 inline bool Gen::timeofdaylighting::FogDistanceScale(TAttrib<EA::Reflection::Float> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(EA::Reflection::Float, 0x72606030);
 }
@@ -278,6 +283,7 @@ inline bool Gen::timeofdaylighting::FogDistanceScale(EA::Reflection::Float &resu
 inline bool Gen::timeofdaylighting::SET_FogDistanceScale(const EA::Reflection::Float &input) {
     ATTRIB_CODEGEN_SETLAYOUT(FogDistanceScale, input);
 }
+#endif
 
 inline bool Gen::timeofdaylighting::FogHazeColour(TAttrib<UMath::Vector4> &result) const {
     ATTRIB_CODEGEN_GETATTRIB(UMath::Vector4, 0xc91c60c7);

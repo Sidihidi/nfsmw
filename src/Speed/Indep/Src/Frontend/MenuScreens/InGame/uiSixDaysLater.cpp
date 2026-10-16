@@ -17,7 +17,11 @@ SixDaysLater::SixDaysLater(ScreenConstructorData *sd) : MenuScreen(sd) {
 
 void SixDaysLater::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) {
     if (msg == 0xC98356BA) {
+#ifdef EA_BUILD_A124 // la A124 solo lanza la segunda linea en el primer texto
+        if (mStringMode == 0 && FEngIsScriptSet(mpDataMainString, FEHASH_APPEAR)) {
+#else
         if (FEngIsScriptSet(mpDataMainString, FEHASH_APPEAR)) {
+#endif
             if (!FEngIsScriptSet(GetPackageName(), 0x53d9eb7e, FEHASH_APPEAR)) {
                 FEngSetScript(GetPackageName(), 0x53d9eb7e, FEHASH_APPEAR, true);
             }

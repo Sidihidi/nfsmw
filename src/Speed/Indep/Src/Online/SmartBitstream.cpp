@@ -47,6 +47,9 @@ int IntQuantizer::UnPack(uint32 packed_value) { return m_minValue + packed_value
 
 BitStream::BitStream() { Clear(); }
 
+int BitStream::MAX_BITS = 32;
+int BitStream::BIT_DEPTH = 8;
+
 void BitStream::AddBits(uint32 value, int num_bits) {
     int byte_num;
     int bit_offset;
@@ -204,7 +207,11 @@ void FloatQuantizer::Init(const char *name, float min_value, float max_value, fl
     m_maxError = max_acceptable_error;
     m_increment = max_acceptable_error * 2.0f;
     range = max_value - min_value;
+#ifdef EA_BUILD_A124
+    num_values = static_cast<int>(range / m_increment + 0.5) + 1; // la A124 convierte con signo (dptoli)
+#else
     num_values = static_cast<uint32>(range / m_increment + 0.5) + 1;
+#endif
     max_units = 0;
     m_numBits = 0;
     while (max_units < num_values) {

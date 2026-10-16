@@ -77,7 +77,24 @@ static inline void Copy(int &dst, int src) {
 }
 
 static inline void PutB(int &dst, int src) {
+    // r75 (PS2): PutB ("put big-endian") en el paquete PS2 (snd 9.06.00-ps2)
+    // ES el intercambio de bytes: el original lo compila como la secuencia
+    // lbu/sb inversa sobre los 4 bytes (verificado byte a byte contra el .o
+    // original de SLES/SLUS; parsedata pasa de 62 a 100 con esta forma). En
+    // GC los streams ya estan en orden nativo (big-endian) y el original
+    // compila PutB como una copia: `Copy`. Va por el orden de bytes: PC (little-endian) tambien da la vuelta
+    // (SNDSTRMI_parsedata de speed.exe, 0x81C69B: los cuatro bytes al reves).
+#if defined(EA_PLATFORM_GAMECUBE) || defined(EA_PLATFORM_XENON)
     Copy(dst, src);
+#else
+    unsigned char *d = (unsigned char *)&dst;
+    unsigned char *s = (unsigned char *)&src;
+
+    d[0] = s[3];
+    d[1] = s[2];
+    d[2] = s[1];
+    d[3] = s[0];
+#endif
 }
 
 namespace Snd {
@@ -157,13 +174,24 @@ int SNDSTRMI_calcdatarate(SNDSAMPLEFORMAT *pssf) {
 
     avgdatarate *= pssf->channels;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // el ADPCM de la SPU (representacion 5): 16 bytes por cada 28 muestras
+    if (pssf->samplerep == 5) {
+        ratio = 146;
+    } else if (pssf->samplerep == 10) {
+#else
     if (pssf->samplerep == 10) {
+#endif
         ratio = 136;
     } else if (pssf->samplerep == 4) {
         ratio = 51;
     } else if (pssf->samplerep == 22) {
         ratio = 102;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    } else if (pssf->samplerep == 8) {
+#else
     } else if (pssf->samplerep == 7) {
+#endif
         ratio = 512;
     } else if (pssf->samplerep == 16) {
         return pssf->channels * 8;
@@ -171,10 +199,7 @@ int SNDSTRMI_calcdatarate(SNDSAMPLEFORMAT *pssf) {
         return pssf->channels * 8;
     }
 
-    avgdatarate *= ratio;
-    avgdatarate >>= 8;
-
-    return avgdatarate;
+    return (avgdatarate * ratio) >> 8;
 }
 
 int SNDSTRMI_destroyall() {
@@ -358,9 +383,16 @@ void SNDSTRMI_parsedata(SNDSTREAMCHANNEL *pssc, STREAMCHUNKHDR *pchunk) {
 int SNDSTRMI_parsechunk(int chan, STREAMCHUNKHDR *pchunk) {
     SNDSTREAMCHANNEL *pssc = sndss.pssc[chan];
 
+    // Las marcas "SCDl" y "SCHl" leidas como entero: en little-endian (PS2; PC en 0x81C777) con los bytes al reves
+#if defined(EA_PLATFORM_GAMECUBE) || defined(EA_PLATFORM_XENON)
     if (pchunk->type == 0x5343446C) {
         SNDSTRMI_parsedata(pssc, pchunk);
     } else if (pchunk->type == 0x5343486C) {
+#else
+    if (pchunk->type == 0x6C444353) {
+        SNDSTRMI_parsedata(pssc, pchunk);
+    } else if (pchunk->type == 0x6C484353) {
+#endif
         SNDSTRMI_parseheader(chan, pchunk);
         return 0;
     } else {
@@ -384,8 +416,14 @@ int SNDSTRMI_isheld(SNDSTREAMCHANNEL *pssc) {
     }
 
     if (pssr->holdtime < 0) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // r18 (stash 712d44e1): sin `goto held`; la union de bloques de SN
+        // 2.95.3-136 solo sale asi. En GC esta forma rompe al ~91 %.
+        return 1;
+#else
     held:
         return 1;
+#endif
     }
 
     if (pssr->holdtime != 0) {
@@ -397,6 +435,30 @@ int SNDSTRMI_isheld(SNDSTREAMCHANNEL *pssc) {
 
         bufferedtime = gettable * 1000 / pssr->avgdatarate;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // r18 (stash 712d44e1): branch-shape que cierra PS2 al 100 %; en GC
+        // rompe al ~91 %.
+        if (bufferedtime < pssr->holdtime) {
+            goto check_state;
+        }
+        pssr->holdtime = 0;
+        return 0;
+        check_state:
+        if (STREAM_state(pssc->streamhandle) == 2) {
+            pssr->holdtime = 0;
+            return 0;
+        }
+
+        if (pssc->freerequests.items > 0) {
+            return 1;
+        }
+
+        if (STREAM_state(pssc->streamhandle) == 0) {
+            pssr->holdtime = 0;
+            return 0;
+        }
+        return 1;
+#else
         if (bufferedtime >= pssr->holdtime || STREAM_state(pssc->streamhandle) == 2) {
             pssr->holdtime = 0;
             return 0;
@@ -411,6 +473,7 @@ int SNDSTRMI_isheld(SNDSTREAMCHANNEL *pssc) {
         }
 
         pssr->holdtime = 0;
+#endif
     }
 
     return 0;
@@ -493,6 +556,8 @@ int SNDSTRMI_create(SNDPLAYOPTS *pspo, int maxrequests, int maxchunks, void *pme
     unsigned int temphandle;
     void *pMemForFx;
     float floatVol;
+
+    SNDI_CHECKINSTALLED();
 
     SNDSYS_entercritical();
 
@@ -602,6 +667,8 @@ int SNDSTRMI_queue(int sndstreamhandle, int holdtime, char *param1, int param2, 
     int streamrequestid;
     int sndrequesthandle;
 
+    SNDI_CHECKINSTALLED();
+
     pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
 
     if (pssc == NULL) {
@@ -661,6 +728,8 @@ int SNDSTRM_destroy(int sndstreamhandle) {
     int streamhandle;
     int fromtap;
 
+    SNDI_CHECKINSTALLED();
+
     SNDSYS_entercritical();
 
     pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
@@ -695,6 +764,7 @@ int SNDSTRM_destroy(int sndstreamhandle) {
 }
 
 int SNDSTRM_queuefile(int sndstreamhandle, int holdtime, const char *filename, int offset) {
+    SNDI_CHECKINSTALLED();
     int ret = SNDSTRMI_queue(sndstreamhandle, holdtime, (char *)filename, offset, 0);
 
     return ret;
@@ -704,6 +774,8 @@ int SNDSTRM_purge(int sndStrmHandle) {
     SNDSTREAMCHANNEL *pssc;
     Snd::SNDSTREAMREQUEST *pssr;
     int i;
+
+    SNDI_CHECKINSTALLED();
 
     SNDSYS_entercritical();
 

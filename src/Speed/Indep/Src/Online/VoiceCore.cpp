@@ -1,4 +1,5 @@
 #include "VoiceCore.hpp"
+#include "NetworkMutex.hpp"
 
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
@@ -15,6 +16,7 @@ void VoipSpeaker(VoipRefT *voip, int mask);
 }
 
 VoiceCore *VoiceCore::mInstance;
+static NetworkMutex voiceMutex;
 
 VoiceCore::PushToTalk::PushToTalk() { mIsPolling = false; }
 
@@ -56,14 +58,14 @@ bool VoiceCore::PushToTalk::IsPressed() {
     return ispressed;
 }
 
-VoiceCore::VoiceCore() {
-    headset_state_at_last_shutdown = true;
+VoiceCore::VoiceCore()
+    : mTransmit(false), //
+      VoipRef(nullptr), //
+      headset_state_at_last_shutdown(true), //
+      headset_ready_remember(false), //
+      speaker_state_remember(false) {
     speaker_volume_remember = 0.7f;
     playback_volume_remember = 0.7f;
-    mTransmit = false;
-    VoipRef = nullptr;
-    headset_ready_remember = false;
-    speaker_state_remember = false;
     all_muted = false;
     startup_timer.UnSet();
 }
@@ -73,8 +75,10 @@ inline VoiceCore::~VoiceCore() {}
 void VoiceCore::Construct() { mInstance = new ("VoiceCore", 0) VoiceCore; }
 
 void VoiceCore::Startup() {
+    voiceMutex.Lock();
     VoipRef = VoipStartup(4);
     if (!VoipRef) {
+        voiceMutex.Unlock();
         return;
     }
     bMemSet(mute_record, 0, sizeof(mute_record));
@@ -85,79 +89,144 @@ void VoiceCore::Startup() {
     VoipSetLocalUser(VoipRef, FEDatabase->OnlineSettings.GetLobbyPersona());
     _SetPlaybackVolume(playback_volume_remember);
     SetMicState(false);
+    voiceMutex.Unlock();
 }
 
 void VoiceCore::Shutdown() {
-    if (VoipRef) {
-        headset_state_at_last_shutdown = _IsHeadsetConnected();
-        _RemoveAllPlayers();
-        VoipShutdown(VoipRef);
-        mPTT.StopPolling();
-        VoipRef = nullptr;
+    voiceMutex.Lock();
+    if (!VoipRef) {
+        voiceMutex.Unlock();
+        return;
     }
+    headset_state_at_last_shutdown = _IsHeadsetConnected();
+    _RemoveAllPlayers();
+    VoipShutdown(VoipRef);
+    VoipRef = nullptr;
+    mPTT.StopPolling();
+    voiceMutex.Unlock();
 }
 
 inline void VoiceCore::AddPlayer(int channel, const char *persona) {
+    voiceMutex.Lock();
     _AddPlayer(channel, persona);
+    voiceMutex.Unlock();
 }
 
-int VoiceCore::AddPlayer(const char *persona) { return _AddPlayer(persona); }
+int VoiceCore::AddPlayer(const char *persona) {
+    voiceMutex.Lock();
+    int channel = _AddPlayer(persona);
+    voiceMutex.Unlock();
+    return channel;
+}
 
-inline void VoiceCore::RemovePlayer(int channel) { _RemovePlayer(channel); }
+inline void VoiceCore::RemovePlayer(int channel) {
+    voiceMutex.Lock();
+    _RemovePlayer(channel);
+    voiceMutex.Unlock();
+}
 
 void VoiceCore::RemovePlayer(const char *name) {
     int channel;
+    voiceMutex.Lock();
     if (_IsInVOIPChat(name, &channel)) {
         _RemovePlayer(channel);
     }
+    voiceMutex.Unlock();
 }
 
-void VoiceCore::RemoveAllPlayers() { _RemoveAllPlayers(); }
+void VoiceCore::RemoveAllPlayers() {
+    voiceMutex.Lock();
+    _RemoveAllPlayers();
+    voiceMutex.Unlock();
+}
 
-void VoiceCore::SetSpeakerVolume(float volume) { _SetSpeakerVolume(volume); }
+void VoiceCore::SetSpeakerVolume(float v) {
+    voiceMutex.Lock();
+    _SetSpeakerVolume(v);
+    voiceMutex.Unlock();
+}
 
-void VoiceCore::SetPlaybackVolume(float volume) { _SetPlaybackVolume(volume); }
+void VoiceCore::SetPlaybackVolume(float v) {
+    voiceMutex.Lock();
+    _SetPlaybackVolume(v);
+    voiceMutex.Unlock();
+}
 
 void VoiceCore::SetSpeakerState(bool enable) {}
 
 void VoiceCore::SetHeadsetPort(int port) {
+    voiceMutex.Lock();
     if (VoipRef) {
         VoipControl(VoipRef, 'port', port);
     }
+    voiceMutex.Unlock();
 }
 
-void VoiceCore::SetMicStatus(bool enable) { SetMicState(enable); }
+void VoiceCore::SetMicStatus(bool enable) {
+    voiceMutex.Lock();
+    SetMicState(enable);
+    voiceMutex.Unlock();
+}
 
-bool VoiceCore::IsMuted(int channel) { return _IsMuted(channel); }
+bool VoiceCore::IsMuted(int channel) {
+    voiceMutex.Lock();
+    bool rc = _IsMuted(channel);
+    voiceMutex.Unlock();
+    return rc;
+}
 
-bool VoiceCore::IsMuted(const char *persona) { return _IsMuted(persona); }
+bool VoiceCore::IsMuted(const char *persona) {
+    voiceMutex.Lock();
+    bool rc = _IsMuted(persona);
+    voiceMutex.Unlock();
+    return rc;
+}
 
-void VoiceCore::ToggleMuted(const char *persona) { _ToggleMuted(persona); }
+void VoiceCore::ToggleMuted(const char *persona) {
+    voiceMutex.Lock();
+    _ToggleMuted(persona);
+    voiceMutex.Unlock();
+}
 
-bool VoiceCore::IsSpeaking(int channel) { return _IsSpeaking(channel); }
+bool VoiceCore::IsSpeaking(int channel) {
+    voiceMutex.Lock();
+    bool rc = _IsSpeaking(channel);
+    voiceMutex.Unlock();
+    return rc;
+}
 
 bool VoiceCore::IsSpeaking(const char *persona) {
     int channel;
     bool rc = false;
+    voiceMutex.Lock();
     if (_IsInVOIPChat(persona, &channel)) {
         rc = _IsSpeaking(channel);
     }
+    voiceMutex.Unlock();
     return rc;
 }
 
-bool VoiceCore::IsConnected(int channel) { return _IsConnected(channel); }
+bool VoiceCore::IsConnected(int channel) {
+    voiceMutex.Lock();
+    bool rc = _IsConnected(channel);
+    voiceMutex.Unlock();
+    return rc;
+}
 
 bool VoiceCore::IsConnected(const char *persona) {
     int channel;
     bool rc = false;
+    voiceMutex.Lock();
     if (_IsInVOIPChat(persona, &channel)) {
         rc = _IsConnected(channel);
     }
+    voiceMutex.Unlock();
     return rc;
 }
 
 bool VoiceCore::IsActive(int channel) {
     bool rc = false;
+    voiceMutex.Lock();
     if (VoipRef) {
         if (_IsConnected(channel)) {
             if (VoipRemote(VoipRef, channel) & 8) {
@@ -165,14 +234,26 @@ bool VoiceCore::IsActive(int channel) {
             }
         }
     }
+    voiceMutex.Unlock();
     return rc;
 }
 
-bool VoiceCore::IsHeadsetConnected() { return _IsHeadsetConnected(); }
+bool VoiceCore::IsHeadsetConnected() {
+    voiceMutex.Lock();
+    bool rc = _IsHeadsetConnected();
+    voiceMutex.Unlock();
+    return rc;
+}
 
-bool VoiceCore::IsHeadsetSending() { return _IsHeadsetSending(); }
+bool VoiceCore::IsHeadsetSending() {
+    voiceMutex.Lock();
+    bool rc = _IsHeadsetSending();
+    voiceMutex.Unlock();
+    return rc;
+}
 
 void VoiceCore::Update() {
+    voiceMutex.Lock();
     if (!VoipRef) {
         mPTT.StopPolling();
     } else {
@@ -201,6 +282,7 @@ void VoiceCore::Update() {
             }
         }
     }
+    voiceMutex.Unlock();
 }
 
 bool VoiceCore::IsInVOIPChat(const char *name, int *channel) {
@@ -320,41 +402,31 @@ void VoiceCore::_ToggleMuted(const char *persona) {
 }
 
 bool VoiceCore::_IsSpeaking(int c) {
-    if (!VoipRef) {
-        return false;
+    if (VoipRef) {
+        return channels[c].assigned && (VoipRemote(VoipRef, c) & 2);
     }
-    bool rc = false;
-    if (channels[c].assigned) {
-        rc = (VoipRemote(VoipRef, c) & 2) != 0;
-    }
-    return rc;
+    return false;
 }
 
 bool VoiceCore::_IsConnected(int c) {
-    bool rc;
-    if (!VoipRef) {
-        rc = false;
-    } else {
-        rc = false;
-        if (channels[c].assigned) {
-            rc = VoipRemote(VoipRef, c) & 1;
-        }
+    if (VoipRef) {
+        return channels[c].assigned && (VoipRemote(VoipRef, c) & 1);
     }
-    return rc;
+    return false;
 }
 
 bool VoiceCore::_IsHeadsetConnected() {
-    if (!VoipRef) {
-        return false;
+    if (VoipRef) {
+        return (VoipLocal(VoipRef) & 0x40) != 0;
     }
-    return (VoipLocal(VoipRef) >> 6) & 1;
+    return false;
 }
 
 bool VoiceCore::_IsHeadsetSending() {
-    if (!VoipRef) {
-        return false;
+    if (VoipRef) {
+        return (VoipLocal(VoipRef) & 0x100) != 0;
     }
-    return (VoipLocal(VoipRef) >> 8) & 1;
+    return false;
 }
 
 inline void VoiceCore::_SetSpeakerState(bool enable) {}

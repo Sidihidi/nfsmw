@@ -9,6 +9,7 @@
 class Reputation : public HudElement, public IReputation {
   public:
     Reputation(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~Reputation() override {}
     void Update(IPlayer *player) override;
     void SetReputationCareer(int rep) override;
     void SetReputationPursuit(int rep) override;

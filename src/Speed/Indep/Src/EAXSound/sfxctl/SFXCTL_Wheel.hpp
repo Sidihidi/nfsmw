@@ -12,8 +12,9 @@ struct bVector2;
 struct bVector3;
 
 struct SFXCTL_Wheel : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:

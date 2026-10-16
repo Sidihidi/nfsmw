@@ -27,7 +27,7 @@ static MovieScreenData MovieData[10] = {
     {"WS_LS_IntroFMV.fng", "intro_movie", 0x58BCF5B6, 1, 0},
     {"WS_MW_LS_AttractFMV.fng", "attract_movie", 0x72CF9F38, 1, 0},
 };
-static int IsDebugPlayMovie = 0;
+static bool IsDebugPlayMovie = false;
 
 MovieScreen::MovieScreen(ScreenConstructorData *sd) : MenuScreen(sd), bByPassable(0), mSubtitler() {
     new ESndGameState(1, true);
@@ -52,7 +52,7 @@ void MovieScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 pa
             SetSoundControlState(false, SNDSTATE_FMV, "MovieScreen");
             if (IsDebugPlayMovie) {
                 cFEng::Get()->QueuePackagePop(1);
-                IsDebugPlayMovie = 0;
+                IsDebugPlayMovie = false;
                 movie_is_finished = true;
             } else {
                 BootFlowManager::Get()->ChangeToNextBootFlowScreen(0xff);
@@ -65,9 +65,9 @@ void MovieScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 pa
                 new ESndGameState(1, false);
                 SetSoundControlState(false, SNDSTATE_FMV, "MovieScreen");
                 if (IsDebugPlayMovie) {
-                    movie_is_finished = true;
                     cFEng::Get()->QueuePackagePop(1);
-                    IsDebugPlayMovie = 0;
+                    IsDebugPlayMovie = false;
+                    movie_is_finished = true;
                 } else {
                     BootFlowManager::Get()->ChangeToNextBootFlowScreen(0xff);
                     movie_is_finished = true;

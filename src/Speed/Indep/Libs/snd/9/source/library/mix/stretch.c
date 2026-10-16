@@ -264,7 +264,11 @@ int SFILTER_timestretch(void *pstate, int outputframes, void *psrcpassed, void *
             if (ptss->srcBufSize < totalNeededBufSize) {
                 Snd::Util::ReallocBuf((void **)&ptss->plocalsrc, &ptss->srcBufSize, totalNeededBufSize, 4);
             }
+#ifdef EA_PLATFORM_PLAYSTATION2
+            psrc = ptss->plocalsrc;
+#else
             psrc = ptss->plocalsrc + 2;
+#endif
         }
         retVal = ptss->sfn.pfnnext->filterfn(ptss->sfn.pfnnext, inputframes, pdst, psrc, ptss->sfn.requester);
         if (retVal <= 0) {
@@ -275,7 +279,7 @@ int SFILTER_timestretch(void *pstate, int outputframes, void *psrcpassed, void *
     if (retVal < outputframes) {
         float *ptemp = pdst + retVal;
 
-        memset(ptemp, 0, (outputframes - retVal) * sizeof(float));
+        SNDI_memclear(ptemp, (outputframes - retVal) * sizeof(float));
     }
     return outputframes;
 }
@@ -308,6 +312,10 @@ int SFILTER_timestretchinit(TIMESTRETCHSTATE *ptss, unsigned char *psideband, in
     ptss->outputstart = 0;
     ptss->plocalsrc = 0;
     ptss->srcBufSize = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ptss->staticPingPongBufSize = 0x1058; // las dos PS2 (snd 9.06.00-ps2)
+#else
     ptss->staticPingPongBufSize = 0xABC;
+#endif
     return 0;
 }

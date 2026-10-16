@@ -1,147 +1,106 @@
-extern void *duck_malloc(unsigned long size, void *user);
-extern void duck_free(void *mem);
-extern void *memset();
-extern int VP6_GetProcessorFrequency(void);
-extern void VP6_DMachineSpecificConfig(void);
-extern void VP6_DeleteQuantizer(void *quantizer);
-extern void DeletePostProcInstance(void *ppi);
-extern void InitPostProcessing(int *dcScale, int *dcScale2, int *dcScale3, int five);
-extern void InitVPUtil(void);
+#include <string.h>
 
-extern short VP6_DcQuant[64];
-extern void (*idct[65])(void);
+#include "pbdll.h"
+#include "vputil.h"
+#include "duck_mem.h"
 
-typedef struct {
-    unsigned char pad0[0x264];
-    void *field_264;
-    void *field_268;
-    unsigned char pad1[0x274 - 0x26c];
-    void *field_274;
-    void *field_278;
-    unsigned char pad2[4];
-    void *field_280;
-    void *field_284;
-    void *field_288;
-    void *field_28c;
-    void *field_290;
-    void *field_294;
-    void *field_298;
-} PB_INSTANCE;
+BOOL VP6_ModeUsesMC[10] = { FALSE, FALSE, TRUE, TRUE, TRUE, FALSE, TRUE, TRUE, TRUE, TRUE };
 
-unsigned int VP6_ModeUsesMC[10] = {
-    0, 0, 1, 1, 1, 0, 1, 1, 1, 1,
-};
-
-static int VP6_DCQuantScaleP[64];
-int CPUFrequency;
-
-typedef struct {
-    unsigned int a, b, c, d;
-    unsigned int e, f;
-    unsigned int g, h, i, j, k, l, m, n;
-} FRAG_CONFIG;
+static UINT32 VP6_DCQuantScaleP[64];
+UINT32 CPUFrequency;
 
 void VP6_DeleteTmpBuffers(PB_INSTANCE *pbi) {
-    if (pbi->field_278 != 0) {
-        duck_free(pbi->field_278);
-    }
-    if (pbi->field_290 != 0) {
-        duck_free(pbi->field_290);
-    }
-    if (pbi->field_28c != 0) {
-        duck_free(pbi->field_28c);
-    }
-    if (pbi->field_284 != 0) {
-        duck_free(pbi->field_284);
-    }
-    if (pbi->field_268 != 0) {
-        duck_free(pbi->field_268);
-    }
+    if (pbi->ReconDataBufferAlloc)
+        duck_free(pbi->ReconDataBufferAlloc);
+    if (pbi->LoopFilteredBlockAlloc)
+        duck_free(pbi->LoopFilteredBlockAlloc);
+    if (pbi->TmpDataBufferAlloc)
+        duck_free(pbi->TmpDataBufferAlloc);
+    if (pbi->TmpReconBufferAlloc)
+        duck_free(pbi->TmpReconBufferAlloc);
+    if (pbi->ScaleBufferAlloc)
+        duck_free(pbi->ScaleBufferAlloc);
 
-    pbi->field_278 = 0;
-    pbi->field_290 = 0;
-    pbi->field_28c = 0;
-    pbi->field_284 = 0;
-    pbi->field_268 = 0;
-    pbi->field_274 = 0;
-    pbi->field_294 = 0;
-    pbi->field_288 = 0;
-    pbi->field_280 = 0;
-    pbi->field_264 = 0;
+    pbi->ReconDataBufferAlloc = 0;
+    pbi->LoopFilteredBlockAlloc = 0;
+    pbi->TmpDataBufferAlloc = 0;
+    pbi->TmpReconBufferAlloc = 0;
+    pbi->ScaleBufferAlloc = 0;
+
+    pbi->ReconDataBuffer = 0;
+    pbi->LoopFilteredBlock = 0;
+    pbi->TmpDataBuffer = 0;
+    pbi->TmpReconBuffer = 0;
+    pbi->ScaleBuffer = 0;
 }
 
-int VP6_AllocateTmpBuffers(PB_INSTANCE *pbi) {
+BOOL VP6_AllocateTmpBuffers(PB_INSTANCE *pbi) {
     VP6_DeleteTmpBuffers(pbi);
 
-    pbi->field_278 = duck_malloc(0xa0, 0);
-    if (pbi->field_278 == 0) {
-        VP6_DeleteTmpBuffers(pbi);
-        return 0;
-    }
-    pbi->field_274 = (void *)(((unsigned long)pbi->field_278 + 31) & ~(unsigned long)31);
+    pbi->ReconDataBufferAlloc = (INT16 *)duck_malloc(64 * sizeof(INT16) + 32, DMEM_GENERAL);
+    if (!pbi->ReconDataBufferAlloc)
+        goto Exit;
+    pbi->ReconDataBuffer = (INT16 *)(((UINT32)pbi->ReconDataBufferAlloc + 31) & ~31);
 
-    pbi->field_28c = duck_malloc(0xa0, 0);
-    if (pbi->field_28c == 0) {
-        VP6_DeleteTmpBuffers(pbi);
-        return 0;
-    }
-    pbi->field_288 = (void *)(((unsigned long)pbi->field_28c + 31) & ~(unsigned long)31);
+    pbi->TmpDataBufferAlloc = (INT16 *)duck_malloc(64 * sizeof(INT16) + 32, DMEM_GENERAL);
+    if (!pbi->TmpDataBufferAlloc)
+        goto Exit;
+    pbi->TmpDataBuffer = (INT16 *)(((UINT32)pbi->TmpDataBufferAlloc + 31) & ~31);
 
-    pbi->field_290 = duck_malloc(0x120, 0);
-    if (pbi->field_290 == 0) {
-        VP6_DeleteTmpBuffers(pbi);
-        return 0;
-    }
-    pbi->field_294 = (void *)(((unsigned long)pbi->field_290 + 31) & ~(unsigned long)31);
+    pbi->LoopFilteredBlockAlloc = (UINT8 *)duck_malloc(256 + 32, DMEM_GENERAL);
+    if (!pbi->LoopFilteredBlockAlloc)
+        goto Exit;
+    pbi->LoopFilteredBlock = (UINT8 *)(((UINT32)pbi->LoopFilteredBlockAlloc + 31) & ~31);
 
-    pbi->field_284 = duck_malloc(0xa0, 0);
-    if (pbi->field_284 == 0) {
-        VP6_DeleteTmpBuffers(pbi);
-        return 0;
-    }
-    pbi->field_280 = (void *)(((unsigned long)pbi->field_284 + 31) & ~(unsigned long)31);
+    pbi->TmpReconBufferAlloc = (INT16 *)duck_malloc(64 * sizeof(INT16) + 32, DMEM_GENERAL);
+    if (!pbi->TmpReconBufferAlloc)
+        goto Exit;
+    pbi->TmpReconBuffer = (INT16 *)(((UINT32)pbi->TmpReconBufferAlloc + 31) & ~31);
 
-    return 1;
+    return TRUE;
+
+Exit:
+    VP6_DeleteTmpBuffers(pbi);
+    return FALSE;
 }
 
-void VP6_DeletePBInstance(PB_INSTANCE **ppbi) {
-    if (*ppbi != 0) {
-        VP6_DeleteTmpBuffers(*ppbi);
-        VP6_DeleteQuantizer((void *)((char *)*ppbi + 0x13c));
-        DeletePostProcInstance((void *)((char *)*ppbi + 0x29c));
+void VP6_DeletePBInstance(PB_INSTANCE **pbi) {
+    if (*pbi) {
+        VP6_DeleteTmpBuffers(*pbi);
+        VP6_DeleteQuantizer(&(*pbi)->quantizer);
+        DeletePostProcInstance(&(*pbi)->postproc);
     }
 
-    duck_free(*ppbi);
-    *ppbi = 0;
+    duck_free(*pbi);
+    *pbi = 0;
 }
 
 PB_INSTANCE *VP6_CreatePBInstance(void) {
     PB_INSTANCE *pbi;
-    FRAG_CONFIG ConfigurationInit;
-    int pbi_size = 0x4958;
+    CONFIG_TYPE ConfigurationInit;
+    int pbi_size = sizeof(PB_INSTANCE);
 
     memset(&ConfigurationInit, 0, sizeof(ConfigurationInit));
-    ConfigurationInit.e = 8;
-    ConfigurationInit.f = 8;
+    ConfigurationInit.HFragPixels = 8;
+    ConfigurationInit.VFragPixels = 8;
 
-    pbi = duck_malloc(pbi_size, 0);
-    if (pbi == 0) {
+    pbi = (PB_INSTANCE *)duck_malloc(pbi_size, DMEM_GENERAL);
+    if (!pbi)
         return 0;
-    }
 
     memset(pbi, 0, pbi_size);
-    *(FRAG_CONFIG *)((char *)pbi + 0x1b0) = ConfigurationInit;
+    pbi->Configuration = ConfigurationInit;
 
-    if (VP6_AllocateTmpBuffers(pbi) == 0) {
+    if (!VP6_AllocateTmpBuffers(pbi)) {
         duck_free(pbi);
         return 0;
     }
 
-    *(int *)((char *)pbi + 0x1a8) = 0x46;
-    pbi->field_298 = (void *)idct;
+    pbi->CPUFree = 70;
+    pbi->idct = idct;
 
-    memset((char *)pbi + 0x3a4, 0, 0x16);
-    memset((char *)pbi + 0x3ba, 0, 0x18c);
+    memset(pbi->DcProbs, 0, sizeof(pbi->DcProbs));
+    memset(pbi->AcProbs, 0, sizeof(pbi->AcProbs));
 
     return pbi;
 }
@@ -150,13 +109,16 @@ void VP6_VPInitLibrary(void) {
     int i;
 
     CPUFrequency = VP6_GetProcessorFrequency();
+
     VP6_DMachineSpecificConfig();
 
     for (i = 0; i < 64; i++) {
-        VP6_DCQuantScaleP[i] = (VP6_DcQuant[i] / 2) + 2;
+        INT32 dcScale = VP6_DcQuant[i] / 2 + 2;
+        VP6_DCQuantScaleP[i] = dcScale;
     }
 
     InitPostProcessing(VP6_DCQuantScaleP, VP6_DCQuantScaleP, VP6_DCQuantScaleP, 7);
+
     InitVPUtil();
 }
 

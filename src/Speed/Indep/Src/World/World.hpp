@@ -118,7 +118,11 @@ class World {
     int CopCarPos;                  // offset 0x10, size 0x4
     int TrafficCarPos;              // offset 0x14, size 0x4
     int ParkedCarPos;               // offset 0x18, size 0x4
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    Car *CarTable[20];              // PC: offset 0x1C, size 0x50 (PlayerPositions en 0x70)
+#else
     Car *CarTable[10];              // offset 0x1C, size 0x28
+#endif
     bVector3 PlayerPositions[6];    // offset 0x44, size 0x60
     float PlayerDATs[6];            // offset 0xA4, size 0x18
     uint32 WorldRandomSeed;         // offset 0xBC, size 0x4

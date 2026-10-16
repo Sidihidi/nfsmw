@@ -39,7 +39,11 @@ class DemoDiscManager {
 
     // bool CanExitDemo() {}
 
-    // void RegisterActivity() {}
+    void RegisterActivity() {
+        if (LastActivityTime < RealTimer) {
+            LastActivityTime = RealTimer;
+        }
+    }
 
     bool IsAttractMode();
 

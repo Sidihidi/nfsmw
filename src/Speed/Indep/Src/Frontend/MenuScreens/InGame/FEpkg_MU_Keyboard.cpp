@@ -1,4 +1,52 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEPkg_MU_Keyboard.hpp"
+
+const FEColor FEKeyboard::ButtonHighlight(0xC8CFE9F2); // size: 0x10, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:87
+
+const FEColor FEKeyboard::LetterHighlight(0xFFFFFFFF); // size: 0x10, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:88
+
+const FEColor
+    FEKeyboard::ButtonIdle(0x50549AC0); // size: 0x10, address: 0x80473048, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:89
+
+const FEColor
+    FEKeyboard::LetterIdle(0xFF323232); // size: 0x10, address: 0x80473058, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:90
+
+const char FEKeyboard::mLetterMap[8][2][45] = {
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\'', '_', '-', '.', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+      'i', 'j', 'k', 'l', 'm', '?', '!', 'n', 'o', 'p', 'q',  'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ',', '&'},
+     {'/', '\\', '|', '`', '~', '#', '%', '+', '*', '=', '\"', ':', ';', '(', ')', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+      'I', 'J',  'K', 'L', 'M', '<', '>', 'N', 'O', 'P', 'Q',  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', ']'}},
+    {{0xFA, 0xF9, 0xFB, 0xFC, 0xDF, 0xA1, 0xBF, 0,    0,    0,    0,    0,    0,    0,    0,    0xE1, 0xE0, 0xE2, 0xE5, 0xE4, 0xE6, 0xE7, 0xE9,
+      0xE8, 0xEA, 0xEB, 0,    0,    0,    0,    0xED, 0xEC, 0xEE, 0xEF, 0xF1, 0xF8, 0xF3, 0xF2, 0xF4, 0xF6, 0x9C, 0,    0,    0,    0},
+     {0xDA, 0xD9, 0xDB, 0xDC, 0, 0, 0, 0,    0,    0,    0,    0,    0,    0,    0,    0xC1, 0xC0, 0xC2, 0xC5, 0xC4, 0xC6, 0xC7, 0xC9,
+      0xC8, 0xCA, 0xCB, 0,    0, 0, 0, 0xCD, 0xCC, 0xCE, 0xCF, 0xD1, 0xD8, 0xD3, 0xD2, 0xD4, 0xD6, 0,    0,    0,    0,    0}}};
+; // size: 0x2D0, address: 0x803E59E5, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:106
+
+const char mEmailSymbols[45] = {}; // size: 0x2D, Decl: speed/indep/src/frontend/menuscreens/ingame/FEPkg_MU_Keyboard.hpp:107
+
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
 #include "Speed/Indep/Src/Frontend/FEngFont.hpp"
 #include "Speed/Indep/Src/Frontend/FEngFrontend.hpp"
@@ -13,7 +61,7 @@
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_UI_DebugCarCustomize.hpp"
 
 Timer KBCreationTimer;
-bool KeyboardActive = false;
+int KeyboardActive = false; // int en el DWARF de GameCube y en los stabs de la A124
 FEKeyboard *gFEKeyboard = nullptr;
 
 MenuScreen *CreateFEKeyboard(ScreenConstructorData *sd) {
@@ -21,7 +69,9 @@ MenuScreen *CreateFEKeyboard(ScreenConstructorData *sd) {
 }
 
 FEKeyboard::FEKeyboard(ScreenConstructorData *sd) : MenuScreen(sd) {
+#ifndef EA_BUILD_A124
     mnWindowStartIdx = 0;
+#endif
     mThis = sd->pPackage;
     KBCreationTimer = RealTimer;
     Initialize();
@@ -50,84 +100,82 @@ void FEKeyboard::NotificationMessage(u32 msg, FEObject *pObject, u32 param1, u32
     switch (msg) {
         case 0x9120409E:
             g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(2));
-            return;
+            break;
         case 0xB5971BF1:
             g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(3));
-            return;
+            break;
         case 0x72619778:
             g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0));
-            return;
+            break;
         case 0x911C0A4B:
             g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(1));
-            return;
+            break;
         case 0xC407210:
-            if (!pObject) {
-                return;
+            if (pObject) {
+                nButton = IsKeyButton(pObject);
+                if (nButton > -1 && GetLetterMap(nButton) != 0) {
+                    g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2E));
+                    AppendLetter(nButton);
+                } else {
+                    g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(7));
+                }
             }
-            nButton = IsKeyButton(pObject);
-            if (nButton > -1 && GetLetterMap(nButton) != 0) {
-                g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2E));
-                AppendLetter(nButton);
-                return;
-            }
-            g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(7));
-            return;
+            break;
         case 0xE1FDE1D1:
-            if (bStrCmp(mString, "") == 0 && mnMode == MODE_FILENAME) {
-                return;
+            if (bStrCmp(mString, "") != 0 || mnMode != MODE_FILENAME) {
+                g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2F));
+                Dispose(false);
             }
-            goto dispose_keyboard;
+            break;
         case 0xC1A6F000:
             if (mnMode == MODE_PROFILE_ENTRY) {
                 g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(7));
-                return;
+            } else {
+                AppendSpace();
+                g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2E));
             }
-            AppendSpace();
-            g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2E));
-            return;
+            break;
         case 0xDB3D597C:
-        play_backspace_sound:
             g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x30));
             AppendBackspace();
-            return;
+            break;
         case 0xD7AD0DD9:
+#ifndef EA_PLATFORM_PLAYSTATION2
             if (mnMode == MODE_PROFILE_ENTRY && !(FEDatabase->GetGameMode() & 8) && !(FEDatabase->GetGameMode() & 0x40)) {
                 g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(7));
-                return;
+                break;
             }
+#endif
             ToggleCapsLock();
             g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x30));
-            return;
+            break;
         case 0xB5AF2461:
             if (bStrCmp(mString, "") == 0) {
                 cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
-                return;
+            } else {
+                g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2F));
+                Dispose(false);
             }
-            goto dispose_keyboard;
-        dispose_keyboard:
-            g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2F));
-            Dispose(false);
-            return;
+            break;
         case 0x5073EF13:
             MoveCursor(-1);
-            return;
+            break;
         case 0xD9FEEC59:
             MoveCursor(1);
-            return;
+            break;
         case 0xC519BFC4:
-            if (GetCurrentLanguage() == eLANGUAGE_KOREAN) {
-                return;
+            if (GetCurrentLanguage() != eLANGUAGE_KOREAN) {
+                ToggleSpecialCharacters();
+#ifdef EA_BUILD_A124 // la A124 suena al cambiar a los caracteres especiales
+                g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(0x2E));
+#endif
             }
-            ToggleSpecialCharacters();
-            return;
+            break;
         case 0x911AB364:
-            if (mnDeclineHash == -1U) {
-                return;
+            if (mnDeclineHash != -1U) {
+                Dispose(true);
             }
-            Dispose(true);
-            return;
-        default:
-            return;
+            break;
     }
 }
 
@@ -140,26 +188,16 @@ void FEKeyboard::Initialize() {
 
     mnCursorIndex = 0;
 
-    eLanguages language = static_cast<eLanguages>(GetCurrentLanguage());
+    // Un caso por linea (A124 416-426): las dos PS2 guardan cada indice con su constante; GameCube compara en arbol y
+    // sustituye las de los `beq' por el propio idioma.
+    eLanguages language = GetCurrentLanguage();
     switch (language) {
-        case eLANGUAGE_GERMAN:
-            mnLetterMapIndex = 2;
-            break;
-        case eLANGUAGE_SPANISH:
-            mnLetterMapIndex = 4;
-            break;
-        case eLANGUAGE_FRENCH:
-            mnLetterMapIndex = language;
-            break;
-        case eLANGUAGE_ITALIAN:
-            mnLetterMapIndex = language;
-            break;
-        case eLANGUAGE_DUTCH:
-            mnLetterMapIndex = language;
-            break;
-        case eLANGUAGE_SWEDISH:
-            mnLetterMapIndex = language;
-            break;
+        case eLANGUAGE_FRENCH: mnLetterMapIndex = 1; break;
+        case eLANGUAGE_GERMAN: mnLetterMapIndex = 2; break;
+        case eLANGUAGE_ITALIAN: mnLetterMapIndex = 3; break;
+        case eLANGUAGE_SPANISH: mnLetterMapIndex = 4; break;
+        case eLANGUAGE_DUTCH: mnLetterMapIndex = 5; break;
+        case eLANGUAGE_SWEDISH: mnLetterMapIndex = 6; break;
         case eLANGUAGE_ENGLISH:
         default:
             mnLetterMapIndex = 0;
@@ -178,10 +216,16 @@ void FEKeyboard::Initialize() {
         mbCaps = true;
     }
 
+#ifdef EA_BUILD_A124
+    mpInputString = static_cast<FEString *>(FEngFindObject(GetPackageName(), 0xADDA7E89));
+#else
     mpInputString = FEngFindString(GetPackageName(), 0xADDA7E89);
+#endif
     mpCursor = FEngFindObject(GetPackageName(), 0xA2DEEF46);
     mpTextBox = FEngFindImage(GetPackageName(), 0x128FDCB8);
+#ifndef EA_BUILD_A124
     mpCursorTestString = reinterpret_cast<FEString *>(FEngFindObject(GetPackageName(), 0x95D7D3D2));
+#endif
 
     char tmp[32];
     for (int i = 0; i < 0x2D; i++) {
@@ -204,20 +248,31 @@ void FEKeyboard::Initialize() {
         mpKeyDisable[i] = FEngFindObject(GetPackageName(), letter_hash);
     }
 
-    if (mnMode != MODE_ALL_KEYS || GetCurrentLanguage() == eLANGUAGE_KOREAN) {
-        FEngSetInvisible(FEngFindObject(GetPackageName(), 0x2C99C4E2));
+    // `!=' entre dos eLanguages: en PS2 pasa por el operator!= de stl_relops.h (xori de la A124 y SLUS).
+    if (!(mnMode == MODE_ALL_KEYS && GetCurrentLanguage() != eLANGUAGE_KOREAN)) {
+        FEngSetInvisible(GetPackageName(), 0x2C99C4E2);
         FEngSetScript(GetPackageName(), 0xDCBC8286, 0x1CA7C0, true);
     }
 
+#ifndef EA_PLATFORM_PLAYSTATION2 // ninguna de las dos PS2 tiene la tecla 61 del perfil
     if (mnMode == MODE_PROFILE_ENTRY) {
         FEngSetScript(GetPackageName(), FEHashUpper("KEY 61 DISABLE"), FEHashUpper("SHOW"), true);
     }
+#endif
 
     FEngSetLanguageHash(GetPackageName(), 0x42ADB44C, 0x7F042BCD);
 
+#ifdef EA_BUILD_A124
+    if (mString) {
+        SetString(mString);
+    } else {
+        SetString("");
+    }
+#else
     FEString *inputString = mpInputString;
     inputString->string = mDisplayString;
     inputString->Flags |= FF_DirtyCode;
+#endif
 
     mnCursorIndex = bStrLen(mString);
     KeyboardActive = true;
@@ -241,12 +296,8 @@ void FEKeyboard::UpdateVisuals() {
             short bla[16];
             bMemSet(bla, 0, 0x20);
             bla[0] = static_cast<short>(ch);
-            FEString *name = mpKeyName[i];
-            name->SetString(bla);
-            name->Flags |= FF_DirtyCode;
-            FEString *shadow = mpKeyNameShadow[i];
-            shadow->SetString(bla);
-            shadow->Flags |= FF_DirtyCode;
+            mpKeyName[i]->SetString(bla);
+            mpKeyNameShadow[i]->SetString(bla);
         } else {
             FEPrintf(mpKeyName[i], "%c", ch);
             FEPrintf(mpKeyNameShadow[i], "%c", ch);
@@ -279,6 +330,15 @@ void FEKeyboard::UpdateStringVisual() {
         FEngSNMakeHidden(aHidden, 0x40, mString);
         SetString(aHidden);
     } else {
+#ifdef EA_BUILD_A124
+        // La A124 recorta la cadena por delante hasta que cabe en la caja.
+        SetString(mString);
+        while (FEngGetSizeX(mpInputString) > FEngGetSizeX(mpTextBox) - 20.0f) {
+            int len = bStrLen(mString);
+            char *fitstring = mString;
+            SetString(fitstring + 1);
+        }
+#else
         unsigned short widestring[156];
         FEngFont *font;
         int width;
@@ -286,15 +346,17 @@ void FEKeyboard::UpdateStringVisual() {
         short *fitstring;
 
         mnWindowStartIdx = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        bStrCpy(widestring, mString);
+#else
         PackedStringToWideString(widestring, 0x9C, mString);
+#endif
         font = FindFont(mpInputString->Handle);
         width = mpInputString->MaxWidth;
         flags = mpInputString->Flags;
         fitstring = reinterpret_cast<short *>(widestring);
-        for (; *fitstring != 0; fitstring += 4) {
-            if (font->GetLineWidth(fitstring, flags, 0, false) <= static_cast<float>(width)) {
-                break;
-            }
+        while (*fitstring != 0 && font->GetLineWidth(fitstring, flags, 0, false) > static_cast<float>(width)) {
+            fitstring += 4;
             mnWindowStartIdx = mnWindowStartIdx + 4;
         }
 
@@ -308,19 +370,30 @@ void FEKeyboard::UpdateStringVisual() {
             }
         }
 
-        while (*fitstring != 0) {
-            if (font->GetLineWidth(fitstring, flags, 0, false) <= static_cast<float>(width)) {
-                break;
-            }
+        while (*fitstring != 0 && font->GetLineWidth(fitstring, flags, 0, false) > static_cast<float>(width)) {
             widestring[bStrLen(widestring) - 1] = 0;
         }
 
         FESetString(mpInputString, fitstring);
+#endif
     }
     UpdateCursorPosition();
 }
 
 void FEKeyboard::UpdateCursorPosition() {
+#ifdef EA_BUILD_A124
+    short *pSrc = mpInputString->GetString();
+    char pBuf[500];
+    bMemSet(pBuf, 0, 500);
+    WideToCharString(pBuf, mnCursorIndex + 1, pSrc);
+    FEPrintf(mpInputString, "%s", pBuf);
+    float width = FEngGetSizeX(mpInputString);
+    int maxLineWidth = mpInputString->MaxWidth;
+    float string_x = mpInputString->GetObjData()->Pos.x;
+    float cursor_x = string_x + width;
+    FEngSetTopLeftX(mpCursor, cursor_x);
+    FEPrintf(mpInputString, "%s", mString);
+#else
     mpCursorTestString->Flags |= 2;
     short *pSrc = mpInputString->string;
     char pBuf[150];
@@ -331,6 +404,7 @@ void FEKeyboard::UpdateCursorPosition() {
     float string_x = reinterpret_cast<float *>(mpInputString->pData)[7];
     float cursor_x = string_x + width;
     FEngSetTopLeftX(mpCursor, cursor_x);
+#endif
 }
 
 void FEKeyboard::MoveCursor(int nDelta) {
@@ -350,7 +424,13 @@ void FEKeyboard::MoveCursor(int nDelta) {
 void FEKeyboard::HighlightButton(int nButton, bool bHighlight) {}
 
 void FEKeyboard::SetString(char *pStr) {
+#ifdef EA_BUILD_A124
+    bStrNCpy(mString, pStr, 0x9C);
+    mString[0x9C] = 0;
+    mpInputString->SetString(mString);
+#else
     FEPrintf(mpInputString, pStr);
+#endif
 }
 
 void FEKeyboard::SetMaxLength(int nLength) {
@@ -360,9 +440,9 @@ void FEKeyboard::SetMaxLength(int nLength) {
     mnMaxLength = nLength;
 }
 
-int FEKeyboard::IsKeyButton(FEObject *pObj) {
+int FEKeyboard::IsKeyButton(FEObject *pObject) {
     for (int i = 0; i < 0x2D; i++) {
-        if (mpKeyButton[i] == pObj) {
+        if (mpKeyButton[i] == pObject) {
             return i;
         }
     }
@@ -418,32 +498,24 @@ char FEKeyboard::GetLetterMap(int nButton) {
     char returnChar = mLetterMap[mnLetterMapIndex][GetCase()][nButton];
     if (mnMode == MODE_ALL_KEYS && mbOnSpecialCharacters) {
         returnChar = mLetterMap[7][GetCase()][nButton];
-        goto ret_char;
-    }
-    if (mnMode - 1U > 2) {
-        if (mnMode == MODE_EMAIL) {
-            if (IsEmailSymbol(returnChar) || IsNumericSymbol(returnChar)) {
-                returnChar = mLetterMap[mnLetterMapIndex][0][nButton];
-            }
-            if (IsNotOkForEmail(returnChar)) {
-                return 0;
-            }
-            goto ret_char;
+    } else if (mnMode == MODE_ALPHANUMERIC || mnMode == MODE_ALPHANUMERIC_PASSWORD || mnMode == MODE_FILENAME) {
+        if (IsSymbol(returnChar)) {
+            return 0;
         }
-        if (mnMode != MODE_PROFILE_ENTRY) {
-            goto ret_char;
+    } else if (mnMode == MODE_EMAIL) {
+        if (IsEmailSymbol(returnChar) || IsNumericSymbol(returnChar)) {
+            returnChar = mLetterMap[mnLetterMapIndex][0][nButton];
         }
+        if (IsNotOkForEmail(returnChar)) {
+            return 0;
+        }
+    } else if (mnMode == MODE_PROFILE_ENTRY) {
         if (IsNumericSymbol(returnChar)) {
-            goto use_lowercase;
+            returnChar = mLetterMap[mnLetterMapIndex][0][nButton];
+        } else if (IsSymbol(returnChar)) {
+            return 0;
         }
     }
-    if (IsSymbol(returnChar)) {
-        return 0;
-    }
-    goto ret_char;
-use_lowercase:
-    returnChar = mLetterMap[mnLetterMapIndex][0][nButton];
-ret_char:
     return returnChar;
 }
 
@@ -456,7 +528,11 @@ void FEKeyboard::AppendSpace() {
 void FEKeyboard::AppendBackspace() {
     if (mbIsFirstKey) {
         mbIsFirstKey = false;
+#ifdef EA_BUILD_A124
+        SetString("");
+#else
         mString[0] = 0;
+#endif
         mnCursorIndex = 0;
     }
     int len = bStrLen(mString);
@@ -477,7 +553,11 @@ void FEKeyboard::AppendChar(char ch) {
     }
     if (mbIsFirstKey) {
         mbIsFirstKey = false;
+#ifdef EA_BUILD_A124
+        SetString("");
+#else
         mString[0] = 0;
+#endif
         mnCursorIndex = 0;
     }
     int len = bStrLen(mString);
@@ -500,14 +580,20 @@ void FEKeyboard::AppendChar(char ch) {
 }
 
 void FEKeyboard::ToggleCapsLock() {
+    // GameCube y PC no cambian de mayusculas al escribir el perfil; las dos PS2 (A124 y SLUS) no lo comprueban.
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (mnMode != MODE_PROFILE_ENTRY) {
+#endif
         mbCaps = mbCaps != 1;
         mbShift = false;
         if (mnMode == MODE_FILENAME) {
             mbCaps = true;
+            mbShift = false;
         }
         UpdateVisuals();
+#ifndef EA_PLATFORM_PLAYSTATION2
     }
+#endif
 }
 
 void FEKeyboard::ToggleShift() {
@@ -519,6 +605,13 @@ void FEKeyboard::ToggleShift() {
 }
 
 void FEKeyboard::ToggleSpecialCharacters() {
+#ifdef EA_BUILD_A124 // la A124 suena desde NotificationMessage
+    mbOnSpecialCharacters = mbOnSpecialCharacters != 1;
+    if (mnMode != MODE_ALL_KEYS) {
+        mbOnSpecialCharacters = false;
+    }
+    UpdateVisuals();
+#else
     bool newVal = true;
     if (mbOnSpecialCharacters == true) {
         newVal = false;
@@ -530,4 +623,5 @@ void FEKeyboard::ToggleSpecialCharacters() {
         mbOnSpecialCharacters = false;
     }
     UpdateVisuals();
+#endif
 }

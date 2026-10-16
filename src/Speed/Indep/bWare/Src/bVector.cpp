@@ -5,6 +5,7 @@ bVector3 bUnitVector3(1.0f, 0.0f, 0.0f);
 bVector4 bUnitVector4(1.0f, 0.0f, 0.0f, 0.0f);
 bVector3 bVector3FLT_MAX(FLT_MAX, FLT_MAX, FLT_MAX);
 
+#ifndef EA_PLATFORM_PLAYSTATION2
 float bDistBetween(const bVector3 *v1, const bVector3 *v2) {
     float x = v1->x - v2->x;
     float y = v1->y - v2->y;
@@ -12,6 +13,7 @@ float bDistBetween(const bVector3 *v1, const bVector3 *v2) {
 
     return bSqrt(x * x + y * y + z * z);
 }
+#endif
 
 // Dropped by the linker (DWARF range 0xFFFFFFFF). Written from the DWARF: the locals x, y, z, w
 // and the inline bSqrt.
@@ -33,8 +35,8 @@ bVector2 *bNormalize(bVector2 *dest, const bVector2 *v) {
         dest->x = x / len;
         dest->y = y / len;
     } else {
-        dest->y = 0.0f;
         dest->x = 1.0f;
+        dest->y = 0.0f;
     }
     return dest;
 }
@@ -44,11 +46,11 @@ bVector2 *bNormalize(bVector2 *dest, const bVector2 *v, float length) {
     float len = bLength(v) / length;
 
     if (len != 0.0f) {
-        float inv_len = 1.0f / len;
+        float result = 1.0f / len;
         float x = v->x;
         float y = v->y;
-        dest->x = x * inv_len;
-        dest->y = y * inv_len;
+        dest->x = x * result;
+        dest->y = y * result;
     } else {
         dest->x = length;
         dest->y = 0.0f;
@@ -96,6 +98,8 @@ bVector3 *bNormalize(bVector3 *dest, const bVector3 *v, float length) {
 }
 #endif
 
+// En PS2 va en linea y en la VU0 (bMath.hpp): el original no la emite fuera de linea.
+#ifndef EA_PLATFORM_PLAYSTATION2
 bVector4 *bNormalize(bVector4 *dest, const bVector4 *v) {
     float len = bLength(v);
     if (len != 0.0f) {
@@ -113,6 +117,7 @@ bVector4 *bNormalize(bVector4 *dest, const bVector4 *v) {
     }
     return dest;
 }
+#endif
 
 bVector2 *bScaleAdd(bVector2 *dest, const bVector2 *v1, const bVector2 *v2, float scale) {
     float x = v2->x * scale + v1->x;
@@ -134,6 +139,8 @@ bVector3 *bScaleAdd(bVector3 *dest, const bVector3 *v1, const bVector3 *v2, floa
 }
 #endif
 
+// En PS2 va en linea y en la VU0 (bMath.hpp): el original no la emite fuera de linea.
+#ifndef EA_PLATFORM_PLAYSTATION2
 bVector4 *bScaleAdd(bVector4 *dest, const bVector4 *v1, const bVector4 *v2, float scale) {
     float x = v2->x * scale + v1->x;
     float y = v2->y * scale + v1->y;
@@ -145,12 +152,18 @@ bVector4 *bScaleAdd(bVector4 *dest, const bVector4 *v1, const bVector4 *v2, floa
     dest->w = w;
     return dest;
 }
+#endif
 
 int bEqual(const bVector2 *v1, const bVector2 *v2, float epsilon) {
+    // Las dos comparaciones son `> epsilon' (c.lt.s epsilon,abs en la A124): la segunda con `<= epsilon' daria
+    // c.le.s y bc1t en vez de c.lt.s y bc1f.
     if (bAbs(v1->x - v2->x) > epsilon) {
         return 0;
     }
-    return bAbs(v1->y - v2->y) <= epsilon;
+    if (bAbs(v1->y - v2->y) > epsilon) {
+        return 0;
+    }
+    return 1;
 }
 
 // STRIPPED
@@ -221,6 +234,13 @@ int bBoundingBoxOverlapping(const bVector2 *bbox_min, const bVector2 *bbox_max, 
 float bBoundingBoxDistOutside(const bVector2 *bbox_min, const bVector2 *bbox_max, const bVector2 *point) {}
 
 void bInitializeBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En PS2 va en la VU0 (lqc2/sqc2/vsub de la A124, con la local `t' de bNeg en los stabs): una sola carga de
+    // bVector3FLT_MAX que se reutiliza para el minimo y su negado para el maximo.
+    bVector3Reg v(bVector3FLT_MAX);
+    *bbox_min = v;
+    *bbox_max = bNeg(v);
+#else
     bbox_min->x = FLT_MAX;
     bbox_min->y = FLT_MAX;
     bbox_min->z = FLT_MAX;
@@ -228,9 +248,17 @@ void bInitializeBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max) {
     bbox_max->x = -FLT_MAX;
     bbox_max->y = -FLT_MAX;
     bbox_max->z = -FLT_MAX;
+#endif
 }
 
 void bInitializeBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVector3 *point) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En PS2 es una sola carga de 128 bits (lqc2) y dos guardados (sqc2): las dos copias son la misma sentencia
+    // (la conversion a bVector3Reg) y el compilador reutiliza la carga.
+    bVector3Reg v(*point);
+    *bbox_min = v;
+    *bbox_max = v;
+#else
     float x = point->x;
     float y = point->y;
     float z = point->z;
@@ -242,12 +270,27 @@ void bInitializeBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVecto
     bbox_max->x = x;
     bbox_max->y = y;
     bbox_max->z = z;
+#endif
 }
 
 // STRIPPED
 void bExpandBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVector3 *point) {}
 
 void bExpandBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVector3 *point, float extra_width) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En la VU0 (A124 0x1608a0, 64 B): el extra se difunde a un registro con tres swc1 del float y un lqc2 (el bVector3
+    // local, cuya pad queda sin escribir), punto menos/mas extra (vsub/vadd) y minimo/maximo con la caja (vmini/vmax).
+    bVector3 extra(extra_width, extra_width, extra_width);
+    bVector3Reg p(*point);
+    bVector3Reg e(extra);
+    bVector3Reg lo = p - e;
+    bVector3Reg hi = p + e;
+    bVector3Reg mn = bMin(bVector3Reg(*bbox_min), lo);
+    bVector3Reg mx = bMax(bVector3Reg(*bbox_max), hi);
+
+    *bbox_min = mn;
+    *bbox_max = mx;
+#else
     float x_min = point->x - extra_width;
     float y_min = point->y - extra_width;
     float z_min = point->z - extra_width;
@@ -275,9 +318,19 @@ void bExpandBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVector3 *
     if (z_max > bbox_max->z) {
         bbox_max->z = z_max;
     }
+#endif
 }
 
 void bExpandBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVector3 *bbox2_min, const bVector3 *bbox2_max) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En la VU0 con bMin/bMax (vmini/vmax .xyzw): dos cargas, minimo, dos cargas, maximo y dos guardados (A124
+    // 0x1608e0, 40 B). Los resultados se guardan al final para que el planificador no adelante el primer sqc2.
+    bVector3Reg mn = bMin(bVector3Reg(*bbox_min), bVector3Reg(*bbox2_min));
+    bVector3Reg mx = bMax(bVector3Reg(*bbox_max), bVector3Reg(*bbox2_max));
+
+    *bbox_min = mn;
+    *bbox_max = mx;
+#else
     float x_min = bbox2_min->x;
     float y_min = bbox2_min->y;
     float z_min = bbox2_min->z;
@@ -305,6 +358,7 @@ void bExpandBoundingBox(bVector3 *bbox_min, bVector3 *bbox_max, const bVector3 *
     if (z_max > bbox_max->z) {
         bbox_max->z = z_max;
     }
+#endif
 }
 
 int bBoundingBoxIsInside(const bVector3 *bbox_min, const bVector3 *bbox_max, const bVector3 *point, float extra_width) {

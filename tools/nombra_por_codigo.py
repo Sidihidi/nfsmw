@@ -5,18 +5,27 @@ objeto compilado (build/<V>/src). Una funcion del original sin nombre (fn_/sub_.
 cuando sus bytes coinciden entera y unicamente (en las palabras/bytes con reubicacion en cualquiera de los dos lados
 solo se exige el codigo de operacion en PowerPC y se ignoran los 4 bytes en x86).
 
-Solo informa; con --aplicar escribe los nombres en config/<V>/symbols.txt (Xbox 360). Formato COFF (MSVC)."""
+Solo informa; con --aplicar escribe los nombres en config/<V>/symbols.txt (Xbox 360). Formato COFF (MSVC).
+
+--nuestros=DIR compara con otros objetos nuestros en vez de build/<V>/src (misma ruta relativa). Xbox 360 se mide
+sobre el enlace LTCG troceado (scripts/ltcg360.py): `--nuestros=build/EUROPEGERMILESTONE/ltcg/obj` nombra las
+funciones que solo LTCG reproduce. Al final cuenta las candidatas ambiguas (mismo codigo que varias nuestras) y
+las descartadas. --salida=FICHERO escribe las propuestas (`viejo nuevo`) sin tocar symbols.txt."""
 import collections
 import glob
 import os
 import re
 import struct
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts'))
+from escritura import entero
 
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
 VERSION = args[0]
 UNIDADES = args[1:]
 APLICAR = '--aplicar' in sys.argv
+NUESTROS = next((a.split('=', 1)[1].replace(chr(92), '/').rstrip('/') for a in sys.argv[1:]
+                 if a.startswith('--nuestros=')), 'build/%s/src' % VERSION)
 MIN_PALABRAS = 5
 SIN_NOMBRE = re.compile(r'^(fn|sub|func|lbl|zz|j_sub|nullsub)_[0-9A-Fa-f_]+$')
 
@@ -143,6 +152,7 @@ def unidades_de(version):
 
 propuestas = {}
 evidencia = {}
+CUENTA = collections.Counter()
 en_orden = set()
 resumen = []
 ya_nombrados = set()
@@ -159,7 +169,7 @@ for rel in sorted(unidades_de(VERSION)):
     if UNIDADES and not any(u in rel for u in UNIDADES):
         continue
     objetivo = 'build/%s/obj/%s' % (VERSION, rel)
-    nuestro = 'build/%s/src/%s' % (VERSION, rel)
+    nuestro = '%s/%s' % (NUESTROS, rel)
     if not os.path.exists(nuestro):
         continue
     t = Coff(objetivo)
@@ -197,7 +207,11 @@ for rel in sorted(unidades_de(VERSION)):
         candidatas += 1
         dt = destinos(rel_, ppc)
         iguales = [x[0] for x in por_tam.get(len(clave), []) if coinciden(clave, x[1], marcas, x[2], ppc, dt, x[3])]
+        if iguales:
+            CUENTA['con codigo igual a alguna nuestra'] += 1
         iguales = [x for x in set(iguales) if x not in nombres_objetivo and x not in ya_nombrados]
+        if len(iguales) > 1:
+            CUENTA['ambiguas (varias nuestras con su codigo)'] += 1
         if len(iguales) == 1:
             halladas += 1
             propuestas.setdefault(nombre, set()).add(iguales[0])
@@ -231,6 +245,11 @@ for rel, c, h, nn in resumen:
 # un mismo nombre propuesto para varias direcciones, o varias propuestas para una: se descartan
 uso = collections.Counter(next(iter(v)) for v in propuestas.values() if len(v) == 1)
 finales = {k: next(iter(v)) for k, v in propuestas.items() if len(v) == 1 and uso[next(iter(v))] == 1}
+CUENTA['candidatas (sin nombre, >= %d palabras)' % MIN_PALABRAS] = sum(r[1] for r in resumen)
+CUENTA['un solo nombre nuestro posible'] = len(propuestas)
+CUENTA['descartadas: el mismo nombre para varias'] = len(propuestas) - len(finales)
+for k, v in sorted(CUENTA.items()):
+    print('cuenta: %-45s %d' % (k, v))
 fuera = [k for k in finales if k not in en_orden and evidencia[k][1] == 0]
 print('fuera de orden y sin destino coincidente (descartadas):', len(fuera))
 for k in fuera:
@@ -243,6 +262,11 @@ if tams:
     print('  tamano (palabras/bytes): min %d, mediana %d, max %d' % (tams[0], tams[len(tams) // 2], tams[-1]))
 for k in list(finales)[:15]:
     print('  ', k, '->', finales[k])
+SALIDA = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--salida=')), None)
+if SALIDA:  # `viejo nuevo` por linea, para revisarlos o aplicarlos aparte
+    with open(SALIDA, 'w', encoding='utf-8', newline='\n') as fh:
+        for k in sorted(finales):
+            fh.write('%s %s\n' % (k, finales[k]))
 
 if APLICAR and finales and os.path.exists('config/%s/symbols.json' % VERSION):
     # PC: exportacion de IDA; se cambia el campo name de cada funcion, con sustitucion exacta de texto
@@ -254,7 +278,7 @@ if APLICAR and finales and os.path.exists('config/%s/symbols.json' % VERSION):
         if b.count(antes) == 1:
             b = b.replace(antes, '"name": "%s",' % nuevo)
             cambios += 1
-    open(ruta, 'wb').write(b.encode('utf-8'))
+    entero(ruta, 'wb').write(b.encode('utf-8'))
     print('aplicados', cambios)
 elif APLICAR and finales:
     ruta = 'config/%s/symbols.txt' % VERSION
@@ -266,5 +290,5 @@ elif APLICAR and finales:
         if m and m.group(1) in finales:
             lineas[i] = finales[m.group(1)] + m.group(2)
             cambios += 1
-    open(ruta, 'w', encoding='utf-8', newline='\n').write('\n'.join(lineas))
+    entero(ruta, 'w', encoding='utf-8', newline='\n').write('\n'.join(lineas))
     print('aplicados', cambios)

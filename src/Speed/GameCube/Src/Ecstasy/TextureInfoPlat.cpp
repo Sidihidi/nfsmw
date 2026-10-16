@@ -94,17 +94,15 @@ void *TextureInfoPlatInterface::LockPalette(TextureLockType lock) {
     void *pTempPal = 0;
     unsigned short *gcPal = static_cast<unsigned short *>(static_cast<TextureInfo *>(this)->PaletteData);
 
-    if (gcPal == 0) {
-        return pTempPal;
-    }
+    if (gcPal != 0) {
+        pTempPal = new ("TempPalette", 0) unsigned int[256];
 
-    pTempPal = new unsigned int[256];
+        if (pTempPal != 0) {
+            unsigned int *Pal32 = static_cast<unsigned int *>(pTempPal);
 
-    if (pTempPal != 0) {
-        unsigned int *Pal32 = static_cast<unsigned int *>(pTempPal);
-
-        for (int j = 0; j <= 255; j++) {
-            Pal32[j] = Convert16To32(gcPal[j]);
+            for (int j = 0; j <= 255; j++) {
+                Pal32[j] = Convert16To32(gcPal[j]);
+            }
         }
     }
 

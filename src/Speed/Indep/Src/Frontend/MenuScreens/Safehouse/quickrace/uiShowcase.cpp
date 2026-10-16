@@ -13,6 +13,9 @@
 const char *Showcase::FromPackage = "";
 uint32 Showcase::FromArgs = 0;
 uint32 Showcase::FromIndex = 0;
+#ifdef EA_BUILD_A124
+uint32 Showcase::FromCarHandle = 0;
+#endif
 uint32 Showcase::BlackListNumber = 0;
 int32 Showcase::FromFilter = (int)0xFFFFFFFF;
 #ifndef EA_BUILD_A124
@@ -27,10 +30,22 @@ Showcase::Showcase(ScreenConstructorData *sd) : MenuScreen(sd), RivalStreamer(sd
     car = reinterpret_cast<FECarRecord *>(sd->Arg);
 
     if (car) {
+#ifdef EA_BUILD_A124 // el prototipo carga en el visor el coche del escaparate
+        if (FromCarHandle != INVALID_CAR_HANDLE) {
+            RideInfo ride;
+            FEDatabase->GetPlayerCarStable(0)->BuildRideForPlayer(car->Handle, 0, &ride);
+            CarViewer::SetRideInfo(&ride, SET_RIDE_INFO_REASON_LOAD_CAR, eCARVIEWER_PLAYER1_CAR);
+        }
+#endif
         if (BlackListNumber != 0) {
+#ifdef EA_BUILD_A124
+            char buf[32];
+            FEngSNPrintf(buf, 0x20, "%s %d", GetLocalizedString(0xcace5999), BlackListNumber);
+#else
             const char *titleStr = GetLocalizedString(0x3a64de21);
             char buf[32];
             FEngSNPrintf(buf, 0x20, titleStr, BlackListNumber);
+#endif
             FEPrintf(GetPackageName(), 0x242657ce, "%s", buf);
             cFEng::Get()->QueuePackageMessage(0x89d0649c, GetPackageName(), 0);
             FEPrintf(GetPackageName(), 0xb695a891, "%d", BlackListNumber);
@@ -44,7 +59,9 @@ Showcase::Showcase(ScreenConstructorData *sd) : MenuScreen(sd), RivalStreamer(sd
         }
     }
 
+#ifndef EA_BUILD_A124 // la A124 no busca el volante
     bool isDeviceWheel = false;
+#endif
     FEImage *controlGroupImg = FEngFindImage(GetPackageName(), 0x66be0542);
     FEngSetButtonTexture(controlGroupImg, 0xfbb0b78e);
     FEImage *img1 = FEngFindImage(GetPackageName(), 0x5bc);
@@ -52,6 +69,7 @@ Showcase::Showcase(ScreenConstructorData *sd) : MenuScreen(sd), RivalStreamer(sd
     FEImage *img2 = FEngFindImage(GetPackageName(), 0x682);
     FEngSetButtonTexture(img2, 0x682);
 
+#ifndef EA_BUILD_A124
     for (int i = 0; i < 4; i++) {
         if (i < IOModule::GetIOModule().GetNumDevices()) {
             InputDevice *device = IOModule::GetIOModule().GetDevice(i);
@@ -68,21 +86,34 @@ Showcase::Showcase(ScreenConstructorData *sd) : MenuScreen(sd), RivalStreamer(sd
     }
 
     if (isDeviceWheel) {
-        FEObject *obj = FEngFindObject(GetPackageName(), 0xd86aacf8);
-        FEngSetInvisible(obj);
+        FEngSetInvisible(GetPackageName(), 0xd86aacf8);
     }
+#endif
 }
 
 Showcase::~Showcase() {}
 
 void Showcase::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u32 param2) {
     if (msg == 0x406415e3 || msg == 0x911ab364) {
+#ifdef EA_BUILD_A124
+        // La A124 vuelve a cargar en el visor el coche del que venia.
+        if (FromCarHandle != INVALID_CAR_HANDLE) {
+            RideInfo ride;
+            FEDatabase->GetPlayerCarStable(0)->BuildRideForPlayer(FromCarHandle, 0, &ride);
+            CarViewer::SetRideInfo(&ride, SET_RIDE_INFO_REASON_LOAD_CAR, eCARVIEWER_PLAYER1_CAR);
+        }
+#endif
         cFEng::Get()->QueuePackageSwitch(FromPackage, FromArgs, 0, false);
         if (BlackListNumber != 0) {
             car->Handle = INVALID_CAR_HANDLE;
+#ifndef EA_BUILD_A124
             GarageMainScreen::GetInstance()->DisableCarRendering();
+#endif
         }
         FromArgs = 0;
+#ifdef EA_BUILD_A124
+        FromCarHandle = INVALID_CAR_HANDLE;
+#endif
         BlackListNumber = 0;
     }
 }

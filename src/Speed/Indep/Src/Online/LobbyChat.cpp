@@ -5,7 +5,6 @@
 extern "C" {
 void TagFieldSetFlags(char *buffer, int bufferSize, const char *name, int flags);
 uint32 TagFieldGetFlags(const char *field, uint32 defaultValue);
-BuddySettings EA_Messenger_GetBuddySettingsByName(const char *name);
 }
 
 char *GetLocalizedString(uint32 hash);
@@ -33,7 +32,7 @@ LobbyChat &LobbyChat::Instance() {
     return theLobbyChat;
 }
 
-int32 LobbyChat::SendChatMessage(const char *text, const char *toPersona, CommandCBFunc callback, void *context) {
+int32 LobbyChat::SendChatMessage(const char *text, const char *to_persona, CommandCBFunc callback, void *context) {
     lobbyMutex.Lock("LobbyChat::SendChatMessage");
     if (bStrLen(text) == 0) {
         lobbyMutex.Unlock("LobbyChat::SendChatMessage");
@@ -42,8 +41,8 @@ int32 LobbyChat::SendChatMessage(const char *text, const char *toPersona, Comman
 
     char data[512] = "";
     TagFieldSetString(data, sizeof(data), "TEXT", text);
-    if (toPersona) {
-        TagFieldSetString(data, sizeof(data), "PRIV", toPersona);
+    if (to_persona) {
+        TagFieldSetString(data, sizeof(data), "PRIV", to_persona);
     } else {
         TagFieldSetFlags(data, sizeof(data), "ATTR", 0x80);
     }
@@ -213,20 +212,17 @@ Invite *LobbyChat::GetSentInvite(uint32 index) {
 
 inline int LobbyChat::GetNumSentInvites() { return sentInvites.CountElements(); }
 
-inline int LobbyChat::GetNumReceivedInvites() { return receivedInvites.CountElements(); }
-
 inline void LobbyChat::AbortCommand() { LobbyCore::Instance().AbortCommand(nullptr, true); }
 
 int32 LobbyChat::Init() {
-    int32 rc = -1;
-    if (LobbyCore::Instance().pLobbyRef) {
-        if (LobbyApiSetCallback(LobbyCore::Instance().pLobbyRef, LOBBYAPI_CBTYPE_CHAT, GlobalChatCB, this) < 0) {
-            Reset();
-        } else {
-            rc = 0;
-        }
+    if (!LobbyCore::Instance().pLobbyRef) {
+        return -1;
     }
-    return rc;
+    if (LobbyApiSetCallback(LobbyCore::Instance().pLobbyRef, LOBBYAPI_CBTYPE_CHAT, GlobalChatCB, this) < 0) {
+        Reset();
+        return -1;
+    }
+    return 0;
 }
 
 void LobbyChat::Reset() {

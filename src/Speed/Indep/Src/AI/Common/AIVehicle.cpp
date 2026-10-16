@@ -38,7 +38,14 @@ extern Table HumanNavLookAheadTable;
 #include "Speed/Indep/Src/Physics/PhysicsTypes.h"
 #include "Speed/Indep/Src/Physics/VehicleBehaviors.h"
 #include "Speed/Indep/Src/Sim/Simulation.h"
+#ifdef EA_BUILD_A124
+// La A124 lleva el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en sus stabs).
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 #include "Speed/Indep/Src/World/OnlineManager.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 #include "Speed/Indep/Src/World/Common/WGrid.h"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Src/World/WRoadElem.h"
@@ -77,8 +84,8 @@ BIND_BEHAVIOR_FACTORY(AIVehicleEmpty)
 
 AIVehicleHuman::AIVehicleHuman(const BehaviorParams &bp) : AIVehicleRacecar(bp), IHumanAI(bp.fowner) {
     MakeDebugable(DBG_AI);
-    fMomentRadius = 0.0f;
     bAiControl = false;
+    fMomentRadius = 0.0f;
     mWrongWay = false;
 }
 
@@ -93,16 +100,17 @@ AIVehicleHuman::~AIVehicleHuman() {
     IPerpetrator *ip;
     if (GetSimable()->QueryInterface(&ip)) {
         float Heat = ip->GetHeat();
+#ifndef EA_BUILD_A124
         if (Heat > 5.0f) {
             Heat = 5.0f;
         }
+#endif
         unsigned int player_car = FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->GetSelectedCar(player_num);
         if (FEDatabase->IsCareerMode()) {
             UserProfile *prof = FEDatabase->CurrentUserProfiles[player_num];
             CareerSettings *career = FEDatabase->GetCareerSettings();
             career->GetCurrentCar();
-            prof->GetCareer();
-            if ((uintptr_t)prof != 0xffffff1c) {
+            if (prof->GetCareer()) {
                 FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(player_num);
                 if (stable) {
                     FECarRecord *fe_car = stable->GetCarByIndex(career->GetCurrentCar());
@@ -160,8 +168,19 @@ void AIVehicleHuman::SetAiControl(bool ai_control) {
     if (bAiControl != ai_control) {
         ClearGoal();
         SetGoal("AIGoalRacer");
+#ifdef EA_BUILD_A124
+        // La A124 cambia la suspension aqui mismo (AIVehicle.cpp:300-311); la final lo hace con el evento EEnableAIPhysics.
+        if (ai_control) {
+            GetVehicle()->SetBehaviorOverride(BEHAVIOR_MECHANIC_SUSPENSION, UCrc32("SuspensionSimple"));
+        } else {
+            GetVehicle()->RemoveBehaviorOverride(BEHAVIOR_MECHANIC_INPUT);
+            GetVehicle()->RemoveBehaviorOverride(BEHAVIOR_MECHANIC_SUSPENSION);
+        }
+        bAiControl = ai_control;
+#else
         bAiControl = ai_control;
         new EEnableAIPhysics(reinterpret_cast<uintptr_t>(GetOwner()->GetInstanceHandle()), GetVehicle()->GetSpeed(), ai_control ? 1 : 0);
+#endif
     }
 }
 
@@ -282,15 +301,24 @@ void AIVehicleHuman::Update(float dT) {
         road_nav->UpdateOccludedPosition(true);
     }
 
+#ifndef EA_BUILD_A124 // la A124 busca el camino sin mirar el estado de la carrera (su asm no lee GRaceStatus aqui)
     if (GRaceStatus::Exists()) {
-        if ((GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming || GRaceStatus::Get().GetActivelyRacing()) &&
-            road_nav->GetNavType() != WRoadNav::kTypePath && !road_nav->FindingPath() && road_nav->IsValid()) {
-            AITarget *target = GetTarget();
-            if (target->IsValid()) {
-                road_nav->FindPath(&target->GetPosition(), &target->GetDirection(), nullptr);
+        if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming || GRaceStatus::Get().GetActivelyRacing()) {
+#endif
+            if (road_nav->GetNavType() != WRoadNav::kTypePath && !road_nav->FindingPath()
+#ifndef EA_BUILD_A124 // ni si la navegacion es valida
+                && road_nav->IsValid()
+#endif
+            ) {
+                AITarget *target = GetTarget();
+                if (target->IsValid()) {
+                    road_nav->FindPath(&target->GetPosition(), &target->GetDirection(), nullptr);
+                }
             }
+#ifndef EA_BUILD_A124
         }
     }
+#endif
 
     if (IsDragRacing()) {
         road_nav->SetLaneType(WRoadNav::kLaneDrag);
@@ -442,7 +470,10 @@ void AIVehicle::OnTaskSimulate(float dT) {
 }
 
 bool AIVehicle::OnClearCausality(float start_time) {
-    return Sim::GetTime() - start_time > 2.0f;
+    if (Sim::GetTime() - start_time > 2.0f) {
+        return true;
+    }
+    return false;
 }
 
 float AIVehicle::GetAcceleration(float at) const {
@@ -574,8 +605,7 @@ void AIVehicle::SetGoal(const UCrc32 &name) {
     mGoalName = name;
     mCurrentGoal = AIGoal::CreateInstance(name, GetOwner());
     DriverClass driverclass = GetVehicle()->GetDriverClass();
-    // TODO, this means the first 4
-    if (driverclass >= DRIVER_TRAFFIC && driverclass <= DRIVER_RACER) {
+    if (DRIVER_HUMAN < driverclass && driverclass < DRIVER_NONE) {
         IRBVehicle *ivehiclebody;
         if (GetOwner()->QueryInterface(&ivehiclebody)) {
             const Attrib::Gen::aivehicle &attributes = GetAttributes();
@@ -734,48 +764,50 @@ void AIVehicle::OnSteering(float dT) {
 
     float currentSpeed = GetSimable()->GetRigidBody()->GetSpeedXZ();
 
-    if (mDriveSpeed != 0.0f || currentSpeed >= 1.0f) {
-        if (GetVehicle()->GetDriverClass() == 1) {
-            WRoadNav *road_nav = GetDriveToNav();
-            road_nav->UpdateOccludedPosition(true);
-            SetDriveTarget(road_nav->GetOccludedPosition());
-        }
+    if (mDriveSpeed == 0.0f && currentSpeed < 1.0f) {
+        return;
+    }
 
-        UMath::Vector3 dirVector;
-        UMath::Sub(mDest, GetPosition(), dirVector);
-        dirVector.y = 0.0f;
-        UMath::Unit(dirVector, dirVector);
+    if (GetVehicle()->GetDriverClass() == 1) {
+        WRoadNav *road_nav = GetDriveToNav();
+        road_nav->UpdateOccludedPosition(true);
+        SetDriveTarget(road_nav->GetOccludedPosition());
+    }
 
-        UMath::Vector3 forwardVector;
-        forwardVector = GetForwardVector();
-        forwardVector.y = 0.0f;
-        UMath::Unit(forwardVector, forwardVector);
+    UMath::Vector3 dirVector;
+    UMath::Sub(mDest, GetPosition(), dirVector);
+    dirVector.y = 0.0f;
+    UMath::Unit(dirVector, dirVector);
 
-        UMath::Vector3 steerProd;
-        UMath::Cross(forwardVector, dirVector, steerProd);
-        steerProd.y = UMath::Clamp(steerProd.y, -1.0f, 1.0f);
-        float steer = asinf(steerProd.y);
+    UMath::Vector3 forwardVector;
+    forwardVector = GetForwardVector();
+    forwardVector.y = 0.0f;
+    UMath::Unit(forwardVector, forwardVector);
 
-        steer /= ANGLE2RAD(GetSuspension()->GetMaxSteering());
-        float steerCorrection = GetOverSteerCorrection(steer);
+    UMath::Vector3 steerProd;
+    UMath::Cross(forwardVector, dirVector, steerProd);
+    steerProd.y = UMath::Clamp(steerProd.y, -1.0f, 1.0f);
+    float steer = asinf(steerProd.y);
 
-        mSteeringBehind = false;
-        if (mITransmission && mITransmission->IsReversing()) {
-            steer = -steer;
+    steer /= ANGLE2RAD(GetSuspension()->GetMaxSteering());
+    float steerCorrection = GetOverSteerCorrection(steer);
+
+    mSteeringBehind = false;
+    if (mITransmission && mITransmission->IsReversing()) {
+        steer *= -1.0f;
+    } else {
+        if (UMath::Dot(dirVector, forwardVector) < -0.2f) {
+            steer = (steer < 0.0f) ? -1.0f : 1.0f;
+            mSteeringBehind = true;
         } else {
-            if (UMath::Dot(dirVector, forwardVector) < -0.2f) {
-                steer = (steer < 0.0f) ? -1.0f : 1.0f;
-                mSteeringBehind = true;
-            } else {
-                if (GetInput()->GetControls().fHandBrake == 0.0f) {
-                    steer += steerCorrection;
-                }
+            if (GetInput()->GetControls().fHandBrake == 0.0f) {
+                steer += steerCorrection;
             }
         }
-
-        steer = UMath::Clamp(steer, -1.0f, 1.0f);
-        GetInput()->SetControlSteering(steer);
     }
+
+    steer = UMath::Clamp(steer, -1.0f, 1.0f);
+    GetInput()->SetControlSteering(steer);
 }
 
 void AIVehicle::OnGasBrake(float dT) {
@@ -888,9 +920,9 @@ float AIVehicle::GetPathDistanceRemaining() {
 }
 
 void AIVehicle::ClearReverseOverride() {
+    mReverseOverrideTimer = 0.0f;
     mSteeringBehind = false;
     mReversingSpeed = false;
-    mReverseOverrideTimer = 0.0f;
 }
 
 void AIVehicle::SetReverseOverride(float time) {
@@ -1045,6 +1077,21 @@ void AIVehicle::SetSpawned() {
         ih->SetFuelFull();
     }
     mCanRespawn = false;
+#ifdef EA_BUILD_A124
+
+    switch (GetVehicle()->GetDriverClass()) {
+        case DRIVER_COP:
+            if (GetVehicle()->GetModelType() == CARTYPE_COPHELI) {
+                JuiceStatsDB::Instance()->IncrementPerRaceStat(JUICE_COP_CHOPPER_SPAWN);
+            } else {
+                JuiceStatsDB::Instance()->IncrementPerRaceStat(JUICE_COP_CAR_SPAWN);
+            }
+            break;
+        case DRIVER_TRAFFIC:
+            JuiceStatsDB::Instance()->IncrementPerRaceStat(JUICE_TRAFFIC_SPAWN);
+            break;
+    }
+#endif
 }
 
 void AIVehicle::UnSpawn() {
@@ -1062,18 +1109,32 @@ void AIVehicle::UnSpawn() {
     if (GetOwner()->QueryInterface(&ipai)) {
         ipai->SetSupportGoal((const char *)nullptr);
     }
+#ifdef EA_BUILD_A124
+
+    switch (GetVehicle()->GetDriverClass()) {
+        case DRIVER_COP:
+            if (GetVehicle()->GetModelType() == CARTYPE_COPHELI) {
+                JuiceStatsDB::Instance()->IncrementPerRaceStat(JUICE_COP_CHOPPER_UNSPAWN);
+            } else {
+                JuiceStatsDB::Instance()->IncrementPerRaceStat(JUICE_COP_CAR_UNSPAWN);
+            }
+            break;
+        case DRIVER_TRAFFIC:
+            JuiceStatsDB::Instance()->IncrementPerRaceStat(JUICE_TRAFFIC_UNSPAWN);
+            break;
+    }
+#endif
 }
 
 bool AIVehicle::CanRespawn(bool respawnAvailable) {
     if (!respawnAvailable) {
         mCanRespawn = true;
     }
-    bool rv = false;
-    if (mCanRespawn) {
-        rv = mLastSpawnTime > 8.0f;
-    }
-    if (!rv && respawnAvailable && mLastSpawnTime > 10.0f) {
-        rv = true;
+    bool rv = mCanRespawn && mLastSpawnTime > 8.0f;
+    if (!rv) {
+        if (respawnAvailable && mLastSpawnTime > 10.0f) {
+            rv = true;
+        }
     }
     return rv;
 }
@@ -1124,11 +1185,9 @@ void AIVehicle::UpdateSimplePhysics(float dT) {
     wpos.FindClosestFace(position, true);
 
     bool up_valid = false;
-    UMath::Vector4 newUpVector = {};
-    newUpVector.y = 1.0f;
+    UMath::Vector4 newUpVector = {0.0f, 1.0f, 0.0f, 0.0f};
     if (!ivehicle->IsOffWorld()) {
-        UMath::Vector4 worldNormal = {};
-        worldNormal.y = 1.0f;
+        UMath::Vector4 worldNormal = {0.0f, 1.0f, 0.0f, 0.0f};
         wpos.UNormal(&UMath::Vector4To3(worldNormal));
         UMath::Unitxyz(worldNormal, worldNormal);
         worldNormal.w = 0.0f;
@@ -1289,7 +1348,7 @@ struct road_walker {
     typedef UTL::Std::set<short, _type_set> segment_set;
     typedef std::vector<start_record, std::allocator<start_record> > start_vector;
 
-    road_walker() {}
+    road_walker() : raceroutes(false) {}
 
     void set_race_routes(bool on) {
         raceroutes = on;
@@ -1308,14 +1367,23 @@ struct road_walker {
     }
 
     float node_find_radius() const {
+#ifdef EA_BUILD_A124
+        return 30.0f;
+#else
         return 25.0f;
+#endif
     }
 
     bool walk_road(const UMath::Vector3 &start, const UMath::Vector3 &dir, float futuredist, float targetdist, short prevfuture, int prevnodeind);
+  private:
     void walk_all_paths(const path_spot &start, float futuredist, float targetdist, bool coppenalty);
     void evaluate_end(const path_spot &targetspot, bool coppenalty);
 
+#ifdef EA_BUILD_A124
+    static const int walk_limit = 100;
+#else
     static const int walk_limit = 32;
+#endif
     static const int evaluate_limit = 10;
 
     bool raceroutes;
@@ -1333,7 +1401,9 @@ struct road_walker {
     ALIGNVEC UMath::Vector3 startpoint;
     float startscore;
     int numwalkallpaths;
+#ifndef EA_BUILD_A124
     int numevaluates;
+#endif
 };
 
 bool road_walker::walk_road(const UMath::Vector3 &start, const UMath::Vector3 &dir, float futuredist, float targetdist, short prevfuture,
@@ -1385,7 +1455,11 @@ bool road_walker::walk_road(const UMath::Vector3 &start, const UMath::Vector3 &d
     nav.SetNavType(WRoadNav::kTypeDirection);
 
     start_vector startrecords;
+#ifdef EA_BUILD_A124
+    startrecords.reserve(segments.size());
+#else
     startrecords.reserve(UMath::Max(33, static_cast<int>(segments.size())));
+#endif
 
     for (segment_set::iterator it = segments.begin(); it != segments.end(); ++it) {
         short segind = *it;
@@ -1420,11 +1494,17 @@ bool road_walker::walk_road(const UMath::Vector3 &start, const UMath::Vector3 &d
     std::sort(startrecords.begin(), startrecords.end());
 
     numwalkallpaths = 0;
+#ifndef EA_BUILD_A124
     numevaluates = 0;
+#endif
 
     bestscore = FLT_MAX;
+#ifdef EA_BUILD_A124
+    for (start_vector::iterator sit = startrecords.begin(); sit != startrecords.end(); ++sit) {
+#else
     for (start_vector::iterator sit = startrecords.begin();
          numevaluates < evaluate_limit && numwalkallpaths < walk_limit && sit != startrecords.end(); ++sit) {
+#endif
         startscore = sit->score;
         if (startscore >= bestscore) {
             break;
@@ -1439,6 +1519,11 @@ bool road_walker::walk_road(const UMath::Vector3 &start, const UMath::Vector3 &d
 }
 
 void road_walker::walk_all_paths(const path_spot &start, float futuredist, float targetdist, bool coppenalty) {
+#ifdef EA_BUILD_A124
+    if (numwalkallpaths >= walk_limit) {
+        return;
+    }
+#endif
     numwalkallpaths++;
 
     short segmentindex = start.segmentindex;
@@ -1448,7 +1533,7 @@ void road_walker::walk_all_paths(const path_spot &start, float futuredist, float
     const WRoadSegment *segment = roadnetwork.GetSegment(segmentindex);
     const WRoadNode *node;
 
-    while (true) {
+    for (;;) {
         if (segment->IsOneWay() && nodeind == 0) {
             return;
         }
@@ -1485,7 +1570,11 @@ void road_walker::walk_all_paths(const path_spot &start, float futuredist, float
     }
 
     node = roadnetwork.GetNode(segment->fNodeIndex[nodeind]);
+#ifdef EA_BUILD_A124
+    for (int i = 0; i < node->fNumSegments; i++) {
+#else
     for (int i = 0; numevaluates < evaluate_limit && numwalkallpaths < walk_limit && i < node->fNumSegments; i++) {
+#endif
         short newsegmentindex = node->fSegmentIndex[i];
         if (newsegmentindex == segmentindex) {
             continue;
@@ -1504,7 +1593,9 @@ void road_walker::walk_all_paths(const path_spot &start, float futuredist, float
 }
 
 void road_walker::evaluate_end(const path_spot &targetspot, bool coppenalty) {
+#ifndef EA_BUILD_A124
     numevaluates++;
+#endif
 
     float score = startscore;
     if (coppenalty) {
@@ -1551,7 +1642,7 @@ void road_walker::evaluate_end(const path_spot &targetspot, bool coppenalty) {
     if (score < bestscore) {
         beststartspot = startspot;
         bestfuturespot = path_spot(futurenav);
-        besttargetspot = path_spot(nav);
+        besttargetspot = path_spot(nav.GetSegmentInd(), nav.GetNodeInd(), nav.GetSegmentTime(), nav.GetLaneOffset());
         bestscore = score;
     }
 }
@@ -1582,7 +1673,11 @@ void AIVehicle::UpdateRoads() {
     mFutureRoad.SetRaceFilter(bRaceRouteOnly);
 
     float timeSinceUpdate = Sim::GetTime() - mRoadUpdateTimer;
+#ifdef EA_BUILD_A124
+    if (isvalid && timeSinceUpdate < 0.25f) {
+#else
     if (isvalid && timeSinceUpdate < 0.33f) {
+#endif
         mRoadIncrementTimer = Sim::GetTime();
 
         UMath::Vector3 road_direction;
@@ -1661,6 +1756,29 @@ WRoadNav *AIVehicle::GetFutureRoad() {
     return &mFutureRoad;
 }
 
+#ifdef EA_BUILD_A124
+void AIVehicle::ResetDriveToNav(const UMath::Vector3 &target) {
+    WRoadNav *drivenav = GetDriveToNav();
+    UMath::Vector3 direction;
+    UMath::Sub(target, GetPosition(), direction);
+    float length = UMath::Length(direction);
+    UMath::Scale(direction, 1.0f / length, direction);
+
+    road_walker walker;
+    walker.set_race_routes(drivenav->GetRaceFilter());
+    drivenav->SetTrafficFilter(false);
+    drivenav->SetCopFilter(false);
+    if (walker.walk_road(GetPosition(), direction, length * 0.5f, length, -1, 0)) {
+        walker.get_best_start_spot().init_nav(*drivenav);
+    } else {
+        ResetDriveToNav(SELECT_CURRENT_LANE);
+    }
+    if (drivenav->IsValid()) {
+        drivenav->IncNavPosition(length, direction, 0.0f);
+    }
+}
+#endif
+
 const UMath::Vector3 &AIVehicle::GetFarFuturePosition() {
     UpdateRoads();
     return mFarFuturePosition;
@@ -1675,7 +1793,11 @@ const UMath::Vector3 &AIVehicle::GetSeekAheadPosition() {
     UpdateRoads();
 
     float timeSinceThink = Sim::GetTime() - mSeekAheadTimer;
+#ifdef EA_BUILD_A124
+    if (timeSinceThink > 0.25f) {
+#else
     if (timeSinceThink > 0.33f) {
+#endif
         IPerpetrator *iperp;
         bool bRaceRouteOnly = false;
 
@@ -1768,17 +1890,34 @@ void AIPerpVehicle::ComputeSkill() {
     if (!GRaceStatus::Exists()) {
         return;
     }
+#ifndef EA_BUILD_A124
     if (GetOwner()->IsPlayer()) {
         return;
     }
+#endif
 
     if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_QuickRace) {
+#ifdef EA_BUILD_A124
+        switch (GRaceStatus::Get().GetRaceParameters()->GetDifficulty()) {
+            case 0:
+                fBaseSkill = 0.0f;
+                break;
+            case 2:
+                fBaseSkill = 1.0f;
+                break;
+            case 1:
+            default:
+                fBaseSkill = 0.5f;
+                break;
+        }
+#else
         GRaceParameters *params = GRaceStatus::Get().GetRaceParameters();
         if (params && !params->GetCatchUp()) {
             fBaseSkill = Tweak_QuickRaceSkillsNoGlue[GRaceStatus::Get().GetRaceParameters()->GetDifficulty()];
         } else {
             fBaseSkill = Tweak_QuickRaceSkills[GRaceStatus::Get().GetRaceParameters()->GetDifficulty()];
         }
+#endif
     } else if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
         if (pRacerInfo && pRacerInfo->GetGameCharacter()) {
             float character_skill =
@@ -1934,7 +2073,7 @@ void AIPerpVehicle::Update(float dT) {
     IPursuit *ip = GetPursuit();
     if (ip) {
 
-        NotSeenRightNow = ip->GetEvadeLevel() >= 0.05f;
+        NotSeenRightNow = !(ip->GetEvadeLevel() < 0.05f);
 
         if (ip->IsPerpBusted()) {
 
@@ -2059,6 +2198,10 @@ int AIPerpVehicle::GetCostToState() const {
     return mCostToState;
 }
 
+#ifdef EA_BUILD_A124
+int ForcePursuitHeatLevel = 0; // del menu de depuracion de la A124 (NFSDebugMenu.cpp)
+#endif
+
 void AIPerpVehicle::SetHeat(float heat) {
     int current = static_cast<int>(mHeat);
     int now = static_cast<int>(heat);
@@ -2070,6 +2213,12 @@ void AIPerpVehicle::SetHeat(float heat) {
     }
 
     bool raceEventStatusChanged = useRaceHeatNow != mWasInRaceEventLastHeatUpdate;
+#ifdef EA_BUILD_A124
+    if (ForcePursuitHeatLevel) {
+        now = ForcePursuitHeatLevel;
+        heat = now;
+    }
+#endif
     mWasInRaceEventLastHeatUpdate = useRaceHeatNow;
 
     if (now != current || raceEventStatusChanged) {
@@ -2286,6 +2435,57 @@ void AIPerpVehicle::OnCausedCollision(const COLLISION_INFO &cinfo, ISimable *fro
                 intentionalhit = my_closing_speed > his_closing_speed;
             }
 
+#ifdef EA_BUILD_A124
+            // La A124 (AIVehicle.cpp:3359-3412) mira antes si el coche esta destruido y calcula el coste antes del dano.
+            IVehicle *ivehicle;
+            to->QueryInterface(&ivehicle);
+            IPursuitAI *ipursuitVehicle;
+            ITrafficAI *itrafficVehicle;
+
+            if (!ivehicle->IsDestroyed() && to->QueryInterface(&ipursuitVehicle)) {
+                IVehicleAI *ivehicleai;
+
+                if (intentionalhit) {
+                    cost_to_state = 2000;
+                } else if (!directhit) {
+                    cost_to_state = 500;
+                }
+
+                if (cost_to_state) {
+                    float amount = UMath::Ramp(closing_speed, 4.0f, 30.0f);
+                    cost_to_state = static_cast<int>((cost_to_state / 50) * amount) * 50;
+                    cost_to_state = UMath::Max(50, cost_to_state);
+                }
+
+                bool wasDamagedByPerp = ipursuitVehicle->GetDamagedByPerp();
+                if (!wasDamagedByPerp && directhit && causalityhit) {
+                    ipursuitVehicle->SetDamagedByPerp(true);
+
+                    if (ipursuit) {
+                        ipursuit->NotifyCopDamaged(ivehicle);
+
+                        if (ipursuit->IsPlayerPursuit() && intentionalhit) {
+                            GInfractionManager::Get().ReportAssaultingPoliceOfficer();
+                        }
+                    }
+                }
+
+                if (directhit && !ipursuitVehicle->GetInPursuit() && to->QueryInterface(&ivehicleai) &&
+                    !ivehicleai->GetTarget()->IsValid()) {
+
+                    DriverClass driverclass = GetVehicle()->GetDriverClass();
+
+                    if ((driverclass == DRIVER_HUMAN) || (driverclass == DRIVER_REMOTE) ||
+                        (ICopMgr::Exists() && ICopMgr::Get()->CanPursueRacers())) {
+
+                        if (intentionalhit) {
+                            ivehicleai->GetTarget()->Aquire(from);
+                            DebugMenu::SetPursuitState(STATE_PURSUIT);
+                        }
+                    }
+                }
+            }
+#else
             IVehicle *ivehicle;
             to->QueryInterface(&ivehicle);
             IPursuitAI *ipursuitVehicle;
@@ -2334,11 +2534,16 @@ void AIPerpVehicle::OnCausedCollision(const COLLISION_INFO &cinfo, ISimable *fro
 
                             if (intentionalhit) {
                                 ivehicleai->GetTarget()->Aquire(from);
+#ifdef EA_BUILD_A124
+                                DebugMenu::SetPursuitState(STATE_PURSUIT);
+#endif
                             }
                         }
                     }
                 }
             }
+
+#endif
 
             if (causalityhit && intentionalhit && to->QueryInterface(&itrafficVehicle)) {
 

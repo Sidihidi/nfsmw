@@ -48,7 +48,7 @@ void PortMessage::HandleMessage(Message *msg) {
 }
 
 void System::Init() {
-    mObj = new ("Hermes::System", __LINE__) System();
+    mObj = new ("Hermes::System", 0) System();
 }
 
 uint64_t System::CreateKey(UCrc32 port, UCrc32 messageID) {

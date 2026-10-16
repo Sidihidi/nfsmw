@@ -14,13 +14,15 @@ static inline float RayExitSphere(const UMath::Vector4 &P, const UMath::Vector4 
     UMath::Subxyz(P, C, Pc);
     b = UMath::Dotxyz(Pc, D) * 2.0f;
     c = UMath::Dotxyz(Pc, Pc) - rr;
-    if (c < 0.0f) {
-        q = (b * b) - (c * 4.0f * a);
-        if (q >= 0.0f) {
-            float numerator = UMath::Sqrt(q) - b;
-            const float denominator = 2.0f * a;
-            x = numerator / denominator;
-        }
+    // Salida temprana: la A124 salta al final con `c.le.s 0,c; bc1t` (c >= 0), no con `c.lt.s; bc1f`.
+    if (c >= 0.0f) {
+        return x;
+    }
+    q = (b * b) - (c * 4.0f * a);
+    if (q >= 0.0f) {
+        float numerator = UMath::Sqrt(q) - b;
+        const float denominator = 2.0f * a;
+        x = numerator / denominator;
     }
     return x;
 }
@@ -96,32 +98,25 @@ static inline bool PlaneIntersect(const UMath::Vector4 &P1, const UMath::Vector4
     n = UMath::Dotxyz(Normal, PtOnPlanemP1);
     {
         float t = n / d;
-        if (t < 0.0f) {
-            return false;
-        }
-        if (t <= 1.0f) {
-            UMath::Subxyz(P2, P1, intersectionPt);
-            UMath::ScaleAddxyz(intersectionPt, t, P1, intersectionPt);
-            return true;
+        if (t >= 0.0f) {
+            if (t <= 1.0f) {
+                UMath::Subxyz(P2, P1, intersectionPt);
+                UMath::ScaleAddxyz(intersectionPt, t, P1, intersectionPt);
+                return true;
+            }
         }
     }
     return false;
 }
 
 bool Geometry::BoxVsBox(const Geometry *GeometryA, const Geometry *GeometryB, Geometry *result) {
-    const Geometry *a;
-    const Geometry *b;
-    const Geometry *penetrated;
-    float best_interval = -100000.0f;
-    int best_normal_index = 0;
-    UMath::Vector4 best_penetrated_normal;
+    const Geometry *a = GeometryA, *b = GeometryB;
 
-    best_interval = 0.0f;
-    best_interval = -100000.0f;
-    best_normal_index = -1;
-    penetrated = 0;
-    a = GeometryA;
-    b = GeometryB;
+    const Geometry *penetrated = 0;
+
+    float best_interval = -100000.0f;
+    int best_normal_index = -1;
+    UMath::Vector4 best_penetrated_normal;
 
     {
         int cycle;
@@ -166,7 +161,7 @@ bool Geometry::BoxVsBox(const Geometry *GeometryA, const Geometry *GeometryB, Ge
                     {
                         int b_normal_index;
 
-                        for (b_normal_index = 0; b_normal_index <= 2; b_normal_index++) {
+                        for (b_normal_index = 0; b_normal_index <= 2; b_normal_index++, b_extent++) {
                             const float b_projected_interval = UMath::Dotxyz(penetrated_normal, *b_extent);
 
                             projected_interval = projected_interval - fabsf(b_projected_interval);
@@ -175,7 +170,6 @@ bool Geometry::BoxVsBox(const Geometry *GeometryA, const Geometry *GeometryB, Ge
                             } else if (!(b_projected_interval <= 0.0f)) {
                                 UMath::Addxyz(collision_point, *b_extent, collision_point);
                             }
-                            b_extent = b_extent + 1;
                         }
                     }
                     if (projected_interval > 0.0f) {
@@ -223,8 +217,8 @@ bool Geometry::BoxVsBox(const Geometry *GeometryA, const Geometry *GeometryB, Ge
             const UMath::Vector4 &cpoint = result->mCollision_point;
             UMath::Sub(penetrated->mDelta, penetrator->mDelta, reinterpret_cast<UMath::Vector3 &>(p_vel));
             UMath::Subxyz(cpoint, penetrated->mPosition, r_cpoint);
-            passed = 0;
             UMath::Addxyz(r_cpoint, p_vel, r_cpoint_prev);
+            passed = 0;
             {
                 int pi;
 
@@ -267,10 +261,7 @@ bool Geometry::BoxVsBox(const Geometry *GeometryA, const Geometry *GeometryB, Ge
 
                                 UMath::Subxyz(edge_intersection, penetrated->mPosition, r_edgepoint);
                                 overlap = -UMath::Dotxyz(best_penetrated_normal, r_edgepoint) - penetrated->mDimension[best_normal_index];
-                                if (!(overlap < 0.0f)) {
-                                    continue;
-                                }
-                                {
+                                if (overlap < 0.0f) {
                                     UMath::Vector4 r_edgepoint_prev;
                                     int fi;
 
@@ -316,49 +307,22 @@ bool Geometry::BoxVsBox(const Geometry *GeometryA, const Geometry *GeometryB, Ge
     return false;
 }
 
-/* SphereVsBox: 1.896 B, 100 % (r26 99,03587 -> r27 99,47890 -> r28 CERRADA).
-
-   LA BARRERA ES SELECTIVA Y VA DELANTE DE `a_lp++`.  El bucle emite doce
-   instrucciones en un solo bloque basico; el objetivo mete las DOS inserciones
-   de PRE (`&penetration[0]` y `&prev_penetration[0]`, para usos posteriores al
-   bucle) en las ranuras de relleno 2 y 4 de la cadena FP y deja `a_lp++` el
-   ultimo.  En sched2 eso es imposible por prioridad: `a_lp++` vale 4 y las dos
-   inserciones 2, asi que gana siempre el incremento.  La unica salida es que
-   `a_lp++` NO ESTE LISTO en t=1: el volcado del objetivo lo pone en t=10, justo
-   un ciclo despues del ultimo store, o sea que depende de el.
-
-   `__asm__("")` no sirve: al no llevar operandos es ASM_INPUT, GCC 2.95 pone
-   `reg_pending_sets_all` y BLOQUEA TAMBIEN a las inserciones de PRE (que gcse
-   coloca siempre al final del bloque, con `insert_insn_end_bb`).  Lo mismo
-   cualquier `__asm__ __volatile__`: `sched_analyze_2` toma el camino de
-   "clobber all" cuando `MEM_VOLATILE_P` esta puesto.  Medido: 18 filas.
-
-   Un asm extendido NO VOLATIL se salta ese camino y solo depende de lo que
-   nombra.  `__asm__("" : "+r"(a_lp) : : "memory")` depende del store por el
-   clobber de memoria, es dependencia de `a_lp++` por el operando de registro, y
-   NO toca a los dos `addi` de PRE, que solo leen r1.  Sale exactamente el orden
-   del objetivo y no emite ni un byte (1.896 B, .text identica).
-
-   Deuda declarada: el original no tenia un asm.  Lo que hace falta es una
-   dependencia del incremento con el ultimo store que no toque a los `addi`.
-   El mapa de lineas deja sitio: el objetivo tiene `prev_penetration` en la 468
-   y `a_lp++` en la 471, o sea DOS lineas sin instruccion (469-470) justo donde
-   va la barrera, y otras dos entre `a_lp++` (471) y el `} while` (474).
-
-   Vedas (arnes c28bw_var.py, 3,2 s; base r27 99,47890 / 8 filas):
-     asm no volatil con "+r"(a_lp) y "memory" delante de a_lp++   100 %    0
-     idem con "=r"(a_lp) : "0"(a_lp) : "memory"                   100 %    0
-     idem con "m"(prev_penetration[a_lp]) en vez de "memory"    99,5253   43
-     idem con "m"(penetration[a_lp])                            99,5042   45
-     asm no volatil detras de a_lp++ (en vez de delante)        99,4578   10
-     CUALQUIER asm volatil delante de a_lp++ (6 formas)         98,9557   18
-     asm no volatil delante de prev_penetration                 98,7553   19 (1.900 B)
-   Vedas de la r27 (base 99,03587 / 14 filas) mas arriba en el historial: el eje
-   n_refs de b_dim esta cerrado (una referencia mas solo se anade con un operando
-   de asm y eso materializa +4 B).
-
-   Lo que cerro la r26 y sigue puesto: pasar `result->mCollision_point` en vez
-   de `point_1` a RayExitSphere (una sola direccion, r29 como el objetivo). */
+/* SphereVsBox: el primer bucle es un `for` y la salida por la cara va en el `else` de un if/else.
+   - `for`: el mapa de GameCube pone `a_lp = 0` y los invariantes izados en la MISMA linea (447) y el
+     incremento con la prueba en la llave de cierre (474), como el segundo bucle (500); los stabs de la A124
+     envuelven {normal, b_dim} en un bloque sin variables, que es el del `for`.
+   - if/else: el `return false;` es la linea 471 del original (nota sin codigo: su `li r3,0` se funde con los
+     demas `return false`), despues del if que termina en 468.  La etiqueta del else parte el bloque: `a_lp++`
+     ya no sube por encima de los stores (sched2 lo deja el ultimo, como el objetivo), las dos inserciones de
+     PRE caen en las ranuras de la cadena FP y el reparto queda como el del DWARF (b_dim f31, p_dot f30, in
+     r20).  En la A124 `normal` vuelve a registro (v1) y el segundo bucle deja de reducirse, como el original.
+   - normal_dir con ternario (una sola linea, la 455): la A124 hace los dos stores con `bc1fl` y el mismo
+     puntero.  `d >= radius * radius` y la salida temprana de RayExitSphere: la comparacion de la A124.
+   - memset: GameCube lo llama como variadica (`crclr cr1eq`) y en la A124 la llamada devuelve valor (v0),
+     que es la declaracion implicita `int memset(...)` del original; como aqui string.h ya lo declara, el
+     cast lo reproduce (antes era `void (*)(...)`, que en la A124 cambiaba el reparto tras la llamada).
+   Lo que queda en la A124 y SLUS es UMath::Sqrt (sqrt.s con dos nop en un registro preservado,
+   UVectorMath.hpp:1748): cabecera. */
 bool Geometry::SphereVsBox(const Geometry *sphereA, const Geometry *boxB, Geometry *result) {
     UMath::Vector4 sphere_vel;
     UMath::Vector4 sphere_rpos;
@@ -392,30 +356,25 @@ bool Geometry::SphereVsBox(const Geometry *sphereA, const Geometry *boxB, Geomet
     volume_box = (area_box[0] * area_box[1]) * area_box[2];
     in = 0;
 
-    a_lp = 0;
-    do {
+    for (a_lp = 0; a_lp <= 2; a_lp++) {
         const UMath::Vector4 &normal = boxB->mNormal[a_lp];
         const float b_dim = boxB->mDimension[a_lp];
         float p_dot = UMath::Dotxyz(sphere_rpos_prev, normal);
-        if (p_dot > 0.0f) {
-            normal_dir[a_lp] = 1.0f;
-        } else {
-            normal_dir[a_lp] = -1.0f;
-        }
+        normal_dir[a_lp] = p_dot > 0.0f ? 1.0f : -1.0f;
         dists[a_lp] = normal_dir[a_lp] * UMath::Dotxyz(sphere_rpos, normal);
         prev_dists[a_lp] = normal_dir[a_lp] * p_dot;
-        if (!(dists[a_lp] < b_dim + radius)) {
+        if (dists[a_lp] < b_dim + radius) {
+            if (dists[a_lp] <= b_dim) {
+                in++;
+            }
+            penetration[a_lp] = b_dim - (dists[a_lp] - radius);
+            prev_penetration[a_lp] = b_dim - (prev_dists[a_lp] - radius);
+        } else {
             return false;
         }
-        if (!(dists[a_lp] > b_dim)) {
-            in++;
-        }
-        penetration[a_lp] = b_dim - (dists[a_lp] - radius);
-        prev_penetration[a_lp] = b_dim - (prev_dists[a_lp] - radius);
-        a_lp++;
-    } while (a_lp <= 2);
+    }
 
-    ((void (*)(...))memset)(crossed_planes, 0, 12);
+    ((int (*)(...))memset)(crossed_planes, 0, 12);
     rel_collision_point = UMath::Vector4::kZero;
     count = 0;
 
@@ -478,8 +437,7 @@ bool Geometry::SphereVsBox(const Geometry *sphereA, const Geometry *boxB, Geomet
         } else if (volume_box <= 0.0f) {
             UMath::Vector4 dd;
             float d = UMath::Dot(rel_collision_point, rel_collision_point);
-            if (d < radius * radius) {
-            } else {
+            if (d >= radius * radius) {
                 return false;
             }
             for (a_lp = 0; a_lp <= 2; a_lp++) {
@@ -555,12 +513,12 @@ bool Geometry::SphereVsSphere(const Geometry *a, const Geometry *b, Geometry *re
         result->mCollision_point.x = a->mPosition.y + a->mDimension[0];
         result->mCollision_point.x = a->mPosition.z;
         result->mOverlap = -a->mDimension[0];
-    } else if (!(dist < radius_total)) {
-        return false;
-    } else {
+    } else if (dist < radius_total) {
         UMath::Unitxyz(rPos, result->mCollision_normal);
         result->mOverlap = dist - radius_total;
         UMath::ScaleAddxyz(result->mCollision_normal, b->mDimension[0] + result->mOverlap, b->mPosition, result->mCollision_point);
+    } else {
+        return false;
     }
     if (a != result) {
         result->mCollision_normal.x = -result->mCollision_normal.x;
@@ -590,10 +548,10 @@ bool Geometry::FindIntersection(const Geometry *A, const Geometry *B, Geometry *
         {0, SphereVsBox, SphereVsSphere},
     };
     IntersectionAlgo handler = algos[A->mShape][B->mShape];
-    if (handler != 0) {
-        return handler(A, B, result);
+    if (handler == 0) {
+        return false;
     }
-    return false;
+    return handler(A, B, result);
 }
 
 }; // namespace Collision

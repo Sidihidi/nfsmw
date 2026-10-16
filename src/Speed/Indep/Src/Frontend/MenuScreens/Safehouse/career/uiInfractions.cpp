@@ -22,11 +22,13 @@ PostPursuitInfractionsScreen::PostPursuitInfractionsScreen(ScreenConstructorData
       BustedTexture(0),              //
       bFirstTimeBusted(false) {
     if (!FEDatabase->GetCareerSettings()->HasBeenBustedOnce()) {
+#ifndef EA_BUILD_A124 // la A124 no regala marcadores la primera vez
         if (TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0) <= 0) {
             for (int i = 0; i <= 3; i++) {
                 TheFEMarkerManager.AddMarkerToInventory(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0);
             }
         }
+#endif
         bFirstTimeBusted = true;
     }
     FEDatabase->GetCareerSettings()->SetBeenBustedOnce();
@@ -52,7 +54,11 @@ PostPursuitInfractionsScreen::PostPursuitInfractionsScreen(ScreenConstructorData
     const u32 FEObj_NUMBEROFINFRACTIONSTHISPURSUIT = 0xB967F64D;
     FEPrintf(GetPackageName(), FEObj_NUMBEROFINFRACTIONSTHISPURSUIT, "%d", num_infractions_pursuit);
 
+#ifdef EA_BUILD_A124
+    int infraction_total_cost = stable->GetTotalFines(true);
+#else
     int infraction_total_cost = WorkingCareerRecord->GetInfractions(true).GetFineValue();
+#endif
     const u32 FEObj_UNSERVEDINFRACTIONSCOST = 0xA4C79522;
     FEPrintf(GetPackageName(), FEObj_UNSERVEDINFRACTIONSCOST, "%$d", infraction_total_cost - this_pursuit_cost);
 
@@ -61,6 +67,12 @@ PostPursuitInfractionsScreen::PostPursuitInfractionsScreen(ScreenConstructorData
     FEPrintf(GetPackageName(), FEObj_NUMBEROFINFRACTIONSUNSERVED, "%d", total_unserved_number - num_infractions_pursuit);
 
     bHasMarker = TheFEMarkerManager.HasMarker(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0);
+#ifdef EA_BUILD_A124 // la A124 no deja pagar la multa la primera vez
+    if (bFirstTimeBusted) {
+        FEngSetScript(GetPackageName(), 0xFB8B67D1, 0x163C76, true);
+        FEngDisableButton(GetPackageName(), FEHASH_BUTTON2);
+    }
+#endif
     FEPrintf(GetPackageName(), 0x5B875870, "%d", TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0));
     FEPrintf(GetPackageName(), 0xEA8AECD9, "%d", TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0));
     if (!bHasMarker) {
@@ -77,7 +89,11 @@ PostPursuitInfractionsScreen::PostPursuitInfractionsScreen(ScreenConstructorData
         FEngSetScript(GetPackageName(), 0x39F11E5C, FEObj_NORMAL, true);
     }
 
+#ifdef EA_BUILD_A124
+    AmountToPay = stable->GetTotalFines(true);
+#else
     AmountToPay = WorkingCareerRecord->GetInfractions(true).GetFineValue();
+#endif
     const u32 FEObj_TOTALCOSTDATA = 0x854AF1F4;
     FEPrintf(GetPackageName(), FEObj_TOTALCOSTDATA, "%$d", AmountToPay);
 
@@ -87,8 +103,7 @@ PostPursuitInfractionsScreen::PostPursuitInfractionsScreen(ScreenConstructorData
 }
 
 PostPursuitInfractionsScreen::~PostPursuitInfractionsScreen() {
-    uint32 texture = BustedTexture;
-    eUnloadStreamingTexture(&texture, 1);
+    eUnloadStreamingTexture(BustedTexture);
     WaitForResourceLoadingComplete();
 }
 
@@ -117,6 +132,7 @@ uint32 PostPursuitInfractionsScreen::CalcBustedTexture() {
             return 0xB41A1B50;
         case eLANGUAGE_FINNISH:
             return 0xB419F002;
+#ifndef EA_BUILD_A124 // la A124 no tiene sello de detenido para Asia
         case eLANGUAGE_KOREAN:
             return 0xB41A0611;
         case eLANGUAGE_CHINESE:
@@ -125,6 +141,7 @@ uint32 PostPursuitInfractionsScreen::CalcBustedTexture() {
             return 0xB41A0000;
         case eLANGUAGE_THAI:
             return 0xB41A2B62;
+#endif
         default:
             return 0xB419EC5F;
     }
@@ -147,7 +164,9 @@ void PostPursuitInfractionsScreen::NotificationMessage(u32 msg, FEObject *pobj, 
                 FEDatabase->GetCareerSettings()->SpendCash(AmountToPay);
                 bStrikeLimitReached = WorkingCareerRecord->TheImpoundData.NotifyBusted();
                 WorkingCareerRecord->ServeAllIncractions();
+#ifndef EA_BUILD_A124
                 WorkingCareerRecord->SetVehicleHeat(1.0f);
+#endif
             } else if (useMarker) {
                 TheFEMarkerManager.UtilizeMarker(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0);
                 int numMarkers = TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0);
@@ -174,7 +193,11 @@ void PostPursuitInfractionsScreen::NotificationMessage(u32 msg, FEObject *pobj, 
             }
             if (reasonHash != 0) {
                 WorkingCareerRecord->TheImpoundData.BecomeImpounded(reason);
+#ifdef EA_BUILD_A124
+                DialogInterface::ShowOk(GetPackageName(), "", dialog_alert, reasonHash);
+#else
                 DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x34DC1BEC, reasonHash);
+#endif
             } else {
                 if (useMarker) {
                     cFEng::Get()->QueuePackageSwitch("Car_Select.fng", 0, 0, 0);

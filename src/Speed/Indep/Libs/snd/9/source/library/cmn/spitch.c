@@ -2,6 +2,8 @@
 
 int SNDpitchmult(int shandle, int pitchmult) {
     CHANPUB *pchan;
+
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
     int setvoice;
 

@@ -36,9 +36,9 @@ void EDamageLights_MakeEvent_Callback(const void *staticData) {
     new EDamageLights(((EDamageLights::StaticData *) staticData)->fName, gEventDynamicData.fhSimable);
 }
 
-int EDamageLights_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EDamageLights(UCrc32(lua_tostring(L, 1)), gEventDynamicData.fhSimable);
+int EDamageLights_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EDamageLights(UCrc32(lua_tostring(luaState, 1)), gEventDynamicData.fhSimable);
     }
     return 0;
 }

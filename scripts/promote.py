@@ -32,6 +32,7 @@ import re
 import struct
 import sys
 from collections import defaultdict
+from escritura import entero
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 OBJ = os.path.join(ROOT, "build", "GOWE69", "obj")
@@ -400,7 +401,7 @@ def main():
     if escribir:
         cfgp = os.path.join(ROOT, "configure.py")
         cfg = open(cfgp, encoding="utf-8", newline="").read()
-        open(cfgp + ".bak_promote", "w", encoding="utf-8", newline="").write(cfg)
+        entero(cfgp + ".bak_promote", "w", encoding="utf-8", newline="").write(cfg)
         hechas, fallidas = 0, []
         for tc, td, unit, _ in limpias:
             puesto = False
@@ -422,7 +423,7 @@ def main():
                 hechas += 1
             else:
                 fallidas.append(unit)
-        open(cfgp, "w", encoding="utf-8", newline="").write(cfg)
+        entero(cfgp, "w", encoding="utf-8", newline="").write(cfg)
         print()
         print("promocionadas %d de %d   (copia en configure.py.bak_promote)"
               % (hechas, len(limpias)))

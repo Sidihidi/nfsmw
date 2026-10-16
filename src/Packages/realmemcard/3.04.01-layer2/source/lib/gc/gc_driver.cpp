@@ -9,7 +9,6 @@
 namespace Realmc {
 
 extern IThread *gInterfaceThread;
-extern const int MAX_COMMENT_LENGTH;
 
 unsigned int GCDriver::MEMCARD_SECTOR_SIZE = 0x2000;
 bool GCDriver::mMounted = false;
@@ -304,35 +303,33 @@ ICardResult GCDriver::OpenFile(const CardID &cardID, const FileInfo *pFileInfo, 
         result = this->ConvertCardResult(coResult);
     }
 
-    if (result != CR_SUCCESS) {
-        return result;
-    }
+    if (result == CR_SUCCESS) {
+        fd->mOpen = true;
+        fd->fileNumber = fd->mGcFileInfo.fileNo;
+        CARDGetStatus(fd->mCardID.slot, fd->mGcFileInfo.fileNo, &fd->mGcCardStat);
+        *handle = fd;
 
-    fd->mOpen = true;
-    fd->fileNumber = fd->mGcFileInfo.fileNo;
-    CARDGetStatus(fd->mCardID.slot, fd->mGcFileInfo.fileNo, &fd->mGcCardStat);
-    *handle = fd;
-
-    if (cardID.systemData == 1) {
-        fd->mWriteSystemData = result;
-    } else {
-        fd->mWriteSystemData = true;
-        if ((fmode & FOM_CREATE) != 0) {
-            if (this->WriteHeaderData(fd) != CR_SUCCESS) {
-                result = CR_ERROR;
-            }
+        if (cardID.systemData == 1) {
+            fd->mWriteSystemData = false;
         } else {
-            result = this->ReadFile(fd, &fd->mFileHeader, 0x10, nullptr);
-            if (result != CR_SUCCESS) {
-                goto done;
+            fd->mWriteSystemData = true;
+            if ((fmode & FOM_CREATE) != 0) {
+                if (this->WriteHeaderData(fd) != CR_SUCCESS) {
+                    result = CR_ERROR;
+                }
+            } else {
+                result = this->ReadFile(fd, &fd->mFileHeader, 0x10, nullptr);
+                if (result != CR_SUCCESS) {
+                    goto done;
+                }
+                result = this->VerifyIplDataChecksum(fd);
             }
-            result = this->VerifyIplDataChecksum(fd);
-        }
 
-        if (result != CR_SUCCESS) {
-            CARDClose(&fd->mGcFileInfo);
-            fd->mOpen = false;
-            *handle = nullptr;
+            if (result != CR_SUCCESS) {
+                CARDClose(&fd->mGcFileInfo);
+                fd->mOpen = false;
+                *handle = nullptr;
+            }
         }
     }
 
@@ -563,8 +560,8 @@ ICardResult GCDriver::ReadFile(OpenFileDescriptor *handle, void *pBuffer, int by
         return this->NGCSportsBioRead(fd, pBuffer, bytesToRead, nBytesRead);
     }
 
-    pReadBuffer = static_cast<char *>(pBuffer);
     result = CR_SUCCESS;
+    pReadBuffer = static_cast<char *>(pBuffer);
     bytesLeft = bytesToRead;
 
     if (fd->mNeedFlush) {
@@ -572,15 +569,16 @@ ICardResult GCDriver::ReadFile(OpenFileDescriptor *handle, void *pBuffer, int by
     }
 
     fileSize = fd->mGcCardStat.length;
-    if (fd->mFileSectorOffset != 0) {
-        currentSectorHead = fd->mFileSectorOffset - this->mSectorSize;
-    } else {
-        currentSectorHead = 0;
-    }
+    currentSectorHead = fd->mFileSectorOffset != 0 ? fd->mFileSectorOffset - this->mSectorSize : 0;
 
-    goto checkReadHead;
-    do {
+    while (bytesLeft != 0) {
         long readHead;
+
+        readHead = currentSectorHead + fd->mBufferOffset;
+        if (readHead < 0 || readHead >= fileSize) {
+            result = CR_RANGE_ERROR;
+            break;
+        }
 
         if (fd->readNextSector) {
             do {
@@ -593,35 +591,23 @@ ICardResult GCDriver::ReadFile(OpenFileDescriptor *handle, void *pBuffer, int by
                 break;
             }
 
-            unsigned int sectorSize = this->mSectorSize;
-            long fileSectorOffset = fd->mFileSectorOffset;
-            fd->readNextSector = result;
-            fd->mFileSectorOffset = fileSectorOffset + sectorSize;
+            fd->mFileSectorOffset += this->mSectorSize;
+            fd->readNextSector = false;
         }
 
         while (fd->mBufferOffset < this->mSectorSize && bytesLeft != 0) {
             if (pReadBuffer != nullptr) {
-                *pReadBuffer = this->mpIOBuffer[fd->mBufferOffset];
-                pReadBuffer++;
+                *pReadBuffer++ = this->mpIOBuffer[fd->mBufferOffset];
             }
-            bytesLeft--;
             fd->mBufferOffset++;
+            bytesLeft--;
         }
 
         if (fd->mBufferOffset == this->mSectorSize) {
             fd->readNextSector = true;
             fd->mBufferOffset = 0;
         }
-
-    checkReadHead:
-        if (bytesLeft != 0) {
-            readHead = currentSectorHead + fd->mBufferOffset;
-            if (readHead < 0 || readHead >= fileSize) {
-                result = CR_RANGE_ERROR;
-                break;
-            }
-        }
-    } while (bytesLeft != 0);
+    }
 
     if (nBytesRead != nullptr) {
         *nBytesRead = bytesToRead - bytesLeft;

@@ -9,26 +9,28 @@
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 
 DragTachometer::DragTachometer(UTL::COM::Object *pOutter, const char *pkg_name, int player_number)
-    : HudElement(pkg_name, 0x2), ITachometer(pOutter), ITachometerDrag(pOutter) {
-    mRpm = 0.0f;
-    mRedline = 0.0f;
-    mMaxRpm = 0.0f;
-    mGearShifting = false;
-    mGear = G_NEUTRAL;
+    : HudElement(pkg_name, 0x2), ITachometer(pOutter), ITachometerDrag(pOutter), mRpm(0.0f), mRedline(0.0f), mMaxRpm(0.0f),
+      mGear(G_NEUTRAL), mGearShifting(false)
 #ifndef EA_BUILD_A124
-    mNeedleColourSetToPerfectLaunch = false;
+      ,
+      mNeedleColourSetToPerfectLaunch(false)
 #endif
+{
     RegisterImage(FEHashUpper("RPM_fill"));
     RegisterImage(FEHashUpper("Drag_Turbo_Backing"));
     RegisterImage(FEHashUpper("Drag_Turbo_Lines"));
+#ifndef EA_BUILD_A124
     RegisterImage(FEHashUpper("3rdPersonSpeedUnits"));
     RegisterImage(FEHashUpper("SPEED_BACKING"));
     RegisterGroup(FEHashUpper("RPM"));
+#endif
     pTachLines = RegisterImage(FEHashUpper("TAC_Lines_7500"));
     pRedline = RegisterMultiImage(FEHashUpper("RPM_Redline"));
     TachNeedle = RegisterImage(FEHashUpper("3rdPersonNeedle"));
     pGearString = RegisterString(FEHashUpper("3rdPersonGear"));
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+    mOriginalNeedleColour = FEngGetColor(TachNeedle);
+#else
     mOriginalNeedleWidth = TachNeedle->GetObjData()->Size.x;
     mOriginalNeedleLeftX = FEngGetTopLeftX(TachNeedle);
 #endif
@@ -61,7 +63,13 @@ void DragTachometer::Update(IPlayer *player) {
             FEngSetColor(pGearString, static_cast<unsigned int>(colourGearNormal));
         }
     }
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+    if (mInPerfectLaunchRange) {
+        FEngSetColor(TachNeedle, ~mOriginalNeedleColour | 0xFF000000);
+    } else {
+        FEngSetColor(TachNeedle, mOriginalNeedleColour);
+    }
+#else
     if (mInPerfectLaunchRange) {
         if (!mNeedleColourSetToPerfectLaunch) {
             mNeedleColourSetToPerfectLaunch = true;

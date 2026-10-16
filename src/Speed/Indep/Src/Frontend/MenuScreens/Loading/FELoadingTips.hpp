@@ -5,6 +5,92 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Loading/FELoadingScreen.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 
+#ifdef EA_BUILD_A124
+// La A124 es otra version (stabs de zFe2): solo la pantalla de carga con el mando (el consejo de PS2 y el de Xbox), con
+// cuatro texturas por consejo y sin las pruebas de consejos de la carrera.
+typedef enum {
+    GAME_TIP_LOADING_CONTROLLER_PS2 = 0,
+    GAME_TIP_NONE = 1,
+    GAME_TIP_USE_CONTROLLER_CONFIG = 2,
+    NUM_GAME_TIPS = 3,
+} eGameTips;
+
+typedef enum {
+    GT_BIN_NONE = 0,
+    GT_BIN_A = 1,
+    GT_BIN_B = 2,
+    GT_BIN_C = 3,
+    GT_BIN_D = 4,
+    GT_BIN_E = 5,
+} eGameTipBins;
+
+typedef enum {
+    GTF_NONE = 0,
+    GTF_TRANSITION_TO_FE = 1,
+    GTF_TRANSITION_TO_INGAME = 2,
+    GTF_TRANSITION_TO_MASK = 255,
+    GFT_RACETYPE_CIRCUIT = 256,
+    GFT_RACETYPE_DRAG = 512,
+    GFT_RACETYPE_SPRINT = 1024,
+    GFT_RACETYPE_TOLLBOOTH = 2048,
+    GFT_RACETYPE_KNOCKOUT = 4096,
+    GFT_RACETYPE_MASK = 65280,
+} eGameTipFlags;
+
+// total size: 0xC
+struct GameTipInfo {
+    char *Name;         // offset 0x0
+    eGameTipBins Bin;   // offset 0x4
+    eGameTipFlags Type; // offset 0x8
+};
+
+// total size: 0x44
+class LoadingTips : public MenuScreen {
+  public:
+    static inline void *operator new(size_t size) {
+        return mLoadingTipsScreenPtr;
+    }
+
+    static inline void *operator new(size_t size, char *file, int line) {
+        return mLoadingTipsScreenPtr;
+    }
+
+    static inline void *operator new(size_t size, char *msg) {
+        return mLoadingTipsScreenPtr;
+    }
+
+    static inline void operator delete(void *ptr) {}
+
+    static inline void operator delete(void *ptr, char *msg) {}
+
+    LoadingTips(ScreenConstructorData *sd);
+    ~LoadingTips() override;
+
+    void NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) override;
+
+    void FinishLoadingTexCallback(uint32 p);
+    static inline bool IsDoneShowingLoadingTips() {
+        return mDoneShowingLoadingTips;
+    }
+    static void InitLoadingTipsScreen();
+    static void CloseLoadingTipsScreen();
+    static eGameTips WhatTipScreenShouldIUseToday();
+
+  private:
+    void Setup();
+    void ShowTipInfo();
+    void StartLoadingTipImage();
+    GameTipInfo *GetGameTip(eGameTips tip);
+
+    static const int NUM_TEXTURES = 4;
+    static bool mDoneShowingLoadingTips;
+    static void *mLoadingTipsScreenPtr;
+
+    unsigned int TipTextureHash[NUM_TEXTURES]; // offset 0x2C
+    Timer DisplayTime;                         // offset 0x3C
+    GameTipInfo *CurrentTip;                   // offset 0x40
+};
+#else
 // File: speed/indep/src/frontend/menuscreens/loading/FELoadingScreenSelector.hpp
 // Decl: speed/indep/src/frontend/menuscreens/loading/FELoadingScreenSelector.hpp:15
 typedef enum {
@@ -157,5 +243,6 @@ class LoadingTips : public MenuScreen {
 };
 
 extern GameTipInfo GameTipInfoTable[];
+#endif
 
 #endif

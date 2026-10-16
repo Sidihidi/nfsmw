@@ -322,6 +322,17 @@ struct SND_Params {
         : Vol(0x7FFF),     //
           Pitch(0x1000) {} // Decl: 423
 
+#ifdef EA_BUILD_A124
+    // La A124 los asigna en el cuerpo, Vol y Pitch primero (lineas 382-388 de su EAXSound.hpp).
+    SND_Params(int _ID, int _Vol, int _Pitch, int _Az, int _Mag, int _RVerb) {
+        Vol = _Vol;
+        Pitch = _Pitch;
+        ID = _ID;
+        Az = _Az;
+        Mag = _Mag;
+        RVerb = _RVerb;
+    }
+#else
     SND_Params(int _ID, int _Vol, int _Pitch, int _Az, int _Mag, int _RVerb)
         : ID(_ID),         //
           Vol(_Vol),       //
@@ -329,6 +340,7 @@ struct SND_Params {
           Az(_Az),         //
           Mag(_Mag),       //
           RVerb(_RVerb) {} // Decl: 433
+#endif
 
     int ID;    // offset 0x0, size 0x4, Decl: 443
     int Vol;   // offset 0x4, size 0x4, Decl: 444
@@ -342,7 +354,13 @@ void InitializeSoundDriver();
 
 bool g_EAXIsPaused(void);
 
+// La A124 la declara con `char *Reason` (sus stabs). SLUS no: FESoundControl le pasa su propio `name`, que es
+// `const char *`, como en GameCube (DWARF).
+#ifdef EA_BUILD_A124
+void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, char *Reason);
+#else
 void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, const char *Reason);
+#endif
 
 extern EAXSound *g_pEAXSound;
 

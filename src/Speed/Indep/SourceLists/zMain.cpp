@@ -1,3 +1,43 @@
+// Prefijo comun de las unidades de juego del original (como zFEng.cpp): en la A124 los 402 primeros tipos de
+// los stabs son los mismos en todas, y la .rodata empieza por las cadenas de bWare.hpp.
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/Support/Utility/UStandard.h"
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UCollections.h"
+
+// datos-gc 2026-10-13: orden de parseo de la CU original (DWARF, guardas _0.._42):
+// MGeneric, WorldConn, MAIEngineRev, MAudioReflection, VehicleParams + los 6 de
+// VehicleBehaviors, MBreakerStopCops, SmackableParams, SoundConn, MNotifyEngineBlown,
+// MEnterRaceOverFlow, MSetTrafficSpeed, MGamePlayMoment, MNotifyMovieFinished,
+// ExplosionParams, MMiscSound, MRestartRace, MSetCopAutoSpawnMode, MEnterFreeRoam y
+// MFlowReadyForOutro, antes de la lista alfabetica de mensajes de EventDefs.cpp.
+// Solo GameCube (es donde el contador _.tmp_ del slice manda): en bloque al principio
+// de la unity el prefijo no reproduce el intercalado original de los E*.cpp y en SLUS
+// voltea la asignacion de registros del destructor de EventSequencer::Engine
+// (100 -> 99,545 %, bisectado); en las demas plataformas el parseo queda como estaba.
+#ifdef EA_PLATFORM_GAMECUBE
+#include "Speed/Indep/Src/Generated/Messages/MGeneric.h"
+#include "Speed/Indep/Src/World/WorldConn.h"
+#include "Speed/Indep/Src/Generated/Messages/MAIEngineRev.h"
+#include "Speed/Indep/Src/Generated/Messages/MAudioReflection.h"
+#include "Speed/Indep/Src/Physics/PVehicle.h"
+#include "Speed/Indep/Src/Physics/VehicleBehaviors.h"
+#include "Speed/Indep/Src/Generated/Messages/MBreakerStopCops.h"
+#include "Speed/Indep/Src/Physics/Smackable.h"
+#include "Speed/Indep/Src/EAXSound/SoundConn.h"
+#include "Speed/Indep/Src/Generated/Messages/MNotifyEngineBlown.h"
+#include "Speed/Indep/Src/Generated/Messages/MEnterRaceOverFlow.h"
+#include "Speed/Indep/Src/Generated/Messages/MSetTrafficSpeed.h"
+#include "Speed/Indep/Src/Generated/Messages/MGamePlayMoment.h"
+#include "Speed/Indep/Src/Generated/Messages/MNotifyMovieFinished.h"
+#include "Speed/Indep/Src/Physics/Explosion.h"
+#include "Speed/Indep/Src/Generated/Messages/MMiscSound.h"
+#include "Speed/Indep/Src/Generated/Messages/MRestartRace.h"
+#include "Speed/Indep/Src/Generated/Messages/MSetCopAutoSpawnMode.h"
+#include "Speed/Indep/Src/Generated/Messages/MEnterFreeRoam.h"
+#include "Speed/Indep/Src/Generated/Messages/MFlowReadyForOutro.h"
+#endif
+
 #include "Speed/Indep/Src/Generated/Events/E911Call.cpp"
 
 #include "Speed/Indep/Src/Generated/Events/EAccelerate.cpp"
@@ -102,6 +142,10 @@
 
 #include "Speed/Indep/Src/Generated/Events/EGTriggerInternal.cpp"
 
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EHideAutoSaveEngage.cpp"
+#endif
+
 #include "Speed/Indep/Src/Generated/Events/EHideObject.cpp"
 
 #include "Speed/Indep/Src/Generated/Events/EHidePart.cpp"
@@ -196,9 +240,17 @@
 
 #include "Speed/Indep/Src/Generated/Events/EPause.cpp"
 
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EPauseForMemcard.cpp"
+#endif
+
 #include "Speed/Indep/Src/Generated/Events/EPerfectLaunch.cpp"
 
 #include "Speed/Indep/Src/Generated/Events/EPerfectShift.cpp"
+
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EPlayDDFlyInNIS.cpp"
+#endif
 
 #include "Speed/Indep/Src/Generated/Events/EPlayEndNIS.cpp"
 
@@ -232,7 +284,10 @@
 
 #include "Speed/Indep/Src/Generated/Events/ERandomExplosion.cpp"
 
+// El prototipo A124 no tiene EReloadGame: ni la clase ni su cadena estan en su ELF.
+#ifndef EA_BUILD_A124
 #include "Speed/Indep/Src/Generated/Events/EReloadGame.cpp"
+#endif
 
 #include "Speed/Indep/Src/Generated/Events/EReloadHud.cpp"
 
@@ -265,6 +320,10 @@
 #include "Speed/Indep/Src/Generated/Events/ESetSimRate.cpp"
 
 #include "Speed/Indep/Src/Generated/Events/EShockObject.cpp"
+
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EShowAutoSaveEngage.cpp"
+#endif
 
 #include "Speed/Indep/Src/Generated/Events/EShowMarketingScreen.cpp"
 
@@ -310,6 +369,10 @@
 
 #include "Speed/Indep/Src/Generated/Events/EUnPause.cpp"
 
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Events/EUnPauseForMemcard.cpp"
+#endif
+
 #include "Speed/Indep/Src/Generated/Events/EVehicleDestroyed.cpp"
 
 #include "Speed/Indep/Src/Generated/Events/EVehicleReset.cpp"
@@ -350,6 +413,14 @@
 
 #ifdef EA_PLATFORM_GAMECUBE
 #include "Speed/Indep/Src/Input/GC/InputDeviceGC.cpp"
+#endif
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/Src/Input/PS2/InputDevicePS2.cpp"
+#endif
+
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/Src/Input/PC/InputDevicePC.cpp"
 #endif
 
 #include "Speed/Indep/Src/Input/Common/SteeringWheelDevice.cpp"

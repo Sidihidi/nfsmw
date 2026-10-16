@@ -17,7 +17,7 @@ CAnimCtrl::~CAnimCtrl() {
 }
 
 void InitAnimCtrls() {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     AnimCtrlSlotPool = bNewSlotPool(128, 64, "AnimCtrlSlotPool", 0);
 #else
     AnimCtrlSlotPool = bNewSlotPool(128, 64, "AnimCtrlSlotPool", GetVirtualMemoryAllocParams());
@@ -68,6 +68,7 @@ void CAnimCtrl::Clear() {
     m_f_loop_end = 0.0f;
     m_fframe = 0.0f;
     m_startTime = 0;
+    m_timeScale = 1.0f;
     m_animLength = 0.0f;
     m_evalTimeStamp = 0.0f;
     m_eFrameCounterTimeStamp = 0;
@@ -76,10 +77,9 @@ void CAnimCtrl::Clear() {
     m_localDelayTime = 0.0f;
     m_isAllocated = 0;
     LocalDelayElapsed = 0.0f;
+    MasterDelayElapsed = 0.0f;
     PlayDirection = eACPD_FWD;
     PlayState = eACPS_STOPPED;
-    m_timeScale = 1.0f;
-    MasterDelayElapsed = 0.0f;
     StartType = eACST_IMMEDIATE;
 }
 
@@ -160,8 +160,8 @@ int CAnimCtrl::AdvanceAnimTime(float timestep) {
         }
     } else {
         if (!pingpong) {
-            linear = true;
             m_flags |= 8;
+            linear = true;
         }
     }
     bool delay_world_start = m_flags & 0x80 && this_master_delay_elapsed < this_master_delay_len && m_evalTime < end_of_anim;
@@ -174,14 +174,14 @@ int CAnimCtrl::AdvanceAnimTime(float timestep) {
         if (new_timestep > this_master_delay_len) {
             new_evaltime += bFMod(new_timestep, this_master_delay_len);
         }
-        MasterDelayElapsed = (this_master_delay_elapsed / m_timeScale) / 3;
+        MasterDelayElapsed = (this_master_delay_elapsed / m_timeScale) / 30.0f;
     } else if (delay_loop_start) {
         this_local_delay_elapsed = this_local_delay_elapsed + this_time_step;
         float new_timestep = this_local_delay_elapsed;
         if (new_timestep > this_local_delay_len) {
             new_evaltime += bFMod(new_timestep, this_local_delay_len);
         }
-        LocalDelayElapsed = (this_local_delay_elapsed / m_timeScale) / 3;
+        LocalDelayElapsed = (this_local_delay_elapsed / m_timeScale) / 30.0f;
     } else if (linear) {
         new_evaltime += this_time_step;
         if (new_evaltime > end_of_anim) {

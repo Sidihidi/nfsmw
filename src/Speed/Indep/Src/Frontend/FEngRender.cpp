@@ -25,7 +25,15 @@ FEPackage *ObjectSortRenderingPackage = nullptr;
 extern void FinishedRenderingFEngLayer();
 
 uint32 FEngColorToEpolyColor(FEColor c) {
+    // El orden de los bytes del color de un ePoly depende de la plataforma: GameCube pone el alfa abajo; las dos PS2
+    // (y PC, que no divide el alfa) ponen el rojo abajo.
+#if defined(EA_PLATFORM_GAMECUBE)
     return (c.a / 2) | ((c.b / 2) << 8) | ((c.g / 2) << 16) | ((c.r / 2) << 24);
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    return (c.r / 2) | ((c.g / 2) << 8) | ((c.b / 2) << 16) | ((c.a / 2) << 24);
+#else
+    return (c.r / 2) | ((c.g / 2) << 8) | ((c.b / 2) << 16) | (c.a << 24);
+#endif
 }
 
 uint32 next_power_of_2(uint32 number) {
@@ -450,7 +458,12 @@ void cFEngRender::RenderString(FEString *string, FERenderObject *cached, FEPacka
 void cFEngRender::RenderModel(FEModel *model, FERenderObject *renderObj) {}
 
 void cFEngRender::RenderObject(FEObject *object, FEPackageRenderInfo *pkg_render_info) {
+#ifdef EA_PLATFORM_WIN32
+    // Mismo bit que FEngSetVisible/FEngHidePCObjects::Callback en PC.
+    if (object->Flags & 0x40) {
+#else
     if (object->Flags & 8) {
+#endif
         return;
     }
     if (object->Type == FE_Movie) {
@@ -538,7 +551,7 @@ void cFEngRender::PrepForPackage(FEPackage *pPackage) {
     ObjectSortRenderingPackage = pPackage;
 }
 
-void cFEngRender::PackageFinished(FEPackage *pkg) {}
+void cFEngRender::PackageFinished(FEPackage *pPackage) {}
 
 void cFEngRender::AddToRenderList(FEObject *obj) {
     float z = reinterpret_cast<FEObjData *>(obj->pData)->Pos.z;

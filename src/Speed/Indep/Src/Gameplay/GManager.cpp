@@ -57,6 +57,10 @@ Key GetCollectionKey(const Collection *c);
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Animation/AnimCandidates.hpp"
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 
 class WorldMap {
   public:
@@ -140,11 +144,17 @@ GManager::GManager(const char *vaultPackName)
       mEventIconsShown(false),                 //
       mMenuGateIconsShown(false),              //
       mSpeedTrapIconsShown(false),             //
+#ifndef EA_BUILD_A124
       mSpeedTrapRaceIconsShown(false),         //
+#endif
       mAllowEngageEvents(false),               //
       mAllowEngageSafehouse(false),            //
-      mAllowMenuGates(false),                  //
-      mRestartEventHash(0) {
+      mAllowMenuGates(false)                   //
+#ifndef EA_BUILD_A124
+      ,
+      mRestartEventHash(0)                     //
+#endif
+{
     mGameplayClass = Attrib::Database::Get().GetClass(Attrib::Gen::gameplay::ClassKey());
     mMilestoneClass = Attrib::Database::Get().GetClass(Attrib::Gen::milestonetypes::ClassKey());
 
@@ -180,6 +190,16 @@ GManager::~GManager() {
 }
 
 void GManager::InitializeVaults() {
+#ifdef EA_BUILD_A124
+    // La A124 lee el .BIN sin comprimir con mVaultPackFile (sus stabs: imageSize, imageBuffer).
+    mVaultPackFile = bOpen(mVaultPackFileName, BOPEN_MODE_READONLY, 1);
+    int32 imageSize = bFileSize(mVaultPackFile);
+    void *imageBuffer = bMalloc(imageSize, "Gameplay vault pack image (temporary)", 0, 0x1040);
+    bSeek(mVaultPackFile, 0, 0);
+    bRead(mVaultPackFile, imageBuffer, imageSize);
+    bClose(mVaultPackFile);
+    mVaultPackFile = nullptr;
+#else
     char compressed_filename[128];
 
     bStrCpy(compressed_filename, mVaultPackFileName);
@@ -188,9 +208,16 @@ void GManager::InitializeVaults() {
     LZHeader *compressed_buf = (LZHeader *)bGetFile(compressed_filename, NULL, 0);
     LZByteSwapHeader(compressed_buf);
 
-    void *imageBuffer = bMalloc(compressed_buf->UncompressedSize, "Gameplay vault pack image (temporary)", 0, 0x1047);
+    void *imageBuffer = bMalloc(compressed_buf->UncompressedSize, "Gameplay vault pack image (temporary)", 0,
+#ifdef EA_PLATFORM_PLAYSTATION2
+                                0x1040 // las dos PS2 la piden al pool principal; GameCube, al 7
+#else
+                                0x1047
+#endif
+    );
     LZDecompress((uint8 *)compressed_buf, (uint8 *)imageBuffer);
     bFree(compressed_buf);
+#endif
 
     mLoadingPackImage = (AttribVaultPackImage *)imageBuffer;
     mLoadingPackImage->EndianSwap();
@@ -248,13 +275,13 @@ void GManager::BuildVaultTable(AttribVaultPackImage *packImage) {
     }
 }
 
-GVault *GManager::FindVault(const char *name) {
+GVault *GManager::FindVault(const char *vaultName) {
     int lo = 0;
     int hi = mVaultCount - 1;
 
     while (lo <= hi) {
         int mid = (lo + hi) >> 1;
-        int cmp = bStrCmp(name, mVaults[mid].GetName());
+        int cmp = bStrCmp(vaultName, mVaults[mid].GetName());
 
         if (cmp > 0) {
             lo = mid + 1;
@@ -357,7 +384,12 @@ void GManager::LoadCoreVault(AttribVaultPackImage *packImage) {
 }
 
 void GManager::PreloadTransientVaults(AttribVaultPackImage *packImage) {
+#ifdef EA_BUILD_A124
+    // La A124 reserva menos pool transitorio que la version final (0x132000 contra 0x164000).
+    const int pool_size = 0x132000;
+#else
     const int pool_size = 0x164000;
+#endif
 
     mTransientPoolMemory = bMalloc(pool_size, "GManager Temp", 0, 0x47);
     mTransientPoolNumber = bGetFreeMemoryPoolNum();
@@ -367,7 +399,10 @@ void GManager::PreloadTransientVaults(AttribVaultPackImage *packImage) {
     bSetMemoryPoolDebugTracing(mTransientPoolNumber, false);
 
     for (unsigned int onVault = 0; onVault < mVaultCount; onVault++) {
+#ifndef EA_PLATFORM_PLAYSTATION2
+        // Las dos PS2 no purgan aqui los errores de DVD (ni la A124 ni SLUS llaman a DVDErrorTask).
         DVDErrorTask(NULL, 0);
+#endif
 
         GVault *vault = mVaults + onVault;
 
@@ -418,41 +453,43 @@ void GManager::FindKeyReductionShifts() {
     }
 }
 
-unsigned int GManager::FindUniqueKeyShift(unsigned int *attribKeys, unsigned int numKeys, unsigned int attribKeyBits) {
-    if (numKeys > 1) {
-        unsigned int maxShift = 32 - attribKeyBits;
-        unsigned int uniqueBitMask = (1 << attribKeyBits) - 1;
-        unsigned int keyMask = uniqueBitMask << maxShift;
-        unsigned int clearHighMask = 0xFFFFFFFF;
+unsigned int GManager::FindUniqueKeyShift(unsigned int *keys, unsigned int numKeys, unsigned int uniqueBits) {
+    if (numKeys <= 1) {
+        return 0;
+    }
 
-        for (int onShift = maxShift; onShift >= 0; onShift--) {
-            bool collision;
+    unsigned int maxShift = 32 - uniqueBits;
+    unsigned int uniqueBitMask = (1 << uniqueBits) - 1;
+    unsigned int keyMask = uniqueBitMask << maxShift;
+    unsigned int clearHighMask = 0xFFFFFFFF;
 
-            for (unsigned int onClear = 0; onClear < numKeys; onClear++) {
-                attribKeys[onClear] &= clearHighMask;
-            }
+    for (int onShift = maxShift; onShift >= 0; onShift--) {
+        bool collision;
 
-            std::sort(attribKeys, attribKeys + numKeys);
-
-            collision = false;
-
-            for (unsigned int onCheck = 1; onCheck < numKeys; onCheck++) {
-                unsigned int thisValue = attribKeys[onCheck] & keyMask;
-                unsigned int prevValue = attribKeys[onCheck - 1] & keyMask;
-
-                if (thisValue == prevValue) {
-                    collision = true;
-                    break;
-                }
-            }
-
-            if (!collision) {
-                return onShift;
-            }
-
-            clearHighMask >>= 1;
-            keyMask >>= 1;
+        for (unsigned int onClear = 0; onClear < numKeys; onClear++) {
+            keys[onClear] &= clearHighMask;
         }
+
+        std::sort(keys, keys + numKeys);
+
+        collision = false;
+
+        for (unsigned int onCheck = 1; onCheck < numKeys; onCheck++) {
+            unsigned int thisValue = keys[onCheck] & keyMask;
+            unsigned int prevValue = keys[onCheck - 1] & keyMask;
+
+            if (thisValue == prevValue) {
+                collision = true;
+                break;
+            }
+        }
+
+        if (!collision) {
+            return onShift;
+        }
+
+        clearHighMask >>= 1;
+        keyMask >>= 1;
     }
 
     return 0;
@@ -617,8 +654,8 @@ unsigned char *GManager::GetObjectStateBlock(unsigned int key) {
     return NULL;
 }
 
-void GManager::ClearObjectStateBlock(unsigned int key) {
-    unsigned int key32 = ReduceCollectionKey(key);
+void GManager::ClearObjectStateBlock(unsigned int collectionKey) {
+    unsigned int key32 = ReduceCollectionKey(collectionKey);
 
     for (unsigned int i = 0; i < 2; i++) {
         ObjectStateMap &blocks = i ? mPersistentStateBlocks : mSessionStateBlocks;
@@ -656,7 +693,11 @@ bool GManager::SaveGameplayData(unsigned char *dest, unsigned int maxSize) {
 
     SavedGameplayDataHeader *gameplayHeader = (SavedGameplayDataHeader *)dest;
     gameplayHeader->mMagic = 0x656d6147;
+#ifdef EA_BUILD_A124
+    gameplayHeader->mVersion = 7;
+#else
     gameplayHeader->mVersion = 8;
+#endif
     gameplayHeader->mNumPersistent = mPersistentStateBlocks.size();
 
     dest = (unsigned char *)gameplayHeader + 0x80;
@@ -688,7 +729,11 @@ bool GManager::SaveGameplayData(unsigned char *dest, unsigned int maxSize) {
 
     AlignPointer(dest, 16);
     gameplayHeader->mNumSpeedTrapRecords = SaveSpeedTraps((GSpeedTrap *)dest);
+#ifdef EA_BUILD_A124
+    dest += gameplayHeader->mNumSpeedTrapRecords * 0x10;
+#else
     dest += gameplayHeader->mNumSpeedTrapRecords * 0x14;
+#endif
 
     unsigned int spotBytes = sizeof(mHidingSpotFound);
 
@@ -757,7 +802,11 @@ bool GManager::LoadGameplayData(unsigned char *src, unsigned int maxSize) {
         return false;
     }
 
-    if (gameplayHeader->mVersion <= 7) {
+#ifdef EA_BUILD_A124
+    if (gameplayHeader->mVersion < 7) {
+#else
+    if (gameplayHeader->mVersion < 8) {
+#endif
         return false;
     }
 
@@ -790,7 +839,11 @@ bool GManager::LoadGameplayData(unsigned char *src, unsigned int maxSize) {
 
     AlignPointer(src, 16);
     LoadSpeedTraps((GSpeedTrap *)src, gameplayHeader->mNumSpeedTrapRecords);
+#ifdef EA_BUILD_A124
+    src += gameplayHeader->mNumSpeedTrapRecords * 0x10;
+#else
     src += gameplayHeader->mNumSpeedTrapRecords * 0x14;
+#endif
 
     unsigned int spotBytes = (gameplayHeader->mNumHidingSpotFlags + 7) >> 3;
     AlignPointer(src, 16);
@@ -853,7 +906,10 @@ void GManager::ResetAllGameplayData() {
     mStartFreeRoamFromSafeHouse = false;
 #endif
 
+#ifndef EA_PLATFORM_PLAYSTATION2
+    // Las dos PS2 no vacian aqui los SMS pendientes (acaban en `jr ra` tras el ultimo sw).
     mPendingSMS.clear();
+#endif
 }
 
 void GManager::AllocateStreamingBuffers() {
@@ -913,7 +969,6 @@ void GManager::AllocateInstanceMap() {
     mMaxObjects = 0;
 
     unsigned int mostVaultObjects = 0;
-    unsigned int mostTransientVaults = 2;
 
     for (unsigned int onVault = 0; onVault < mVaultCount; onVault++) {
         GVault &vault = mVaults[onVault];
@@ -925,15 +980,10 @@ void GManager::AllocateInstanceMap() {
         }
     }
 
+    unsigned int mostTransientVaults = 2;
     mMaxObjects += mostVaultObjects * mostTransientVaults;
 
     unsigned int minHashEntries = mMaxObjects + mMaxObjects / 2;
-    // EL MECANISMO (.greg): REG_ALLOC_ORDER (rs6000.h:932) da los preservados en
-    // el orden 31, 30, 29..., asi que el PRIMER allocno que pide uno se lleva r31.
-    // `vault` (pri 34285, refs pesadas por estar en el bucle) va antes que `this`
-    // (pri 10322) y arrampla con r31. En el objetivo el primero es `this`, o sea
-    // que alli `allocno_compare` los ordena al reves. Medido y NEGATIVO: declarar
-    // minHashEntries/tableSize arriba como en el DWARF -> las mismas 24 filas.
     unsigned int tableSize = 256;
 
     while (tableSize < minHashEntries) {
@@ -943,11 +993,9 @@ void GManager::AllocateInstanceMap() {
     mInstanceHashTableSize = tableSize;
     mInstanceHashTableMask = tableSize - 1;
 
-    tableSize <<= 3;
+    mKeyToInstanceMap = (HashEntry *)bMalloc(tableSize * sizeof(HashEntry), "Gameplay instance hash table", 0, GetVirtualMemoryAllocParams());
 
-    mKeyToInstanceMap = (HashEntry *)bMalloc(tableSize, "Gameplay instance hash table", 0, GetVirtualMemoryAllocParams());
-
-    bMemSet(mKeyToInstanceMap, 0, tableSize);
+    bMemSet(mKeyToInstanceMap, 0, tableSize * sizeof(HashEntry));
 }
 
 void GManager::ReleaseInstanceMap() {
@@ -1042,7 +1090,9 @@ void GManager::BeginGameplay() {
     mEventIconsShown = false;
     mMenuGateIconsShown = false;
     mSpeedTrapIconsShown = false;
+#ifndef EA_BUILD_A124
     mSpeedTrapRaceIconsShown = false;
+#endif
 
     RefreshEngageTriggerIcons();
     RefreshSpeedTrapIcons();
@@ -1088,11 +1138,15 @@ void GManager::EndGameplay() {
 
     mInGameplay = false;
 
+    // La A124 acaba aqui: ApplyTimeOfDayTickOver no existe en su ELF y no reinicia la lluvia.
+#ifndef EA_BUILD_A124
     ApplyTimeOfDayTickOver();
 
     SetOverRideRainIntensity(0.0f);
+#endif
 }
 
+#ifndef EA_BUILD_A124
 void GManager::PreBeginGameplay() {
     if (mRestartEventHash) {
         GRaceParameters *params = GRaceDatabase::Get().GetRaceFromHash(mRestartEventHash);
@@ -1102,6 +1156,7 @@ void GManager::PreBeginGameplay() {
         mRestartEventHash = 0;
     }
 }
+#endif
 
 bool GManager::GetInGameplay() const {
     return mInGameplay;
@@ -1125,30 +1180,10 @@ void GManager::Update(float dT) {
 
 void GManager::GetPlayerPursuitInterfaces(IPursuit *&pursuit, IPerpetrator *&perp) {
     IPlayer *player = IPlayer::First(PLAYER_LOCAL);
-    ISimable *simable;
-
-    if (player) {
-        simable = player->GetSimable();
-    } else {
-        simable = NULL;
-    }
-
-    IVehicleAI *ai = NULL;
-    if (simable) {
-        simable->QueryInterface(&ai);
-    }
-
-    if (ai) {
-        pursuit = ai->GetPursuit();
-    } else {
-        pursuit = NULL;
-    }
-
-    IPerpetrator *p = NULL;
-    if (simable) {
-        simable->QueryInterface(&p);
-    }
-    perp = p;
+    ISimable *simable = player ? player->GetSimable() : NULL;
+    IVehicleAI *vehicleai = UTL::COM::QueryInterface<IVehicleAI>(simable);
+    pursuit = vehicleai ? vehicleai->GetPursuit() : NULL;
+    perp = UTL::COM::QueryInterface<IPerpetrator>(simable);
 }
 
 void GManager::UpdatePursuit() {
@@ -1182,6 +1217,10 @@ void GManager::UpdatePursuit() {
         Get().TrackValue("bounty_in_pursuit", bounty);
     }
 
+#ifdef EA_BUILD_A124
+    mHidingSpotIconsShown = roaming && inPursuit && inCooldown;
+    mPursuitBreakerIconsShown = roaming && inPursuit && !inCooldown;
+#else
     bool challengeSeries = false;
     if (GRaceStatus::Get().GetRaceParameters()) {
         if (GRaceStatus::Get().GetRaceParameters()->GetIsChallengeSeriesRace()) {
@@ -1191,6 +1230,7 @@ void GManager::UpdatePursuit() {
 
     mHidingSpotIconsShown = (roaming || challengeSeries) && inPursuit && inCooldown;
     mPursuitBreakerIconsShown = (roaming || challengeSeries || GRaceStatus::IsFinalEpicPursuit()) && inPursuit && !inCooldown;
+#endif
 
     if (TWEAK_ShowGameplayMilestoneValues) {
         static volatile int xLeft = -130;
@@ -1212,8 +1252,23 @@ void GManager::UpdatePursuit() {
         int x = xLeft;
         int y = yTop;
         for (int i = 0; i <= 8; i++) {
+#ifdef EA_BUILD_A124
+            const char *name = milestoneNames[i];
+            float value = GetValue(name);
+
+            ScreenPrintf(x, y, "%s", name);
+
+            if (value == -1.0f) {
+                ScreenPrintf(x + xWidth, y, "-");
+            } else {
+                ScreenPrintf(x + xWidth, y, "%d", static_cast<int>(value));
+            }
+
+            y += line;
+#else
             GetValue(milestoneNames[i]);
             int l = line;
+#endif
         }
     }
 }
@@ -1243,13 +1298,15 @@ void GManager::UpdateTriggerAvailability() {
 void GManager::UpdateIconVisibility() {
     bool hideAll;
     bool showAll;
-    bool iconTypeVisible[17];
+    bool iconTypeVisible[GIcon::kType_Count];
 
     mEventIconsShown = mAllowEngageEvents;
     mMenuGateIconsShown = mAllowMenuGates;
     mSpeedTrapIconsShown = mAllowEngageEvents;
 
+#ifndef EA_BUILD_A124
     mSpeedTrapRaceIconsShown = GRaceStatus::IsSpeedTrapRace();
+#endif
 
     hideAll = false;
     showAll = false;
@@ -1261,7 +1318,7 @@ void GManager::UpdateIconVisibility() {
         showAll = true;
     }
 
-    for (unsigned int onFlag = 0; onFlag <= 16; onFlag++) {
+    for (unsigned int onFlag = 0; onFlag < GIcon::kType_Count; onFlag++) {
         iconTypeVisible[onFlag] = showAll;
     }
 
@@ -1279,8 +1336,10 @@ void GManager::UpdateIconVisibility() {
         iconTypeVisible[GIcon::kType_HidingSpot] = mHidingSpotIconsShown;
         iconTypeVisible[GIcon::kType_PursuitBreaker] = mPursuitBreakerIconsShown;
         iconTypeVisible[GIcon::kType_SpeedTrap] = mSpeedTrapIconsShown;
+#ifndef EA_BUILD_A124
         iconTypeVisible[GIcon::kType_SpeedTrapInRace] = mSpeedTrapRaceIconsShown;
         iconTypeVisible[GIcon::kType_AreaUnlock] = true;
+#endif
     }
 
     mNumVisibleIcons = 0;
@@ -1292,15 +1351,20 @@ void GManager::UpdateIconVisibility() {
         bool typeVisible = iconTypeVisible[icon->GetType()];
         bool shouldBeVisible = iconVisible && typeVisible;
 
+        // Tres if seguidos, como en el mapa de lineas del original: en PS2 el compilador reduce entonces onIcon * 4 a
+        // una variable de induccion (GameCube sale igual con un if-else).
+        if (shouldBeVisible) {
+            if (!enabled) {
+                icon->Enable();
+            }
+        }
         if (!shouldBeVisible) {
             if (enabled) {
                 icon->Disable();
             }
-        } else {
-            if (!enabled) {
-                icon->Enable();
-            }
+        }
 
+        if (shouldBeVisible) {
             std::swap(mIcons[onIcon], mIcons[mNumVisibleIcons]);
             mNumVisibleIcons++;
         }
@@ -1309,11 +1373,9 @@ void GManager::UpdateIconVisibility() {
 
 void GManager::NotifyWorldService() {
     if (mWarping) {
-        if (TheTrackStreamer.IsLoadingInProgress() == true) {
-            return;
-        }
+        bool trackStreamerDone = !TheTrackStreamer.IsLoadingInProgress();
 
-        {
+        if (trackStreamerDone) {
             if (mWarpTargetMarker) {
                 GMarker *marker = static_cast<GMarker *>(FindInstance(mWarpTargetMarker));
                 const UMath::Vector3 &markerPos = marker->GetPosition();
@@ -1329,13 +1391,19 @@ void GManager::NotifyWorldService() {
                 mWarpTargetMarker = 0;
 
                 if (mWarpStartPursuit) {
+#ifndef EA_BUILD_A124
                     World_RestoreProps();
                     GPS_Disengage();
                     ITrafficMgr::Get()->FlushAllTraffic(true);
                     ICopMgr::Get()->ResetCopsForRestart(true);
+#endif
                     ICopMgr::Get()->LockoutCops(false);
                     ICopMgr::Get()->PursueAtHeatLevel(1);
                 }
+#ifdef EA_BUILD_A124
+                // La A124 sale aqui: el resto (y el fundido) espera a la siguiente vuelta.
+                return;
+#endif
             }
 
             if (mWarpStartPursuit) {
@@ -1346,39 +1414,45 @@ void GManager::NotifyWorldService() {
                     ICopMgr::Get()->PursueAtHeatLevel(1);
                 }
             } else {
+#ifdef EA_BUILD_A124
+                new EFadeScreenOff(0x161a918);
+#else
                 mWarping = false;
+#endif
             }
 
+#ifndef EA_BUILD_A124
             if (!mWarping) {
                 new EFadeScreenOff(0x161a918);
             }
+#endif
         }
     }
 }
 
-void GManager::NotifyCollisionPackLoaded(int sectionNumber, bool loaded) {
+void GManager::NotifyCollisionPackLoaded(int sectionID, bool loaded) {
     if (Exists()) {
         if (loaded) {
-            Get().SpawnSectionIcons(sectionNumber);
+            Get().SpawnSectionIcons(sectionID);
         } else {
-            Get().UnspawnSectionIcons(sectionNumber);
+            Get().UnspawnSectionIcons(sectionID);
         }
     }
 }
 
 void GManager::AttachCharacter(GCharacter *character) {
-    GCharacterList::iterator it = std::find(mActiveCharacters.begin(), mActiveCharacters.end(), character);
+    GCharacterList::iterator iterChar = std::find(mActiveCharacters.begin(), mActiveCharacters.end(), character);
 
-    if (it == mActiveCharacters.end()) {
+    if (iterChar == mActiveCharacters.end()) {
         mActiveCharacters.push_back(character);
     }
 }
 
 void GManager::DetachCharacter(GCharacter *character) {
-    GCharacterList::iterator it = std::find(mActiveCharacters.begin(), mActiveCharacters.end(), character);
+    GCharacterList::iterator iterChar = std::find(mActiveCharacters.begin(), mActiveCharacters.end(), character);
 
-    if (it != mActiveCharacters.end()) {
-        mActiveCharacters.erase(it);
+    if (iterChar != mActiveCharacters.end()) {
+        mActiveCharacters.erase(iterChar);
     }
 }
 
@@ -1504,7 +1578,10 @@ eVehicleCacheResult GManager::OnQueryVehicleCache(const IVehicle *removethis, co
                 lowestPrio = *mActiveCharacters.begin();
             }
 
-            return character == lowestPrio ? VCR_DONTCARE : VCR_WANT;
+            if (character == lowestPrio) {
+                return VCR_DONTCARE;
+            }
+            return VCR_WANT;
         }
     }
 
@@ -1512,14 +1589,17 @@ eVehicleCacheResult GManager::OnQueryVehicleCache(const IVehicle *removethis, co
 }
 
 void GManager::OnRemovedVehicleCache(IVehicle *ivehicle) {
-    for (StockCarMap::iterator it = mStockCars.begin(); it != mStockCars.end(); ++it) {
-        ISimable *stockCar = it->second;
+    // En la A124 esta vacia (8 bytes: jr ra).
+#ifndef EA_BUILD_A124
+    for (StockCarMap::iterator iter = mStockCars.begin(); iter != mStockCars.end(); ++iter) {
+        ISimable *simable = iter->second;
 
-        if (UTL::COM::ComparePtr(stockCar, ivehicle)) {
-            mStockCars.erase(it);
+        if (UTL::COM::ComparePtr(simable, ivehicle)) {
+            mStockCars.erase(iter);
             break;
         }
     }
+#endif
 }
 
 void GManager::RegisterInstance(GRuntimeInstance *instance) {
@@ -1657,13 +1737,14 @@ void GManager::ConnectChildren(GRuntimeInstance *runtimeInstance) {
 }
 
 unsigned int GManager::GetStrippedNameKey(const char *name) {
-    const char *lastSlash = (const char *)(bStrLen(name) + (unsigned int)name);
+    const char *lastSlash = name + bStrLen(name) - 1;
 
-    while (--lastSlash >= name) {
+    while (lastSlash >= name) {
         if (*lastSlash == '/' || *lastSlash == '\\') {
             name = lastSlash + 1;
             break;
         }
+        lastSlash--;
     }
 
     return Attrib::StringToKey(name);
@@ -1672,27 +1753,27 @@ unsigned int GManager::GetStrippedNameKey(const char *name) {
 void GManager::ResetMilestoneTrackingInfo() {
     mMilestoneTypeInfo.clear();
 
-    Attrib::Key key = mMilestoneClass->GetFirstCollection();
+    Attrib::Key collectionKey = mMilestoneClass->GetFirstCollection();
 
-    while (key != 0) {
-        Attrib::Gen::milestonetypes type(key, 0, NULL);
+    while (collectionKey != 0) {
+        Attrib::Gen::milestonetypes element(collectionKey, 0, NULL);
         MilestoneTypeInfo info;
 
-        info.mTypeKey = key;
+        info.mTypeKey = collectionKey;
         info.mBestValue = -1.0f;
         info.mLastKnownValue = -1.0f;
         info.mFlags = 0;
 
-        if (type.MilestoneType() != 2) {
+        if (element.MilestoneType() != 2) {
             info.mFlags = GMilestone::kFlag_BiggerIsBetter;
         }
 
-        if (type.ResetWhenPursuitStarts()) {
+        if (element.ResetWhenPursuitStarts()) {
             info.mFlags |= GMilestone::kFlag_CompletionFaked;
         }
 
-        mMilestoneTypeInfo[key] = info;
-        key = mMilestoneClass->GetNextCollection(key);
+        mMilestoneTypeInfo[collectionKey] = info;
+        collectionKey = mMilestoneClass->GetNextCollection(collectionKey);
     }
 }
 
@@ -1714,8 +1795,8 @@ void GManager::LoadMilestoneInfo(MilestoneTypeInfo *savedInfo, unsigned int coun
 }
 
 unsigned int GManager::SaveMilestoneInfo(MilestoneTypeInfo *dest) {
-    for (MilestoneInfoMap::iterator it = mMilestoneTypeInfo.begin(); it != mMilestoneTypeInfo.end(); ++it) {
-        MilestoneTypeInfo &info = it->second;
+    for (MilestoneInfoMap::iterator iterMile = mMilestoneTypeInfo.begin(); iterMile != mMilestoneTypeInfo.end(); ++iterMile) {
+        MilestoneTypeInfo &info = iterMile->second;
 
         *dest++ = info;
     }
@@ -1788,10 +1869,10 @@ void GManager::StartWorldActivities(bool startFreeRoamOnly) {
 
 void GManager::StartBinActivity(GRaceBin *raceBin) {
     if (raceBin) {
-        GActivity *activity = (GActivity *)Get().FindInstance(raceBin->GetCollectionKey());
+        GActivity *binActivity = (GActivity *)Get().FindInstance(raceBin->GetCollectionKey());
 
-        if (!activity->GetIsRunning()) {
-            activity->Run();
+        if (!binActivity->GetIsRunning()) {
+            binActivity->Run();
         }
     }
 }
@@ -1812,25 +1893,37 @@ void GManager::SuspendAllBinActivities() {
 }
 
 void GManager::StartRaceFromInGame(unsigned int raceHash) {
+    // Nombres del DWARF de GameCube (parms, currentBin, activity) y de los stabs de la A124.
     if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
-        GRaceParameters *params = GRaceDatabase::Get().GetRaceFromHash(raceHash);
+        GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromHash(raceHash);
 
-        if (params) {
-            GRaceBin *bin = GRaceStatus::Get().GetRaceBin();
+        if (parms) {
+            // La A124 no tiene grupos de carreras que suspender.
+#ifndef EA_BUILD_A124
+            GRaceBin *currentBin = GRaceStatus::Get().GetRaceBin();
 
-            if (bin) {
-                if (params->GetParentVault() != bin->GetChildVault()) {
+            if (currentBin) {
+                if (parms->GetParentVault() != currentBin->GetChildVault()) {
                     SuspendAllBinActivities();
 
-#ifndef EA_BUILD_A124
                     GRaceStatus::Get().SetRefreshBinAfterRace(true);
-#endif
                 }
             }
 
-            params->BlockUntilLoaded();
+            parms->BlockUntilLoaded();
+#endif
 
-            GActivity *activity = params->GetActivity();
+            GActivity *activity = parms->GetActivity();
+
+            // La A124 comprueba la actividad y solo entonces espera a la carga (su .mdebug:
+            // GetActivity 2771, la comprobacion 2772, BlockUntilLoaded 2778).
+#ifdef EA_BUILD_A124
+            if (!activity) {
+                return;
+            }
+
+            parms->BlockUntilLoaded();
+#endif
 
             activity->Reset();
             activity->Run();
@@ -1858,7 +1951,7 @@ bool GManager::CalcMapCoordsForMarker(unsigned int markerKey, bVector2 &outPos, 
     UMath::Vector3 dir = {0.0f, 0.0f, 1.0f};
 
     UMath::Init(rotMat, 1.0f, 1.0f, 1.0f);
-    MATRIX4_multyrot(&rotMat, -marker.Rotation() / 360.0f, &rotMat);
+    UMath::MultYRot(rotMat, -marker.Rotation() / 360.0f, rotMat);
     UMath::Rotate(dir, rotMat, dir);
 
     outRotDeg = static_cast<unsigned int>(bATan(-dir.x, dir.z)) * 0.0054931640625f;
@@ -1956,17 +2049,17 @@ GMilestone *GManager::GetNextMilestone(GMilestone *current, bool availOnly, unsi
 }
 
 void GManager::EnableBinMilestones(unsigned int binNumber) {
-    GMilestone *milestone = GetFirstMilestone(false, binNumber);
+    GMilestone *binMilestone = GetFirstMilestone(false, binNumber);
 
-    while (milestone) {
-        milestone->Unlock();
-        milestone = GetNextMilestone(milestone, false, binNumber);
+    while (binMilestone) {
+        binMilestone->Unlock();
+        binMilestone = GetNextMilestone(binMilestone, false, binNumber);
     }
 }
 
 void GManager::NotifyPursuitStarted() {
-    for (MilestoneInfoMap::iterator it = mMilestoneTypeInfo.begin(); it != mMilestoneTypeInfo.end(); ++it) {
-        MilestoneTypeInfo &info = it->second;
+    for (MilestoneInfoMap::iterator iterMile = mMilestoneTypeInfo.begin(); iterMile != mMilestoneTypeInfo.end(); ++iterMile) {
+        MilestoneTypeInfo &info = iterMile->second;
 
         if (info.mFlags & GMilestone::kFlag_CompletionFaked) {
             info.mBestValue = -1.0f;
@@ -1976,11 +2069,11 @@ void GManager::NotifyPursuitStarted() {
 }
 
 void GManager::NotifyPursuitEnded(bool evaded) {
-    GMilestone *milestone = GetFirstMilestone(true, 0);
+    GMilestone *availMile = GetFirstMilestone(true, 0);
 
-    while (milestone) {
-        milestone->NotifyPursuitOver(evaded);
-        milestone = GetNextMilestone(milestone, true, 0);
+    while (availMile) {
+        availMile->NotifyPursuitOver(evaded);
+        availMile = GetNextMilestone(availMile, true, 0);
     }
 
     if (evaded && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
@@ -2017,13 +2110,13 @@ GSpeedTrap *GManager::GetNextSpeedTrap(GSpeedTrap *current, bool activeOnly, uns
 }
 
 void GManager::EnableBinSpeedTraps(unsigned int binNumber) {
-    GSpeedTrap *speedTrap = GetFirstSpeedTrap(false, binNumber);
+    GSpeedTrap *binSpeedTrap = GetFirstSpeedTrap(false, binNumber);
 
-    while (speedTrap) {
-        speedTrap->Unlock();
-        speedTrap->Activate();
+    while (binSpeedTrap) {
+        binSpeedTrap->Unlock();
+        binSpeedTrap->Activate();
 
-        speedTrap = GetNextSpeedTrap(speedTrap, false, binNumber);
+        binSpeedTrap = GetNextSpeedTrap(binSpeedTrap, false, binNumber);
     }
 }
 
@@ -2140,6 +2233,35 @@ void GManager::RefreshZoneIcons() {
     }
 }
 
+#ifdef EA_BUILD_A124
+bool GManager::AddIconForTrackMarker(TrackPositionMarker *marker, unsigned int tag) {
+    unsigned int *momentMarkerHash = reinterpret_cast<unsigned int *>(tag);
+
+    for (int onMoment = 0; onMoment < NumMomentMarkerTypes; onMoment++) {
+        switch (onMoment) {
+            case CameraCutMomentMarker:
+            case BustedMomementMarker:
+            case TollboothMarker:
+            case GarageMarker:
+                continue;
+        }
+
+        if (marker->NameHash == momentMarkerHash[onMoment]) {
+            UMath::Vector3 pos = UMath::Vector3Make(marker->Position.x, marker->Position.y, marker->Position.z);
+
+            GIcon *icon = GManager::Get().AllocIcon(GIcon::kType_PursuitBreaker, pos, 0.0f, true);
+
+            if (icon != NULL) {
+                icon->Show();
+                icon->ShowOnMap();
+            }
+            break;
+        }
+    }
+
+    return true;
+}
+#else
 bool GManager::AddIconForTrackMarker(TrackPositionMarker *marker, unsigned int momentHash) {
     if (marker->NameHash == momentHash) {
         UMath::Vector3 pos = UMath::Vector3Make(marker->Position.x, marker->Position.y, marker->Position.z);
@@ -2154,11 +2276,22 @@ bool GManager::AddIconForTrackMarker(TrackPositionMarker *marker, unsigned int m
 
     return true;
 }
+#endif
 
 void GManager::RefreshTrackMarkerIcons() {
     FreeDisposableIcons(GIcon::kType_PursuitBreaker);
 
+#ifdef EA_BUILD_A124
+    unsigned int momentMarkerHash[NumMomentMarkerTypes];
+
+    for (int onMoment = 0; onMoment < NumMomentMarkerTypes; onMoment++) {
+        momentMarkerHash[onMoment] = bStringHash(CAnimCandidateData::GetMomentMarkerName(onMoment));
+    }
+
+    ForEachTrackPositionMarker(AddIconForTrackMarker, reinterpret_cast<unsigned int>(momentMarkerHash));
+#else
     ForEachTrackPositionMarker(AddIconForTrackMarker, bStringHash("IconMarker"));
+#endif
 
     if (GetInGameplay()) {
         SpawnAllLoadedSectionIcons();
@@ -2193,22 +2326,34 @@ void GManager::HidePursuitBreakerIcon(const UMath::Vector3 &pos, float radius) {
 
     bConvertFromBond(posHide, pos);
 
-    for (unsigned int onIcon = 0; onIcon < mNumIcons; onIcon++) {
+    // La A124 solo recorre los iconos visibles (lw 0x2e4: mNumVisibleIcons).
+    for (unsigned int onIcon = 0; onIcon <
+#ifdef EA_BUILD_A124
+                                  mNumVisibleIcons
+#else
+                                  mNumIcons
+#endif
+         ;
+         onIcon++) {
         GIcon *icon = mIcons[onIcon];
 
         if (icon->GetType() == GIcon::kType_PursuitBreaker) {
             float d2 = UMath::DistanceSquare(posHide, icon->GetPosition());
 
             if (d2 <= radius * radius) {
+#ifdef EA_BUILD_A124 // la A124 lo esconde hasta que reaparezca (jal HideUntilRespawn__5GIcon)
+                icon->HideUntilRespawn();
+#else
                 icon->Hide();
+#endif
             }
         }
     }
 }
 
 void GManager::RestorePursuitBreakerIcons(int sectionID) {
-    for (unsigned int i = 0; i < mNumIcons; i++) {
-        GIcon *icon = mIcons[i];
+    for (unsigned int onIcon = 0; onIcon < mNumIcons; onIcon++) {
+        GIcon *icon = mIcons[onIcon];
 
         if (icon->GetType() == GIcon::kType_PursuitBreaker) {
             if (sectionID == -1 || sectionID == icon->GetSectionID() || sectionID == icon->GetCombinedSectionID()) {
@@ -2237,23 +2382,23 @@ GIcon *GManager::AllocIcon(GIcon::Type iconType, const UMath::Vector3 &pos, floa
 }
 
 void GManager::FreeDisposableIcons(GIcon::Type iconType) {
-    unsigned int i = 0;
+    unsigned int onIcon = 0;
 
-    while (i < mNumIcons) {
-        GIcon *icon = mIcons[i];
+    while (onIcon < mNumIcons) {
+        GIcon *icon = mIcons[onIcon];
 
         if (icon->GetIsDisposable() && icon->GetType() == iconType) {
-            FreeIconAt(i);
+            FreeIconAt(onIcon);
         } else {
-            i++;
+            onIcon++;
         }
     }
 }
 
 void GManager::FreeIcon(GIcon *icon) {
-    for (unsigned int i = 0; i < mNumIcons; i++) {
-        if (mIcons[i] == icon) {
-            FreeIconAt(i);
+    for (unsigned int onCheck = 0; onCheck < mNumIcons; onCheck++) {
+        if (mIcons[onCheck] == icon) {
+            FreeIconAt(onCheck);
             return;
         }
     }
@@ -2262,9 +2407,12 @@ void GManager::FreeIcon(GIcon *icon) {
 void GManager::FreeIconAt(unsigned int index) {
     if (mNumIcons) {
         if (mIcons[index]) {
+            // La A124 no guia con el GPS hacia iconos: no hay nada que limpiar.
+#ifndef EA_BUILD_A124
             if (mIcons[index] == WorldMap::mGPSingIcon) {
                 WorldMap::ClearGPSing();
             }
+#endif
 
             delete mIcons[index];
 
@@ -2338,8 +2486,8 @@ int GManager::GatherVisibleIcons(GIcon **iconArray, IPlayer *player) {
 }
 
 bool GManager::GetIsIconVisible(GIcon *icon) {
-    for (unsigned int i = 0; i < mNumVisibleIcons; i++) {
-        if (mIcons[i] == icon) {
+    for (unsigned int onIcon = 0; onIcon < mNumVisibleIcons; onIcon++) {
+        if (mIcons[onIcon] == icon) {
             return true;
         }
     }
@@ -2348,8 +2496,8 @@ bool GManager::GetIsIconVisible(GIcon *icon) {
 }
 
 void GManager::SpawnAllLoadedSectionIcons() {
-    for (unsigned int i = 0; i < mNumIcons; i++) {
-        GIcon *icon = mIcons[i];
+    for (unsigned int onIcon = 0; onIcon < mNumIcons; onIcon++) {
+        GIcon *icon = mIcons[onIcon];
 
         icon->FindSection();
 
@@ -2370,8 +2518,8 @@ void GManager::SpawnAllLoadedSectionIcons() {
 }
 
 void GManager::SpawnSectionIcons(int section) {
-    for (unsigned int i = 0; i < mNumIcons; i++) {
-        GIcon *icon = mIcons[i];
+    for (unsigned int onIcon = 0; onIcon < mNumIcons; onIcon++) {
+        GIcon *icon = mIcons[onIcon];
 
         if (icon->GetSectionID() < 0) {
             icon->FindSection();
@@ -2384,8 +2532,8 @@ void GManager::SpawnSectionIcons(int section) {
 }
 
 void GManager::UnspawnSectionIcons(int section) {
-    for (unsigned int i = 0; i < mNumIcons; i++) {
-        GIcon *icon = mIcons[i];
+    for (unsigned int onIcon = 0; onIcon < mNumIcons; onIcon++) {
+        GIcon *icon = mIcons[onIcon];
 
         if (icon->GetSectionID() < 0) {
             icon->FindSection();
@@ -2398,8 +2546,8 @@ void GManager::UnspawnSectionIcons(int section) {
 }
 
 void GManager::UnspawnAllIcons() {
-    for (unsigned int i = 0; i < mNumIcons; i++) {
-        mIcons[i]->Unspawn();
+    for (unsigned int onIcon = 0; onIcon < mNumIcons; onIcon++) {
+        mIcons[onIcon]->Unspawn();
     }
 }
 
@@ -2534,8 +2682,8 @@ void GManager::LoadSpeedTraps(GSpeedTrap *src, unsigned int count) {
 }
 
 void GManager::ServicePendingCharacters() {
-    for (GCharacterList::iterator it = mActiveCharacters.begin(); it != mActiveCharacters.end(); it++) {
-        GCharacter *character = *it;
+    for (GCharacterList::iterator iterChar = mActiveCharacters.begin(); iterChar != mActiveCharacters.end(); iterChar++) {
+        GCharacter *character = *iterChar;
 
         if (character->SpawnPending()) {
             if (character->AttemptSpawn()) {
@@ -2546,8 +2694,8 @@ void GManager::ServicePendingCharacters() {
 }
 
 void GManager::UnspawnUselessCharacters() {
-    for (GCharacterList::iterator it = mActiveCharacters.begin(); it != mActiveCharacters.end(); it++) {
-        GCharacter *character = *it;
+    for (GCharacterList::iterator iterChar = mActiveCharacters.begin(); iterChar != mActiveCharacters.end(); iterChar++) {
+        GCharacter *character = *iterChar;
 
         if (character->IsNoLongerUseful()) {
             character->Unspawn();
@@ -2561,9 +2709,11 @@ void GManager::RecursivePreloadCharacterCars(GRuntimeInstance *instance, bool fo
         const char *carType = instance->CarType();
         const char *carTypeLowMem = instance->CarTypeLowMem();
 
+#ifdef EA_PLATFORM_GAMECUBE
         if (carTypeLowMem != NULL && carTypeLowMem[0] != 0) {
             carType = carTypeLowMem;
         }
+#endif
 
         if (instance->ForcePreload() || forcePreload) {
             ReserveStockCar(carType);
@@ -2618,9 +2768,12 @@ void GManager::ReserveStockCar(const char *carName) {
 
         VehicleParams params(cache, DRIVER_NONE, Attrib::StringToKey(carName), dir, pos, 0, NULL, NULL);
         ISimable *simable = ISimable::CreateInstance("PVehicle", params);
+        // La A124 no comprueba que se haya creado.
+#ifndef EA_BUILD_A124
         if (simable == NULL) {
             return;
         }
+#endif
 
         {
             IVehicle *vehicle = NULL;
@@ -2634,11 +2787,11 @@ void GManager::ReserveStockCar(const char *carName) {
 }
 
 bool GManager::StockCarsLoaded() {
-    for (StockCarMap::iterator it = mStockCars.begin(); it != mStockCars.end(); ++it) {
-        ISimable *car = it->second;
+    for (StockCarMap::iterator iter = mStockCars.begin(); iter != mStockCars.end(); ++iter) {
+        ISimable *simable = iter->second;
         IVehicle *vehicle;
 
-        if (car->QueryInterface(&vehicle)) {
+        if (simable->QueryInterface(&vehicle)) {
             if (vehicle->IsLoading()) {
                 return false;
             }
@@ -2649,9 +2802,9 @@ bool GManager::StockCarsLoaded() {
 }
 
 void GManager::ClearStockCars() {
-    for (StockCarMap::iterator it = mStockCars.begin(); it != mStockCars.end(); ++it) {
-        ISimable *car = it->second;
-        car->Kill();
+    for (StockCarMap::iterator iter = mStockCars.begin(); iter != mStockCars.end(); ++iter) {
+        ISimable *simable = iter->second;
+        simable->Kill();
     }
 
     mStockCars.clear();
@@ -2752,14 +2905,17 @@ bool GManager::SetTimer(const char *name, float interval) {
 }
 
 void GManager::KillTimer(const char *name) {
-    unsigned int nameHash = bStringHash(name);
+    // hash, index y la referencia timer: DWARF de GameCube y stabs de la A124. Sale con return,
+    // como SetTimer: con break el EE-GCC no rota el bucle (el break tambien salta a la etiqueta
+    // de fin de bucle) y las dos PS2 tienen la prueba abajo, sin salto inicial.
+    unsigned int hash = bStringHash(name);
 
-    for (unsigned int i = 0; i < 8; i++) {
-        GEventTimer *timer = &mTimers[i];
+    for (unsigned int index = 0; index < 8; index++) {
+        GEventTimer &timer = mTimers[index];
 
-        if (nameHash == timer->GetNameHash()) {
-            timer->Stop();
-            break;
+        if (hash == timer.GetNameHash()) {
+            timer.Stop();
+            return;
         }
     }
 }
@@ -2810,22 +2966,20 @@ unsigned int GManager::SaveSMSInfo(int *saveInfo) {
 void GManager::LoadSMSInfo(int *loadInfo, unsigned int count) {
     mPendingSMS.clear();
 
-    for (unsigned int i = 0; i < count; i++) {
-        mPendingSMS.push_back(loadInfo[i]);
+    for (unsigned int index = 0; index < count; index++) {
+        mPendingSMS.push_back(loadInfo[index]);
     }
 }
 
-bool GManager::GetHasPendingSMS()
 #ifndef EA_BUILD_A124
-    const
-#endif
-{
+bool GManager::GetHasPendingSMS() const {
     if (mPendingSMS.size() == 0) {
         return false;
     }
 
     return CanPlaySMS();
 }
+#endif
 
 bool GManager::CanPlaySMS()
 #ifndef EA_BUILD_A124
@@ -2870,50 +3024,42 @@ bool GManager::CanPlaySMS()
 
     player = IPlayer::First(PLAYER_LOCAL);
 
-    if (!player) {
-        return false;
+    if (player) {
+        ISimable *simable = player->GetSimable();
+
+        if (simable) {
+            IHud *ihud = player->GetHud();
+            IVehicle *ivehicle;
+
+            if (ihud && ihud->IsHudVisible()) {
+                if (simable->QueryInterface(&ivehicle) && ivehicle) {
+                    if (!ivehicle->IsAnimating() && !ivehicle->IsStaging() && !ivehicle->IsLoading()) {
+                        IVehicleAI *ivehicleai = ivehicle->GetAIVehiclePtr();
+
+                        if (ivehicleai) {
+                            return ivehicleai->GetPursuit() == NULL;
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    ISimable *simable = player->GetSimable();
-
-    if (!simable) {
-        return false;
-    }
-
-    IHud *ihud = player->GetHud();
-
-    if (!ihud || !ihud->IsHudVisible()) {
-        return false;
-    }
-
-    IVehicle *ivehicle;
-
-    if (!simable->QueryInterface(&ivehicle) || !ivehicle) {
-        return false;
-    }
-
-    if (ivehicle->IsAnimating() || ivehicle->IsStaging() || ivehicle->IsLoading()) {
-        return false;
-    }
-
-    IVehicleAI *ivehicleai = ivehicle->GetAIVehiclePtr();
-
-    if (!ivehicleai) {
-        return false;
-    }
-
-    return ivehicleai->GetPursuit() == NULL;
+    return false;
 }
 
 void GManager::AddSMS(int smsID) {
-    if ((smsID >= 10 && smsID <= 14) || smsID == 95 || smsID == 96) {
+    if ((smsID > 9 && smsID <= 14) || smsID == 95 || smsID == 96) {
         DispatchSMSMessage(smsID);
     } else {
-        SMSMessage *message = FEDatabase->GetCareerSettings()->GetSMSMessage(smsID);
+        // La A124 no mira si el mensaje ya se ha visto: solo evita repetirlo en la cola.
+#ifndef EA_BUILD_A124
+        SMSMessage *msg = FEDatabase->GetCareerSettings()->GetSMSMessage(smsID);
 
-        if (message && message->GetFlags() != 0) {
+        if (msg && msg->GetFlags() != 0) {
             return;
         }
+#endif
 
         for (PendingSMSList::iterator it = mPendingSMS.begin(); it != mPendingSMS.end(); it++) {
             if (*it == smsID) {
@@ -2926,13 +3072,17 @@ void GManager::AddSMS(int smsID) {
 }
 
 void GManager::DispatchSMSMessage(int smsID) {
-    SMSMessage *message = FEDatabase->GetCareerSettings()->GetSMSMessage(smsID);
+    SMSMessage *msg = FEDatabase->GetCareerSettings()->GetSMSMessage(smsID);
 
-    if (message && message->GetFlags() == 0) {
-        message->Flags = SMS_FLAG_READ;
+    if (msg && msg->GetFlags() == 0) {
+#ifdef EA_BUILD_A124
+        // La A124 lo marca como no leido con el accesor (su Flags es privado): sb 1 sobre Flags,
+        // desde el SetFlag inline de FEDatabase.hpp.
+        msg->SetFlag(SMS_FLAG_UNREAD);
+#else
+        msg->Flags = SMS_FLAG_READ;
 
-#ifndef EA_BUILD_A124
-        message->SetSortOrder(FEDatabase->GetCareerSettings()->GetSMSSortOrder());
+        msg->SetSortOrder(FEDatabase->GetCareerSettings()->GetSMSSortOrder());
 #endif
 
         new ECellCall(smsID);
@@ -2945,6 +3095,14 @@ void GManager::UpdatePendingSMS(
 #endif
 ) {
     if (mPendingSMS.size() != 0 && CanPlaySMS()) {
+#ifdef EA_BUILD_A124
+        // La A124 ensena siempre el primero de la cola (su PushSMSToInbox no devuelve nada) y no
+        // pide el logo de Cingular.
+        int smsToShow = *mPendingSMS.begin();
+
+        PushSMSToInbox();
+        new EShowSMS(smsToShow);
+#else
         int smsToShow = PushSMSToInbox();
 
         if (smsToShow != -1) {
@@ -2966,37 +3124,56 @@ void GManager::UpdatePendingSMS(
                 }
             }
         }
+#endif
     }
 }
 
+// La A124 solo pasa la cola al buzon marcando cada mensaje como no leido: no elige cual se
+// reproduce ni devuelve nada (sus stabs no tienen smsID ni smsToPlay).
+#ifdef EA_BUILD_A124
+void GManager::PushSMSToInbox() {
+#else
 int GManager::PushSMSToInbox() {
     int smsToPlay = -1;
+#endif
 
     for (PendingSMSList::iterator it = mPendingSMS.begin(); it != mPendingSMS.end(); it++) {
+#ifdef EA_BUILD_A124
+        SMSMessage *msg = FEDatabase->GetCareerSettings()->GetSMSMessage(*it);
+#else
         int smsID = *it;
 
         SMSMessage *msg = FEDatabase->GetCareerSettings()->GetSMSMessage(smsID);
+#endif
 
         if (msg != NULL) {
+#ifndef EA_BUILD_A124
             if (msg->IsVoice() && smsToPlay == -1) {
                 smsToPlay = smsID;
             }
+#endif
 
             msg->ClearFlags();
+#ifdef EA_BUILD_A124
+            msg->SetFlag(SMS_FLAG_UNREAD);
+#else
             msg->SetFlag(2);
-#ifndef EA_BUILD_A124
             msg->SetSortOrder(FEDatabase->GetCareerSettings()->GetSMSSortOrder());
 #endif
         }
     }
 
+#ifndef EA_BUILD_A124
     if (smsToPlay == -1 && mPendingSMS.size() != 0) {
         smsToPlay = *mPendingSMS.begin();
     }
+#endif
 
     mPendingSMS.clear();
 
+#ifndef EA_BUILD_A124
     return smsToPlay;
+#endif
 }
 
 unsigned int GManager::GetRespawnMarker() {
@@ -3006,32 +3183,47 @@ unsigned int GManager::GetRespawnMarker() {
         return mOverrideFreeRoamStartMarker;
     }
 
-    unsigned int markerKey;
-
+    // Nombres del DWARF de GameCube (respawnKey, normalMarker, regionName, markerName) y de los
+    // stabs de la A124 (normalMarker, markerName).
 #ifdef EA_BUILD_A124
-    markerKey = mFreeRoamStartMarker;
+    // La A124 no sale desde el garaje ni guarda la clave en una variable (sus stabs no tienen
+    // respawnKey): construye normalMarker con el miembro y lo vuelve a leer para devolverlo.
+    Attrib::Gen::gameplay normalMarker(mFreeRoamStartMarker, 0, NULL);
+
+    if (normalMarker.IsValid()) {
+        return mFreeRoamStartMarker;
+    }
 #else
+    unsigned int respawnKey;
+
     if (mStartFreeRoamFromSafeHouse) {
-        markerKey = mFreeRoamFromSafeHouseStartMarker;
+        respawnKey = mFreeRoamFromSafeHouseStartMarker;
     } else {
-        markerKey = mFreeRoamStartMarker;
+        respawnKey = mFreeRoamStartMarker;
+    }
+
+    Attrib::Gen::gameplay normalMarker(respawnKey, 0, NULL);
+
+    if (normalMarker.IsValid()) {
+        return respawnKey;
     }
 #endif
 
-    Attrib::Gen::gameplay marker(markerKey, 0, NULL);
+    const char *regionName = TrackInfo::GetLoadedTrackInfo()->RegionName;
+    char markerName[32];
 
-    if (marker.IsValid()) {
-        return markerKey;
-    }
+    bSPrintf(markerName, "career_start_%s", regionName);
 
-    char buffer[32];
+#ifdef EA_BUILD_A124
+    mFreeRoamStartMarker = Attrib::StringToLowerCaseKey(markerName);
 
-    bSPrintf(buffer, "career_start_%s", TrackInfo::GetLoadedTrackInfo()->RegionName);
+    return mFreeRoamStartMarker;
+#else
+    respawnKey = Attrib::StringToLowerCaseKey(markerName);
+    mFreeRoamStartMarker = respawnKey;
 
-    markerKey = Attrib::StringToLowerCaseKey(buffer);
-    mFreeRoamStartMarker = markerKey;
-
-    return markerKey;
+    return respawnKey;
+#endif
 }
 
 void GManager::GetRespawnLocation(UMath::Vector3 &startLoc, UMath::Vector3 &initialVec) {
@@ -3045,6 +3237,6 @@ void GManager::GetRespawnLocation(UMath::Vector3 &startLoc, UMath::Vector3 &init
     initialVec = UMath::Vector3Make(0.0f, 0.0f, 1.0f);
 
     UMath::Init(rotMat, 1.0f, 1.0f, 1.0f);
-    MATRIX4_multyrot(&rotMat, -marker.Rotation() / 360.0f, &rotMat);
+    UMath::MultYRot(rotMat, -marker.Rotation() / 360.0f, rotMat);
     UMath::Rotate(initialVec, rotMat, initialVec);
 }

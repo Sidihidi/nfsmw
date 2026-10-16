@@ -24,6 +24,7 @@ enum ICEContext {
 class ICEGroup {
   public:
     ICEGroup();
+    ~ICEGroup();
 
     void SetHandle(unsigned int n) {
         Handle = n;
@@ -115,6 +116,7 @@ class ICETrack : public bTNode<ICETrack> {
 // total size: 0xC
 class ICEShakeGroup {
   public:
+    ~ICEShakeGroup();
 enum eICEEditState {
     eDCE_OFF = 0,
     eDCE_BROWSER = 1,
@@ -263,6 +265,7 @@ class ICEManager {
     int GetNumGroups();
 
     ICEManager();
+    ~ICEManager();
 
     void Init();
 
@@ -320,13 +323,24 @@ class ICEManager {
         return bSmoothExit;
     }
 
-    void FixAnimElevation(ICE::Vector3 *p);
+    void FixAnimElevation(ICE::Vector3 *position);
 
-    float GetAnimElevationFixup(ICE::Vector3 *p);
+    float GetAnimElevationFixup(ICE::Vector3 *position);
 
     int GetNumSceneCameraTrack(uint32 scene_hash);
 
-    void SetGenericCameraToPlay(const char *group_name, const char *track_name);
+    void SetGenericCameraToPlay(const char *group_name, const char *track_name)
+#ifdef EA_BUILD_A124
+    {
+        // La A124 lo lleva inline en sus 6 llamantes (oraculo A124: sin simbolo en zCamera; el dtor de
+        // PhotoFinishScreen trae bStringHash("") + StrNCpy 0xd + sb inline). SLUS/GC lo llaman fuera de linea.
+        nPlayGenericGroupHash = bStringHash(group_name);
+        ICE::StrNCpy(nPlayGenericTrackName, track_name, 13);
+        nPlayGenericTrackName[13] = 0;
+    }
+#else
+        ;
+#endif
 
     ICETrack *ChooseGenericCamera();
 
@@ -337,6 +351,7 @@ class ICEManager {
     void ChooseReplayCamera();
 
     void Update();
+    void Render(eView *p_view);
 
     float GetParameterLength() const {
         return fParameterLength;
@@ -349,7 +364,7 @@ class ICEManager {
     }
 
     bool IsEditorOn() {
-        return nState >= 1;
+        return nState > 0;
     }
 
     bool IsEditorOff() {
@@ -398,7 +413,11 @@ class ICEManager {
 
 inline ICEGroup::ICEGroup() : Handle(0), Context(4), NumTracks(0) {}
 
+inline ICEGroup::~ICEGroup() {}
+
 inline ICEShakeGroup::ICEShakeGroup() : NumTracks(0) {}
+
+inline ICEShakeGroup::~ICEShakeGroup() {}
 
 inline void ICEGroup::FlushTracks() {
 

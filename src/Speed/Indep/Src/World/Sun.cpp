@@ -118,9 +118,16 @@ void RenderSunAsFlare() {
     bVector3 position3d;
 
     if (SunInfo != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        // PC (speed.exe 0x503848): el destello va hacia el sol de la hora del dia.
+        position3d.x = TimeOfDayPointer->SunPosition.x;
+        position3d.y = TimeOfDayPointer->SunPosition.y;
+        position3d.z = TimeOfDayPointer->SunPosition.z;
+#else
         position3d.x = SunInfo->PositionX;
         position3d.y = SunInfo->PositionY;
         position3d.z = SunInfo->PositionZ;
+#endif
 
         bVector3 CamPos = *eGetView(1, false)->GetCamera()->GetPosition();
         bVector3 ToSun = position3d;
@@ -129,7 +136,11 @@ void RenderSunAsFlare() {
         ToSun *= recipdistance2sun;
         ToSun *= 40.0f;
         position3d = CamPos + ToSun;
+#ifdef EA_PLATFORM_WIN32
+        eLightFlare *eLightFlare = eGetNextLightFlareInPool(0xfe);
+#else
         eLightFlare *eLightFlare = eGetNextLightFlareInPool(0x3e);
+#endif
         if (eLightFlare != nullptr) {
             eLightFlare->Flags = 2;
             eLightFlare->PositionX = position3d.x;
@@ -146,7 +157,11 @@ void RenderSunAsFlare() {
         ToSun *= recipdistance2sun;
         ToSun *= 60.0f;
         position3d = CamPos + ToSun;
+#ifdef EA_PLATFORM_WIN32
+        eLightFlare = eGetNextLightFlareInPool(0xfc00f6);
+#else
         eLightFlare = eGetNextLightFlareInPool(0x3f0036);
+#endif
         if (eLightFlare != nullptr) {
             eLightFlare->Flags = 2;
             eLightFlare->PositionX = position3d.x;

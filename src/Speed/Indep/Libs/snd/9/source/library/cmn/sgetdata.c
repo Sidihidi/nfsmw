@@ -1,9 +1,9 @@
 #include "./sndcmn.h"
 
-int SNDI_getb(void *pdata, int numbytes) {
-    unsigned char *p = (unsigned char *)pdata;
+int SNDI_getb(void *psrc, int bytes) {
+    unsigned char *p = (unsigned char *)psrc;
     int val = 0;
-    int i = numbytes;
+    int i = bytes;
 
     /* The original tests the old count before forming the loop remainder. */
     if (i-- != 0) {
@@ -14,11 +14,11 @@ int SNDI_getb(void *pdata, int numbytes) {
         } while (i-- != 0);
     }
 
-    if (numbytes == 1 && val > 0x7F) {
+    if (bytes == 1 && val > 0x7F) {
         val -= 0x100;
-    } else if (numbytes == 2 && val > 0x7FFF) {
+    } else if (bytes == 2 && val > 0x7FFF) {
         val -= 0x10000;
-    } else if (numbytes == 3 && val > 0x7FFFFF) {
+    } else if (bytes == 3 && val > 0x7FFFFF) {
         val -= 0x1000000;
     }
 

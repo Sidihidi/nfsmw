@@ -18,10 +18,6 @@
 
 void FEngSetButtonTexture(FEImage* img, unsigned int tex_hash);
 unsigned int FindButtonNameHashForFEString(int config, int string_number, JoystickPort player);
-bool IsJoystickTypeWheel(JoystickPort port);
-
-void eLoadStreamingTexture(unsigned int* textures, int count, void (*callback)(void*),
-                           void* param, int pool);
 
 int UIOptionsController::PortToConfigure = 0;
 int UIOptionsController::isWheelConfig = 0;
@@ -34,6 +30,13 @@ UIOptionsController::UIOptionsController(ScreenConstructorData* sd)
     , PrevJoystickType(-1) //
     , mCalledFromPauseMenu(sd->Arg != 0) //
     , NeedSetup(true) {
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 avisan primero al paquete
+    cFEng::Get()->QueuePackageMessage(0x001D383E, GetPackageName(), 0);
+#endif
+#ifdef EA_BUILD_A124
+    FEngSetLanguageHash(GetPackageName(), 0x7326E44C,
+                        GetPlayerToEditForOptions() == 0 ? LANGUAGE_COMMON_PLAYER_1 : LANGUAGE_COMMON_PLAYER_2);
+#else
     if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
         cFEng::Get()->QueuePackageMessage(0x7DB7B6D7, GetPackageName(), 0);
         const char* pkg = GetPackageName();
@@ -44,11 +47,13 @@ UIOptionsController::UIOptionsController(ScreenConstructorData* sd)
         }
         FEngSetLanguageHash(pkg, 0x53BF826D, lang);
     }
+#endif
 
     oldConfig = FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Config;
     reinterpret_cast<int&>(oldVibration) = FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Rumble;
     reinterpret_cast<int&>(oldDriveWithAnalog) = FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog;
 
+#ifndef EA_BUILD_A124
     CalcControllerTextureToLoad();
 
     if (isWheelConfig) {
@@ -56,6 +61,7 @@ UIOptionsController::UIOptionsController(ScreenConstructorData* sd)
             static_cast<eControllerConfig>(0);
         FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog = true;
     }
+#endif
 
     Setup();
 }
@@ -219,7 +225,7 @@ void UIOptionsController::SetupControllerConfig() {
     }
 
     if (FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog) {
-        FEngSetTextureHash(FEngFindImage(GetPackageName(), 0x4592229C), 0x148E38);
+        FEngSetTextureHash(GetPackageName(), 0x4592229C, 0x148E38);
     } else {
         FEngSetButtonTexture(FEngFindImage(GetPackageName(), 0x4592229C), 0x0B30961B);
     }
@@ -239,12 +245,18 @@ void UIOptionsController::DetectControllers() {
         ClearLoadedControllerTexture();
         PrepToShowControllerConfig();
     }
+#ifdef EA_BUILD_A124
+    if (IsJoystickTypeWheel(static_cast<JoystickPort>(PortToConfigure))) {
+        if (FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Config > CC_CONFIG_2) {
+            FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Config = CC_CONFIG_1;
+        }
+    }
+#endif
 }
 
 void UIOptionsController::ClearLoadedControllerTexture() {
     if (WhichControllerTexture != 0) {
-        unsigned int tex = WhichControllerTexture;
-        eUnloadStreamingTexture(&tex, 1);
+        eUnloadStreamingTexture(WhichControllerTexture);
     }
 }
 
@@ -278,22 +290,19 @@ unsigned int UIOptionsController::CalcControllerTextureToLoad() {
 }
 
 void UIOptionsController::PrepToShowControllerConfig() {
+#ifndef EA_BUILD_A124 // la A124 no mira el volante
     if (isWheelConfig) {
         FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Config =
             static_cast<eControllerConfig>(0);
         FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog = true;
         cFEng::Get()->QueueGameMessage(0x92B703B5, 0, 0xFF);
     }
+#endif
 
     HideControllerConfig();
-    unsigned int tex = CalcControllerTextureToLoad();
-    WhichControllerTexture = tex;
-    FEngSetTextureHash(FEngFindImage(GetPackageName(), 0x922A39C4), tex);
-
-    unsigned int texArr = WhichControllerTexture;
-    eLoadStreamingTexture(&texArr, 1,
-                          reinterpret_cast<void (*)(void*)>(MyFinishLoadingControllerTextureCallbackBridge),
-                          this, 0);
+    WhichControllerTexture = CalcControllerTextureToLoad();
+    FEngSetTextureHash(GetPackageName(), 0x922A39C4, WhichControllerTexture);
+    eLoadStreamingTexture(WhichControllerTexture, MyFinishLoadingControllerTextureCallbackBridge, reinterpret_cast<uintptr_t>(this), 0);
 }
 
 void UIOptionsController::ShowControllerConfig() {

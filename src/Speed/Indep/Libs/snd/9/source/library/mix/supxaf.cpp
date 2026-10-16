@@ -5,6 +5,11 @@ extern "C" {
 void *memset(void *dst, int c, unsigned int bytes);
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC: snd pone a cero con su asm de x87 (speed.exe 0x822050, dos argumentos); el nombre es nuestro (pc/sdsound.c).
+void SNDI_memclear(void *p, int bytes);
+#endif
+
 namespace Snd {
 
 // total size: 0xA8 (eaxadecf.cpp)
@@ -62,7 +67,11 @@ int SFILTER_unpackxaf(void *pstate, int framestoup, void *psrcp, void *pdstp, in
         if (framesdecoded < framestoup) {
             framestoup -= framesdecoded;
             framesdecoded += framestoup;
+#ifdef EA_PLATFORM_WIN32
+            SNDI_memclear(ptmpdst, framestoup * sizeof(float));
+#else
             memset(ptmpdst, 0, framestoup * sizeof(float));
+#endif
         }
         retVal = framesdecoded;
     }

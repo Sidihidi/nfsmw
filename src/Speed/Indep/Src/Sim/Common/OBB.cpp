@@ -66,8 +66,10 @@ bool OBB::CheckOBBOverlap(OBB *other) {
 
             if (a_lp == 1) {
                 a_normal_index = 2;
+            } else if (a_lp == 2) {
+                a_normal_index = 1;
             } else {
-                a_normal_index = (a_lp ^ 2) == 0; // really written this way?
+                a_normal_index = 0;
             }
             a_normal = a->normal[a_normal_index];
             b_extent = b->extent;
@@ -77,13 +79,12 @@ bool OBB::CheckOBBOverlap(OBB *other) {
             projected_interval = fabsf(UMath::Dotxyz(rel_position, a_normal));
 
             projected_interval -= a->dimension[a_normal_index];
-            for (int b_normal_index = 0; b_normal_index < 3; b_normal_index++) {
+            for (int b_normal_index = 0; b_normal_index < 3; b_normal_index++, b_extent++) {
                 b_projected_interval = UMath::Dotxyz(a_normal, *b_extent);
 
                 b_projected_interval = fabsf(b_projected_interval);
 
                 projected_interval -= b_projected_interval;
-                b_extent++;
             }
             if (projected_interval > 0.0f) {
                 return false;
@@ -110,8 +111,10 @@ bool OBB::BoxVsBox(OBB *obbA, OBB *obbB, OBB *result) {
 
             if (a_lp == 1) {
                 a_normal_index = 2;
+            } else if (a_lp == 2) {
+                a_normal_index = 1;
             } else {
-                a_normal_index = (a_lp ^ 2) == 0;
+                a_normal_index = 0;
             }
             a_normal = a->normal[a_normal_index];
             UMath::Vector4 *b_extent = b->extent;
@@ -128,7 +131,7 @@ bool OBB::BoxVsBox(OBB *obbA, OBB *obbB, OBB *result) {
             }
             projected_interval -= a->dimension[a_normal_index];
 
-            for (int b_normal_index = 0; b_normal_index <= 2; b_normal_index++) {
+            for (int b_normal_index = 0; b_normal_index <= 2; b_normal_index++, b_extent++) {
                 float b_projected_interval =
                     UMath::Dot(reinterpret_cast<const UMath::Vector3 &>(a_normal), reinterpret_cast<const UMath::Vector3 &>(*b_extent));
 
@@ -139,7 +142,6 @@ bool OBB::BoxVsBox(OBB *obbA, OBB *obbB, OBB *result) {
                 } else if (b_projected_interval < 0.0f) {
                     UMath::Addxyz(col_pt, *b_extent, col_pt);
                 }
-                b_extent++;
             }
             if (projected_interval > 0.0f) {
                 return false;
@@ -256,12 +258,12 @@ bool OBB::SphereVsSphere(OBB *a, OBB *b, OBB *result) {
         result->collision_point.x = a->position.z;
 
         result->penetration_depth = -a->dimension[0];
-    } else if (dist >= radius_total) {
-        return false;
-    } else {
+    } else if (dist < radius_total) {
         UMath::Unitxyz(rPos, result->collision_normal);
         result->penetration_depth = dist - radius_total;
         UMath::ScaleAddxyz(result->collision_normal, b->dimension[0] + result->penetration_depth, b->position, result->collision_point);
+    } else {
+        return false;
     }
     if (a == result) {
         result->collision_normal.x = -result->collision_normal.x;

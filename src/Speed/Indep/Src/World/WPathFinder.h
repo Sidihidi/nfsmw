@@ -9,7 +9,9 @@
 #include "Speed/Indep/bWare/Inc/bSlotPool.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
+#ifndef EA_BUILD_A124
 extern float ASTAR_METRIC_SCALE;
+#endif
 extern SlotPool *AStarSearchSlotPool;
 extern SlotPool *AStarNodeSlotPool;
 

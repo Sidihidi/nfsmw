@@ -31,9 +31,9 @@ void EExitEngagableTrigger_MakeEvent_Callback(const void *staticData) {
     new EExitEngagableTrigger(((EExitEngagableTrigger::StaticData *) staticData)->fRaceActivity);
 }
 
-int EExitEngagableTrigger_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EExitEngagableTrigger((GRuntimeInstance *) lua_tostring(L, 1));
+int EExitEngagableTrigger_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EExitEngagableTrigger((GRuntimeInstance *) lua_tostring(luaState, 1));
     }
     return 0;
 }

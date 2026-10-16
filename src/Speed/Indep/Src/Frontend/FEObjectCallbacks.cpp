@@ -109,10 +109,18 @@ bool FEngMovieStarter::Callback(FEObject *obj) {
                 bStrNCpy(settings.filename, buffer, 0x100);
                 settings.loop = true;
                 settings.movieId = movieID;
+#ifdef EA_PLATFORM_PLAYSTATION2
+                settings.type = 1;
+#else
                 settings.type = 0;
+#endif
                 gMoviePlayer->Init(settings);
+#ifdef EA_BUILD_A124
+                gMoviePlayer->Play();
+#else
+                MoviePlayer_Play();
+#endif
             }
-            MoviePlayer_Play();
         } else {
             cFEng::Get()->QueueGameMessagePkg(0xc3960eb9, pPackage);
         }
@@ -134,7 +142,13 @@ bool FEngMovieStopper::Callback(FEObject *obj) {
 }
 
 bool FEngHidePCObjects::Callback(FEObject *obj) {
+#ifdef EA_PLATFORM_WIN32
+    // SPEED_EXE_1_3 mira el bit 0x40 (`test [esi+0x1c], 0x40`); las demas
+    // versiones, el 0x8 (ambas al 100 % en GC con 0x8).
+    if (obj->Flags & 0x40) {
+#else
     if (obj->Flags & 0x8) {
+#endif
         FEngSetInvisible(obj);
         if (obj->Flags & FF_IsButton) {
             obj->Flags &= ~FF_IsButton;

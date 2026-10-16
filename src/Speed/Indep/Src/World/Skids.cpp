@@ -15,9 +15,9 @@ void SkidSegment::SetPoints(bVector3 *position, bVector3 *delta_position) {
     float x = position->x;
     float y = position->y;
     float z = position->z;
-    int dx = static_cast<int>(delta_position->x * scale_factor);
-    int dy = static_cast<int>(delta_position->y * scale_factor);
-    int dz = static_cast<int>(delta_position->z * scale_factor);
+    int dx = bFloatToInt(delta_position->x * scale_factor);
+    int dy = bFloatToInt(delta_position->y * scale_factor);
+    int dz = bFloatToInt(delta_position->z * scale_factor);
 
     this->Position[0] = x;
     this->Position[1] = y;
@@ -54,14 +54,14 @@ void SkidSegment::GetPoints(bVector3 *position, bVector3 *delta_position) {
     float dy;
     float dz;
 
+    x = this->Position[0];
+    y = this->Position[1];
+    z = this->Position[2];
     dx = static_cast<float>(this->DeltaPosition[0]) * scale_factor;
     dy = static_cast<float>(this->DeltaPosition[1]) * scale_factor;
-    y = this->Position[1];
     dz = static_cast<float>(this->DeltaPosition[2]) * scale_factor;
-    z = this->Position[2];
-    x = this->Position[0];
-
     position->x = x;
+
     position->y = y;
     position->z = z;
 
@@ -168,14 +168,14 @@ int SkidSet::AddSegment(bVector3 *position, bVector3 *delta_position, bool skid_
     } else {
         skid_segment = &this->SkidSegments[this->NumSkidSegments];
         this->NumSkidSegments += 1;
-        if (this->NumSkidSegments > 1) {
+        if (this->NumSkidSegments >= 2) {
             this->LastNormal = new_segment_normal;
         }
         this->LastSegmentLength = length;
     }
 
     skid_segment->SetPoints(position, delta_position);
-    skid_segment->SetIntensity(static_cast<unsigned char>(intensity * 255.0f));
+    skid_segment->SetIntensity(static_cast<unsigned char>(bFloatToInt(intensity * 255.0f)));
 
     bExpandBoundingBox(&this->BBoxMin, &this->BBoxMax, position, length);
     this->pClan->ExpandBoundingBox(&this->BBoxMin, &this->BBoxMax);
@@ -256,9 +256,9 @@ void SkidSet::Render(eView *view, uint8 intensityReduction) {
         *reinterpret_cast<unsigned int *>(&poly.Colours[2][0]) = 0x80808080;
         *reinterpret_cast<unsigned int *>(&poly.Colours[3][0]) = 0x80808080;
         poly.Colours[0][3] = alpha0;
+        poly.Colours[3][3] = alpha0;
         poly.Colours[1][3] = alpha1;
         poly.Colours[2][3] = alpha1;
-        poly.Colours[3][3] = alpha0;
         view->Render(&poly, SkidTextureInfo[this->TheTerrainType], identity_matrix, 0, 0.0f);
     }
 }
@@ -369,7 +369,7 @@ void RenderSkids(eView *view, Clan *clan) {
                 if (10.0f < static_cast<float>(pixel_size)) {
                     intensityReduction = 0;
                 } else {
-                    intensityReduction = static_cast<unsigned char>(static_cast<int>(256.0f - (pixel_size - 4.0f) * 42.666668f) & 0xff);
+                    intensityReduction = static_cast<unsigned char>(bFloatToInt(256.0f - (pixel_size - 4.0f) * 42.666668f) & 0xff);
                 }
 
                 skid_set->Render(view, intensityReduction);

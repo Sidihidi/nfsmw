@@ -11,6 +11,9 @@
 #include "Speed/Indep/Src/World/Rain.hpp"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Debug/Common/DebugDraw.h"
+#endif
 
 float kHeliVisualSphere = 75.0f;
 
@@ -148,10 +151,13 @@ bool AIVehicleHelicopter::CanSeeTarget(AITarget *target) {
         posToDest[1] = UMath::Vector4Make(targetPosition, 1.0f);
         posToDest[1].y += 1.0f;
 
+#ifndef EA_BUILD_A124
         eView *view = eGetView(1, false);
         if (view && AmIinATunnel(view, 1)) {
             isinsight = false;
-        } else {
+        } else
+#endif
+        {
             WCollisionMgr::WorldCollisionInfo cInfo;
             if (WCollisionMgr(0, 3).CheckHitWorld(posToDest, cInfo, 1)) {
                 isinsight = false;
@@ -346,11 +352,7 @@ void AIVehicleHelicopter::AvoidCamera(UMath::Vector3 &dest) {
     UMath::Vector3 cameraPos = *reinterpret_cast<UMath::Vector3 *>(&temp);
     bVector3 cPos = *eGetView(1, false)->GetCamera()->GetDirection();
     UMath::Vector3 cameraForward;
-    cameraForward.x = cPos.x;
-    cameraForward.y = cPos.y;
-    cameraForward.z = cPos.z;
-    // ...
-    eUnSwizzleWorldVector(*reinterpret_cast<bVector3 *>(&cameraForward), *reinterpret_cast<bVector3 *>(&cameraForward));
+    eUnSwizzleWorldVector(cPos, *reinterpret_cast<bVector3 *>(&cameraForward));
 
     UMath::ScaleAdd(cameraForward, 4.0f, cameraPos, cameraPos);
     UMath::Vector3 cam2me;
@@ -361,6 +363,9 @@ void AIVehicleHelicopter::AvoidCamera(UMath::Vector3 &dest) {
     if (rad < 7.0f && rad > 2.0f) {
         CamRad = rad - 0.5f;
     }
+#ifdef EA_BUILD_A124 // el prototipo pinta la esfera que evita
+    DebugDraw::Get().Sphere(cameraPos, CamRad, 0x4000ff00, 1, false, -1);
+#endif
     UMath::Vector3 intersectPoint;
     bool hits = AI::Math::SegmentSphereIntersect(myPosition, myWorkingPosition, cameraPos, CamRad, intersectPoint);
 
@@ -461,22 +466,15 @@ void AIVehicleHelicopter::OnDriving(float dT) {
         UMath::Scale(moveDirVector, mDriveSpeed / moveLen, moveDirVector);
     }
 
-    if (yDelt >= 0.0f) {
-        if (yDelt < 7.0f) {
-            yDelt *= 5.0f;
-            if (mDestinationVelocity.y > 0.0f) {
-                yDelt += mDestinationVelocity.y * 2.0f;
-            }
-        } else if (yDelt < 0.0f) {
-            goto block_19;
+    if (yDelt >= 0.0f && yDelt < 7.0f) {
+        yDelt *= 5.0f;
+        if (mDestinationVelocity.y > 0.0f) {
+            yDelt += mDestinationVelocity.y * 2.0f;
         }
-    } else {
-    block_19:
-        if (yDelt > -5.0f) {
-            yDelt *= 3.0f;
-            if (mDestinationVelocity.y < 0.0f) {
-                yDelt += mDestinationVelocity.y;
-            }
+    } else if (yDelt < 0.0f && yDelt > -5.0f) {
+        yDelt *= 3.0f;
+        if (mDestinationVelocity.y < 0.0f) {
+            yDelt += mDestinationVelocity.y;
         }
     }
     moveDirVector.y = yDelt;

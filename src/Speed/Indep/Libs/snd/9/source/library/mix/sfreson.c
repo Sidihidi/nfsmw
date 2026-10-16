@@ -58,12 +58,15 @@ int SFILTER_reson(void *pstate, int frames, void *psrcp, void *pdstp, int reques
 }
 
 int SFILTER_createRESON(RESONSTATE *prs) {
-    prs->sfn.pfnnext = 0; prs->sfn.pfnnext2 = 0; prs->sfn.pfnprev1 = 0; prs->sfn.pfnprev2 = 0;
+    prs->sfn.pfnnext = 0;
+    prs->sfn.pfnnext2 = 0;
+    prs->sfn.pfnprev1 = 0;
+    prs->sfn.pfnprev2 = 0;
     prs->sfn.clean = 0;
-    prs->xn = 0.0f;
-    prs->ynminus1 = 0.0f;
     prs->sfn.restorefn = 0;
     prs->sfn.filterfn = SFILTER_reson;
+    prs->xn = 0.0f;
+    prs->ynminus1 = 0.0f;
     prs->ynminus2 = 0.0f;
     return 0;
 }

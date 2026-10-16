@@ -107,8 +107,8 @@ void LineSegSeperation(UMath::Vector3 &result, const UMath::Vector3 &h1, const U
 
     if (D < small_number) {
         sN = 0.0f;
-        tN = e;
         sD = 1.0f;
+        tN = e;
         tD = c;
     } else {
         sN = b * e - c * d;
@@ -146,8 +146,8 @@ void LineSegSeperation(UMath::Vector3 &result, const UMath::Vector3 &h1, const U
         }
     }
 
-    float sc = UMath::Abs(sN) >= small_number ? sN / sD : 0.0f;
-    float tc = UMath::Abs(tN) >= small_number ? tN / tD : 0.0f;
+    float sc = UMath::Abs(sN) < small_number ? 0.0f : sN / sD;
+    float tc = UMath::Abs(tN) < small_number ? 0.0f : tN / tD;
 
     result = (w + sc * u) - (tc * v);
 }
@@ -192,7 +192,7 @@ void SetupCapsule(const IBody *body, UMath::Vector3 &head, UMath::Vector3 &tail,
 
     UMath::ScaleAdd(axis, d, position, head);
     UMath::ScaleAdd(axis, -d, position, tail);
-    radius = UMath::Sqrt(c * c + a * a);
+    radius = UMath::Sqrt(a * a + c * c);
 }
 
 void Seperation(UMath::Vector3 &separation, IBody *my_body, IBody *target_body, float absolute, float relative) {
@@ -240,7 +240,8 @@ void Seperation(UMath::Vector3 &separation, IBody *my_body, IBody *target_body, 
 
     float seperation_length = UMath::Length(separation);
     if (seperation_length > 1e-5f) {
-        UMath::Scale(separation, UMath::Min(scale, KPH2MPS(160.0f) / seperation_length), separation);
+        scale = UMath::Min(scale, KPH2MPS(160.0f) / seperation_length);
+        UMath::Scale(separation, scale, separation);
     }
 }
 
@@ -281,10 +282,10 @@ void Cohesion(UMath::Vector3 &result, const UMath::Vector3 &myPos, const Avoidab
 float GetDesiredSpeedToTarget(float distToTarget, float targetSpeed) {
     float desiredSpeed;
     if (distToTarget < 0.0f) {
-        desiredSpeed = distToTarget * 0.5f + targetSpeed;
+        desiredSpeed = targetSpeed + distToTarget * 0.5f;
         desiredSpeed = UMath::Max(MPH2MPS(10.0f), desiredSpeed);
     } else {
-        desiredSpeed = distToTarget * 0.5f + targetSpeed;
+        desiredSpeed = targetSpeed + distToTarget * 0.5f;
         desiredSpeed = UMath::Min(UMath::Max(MPH2MPS(25.0f), targetSpeed * 1.2f), desiredSpeed);
     }
     return desiredSpeed;

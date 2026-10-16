@@ -34,8 +34,9 @@ struct shiftpattern;
 struct SFXCTL_Engine;
 
 struct SFXCTL_Shifting : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:
@@ -104,7 +105,7 @@ struct SFXCTL_Shifting : public SFXCTL {
     void PostShiftFX_Init();
 
     bool IsActive() {
-        return this->eShiftState != SHFT_NONE;
+        return this->eShiftState == SHFT_UP_LFO || this->eShiftState != SHFT_NONE; // PS2: beq 3 y beqz (GameCube lo pliega)
     }
 
     bool IsUpshifting() {

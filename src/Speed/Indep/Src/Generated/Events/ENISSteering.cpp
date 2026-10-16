@@ -28,9 +28,9 @@ void ENISSteering_MakeEvent_Callback(const void *staticData) {
     new ENISSteering(((ENISSteering::StaticData *) staticData)->fDegrees, ((ENISSteering::StaticData *) staticData)->fBlendWeight, gEventDynamicData.fhSimable);
 }
 
-int ENISSteering_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ENISSteering(lua_tonumber(L, 1), lua_tonumber(L, 2), gEventDynamicData.fhSimable);
+int ENISSteering_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ENISSteering(lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), gEventDynamicData.fhSimable);
     }
     return 0;
 }

@@ -1,4 +1,5 @@
 #include "Speed/Indep/Src/World/Common/WGrid.h"
+#include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include <math.h>
 
@@ -21,7 +22,11 @@ WGrid::WGrid(const UMath::Vector4 &min, unsigned int rows, unsigned int cols, fl
 }
 
 WGrid::~WGrid() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    UMemory::Free(fNodes); // both PS2 builds call Free__7UMemoryPv; GameCube has no UMemory
+#else
     bFree(fNodes);
+#endif
 }
 
 void WGrid::Init(const UGroup *mapGroup) {
@@ -71,10 +76,11 @@ void WGrid::FindNodes(const UMath::Vector3 &pt, float radius, UTL::Vector<unsign
     UMath::Vector4 pts[2];
     pts[0].x = pt.x - radius;
     pts[0].z = pt.z - radius;
-    pts[1].y = 0.0f;
+
     pts[1].x = pt.x + radius;
     pts[1].z = pt.z + radius;
-    pts[0].y = 0.0f;
+
+    pts[0].y = pts[1].y = 0.0f;
     FindNodesBox(pts, nodeIndList);
 }
 
@@ -186,10 +192,10 @@ void WGrid::FindNodes(const UMath::Vector4 *seg, UTL::Vector<unsigned int, 16> &
 
             if (fBarrierDistX < fBarrierDistY) {
                 points[0].x = fBarrierPosX;
-                points[0].y = fBarrierDistX * fRevDirY + points[1].y;
+                points[0].y = points[1].y + fBarrierDistX * fRevDirY;
             } else {
                 points[0].y = fBarrierPosY;
-                points[0].x = fBarrierDistY * fRevDirX + points[1].x;
+                points[0].x = points[1].x + fBarrierDistY * fRevDirX;
             }
 
             iStartPosX = FLOAT2INT(FLOAT2INT(points[0].x - fMin.x) * fInvEdgeSize);
@@ -215,10 +221,10 @@ void WGrid::FindNodes(const UMath::Vector4 *seg, UTL::Vector<unsigned int, 16> &
 
             if (fBarrierDistX < fBarrierDistY) {
                 points[1].x = fBarrierPosX;
-                points[1].y = fBarrierDistX * fDirY + points[0].y;
+                points[1].y = points[0].y + fBarrierDistX * fDirY;
             } else {
                 points[1].y = fBarrierPosY;
-                points[1].x = fBarrierDistY * fDirX + points[0].x;
+                points[1].x = points[0].x + fBarrierDistY * fDirX;
             }
 
         iEndPosX = FLOAT2INT(FLOAT2INT(points[1].x - fMin.x) * fInvEdgeSize);
@@ -230,19 +236,13 @@ void WGrid::FindNodes(const UMath::Vector4 *seg, UTL::Vector<unsigned int, 16> &
 
     float fLength = UMath::Sqrt(fDirX * fDirX + fDirY * fDirY);
 
-    if (fLength <= fEdgeSize) {
-        if (iStartPosX != iEndPosX) {
-            if (iStartPosY != iEndPosY) {
-                goto walk;
-            }
-        } else if (iStartPosY == iEndPosY) {
-            return;
+    if (fLength <= fEdgeSize && (iStartPosX == iEndPosX || iStartPosY == iEndPosY)) {
+        if (iStartPosX != iEndPosX || iStartPosY != iEndPosY) {
+            nodeIndList.push_back(GetNodeInd(iEndPosY, iEndPosX));
         }
-        nodeIndList.push_back(GetNodeInd(iEndPosY, iEndPosX));
         return;
     }
 
-walk:
     {
         float fVx = fDirX / fLength;
         float fVy = fDirY / fLength;
@@ -287,42 +287,40 @@ walk:
             fWallY = floorf(fCurY * fInvEdgeSize) * fEdgeSize;
         }
 
-        if (iCurPosX != iEndPosX && iCurPosY != iEndPosY) {
-            do {
-                fRx = (fWallX - fCurX) * fInvVx;
-                fRy = (fWallY - fCurY) * fInvVy;
+        while (iCurPosX != iEndPosX && iCurPosY != iEndPosY) {
+            fRx = (fWallX - fCurX) * fInvVx;
+            fRy = (fWallY - fCurY) * fInvVy;
 
-                if (fRx < fRy) {
-                    fCurX = fWallX;
-                    fCurY = fRx * fVy + fCurY;
-                    if (bEast) {
-                        iCurPosX++;
-                        fWallX += fEdgeSize;
-                    } else {
-                        iCurPosX--;
-                        fWallX -= fEdgeSize;
-                    }
+            if (fRx < fRy) {
+                fCurX = fWallX;
+                fCurY = fRx * fVy + fCurY;
+                if (bEast) {
+                    iCurPosX++;
+                    fWallX += fEdgeSize;
                 } else {
-                    fCurX = fRy * fVx + fCurX;
-                    fCurY = fWallY;
-                    if (bNorth) {
-                        iCurPosY++;
-                        fWallY += fEdgeSize;
-                    } else {
-                        iCurPosY--;
-                        fWallY -= fEdgeSize;
-                    }
+                    iCurPosX--;
+                    fWallX -= fEdgeSize;
                 }
-
-                nodeIndList.push_back(GetNodeInd(iCurPosY, iCurPosX));
-                iNumNodes++;
-
-                if (iNumNodes > iMaxNumNodes) {
-                    nodeIndList.clear();
-                    WGrid::Get().FindNodes(UMath::Vector4To3(seg[0]), 1.0f, nodeIndList);
-                    return;
+            } else {
+                fCurX = fRy * fVx + fCurX;
+                fCurY = fWallY;
+                if (bNorth) {
+                    iCurPosY++;
+                    fWallY += fEdgeSize;
+                } else {
+                    iCurPosY--;
+                    fWallY -= fEdgeSize;
                 }
-            } while (iCurPosX != iEndPosX && iCurPosY != iEndPosY);
+            }
+
+            nodeIndList.push_back(GetNodeInd(iCurPosY, iCurPosX));
+            iNumNodes++;
+
+            if (iNumNodes > iMaxNumNodes) {
+                nodeIndList.clear();
+                WGrid::Get().FindNodes(UMath::Vector4To3(seg[0]), 1.0f, nodeIndList);
+                return;
+            }
         }
 
         if (iCurPosX != iEndPosX) {

@@ -1,5 +1,6 @@
 #include "Speed/Indep/Src/World/WPathFinder.h"
 
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Src/Misc/Joylog.hpp"
 #include "Speed/Indep/Src/Misc/Profiler.hpp"
@@ -8,14 +9,47 @@
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
+#ifdef EA_BUILD_A124
+static const int MAX_ASTAR_NODES = 2048;
+#else
+static const int MAX_ASTAR_NODES = 3072;
+#endif
+static const int MAX_ASTAR_SEARCHES = 16;
 bool bPathFinderPrints = false;
+bool bAdmissibilityPrints = false;
 SlotPool *AStarNodeSlotPool = nullptr;
 SlotPool *AStarSearchSlotPool = nullptr;
+int AStarNodeHighWater = 0;
+float AStarSearchHighWater = 0.0f;
+#ifndef EA_BUILD_A124
 float ASTAR_METRIC_SCALE = 0.25f;
+#endif
 
+// La A124 guarda punteros y costes en float, con destructor virtual (0x20 B); las de tienda comprimen el nodo en
+// cinco short con los costes escalados por ASTAR_METRIC_SCALE.
 // total size: 0x14
 class AStarNode : public bTNode<AStarNode> {
   public:
+#ifdef EA_BUILD_A124
+    AStarNode(AStarNode *parent, const WRoadNode *road_node, int segment, float actual_cost, float estimated_cost)
+        : pParent(parent),               //
+          pRoadNode(road_node),          //
+          nSegmentIndex(segment),        //
+          fActualCost(actual_cost),      //
+          fEstimatedCost(estimated_cost) {}
+
+    virtual ~AStarNode() {}
+#else
+    AStarNode(AStarNode *parent, const WRoadNode *road_node, int segment, float actual_cost, float estimated_cost)
+        : nParentSlot((parent != nullptr) ? AStarNodeSlotPool->GetSlotNumber(parent) : -1), //
+          nSegmentIndex(static_cast<short>(segment)),                                       //
+          nRoadNode(road_node->fIndex),                                                     //
+          fActualCost(static_cast<unsigned short>(actual_cost / ASTAR_METRIC_SCALE + 0.5f)),
+          fEstimatedCost(static_cast<unsigned short>(estimated_cost / ASTAR_METRIC_SCALE + 0.5f)) {}
+
+    ~AStarNode() {}
+#endif
+
     // El ctor de AStarSearch y Service llaman a bMalloc__FP8SlotPool en el ELF,
     // no a bOMalloc: este operator new usa bMalloc (como el de AStarSearch).
     void *operator new(size_t size) {
@@ -26,15 +60,48 @@ class AStarNode : public bTNode<AStarNode> {
     }
     void operator delete(void *ptr);
 
-    AStarNode() {}
+#ifdef EA_BUILD_A124
+    float GetActualCost() {
+        return fActualCost;
+    }
 
-    AStarNode(AStarNode *parent, const WRoadNode *road_node, int segment, float actual_cost, float estimated_cost)
-        : nParentSlot((parent != nullptr) ? AStarNodeSlotPool->GetSlotNumber(parent) : -1), //
-          nSegmentIndex(static_cast<short>(segment)),                                       //
-          nRoadNode(road_node->fIndex),                                                     //
-          fActualCost(static_cast<unsigned short>(actual_cost / ASTAR_METRIC_SCALE + 0.5f)),
-          fEstimatedCost(static_cast<unsigned short>(estimated_cost / ASTAR_METRIC_SCALE + 0.5f)) {}
+    float GetEstimatedCost() {
+        return fEstimatedCost;
+    }
+#else
+    float GetActualCost() {
+        return static_cast<float>(fActualCost) * ASTAR_METRIC_SCALE;
+    }
 
+    float GetEstimatedCost() {
+        return static_cast<float>(fEstimatedCost) * ASTAR_METRIC_SCALE;
+    }
+#endif
+
+    float GetTotalCost() {
+        return GetActualCost() + GetEstimatedCost();
+    }
+
+#ifdef EA_BUILD_A124
+    AStarNode *GetParent() {
+        return pParent;
+    }
+
+    const WRoadNode *GetRoadNode() {
+        return pRoadNode;
+    }
+
+    int GetSegmentIndex() {
+        return nSegmentIndex;
+    }
+
+  private:
+    AStarNode *pParent;         // offset 0x8, size 0x4
+    const WRoadNode *pRoadNode; // offset 0xC, size 0x4
+    int nSegmentIndex;          // offset 0x10, size 0x4
+    float fActualCost;          // offset 0x14, size 0x4
+    float fEstimatedCost;       // offset 0x18, size 0x4
+#else
     AStarNode *GetParent() {
         return nParentSlot >= 0 ? static_cast<AStarNode *>(AStarNodeSlotPool->GetSlot(nParentSlot)) : nullptr;
     }
@@ -47,24 +114,13 @@ class AStarNode : public bTNode<AStarNode> {
         return nSegmentIndex;
     }
 
-    float GetActualCost() {
-        return static_cast<float>(fActualCost) * ASTAR_METRIC_SCALE;
-    }
-
-    float GetEstimatedCost() {
-        return static_cast<float>(fEstimatedCost) * ASTAR_METRIC_SCALE;
-    }
-
-    float GetTotalCost() {
-        return GetActualCost() + GetEstimatedCost();
-    }
-
   private:
     short nParentSlot;             // offset 0x8, size 0x2
     short nSegmentIndex;           // offset 0xA, size 0x2
     short nRoadNode;               // offset 0xC, size 0x2
     unsigned short fActualCost;    // offset 0xE, size 0x2
     unsigned short fEstimatedCost; // offset 0x10, size 0x2
+#endif
 };
 
 void AStarNode::operator delete(void *ptr) {
@@ -124,7 +180,7 @@ class AStarSearch : public bTNode<AStarSearch> {
     WRoadNav *pRoadNav;                    // offset 0x28, size 0x4
     const WRoadNode *pGoalNode;            // offset 0x2C, size 0x4
     int nGoalSegment;                      // offset 0x30, size 0x4
-    ALIGN_16 UMath::Vector3 vGoalPosition; // offset 0x34, size 0xC
+    ALIGNVEC UMath::Vector3 vGoalPosition; // offset 0x34, size 0xC
     bTList<AStarNode> lOpen;               // offset 0x40, size 0x8
     bTList<AStarNode> lClosed;             // offset 0x48, size 0x8
 };
@@ -134,10 +190,12 @@ AStarSearch::AStarSearch(WRoadNav *road_nav, const UMath::Vector3 *goal_position
     pSolution = nullptr;
     pRoadNav = road_nav;
     nState = ASTAR_SEARCHING;
+    fSearchTime = 0.0f;
     nServices = 0;
     nSteps = 0;
-    fSearchTime = 0.0f;
+#ifndef EA_BUILD_A124
     vGoalPosition = *goal_position;
+#endif
 
     WRoadNav goal_nav;
     goal_nav.SetNavType(WRoadNav::kTypeDirection);
@@ -169,7 +227,9 @@ AStarSearch::AStarSearch(WRoadNav *road_nav, const UMath::Vector3 *goal_position
         goal_nav.InitAtPoint(*goal_position, fake, false, 0.0f);
     }
 
+#ifndef EA_BUILD_A124
     bool race_route = (road_nav->GetPathType() == WRoadNav::kPathRaceRoute);
+#endif
 
     if (!goal_nav.IsValid()) {
         bVector2 goal_position_2d(goal_position->z, -goal_position->x);
@@ -188,11 +248,7 @@ AStarSearch::AStarSearch(WRoadNav *road_nav, const UMath::Vector3 *goal_position
     }
 
     const WRoadSegment *goal_segment = road_network.GetSegment(nGoalSegment);
-    if (goal_direction != nullptr) {
-        pGoalNode = road_network.GetNode(goal_segment->fNodeIndex[goal_nav.GetNodeInd()]);
-    } else {
-        pGoalNode = nullptr;
-    }
+    pGoalNode = (goal_direction != nullptr) ? road_network.GetNode(goal_segment->fNodeIndex[goal_nav.GetNodeInd()]) : nullptr;
 
     int current_segment_index = road_nav->GetSegmentInd();
     const WRoadSegment *current_segment = road_network.GetSegment(current_segment_index);
@@ -204,10 +260,18 @@ AStarSearch::AStarSearch(WRoadNav *road_nav, const UMath::Vector3 *goal_position
         bVector2 goal_direction_2d((goal_direction != nullptr) ? goal_direction->z : 0.0f, (goal_direction != nullptr) ? -goal_direction->x : 0.0f);
     }
 
+#ifdef EA_BUILD_A124
+    vGoalPosition = *goal_position;
+#endif
     float estimated_cost = UMath::Distance(current_road_node->fPosition, vGoalPosition);
     lOpen.AddTail(new AStarNode(nullptr, current_road_node, current_segment_index, 0, estimated_cost));
 
+    // La A124 anade siempre el nodo del sentido contrario; las de tienda no lo hacen en las rutas de carrera.
+#ifdef EA_BUILD_A124
+    {
+#else
     if (!race_route) {
+#endif
         const WRoadNode *opp_road_node = road_network.GetSegmentOppNode(current_segment_index, current_road_node);
         estimated_cost = UMath::Distance(opp_road_node->fPosition, vGoalPosition);
         AStarNode *other_way_node = new AStarNode(nullptr, opp_road_node, current_segment_index, 0, estimated_cost);
@@ -316,15 +380,12 @@ bool AStarSearch::Admissible(const WRoadSegment *segment, bool forward, WRoadNav
 
 // UNSOLVED stack issue
 float AStarSearch::Service(float time_limit_ms) {
-    unsigned int start_ticker;
-    WRoadNav::EPathType path_type;
-    bool race_route;
+    nServices++;
+    unsigned int start_ticker = bGetTicker();
+    WRoadNav::EPathType path_type = pRoadNav->GetPathType();
+    bool race_route = (path_type == WRoadNav::kPathRaceRoute);
 
     int prev_timeout_loops = 0x7FFFFFFF;
-    nServices++;
-    start_ticker = bGetTicker();
-    path_type = pRoadNav->GetPathType();
-    race_route = (path_type == WRoadNav::kPathRaceRoute);
     if (Joylog::IsReplaying()) {
         prev_timeout_loops = static_cast<int>(Joylog::GetData(32, JOYLOG_CHANNEL_PATHFINDER_TIMEOUT));
     }
@@ -351,16 +412,8 @@ float AStarSearch::Service(float time_limit_ms) {
         const WRoadNode *current_road_node = current_node->GetRoadNode();
         int num_segments = static_cast<int>(current_road_node->fNumSegments);
         if (bCountFreeSlots(AStarNodeSlotPool) < static_cast<int>(num_segments - 1)) {
-            if (race_route) {
-                nState = ASTAR_NO_WAY;
-            } else {
-                nState = ASTAR_HALF_WAY;
-            }
-            if (race_route) {
-                pSolution = nullptr;
-            } else {
-                pSolution = current_node;
-            }
+            nState = race_route ? ASTAR_NO_WAY : ASTAR_HALF_WAY;
+            pSolution = race_route ? nullptr : current_node;
             break;
         }
         for (int i = 0; i < num_segments; i++) {
@@ -421,42 +474,48 @@ float AStarSearch::Service(float time_limit_ms) {
         if (num_segments > 0) {
             pRoadNav->SetNavType(WRoadNav::kTypePath);
             race_route_bogus = false;
+#ifdef EA_BUILD_A124
+        }
+#endif
             if (static_cast<int>(pRoadNav->GetSegmentInd()) == nGoalSegment) {
                 UMath::Vector3 dir;
                 UMath::Sub(vGoalPosition, pRoadNav->GetPosition(), dir);
                 float dot = UMath::Dot(dir, pRoadNav->GetForwardVector());
                 if (dot < 0.0f) {
-                    pRoadNav->Reverse();
                     race_route_bogus = race_route;
+                    pRoadNav->Reverse();
                 }
             }
+#ifndef EA_BUILD_A124
         }
+#endif
         pRoadNav->SetNumPathSegments(num_segments);
         unsigned short *segments = pRoadNav->GetPathSegments();
-        if ((node != nullptr) && num_segments > 0) {
-            do {
-                int segment_index = node->GetSegmentIndex();
-                num_segments--;
-                segments[num_segments] = static_cast<unsigned short>(segment_index);
-                if (segment_index == pRoadNav->GetSegmentInd()) {
-                    WRoadNetwork &roadNetwork = WRoadNetwork::Get();
-                    const WRoadSegment *segment = roadNetwork.GetSegment(segment_index);
-                    const WRoadNode *currentnode = roadNetwork.GetNode(segment->fNodeIndex[static_cast<int>(pRoadNav->GetNodeInd())]);
-                    if (node->GetRoadNode() != currentnode) {
-                        pRoadNav->Reverse();
-                        race_route_bogus = race_route;
-                    }
+        while ((node != nullptr) && num_segments > 0) {
+            int segment_index = node->GetSegmentIndex();
+            num_segments--;
+            segments[num_segments] = static_cast<unsigned short>(segment_index);
+            if (segment_index == pRoadNav->GetSegmentInd()) {
+                WRoadNetwork &roadNetwork = WRoadNetwork::Get();
+                const WRoadSegment *segment = roadNetwork.GetSegment(segment_index);
+                const WRoadNode *currentnode = roadNetwork.GetNode(segment->fNodeIndex[static_cast<int>(pRoadNav->GetNodeInd())]);
+                if (node->GetRoadNode() != currentnode) {
+                    race_route_bogus = race_route;
+                    pRoadNav->Reverse();
                 }
-            } while (((node = node->GetParent()) != nullptr) && num_segments > 0); // this weird to force the inline call outside the scope
+            }
+            node = node->GetParent();
         }
-        num_segments = static_cast<unsigned int>(pRoadNav->GetNumPathSegments());
+        num_segments = pRoadNav->GetNumPathSegments();
+#ifndef EA_BUILD_A124
         if (pRoadNav->GetPathType() == WRoadNav::kPathGPS && nState != ASTAR_FULL_WAY) {
             pRoadNav->SetNumPathSegments(0);
         }
+#endif
         if (race_route) {
             typedef UTL::Std::set<unsigned short, _type_set> SEGMENT_SET;
             SEGMENT_SET segment_set;
-            for (int i = 0; i < static_cast<int>(num_segments); i++) {
+            for (int i = 0; i < num_segments; i++) {
                 segment_set.insert(pRoadNav->GetPathSegment(i));
             }
             if (segment_set.size() < num_segments) {
@@ -497,8 +556,8 @@ BIND_ACTIVITY_FACTORY(PathFinder);
 PathFinder *PathFinder::pInstance = nullptr;
 
 PathFinder::PathFinder() : Activity(0) {
-    AStarNodeSlotPool = bNewSlotPool(sizeof(AStarNode), 3072, "AStarNodeSlotPool", 0);
-    AStarSearchSlotPool = bNewSlotPool(sizeof(AStarSearch), 16, "AStarSearchSlotPool", 0);
+    AStarNodeSlotPool = bNewSlotPool(sizeof(AStarNode), MAX_ASTAR_NODES, "AStarNodeSlotPool", 0);
+    AStarSearchSlotPool = bNewSlotPool(sizeof(AStarSearch), MAX_ASTAR_SEARCHES, "AStarSearchSlotPool", 0);
     mSimTask = AddTask("AIVehicle", 1.0f, 0.0f, Sim::TASK_FRAME_VARIABLE);
     Sim::ProfileTask(mSimTask, "PathFinder");
 }

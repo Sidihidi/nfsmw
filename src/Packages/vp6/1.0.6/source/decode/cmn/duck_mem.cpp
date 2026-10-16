@@ -1,10 +1,10 @@
-extern "C" void *Alloc__3Vp6i(int size);
-extern "C" void Free__3Vp6Pv(void *mem);
+#include "duck_mem.h"
 
-extern "C" void *duck_malloc(unsigned long size, void *user) {
-    return Alloc__3Vp6i((int)size);
+void *duck_malloc(size_t blocksize, dmemType foo) {
+    void *temp = Vp6::Alloc(blocksize);
+    return temp;
 }
 
-extern "C" void duck_free(void *mem, void *user) {
-    Free__3Vp6Pv(mem);
+void duck_free(void *old_blk) {
+    Vp6::Free(old_blk);
 }

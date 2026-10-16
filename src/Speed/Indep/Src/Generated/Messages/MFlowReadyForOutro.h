@@ -26,7 +26,6 @@ class MFlowReadyForOutro : public Hermes::Message {
 
     MFlowReadyForOutro() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MFlowReadyForOutro() {}
 };
 
 
@@ -34,9 +33,9 @@ class MFlowReadyForOutro : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MFlowReadyForOutro::HandleMessage_LuaBinding(const MFlowReadyForOutro &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MFlowReadyForOutro::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

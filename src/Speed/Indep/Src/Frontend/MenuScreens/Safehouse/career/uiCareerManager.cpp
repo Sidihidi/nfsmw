@@ -20,14 +20,17 @@ void MemcardEnter(const char* from, const char* to, unsigned int op, void (*pTer
 struct CResumeCareer : public IconOption {
     CResumeCareer(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
         : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~CResumeCareer() override {}
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
-            bool should_go_into_epic_pursuit = false;
-            cFrontendDatabase* db = FEDatabase;
-            signed char port = FEngMapJoyParamToJoyport(param1);
-            db->SetPlayersJoystickPort(0, port);
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
             FEDatabase->GetCareerSettings()->ResumeCareer();
+#ifdef EA_BUILD_A124
+            // La A124 solo mira si es la persecucion final (no si la carrera del jefe ya esta hecha).
+            if (FEDatabase->GetCareerSettings()->GetCurrentBin() != 16 && !FEDatabase->IsFinalEpicChase()) {
+                cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
+            }
+#else
+            bool should_go_into_epic_pursuit = false;
 
             if (!FEDatabase->GetCareerSettings()->HasBeatenCareer()) {
                 GRaceDatabase &rdb = GRaceDatabase::Get();
@@ -41,6 +44,7 @@ struct CResumeCareer : public IconOption {
                 GManager::Get().SetStartingFreeRoamFromSafeHouse();
                 cFEng::Get()->QueuePackageSwitch("MainMenu_Sub.fng", 0, 0, false);
             }
+#endif
         }
     }
 
@@ -48,13 +52,12 @@ struct CResumeCareer : public IconOption {
 
 struct CStartNewCareer : public IconOption {
     CStartNewCareer(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
-        : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~CStartNewCareer() override {}
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
-            cFrontendDatabase* db = FEDatabase;
-            signed char port = FEngMapJoyParamToJoyport(param1);
-            db->SetPlayersJoystickPort(0, port);
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
 
             if (FEDatabase->GetCareerSettings()->HasCareerStarted() ||
                 !FEDatabase->bProfileLoaded) {
@@ -70,13 +73,12 @@ struct CStartNewCareer : public IconOption {
 
 struct CLoadCareer : public IconOption {
     CLoadCareer(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
-        : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~CLoadCareer() override {}
+        : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
     void React(const char* pkg_name, unsigned int data, FEObject* obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
-            cFrontendDatabase* db = FEDatabase;
-            signed char port = FEngMapJoyParamToJoyport(param1);
-            db->SetPlayersJoystickPort(0, port);
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
             MemcardEnter(pkg_name, pkg_name, 0x413, 0, 0, 0x7E998E5E, 0x8867412D);
         }
     }
@@ -95,15 +97,18 @@ void uiCareerManager::NotificationMessage(u32 msg, FEObject* pobj, u32 param1,
     switch (msg) {
     case 0x1265ECE9:
         GarageMainScreen::GetInstance()->UpdateCurrentCameraView(false);
-        break;
+        return;
     case 0xE1FDE1D1:
         if (PrevButtonMessage == 0x911AB364) {
+#ifndef EA_BUILD_A124
             if (FEDatabase->GetCareerSettings()->IsGameOver()) {
                 cFEng::Get()->QueuePackageSwitch(GetPackageName(), 0, 0, false);
-            } else {
-                FEDatabase->ClearGameMode(eFE_GAME_MODE_CAREER_MANAGER);
-                cFEng::Get()->QueuePackageSwitch("MainMenu.fng", 0, 0, false);
+                return;
             }
+#endif
+            FEDatabase->ClearGameMode(eFE_GAME_MODE_CAREER_MANAGER);
+            cFEng::Get()->QueuePackageSwitch("MainMenu.fng", 0, 0, false);
+            return;
         }
         break;
     case 0x7E998E5E:

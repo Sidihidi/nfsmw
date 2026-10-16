@@ -22,8 +22,8 @@ SlotPool *FERenderEPolySlotPoolOverflow = nullptr;
 
 
 void FERenderObject::Initialize() {
-    mpobFERenderObjectSlotPool = bNewSlotPool(0x64, 0x180, "FERenderObjectSlotPool", 0);
-    FERenderEPolySlotPool = bNewSlotPool(0xA4, 0x348, "FERenderEPolySlotPool", 0);
+    mpobFERenderObjectSlotPool = bNewSlotPool(sizeof(FERenderObject), 0x180, "FERenderObjectSlotPool", 0);
+    FERenderEPolySlotPool = bNewSlotPool(sizeof(FERenderEPoly), 0x348, "FERenderEPolySlotPool", 0);
 }
 
 // STRIPPED
@@ -99,12 +99,12 @@ FERenderEPoly *FERenderObject::AddPoly(float x0, float y0, float x1, float y1, f
 
     pPoly->UVs[0][0] = s0;
     pPoly->UVs[0][1] = t0;
-    pPoly->UVs[0][2] = s1;
-    pPoly->UVs[0][3] = t0;
     pPoly->UVs[1][0] = s1;
-    pPoly->UVs[1][1] = t1;
-    pPoly->UVs[1][2] = s0;
-    pPoly->UVs[1][3] = t1;
+    pPoly->UVs[1][1] = t0;
+    pPoly->UVs[2][0] = s1;
+    pPoly->UVs[2][1] = t1;
+    pPoly->UVs[3][0] = s0;
+    pPoly->UVs[3][1] = t1;
 
     reinterpret_cast<unsigned int *>(pPoly->Colours)[0] = colors[0];
     reinterpret_cast<unsigned int *>(pPoly->Colours)[1] = colors[1];
@@ -162,20 +162,31 @@ void FERenderObject::AddPolyWithRotatedMask(float x0, float y0, float x1, float 
 
     pPoly->UVs[0][0] = s0;
     pPoly->UVs[0][1] = t0;
-    pPoly->UVs[0][2] = s1;
-    pPoly->UVs[0][3] = t0;
     pPoly->UVs[1][0] = s1;
-    pPoly->UVs[1][1] = t1;
-    pPoly->UVs[1][2] = s0;
-    pPoly->UVs[1][3] = t1;
+    pPoly->UVs[1][1] = t0;
+    pPoly->UVs[2][0] = s1;
+    pPoly->UVs[2][1] = t1;
+    pPoly->UVs[3][0] = s0;
+    pPoly->UVs[3][1] = t1;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    pPoly->UVsMask[0][0] = s2 * 16384.0f;
+    pPoly->UVsMask[0][1] = t2 * 16384.0f;
+    pPoly->UVsMask[1][0] = s3 * 16384.0f;
+    pPoly->UVsMask[1][1] = t3 * 16384.0f;
+    pPoly->UVsMask[2][0] = s4 * 16384.0f;
+    pPoly->UVsMask[2][1] = t4 * 16384.0f;
+    pPoly->UVsMask[3][0] = s5 * 16384.0f;
+    pPoly->UVsMask[3][1] = t5 * 16384.0f;
+#else
     pPoly->UVsMask[0][0] = s2;
     pPoly->UVsMask[0][1] = t2;
-    pPoly->UVsMask[0][2] = s3;
-    pPoly->UVsMask[0][3] = t3;
-    pPoly->UVsMask[1][0] = s4;
-    pPoly->UVsMask[1][1] = t4;
-    pPoly->UVsMask[1][2] = s5;
-    pPoly->UVsMask[1][3] = t5;
+    pPoly->UVsMask[1][0] = s3;
+    pPoly->UVsMask[1][1] = t3;
+    pPoly->UVsMask[2][0] = s4;
+    pPoly->UVsMask[2][1] = t4;
+    pPoly->UVsMask[3][0] = s5;
+    pPoly->UVsMask[3][1] = t5;
+#endif
 
     reinterpret_cast<unsigned int *>(pPoly->Colours)[0] = colors[0];
     reinterpret_cast<unsigned int *>(pPoly->Colours)[1] = colors[1];
@@ -287,14 +298,14 @@ void FERenderObject::AddPoly(float x0, float y0, float x1, float y1, float z, fl
 
         pPoly->Vertices[1] = v[i + 1];
 
-        pPoly->UVs[0][2] = uv[i + 1].x;
-        pPoly->UVs[0][3] = uv[i + 1].y;
+        pPoly->UVs[1][0] = uv[i + 1].x;
+        pPoly->UVs[1][1] = uv[i + 1].y;
         reinterpret_cast<unsigned int *>(pPoly->Colours)[1] = new_colors[i + 1];
 
         pPoly->Vertices[2] = v[i + 2];
 
-        pPoly->UVs[1][0] = uv[i + 2].x;
-        pPoly->UVs[1][1] = uv[i + 2].y;
+        pPoly->UVs[2][0] = uv[i + 2].x;
+        pPoly->UVs[2][1] = uv[i + 2].y;
         reinterpret_cast<unsigned int *>(pPoly->Colours)[2] = new_colors[i + 2];
 
         // Copiar desde pPoly (no desde v[]/uv[]) es lo que el objetivo hace: los
@@ -302,12 +313,12 @@ void FERenderObject::AddPoly(float x0, float y0, float x1, float y1, float z, fl
         // el valor recien guardado y no vuelve a leer de la pila. Leyendo de v[] /
         // uv[] las escrituras por puntero invalidan la entrada y salen 6 cargas de
         // mas. El tercer destino cae en UVsMask[0][0] (ePoly+0x60), justo detras de
-        // UVs[1][3]: el original escribe ahi.
+        // UVs[3][1]: el original escribe ahi.
         pPoly->Vertices[3] = pPoly->Vertices[2];
 
-        pPoly->UVs[1][2] = pPoly->UVs[1][0];
-        pPoly->UVs[1][3] = pPoly->UVs[1][1];
-        pPoly->UVsMask[0][0] = pPoly->UVs[1][0];
+        pPoly->UVs[3][0] = pPoly->UVs[2][0];
+        pPoly->UVs[3][1] = pPoly->UVs[2][1];
+        pPoly->UVsMask[0][0] = pPoly->UVs[2][0];
         reinterpret_cast<unsigned int *>(pPoly->Colours)[3] = new_colors[i + 2];
 
         pPoly->SetFlailer(1);
@@ -437,7 +448,11 @@ uint32 FERenderObject::ClipGeneral(FEClipInfo *pClipInfo, bVector3 *v, bVector2 
 
 uint32 ClipLeft(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                 float value) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+    unsigned int new_num_verts;
+#else
     unsigned int new_num_verts = 0;
+#endif
     bool bFlag;
     u32 last_vert;
 
@@ -450,6 +465,9 @@ uint32 ClipLeft(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector
         new_num_verts = 1;
         bFlag = true;
     } else {
+#ifdef EA_PLATFORM_WIN32
+        new_num_verts = 0;
+#endif
         bFlag = false;
     }
 
@@ -491,7 +509,11 @@ uint32 ClipLeft(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector
 
 uint32 ClipTop(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                float value) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+    unsigned int new_num_verts;
+#else
     unsigned int new_num_verts = 0;
+#endif
     bool bFlag;
     u32 last_vert;
 
@@ -504,6 +526,9 @@ uint32 ClipTop(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3
         new_num_verts = 1;
         bFlag = true;
     } else {
+#ifdef EA_PLATFORM_WIN32
+        new_num_verts = 0;
+#endif
         bFlag = false;
     }
 
@@ -545,7 +570,11 @@ uint32 ClipTop(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3
 
 uint32 ClipRight(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                  float value) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+    unsigned int new_num_verts;
+#else
     unsigned int new_num_verts = 0;
+#endif
     bool bFlag;
     u32 last_vert;
 
@@ -558,6 +587,9 @@ uint32 ClipRight(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVecto
         new_num_verts = 1;
         bFlag = true;
     } else {
+#ifdef EA_PLATFORM_WIN32
+        new_num_verts = 0;
+#endif
         bFlag = false;
     }
 
@@ -599,7 +631,11 @@ uint32 ClipRight(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVecto
 
 uint32 ClipBottom(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                   float value) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+    unsigned int new_num_verts;
+#else
     unsigned int new_num_verts = 0;
+#endif
     bool bFlag;
     u32 last_vert;
 
@@ -612,6 +648,9 @@ uint32 ClipBottom(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVect
         new_num_verts = 1;
         bFlag = true;
     } else {
+#ifdef EA_PLATFORM_WIN32
+        new_num_verts = 0;
+#endif
         bFlag = false;
     }
 

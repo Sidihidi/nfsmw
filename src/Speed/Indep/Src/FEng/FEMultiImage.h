@@ -8,6 +8,34 @@ typedef enum { FEMI_MASK = 1, FEMI_TILE_U = 2, FEMI_TILE_V = 4 } eFEMultiImageUs
 
 typedef enum { FEMI_TEXTURE_1 = 0, FEMI_TEXTURE_2 = 1, FEMI_TEXTURE_3 = 2, FEMI_NUM_TEXTURES = 3 } eFEMultiImageTexNum;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // File: speed/indep/src/feng/FEMultiImage.h
 // total size: 0x90
 // Decl: speed/indep/src/feng/FEMultiImage.h:42
@@ -18,6 +46,7 @@ class FEMultiImageData : public FEImageData {
     FEVector3 PivotRot;         // offset 0x84, size 0xC, Decl: speed/indep/src/feng/FEMultiImage.h:46
 };
 
+
 // total size: 0x78
 // Decl: speed/indep/src/feng/FEMultiImage.h:52
 class FEMultiImage : public FEImage {
@@ -25,7 +54,9 @@ class FEMultiImage : public FEImage {
     u32 hTexture[3];     // offset 0x60, size 0xC, Decl: speed/indep/src/feng/FEMultiImage.h:54
     u32 TextureFlags[3]; // offset 0x6C, size 0xC, Decl: speed/indep/src/feng/FEMultiImage.h:55
 
-    FEMultiImage() : FEImage() { // Decl: speed/indep/src/feng/FEMultiImage.h:62
+
+
+    FEMultiImage() : FEImage() { // Decl: speed/indep/src/feng/FEMultiImage.h:59
         Type = FE_MultiImage;
         for (int i = 0; i <= 2; i++) {
             hTexture[i] = 0;
@@ -33,18 +64,13 @@ class FEMultiImage : public FEImage {
         }
     }
 
-    FEMultiImage(const FEMultiImage &Object, bool bReference) : FEImage(Object, bReference) {
-    }
 
-    ~FEMultiImage() override {} // Decl: speed/indep/src/feng/FEMultiImage.h:77
+    FEMultiImage(const FEMultiImage &Object, bool bReference) : FEImage(Object, bReference) {}
+    ~FEMultiImage() override {} // Decl: speed/indep/src/feng/FEMultiImage.h:69
 
-    FEMultiImageData *GetMultiImageData() { // Decl: speed/indep/src/feng/FEMultiImage.h:79
-        return reinterpret_cast<FEMultiImageData *>(pData);
-    }
+    FEMultiImageData *GetMultiImageData() { return reinterpret_cast<FEMultiImageData *>(pData); } // Decl: speed/indep/src/feng/FEMultiImage.h:71
 
-    FEObject *Clone(bool bReference) override { // Decl: speed/indep/src/feng/FEMultiImage.h:81
-        return FNEW FEMultiImage(*this, bReference);
-    }
+    FEObject *Clone(bool bReference) override { return FNEW FEMultiImage(*this, bReference); } // Decl: speed/indep/src/feng/FEMultiImage.h:73
 
     u32 GetTexture(u32 tex_num);
 

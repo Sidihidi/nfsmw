@@ -14,6 +14,11 @@ ECellCall::ECellCall(int pID) : Event(0x10), fID(pID) {
 }
 
 ECellCall::~ECellCall() {
+#ifdef EA_BUILD_A124
+    // La A124 aun no abre el buzon de SMS en los idiomas sin voz: siempre llama por telefono.
+    MiscSpeech::SMSCellCall(fID);
+    Speech::Manager::Deduce();
+#else
     eLanguages currentLanguage = GetCurrentLanguage();
 
     if (currentLanguage == eLANGUAGE_DUTCH || currentLanguage == eLANGUAGE_DANISH || currentLanguage == eLANGUAGE_FINNISH ||
@@ -52,6 +57,7 @@ ECellCall::~ECellCall() {
         MiscSpeech::SMSCellCall(fID);
         Speech::Manager::Deduce();
     }
+#endif
 }
 
 const char *ECellCall::GetEventName() const {
@@ -62,9 +68,9 @@ void ECellCall_MakeEvent_Callback(const void *staticData) {
     new ECellCall(((ECellCall::StaticData *) staticData)->fID);
 }
 
-int ECellCall_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new ECellCall((int) lua_tonumber(L, 1));
+int ECellCall_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new ECellCall((int) lua_tonumber(luaState, 1));
     }
     return 0;
 }

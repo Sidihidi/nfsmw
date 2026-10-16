@@ -120,9 +120,11 @@ void TestAllSmackablesForWhoosh() {
     for (int n = 0; n < numcars; n++) {
         UMath::Vector3 pt;
         BVEC_TO_UMATH(SndCamera::GetWorldCarPos3(n), pt);
+#ifndef EA_BUILD_A124
         if (SndCamera::GetWorldCarVel(n) < 10.0f) {
             continue;
         }
+#endif
 
         float radius = 20.0f;
         WTriggerList tList;
@@ -153,52 +155,54 @@ void CSTATEMGR_DriveBy::UpdateParams(float t) {
 
     for (player_idx = 0; player_idx < SndCamera::NumPlayers; player_idx++) {
         int n = player_idx;
-        if (SndCamera::GetWorldCarVel(n) >= 5.0f) {
-            float predict_ahead_time = 0.15f;
-            bVector3 futurepos3d = bScaleAdd(*SndCamera::GetWorldCarPos3(n), *SndCamera::GetV3WorldCarVel(n), predict_ahead_time);
-            bVector2 futurepos2d(futurepos3d.x, futurepos3d.y);
-            DrivableScenerySection *scenery_section = TheVisibleSectionManager.FindDrivableSection(&futurepos2d);
-            int LODOffset = TheVisibleSectionManager.GetLODOffset();
+        if (SndCamera::GetWorldCarVel(n) < 5.0f) {
+            continue;
+        }
 
-            if (scenery_section == nullptr) {
-                continue;
+        float predict_ahead_time = 0.15f;
+        bVector3 futurepos3d = bScaleAdd(*SndCamera::GetWorldCarPos3(n), *SndCamera::GetV3WorldCarVel(n), predict_ahead_time);
+        bVector2 futurepos2d(futurepos3d.x, futurepos3d.y);
+        DrivableScenerySection *scenery_section = TheVisibleSectionManager.FindDrivableSection(&futurepos2d);
+        int LODOffset = TheVisibleSectionManager.GetLODOffset();
+
+        if (scenery_section == nullptr) {
+            continue;
+        }
+
+        emEvent **current_event = emTriggerEventsInSection(&futurepos3d, scenery_section->GetSectionNumber() + LODOffset);
+        if (current_event == nullptr) {
+            continue;
+        }
+
+        while (*current_event != nullptr) {
+            emEvent *event = *current_event;
+            EventTrigger *event_trigger = event->pEventTrigger;
+
+            if (event->ID == 0x10007) {
+                stDriveByInfo tmpdrivebypackage;
+                unsigned int uhash = event->pEventTrigger->GetNameHash();
+
+                if ((uhash == STRINGHASH_LAMPPOST) || (uhash == STRINGHASH_PILLAR) || (uhash == STRINGHASH_TRAFFIC_LIGHT) ||
+                    (uhash == STRINGHASH_FREEWAY_SIGN)) {
+                    tmpdrivebypackage.eDriveByType = DRIVE_BY_LAMPPOST;
+                } else if (uhash == STRINGHASH_TREE) {
+                    tmpdrivebypackage.eDriveByType = DRIVE_BY_TREE;
+                }
+
+                tmpdrivebypackage.pEAXCar = SndCamera::GetPlayerCar(n);
+                tmpdrivebypackage.ClosingVelocity = SndCamera::GetWorldCarVel(n);
+                tmpdrivebypackage.vLocation = *event_trigger->GetPosition();
+
+                CSTATE_Base *ReturnedObj = EAXSound::GetStateMgr(eMM_DRIVEBY)->GetFreeState(&tmpdrivebypackage);
+
+                if (ReturnedObj != nullptr) {
+                    ReturnedObj->Attach(&tmpdrivebypackage);
+                }
             }
 
-            emEvent **current_event = emTriggerEventsInSection(&futurepos3d, scenery_section->GetSectionNumber() + LODOffset);
+            current_event++;
             if (current_event == nullptr) {
-                continue;
-            }
-
-            while (*current_event != nullptr) {
-                emEvent *event = *current_event;
-                EventTrigger *event_trigger = event->pEventTrigger;
-
-                if (event->ID == 0x10007) {
-                    stDriveByInfo tmpdrivebypackage;
-                    unsigned int uhash = event->pEventTrigger->GetNameHash();
-
-                    if ((uhash == STRINGHASH_LAMPPOST) || (uhash == STRINGHASH_PILLAR) || (uhash == STRINGHASH_TRAFFIC_LIGHT) ||
-                        (uhash == STRINGHASH_FREEWAY_SIGN)) {
-                        tmpdrivebypackage.eDriveByType = DRIVE_BY_LAMPPOST;
-                    } else if (uhash == STRINGHASH_TREE) {
-                        tmpdrivebypackage.eDriveByType = DRIVE_BY_TREE;
-                    }
-
-                    tmpdrivebypackage.pEAXCar = SndCamera::GetPlayerCar(n);
-                    tmpdrivebypackage.ClosingVelocity = SndCamera::GetWorldCarVel(n);
-                    tmpdrivebypackage.vLocation = *event_trigger->GetPosition();
-
-                    CSTATE_Base *ReturnedObj = EAXSound::GetStateMgr(eMM_DRIVEBY)->GetFreeState(&tmpdrivebypackage);
-
-                    if (ReturnedObj != nullptr) {
-                        ReturnedObj->Attach(&tmpdrivebypackage);
-                    }
-                }
-
-                current_event++;
-                if (current_event == nullptr) {
-                    break;
-                }
+                break;
             }
         }
     }
@@ -238,8 +242,11 @@ CSTATE_Base *CSTATEMGR_DriveBy::GetFreeState(void *ObjectPtr) {
             if (bDistBetween(CurStateObj->m_DriveByInfo.vLocation, NewDriveByInfo->vLocation) < 0.5f) {
                 return nullptr;
             }
-            if (NewDriveByInfo->UniqueID && NewDriveByInfo->UniqueID == CurStateObj->m_DriveByInfo.UniqueID &&
-                NewDriveByInfo->eDriveByType == CurStateObj->m_DriveByInfo.eDriveByType) {
+            if (NewDriveByInfo->UniqueID && NewDriveByInfo->UniqueID == CurStateObj->m_DriveByInfo.UniqueID
+#ifndef EA_BUILD_A124
+                && NewDriveByInfo->eDriveByType == CurStateObj->m_DriveByInfo.eDriveByType
+#endif
+            ) {
                 return nullptr;
             }
         }

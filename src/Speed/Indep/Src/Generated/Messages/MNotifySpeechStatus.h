@@ -30,8 +30,6 @@ class MNotifySpeechStatus : public Hermes::Message {
 
     MNotifySpeechStatus(Speech::ScheduledSpeechEvent *_Event) : Hermes::Message(_GetKind(), _GetSize(), 0), fEvent(_Event) {}
 
-    ~MNotifySpeechStatus() {}
-
     Speech::ScheduledSpeechEvent *GetEvent() const {
         return fEvent;
     }
@@ -49,9 +47,9 @@ class MNotifySpeechStatus : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifySpeechStatus::HandleMessage_LuaBinding(const MNotifySpeechStatus &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifySpeechStatus::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

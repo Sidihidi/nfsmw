@@ -3,6 +3,9 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
 RaceParameters TheRaceParameters;
+#ifdef EA_BUILD_A124
+Race *pCurrentRace = nullptr;
+#endif
 
 void RaceParameters::InitWithDefaults() {
     bMemSet(this, 0, sizeof(*this));
@@ -19,10 +22,10 @@ void RaceParameters::InitWithDefaults() {
     this->NumLapsInRace = 2;
     this->NumPlayerCars = 1;
     this->NumAICars = 7;
-    this->PlayerStartPosition[0] = 7;
-    this->PlayerStartPosition[1] = 8;
     this->NumOnlinePlayerCars = 0;
     this->NumOnlineAICars = 0;
+    this->PlayerStartPosition[0] = 7;
+    this->PlayerStartPosition[1] = 8;
     this->DamageEnabled = true;
     this->HandlingMode = HANDLING_MODE_EXTREME;
     this->FinishLineNumber = 0;
@@ -38,8 +41,8 @@ void RaceParameters::InitWithDefaults() {
     this->nMaxCops = 0;
     this->CopStrength = eOPPONENTSTRENGTH_LOW;
     this->DriftOpponentScoreMultiplier = 1.0f;
-    this->Boost = 1;
     this->OpponentStrength = eOPPONENTSTRENGTH_LOW;
+    this->Boost = 1;
     this->BoostScale[0] = 1.0f;
     this->BoostScale[1] = 1.0f;
     this->AIDifficultyModifier = eAI_DIFFICULTY_MODIFIER_NORMAL;

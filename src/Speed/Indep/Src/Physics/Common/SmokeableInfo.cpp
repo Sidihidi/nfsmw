@@ -146,16 +146,13 @@ void HeirarchyModel::ShowPart(const UCrc32 &nodename) {
 
 bool HeirarchyModel::IsPartVisible(const UCrc32 &nodename) const {
     int index = FindHeirarchyChild(nodename);
-    if (index >= 0) {
-        bool visible = false;
-        if (mChildVisibility & (1 << index)) {
-            visible = true;
-        }
-
-        return visible;
+    if (index < 0) {
+        return false;
     }
 
-    return false;
+    if ((mChildVisibility & (1 << index)) == 0)
+        return false;
+    return true;
 }
 
 int HeirarchyModel::FindHeirarchyChild(const UCrc32 &nodename) const {
@@ -184,7 +181,7 @@ IModel *HeirarchyModel::SpawnModel(UCrc32 rendernode, UCrc32 collisionnode, UCrc
         return NULL;
     }
 
-    if (UTL::Collections::Listable<IModel, 434>::Count() > 434u) {
+    if (IModel::GetList().size() > IModel::List::Limit) {
         return NULL;
     }
 
@@ -247,6 +244,10 @@ void HeirarchyModel::GetTransform(UMath::Matrix4 &matrix) const {
     } else if (mTrigger) {
         mTrigger->GetObjectMatrix(matrix);
     } else {
+#ifdef EA_BUILD_A124
+        static int num_prints = 0;
+        num_prints++;
+#endif
         matrix = UMath::Matrix4::kIdentity;
     }
 }
@@ -330,8 +331,8 @@ void HeirarchyModel::OnBeginSimulation() {
         mAvoidable->SetRefrence(GetSimable());
     }
 
-    RenderConn::Pkt_Smackable_Open open(mRenderMesh, GetWorldID(), GetCollisionGeometry(), mHeirarchy, mHeirarchyNode);
-    BeginDraw(UCrc32(0x804C146E), &open);
+    RenderConn::Pkt_Smackable_Open pkt(mRenderMesh, GetWorldID(), GetCollisionGeometry(), mHeirarchy, mHeirarchyNode);
+    BeginDraw(UCrc32(0x804C146E), &pkt);
 }
 
 bool HeirarchyModel::OnDraw(Sim::Packet *service) {
@@ -354,7 +355,7 @@ void PlaceableScenery::ReleaseModel() {
 }
 
 PlaceableScenery *PlaceableScenery::Construct(const char *name, unsigned int attributes) {
-    if (UTL::Collections::Listable<IModel, 434>::Count() > 434u) {
+    if (IModel::GetList().size() > IModel::List::Limit) {
         return NULL;
     }
 
@@ -693,9 +694,11 @@ void SmokeableSpawnerPack::OnLoad(unsigned int exclude_flags) {
         }
     }
 
+#ifndef EA_BUILD_A124
     if (section == NULL || !section->Rebuilds.AnySet()) {
         GManager::Get().RestorePursuitBreakerIcons(ScenerySectionNumber);
     }
+#endif
 
     for (int n = 0; n < NumSmokeableSpawners; n++) {
         bool ignore = false;
@@ -780,7 +783,7 @@ bHash32 SmokeableSpawner::GetRenderMesh() const {
 void SmokeableSpawner::ShowInstance() const {
     SceneryOverrideInfo *info = GetSceneryOverrideInfo(mSceneryOverrideInfoNumber);
     if (info) {
-        info->SetExcludeFlags(0xFFEF, 0);
+        info->EnableRendering();
     }
 }
 
@@ -796,7 +799,7 @@ bool SmokeableSpawner::IsInstanceVisible() const {
 void SmokeableSpawner::HideInstance() const {
     SceneryOverrideInfo *info = GetSceneryOverrideInfo(mSceneryOverrideInfoNumber);
     if (info) {
-        info->SetExcludeFlags(0xFFFF, 0x10);
+        info->DisableRendering();
     }
 }
 
@@ -817,13 +820,16 @@ void SmokeableSpawner::OnLoad(unsigned int exclude_flags, bool ignore) {
 
         const Attrib::Collection *collection = FindAttributes(mAttributes);
 
-        mSimModel = collection ? SceneryModel::Construct(this, collection
+        if (collection) {
+            mSimModel = SceneryModel::Construct(this, collection
 #ifndef EA_BUILD_A124
-                                                         ,
-                                                         ignore
+                                               ,
+                                               ignore
 #endif
-                                                         )
-                               : NULL;
+                                               );
+        } else {
+            mSimModel = NULL;
+        }
     }
 
     if (mSimModel == NULL) {

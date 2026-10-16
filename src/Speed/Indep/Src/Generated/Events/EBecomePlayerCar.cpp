@@ -19,7 +19,10 @@ EBecomePlayerCar::~EBecomePlayerCar() {
         if (simable) {
             if (simable->QueryInterface(&human_ai)) {
                 if (simable->QueryInterface(&body)) {
-                    if (human_ai->GetAiControl()) {
+#ifndef EA_BUILD_A124 // la A124 no mira antes si lo lleva la IA
+                    if (human_ai->GetAiControl())
+#endif
+                    {
                         human_ai->SetAiControl(false);
                         body->EnableObjectCollisions(true);
                         body->SetInvulnerability(INVULNERABLE_FROM_CONTROL_SWITCH, 1.0f);
@@ -38,8 +41,8 @@ void EBecomePlayerCar_MakeEvent_Callback(const void *staticData) {
     new EBecomePlayerCar();
 }
 
-int EBecomePlayerCar_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EBecomePlayerCar_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EBecomePlayerCar();
     }
     return 0;

@@ -18,9 +18,9 @@ void ESndGameState_MakeEvent_Callback(const void *staticData) {
     new ESndGameState(((ESndGameState::StaticData *) staticData)->fState, ((ESndGameState::StaticData *) staticData)->fTurningOn);
 }
 
-int ESndGameState_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ESndGameState((int) lua_tonumber(L, 1), lua_toboolean(L, 2));
+int ESndGameState_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ESndGameState((int) lua_tonumber(luaState, 1), lua_toboolean(luaState, 2));
     }
     return 0;
 }

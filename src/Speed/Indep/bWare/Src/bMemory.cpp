@@ -6,6 +6,15 @@
 #include <cstring>
 #include <types.h>
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/bWare/Inc/bFunk.hpp"
+#include <stdlib.h>
+#endif
+
+#ifdef EA_PLATFORM_XENON
+#include <xtl.h>
+#endif
+
 #ifdef EA_PLATFORM_GAMECUBE
 #include "dolphin/os/OSArena.h"
 #ifdef EA_PLATFORM_GAMECUBE
@@ -19,6 +28,23 @@ void VMInit(size_t, uintptr_t, size_t);
 BOOL VMAlloc(uintptr_t, size_t);
 }
 
+#ifdef MILESTONE_BUILD
+// total size: 0x8. Va delante de la AllocationHeader en las milestone (stabs de la A124).
+struct DebugAllocationHeader {
+    static int GetRequiredSize(const char *debug_text, int shared_string_index) {
+        if (shared_string_index == -1) {
+            return (bStrLen(debug_text) + 10) & ~3U; // 6 B de cabecera, la cadena con su 0, a 4 B
+        }
+        return 8;
+    }
+
+    uint16 AllocationNumber; // offset 0x0, size 0x2
+    uint16 DebugLine;        // offset 0x2, size 0x2
+    int16 SharedStringIndex; // offset 0x4, size 0x2
+    char DebugText[2];       // offset 0x6, size 0x2
+};
+#endif
+
 // total size: 0x14
 class AllocationHeader : public bTNode<AllocationHeader> {
   public:
@@ -30,9 +56,20 @@ class AllocationHeader : public bTNode<AllocationHeader> {
         return &this[1];
     }
 
+#ifdef MILESTONE_BUILD
+    DebugAllocationHeader *GetDebugHeader() {
+        return reinterpret_cast<DebugAllocationHeader *>(GetBottomAddress());
+    }
+
+    const char *GetDebugText() {
+        const char *s = bGetSharedString(GetDebugHeader()->SharedStringIndex);
+        return s ? s : GetDebugHeader()->DebugText;
+    }
+#else
     const char *GetDebugText() {
         return "";
     }
+#endif
 
     int GetAllocationNumber() {
 #ifdef MILESTONE_BUILD
@@ -56,6 +93,17 @@ class AllocationHeader : public bTNode<AllocationHeader> {
     int32 Size;          // offset 0xC, size 0x4
     int32 RequestedSize; // offset 0x10, size 0x4
 };
+
+#ifdef EA_PLATFORM_WIN32
+// Solo PC: el exe de PC tiene una tercera lista en la MemoryPool (0x14): Init la inicializa, Close la vacia con delete
+// y AddFreeMemory/AllocateMemory la usan con EnableCleanupBorrowedMemoryBlock y BorrowMemoryBlockMinSize. Xbox 360,
+// GameCube y las PS2 no la tienen. PC no trae simbolos: el nombre del tipo y el del miembro son nuestros.
+class BorrowedMemoryBlock : public bTNode<BorrowedMemoryBlock> {
+  public:
+    void *Memory; // offset 0x8, size 0x4
+    int Size;     // offset 0xC, size 0x4
+};
+#endif
 
 // total size: 0x60
 class MemoryPool {
@@ -85,6 +133,9 @@ class MemoryPool {
     void PrintAllocations(int from_allocation, int to_allocation);
     AllocationHeader *FindAllocation(int allocation_num);
     int GetAllocations(void **allocations, int max_allocations);
+#ifdef EA_BUILD_A124
+    void *GetMemoryDumpStatistics(int &num_allocs, int &high_allocs, int &usage, int &high_usage, int &free, const char *&name);
+#endif
     void SetFancyStompDetector(void *mem, int mem_size, const char *name);
     bool CheckFancyStompDetector(const void *mem, int mem_size);
     void TraceNewPool();
@@ -132,6 +183,9 @@ class MemoryPool {
     const char *pDebugName;                        // offset 0x0, size 0x4
     bTList<FreeBlock> FreeBlockList;               // offset 0x4, size 0x8
     bTList<AllocationHeader> AllocationHeaderList; // offset 0xC, size 0x8
+#ifdef EA_PLATFORM_WIN32
+    bTList<BorrowedMemoryBlock> BorrowedMemoryBlockList; // offset 0x14, size 0x8 (solo PC)
+#endif
     intptr_t InitialAddress;                       // offset 0x14, size 0x4
     int InitialSize;                               // offset 0x18, size 0x4
     int NumAllocations;                            // offset 0x1C, size 0x4
@@ -155,6 +209,11 @@ int BorrowMemoryBlockMinSize = 0x19000;
 int bMemoryRandomFillPattern = 0; // size: 0x4, address: 0x80416430
 int bMemoryUseSharedStrings = 1;
 int bMemoryTracing = 0;                                                               // size: 0x4, address: 0x80416438
+#ifdef MILESTONE_BUILD
+typedef void (*bMemoryDebugCallback)(int pool_num, void *ptr, int size, const char *debug_text);
+static bMemoryDebugCallback bMemoryAllocCallback = nullptr;
+static bMemoryDebugCallback bMemoryFreeCallback = nullptr;
+#endif
 int bMemoryBreakOnAllocationNumber = -1;                                              // size: 0x4, address: 0x8041643C
 int bMemoryAllocationNumber = 0;                                                      // size: 0x4, address: 0x80416440
 bMemoryAllocator TheMemoryAllocator;                                                  // size: 0xC, address: 0x8045790C
@@ -162,6 +221,9 @@ EA::Allocator::IAllocator &gMemoryAllocator = TheMemoryAllocator;               
 bMemoryAllocator TheMemoryPersistentAllocator;                                        // size: 0xC, address: 0x8045791C
 EA::Allocator::IAllocator &gMemoryPersistentAllocator = TheMemoryPersistentAllocator; // size: 0x4, address: 0x80457928
 // static const int bMemoryEnableFancyStompDetector; // size: 0x4
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+int bMemoryBreakOnFancyStompDetection = 0; // DWARF de GameCube (sin direccion alli); X360 0x82A80E14
+#endif
 
 #ifdef EA_PLATFORM_GAMECUBE
 void bFunkGameCube(const char *server_name, unsigned char function_num, const void *param_buffer, long param_size) {}
@@ -181,6 +243,9 @@ int GetAlignmentAdjustBottom(intptr_t address, int alignment, int alignment_offs
 void MemoryPool::Init(void *memory, int memory_size, const char *debug_name) {
     this->FreeBlockList.InitList();
     this->AllocationHeaderList.InitList();
+#ifdef EA_PLATFORM_WIN32
+    this->BorrowedMemoryBlockList.InitList();
+#endif
     this->InitialAddress = reinterpret_cast<uintptr_t>(memory);
     this->InitialSize = memory_size;
     this->NumAllocations = 0;
@@ -286,7 +351,11 @@ void MemoryPool::AddFreeMemory(void *p, int size
             if (bMemoryRandomFillPattern != 0) {
                 bMemSet(fill_bot, bGetTicker(), fill_top - fill_bot);
             } else {
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+                SetFancyStompDetector(fill_bot, fill_top - fill_bot, debug_name);
+#else
                 bMemSet(fill_bot, 0xee, fill_top - fill_bot);
+#endif
             }
         }
 
@@ -298,8 +367,8 @@ void *MemoryPool::AllocateMemory(int size, int alignment, int alignment_offset, 
     this->Mutex.Lock();
 
     size = (size + 3) & ~3;
-    if (static_cast<int>(size) < 16) {
-        size = 16;
+    if (static_cast<int>(size) < static_cast<int>(sizeof(FreeBlock))) {
+        size = sizeof(FreeBlock);
     }
 
     FreeBlock *best_free_block = nullptr;
@@ -311,7 +380,7 @@ void *MemoryPool::AllocateMemory(int size, int alignment, int alignment_offset, 
             int alignment_adjust = GetAlignmentAdjustTop(reinterpret_cast<intptr_t>(f), alignment, alignment_offset);
             int amount_leftover = f->Size - (size + alignment_adjust);
 
-            if (((amount_leftover == 0) || (amount_leftover > 0xf)) && (amount_leftover < best_amount_leftover)) {
+            if (((amount_leftover == 0) || (amount_leftover >= static_cast<int>(sizeof(FreeBlock)))) && (amount_leftover < best_amount_leftover)) {
                 best_amount_leftover = amount_leftover;
                 best_alignment_adjust = alignment_adjust;
                 best_free_block = f;
@@ -326,7 +395,7 @@ void *MemoryPool::AllocateMemory(int size, int alignment, int alignment_offset, 
                 GetAlignmentAdjustBottom(reinterpret_cast<intptr_t>(reinterpret_cast<char *>(f) + f->Size) - size, alignment, alignment_offset);
             int amount_leftover = f->Size - (size + alignment_adjust);
 
-            if (((amount_leftover == 0) || (amount_leftover > 15)) && (amount_leftover < best_amount_leftover)) {
+            if (((amount_leftover == 0) || (amount_leftover >= static_cast<int>(sizeof(FreeBlock)))) && (amount_leftover < best_amount_leftover)) {
                 best_amount_leftover = amount_leftover;
                 best_alignment_adjust = alignment_adjust;
                 best_free_block = f;
@@ -359,7 +428,7 @@ void *MemoryPool::AllocateMemory(int size, int alignment, int alignment_offset, 
         mem_bottom = best_free_block;
         CheckFancyStompDetector(best_free_block + 1, size - sizeof(FreeBlock));
 
-        if (best_free_block->Size != size) {
+        if (best_free_block->Size - size != 0) {
             FreeBlock *new_free_block = reinterpret_cast<FreeBlock *>(reinterpret_cast<char *>(best_free_block) + size);
             CheckFancyStompDetector(new_free_block, sizeof(FreeBlock));
 
@@ -439,6 +508,9 @@ void MemoryPool::VerifyPoolIntegrity(bool verify_free_pattern) {
             }
 
             if (verify_free_pattern && this->DebugFillEnabled && (bMemoryRandomFillPattern == 0)) {
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+                CheckFancyStompDetector(f->GetBot(), reinterpret_cast<char *>(f->GetTop()) - reinterpret_cast<char *>(f->GetBot()));
+#else
                 int *bot = reinterpret_cast<int *>(f + 1);
                 int *top = reinterpret_cast<int *>(f->GetTop());
 
@@ -450,6 +522,7 @@ void MemoryPool::VerifyPoolIntegrity(bool verify_free_pattern) {
                     }
                     bot++;
                 }
+#endif
             }
         }
 
@@ -469,8 +542,9 @@ void MemoryPool::VerifyPoolIntegrity(bool verify_free_pattern) {
     // TODO dwarf (previous_header)
     for (AllocationHeader *header = this->AllocationHeaderList.GetHead(); header != this->AllocationHeaderList.EndOfList();
          header = header->GetNext()) {
-        if (!bIsValidPointer(header, 1) || !bIsValidPointer(header->GetNext(), 1) || !bIsValidPointer(header->GetPrev(), 1) ||
-            (header->MagicNumber != 0x22)) {
+        if (!bIsValidPointer(header, 1) || !bIsValidPointer(header->GetNext(), 1) || !bIsValidPointer(header->GetPrev(), 1)) {
+            errors++;
+        } else if (header->MagicNumber != 0x22) {
             errors++;
         }
 
@@ -487,22 +561,33 @@ asd:
 const char *pTraceDebugText = nullptr;  // size: 0x4, address: 0x80416450
 int TraceDebugLine = 0;                 // size: 0x4, address: 0x80416454
 int MemoryInitialized = 0;              // size: 0x4, address: 0x80416458
-char MemoryPoolMem[16][96];             // size: 0x600, address: 0x8045A20D
+#ifdef EA_PLATFORM_PLAYSTATION2
+int PS2MemorySize = 0x2000000;
+void *_HeapBasePS2 = nullptr;
+unsigned int _HeapSizePS2 = 0;
+#endif
+char MemoryPoolMem[16][sizeof(MemoryPool)]; // size: 0x600, address: 0x8045A20D
 MemoryPool *MemoryPools[16];            // size: 0x40, address: 0x8045A810
 MemoryPoolInfo MemoryPoolInfoTable[16]; // size: 0x100, address: 0x8045A850
 bVirtualMemoryManager eARAMMM;          // size: 0x18, address: 0x8045A950
+#ifndef EA_PLATFORM_PLAYSTATION2 // las dos PS2 no lo tienen (ni el global ni su guardado en bInitMemoryPool)
 unsigned int MemoryPoolZeroSize = 0;    // size: 0x4, address: 0x8041645C
+#endif
 int bMemoryPersistentPoolNumber = -1;   // size: 0x4, address: 0x80416460
 
 // STRIPPED
 int MemoryPool::CountAllocations(const char *debug_text) {}
 
 int CheckFlipMemoryByAddress(AllocationHeader *a, AllocationHeader *b) {
-    return static_cast<int>(a->GetBottomAddress() <= b->GetBottomAddress());
+    return static_cast<int>(b->GetBottomAddress() >= a->GetBottomAddress());
 }
 
 int CheckFlipMemoryByAllocationNumber(AllocationHeader *a, AllocationHeader *b) {
+#ifdef EA_BUILD_A124
+    return static_cast<int>(b->GetAllocationNumber() >= a->GetAllocationNumber());
+#else
     return 1;
+#endif
 }
 
 void MemoryPool::PrintAllocationsByAddress(int from_allocation, int to_allocation) {
@@ -561,7 +646,15 @@ void MemoryPool::PrintAllocations(int from_allocation, int to_allocation) {
 }
 
 // STRIPPED
-AllocationHeader *MemoryPool::FindAllocation(int allocation_num) {}
+AllocationHeader *MemoryPool::FindAllocation(int allocation_num) {
+    for (AllocationHeader *header = this->AllocationHeaderList.GetHead(); header != this->AllocationHeaderList.EndOfList();
+         header = header->GetNext()) {
+        if (header->GetAllocationNumber() == allocation_num) {
+            return header;
+        }
+    }
+    return nullptr;
+}
 
 int MemoryPool::GetAllocations(void **allocations, int max_allocations) {
     this->AllocationHeaderList.Sort(CheckFlipMemoryByAddress);
@@ -576,10 +669,99 @@ int MemoryPool::GetAllocations(void **allocations, int max_allocations) {
     return num_allocations;
 }
 
+#ifdef EA_BUILD_A124
+void *MemoryPool::GetMemoryDumpStatistics(int &num_allocs, int &high_allocs, int &usage, int &high_usage, int &free, const char *&name) {
+    num_allocs = NumAllocations;
+    high_allocs = TotalNumAllocations;
+    usage = AmountAllocated;
+    high_usage = MostAmountAllocated;
+    free = AmountFree;
+    name = GetName();
+
+    return AllocationHeaderList.GetHead();
+}
+#endif
+
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+// X360 (NFS.exe 0x8216D178): la memoria libre se llena con el nombre de quien la libero, de tres en tres
+// caracteres mas su suma; "NULL" si no hay nombre.
+void MemoryPool::SetFancyStompDetector(void *mem, int mem_size, const char *name) {
+    if (name == nullptr) {
+        name = "NULL";
+    }
+    int name_pos = 0;
+    for (int n = 0; n < mem_size; n += 4) {
+        unsigned char *pmem = &static_cast<unsigned char *>(mem)[n];
+        unsigned char c0 = name[name_pos++];
+        if (c0 == 0) {
+            name_pos = 0;
+        }
+        unsigned char c1 = name[name_pos++];
+        if (c1 == 0) {
+            name_pos = 0;
+        }
+        unsigned char c2 = name[name_pos++];
+        if (c2 == 0) {
+            name_pos = 0;
+        }
+        unsigned char checksum = c0 + c1 + c2;
+        pmem[0] = c0;
+        pmem[1] = c1;
+        pmem[2] = c2;
+        pmem[3] = checksum;
+    }
+}
+#else
 // STRIPPED
 void MemoryPool::SetFancyStompDetector(void *mem, int mem_size, const char *name) {}
+#endif
 
 bool MemoryPool::CheckFancyStompDetector(const void *mem, int mem_size) {
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+    const unsigned char *mem8 = static_cast<const unsigned char *>(mem);
+
+    if (this->DebugFillEnabled && bMemoryRandomFillPattern == 0) {
+        for (int n = 0; n < mem_size; n += 4) {
+            const unsigned char *pmem = &mem8[n];
+            unsigned char c0 = pmem[0];
+            unsigned char c1 = pmem[1];
+            unsigned char c2 = pmem[2];
+            unsigned char checksum = c0 + c1 + c2;
+
+            if (checksum != pmem[3]) {
+                bReleasePrintf("\nERROR:  FancyStompDetector detected stomp at 0x%08x in memory pool %s\n", pmem, GetName());
+                bReleasePrintf("        Bytes 0,1,2 = previous owner (ASCII).  Byte 3 = checksum\n");
+                bReleasePrintf("\n");
+                int start_pos = (n & ~0xF) - 0x20;
+                int end_pos = start_pos + 0x60;
+                for (int pos = start_pos; pos < end_pos; pos += 0x10) {
+                    bReleasePrintf("        0x%08X : ", &mem8[pos]);
+                    for (int i = 0; i < 0x10; i++) {
+                        bReleasePrintf(" %02X", mem8[pos + i]);
+                    }
+                    bReleasePrintf("  ");
+                    for (int i = 0; i < 0x10; i++) {
+                        if ((i & 3) != 3) {
+                            unsigned char c = mem8[pos + i];
+                            if (c < 0x20 || c >= 0x80) {
+                                c = '.';
+                            }
+                            bReleasePrintf("%c", c);
+                        }
+                    }
+                    bReleasePrintf("\n");
+                }
+                PrintAllocationsByAddress(0, 0x7fffffff);
+                static int seen_yellow_screen;
+                seen_yellow_screen++;
+                if (bMemoryBreakOnFancyStompDetection) {
+                    bBreak();
+                }
+                return true;
+            }
+        }
+    }
+#endif
     return false;
 }
 
@@ -661,9 +843,11 @@ void bInitMemoryPool(int pool_num, void *mem, int mem_size, const char *debug_na
     info->OverflowPoolNumber = -1;
     MemoryPools[pool_num] = reinterpret_cast<MemoryPool *>(MemoryPoolMem[pool_num]);
     reinterpret_cast<MemoryPool *>(MemoryPoolMem[pool_num])->Init(mem, mem_size, debug_name);
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_XENON) // NFS.exe 0x8216D5E8 no lo guarda
     if (pool_num == 0) {
         MemoryPoolZeroSize = mem_size;
     }
+#endif
 }
 
 void bCloseMemoryPool(int pool_num) {
@@ -739,9 +923,32 @@ int GetVirtualMemoryPoolNumber() {
     return 15;
 }
 
+#ifdef EA_PLATFORM_GAMECUBE
 unsigned int GetVirtualMemoryAllocParams() {
     return (GetVirtualMemoryPoolNumber() & 0xf) | 0x400;
 }
+#endif
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Los simbolos del enlazador del crt0 de Sony: el final del programa y la base y el tamano de la pila (-1 si no se
+// fijaron).
+extern char _end[];
+extern char _stack[];
+extern char _stack_size[];
+
+int GetPS2HeapSize() {
+    int ProgEnd = reinterpret_cast<int>(_end);
+    int StackSize = reinterpret_cast<int>(_stack_size);
+    if (StackSize == -1) {
+        StackSize = 0x4000;
+    }
+    int StackStart = reinterpret_cast<int>(_stack);
+    if (StackStart == -1) {
+        StackStart = PS2MemorySize - StackSize;
+    }
+    return StackStart - ProgEnd;
+}
+#endif
 
 void bMemoryInit() {
 #ifdef EA_PLATFORM_GAMECUBE
@@ -784,6 +991,31 @@ void bMemoryInit() {
         bInitMemoryPool(pool_num_VM, reinterpret_cast<void *>(eARAMMM.mVirtualBaseAddr), eARAMMM.mARamSize, GetVirtualMemoryPoolName());
         MemoryInitialized = TRUE;
     }
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    if (!MemoryInitialized) {
+        int heap_size = GetPS2HeapSize() - 0x8000;
+        void *heap_bot = malloc(heap_size);
+        if (bMemoryTracing != 0) {
+            bFunkCallASync("CODEINE", 24, nullptr, 0);
+        }
+        bInitMemoryPool(0, heap_bot, heap_size, "Main Pool");
+        _HeapBasePS2 = heap_bot;
+        _HeapSizePS2 = heap_size;
+        MemoryInitialized = TRUE;
+    }
+#elif defined(EA_PLATFORM_XENON)
+    // NFS.exe 0x82170F70: la piscina principal son 0x15900000 B fisicos en paginas grandes; el estado de la memoria
+    // se lee antes y despues (GlobalMemoryStatus, 0x82669A28) y no se usa.
+    if (!MemoryInitialized) {
+        MEMORYSTATUS memory_status_before;
+        GlobalMemoryStatus(&memory_status_before);
+        int heap_size = 0x15900000;
+        void *heap_bot = XPhysicalAlloc(heap_size, MAXULONG_PTR, 0, PAGE_READWRITE | MEM_LARGE_PAGES);
+        MEMORYSTATUS memory_status_after;
+        GlobalMemoryStatus(&memory_status_after);
+        bInitMemoryPool(0, heap_bot, heap_size, "Main Pool");
+        MemoryInitialized = TRUE;
+    }
 #else
     // TODO
 #endif
@@ -799,14 +1031,19 @@ void *bMalloc(int size, int allocation_params) {
 }
 #endif
 
-#ifdef MILESTONE_BUILD
+#ifdef EA_BUILD_A124
 void *bMalloc(int size, const char *debug_text, int debug_line, int allocation_params) {
     return bWareMalloc(size, debug_text, debug_line, allocation_params);
 }
 #endif
 
 // TODO variable names
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+// X360 no tiene bWareMalloc: el cuerpo es el de bMalloc (NFS.exe 0x8216D8C8, 968 B) y sus 1.365 llamantes lo llaman.
+void *bMalloc(int size, const char *debug_text, int debug_line, int allocation_params) {
+#else
 void *bWareMalloc(int size, const char *debug_text, int debug_line, int allocation_params) {
+#endif
     int pool_num = bMemoryGetPoolNum(allocation_params);
     MemoryPoolInfo *info = &MemoryPoolInfoTable[pool_num];
 
@@ -834,24 +1071,43 @@ void *bWareMalloc(int size, const char *debug_text, int debug_line, int allocati
     }
 
     if (bMemoryAutomaticVerifyPoolIntegrity != 0) {
-        if (bMemoryAllocationNumber == (bMemoryAllocationNumber / bMemoryAutomaticVerifyPoolIntegrity) * bMemoryAutomaticVerifyPoolIntegrity) {
+        if (bMemoryAllocationNumber % bMemoryAutomaticVerifyPoolIntegrity == 0) {
             bVerifyPoolIntegrity(bMemoryGetPoolNum(allocation_params));
         }
     }
 
     // TODO rename
+#ifdef MILESTONE_BUILD
+    int alignment = bMemoryGetAlignment(allocation_params) ? bMemoryGetAlignment(allocation_params) : 16;
+#else
     int alignment = bMemoryGetAlignment(allocation_params);
     if (alignment == 0) {
         alignment = 16;
     }
+#endif
 
     // TODO rename
-    int allocation_header_offset = bMemoryGetAlignmentOffset(allocation_params) + 0x14;
+#ifdef MILESTONE_BUILD
+    int user_alignment_offset = bMemoryGetAlignmentOffset(allocation_params);
+    int shared_string_index = -1;
+    if (bMemoryUseSharedStrings) {
+        shared_string_index = bGetSharedStringIndex(bAllocateSharedString(debug_text));
+    }
+    int debug_header_size = DebugAllocationHeader::GetRequiredSize(debug_text, shared_string_index);
+    int allocation_header_offset = debug_header_size + sizeof(AllocationHeader) + user_alignment_offset;
+    int new_size;
+    pool_num = bMemoryGetPoolNum(allocation_params);
+    MemoryPool *pool = MemoryPools[pool_num];
+    char *memory = reinterpret_cast<char *>(pool->AllocateMemory(size + sizeof(AllocationHeader) + debug_header_size, alignment,
+                                                                 allocation_header_offset, allocation_params & 0x40, allocation_params & 0x80, &new_size));
+#else
+    int allocation_header_offset = bMemoryGetAlignmentOffset(allocation_params) + static_cast<int>(sizeof(AllocationHeader));
     int new_size;
     pool_num = bMemoryGetPoolNum(allocation_params);
     MemoryPool *pool = MemoryPools[pool_num];
     void *memory =
-        pool->AllocateMemory(size + 0x14, alignment, allocation_header_offset, allocation_params & 0x40, allocation_params & 0x80, &new_size);
+        pool->AllocateMemory(size + static_cast<int>(sizeof(AllocationHeader)), alignment, allocation_header_offset, allocation_params & 0x40, allocation_params & 0x80, &new_size);
+#endif
 
     if (memory != nullptr) {
         int padding = 0;
@@ -860,6 +1116,33 @@ void *bWareMalloc(int size, const char *debug_text, int debug_line, int allocati
             padding = GetAlignmentAdjustTop(reinterpret_cast<intptr_t>(memory), alignment, allocation_header_offset);
         }
 
+#ifdef MILESTONE_BUILD
+        front_padding = debug_header_size + padding;
+        AllocationHeader *header = reinterpret_cast<AllocationHeader *>(memory + front_padding);
+        pool->AddAllocationHeader(header);
+
+        header->PoolNum = pool_num;
+        header->FrontPadding = front_padding;
+        header->MagicNumber = 0x22;
+        header->Size = new_size;
+        header->RequestedSize = size;
+
+        reinterpret_cast<DebugAllocationHeader *>(memory)->DebugLine = debug_line;
+        reinterpret_cast<DebugAllocationHeader *>(memory)->AllocationNumber = bMemoryAllocationNumber;
+        reinterpret_cast<DebugAllocationHeader *>(memory)->SharedStringIndex = shared_string_index;
+        reinterpret_cast<DebugAllocationHeader *>(memory)->DebugText[0] = 0;
+        if (debug_text && shared_string_index == -1) {
+            bStrCpy(reinterpret_cast<DebugAllocationHeader *>(memory)->DebugText, debug_text);
+        }
+        bMemSet(memory + debug_header_size, 0xDD, header->FrontPadding - debug_header_size);
+        if (bMemoryAllocCallback) {
+#ifdef EA_BUILD_A124
+            bMemoryAllocCallback(header->PoolNum, &header[1], size, reinterpret_cast<DebugAllocationHeader *>(memory)->DebugText);
+#else // X360: NFS.exe 0x8216D8C8 llama a GetDebugText
+            bMemoryAllocCallback(header->PoolNum, &header[1], size, header->GetDebugText());
+#endif
+        }
+#else
         AllocationHeader *header = reinterpret_cast<AllocationHeader *>(reinterpret_cast<char *>(memory) + padding);
         pool->AddAllocationHeader(header);
 
@@ -869,6 +1152,7 @@ void *bWareMalloc(int size, const char *debug_text, int debug_line, int allocati
 
         header->Size = new_size;
         header->RequestedSize = size;
+#endif
         if (bMemoryAllocationNumber == bMemoryBreakOnAllocationNumber) {
             bBreak();
         }
@@ -879,6 +1163,9 @@ void *bWareMalloc(int size, const char *debug_text, int debug_line, int allocati
 
     bReleasePrintf("ERROR:  Out of memory in pool %s allocating %s (size = %d).  Largest possible = %d  Total = %d\n", pool->GetName(), debug_text,
                    size, bLargestMalloc(allocation_params), bCountFreeMemory(pool_num));
+#ifdef MILESTONE_BUILD
+    bBreak();
+#endif
     bMemoryPrintAllocationsByAddress(pool_num, 0, 0x7fffffff);
     bBreak();
     return nullptr;
@@ -892,14 +1179,12 @@ void bFree(void *ptr) {
         MemoryPoolOverrideInfo *override_info = MemoryPoolInfoTable[n].OverrideInfo;
         intptr_t address = reinterpret_cast<intptr_t>(ptr);
         if ((override_info != nullptr) && (address >= override_info->Address) && (address < override_info->Address + override_info->Size)) {
-            int pool_num = 1;
+            int pool_num;
 
-            while (pool_num < 16) {
+            for (pool_num = 1; pool_num < 16; pool_num++) {
                 MemoryPool *pool = MemoryPools[pool_num];
 
-                if ((pool == nullptr) || !pool->IsInPool(address)) {
-                    pool_num++;
-                } else {
+                if ((pool != nullptr) && pool->IsInPool(address)) {
                     break;
                 }
             }
@@ -912,8 +1197,26 @@ void bFree(void *ptr) {
     AllocationHeader *header = &static_cast<AllocationHeader *>(ptr)[-1];
     int pool_num = header->PoolNum;
     MemoryPool *pool = MemoryPools[pool_num];
-#ifndef EA_BUILD_A124
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+    char debug_name[32] = "";
+#elif !defined(EA_BUILD_A124)
     char debug_name[32] = {};
+#endif
+#ifdef MILESTONE_BUILD
+#ifndef EA_BUILD_A124
+    DebugAllocationHeader *debug_header = header->GetDebugHeader();
+    bSafeStrCpy(debug_name, header->GetDebugText(), sizeof(debug_name));
+#endif
+    if (bMemoryFreeCallback) {
+        bMemoryFreeCallback(header->PoolNum, ptr, header->RequestedSize, header->GetDebugText());
+    }
+#ifdef EA_BUILD_A124
+    if (header->GetDebugHeader()->SharedStringIndex != -1) {
+        bFreeSharedString(bGetSharedString(header->GetDebugHeader()->SharedStringIndex));
+    }
+#else
+    bFreeSharedString(bGetSharedString(debug_header->SharedStringIndex));
+#endif
 #endif
     if (bMemoryAutomaticVerifyPoolIntegrity && (bMemoryAllocationNumber % bMemoryAutomaticVerifyPoolIntegrity == 0)) {
         bVerifyPoolIntegrity(pool_num);
@@ -1069,7 +1372,15 @@ void bMemoryPrintAllocationsByAddress(int pool_num, int from_allocation, int to_
 }
 
 // STRIPPED
-void *bMemoryFindAllocation(int pool_num, int allocation_num) {}
+void *bMemoryFindAllocation(int pool_num, int allocation_num) {
+    if (MemoryPools[pool_num] != nullptr) {
+        AllocationHeader *header = MemoryPools[pool_num]->FindAllocation(allocation_num);
+        if (header != nullptr) {
+            return header->GetAllocAddress();
+        }
+    }
+    return nullptr;
+}
 
 int bMemoryGetAllocations(int pool_num, void **allocations, int max_allocations) {
     if (MemoryPools[pool_num] != nullptr) {
@@ -1077,6 +1388,19 @@ int bMemoryGetAllocations(int pool_num, void **allocations, int max_allocations)
     }
     return 0;
 }
+
+#ifdef EA_BUILD_A124
+void *bMemoryGetStatistics(int pool, int &num_allocs, int &high_allocs, int &usage, int &high_usage, int &free, int &largest_free,
+                           const char *&name) {
+    MemoryPool *memory_pool = MemoryPools[pool];
+    if (memory_pool) {
+        void *first_allocation = memory_pool->GetMemoryDumpStatistics(num_allocs, high_allocs, usage, high_usage, free, name);
+        largest_free = bLargestMalloc(pool);
+        return first_allocation;
+    }
+    return nullptr;
+}
+#endif
 
 #ifdef EA_BUILD_A124
 static char bMemoryDebugStringNoName[8] = "NO_NAME";
@@ -1127,12 +1451,12 @@ int bMemoryAllocator::AddRef() {
 }
 
 int bMemoryAllocator::Release() {
-    this->mRefcount--;
-    if (this->mRefcount < 1) {
-        delete this;
-        return 0;
+    int ref = --this->mRefcount;
+    if (ref > 0) {
+        return ref;
     }
-    return this->mRefcount;
+    delete this;
+    return 0;
 }
 
 void bMemoryCreatePersistentPool(int size) {

@@ -100,6 +100,9 @@ class EngineSpline : protected VehicleBehavior, protected ITransmission, protect
     float GetSpeedometer() const override;
     float GetMaxSpeedometer() const override;
     Rpm GetShiftPoint(GearID from_gear, GearID to_gear) const override;
+#ifdef EA_BUILD_A124
+    Rpm GetOptimalShiftRange(GearID to_gear) const override;
+#endif
     ShiftStatus GetShiftStatus() const override {
         return SHIFT_STATUS_NORMAL;
     }
@@ -435,14 +438,14 @@ float EngineSpline::GetMaxSpeedometer() const {
     if (num_ratios > 0) {
         float limiter = MPH2MPS(this->mEngineInfo.SPEED_LIMITER(0));
         float max_speedometer = this->CalcSpeedometer(this->mEngineInfo.RED_LINE(), num_ratios - 1);
+
         if (limiter > 0.0f) {
-            return UMath::Min(max_speedometer, limiter);
-        } else {
-            return max_speedometer;
+            max_speedometer = UMath::Min(max_speedometer, limiter);
         }
-    } else {
-        return 0.0f;
+        return max_speedometer;
     }
+
+    return 0.0f;
 }
 
 float EngineSpline::GetSpeedometer() const {
@@ -483,13 +486,13 @@ void EngineSpline::OnTaskSimulate(float dT) {
             this->AutoShift();
         }
 
-        if (this->mGearShiftTimer <= 0.0f) {
-            this->mGearShiftTimer = 0.0f;
-        } else {
+        if (this->mGearShiftTimer > 0.0f) {
             this->mGearShiftTimer -= dT;
             if (this->mGearShiftTimer < 0.0f) {
                 this->mGearShiftTimer = 0.0f;
             }
+        } else {
+            this->mGearShiftTimer = 0.0f;
         }
 
         float max_w = RPM2RPS(this->mEngineInfo->RED_LINE());
@@ -525,3 +528,9 @@ Rpm EngineSpline::GetShiftPoint(GearID from_gear, GearID to_gear) const {
 
     return 0.0f;
 }
+
+#ifdef EA_BUILD_A124
+Rpm EngineSpline::GetOptimalShiftRange(GearID to_gear) const {
+    return this->GetGearRatio(to_gear) * this->mTranyInfo->OPTIMAL_SHIFT();
+}
+#endif

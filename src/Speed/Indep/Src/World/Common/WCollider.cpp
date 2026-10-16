@@ -204,7 +204,11 @@ void WCollider::Clear() {
 void WCollider::ClearLists(unsigned int typeMask) {
     if (typeMask & 0x8) {
         this->fInstanceCacheList.clear();
+#ifdef EA_BUILD_A124
+        this->fTriList.Clear();
+#else
         this->fTriList.clear_all();
+#endif
     }
 
     if (typeMask & 0x4) {
@@ -219,7 +223,11 @@ void WCollider::ClearLists(unsigned int typeMask) {
 void WCollider::EmptyLists(unsigned int typeMask) {
     if (typeMask & 0x8) {
         this->fInstanceCacheList.resize(0);
+#ifdef EA_BUILD_A124
+        this->fTriList.Clear();
+#else
         this->fTriList.clear_all();
+#endif
     }
 
     if (typeMask & 0x4) {
@@ -234,7 +242,11 @@ void WCollider::EmptyLists(unsigned int typeMask) {
 void WCollider::ReserveLists(unsigned int typeMask) {
     if (typeMask & 0x8) {
         this->fInstanceCacheList.reserve(100);
+#ifdef EA_BUILD_A124
+        this->fTriList.reserve(21); // sltiu 0x15 y 0x54 bytes: la A124 no tiene reserve_total
+#else
         this->fTriList.reserve_total();
+#endif
     }
 
     if (typeMask & 0x4) {

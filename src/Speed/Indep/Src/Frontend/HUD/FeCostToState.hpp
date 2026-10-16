@@ -9,6 +9,7 @@
 class CostToState : public HudElement, public ICostToState {
   public:
     CostToState(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~CostToState() override {}
     void Update(IPlayer *player) override;
     void SetCostToState(int cost) override;
     void SetInPursuit(bool inPursuit) override {

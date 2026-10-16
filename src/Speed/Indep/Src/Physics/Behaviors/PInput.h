@@ -39,7 +39,7 @@ class PInput : public Behavior, public IInput {
         this->mControls.fHandBrake = hbrake;
     }
     bool GetControlHandBrake() const override {
-        return this->mControls.fHandBrake != 0.0f;
+        return this->mControls.fHandBrake != 0.0f ? true : false;
     }
     void SetControlActionButton(bool hAction) override {
         this->mControls.fActionButton = hAction;

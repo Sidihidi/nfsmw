@@ -24,7 +24,38 @@ struct FEPackage;
 
 struct ProtoAriesRefT;
 
+extern bool gJuiceEnabled;
+
+// MWExtension.cpp: arranque de Juice y la salida de texto que se le pasa a bSetUserPutStringFunction.
+void InitJuice();
+bool JuicePutStringFunction(int terminal_channel, const char *s);
+
 namespace Juice {
+
+// Los botones del mando de Juice (stabs de la A124); JuicePad::SetButton e IsButtonPressed los reciben con este tipo.
+enum eJuiceButtonNames {
+    JUICEPAD_DPADUP = 1,
+    JUICEPAD_DPADDOWN = 2,
+    JUICEPAD_DPADLEFT = 3,
+    JUICEPAD_DPADRIGHT = 4,
+    JUICEPAD_BUTTON1 = 5,
+    JUICEPAD_BUTTON2 = 6,
+    JUICEPAD_BUTTON3 = 7,
+    JUICEPAD_BUTTON4 = 8,
+    JUICEPAD_BUTTONL1 = 9,
+    JUICEPAD_BUTTONL2 = 10,
+    JUICEPAD_BUTTONL3 = 11,
+    JUICEPAD_BUTTONR1 = 12,
+    JUICEPAD_BUTTONR2 = 13,
+    JUICEPAD_BUTTONR3 = 14,
+    JUICEPAD_BUTTONSTART = 15,
+    JUICEPAD_BUTTONSELECT = 16,
+    JUICEPAD_LEFTANALOG_UPDOWN = 17,
+    JUICEPAD_LEFTANALOG_LEFTRIGHT = 18,
+    JUICEPAD_RIGHTANALOG_UPDOWN = 19,
+    JUICEPAD_RIGHTANALOG_LEFTRIGHT = 20,
+    LAST_BUTTON = 21
+};
 
 struct tJuicePad {
     unsigned int mButtons;
@@ -59,7 +90,7 @@ public:
     virtual int InitialConnectionRetries();
     virtual int WaitBetweenInitialConnectionRretries();
     virtual int WaitBetweenNetworkInitRetries();
-    virtual void ThreadYield();
+    virtual void ThreadYield(int dur);
     virtual char *GetScreenName();
     virtual char *GetPopupName();
     virtual char *GetPopupCheck();
@@ -69,9 +100,9 @@ public:
     virtual void InstantiateScriptExt();
     virtual void ResetGamePad();
     virtual int HangTimeoutLength();
-    virtual void UpdatePad();
-    virtual void JuiceScreenshot();
-    virtual int NumberOfRepeatedReplayEntries();
+    virtual void UpdatePad(void *input);
+    virtual void JuiceScreenshot(char *fileName);
+    virtual int NumberOfRepeatedReplayEntries(int channel);
     virtual int GetJuiceThreadPriority();
     virtual int GetJuiceUpdateProcessor();
     virtual void PauseGame();
@@ -82,11 +113,11 @@ class INetwork {
 public:
     ~INetwork();
     INetwork();
-    virtual int Connect();
+    virtual int Connect(const char *ip, int port);
     virtual int IsConnected();
-    virtual int Recv();
+    virtual int Recv(char *buffer, int *size, int flags);
     virtual int PeekHdr(char *buffer);
-    virtual int Send();
+    virtual int Send(int length, int channel, char *buffer);
     virtual int IsEnabled();
     virtual int Initialize();
     virtual int Disconnect();
@@ -100,8 +131,8 @@ public:
 class JuicePad {
 public:
     static JuicePad *Instance();
-    void SetButton(float value, int button);
-    int IsButtonPressed(int button);
+    void SetButton(eJuiceButtonNames button, float value);
+    int IsButtonPressed(eJuiceButtonNames button);
     int DidInputHappen();
     tJuicePad *GetMasterPad();
     void UpdateJuicePad();
@@ -137,24 +168,42 @@ struct GameHook {
     int mEnabled;
     int mFrame;
     void LogText(const char *text);
+    int IsConnected();
     void DisableJuice();
     void Initialize();
     void InitTrapHandler();
-    void GameEvent(char *world, char *event, char *outcome, int fpsAsInt, float fps,
-                   char *zoneName, char *imageName, char *playerPosition);
-    void LogStat(int stat, char *statType, char *raceType, int value);
-    void AssetHit(char *assetName, char *assetValue);
+    void FrameUpdate();
+    void GameEvent(const char *world, const char *event, const char *outcome, int fpsAsInt, float fps,
+                   const char *zoneName, const char *imageName, const char *playerPosition);
+    void LogStat(int stat, const char *statType, const char *raceType, int value);
+    void AssetHit(const char *assetName, const char *assetValue);
+    void UpdatePad(void *pPad);
+    int ReplayData(int &data, int channel, const char *name, int flags);
+    float ReplayData(float &data, int channel, const char *name, int flags);
+    int Replay_IsReplaying();
+    int Replay_IsCapturing();
+#ifdef EA_BUILD_A124
+    void AdvanceCycle(int cycle);
+#endif
+    void AssertLog(int, const char *, const char *, const char *, const char *);
     int GetFrame() {
         return mFrame;
     }
     unsigned int GetCurrentSystemTime();
-    int GetTimeElapsed(unsigned int *startTime);
+    unsigned int GetTimeElapsed(unsigned int &startTime);
+};
+
+// El gestor de repeticiones de Juice (biblioteca aparte): el juego solo lo para cuando el joylog se desincroniza.
+class ReplayManager {
+  public:
+    static ReplayManager *Instance();
+    void StopReplaying();
 };
 
 struct PadConfigManager {
     static PadConfigManager *Instance();
     bool IsFENavCapturing();
-    void CaptureKeyAndState(int buttonMask);
+    void CaptureKeyAndState(unsigned int buttonMask);
 };
 
 namespace Scripting {
@@ -163,7 +212,7 @@ struct VarArgs {
     int mNextType;
     int mNumberOfArgs;
 
-    int GetNumberOfRemainingArgs();
+    int GetNumberOfRemainingArgs() const;
     int GetInt(int &result);
     float GetFloat(float &result);
     char *GetString(char *&result);
@@ -173,8 +222,8 @@ class ICommands {
 public:
     ICommands();
     virtual ~ICommands();
-    virtual void AutoRegister();
-    virtual char *GetNamespaceName();
+    virtual void AutoRegister() const;
+    virtual char *GetNamespaceName() const;
     static void SendMethod(int type, const ICommands *obj, const char *methodName, int argSize,
                            const void *method);
 
@@ -364,6 +413,11 @@ public:
     void ResetCareerData();
     void SetHeat(int heat);
     void SetCamera(int camID);
+    // Inline en la A124 (L88 de su cabecera; el constructor de UIOptionsScreen lo expande): el parametro va por
+    // valor, de ahi las dos copias de 0xC0 bytes (a la pila y de la pila a mCurrentOptions).
+    void SetOptions(OptionsSettings options) {
+        mCurrentOptions = options;
+    }
 };
 
 namespace Juice {

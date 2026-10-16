@@ -81,12 +81,10 @@ void ChoppedMiniMapManager::UncompressMaps(short *chop_nums, int num_chops) {
         for (n = 0; n < NumSections; n++) {
 
             UncompressedMiniMap *map = &UncompressedMiniMaps[n];
-            if (map->Chunks) {
-                if (map->ChopNum == chop_num)
-                    break;
-            } else {
+            if (map->Chunks && map->ChopNum == chop_num)
+                break;
+            if (!map->Chunks)
                 free_map = map;
-            }
         }
 
         if (n == NumSections && chop_num >= 0) {
@@ -95,7 +93,7 @@ void ChoppedMiniMapManager::UncompressMaps(short *chop_nums, int num_chops) {
                 free_map->ChopNum = chop_num;
                 int size = *reinterpret_cast<int *>(reinterpret_cast<char *>(lz_header) + 8);
                 free_map->SizeofChunks = size;
-                free_map->Chunks = static_cast<bChunk *>(bMalloc(size, 0x2000));
+                free_map->Chunks = static_cast<bChunk *>(bMalloc(size, "MiniMap Chop", 0, 0x2000));
                 LZDecompress(reinterpret_cast<unsigned char *>(lz_header), reinterpret_cast<unsigned char *>(free_map->Chunks));
                 LoadEmbeddedChunks(free_map->Chunks, free_map->SizeofChunks, "MiniMap Chop embedded");
             }

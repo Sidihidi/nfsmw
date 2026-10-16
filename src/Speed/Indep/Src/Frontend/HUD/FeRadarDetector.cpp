@@ -8,10 +8,10 @@
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
 
-extern bool FEngIsScriptSet(FEObject *, unsigned int);
-extern void FEngSetScript(FEObject *, unsigned int, bool);
+// r75: fuera 3 extern duplicados (FEngIsScriptSet, FEngSetScript, FEngSetRotationZ):
+// ya los declara FEngInterfaceFEObjects.hpp (include propio), misma signatura.
 extern void FEngSetMultiImageBottomRightUVs(FEMultiImage *, FEVector2 &, int);
-extern void FEngSetRotationZ(FEObject *, float);
+// r75: FEngSetMultiImageBottomRightUVs se queda (sin cabecero; definida en zFe).
 // .data:0x8041BC60 (4 B, scope:global, float) = 0.1f, leido del ELF original.
 // Es el PRIMER simbolo del rango .data de zFe2 y va pegado delante de
 // RadarDetector::mStaticRange (.data:0x8041BC64), asi que la definicion del
@@ -109,10 +109,16 @@ void RadarDetector::Update(IPlayer *player) {
             mTimeCycleStarted = WorldTimer;
         }
 
+#ifdef EA_BUILD_A124 // la A124 deja de sumar al llegar a 1
+        if (mCurrLedAmountShowing < 1.0f) {
+            mCurrLedAmountShowing += 0.1f;
+        }
+#else
         mCurrLedAmountShowing += 0.1f;
         if (mCurrLedAmountShowing > 1.0f) {
             mCurrLedAmountShowing = 1.0f;
         }
+#endif
 
         if ((WorldTimer - mTimeCycleStarted).GetSeconds() > range * 1.5f) {
             mTimeCycleStarted = WorldTimer;

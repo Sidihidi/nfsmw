@@ -10,6 +10,10 @@
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
 #include "Speed/Indep/Src/Misc/Config.h"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineLogin.hpp"
+#include "Speed/Indep/Src/Online/OnlineCfg.hpp"
+#endif
 
 const char *gOnlineMainMenu = "OL_MAIN.fng";
 
@@ -27,7 +31,6 @@ int FEPrintf(const char *pkg_name, int hash, const char *fmt, ...);
 
 struct MainCareer : public IconOption {
     MainCareer(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~MainCareer() override {}
     void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
         if (data != 0x0C407210)
             return;
@@ -40,8 +43,9 @@ struct MainCareer : public IconOption {
 };
 
 struct Challenge : public IconOption {
-    Challenge(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~Challenge() override {}
+    Challenge(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {
+        SetReactImmediately(true);
+    }
     void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
         if (data == 0x0C407210) {
             if (FEDatabase->bProfileLoaded || !IsMemcardEnabled) {
@@ -57,7 +61,6 @@ struct Challenge : public IconOption {
 
 struct MainQuickRace : public IconOption {
     MainQuickRace(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~MainQuickRace() override {}
     void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
         if (data != 0x0C407210)
             return;
@@ -67,7 +70,6 @@ struct MainQuickRace : public IconOption {
 
 struct MainCustomize : public IconOption {
     MainCustomize(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~MainCustomize() override {}
     void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
         if (data != 0x0C407210)
             return;
@@ -77,7 +79,6 @@ struct MainCustomize : public IconOption {
 
 struct MainProfileManager : public IconOption {
     MainProfileManager(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~MainProfileManager() override {}
     void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
         if (data != 0x0C407210)
             return;
@@ -87,7 +88,6 @@ struct MainProfileManager : public IconOption {
 
 struct MainOptions : public IconOption {
     MainOptions(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
-    ~MainOptions() override {}
     void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
         if (data != 0x0C407210)
             return;
@@ -95,10 +95,38 @@ struct MainOptions : public IconOption {
     }
 };
 
+#ifdef EA_BUILD_A124
+// Solo la A124: la entrada al modo online y la pantalla de depuracion de coches en el menu principal.
+struct MainOnline : public IconOption {
+    MainOnline(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash) : IconOption(tex_hash, name_hash, desc_hash) {}
+    void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
+        if (data == 0x0C407210) {
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
+            FEDatabase->SetGameMode(eFE_GAME_MODE_ONLINE);
+        }
+    }
+};
+
+struct DebugCarCustomize : public IconOption {
+    DebugCarCustomize(unsigned int tex_hash, unsigned int name_hash, unsigned int desc_hash)
+        : IconOption(tex_hash, name_hash, desc_hash) {}
+    void React(const char *pkg_name, unsigned int data, FEObject *obj, unsigned int param1, unsigned int param2) override {
+        if (data == 0x0C407210) {
+            cFEng::Get()->QueuePackageSwitch("UI_DebugCarCustomize.fng", 0, 0, false);
+        }
+    }
+};
+#endif
+
 UIMain::UIMain(ScreenConstructorData *sd)
     : IconScrollerMenu(sd) //
       ,
       m_bStatsShowing(false) {
+#ifdef EA_BUILD_A124
+    // la A124 suelta aqui la memoria online y el gestor de la entrada online
+    FreeOnlineMemoryPool();
+    OnlineLoginScreenManager::CommitSuicide();
+#endif
     Setup();
 }
 
@@ -109,12 +137,14 @@ void UIMain::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2)
         case 0x1265ece9:
             GarageMainScreen::GetInstance()->UpdateCurrentCameraView(false);
             break;
+#ifdef EA_PLATFORM_GAMECUBE
         case 0x35f8620b:
             if (!MemoryCard::GetInstance()->IsAutoLoadDone()) {
                 MemoryCard::GetInstance()->SetAutoLoadDone(true);
                 MemcardEnter(nullptr, nullptr, 0xF1, nullptr, nullptr, 0, 0);
             }
             break;
+#endif
         case 0xe1fde1d1:
             if (PrevButtonMessage != 0x0c407210) {
                 break;
@@ -158,6 +188,59 @@ void UIMain::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2)
     }
 }
 
+#ifdef EA_BUILD_A124
+// La A124 trae dos opciones mas, el perfil escrito aqui mismo y sin el fundido de iconos.
+void UIMain::Setup() {
+    const u32 FEObj_TITLEGROUP = 0xb71b576d;
+    const u32 FEObj_PLAYERNAMEGROUP = 0xb514e2d8;
+
+    FEDatabase->ResetGameMode();
+    FEDatabase->SetPlayersJoystickPort(0, -1);
+
+    if (GetMikeMannBuild()) {
+        Challenge *challenge = new ("Challenge", 0) Challenge(0x9a962438, LANGUAGE_CHALLENGE_MODE, 0);
+        challenge->SetReactImmediately(true);
+        AddOption(challenge);
+        AddOption(new ("MainQuickRace", 0) MainQuickRace(0x4e6fbb02, 0x54020a7a, 0));
+        AddOption(new ("MainCustomize", 0) MainCustomize(0xb0c46023, 0x1afd5be6, 0));
+        AddOption(new ("MainOptions", 0) MainOptions(0x3058fe37, 0x19a8c0af, 0));
+        UnlockAllThings = 1;
+    } else {
+        AddOption(new ("MainCareer", 0) MainCareer(0x3704f3d, 0x5815a2b5, 0));
+        Challenge *challenge = new ("Challenge", 0) Challenge(0x9a962438, LANGUAGE_CHALLENGE_MODE, 0);
+        challenge->SetReactImmediately(true);
+        AddOption(challenge);
+        AddOption(new ("MainQuickRace", 0) MainQuickRace(0x4e6fbb02, 0x54020a7a, 0));
+        AddOption(new ("MainOnline", 0) MainOnline(0x771849a5, 0x74fb90a8, 0));
+        AddOption(new ("MainCustomize", 0) MainCustomize(0xb0c46023, 0x1afd5be6, 0));
+        if (IsMemcardEnabled) {
+            AddOption(new ("MainProfileManager", 0) MainProfileManager(0x6b303856, 0xbcb18f38, 0));
+        }
+        AddOption(new ("MainOptions", 0) MainOptions(0x3058fe37, 0x19a8c0af, 0));
+        AddOption(new ("DebugCarCustomize", 0) DebugCarCustomize(0x74ce8c0b, 0x1afd5be6, 0));
+    }
+
+    FEngSetLanguageHash(GetPackageName(), FEObj_TITLEGROUP, LANGUAGE_MAIN_MENU);
+    SetInitialOption(FEngGetLastButton(GetPackageName()));
+    RefreshHeader();
+
+    FEPrintf(GetPackageName(), FEObj_PLAYERNAMEGROUP, "%s", FEDatabase->GetMultiplayerProfile(0)->GetProfileName());
+    if (FEDatabase->bProfileLoaded) {
+        GameCompletionStats stats = FEDatabase->GetGameCompletionStats();
+
+        FEPrintf(GetPackageName(), FEHashUpper("GAME_COMPLETED_DATA"), "%d%%", stats.m_nOverall);
+        FEPrintf(GetPackageName(), FEHashUpper("CAREER_COMPLETED_DATA"), "%d%%", stats.m_nCareer);
+        FEngSetInvisible(GetPackageName(), FEHashUpper("RAP_SHEET_ITEMS_DATA_1"));
+        FEPrintf(GetPackageName(), FEHashUpper("RAP_SHEET_ITEMS_DATA_2"), "%d%%", stats.m_nRapSheetRankings);
+        FEPrintf(GetPackageName(), FEHashUpper("CHALLENGE_SERIES_DATA_1"), "%d/%d", stats.m_nCompletedChallengeRaces,
+                 stats.m_nTotalChallengeRaces);
+        FEPrintf(GetPackageName(), FEHashUpper("CHALLENGE_SERIES_DATA_2"), "%d%%", stats.m_nChallenge);
+    } else {
+        FEngSetInvisible(GetPackageName(), FEHashUpper("NAME_GROUP"));
+        FEngSetInvisible(GetPackageName(), FEHashUpper("GAME STATS GROUP"));
+    }
+}
+#else
 void UIMain::Setup() {
     const u32 FEObj_TITLEGROUP = 0xb71b576d;
 
@@ -198,6 +281,7 @@ void UIMain::Setup() {
     RefreshHeader();
     UpdateProfileData();
 }
+#endif
 
 void UIMain::UpdateProfileData() {
     if (FEDatabase->bProfileLoaded) {

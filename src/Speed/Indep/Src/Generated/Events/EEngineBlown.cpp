@@ -40,6 +40,7 @@ EEngineBlown::~EEngineBlown() {
             input->BlockInput(true);
         }
 
+#ifndef EA_BUILD_A124 // la A124 termina al bloquear la entrada
         GRaceStatus::Get().UpdateAdaptiveDifficulty(GRaceStatus::kAdaptiveGain_FromEngineBlown, isimable);
 
         if (Sim::IsSplitScreen()) {
@@ -47,6 +48,7 @@ EEngineBlown::~EEngineBlown() {
                 new EShowRaceOverMessage(isimable->GetPlayer());
             }
         }
+#endif
     }
 }
 

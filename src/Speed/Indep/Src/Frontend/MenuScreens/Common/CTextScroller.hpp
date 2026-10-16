@@ -41,15 +41,18 @@ struct CTextScroller {
     void SetText(short* pText);
     void Scroll(int Amount);
     bool HandleNotificationMessage(unsigned int Msg);
+  private:
     void Display(int TopLine);
     void AddLine(short *pLine, int Size);
     void WordWrapCountLinesAndChars(short* pTextStart, short* pTextEnd, int& NumLines, int& NumChars);
     int WordWrapAddLines(short* pTextStart, short* pTextEnd, bool bCountOnly, int* pNumCharsOut);
     short* FindCR(short* pText);
     short *FindEND(short *pText);
+  public:
     int GetNumVisibleLines() { return m_ViewVisibleLines; }
     int GetNumLines() { return m_NumAddedLines; }
     int GetTopLine() { return m_TopLine; }
+  private:
     void UpdateScrollBar();
 };
 

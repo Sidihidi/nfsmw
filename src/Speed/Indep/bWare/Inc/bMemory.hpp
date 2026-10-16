@@ -109,7 +109,15 @@ class bMemoryAllocator : public EA::Allocator::IAllocator {
 };
 
 void bMemoryInit();
+void bMemoryUpdateTraceInformation();
+extern EA::Allocator::IAllocator &gMemoryAllocator;
+#ifdef EA_PLATFORM_GAMECUBE
 unsigned int GetVirtualMemoryAllocParams();
+#else
+inline unsigned int GetVirtualMemoryAllocParams() {
+    return 0;
+}
+#endif
 void bInitMemoryPool(int pool_num, void *mem, int mem_size, const char *debug_name);
 int GetVirtualMemoryPoolNumber();
 int bGetMemoryPoolNum(const char *memory_pool_name);
@@ -117,8 +125,14 @@ void bReserveMemoryPool(int pool_num);
 void bMemoryCreatePersistentPool(int size);
 int bGetFreeMemoryPoolNum();
 int bLargestMalloc(int allocation_params);
+#ifdef EA_BUILD_A124
+void *bMemoryGetStatistics(int pool, int &num_allocs, int &high_allocs, int &usage, int &high_usage, int &free, int &largest_free,
+                           const char *&name);
+#endif
 void bVerifyPoolIntegrity(int pool);
+void bMemoryPrintAllocations(int pool_num, int from_allocation, int to_allocation);
 void bMemoryPrintAllocationsByAddress(int pool_num, int from_allocation, int to_allocation);
+void *bMemoryFindAllocation(int pool_num, int allocation_num);
 int bCountFreeMemory(int pool);
 int bMemoryGetAllocationNumber();
 void bCloseMemoryPool(int pool_num);

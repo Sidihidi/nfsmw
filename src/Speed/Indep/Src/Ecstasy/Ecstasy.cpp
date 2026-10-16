@@ -4,6 +4,7 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/Src/Frontend/FEngFont.hpp"
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
+#include "Speed/Indep/Src/Misc/Profiler.hpp"
 #include "Speed/Indep/Src/World/Scenery.hpp"
 #include "Speed/Indep/Src/World/ScreenEffects.hpp"
 #include "Speed/Indep/Src/World/SimpleModelAnim.hpp"
@@ -12,6 +13,9 @@
 #include "Texture.hpp"
 #include "eEnvMapE.hpp"
 #include "eLight.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/World/WDbgCollisionDraw.h"
+#endif
 
 SlotPool *ePolySlotPool = 0;
 bool WaitUntilRenderingDoneDisabled = false;
@@ -50,6 +54,14 @@ unsigned int OtherEcstacyTextures_name_hash[30];
 
 uint32 numOtherTex = 0;
 
+// Los contadores de poligonos por tipo de dibujo (la tabla de nombres, del .data de la A124).
+unsigned int PolyCounts[NUM_POLY_COUNT_TYPES];
+unsigned int ModelCounts[NUM_POLY_COUNT_TYPES];
+char PolyCountNames[NUM_POLY_COUNT_TYPES][32] = {
+    "MAIN_CAR",     "REFL_CAR",     "RVMI_CAR",     "ENVM_SCENERY", "MAIN_SCENERY",
+    "REFL_SCENERY", "RVMI_SCENERY", "MAIN_WRLDMDL", "REFL_WRLDMDL", "RVMI_WRLDMDL",
+};
+
 void eAllocateFrameMallocBuffers(uint32 total_size /* r3 */);
 
 int eInitEngine() {
@@ -76,7 +88,9 @@ void ePreDisplay() {
     SimpleModelAnim::Update();
     DoTunnelBloom(eGetView(1, false));
     DoTunnelBloom(eGetView(2, false));
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
+// La A124 tintea las dos vistas sin mirar la lluvia; speed.exe tambien (dos DoTinting incondicionales).
+// Las demas versiones solo la primera, y unicamente si no llueve.
     DoTinting(eGetView(1, false));
     DoTinting(eGetView(2, false));
 #else
@@ -105,6 +119,7 @@ void ePreDisplay() {
 }
 
 void ePostDisplay() {
+    ProfileNode profile_node;
     UpdateTextureAnimations();
     UpdateAllScreenEFX();
     eResestLightFlarePool();
@@ -167,8 +182,14 @@ void eSwapFrameMallocBuffers() {
     Eframecurrent = amount_used;
     FrameMemoryBufferAmountUsed[1] = FrameMemoryBufferAmountUsed[0];
     FrameMemoryBufferAmountUsed[0] = amount_used;
+#ifdef EA_PLATFORM_WIN32
+    // w12c6: el original guarda [0] antes que [1]
+    FrameMemoryBuffer[0] = buffer1;
+    FrameMemoryBuffer[1] = buffer0;
+#else
     FrameMemoryBuffer[1] = buffer0;
     FrameMemoryBuffer[0] = buffer1;
+#endif
     CurrentBufferStart = buffer1;
     CurrentBufferPos = buffer1;
     CurrentBufferEnd = FrameMemoryBufferSize + buffer1;
@@ -187,17 +208,31 @@ void SetupSceneryCullInfo(eView *view /* r30 */, SceneryCullInfo &info /* r29 */
     view_id = view->GetID();
     if (view_id == 1 || view_id == 2)
         exclude_flags |= 2;
-    if (view_mode - 3 <= 1U)
+    if (view_mode == 4 || view_mode == 3)
         exclude_flags |= 1;
-    if (view_id - 16 <= 5U)
+    // PS2: el original compara con view_id - 20 (rango [20,25]) y no tiene el test de 0x1000 de abajo:
+    // en SLUS es addiu -20 + sltu sin andi/movn extra (88,19 % con la forma de GC, 100 % alli: no tocar).
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (view_id >= 20 && view_id <= 25)
+#elif defined(EA_PLATFORM_WIN32) // speed.exe: vistas 18..23 (cmp 0x12 / cmp 0x17)
+    if (view_id >= 18 && view_id <= 23)
+#else
+    if (view_id >= 16 && view_id <= 21)
+#endif
         exclude_flags |= 0x100;
 
     if (GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == 1)
         exclude_flags |= 4;
     if (exclude_flags & 0x1800)
+#ifdef EA_PLATFORM_WIN32 // speed.exe anade tambien 0x8000000 (or 0x8000040)
+        exclude_flags |= 0x8000040;
+#else
         exclude_flags |= 0x40;
+#endif
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (exclude_flags & 0x1000)
         exclude_flags |= 2;
+#endif
     if (view_id == 3)
         exclude_flags |= 0x20;
 
@@ -213,7 +248,12 @@ void eTagHeadlightCallback(SceneryDrawInfo *info) {
 }
 
 // STRIPPED
-void RenderMWDebugTopology(eView *view /* r3 */) {};
+void RenderMWDebugTopology(eView *view /* r3 */) {
+#ifdef EA_BUILD_A124
+    // La A124 empieza aqui el cuadro del dibujo de colisiones de depuracion.
+    WDbgCollisionDraw::Get().StartFrame();
+#endif
+};
 
 // STRIPPED
 void eDebugRender(eView *view /* r4 */) {}
@@ -243,7 +283,21 @@ bool eIsWidescreen() {
 
 // STRIPPED
 void AddPolyCount(polyCountEnum type /* r3 */, struct eModel *model /* r4 */) {}
-void ClearPolyCounts() {}
-int GetPolyCount(polyCountEnum type /* r3 */) {}
-int GetModelCount(polyCountEnum type /* r3 */) {}
-char *GetPCType(polyCountEnum type /* r3 */) {}
+void ClearPolyCounts() {
+    for (int i = 0; i < NUM_POLY_COUNT_TYPES; i++) {
+        ModelCounts[i] = 0;
+        PolyCounts[i] = 0;
+    }
+}
+
+int GetPolyCount(polyCountEnum type /* r3 */) {
+    return PolyCounts[type];
+}
+
+int GetModelCount(polyCountEnum type /* r3 */) {
+    return ModelCounts[type];
+}
+
+char *GetPCType(polyCountEnum type /* r3 */) {
+    return PolyCountNames[type];
+}

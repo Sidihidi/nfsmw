@@ -26,7 +26,6 @@ class MRestartRace : public Hermes::Message {
 
     MRestartRace() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MRestartRace() {}
 };
 
 
@@ -34,9 +33,9 @@ class MRestartRace : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MRestartRace::HandleMessage_LuaBinding(const MRestartRace &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MRestartRace::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

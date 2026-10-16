@@ -48,7 +48,7 @@ int PATH_pause(int tracks, unsigned char pause)
 
     result = PATHERR_INV_PARAM;
 
-    if (tracks == PATH_ALL)
+    if (tracks == -1) // PATH_ALL; the PS2 binary compares with `addiu -1`, not the 0xFFFFFFFF constant
         paused = pause;
 
     for (int p = 0; p < PATH_MAX_PROJECTS; p++)

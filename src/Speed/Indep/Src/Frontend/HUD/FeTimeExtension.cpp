@@ -41,57 +41,56 @@ void TimeExtension::Update(IPlayer *player) {
         }
     }
 
-    if (mPlayerLapTime <= 0.0f)
-        return;
-
-    if (mPlayerLapTime > 10.0f) {
-        if (mScriptHash == 0x821e6378 || mScriptHash == 0x4f79cba2) {
-            mScriptHash = 0;
-        }
-    }
-
-    if (mPlayerLapTime <= 10.0f) {
-        char timeToPrint[16];
-        Timer timer(mPlayerLapTime);
-        timer.PrintToString(timeToPrint, 4);
-        bSPrintf(messageString, "%s!\n%s", GetTranslatedString(LANGUAGE_HUD_HURRY), timeToPrint);
-
-        if (mPlayerLapTime <= 5.0f) {
-            IGenericMessage *igenericmessage;
-            if (mScriptHash == 0 || mScriptHash == 0x821e6378) {
-                mScriptHash = 0x4f79cba2;
-            }
-            if (player->GetHud()->QueryInterface(&igenericmessage)) {
-                igenericmessage->RequestGenericMessage(messageString, true, mScriptHash, 0, 0, GenericMessage_Priority_5);
-            }
-        } else if (mPlayerLapTime <= 10.0f) {
-            IGenericMessage *igenericmessage;
-            if (!mScriptHash) {
-                mScriptHash = 0x821e6378;
-            }
-            if (player->GetHud()->QueryInterface(&igenericmessage)) {
-                igenericmessage->RequestGenericMessage(messageString, true, mScriptHash, 0, 0, GenericMessage_Priority_5);
-            }
-        }
-    } else {
-        if (mTimerNextTollbooth.IsSet()) {
-            if ((WorldTimer - mTimerNextTollbooth).GetSeconds() >= 2.0f) {
+    if (mPlayerLapTime > 0.0f) {
+        if (mPlayerLapTime > 10.0f) {
+            if (mScriptHash == 0x821e6378 || mScriptHash == 0x4f79cba2) {
                 mScriptHash = 0;
-                mTimerNextTollbooth.UnSet();
-                return;
             }
-            mScriptHash = FEHASH_ZOOMIN;
+        }
+
+        if (mPlayerLapTime <= 10.0f) {
             char timeToPrint[16];
-            Timer timer(GRaceStatus::Get().GetRaceTimeRemaining());
+            Timer timer(mPlayerLapTime);
             timer.PrintToString(timeToPrint, 4);
-            bSPrintf(messageString, "%s\n%s", GetTranslatedString(LANGUAGE_HUD_NEXT_TOLLBOOTH), timeToPrint);
-            IGenericMessage *igenericmessage;
-            if (player->GetHud()->QueryInterface(&igenericmessage)) {
-                igenericmessage->RequestGenericMessage(messageString, true, mScriptHash, bStringHash("TIMER_ICON"), FEHASH_TIMEBONUS,
-                                                       GenericMessage_Priority_3);
+            bSPrintf(messageString, "%s!\n%s", GetTranslatedString(LANGUAGE_HUD_HURRY), timeToPrint);
+
+            if (mPlayerLapTime <= 5.0f) {
+                IGenericMessage *igenericmessage;
+                if (mScriptHash == 0 || mScriptHash == 0x821e6378) {
+                    mScriptHash = 0x4f79cba2;
+                }
+                if (player->GetHud()->QueryInterface(&igenericmessage)) {
+                    igenericmessage->RequestGenericMessage(messageString, true, mScriptHash, 0, 0, GenericMessage_Priority_5);
+                }
+            } else if (mPlayerLapTime <= 10.0f) {
+                IGenericMessage *igenericmessage;
+                if (!mScriptHash) {
+                    mScriptHash = 0x821e6378;
+                }
+                if (player->GetHud()->QueryInterface(&igenericmessage)) {
+                    igenericmessage->RequestGenericMessage(messageString, true, mScriptHash, 0, 0, GenericMessage_Priority_5);
+                }
             }
         } else {
-            mScriptHash = 0;
+            if (mTimerNextTollbooth.IsSet()) {
+                if ((WorldTimer - mTimerNextTollbooth).GetSeconds() >= 2.0f) {
+                    mScriptHash = 0;
+                    mTimerNextTollbooth.UnSet();
+                    return;
+                }
+                mScriptHash = FEHASH_ZOOMIN;
+                char timeToPrint[16];
+                Timer timer(GRaceStatus::Get().GetRaceTimeRemaining());
+                timer.PrintToString(timeToPrint, 4);
+                bSPrintf(messageString, "%s\n%s", GetTranslatedString(LANGUAGE_HUD_NEXT_TOLLBOOTH), timeToPrint);
+                IGenericMessage *igenericmessage;
+                if (player->GetHud()->QueryInterface(&igenericmessage)) {
+                    igenericmessage->RequestGenericMessage(messageString, true, mScriptHash, bStringHash("TIMER_ICON"), FEHASH_TIMEBONUS,
+                                                           GenericMessage_Priority_3);
+                }
+            } else {
+                mScriptHash = 0;
+            }
         }
     }
 }

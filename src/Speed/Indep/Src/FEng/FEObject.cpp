@@ -12,26 +12,31 @@
 #include "Speed/Indep/Src/FEng/FEMath.h"
 #include "Speed/Indep/Src/FEng/FEngine.h"
 
+
+
+
+
 FEMultiPool ObjDataPool;                                   // size: 0x10, address: 0x80473D58, Decl: speed/indep/src/feng/FEObject.cpp:19
 FEObjectDestructorCallback *FEObject::pDestructorCallback = 0; // size: 0x4, address: 0x8041D154, Decl: speed/indep/src/feng/FEObject.cpp:20
+
 
 static const float PositionEpsilon = 0.000001f; // size: 0x4, Decl: speed/indep/src/feng/FEObject.cpp:23
 static const float SizeEpsilon = 0.000001f;     // size: 0x4, Decl: speed/indep/src/feng/FEObject.cpp:24
 static const i32 ColorEpsilon = 1;              // size: 0x4, Decl: speed/indep/src/feng/FEObject.cpp:25
 
 bool Close(float x, float y, float epsilon) {
-    bool result = false;
-    if (x + epsilon >= y) {
-        result = x - epsilon <= y;
-    }
-    return result;
+    return x + epsilon >= y && x - epsilon <= y;
 }
+
 
 bool Close(i32 x, i32 y, i32 epsilon) {
     return x + epsilon >= y && x - epsilon <= y;
 }
 
-// Decl: d:/eax-build1-s04-ps3/carbon/branches/leadplat/speed/indep/src/feng/FEObject.cpp:37
+
+
+
+// Decl: speed/indep/src/feng/FEObject.cpp:37
 inline bool CloseEnoughPosition(const FEVector3 &vector1, const FEVector3 &vector2) {
     if (!Close(vector1.x, vector2.x, PositionEpsilon))
         return false;
@@ -41,7 +46,7 @@ inline bool CloseEnoughPosition(const FEVector3 &vector1, const FEVector3 &vecto
 }
 
 // STRIPPED
-//  Decl: d:/eax-build1-s04-ps3/carbon/branches/leadplat/speed/indep/src/feng/FEObject.cpp:47
+// Decl: speed/indep/src/feng/FEObject.cpp:47
 inline bool CloseEnoughSize(const FEVector3 &size1, const FEVector3 &size2) {
     if (!Close(size1.x, size2.x, SizeEpsilon))
         return false;
@@ -50,7 +55,7 @@ inline bool CloseEnoughSize(const FEVector3 &size1, const FEVector3 &size2) {
     return Close(size1.z, size2.z, SizeEpsilon);
 }
 
-// Decl: d:/eax-build1-s04-ps3/carbon/branches/leadplat/speed/indep/src/feng/FEObject.cpp:57
+// Decl: speed/indep/src/feng/FEObject.cpp:57
 inline bool CloseEnoughColor(const FEColor &color1, const FEColor &color2) {
     if (!Close(static_cast<long>(color1.r), static_cast<long>(color2.r), ColorEpsilon))
         return false;
@@ -128,6 +133,28 @@ FEObject::FEObject(const FEObject &Object, bool bReference)
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEObject::~FEObject() {
     if (pDestructorCallback) {
         pDestructorCallback->OnDestroy(this);
@@ -138,6 +165,10 @@ FEObject::~FEObject() {
     }
 }
 
+
+
+
+
 void FEObject::SetDataSize(u32 Size) {
     ObjDataPool.Free(pData);
     pData = nullptr;
@@ -145,12 +176,22 @@ void FEObject::SetDataSize(u32 Size) {
     DataSize = Size;
 }
 
+
+
+
+
+
+
+
+
 void FEObject::SetName(const char *pNewName) {
     if (pName) {
+
         delete[] pName;
         pName = nullptr;
     }
     NameHash = -1;
+
     if (pNewName) {
         int Len = FEngStrLen(pNewName);
 
@@ -160,17 +201,26 @@ void FEObject::SetName(const char *pNewName) {
     }
 }
 
+
+
+
+
+
+
+
 FEScript *FEObject::FindScript(u32 ID) const {
     FEScript *pScript = static_cast<FEScript *>(Scripts.GetHead());
-    if (pScript) {
-        while (pScript->ID != ID) {
-            pScript = pScript->GetNext();
-            if (!pScript)
-                break;
-        }
+    while (pScript && pScript->ID != ID) {
+        pScript = pScript->GetNext();
     }
     return pScript;
 }
+
+
+
+
+
+
 
 void FEObject::SetupMoveToTracks() {
     FEKeyTrack *pTrack;
@@ -225,6 +275,20 @@ void FEObject::SetupMoveToTracks() {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEObject::SetCurrentScript(FEScript *pScript) {
     pCurrentScript = pScript;
     if (pScript) {
@@ -232,16 +296,24 @@ void FEObject::SetCurrentScript(FEScript *pScript) {
     }
 }
 
+
+
+
+
+
+
 FEMessageResponse *FEObject::FindResponse(u32 MsgID) const {
     FEMessageResponse *pNode = GetFirstResponse();
     while (pNode) {
         if (pNode->GetMsgID() == MsgID) {
-            return pNode;
+            break;
         }
         pNode = pNode->GetNext();
     }
     return pNode;
 }
+
+
 
 void FEObject::SetTrackValue(FEKeyTrack_Indices track, const FEVector3 &value, bool bRelative) {
     FEScript *pScript = static_cast<FEScript *>(Scripts.GetHead());
@@ -269,6 +341,10 @@ void FEObject::SetTrackValue(FEKeyTrack_Indices track, const FEVector3 &value, b
     }
 }
 
+
+
+
+
 void FEObject::SetTrackValue(FEKeyTrack_Indices track, const FEVector2 &value, bool bRelative) {
     FEScript *pScript = static_cast<FEScript *>(Scripts.GetHead());
     FEKeyTrack *pTrack;
@@ -293,6 +369,12 @@ void FEObject::SetTrackValue(FEKeyTrack_Indices track, const FEVector2 &value, b
         *reinterpret_cast<FEVector2 *>(pData + GetDataOffset(track)) = value;
     }
 }
+
+
+
+
+
+
 
 void FEObject::SetTrackValue(FEKeyTrack_Indices track, const FEColor &value, bool bRelative) {
     FEScript *pScript = static_cast<FEScript *>(Scripts.GetHead());
@@ -319,32 +401,76 @@ void FEObject::SetTrackValue(FEKeyTrack_Indices track, const FEColor &value, boo
     }
 }
 
+
+
+
+
+
+
+
+
+
+
 // STRIPPED
 // AUSENTE del objetivo: zFEng.o del original no trae este simbolo y ninguna de
 // las 526 unidades lo referencia. El cuerpo vacio emitia un `blr` de 4 B que
 // objdiff no compara y que sobraba en .text.
 // void FEObject::SetPivot(const FEVector3 &pivot, bool bRelative) {}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEObject::SetPosition(const FEVector3 &position, bool bRelative) {
-    if (Type > 0xFF) {
+    if (Type >= FE_UserMin) {
         return;
     }
     if (bRelative) {
-        FEVector3 zero(0.0f, 0.0f, 0.0f);
-        if (CloseEnoughPosition(position, zero) != true) {
+        if (!CloseEnoughPosition(position, FEVector3(0.0f, 0.0f, 0.0f))) {
             Flags |= FF_DirtyCode;
         }
     } else {
-        FEObjData *pData = GetObjData();
-        if (!CloseEnoughPosition(position, pData->Pos)) {
+        if (!CloseEnoughPosition(position, GetObjData()->Pos)) {
             Flags |= FF_DirtyCode;
         }
     }
     SetTrackValue(FETrack_Position, position, bRelative);
 }
 
+
+
+
+
+
+
+
+
+
+
+
 void FEObject::SetRotation(const FEQuaternion &rotation, bool bRelative) {
-    if (Type > 0xFF) {
+    if (Type >= FE_UserMin) {
         return;
     }
     Flags |= FF_DirtyCode;
@@ -369,37 +495,86 @@ void FEObject::SetRotation(const FEQuaternion &rotation, bool bRelative) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // STRIPPED
 // AUSENTE del objetivo: zFEng.o del original no trae este simbolo y ninguna de
 // las 526 unidades lo referencia. El cuerpo vacio emitia un `blr` de 4 B que
 // objdiff no compara y que sobraba en .text.
 // void FEObject::SetSize(const FEVector3 &size, bool bRelative) {}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEObject::SetColor(const FEColor &color, bool bRelative) {
-    if (Type > 0xFF) {
+    if (Type >= FE_UserMin) {
         return;
     }
-    bool bClose;
     if (bRelative) {
-        FEColor zero(0);
-        bClose = CloseEnoughColor(color, zero);
-        if (bClose != true) {
+        if (!CloseEnoughColor(color, FEColor(0))) {
             Flags |= FF_DirtyCode;
         }
     } else {
-        FEObjData *pData = GetObjData();
-        bClose = CloseEnoughColor(color, pData->Col);
-        if (!bClose) {
+        if (!CloseEnoughColor(color, GetObjData()->Col)) {
             Flags |= FF_DirtyCode;
         }
     }
     SetTrackValue(FETrack_Color, color, bRelative);
 }
 
+
+
+
+
+
+
+
+
+
 void FEObject::SetScript(u32 ID, bool bForce) {
     FEScript *pScript = FindScript(ID);
     SetScript(pScript, bForce);
 }
+
+
+
+
+
+
 
 void FEObject::SetScript(FEScript *pScript, bool bForce) {
     if (!bForce && pScript == pCurrentScript) {
@@ -408,6 +583,8 @@ void FEObject::SetScript(FEScript *pScript, bool bForce) {
     SetCurrentScript(pScript);
     pCurrentScript->CurTime = 0;
 }
+
+
 
 u32 FEObject::GetDataOffset(FEKeyTrack_Indices track) {
     switch (track) {
@@ -437,6 +614,21 @@ u32 FEObject::GetDataOffset(FEKeyTrack_Indices track) {
             return 0;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 FEObject *FEObject::Clone(bool bReference) {
     return FNEW FEObject(*this, bReference);

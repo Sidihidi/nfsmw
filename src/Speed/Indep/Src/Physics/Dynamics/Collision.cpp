@@ -1,7 +1,9 @@
 // d:/mw/speed/indep/src/Physics/dynamics/Collision.cpp
 
 #include "Speed/Indep/Src/Physics/Dynamics/Collision.h"
-#include "Speed/Indep/Src/Physics/Dynamics/Articulation.h"
+// El original NO incluye Articulation.h aqui (la cadena inline de GetForce en los stabs de la A124 va
+// UVector.h/UMath.h/UVectorMath.hpp, sin articulacion): con el include, la instanciacion de la lista UTL
+// de Constraint se adelanta a Collision.cpp y sus statics `name' caen en .data ANTES de mNextHandle.
 
 // Cola de las cadenas de bWare/STL. Va AQUI, no en la SourceList:
 // entre las dos mitades cae el "bad_alloc" que cc1plus emite por su
@@ -81,7 +83,7 @@ bool Moment::React(const Plane &plane, int nSteps) {
     UVector3 dWf;
     UMath::Matrix4 Ic;
     UVector3 normal(plane.normal);
-    float nlen = UMath::Sqrt(UMath::LengthSquare(normal));
+    float nlen = UMath::Length(normal);
     if (nlen != 0.0f) {
         UMath::Scale(normal, 1.0f / nlen, normal);
     }
@@ -157,19 +159,16 @@ bool Moment::React(Moment &other, const Plane &plane, int nSteps) {
     normal.Normalize();
 
     float mass;
-    bool o0_immobile;
-    bool o1_immobile;
-    bool a0 = o0->IsImmobile();
-    if (!o0->IsImmobile() || !o1->IsImmobile()) { o0_immobile = 1; if (!a0) o0_immobile = 0; } else o0_immobile = 0;
-    if (!o0->IsImmobile() || !o1->IsImmobile()) { o1_immobile = 1; if (!o1->IsImmobile()) o1_immobile = 0; } else o1_immobile = 0;
+    bool o0_immobile = (o0->IsImmobile() && o1->IsImmobile()) ? 0 : o0->IsImmobile();
+    bool o1_immobile = (o0->IsImmobile() && o1->IsImmobile()) ? 0 : o1->IsImmobile();
 
     if (o0_immobile && o1_immobile) {
         o0_immobile = 0;
         o1_immobile = 0;
     }
 
-    GetMomentumArm(plane.point, R0);
-    GetPrincipalTensor(I0c);
+    o0->GetMomentumArm(plane.point, R0);
+    o0->GetPrincipalTensor(I0c);
 
     UVector3 Rn0(R0);
     Rn0.Normalize();
@@ -302,23 +301,20 @@ bool Moment::React(Moment &other, const Joint &joint, int nSteps) {
     UMath::Matrix4 I1;
     int i;
     float mass;
-    bool o0_immobile;
-    bool o1_immobile;
 
-    bool a0 = o0->IsImmobile();
-    if (!o0->IsImmobile() || !o1->IsImmobile()) { o0_immobile = 1; if (!a0) o0_immobile = 0; } else o0_immobile = 0;
-    if (!o0->IsImmobile() || !o1->IsImmobile()) { o1_immobile = 1; if (!o1->IsImmobile()) o1_immobile = 0; } else o1_immobile = 0;
+    bool o0_immobile = (o0->IsImmobile() && o1->IsImmobile()) ? 0 : o0->IsImmobile();
+    bool o1_immobile = (o0->IsImmobile() && o1->IsImmobile()) ? 0 : o1->IsImmobile();
 
     if (o0_immobile && o1_immobile) {
         o0_immobile = 0;
         o1_immobile = 0;
     }
 
-    GetMomentumArm(joint.p, R0);
-    GetParallelTensor(R0, I0);
+    o0->GetMomentumArm(joint.p, R0);
+    o0->GetParallelTensor(R0, I0);
 
-    other.GetMomentumArm(joint.p, R1);
-    other.GetParallelTensor(R1, I1);
+    o1->GetMomentumArm(joint.p, R1);
+    o1->GetParallelTensor(R1, I1);
 
     w0 = mAngularVelocity;
     v0 = mLinearVelocity;
@@ -358,9 +354,7 @@ bool Moment::React(Moment &other, const Joint &joint, int nSteps) {
             if (!o0_immobile) {
                 UVector3 dV_impact;
                 UVector3 dW_impact;
-                UMath::Scale(F, mMassInv, dV_impact);
-                UMath::Cross(R0, F, dW_impact);
-                UMath::Rotate(dW_impact, I0, dW_impact);
+                o0->ResolveForce(F, R0, I0, dV_impact, dW_impact);
                 v0 += dV_impact;
                 w0 += dW_impact;
                 dVf0 += dV_impact;
@@ -370,9 +364,7 @@ bool Moment::React(Moment &other, const Joint &joint, int nSteps) {
                 UVector3 dV_impact;
                 UVector3 dW_impact;
                 F.Negate();
-                UMath::Scale(F, other.mMassInv, dV_impact);
-                UMath::Cross(R1, F, dW_impact);
-                UMath::Rotate(dW_impact, I1, dW_impact);
+                o1->ResolveForce(F, R1, I1, dV_impact, dW_impact);
                 v1 += dV_impact;
                 w1 += dW_impact;
                 dVf1 += dV_impact;
@@ -400,8 +392,8 @@ bool Moment::React(const Joint &joint, int nSteps) {
     int i;
     float mass;
 
-    GetMomentumArm(joint.p, R0);
-    GetParallelTensor(R0, I0);
+    o0->GetMomentumArm(joint.p, R0);
+    o0->GetParallelTensor(R0, I0);
 
     w0 = mAngularVelocity;
     v0 = mLinearVelocity;
@@ -426,7 +418,7 @@ bool Moment::React(const Joint &joint, int nSteps) {
             F *= t;
             UVector3 dV_impact;
             UVector3 dW_impact;
-            ResolveForce(F, R0, I0, dV_impact, dW_impact);
+            o0->ResolveForce(F, R0, I0, dV_impact, dW_impact);
             v0 += dV_impact;
             w0 += dW_impact;
             dVf0 += dV_impact;

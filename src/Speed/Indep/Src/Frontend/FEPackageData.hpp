@@ -135,4 +135,40 @@ MenuScreen *CreateMemcardListFiles(ScreenConstructorData *sd);
 MenuScreen *CreateMemcardMainMenu(ScreenConstructorData *sd);
 MenuScreen *CreateGarageMainScreen(ScreenConstructorData *sd);
 
+#ifdef EA_BUILD_A124
+// Las pantallas online del prototipo (la ScreenFactoryData de la A124 tiene 171 entradas).
+MenuScreen *CreateOnlineDisconnectDialog(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineDisconnectBG(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLEATermsScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLLobbyRoomScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLGameRoomScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLGameRoomHostScreen(ScreenConstructorData *sd);
+MenuScreen *CreateEditGameDetailsScreen(ScreenConstructorData *sd);
+MenuScreen *CreateGameRoomCarSelectScreen(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineViewTrack(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineQuickJoin(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineFilters(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineOverallRankings(ScreenConstructorData *sd);
+MenuScreen *CreateOnlinePersonalRankings(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineRankingsLeaderboard(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineEA_Messenger(ScreenConstructorData *sd);
+MenuScreen *CreateUIOnlineEAM_Options(ScreenConstructorData *sd);
+MenuScreen *CreateUIOnlineChatDialog(ScreenConstructorData *sd);
+MenuScreen *CreateUIOnlineSearchResult(ScreenConstructorData *sd);
+MenuScreen *CreateUIOnlineEAM_Feedback(ScreenConstructorData *sd);
+MenuScreen *CreateuiOnlineChallengeInvite(ScreenConstructorData *sd);
+MenuScreen *CreateOnlineVoiceInvite(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLNetSelectScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLAuthDNASScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLSelectPersonaScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLCreateUserScreenPart1(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLCreateUserScreenPart2(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLCreateUserCountry(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLAgeVerf(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLUseExistingScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIGetUserEmailAddress(ScreenConstructorData *sd);
+MenuScreen *CreateUIOLEALoginScreen(ScreenConstructorData *sd);
+MenuScreen *CreateUIDateMenu(ScreenConstructorData *sd);
+#endif
+
 #endif

@@ -30,9 +30,9 @@ void ENISHideCharacter_MakeEvent_Callback(const void *staticData) {
     new ENISHideCharacter(((ENISHideCharacter::StaticData *) staticData)->fAnimModelName, ((ENISHideCharacter::StaticData *) staticData)->fAnimShow);
 }
 
-int ENISHideCharacter_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new ENISHideCharacter(lua_tostring(L, 1), (int) lua_tonumber(L, 2));
+int ENISHideCharacter_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new ENISHideCharacter(lua_tostring(luaState, 1), (int) lua_tonumber(luaState, 2));
     }
     return 0;
 }

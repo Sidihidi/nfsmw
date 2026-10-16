@@ -5,6 +5,11 @@ extern "C" {
 void *memset(void *dst, int c, unsigned int bytes);
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC: snd pone a cero con su asm de x87 (speed.exe 0x822050, dos argumentos); el nombre es nuestro (pc/sdsound.c).
+void SNDI_memclear(void *p, int bytes);
+#endif
+
 namespace Snd {
 
 // total size: 0x8
@@ -96,7 +101,12 @@ int SFILTER_unpackxapf(void *pstate, int framestoup, void *psrcp, void *pdstp, i
                                                                  &pups->totalframes,
                                                                  &continuation);
                 if (pups->psample != 0) {
+#ifdef EA_PLATFORM_WIN32
+                    // PC: estado inicial solo con platformver <= 1 (speed.exe 0x826D57: cmp [esi+0x2c], 1; jg).
+                    if (pups->platformver <= 1) {
+#else
                     if (pups->platformver <= 2) {
+#endif
                         setstate = 1;
                     }
                     if (setstate) {
@@ -111,7 +121,11 @@ int SFILTER_unpackxapf(void *pstate, int framestoup, void *psrcp, void *pdstp, i
                                          pups->totalframes);
                 } else {
                     if (framestoup > 0 && pups->prevframesunpacked != 0) {
+#ifdef EA_PLATFORM_WIN32
+                        SNDI_memclear(ptmpdst, framestoup * sizeof(float));
+#else
                         memset(ptmpdst, 0, framestoup * sizeof(float));
+#endif
                     }
                     framestoup = 0;
                 }

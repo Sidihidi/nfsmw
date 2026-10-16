@@ -90,7 +90,9 @@ class IVisualTreatment {
     float PursuitBreakerBlend;                // offset 0x170, size 0x4
     float NosRadialBlurAmount;                // offset 0x174, size 0x4
     Attrib::Gen::visuallook MiddayVisualLook; // offset 0x178, size 0x14
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     Attrib::Gen::visuallook SunsetVisualLook; // offset 0x18C, size 0x14
+#endif
     Attrib::Gen::visuallook UvesVisualLook;   // offset 0x1A0, size 0x14
     Attrib::Gen::visuallook CopCamVisualLook; // offset 0x1B4, size 0x14
     VisualLookEffect *UvesPulse;              // offset 0x1C8, size 0x4

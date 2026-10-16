@@ -55,7 +55,9 @@ class PS2ALIGN16 Object {
 
       public:
         _IList(unsigned int icount);
+#ifndef EA_BUILD_A124
         ~_IList();
+#endif
         void Add(HINTERFACE handle, IUnknown *ref);
         IUnknown *Find(HINTERFACE handle);
         void *Find(const IUnknown *pUnk) const;
@@ -66,10 +68,8 @@ class PS2ALIGN16 Object {
     _IList _mInterfaces; // offset 0x0, size 0x10
 
   protected:
-    void *operator new(std::size_t size) {
-        return gFastMem.Alloc(size, nullptr);
-    }
-
+    // Sin operator new: el DWARF de GameCube solo le da el constructor y el destructor. Cada clase que hereda de
+    // Object trae el suyo (USE_FASTALLOC, el new de colocacion de GRuntimeInstance) o usa el global.
     Object(std::size_t icount) : _mInterfaces(icount) {}
 
     ~Object() {}
@@ -82,7 +82,7 @@ class PS2ALIGN16 IUnknown {
         HINTERFACE handle = T::_IHandle();
 
         *out = static_cast<T *>(_mCOMObject->_mInterfaces.Find(handle));
-        return *out != nullptr;
+        return *out != nullptr ? true : false;
     }
 
     // TODO is this a thing?
@@ -90,7 +90,7 @@ class PS2ALIGN16 IUnknown {
         HINTERFACE handle = T::_IHandle();
 
         *out = static_cast<T *>(_mCOMObject->_mInterfaces.Find(handle));
-        return *out != nullptr;
+        return *out != nullptr ? true : false;
     }
 
     friend bool ComparePtr(const IUnknown *pUnk1, const IUnknown *pUnk2);

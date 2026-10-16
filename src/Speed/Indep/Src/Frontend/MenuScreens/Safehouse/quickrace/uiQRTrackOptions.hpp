@@ -24,11 +24,11 @@ class UIQRTrackOptions : public UIWidgetMenu {
     void SetupSpeedTrap();
     void SetupTollbooth();
     void BoilerPlateOnline(const bool &boAddLaps);
-#ifdef EA_BUILD_A123
+#ifdef EA_BUILD_A124 // la parte online del prototipo
     void SetOnlineTogglesProperties();
     void LoadOnlineDefaults();
-    int32 GetDisconnectPercentage();
-    static void GetExtendedStatsCB();
+    int32 GetDisconnectPercentage(int *percentage);
+    static void GetExtendedStatsCB(struct LobbyApiMsgT *msg, void *context);
 #endif
 
     GRaceParameters *race;        // offset 0x138, size 0x4

@@ -2,6 +2,7 @@
 #define CAR_RENDER_CONN_H
 
 #include "Speed/Indep/Libs/Support/Utility/UBitArray.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/ecar.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/pvehicle.h"
@@ -52,7 +53,9 @@ class CarRenderConn : public VehicleRenderConn, public IAttributeable {
     void UpdateRoadNoise(float dT, float carspeed, const RenderConn::Pkt_Car_Service &data);
     void UpdateEngineAnimation(float dT, const RenderConn::Pkt_Car_Service &data);
     void UpdateBodyAnimation(float dT, const RenderConn::Pkt_Car_Service &data);
+#ifndef EA_PLATFORM_WIN32
     void UpdateContrails(const RenderConn::Pkt_Car_Service &data, float dT);
+#endif
     void UpdateTires(float dT, float carspeed, const RenderConn::Pkt_Car_Service &data);
     void UpdateEffects(const RenderConn::Pkt_Car_Service &data, float dT);
     void Update(const RenderConn::Pkt_Car_Service &data, float dT);
@@ -83,9 +86,9 @@ class CarRenderConn : public VehicleRenderConn, public IAttributeable {
     bMatrix4 mBrakeMatrices[4];             // offset 0x214, size 0x100
     bMatrix4 mRenderMatrix;                 // offset 0x314, size 0x40
     UMath::Vector2 mExtraBodyAngle;         // offset 0x354, size 0x8
-    ALIGN_16 UMath::Vector3 mFlatTireAngle; // offset 0x35C, size 0xC
-    ALIGN_16 UMath::Vector3 mWheelHop;      // offset 0x368, size 0xC
-    ALIGN_16 UMath::Vector3 mRoadNoise;     // offset 0x374, size 0xC
+    ALIGNVEC UMath::Vector3 mFlatTireAngle; // offset 0x35C, size 0xC
+    ALIGNVEC UMath::Vector3 mWheelHop;      // offset 0x368, size 0xC
+    ALIGNVEC UMath::Vector3 mRoadNoise;     // offset 0x374, size 0xC
     float mEnginePower;                     // offset 0x380, size 0x4
     float mAnimTime;                        // offset 0x384, size 0x4
     float mShiftPitchAngle;                 // offset 0x388, size 0x4
@@ -103,7 +106,9 @@ class CarRenderConn : public VehicleRenderConn, public IAttributeable {
     Radians mSteering[2];                   // offset 0x3C0, size 0x8
     PipeEffects mPipeEffects;               // offset 0x3C8, size 0x8
     EngineEffects mEngineEffects;           // offset 0x3D0, size 0x8
+#ifndef EA_PLATFORM_WIN32
     bool mDoContrailEffect;                 // offset 0x3D8, size 0x1
+#endif
     int mUsage;                             // offset 0x3DC, size 0x4
     uint32 mFlags;                          // offset 0x3E0, size 0x4
 };

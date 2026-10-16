@@ -15,6 +15,9 @@ struct OnlineGame {
 
   public:
     OnlineGame();
+    // Declared but not defined in zOnline: the A124 destroys TheOnlineGame by calling _$_10OnlineGame, which the
+    // link resolves to the destructor of the other OnlineGame (the Sim activity).
+    ~OnlineGame();
     void SetPlayerMuted(int index, bool muted) { m_playermuted[index] = muted; }
     void SetPassword(char *password) { bStrCpy(m_password, password); }
     void ShowDiagnostics();

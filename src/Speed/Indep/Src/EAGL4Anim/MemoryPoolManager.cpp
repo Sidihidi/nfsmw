@@ -29,6 +29,7 @@
 #include "StatelessF3.h"
 #include "StatelessQ.h"
 #include "eagl4supportdef.h"
+#include "System.h"
 
 namespace EAGL4Anim {
 
@@ -39,20 +40,16 @@ unsigned short MemoryPoolManager::gFreeListSize[] = {
     0x24, 0x1C, 0x1C, 0x14, 0x30, 0x40, 0x30, 0x30, 0x30, 0x18, 0x18, 0x18,
 };
 
-// El .data del original pone aqui --entre gFreeListSize y gMemoryPool-- el
-// puntero EAGL4Anim::MatrixMultiply (_9EAGL4Anim.MatrixMultiply, .data:0x80417160,
-// 4 B, scope global), inicializado a MtxMult: los cuatro bytes del ELF valen
-// 0x800A3D78, que es MtxMult__FPQ25EAGL49TransformPCQ25EAGL49TransformT1.
-// Estaba declarado `extern` en Skeleton.cpp y sin definir en todo el arbol, y
-// era el UNICO simbolo que impedia enlazar zEagl4Anim (113.016 B).
-// MtxMult vive a ambito global en system.cpp, que la SourceList mete DESPUES
-// que este .cpp: hay que declararla, y fuera del namespace.
+#ifndef EA_PLATFORM_PLAYSTATION2
+// El .data de GameCube pone aqui --entre gFreeListSize y gMemoryPool-- el puntero EAGL4Anim::MatrixMultiply
+// (_9EAGL4Anim.MatrixMultiply, .data:0x80417160, 4 B), inicializado a MtxMult (0x800A3D78). En PS2 los stabs lo
+// ponen en system.cpp, detras de MatrixMultiplyDefault, y el .data de la A124 lo coloca detras de mScratchBuffers.
 } // namespace EAGL4Anim
-void MtxMult(EAGL4::Transform *result, const EAGL4::Transform *first, const EAGL4::Transform *second);
+void MtxMult(EAGL4::Transform *result, const EAGL4::Transform *A, const EAGL4::Transform *B);
 namespace EAGL4Anim {
 
-typedef void (*MatrixMultiplier)(EAGL4::Transform *, const EAGL4::Transform *, const EAGL4::Transform *);
 MatrixMultiplier MatrixMultiply = MtxMult;
+#endif
 
 char *MemoryPoolManager::gMemoryPool = nullptr;
 char *MemoryPoolManager::gMemoryPoolFree = nullptr;
@@ -79,26 +76,27 @@ void MemoryPoolManager::AllocateIdxBlock(unsigned short idx) {
 
 void *MemoryPoolManager::NewBlockByIdxAux(unsigned short idx) {
     char *r = gFreeList[idx];
-    if (!r) {
+    if (r) {
+        gFreeList[idx] = *reinterpret_cast<char **>(r);
+    } else {
         AllocateIdxBlock(idx);
         r = gFreeList[idx];
+        gFreeList[idx] = *reinterpret_cast<char **>(r);
     }
-    gFreeList[idx] = *reinterpret_cast<char **>(r);
     return r;
 }
 
 void *MemoryPoolManager::NewBlockAux(size_t size) {
     unsigned char idx = static_cast<unsigned char>(size / 16);
     char *r = gSizeFreeList[idx];
-    if (!r) {
+    if (r) {
+        gSizeFreeList[idx] = *reinterpret_cast<char **>(r);
+    } else {
         *reinterpret_cast<unsigned int *>(gMemoryPoolFree) = idx;
         r = gMemoryPoolFree + 4;
         gMemoryPoolFree += (idx + 1) * 0x10 + 4;
-        return r;
-    } else {
-        gSizeFreeList[idx] = *reinterpret_cast<char **>(r);
-        return r;
     }
+    return r;
 }
 
 void MemoryPoolManager::ResetPoolAux() {
@@ -291,17 +289,11 @@ void MemoryPoolManager::DeleteBlockAux(void *ptr) {
 }
 
 void MemoryPoolManager::DeleteFnAnimAux(FnAnim *fnAnim) {
-    if (fnAnim->GetType() == AnimTypeId::ANIM_STATELESSQ) {
-        return;
+    if (fnAnim->GetType() != AnimTypeId::ANIM_STATELESSQ && fnAnim->GetType() != AnimTypeId::ANIM_STATELESSF3 &&
+        fnAnim->GetType() != AnimTypeId::ANIM_POSEANIM) {
+        fnAnim->~FnAnim();
+        DeleteBlockByIdx(fnAnim->GetType(), fnAnim);
     }
-    if (fnAnim->GetType() == AnimTypeId::ANIM_STATELESSF3) {
-        return;
-    }
-    if (fnAnim->GetType() == AnimTypeId::ANIM_POSEANIM) {
-        return;
-    }
-    fnAnim->~FnAnim();
-    DeleteBlockByIdx(fnAnim->GetType(), fnAnim);
 }
 
 }; // namespace EAGL4Anim

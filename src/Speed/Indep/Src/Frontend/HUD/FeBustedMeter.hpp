@@ -7,6 +7,7 @@
 class BustedMeter : public HudElement, public IBustedMeter {
   public:
     BustedMeter(UTL::COM::Object *pOutter, const char *pkg_name, int player_number);
+    ~BustedMeter() override {}
     void Update(IPlayer *player) override;
     void SetInPursuit(bool inPursuit) override {
         mInPursuit = inPursuit;

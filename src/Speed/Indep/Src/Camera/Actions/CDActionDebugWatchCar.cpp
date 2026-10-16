@@ -10,8 +10,6 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
 extern int CameraDebugWatchCar;
-extern int mToggleCar;
-extern int mToggleCarList;
 
 // Listable<IDebugWatchCar,2>::_mTable: en .bss del original va entre
 // _CDActionIce (0x8045AC70) y _CDActionDebugWatchCar (0x8045AC94), asi que la
@@ -19,7 +17,7 @@ extern int mToggleCarList;
 IMPLEMENT_LISTABLE(IDebugWatchCar)
 
 int mToggleCar = 0;
-int mToggleCarList = 0;
+eVehicleList mToggleCarList = VEHICLE_ALL;
 
 class CDActionDebugWatchCar : public CameraAI::Action, public IDebugWatchCar, public ITrafficCenter {
   public:
@@ -47,7 +45,7 @@ class CDActionDebugWatchCar : public CameraAI::Action, public IDebugWatchCar, pu
         return mMover;
     }
     void Update(float dT) override;
-    void SetSpecial(float scale) override {}
+    void SetSpecial(float val) override {}
     bool GetTrafficBasis(UMath::Matrix4 &matrix, UMath::Vector3 &velocity) override;
 
     USE_FASTALLOC(CDActionDebugWatchCar)
@@ -106,22 +104,16 @@ void CDActionDebugWatchCar::AquireTarget() {
         ReleaseTarget();
     }
 
-    if (mToggleCar < 0) {
-        return;
-    }
-    if (mToggleCarList > 9) {
-        return;
-    }
-    if (mToggleCarList < 0) {
+    if (mToggleCar < 0 || mToggleCarList >= VEHICLE_MAX || mToggleCarList < VEHICLE_ALL) {
         return;
     }
 
-    int count = IVehicle::Count(static_cast<eVehicleList>(mToggleCarList));
+    int count = IVehicle::Count(mToggleCarList);
     if (!count) {
         return;
     }
 
-    IVehicle *vehicle = IVehicle::GetList(static_cast<eVehicleList>(mToggleCarList))[mToggleCar % count];
+    IVehicle *vehicle = IVehicle::GetList(mToggleCarList)[mToggleCar % count];
     if (!vehicle) {
         return;
     }

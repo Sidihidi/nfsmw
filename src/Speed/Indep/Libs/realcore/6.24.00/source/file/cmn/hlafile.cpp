@@ -1,9 +1,10 @@
+#include "types.h"
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system.h"
 
 // Prototipos locales con el manglado C++ del original (ver la nota de linkage en
 // include/common/realcore/file/filesys.h).
 int FILESYS_completeop(int ophandle);
-unsigned long long FILESYS_completeop64(int ophandle);
+int64_t FILESYS_completeop64(int ophandle);
 int FILESYS_waitop(int ophandle);
 int FILESYS_open(const char *name, unsigned int modeflags, int priority, void *userdata);
 int FILESYS_close(int filehandle, int timeout, void *userdata);
@@ -75,7 +76,18 @@ struct FILESYSOPTS {
     unsigned int LargeReadSliceSize;         // +0x28
     unsigned int AllocAlignBoundary;         // +0x2C
     int DiscType;                            // +0x30
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En PS2 la estructura mide 0x50 (stabs de la A124): los datos del disco van entre DiscType y mErrorRetryCount.
+    bool IsDiscBootable;                     // +0x34
+    const char *DemoCdRoot;                  // +0x38
+    unsigned int MaxNumDiscFiles;            // +0x3C
+    unsigned int hashseed;                   // +0x40
+    struct DISCFILE *dfTable;                // +0x44
+    bool bUseTMFSRootDirAsAppRootDir;        // +0x48
+    int mErrorRetryCount;                    // +0x4C
+#else
     int mErrorRetryCount;                    // +0x34
+#endif
 };
 
 extern FILESYSOPTS gFileSysOpts;
@@ -107,7 +119,11 @@ static int numrequests;
 static REQUESTQUEUE freequeue;
 static int requestidcounter;
 /* .bss del objeto extraido: 32 B alineados a 8 (el objeto mide 28). */
+#ifdef EA_PLATFORM_WIN32
+static __declspec(align(8)) RealSystem::Mutex mutex;
+#else
 static RealSystem::Mutex mutex __attribute__((aligned(8)));
+#endif
 
 static void loadfileclosecallback(int, int, void *userdata);
 static void loadfilereadcallback(int, int, void *userdata);
@@ -380,6 +396,65 @@ int ASYNCFILE_load(const char *name, int memtype) {
     FILESYS_callbackop(req->fop, loadfileopencallback);
 
     return req->id;
+}
+
+// Cargar en un bufer del llamante (loadfileopencallback lee directamente en destaddr, sin pedir el tamano). Sin
+// comprobar la peticion libre: el original (A124/SLUS) la usa tal cual.
+int ASYNCFILE_loadat(const char *name, void *address, int maxsize) {
+    REQUESTSTRUCTtag *req;
+
+    req = queuefetch(&freequeue);
+
+    newrequestid(req);
+
+    req->bytesread = 0;
+    req->releaseflag = 0;
+    req->cancelflag = 0;
+    req->loadaddr = 0;
+    req->callback = 0;
+    req->foffset = 0;
+    req->readsize = maxsize;
+    req->destaddr = (char *)address;
+
+    req->fop = FILESYS_open(name, 1, 100, req);
+
+    FILESYS_callbackop(req->fop, loadfileopencallback);
+
+    return req->id;
+}
+
+void ASYNCFILE_setcallback(int handle, void (*callback)(int)) {
+    REQUESTSTRUCTtag *req;
+
+    req = locaterequest(handle);
+    if (req != 0 && req->callback == 0) {
+        int done;
+
+        mutex.Lock();
+        req->callback = callback;
+        done = req->fop == 0;
+        mutex.Unlock();
+
+        if (done) {
+            callback(handle);
+        }
+    }
+}
+
+int ASYNCFILE_getstatus(int handle) {
+    REQUESTSTRUCTtag *req;
+    int status;
+
+    mutex.Lock();
+    req = locaterequest(handle);
+    if (req == 0) {
+        status = -1;
+    } else {
+        status = req->fop == 0;
+    }
+    mutex.Unlock();
+
+    return status;
 }
 
 int ASYNCFILE_release(int handle, void **address, int *size) {

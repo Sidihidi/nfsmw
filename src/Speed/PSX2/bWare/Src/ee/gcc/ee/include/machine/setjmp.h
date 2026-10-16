@@ -59,7 +59,14 @@
 #endif
 
 #ifdef __mips__
+#ifdef _R5900
+/* EE: los registros son de 128 bits (stabs de la A124: jmp_buf es TImode[14]). */
+#define _JBLEN 14
+typedef int __jmp_buf_elt __attribute__((mode(TI)));
+#define _JBTYPE __jmp_buf_elt
+#else
 #define _JBLEN 11
+#endif
 #endif
 
 #ifdef __m88000__

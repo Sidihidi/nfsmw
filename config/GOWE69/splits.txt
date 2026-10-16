@@ -43,7 +43,7 @@ Speed/Indep/SourceLists/zCamera.cpp:
 	.text       start:0x80064DB4 end:0x80083604
 	.ctors      start:0x803C8B74 end:0x803C8B78
 	.rodata     start:0x803D1928 end:0x803D3C78
-	.data       start:0x80416488 end:0x804170C8
+	.data       start:0x80416488 end:0x804170A8
 	.bss        start:0x8045A974 end:0x8045B0F8
 
 Speed/Indep/SourceLists/zDebug.cpp:
@@ -56,14 +56,14 @@ Speed/Indep/SourceLists/zDynamics.cpp:
 	.text       start:0x80083680 end:0x8008A7B0
 	.ctors      start:0x803C8B7C end:0x803C8B80 align:1
 	.rodata     start:0x803D3DC8 end:0x803D3FE8
-	.data       start:0x804170C8 end:0x804170F4
+	.data       start:0x804170A8 end:0x804170D0
 	.bss        start:0x8045B100 end:0x8045B110
 
 Speed/Indep/SourceLists/zEagl4Anim.cpp:
 	.text       start:0x8008A7B0 end:0x800A6128
 	.ctors      start:0x803C8B80 end:0x803C8B84
 	.rodata     start:0x803D3FE8 end:0x803D5E38
-	.data       start:0x804170F4 end:0x80417634
+	.data       start:0x804170D0 end:0x80417634
 	.bss        start:0x8045B110 end:0x8045B1E0
 
 Speed/Indep/SourceLists/zEAXSound.cpp:
@@ -154,21 +154,22 @@ Speed/Indep/SourceLists/zMiscSmall.cpp:
 	.text       start:0x8020DC1C end:0x8020DF1C
 	.ctors      start:0x803C8BB4 end:0x803C8BB8
 	.rodata     start:0x803F6730 end:0x803F6890
-	.data       start:0x8041ED7C end:0x8041EFE8
+	.data       start:0x8041ED7C end:0x8041EF00
 	.bss        start:0x804801A4 end:0x804801AC
 
 Speed/Indep/SourceLists/zMission.cpp:
 	.text       start:0x8020DF1C end:0x8020DF98
 	.ctors      start:0x803C8BB8 end:0x803C8BBC
 	.rodata     start:0x803F6890 end:0x803F68F0
-	.bss        start:0x804801AC end:0x804801D8
+	.data       start:0x8041EF00 end:0x8041EF20
+	.bss        start:0x804801AC end:0x804801B4
 
 Speed/Indep/SourceLists/zPhysics.cpp:
 	.text       start:0x8020DF98 end:0x80231A64
 	.ctors      start:0x803C8BBC end:0x803C8BC0
 	.rodata     start:0x803F68F0 end:0x803FA7B0
-	.data       start:0x8041EFE8 end:0x8041F1A4
-	.bss        start:0x804801D8 end:0x80484EB8
+	.data       start:0x8041EF20 end:0x8041F1A4
+	.bss        start:0x804801B4 end:0x80484EB8
 
 Speed/Indep/SourceLists/zPhysicsBehaviors.cpp:
 	.text       start:0x80231A64 end:0x8026B4F4
@@ -223,20 +224,21 @@ Speed/Indep/SourceLists/zWorld2.cpp:
 	.text       start:0x802ECA00 end:0x8030EA7C
 	.ctors      start:0x803C8BDC end:0x803C8BE0
 	.rodata     start:0x8040DFE8 end:0x8040F1B8
-	.data       start:0x80438F58 end:0x804390E4
+	.data       start:0x80438F58 end:0x80439038
 	.bss        start:0x804AA598 end:0x804AAA88
 
 Speed/Indep/SourceLists/zOnline.cpp:
 	.over       start:0x803A41B8 end:0x803A4234
 	.over       start:0x803A4234 end:0x803A4294 rename:.rodata
 	.ctors      start:0x803C8BE0 end:0x803C8BE4
+	.data       start:0x80439038 end:0x80439058
 	.bss        start:0x804AAA88 end:0x804AAA90
 
 Speed/Indep/SourceLists/zFeOverlay.cpp:
 	.over       start:0x803A4294 end:0x803C6A3C
 	.over       start:0x803C6A40 end:0x803C8B58 rename:.rodata
 	.ctors      start:0x803C8BE4 end:0x803C8BE8 align:1
-	.data       start:0x804390E4 end:0x80439490
+	.data       start:0x80439058 end:0x80439490
 	.bss        start:0x804AAA90 end:0x804AC6C0
 
 LibSN/metrotrk.c:
@@ -382,16 +384,11 @@ libc/strstr.c:
 libc/setjmp.c:
 	.text       start:0x80315120 end:0x803152A0
 
-libc/itoa.c:
-	.text       start:0x803152A0 end:0x803158AC
-	.rodata     start:0x8040FB78 end:0x8040FBB8
-	.data       start:0x80439B3C end:0x80439B61
-	.bss        start:0x804B53AC end:0x804B5450
-
 libc/vfprintf.c:
-	.text       start:0x803158AC end:0x803173D0
-	.rodata     start:0x8040FBB8 end:0x8040FC48
-	.bss        start:0x804B5450 end:0x804B54D0
+	.text       start:0x803152A0 end:0x803173D0
+	.rodata     start:0x8040FB78 end:0x8040FC48
+	.data       start:0x80439B3C end:0x80439B61
+	.bss        start:0x804B53AC end:0x804B54D0
 	.sdata      start:0x804FEDD0 end:0x804FEDD8
 
 libc/vfprintf_1.c:
@@ -1762,6 +1759,7 @@ Speed/Indep/Libs/path/5.01.04/source/cmn/pathvol.cpp:
 
 Speed/Indep/Libs/path/5.01.04/source/cmn/pathaction.cpp:
 	.text       start:0x8037A2B8 end:0x8037B840
+	.rodata     start:0x80413960 end:0x8041399C
 
 Speed/Indep/Libs/path/5.01.04/source/cmn/pathbank.cpp:
 	.text       start:0x8037B840 end:0x8037C0AC
@@ -1772,6 +1770,7 @@ Speed/Indep/Libs/path/5.01.04/source/cmn/pathdebug.cpp:
 
 Speed/Indep/Libs/path/5.01.04/source/cmn/pathnode.cpp:
 	.text       start:0x8037C0F8 end:0x8037D164
+	.rodata     start:0x80413A48 end:0x80413A70
 
 Speed/Indep/Libs/path/5.01.04/source/cmn/pathrand.cpp:
 	.text       start:0x8037D164 end:0x8037D26C
@@ -1781,12 +1780,15 @@ Speed/Indep/Libs/spch/dev/source/library/cmn/spchbank.c:
 
 Speed/Indep/Libs/spch/dev/source/library/cmn/spchevnt.c:
 	.text       start:0x8037D988 end:0x8037E814
+	.data       start:0x80451F00 end:0x80451F08
 
 Speed/Indep/Libs/spch/dev/source/library/cmn/spchinit.c:
 	.text       start:0x8037E814 end:0x8037EAC0
 
 Speed/Indep/Libs/spch/dev/source/library/cmn/spchpick.c:
 	.text       start:0x8037EAC0 end:0x8038095C
+	.data       start:0x80451F08 end:0x80451F28
+	.bss        start:0x804CC900 end:0x804CCE00
 
 Speed/Indep/Libs/spch/dev/source/library/cmn/spchrand.c:
 	.text       start:0x8038095C end:0x80380D30
@@ -1950,6 +1952,7 @@ Packages/realmemcard/3.04.01-layer2/source/lib/cmn/locale.cpp:
 
 Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_utilities.cpp:
 	.text       start:0x8038D624 end:0x8038DA18
+	.rodata     start:0x80414400 end:0x80414408
 	.data       start:0x804520FC end:0x804524FC
 
 Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_driver.cpp:
@@ -1966,6 +1969,7 @@ Packages/realmemcard/3.04.01-layer2/source/lib/gc/gc_interface.cpp:
 	.bss        start:0x804D8DAC end:0x804D95E8
 	.sdata      start:0x804FF68C end:0x804FF6A8
 	.sbss       start:0x804FFD58 end:0x804FFD5C
+	.sdata2     start:0x80500A14 end:0x80500A18
 
 Packages/realmemcard/3.04.01-layer2/source/lib/gc/public.cpp:
 	.text       start:0x80391570 end:0x80392910

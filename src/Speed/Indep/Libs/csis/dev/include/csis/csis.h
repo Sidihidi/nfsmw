@@ -59,7 +59,13 @@ class FunctionHandle {
 
     Result Set(const InterfaceId *pInterfaceId);
     Result SetFast(const InterfaceId *pInterfaceId);
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x831304): Valid es estatico y toma el handle y un int que
+    // el cuerpo ignora; los llamadores de csis.cpp empujan 0.
+    static Result Valid(FunctionHandle *pHandle, int line);
+#else
     Result Valid();
+#endif
 
     void *operator new(size_t size);
     void operator delete(void *ptr);
@@ -80,7 +86,11 @@ class ClassHandle {
 
     Result Set(const InterfaceId *pInterfaceId);
     Result SetFast(const InterfaceId *pInterfaceId);
+#ifdef EA_PLATFORM_WIN32
+    static Result Valid(ClassHandle *pHandle, int line); // PC: 0x8313F3
+#else
     Result Valid();
+#endif
 
     void *operator new(size_t size);
     void operator delete(void *ptr);
@@ -103,7 +113,11 @@ class GlobalVariableHandle {
 
     Result SetFast(const InterfaceId *pInterfaceId); // Decl: 471
 
+#ifdef EA_PLATFORM_WIN32
+    static Result Valid(GlobalVariableHandle *pHandle, int line); // PC: 0x8314E4
+#else
     Result Valid(); // Decl: 482
+#endif
 
     static void *operator new(size_t size); // Decl: 484
     static void operator delete(void *ptr); // Decl: 485

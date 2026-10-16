@@ -26,9 +26,9 @@ void EBreakerStopCops_MakeEvent_Callback(const void *staticData) {
                          gEventDynamicData.fPosition);
 }
 
-int EBreakerStopCops_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 2) {
-        new EBreakerStopCops(lua_tonumber(L, 1), lua_tonumber(L, 2), gEventDynamicData.fPosition);
+int EBreakerStopCops_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 2) {
+        new EBreakerStopCops(lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), gEventDynamicData.fPosition);
     }
     return 0;
 }

@@ -14,13 +14,23 @@
 
 namespace EAGL4 {
 
+// Los ficheros van en el orden de bytes de la PS2: alli no se da la vuelta a nada (los stabs de la A124 no
+// expanden htotus dentro de htotul, y Resolve lee las reubicaciones tal cual).
 inline unsigned short htotus(unsigned short s) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return s;
+#else
     return (s << 8) | (s >> 8);
+#endif
 }
 
 inline unsigned int htotul(unsigned int l) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return l;
+#else
     return htotus(static_cast<unsigned short>(l >> 16)) |
            (htotus(static_cast<unsigned short>(l & 0xFFFF)) << 16);
+#endif
 }
 
 // total size: 0x30
@@ -273,64 +283,6 @@ enum ELF32_R_TYPES {
 enum ELF32_SHF_TYPES { SHF_WRITE = 1, SHF_ALLOC = 2, SHF_EXECINSTR = 4, SHF_MASKPROC = -268435456, SHF_MIPS_GPREL = 268435456 };
 
 enum ELF32_SHN_TYPES { SHN_UNDEF = 0, SHN_MIPS_ACCOMON = 65280, SHN_ABS = 65521, SHN_COMMON = 65522, SHN_HIRESERVE = 65535 };
-
-// total size: 0x430
-struct HashPointer {
-    void *operator new(size_t size) {
-        // TODO
-        return EAGL4Internal::EAGL4Malloc(size, nullptr);
-    }
-
-    // void *operator new(size_t size, const char *msg) {}
-
-    void operator delete(void *ptr, size_t size) {
-        EAGL4Internal::EAGL4Free(ptr, size);
-    }
-
-    // void *operator new[](size_t size) {}
-
-    // void *operator new[](size_t size, const char *msg) {}
-
-    // void operator delete[](void *ptr, size_t size) {}
-
-    // void *operator new(size_t, void *ptr) {}
-
-    bool IsResolved() {
-        return resolved;
-    }
-
-    DynamicLoader &GetDynamicLoader() {
-        return *mpDynamicLoader;
-    }
-
-    HashPointer(DynamicLoader *pDL) {
-        mpDynamicLoader = pDL;
-    }
-
-    ~HashPointer() {
-        if (chain) {
-            EAGL4Internal::EAGL4Free(chain, symbols_num * sizeof(*chain));
-        }
-
-        if (isOriginal) {
-            EAGL4Internal::EAGL4Free(isOriginal, symbols_num * sizeof(*isOriginal));
-        }
-    }
-
-    HashPointer *next;                   // offset 0x0, size 0x4
-    HashPointer *prev;                   // offset 0x4, size 0x4
-    char *strtab;                        // offset 0x8, size 0x4
-    bool resolved;                       // offset 0xC, size 0x1
-    int symbols_num;                     // offset 0x10, size 0x4
-    ELF32_Sym *symtab;                   // offset 0x14, size 0x4
-    ELFSectionHeader *sections;          // offset 0x18, size 0x4
-    ELFHeader *e;                        // offset 0x1C, size 0x4
-    long unsigned int hash[256];         // offset 0x20, size 0x400
-    long unsigned int *chain;            // offset 0x420, size 0x4
-    bool *isOriginal;                    // offset 0x424, size 0x4
-    DynamicLoader *mpDynamicLoader;      // offset 0x428, size 0x4
-    DynamicUserCallback pSearchFunction; // offset 0x42C, size 0x4
-};
 
 }; // namespace EAGL4
 

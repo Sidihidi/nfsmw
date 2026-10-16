@@ -34,9 +34,9 @@ void ENISNeutralRev_MakeEvent_Callback(const void *staticData) {
                        ((ENISNeutralRev::StaticData *) staticData)->fSpeed, gEventDynamicData.fhSimable);
 }
 
-int ENISNeutralRev_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 3) {
-        new ENISNeutralRev((unsigned int) lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), gEventDynamicData.fhSimable);
+int ENISNeutralRev_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 3) {
+        new ENISNeutralRev((unsigned int) lua_tonumber(luaState, 1), lua_tonumber(luaState, 2), lua_tonumber(luaState, 3), gEventDynamicData.fhSimable);
     }
     return 0;
 }

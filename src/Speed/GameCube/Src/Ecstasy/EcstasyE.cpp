@@ -13,10 +13,12 @@
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/Src/Frontend/HUD/FEPkg_Hud.hpp"
 #include "Speed/Indep/Src/World/Car.hpp"
+#include "Speed/Indep/Src/World/CarRender.hpp"
 #include "Speed/Indep/Src/World/FacePixelate.hpp"
 #include "Speed/Indep/Src/World/Rain.hpp"
 #include "Speed/Indep/Src/World/Scenery.hpp"
 #include "Speed/Indep/Src/World/ScreenEffects.hpp"
+#include "Speed/Indep/Src/World/SimpleModelAnim.hpp"
 #include "Speed/Indep/Src/World/SkyRender.hpp"
 #include "Speed/Indep/Src/World/Sun.hpp"
 #include "Speed/Indep/Src/World/VisualTreatment.h"
@@ -64,7 +66,7 @@ void eUpdateCopyFilter2(unsigned char);
 void eWaitDrawDone();
 void VIAdvanceFrame();
 void eSetPixelFormat(int nPixelFormat, int nZFormat);
-void SetVideoMode(VIDEO_MODE mode);
+// SetVideoMode: Misc/Timer.hpp
 void ReadLGWheelDataForProgressiveMenu();
 unsigned short ReadLGWheelButtonsForProgressiveMenu(int channel);
 int IsWheelActiveForProgressiveMenu(int channel);
@@ -112,9 +114,6 @@ void epCalculateLocalDirectionalPOS16(unsigned int *colour_table0, unsigned int 
                                       int vertex_description, int num_indicies, eLightMaterial *light_material,
                                       eLightContext *light_context);
 eLightMaterial *elGetDefaultLightMaterial();
-namespace SimpleModelAnim {
-void Animate(eModel *model, eSolid *solid, bMatrix4 *local_to_world);
-}
 void eRecalculateOthographicProjection(int nWhich, float fScale);
 void eStallWorkaround(Bool bEnabled);
 void eDLSaveContext(Bool bEnabled);
@@ -851,10 +850,8 @@ void eSwapDynamicFrameMemory();
 void UpdateEnvironmentMapCameras();
 void SetupSceneryCullInfo(eView *view, SceneryCullInfo &info, int exclude_flags);
 void RenderGpsArrows(eView *view);
-void DrawTestCars(eView *view, int reflection);
 void RenderFrontEndCars(eView *view, int reflection);
 void RenderFEFlares(eView *view, int reflection);
-void RenderVehicleFlares(eView *view, int reflection, int renderFlareFlags);
 void RenderTrackMarkers(eView *view);
 void RenderVisibleZones(eView *view);
 void RenderWorldModels(eView *view, int exc_flag);
@@ -881,12 +878,12 @@ ePoly::ePoly() {
 
     UVs[0][0] = 0.0f;
     UVs[0][1] = 0.0f;
-    UVs[0][2] = 1.0f;
-    UVs[0][3] = 0.0f;
     UVs[1][0] = 1.0f;
-    UVs[1][1] = 1.0f;
-    UVs[1][2] = 0.0f;
-    UVs[1][3] = 1.0f;
+    UVs[1][1] = 0.0f;
+    UVs[2][0] = 1.0f;
+    UVs[2][1] = 1.0f;
+    UVs[3][0] = 0.0f;
+    UVs[3][1] = 1.0f;
 
     SetFlailer(0);
 }
@@ -2138,10 +2135,6 @@ void eViewPlatInterface::FERender(ePoly *poly, TextureInfo *texture_info, int us
     Render(poly, texture_info, use_previous_data);
 }
 
-struct ePolyUVPairs {
-    float UV[4][2];
-};
-
 void eViewPlatInterface::Render(ePoly *poly, TextureInfo *texture_info, int use_previous_data) {
     extern TextureInfo *pContrastRampTextureInfo;
     // 5285
@@ -2159,9 +2152,9 @@ void eViewPlatInterface::Render(ePoly *poly, TextureInfo *texture_info, int use_
     // 5300
     eSetBlendMode(texture_info, 0);
 
-    // ~5303 / ~5304   (declaradas, sin inicializar: el DWARF las pone aqui)
-    TextureInfo *TEV_stage1_texture_info;
-    TextureInfo *TEV_stage2_texture_info;
+    // ~5303 / ~5304   (a nullptr: sin eso TEV_stage2 no tiene registro en el DWARF y el PRE de gcse invierte r28/r30)
+    TextureInfo *TEV_stage1_texture_info = nullptr;
+    TextureInfo *TEV_stage2_texture_info = nullptr;
 
     // 5309
     int crtVtxFmt = vsScreen(0);
@@ -2395,9 +2388,9 @@ void eViewPlatInterface::Render(ePoly *poly, TextureInfo *texture_info, int use_
             // 5521
             GXColor1u32(*reinterpret_cast<unsigned int *>(poly->Colours[i]));
             // 5522
-            GXTexCoord2f32(((ePolyUVPairs *)poly->UVs)->UV[i][0], ((ePolyUVPairs *)poly->UVs)->UV[i][1]);
+            GXTexCoord2f32(poly->UVs[i][0], poly->UVs[i][1]);
             // 5523
-            GXTexCoord2f32(((ePolyUVPairs *)poly->UVsMask)->UV[i][0], ((ePolyUVPairs *)poly->UVsMask)->UV[i][1]);
+            GXTexCoord2f32(poly->UVsMask[i][0], poly->UVsMask[i][1]);
             // 5524
         }
 
@@ -2414,7 +2407,7 @@ void eViewPlatInterface::Render(ePoly *poly, TextureInfo *texture_info, int use_
             // 5557
             GXColor1u32(*reinterpret_cast<unsigned int *>(poly->Colours[i]));
             // 5558
-            GXTexCoord2f32(((ePolyUVPairs *)poly->UVs)->UV[i][0], ((ePolyUVPairs *)poly->UVs)->UV[i][1]);
+            GXTexCoord2f32(poly->UVs[i][0], poly->UVs[i][1]);
             // 5559
         }
 
@@ -2455,20 +2448,20 @@ void DisplayRVMs(eView *view) {
 
     poly.UVs[0][0] = 1.0f;
     poly.UVs[0][1] = 0.0f;
-    poly.UVs[0][2] = 0.0f;
-    poly.UVs[0][3] = 0.0f;
     poly.UVs[1][0] = 0.0f;
-    poly.UVs[1][1] = 1.0f;
-    poly.UVs[1][2] = 1.0f;
-    poly.UVs[1][3] = 1.0f;
+    poly.UVs[1][1] = 0.0f;
+    poly.UVs[2][0] = 0.0f;
+    poly.UVs[2][1] = 1.0f;
+    poly.UVs[3][0] = 1.0f;
+    poly.UVs[3][1] = 1.0f;
     poly.UVsMask[0][0] = 1.0f;
     poly.UVsMask[0][1] = 0.0f;
-    poly.UVsMask[0][2] = 0.0f;
-    poly.UVsMask[0][3] = 0.0f;
     poly.UVsMask[1][0] = 0.0f;
-    poly.UVsMask[1][1] = 1.0f;
-    poly.UVsMask[1][2] = 1.0f;
-    poly.UVsMask[1][3] = 1.0f;
+    poly.UVsMask[1][1] = 0.0f;
+    poly.UVsMask[2][0] = 0.0f;
+    poly.UVsMask[2][1] = 1.0f;
+    poly.UVsMask[3][0] = 1.0f;
+    poly.UVsMask[3][1] = 1.0f;
 
     for (int view_id = EVIEW_FIRST_RVM; view_id <= EVIEW_LAST_RVM; view_id++) {
         eView *rvm_view = eGetView(view_id, false);
@@ -2543,12 +2536,12 @@ void eFacePixelate(eView *view) {
 
             poly.UVs[0][0] = 0.0f;
             poly.UVs[0][1] = 0.0f;
-            poly.UVs[0][2] = 1.0f;
-            poly.UVs[0][3] = 0.0f;
             poly.UVs[1][0] = 1.0f;
-            poly.UVs[1][1] = 1.0f;
-            poly.UVs[1][2] = 0.0f;
-            poly.UVs[1][3] = 1.0f;
+            poly.UVs[1][1] = 0.0f;
+            poly.UVs[2][0] = 1.0f;
+            poly.UVs[2][1] = 1.0f;
+            poly.UVs[3][0] = 0.0f;
+            poly.UVs[3][1] = 1.0f;
 
             poly.Vertices[0].x = 0.0f;
             poly.Vertices[0].y = 0.0f;
@@ -2570,12 +2563,12 @@ void eFacePixelate(eView *view) {
 
             poly.UVs[0][0] = 0.0f;
             poly.UVs[0][1] = 0.0f;
-            poly.UVs[0][2] = 1.0f;
-            poly.UVs[0][3] = 0.0f;
             poly.UVs[1][0] = 1.0f;
-            poly.UVs[1][1] = 1.0f;
-            poly.UVs[1][2] = 0.0f;
-            poly.UVs[1][3] = 1.0f;
+            poly.UVs[1][1] = 0.0f;
+            poly.UVs[2][0] = 1.0f;
+            poly.UVs[2][1] = 1.0f;
+            poly.UVs[3][0] = 0.0f;
+            poly.UVs[3][1] = 1.0f;
 
             poly.Vertices[0].x = 0.0f;
             poly.Vertices[0].y = 0.0f;
@@ -2605,8 +2598,8 @@ void eFacePixelate(eView *view) {
             float v_scale = downSampledHeight * 8.680556675244588e-06f;
 
             for (int i = 0; i < 4; i++) {
-                ((ePolyUVPairs *)poly.UVs)->UV[i][0] = poly.Vertices[i].x * u_scale;
-                ((ePolyUVPairs *)poly.UVs)->UV[i][1] = poly.Vertices[i].y * v_scale;
+                poly.UVs[i][0] = poly.Vertices[i].x * u_scale;
+                poly.UVs[i][1] = poly.Vertices[i].y * v_scale;
             }
 
             view->Render(&poly, downSample, 0x6a);
@@ -3419,12 +3412,12 @@ int eScreenQuadReplace(eView *view, int e_poly_mode) {
 
         poly.UVs[0][0] = sx;
         poly.UVs[0][1] = sy;
-        poly.UVs[0][2] = sx + sw;
-        poly.UVs[0][3] = sy;
         poly.UVs[1][0] = sx + sw;
-        poly.UVs[1][1] = sy + sh;
-        poly.UVs[1][2] = sx;
-        poly.UVs[1][3] = sy + sh;
+        poly.UVs[1][1] = sy;
+        poly.UVs[2][0] = sx + sw;
+        poly.UVs[2][1] = sy + sh;
+        poly.UVs[3][0] = sx;
+        poly.UVs[3][1] = sy + sh;
 
         *reinterpret_cast<unsigned int *>(poly.Colours[0]) = poly_color;
         *reinterpret_cast<unsigned int *>(poly.Colours[1]) = poly_color;
@@ -3659,12 +3652,12 @@ int eMotionBlurEffect(eView *view) {
 
                         poly.UVs[0][0] = polyTweakSX;
                         poly.UVs[0][1] = polyTweakSY;
-                        poly.UVs[0][2] = polyTweakSX + polyTweakSW;
-                        poly.UVs[0][3] = polyTweakSY;
                         poly.UVs[1][0] = polyTweakSX + polyTweakSW;
-                        poly.UVs[1][1] = polyTweakSY + polyTweakSH;
-                        poly.UVs[1][2] = polyTweakSX;
-                        poly.UVs[1][3] = polyTweakSY + polyTweakSH;
+                        poly.UVs[1][1] = polyTweakSY;
+                        poly.UVs[2][0] = polyTweakSX + polyTweakSW;
+                        poly.UVs[2][1] = polyTweakSY + polyTweakSH;
+                        poly.UVs[3][0] = polyTweakSX;
+                        poly.UVs[3][1] = polyTweakSY + polyTweakSH;
                         poly.UVsMask[0][0] = 1.0f;
                     } else {
                         poly.Vertices[0].x = dx;
@@ -3682,12 +3675,12 @@ int eMotionBlurEffect(eView *view) {
 
                         poly.UVs[0][0] = sx;
                         poly.UVs[0][1] = sy;
-                        poly.UVs[0][2] = sx + sw;
-                        poly.UVs[0][3] = sy;
                         poly.UVs[1][0] = sx + sw;
-                        poly.UVs[1][1] = sy + sh;
-                        poly.UVs[1][2] = sx;
-                        poly.UVs[1][3] = sy + sh;
+                        poly.UVs[1][1] = sy;
+                        poly.UVs[2][0] = sx + sw;
+                        poly.UVs[2][1] = sy + sh;
+                        poly.UVs[3][0] = sx;
+                        poly.UVs[3][1] = sy + sh;
                     }
 
                     *reinterpret_cast<unsigned int *>(poly.Colours[0]) =

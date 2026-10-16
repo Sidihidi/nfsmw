@@ -61,6 +61,6 @@ void EngineTempGauge::SetEngineTemp(float temp) {
     if (mEngineTemp == temp) {
         return;
     }
-    mEngineTemp = temp;
     mEngineTempChanged = true;
+    mEngineTemp = temp;
 }

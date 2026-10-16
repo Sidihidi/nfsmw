@@ -42,11 +42,11 @@ class RawLinearChannel : public AnimMemoryMap {
     }
 
     float *GetAnimData() {
-        return reinterpret_cast<float *>(GetDOFIndex()) + static_cast<unsigned int>(mNumDOFs + 1) / 2;
+        return reinterpret_cast<float *>(GetDOFIndex()) + ((mNumDOFs + 1) >> 1);
     }
 
     const float *GetAnimData() const {
-        return reinterpret_cast<const float *>(GetDOFIndex()) + static_cast<unsigned int>(mNumDOFs + 1) / 2;
+        return reinterpret_cast<const float *>(GetDOFIndex()) + ((mNumDOFs + 1) >> 1);
     }
 
     float *GetFrame(int i) {
@@ -69,12 +69,8 @@ class RawLinearChannel : public AnimMemoryMap {
         unsigned short *dofIdx = GetDOFIndex();
         float *frameData = GetFrame(frame);
 
-        int i = 0;
-        if (i < GetNumDOFs()) {
-            do {
-                output[dofIdx[i]] = frameData[i];
-                i++;
-            } while (i < GetNumDOFs());
+        for (int i = 0; i < mNumDOFs; i++) {
+            output[dofIdx[i]] = frameData[i];
         }
     }
 
@@ -83,12 +79,8 @@ class RawLinearChannel : public AnimMemoryMap {
         float *frameData0 = GetFrame(frame0);
         float *frameData1 = GetFrame(frame1);
 
-        int i = 0;
-        if (i < GetNumDOFs()) {
-            do {
-                output[dofIdx[i]] = t * (frameData1[i] - frameData0[i]) + frameData0[i];
-                i++;
-            } while (i < GetNumDOFs());
+        for (int i = 0; i < mNumDOFs; i++) {
+            output[dofIdx[i]] = frameData0[i] + t * (frameData1[i] - frameData0[i]);
         }
     }
 

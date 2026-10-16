@@ -4,6 +4,16 @@
 #include "FEList.h"
 #include "FEngStandard.h"
 
+
+
+
+
+
+
+
+
+
+
 // File: speed/indep/src/feng/ObjectPool.h
 // total size: 0x2020
 // Decl: speed/indep/src/feng/ObjectPool.h:20
@@ -13,25 +23,40 @@ template <class T, int N> class FEPoolNode : public FEMinNode {
     FEMinList Free; // offset 0x200C, size 0x10, Decl: speed/indep/src/feng/ObjectPool.h:23
     int Used;       // offset 0x201C, size 0x4, Decl: speed/indep/src/feng/ObjectPool.h:24
 
+
+
+
     FEPoolNode() : Used(0) { // Decl: speed/indep/src/feng/ObjectPool.h:29
         for (int i = 0; i < N; i++) {
             Free.AddTail(&Pool[i]);
         }
     }
-    ~FEPoolNode() override { // Decl: speed/indep/src/feng/ObjectPool.h:29
+
+
+    ~FEPoolNode() override { // Decl: speed/indep/src/feng/ObjectPool.h:36
         while (Free.GetNumElements() != 0) {
             Free.RemHead();
         }
     }
 
+
+
+
+
     bool Contains(T *pNode) { // Decl: speed/indep/src/feng/ObjectPool.h:46
         return pNode >= &Pool[0] && pNode < &Pool[N];
     }
 
-    FEPoolNode<T, N> *GetNext() { // Decl: speed/indep/src/feng/ObjectPool.h:51
-        return static_cast<FEPoolNode *>(FEMinNode::GetNext());
-    }
+
+    FEPoolNode<T, N> *GetNext() { return static_cast<FEPoolNode *>(FEMinNode::GetNext()); } // Decl: speed/indep/src/feng/ObjectPool.h:51
 };
+
+
+
+
+
+
+
 
 // total size: 0x10
 // Decl: speed/indep/src/feng/ObjectPool.h:63
@@ -42,23 +67,37 @@ template <class T, int N> class ObjectPool {
   public:
     ObjectPool() {}
 
+
+
+
     T *AllocSingle() { // Decl: speed/indep/src/feng/ObjectPool.h:73
         T *pNode;
         FEPoolNode<T, N> *pPool = static_cast<FEPoolNode<T, N> *>(Pools.GetHead());
+
+
         while (pPool) {
+
             if (pPool->Free.GetNumElements() != 0) {
                 break;
             }
             pPool = pPool->GetNext();
         }
         if (!pPool) {
+
             pPool = FNEW FEPoolNode<T, N>();
             Pools.AddHead(pPool);
         }
+
         pNode = static_cast<T *>(pPool->Free.RemHead());
         pPool->Used++;
         return pNode;
     }
+
+
+
+
+
+
 
     void FreeSingle(T *pNode) { // Decl: speed/indep/src/feng/ObjectPool.h:102
         FEPoolNode<T, N> *pPool = static_cast<FEPoolNode<T, N> *>(Pools.GetHead());

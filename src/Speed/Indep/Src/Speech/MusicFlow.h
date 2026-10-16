@@ -33,31 +33,48 @@ class MusicFlow : public SpeechFlow {
 
     MusicFlow();
     ~MusicFlow() override;
+  private:
     void MessageNewPart(const MNotifyMusicFlow &message);
     void MessageInitFlow(const MNotifyMusicFlow &message);
     void MessageTerminate(const MNotifyMusicFlow &message);
     void MessageDone(const MNotifyMusicFlow &message);
+#ifndef EA_BUILD_A124
     void MessageX360UserTunes(const MNotifyMusicFlow &message);
+#endif
+  public:
     void Reacquire();
     void Update() override;
+  private:
     float UpdateIntensity(float adj);
+#ifndef EA_BUILD_A124
     void Waiting();
+#endif
     void Neutral();
     void Lose();
+#ifndef EA_BUILD_A124
     void RequestSwap();
+#endif
     void Win();
     void Elude();
     void Terminal();
+  public:
     bool IsTransitionable() override;
     void ChangeStateTo(int new_state) override;
     void Reset() override;
 
   private:
+#ifdef EA_BUILD_A124
+    // La A124 es anterior al arranque diferido, al cambio de pieza y a la musica del usuario de X360 (stabs: 0x50).
+    bool mblockevent;                     // offset 0x10, size 0x1
+#else
     bool mStartDelay;                     // offset 0x10, size 0x1
     int mStartEvent;                      // offset 0x14, size 0x4
+#endif
     Timer mTimer;                         // offset 0x18, size 0x4
     Timer mBoostTimer;                    // offset 0x1C, size 0x4
+#ifndef EA_BUILD_A124
     Timer mT_currPiece;                   // offset 0x20, size 0x4
+#endif
     float mElapsed;                       // offset 0x24, size 0x4
     float mIntensity;                     // offset 0x28, size 0x4
     float mAvgNumCopsInForm;              // offset 0x2C, size 0x4
@@ -67,14 +84,18 @@ class MusicFlow : public SpeechFlow {
     int mCurrentPart;                     // offset 0x3C, size 0x4
     bool mRestrained;                     // offset 0x40, size 0x1
     float mTopSpeed;                      // offset 0x44, size 0x4
+#ifndef EA_BUILD_A124
     float mTimeInPiece;                   // offset 0x48, size 0x4
     bool mRequestedSwap;                  // offset 0x4C, size 0x1
     bool mX360UserTunes;                  // offset 0x50, size 0x1
+#endif
     Hermes::HHANDLER mMsgNewPart;         // offset 0x54, size 0x4
     Hermes::HHANDLER mMsgInitFlow;        // offset 0x58, size 0x4
     Hermes::HHANDLER mMsgTerminate;       // offset 0x5C, size 0x4
     Hermes::HHANDLER mMsgDone;            // offset 0x60, size 0x4
+#ifndef EA_BUILD_A124
     Hermes::HHANDLER mMsgX360UserTunes;   // offset 0x64, size 0x4
+#endif
 };
 
 } // namespace Speech

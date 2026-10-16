@@ -26,7 +26,6 @@ class MJackKnife : public Hermes::Message {
 
     MJackKnife() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MJackKnife() {}
 };
 
 
@@ -34,9 +33,9 @@ class MJackKnife : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MJackKnife::HandleMessage_LuaBinding(const MJackKnife &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MJackKnife::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -1,6 +1,7 @@
 #include "./sndcmn.h"
 
 int SNDSTRM_lowpass(int sndstreamhandle, int lowpasscutoff) {
+    SNDI_CHECKINSTALLED();
     SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
     int rc;
 

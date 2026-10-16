@@ -8,8 +8,13 @@ int SND_attrsetdef(SNDSAMPLEATTR *pssa) {
     pssa->vol = 0x7F;
     pssa->pan = 0x40;
     pssa->bendrange = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    pssa->platformver = 0;
+    pssa->rendermode = 8;
+#else
     pssa->platformver = 2;
     pssa->rendermode = 0x200;
+#endif
 
     int i;
     for (i = 0; i < 4; i++) {

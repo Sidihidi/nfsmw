@@ -34,6 +34,11 @@ class LoggingAttribAllocator : public IAttribAllocator {
     }
 
     void LogAlloc(unsigned int bytes, const char *name) {
+#ifdef EA_BUILD_A124
+        // La A124 acumula en la suma de comprobacion el nombre y el tamano de cada bloque.
+        mChecksum = stringhash32(name, bytes, mChecksum);
+        mChecksum = stringhash32(&bytes, sizeof(bytes), mChecksum);
+#endif
         mAllocCount++;
         mAllocBytes += bytes;
     }
@@ -156,7 +161,12 @@ void GVault::LoadResident(AttribVaultPackImage *packImage) {
     unsigned int blockTrackingSize = GObjectBlock::CalcSpaceRequired(this, &mGameObjCount);
 
     mGameObjSize = (blockTrackingSize + sizeof(GObjectBlock) + 15) & ~15;
+#ifdef EA_BUILD_A124
+    // La A124 etiquetaba este bloque con un literal; la version final reutiliza allocDesc.
+    mGameObjData = (unsigned char *) bMalloc(mGameObjSize, "Gameplay resident objects", 0, GetVirtualMemoryAllocParams() | BMEMORY_ALIGNMENT(16));
+#else
     mGameObjData = (unsigned char *) bMalloc(mGameObjSize, allocDesc, 0, GetVirtualMemoryAllocParams() | BMEMORY_ALIGNMENT(16));
+#endif
 
     mFlags |= kFlagLoaded;
 }

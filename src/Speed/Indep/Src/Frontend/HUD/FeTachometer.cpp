@@ -37,8 +37,11 @@ Tachometer::Tachometer(UTL::COM::Object *pOutter, const char *pkg_name, int play
       mMaxRpm(0.0f),                         //
       mGear(G_NEUTRAL),                      //
       mIsShifting(false),                    //
-      mShiftPotential(SHIFT_POTENTIAL_NONE), //
+      mShiftPotential(SHIFT_POTENTIAL_NONE) //
+#ifndef EA_BUILD_A124
+      ,
       mNeedleColourSetToPerfectLaunch(false) //
+#endif
 {
     RegisterGroup(FEHashUpper("GaugeCluster"));
     TachNeedle = FEngFindObject(pkg_name, FEHashUpper("3rdPersonNeedle"));
@@ -49,11 +52,14 @@ Tachometer::Tachometer(UTL::COM::Object *pOutter, const char *pkg_name, int play
     RegisterGroup(0x045E9562);
     PerfectShiftDetectedTimer.ResetLow();
     MissedShiftTimer.ResetLow();
+#ifdef EA_BUILD_A124
+    mOriginalNeedleColour = FEngGetColor(TachNeedle);
+#endif
     mOriginalNeedleWidth = TachNeedle->GetObjData()->Size.x;
 }
 
 void Tachometer::Update(IPlayer *player) {
-    if (Sim::GetUserMode() == 1) {
+    if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
         float originalLeftX = FEngGetTopLeftX(TachNeedle);
         float normalizedRev = mRpm / mMaxRpm;
         FEngSetSizeX(TachNeedle, normalizedRev * mOriginalNeedleWidth);
@@ -70,7 +76,7 @@ void Tachometer::Update(IPlayer *player) {
     if (pGearString) {
         FEPrintf(pGearString, "%c", GetLetterForGear(mGear));
 
-        if (Sim::GetUserMode() != 1) {
+        if (Sim::GetUserMode() != Sim::USER_SPLIT_SCREEN) {
             const FEColor colourGearNormal(0xFF000000);
             const FEColor colourGearChanging(0x88000000);
 
@@ -82,7 +88,7 @@ void Tachometer::Update(IPlayer *player) {
         }
     }
 
-    if (mShiftPotential > 1) {
+    if (mShiftPotential >= SHIFT_POTENTIAL_UP) {
         if (!FEngIsScriptSet(pShiftIndicator, FEHASH_GREEN)) {
             FEngSetScript(pShiftIndicator, FEHASH_GREEN, true);
         }
@@ -92,6 +98,14 @@ void Tachometer::Update(IPlayer *player) {
         }
     }
 
+#ifdef EA_BUILD_A124
+    if (mInPerfectLaunchRange) {
+        int oppositeOriginal = ~mOriginalNeedleColour | 0xFF000000;
+        FEngSetColor(TachNeedle, oppositeOriginal);
+    } else {
+        FEngSetColor(TachNeedle, mOriginalNeedleColour);
+    }
+#else
     if (mInPerfectLaunchRange) {
         if (!mNeedleColourSetToPerfectLaunch) {
             mNeedleColourSetToPerfectLaunch = true;
@@ -107,6 +121,7 @@ void Tachometer::Update(IPlayer *player) {
             FEngSetColor(TachNeedle, oppositeOriginal);
         }
     }
+#endif
 }
 
 char Tachometer::GetLetterForGear(GearID gear) {

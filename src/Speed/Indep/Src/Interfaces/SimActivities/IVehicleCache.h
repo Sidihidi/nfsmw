@@ -8,7 +8,11 @@ enum eVehicleCacheResult {
     VCR_WANT = 0,
 };
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+static const int MAX_VEHICLE_CACHE = 28;
+#else
 static const int MAX_VEHICLE_CACHE = 18;
+#endif
 
 // total size: 0xC
 class IVehicleCache : public UTL::COM::IUnknown, public UTL::Collections::Listable<IVehicleCache, MAX_VEHICLE_CACHE> {

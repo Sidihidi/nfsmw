@@ -38,10 +38,7 @@ class ExportManager {
     // total size: 0x8
     class ExportPolicyPair {
       public:
-        ExportPolicyPair(unsigned int t, IExportPolicy *p) {
-            mPolicy = p;
-            mType = t;
-        }
+        ExportPolicyPair(unsigned int t, IExportPolicy *p) : mType(t), mPolicy(p) {}
 
         ExportPolicyPair(const ExportPolicyPair &src) {
             mType = src.mType;

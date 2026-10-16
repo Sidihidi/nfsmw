@@ -26,8 +26,6 @@ class MReqRoadBlock : public Hermes::Message {
 
     MReqRoadBlock(int _Data) : Hermes::Message(_GetKind(), _GetSize(), 0), fData(_Data) {}
 
-    ~MReqRoadBlock() {}
-
     int GetData() const {
         return fData;
     }
@@ -45,9 +43,9 @@ class MReqRoadBlock : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MReqRoadBlock::HandleMessage_LuaBinding(const MReqRoadBlock &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MReqRoadBlock::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -89,43 +89,38 @@ void FEInterpLinear(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
 
 write_base:
     if (!pKey) {
-        i32 *pBase = pBaseKey->GetKeyData()->Val;
+        i32 *pValPtr = pBaseKey->GetKeyData()->Val;
         switch (pTrack->ParamType) {
             case 1:
-            case 2: {
-                i32 *pSrc = pBaseKey->GetKeyData()->Val;
-                *reinterpret_cast<i32 *>(pOutDataPtr) = pSrc[0];
+            case 2:
+                *reinterpret_cast<i32 *>(pOutDataPtr) = *pValPtr;
                 break;
-            }
             case 3: {
-                i32 *pSrc = pBaseKey->GetKeyData()->Val;
-                i32 val0 = pSrc[0];
-                i32 val1 = pSrc[1];
-                reinterpret_cast<i32 *>(pOutDataPtr)[0] = val0;
-                reinterpret_cast<i32 *>(pOutDataPtr)[1] = val1;
+                i32 temp0 = pValPtr[0];
+                i32 temp1 = pValPtr[1];
+                reinterpret_cast<i32 *>(pOutDataPtr)[0] = temp0;
+                reinterpret_cast<i32 *>(pOutDataPtr)[1] = temp1;
                 break;
             }
             case 4: {
-                i32 *pSrc = pBaseKey->GetKeyData()->Val;
-                i32 val0 = pSrc[0];
-                i32 val1 = pSrc[1];
-                i32 val2 = pSrc[2];
-                reinterpret_cast<i32 *>(pOutDataPtr)[0] = val0;
-                reinterpret_cast<i32 *>(pOutDataPtr)[1] = val1;
-                reinterpret_cast<i32 *>(pOutDataPtr)[2] = val2;
+                i32 temp0 = pValPtr[0];
+                i32 temp1 = pValPtr[1];
+                i32 temp2 = pValPtr[2];
+                reinterpret_cast<i32 *>(pOutDataPtr)[0] = temp0;
+                reinterpret_cast<i32 *>(pOutDataPtr)[1] = temp1;
+                reinterpret_cast<i32 *>(pOutDataPtr)[2] = temp2;
                 break;
             }
             case 5:
             case 6: {
-                i32 *pSrc = pBase;
-                i32 val0 = pSrc[0];
-                i32 val1 = pSrc[1];
-                i32 val2 = pSrc[2];
-                i32 val3 = pSrc[3];
-                reinterpret_cast<i32 *>(pOutDataPtr)[0] = val0;
-                reinterpret_cast<i32 *>(pOutDataPtr)[1] = val1;
-                reinterpret_cast<i32 *>(pOutDataPtr)[2] = val2;
-                reinterpret_cast<i32 *>(pOutDataPtr)[3] = val3;
+                i32 temp0 = pValPtr[0];
+                i32 temp1 = pValPtr[1];
+                i32 temp2 = pValPtr[2];
+                i32 temp3 = pValPtr[3];
+                reinterpret_cast<i32 *>(pOutDataPtr)[0] = temp0;
+                reinterpret_cast<i32 *>(pOutDataPtr)[1] = temp1;
+                reinterpret_cast<i32 *>(pOutDataPtr)[2] = temp2;
+                reinterpret_cast<i32 *>(pOutDataPtr)[3] = temp3;
                 break;
             }
         }
@@ -139,7 +134,7 @@ write_base:
         }
         switch (pTrack->ParamType) {
             case 1: {
-                *reinterpret_cast<i32 *>(pOutDataPtr) = *reinterpret_cast<i32 *>(pBaseValue) + *reinterpret_cast<i32 *>(pValPtr);
+                *reinterpret_cast<i32 *>(pOutDataPtr) = *reinterpret_cast<i32 *>(pBaseValue) + *pValPtr;
                 break;
             }
             case 2: {
@@ -165,10 +160,10 @@ write_base:
                 break;
             }
             case 6: {
-                reinterpret_cast<i32 *>(pOutDataPtr)[2] = reinterpret_cast<i32 *>(pBaseValue)[2] + reinterpret_cast<i32 *>(pValPtr)[2];
-                reinterpret_cast<i32 *>(pOutDataPtr)[1] = reinterpret_cast<i32 *>(pBaseValue)[1] + reinterpret_cast<i32 *>(pValPtr)[1];
-                reinterpret_cast<i32 *>(pOutDataPtr)[0] = reinterpret_cast<i32 *>(pBaseValue)[0] + reinterpret_cast<i32 *>(pValPtr)[0];
-                reinterpret_cast<i32 *>(pOutDataPtr)[3] = reinterpret_cast<i32 *>(pBaseValue)[3] + reinterpret_cast<i32 *>(pValPtr)[3];
+                reinterpret_cast<i32 *>(pOutDataPtr)[2] = reinterpret_cast<i32 *>(pBaseValue)[2] + pValPtr[2];
+                reinterpret_cast<i32 *>(pOutDataPtr)[1] = reinterpret_cast<i32 *>(pBaseValue)[1] + pValPtr[1];
+                reinterpret_cast<i32 *>(pOutDataPtr)[0] = reinterpret_cast<i32 *>(pBaseValue)[0] + pValPtr[0];
+                reinterpret_cast<i32 *>(pOutDataPtr)[3] = reinterpret_cast<i32 *>(pBaseValue)[3] + pValPtr[3];
                 break;
             }
         }

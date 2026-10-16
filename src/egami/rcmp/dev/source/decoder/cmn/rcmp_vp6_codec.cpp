@@ -1,3 +1,7 @@
+#include <Allocator/iallocator.h>
+
+#include "Packages/vp6/1.0.6/source/decode/cmn/duck_mem.h"
+
 // ---------------------------------------------------------------------------
 // Lectores de campos de la cabecera de chunk. `getm` es big-endian (carga
 // directa en GameCube), `geti` little-endian byte a byte: el arbol de `or` del
@@ -471,49 +475,6 @@ class TDLList : public DLList {
     }
 };
 
-namespace EA {
-
-// total size: 0xC
-struct TagValuePair {
-    unsigned int mTag;
-    union {
-        int mInt;
-        unsigned int mSize;
-        float mFloat;
-        const void *mPointer;
-    } mValue;
-    const TagValuePair *mNext;
-
-    TagValuePair() {}
-    TagValuePair(unsigned int tag, int value);
-};
-
-namespace Allocator {
-
-enum AllocTvpTag {
-    ATT_NULL = 0,
-};
-
-// total size: 0x4
-class IAllocator {
-  public:
-    virtual void *Alloc(unsigned int size, const TagValuePair &flags) = 0;
-    virtual void Free(void *pBlock, unsigned int size) = 0;
-    virtual int AddRef() = 0;
-    virtual int Release() = 0;
-
-  protected:
-    virtual ~IAllocator() {}
-    IAllocator() {}
-};
-
-} // namespace Allocator
-} // namespace EA
-
-namespace Vp6 {
-void SetAllocator(EA::Allocator::IAllocator *pAllocator);
-}
-
 struct PB_INSTANCE;
 
 // total size: 0x28
@@ -639,7 +600,12 @@ VP6_FRAME::VP6_FRAME(unsigned int Width, unsigned int Height) {
     RealShape::CreateStruct createStruct;
 
     createStruct.mShapeElements = 2;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // PS2 pasa RGBA8 (0x6C en SLUS y A124); GC pasa YUV (0x1C en el DOL).
+    createStruct.mTextureType = RealShape::TEXEL_TYPE_GC_R8G8B8A8;
+#else
     createStruct.mTextureType = RealShape::TEXEL_TYPE_GC_YUV;
+#endif
     createStruct.mWidth = Width;
     createStruct.mHeight = Height;
     createStruct.mTextureSharedData = RealShape::SHARED_DATA_ENABLED;
@@ -702,11 +668,11 @@ class VP6_CODEC_INTERNAL : public RCMP::CODEC {
 
 VP6_CODEC_INTERNAL::VP6_CODEC_INTERNAL() {
     m_FirstTime = 1;
-    m_FrameRate = 0.0f;
     m_Width = 0;
     m_Height = 0;
     m_YPlaneSize = 0;
     m_UVPlaneSize = 0;
+    m_FrameRate = 0.0f;
     m_pPB_INST = 0;
     RCMP_global_VP6_skipK = 0;
     RCMP_global_VP6_skipK_frameNo = -1;
@@ -854,8 +820,12 @@ VP6_FRAME *VP6_CODEC_INTERNAL::GetFrameFromList() {
         return NewFrame;
     }
 
+    #ifdef EA_PLATFORM_WIN32
+    REAL_abortmessage("VP6_CODEC_INTERNAL::GetFrameFromList() out of frames did you call CODEC::ReleaseFrame( FRAME *Frame )\n");
+#else
     REAL_abortmessage("VP6_CODEC_INTERNAL::GetFrameFromList() out of frames did you call CODEC::ReleaseFrame( FRAME *Frame )
 ");
+#endif
     return 0;
 }
 

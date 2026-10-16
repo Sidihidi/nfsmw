@@ -7,13 +7,52 @@
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEImages.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/feKeyboardInput.hpp"
+#include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/FEHash_Credits.hpp"
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_FeWorldMapQuickList.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
+#include "Speed/Indep/Src/Online/BuddyCore.hpp"
+#include "Speed/Indep/Src/Online/LobbyCore.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Common/feDialogBox.hpp"
+#include "Speed/Indep/Src/Frontend/Localization/Localize.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineMain.hpp"
+#include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineDisconnect.hpp"
+#include "Speed/Indep/Src/Generated/Events/EQuitToFE.hpp"
+#include "Speed/Indep/Src/Online/LobbyChat.hpp"
+#include "Speed/Indep/Src/Online/LobbyGameSessions.hpp"
+#include "Speed/Indep/Src/Online/VoiceCore.hpp"
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
+#endif
 
 extern KeyboardEditString gKeyboardManager;
 MenuScreen *g_pOLCurrentScreen = nullptr;
 
 MenuScreen::MenuScreen(ScreenConstructorData *sd) : mDirectionForNextSound(0), bEnableEAMessenger(false) {
+#ifdef EA_BUILD_A124 // el prototipo enciende los iconos de EA Messenger y no lleva la pantalla online actual
+    ConstructData = *sd;
+    PackageFilename = sd->PackageFilename;
+    IsGarageScreen = false;
+
+    TextInputObject = nullptr;
+
+    mPlaySound = true;
+
+    FESoundControl(true, PackageFilename);
+
+    mStartCapturingFromKeyboard = 0;
+
+    UpdateEAMIcons();
+
+    bEnableEAMessenger = FEDatabase->IsLANMode() ? false : true;
+
+    if (FEDatabase->IsOnlineMode() && FEDatabase->GetOnlineSettings()->GetState() >= cOnlineSettings::OLS_LOBBY_IDLE) {
+        cFEng::Get()->QueuePackageMessage(0x41AAF577, PackageFilename, nullptr);
+    }
+
+    FEngSetButtonTexture(FEngFindImage(PackageFilename, 0x6B364F8B), 0x5BC);
+    FEngSetButtonTexture(FEngFindImage(PackageFilename, 0x79354351), 0x682);
+#else
     ConstructData = *sd;
     PackageFilename = sd->PackageFilename;
     IsGarageScreen = false;
@@ -37,38 +76,214 @@ MenuScreen::MenuScreen(ScreenConstructorData *sd) : mDirectionForNextSound(0), b
         && bStrCmp(PackageFilename, "OL_GameRoom_Car_Select.fng") != 0     //
         && bStrCmp(PackageFilename, "OL_GameRoom_Edit_Race.fng") != 0      //
         && bStrCmp(PackageFilename, "OL_GameRoom_Player_Details.fng") != 0 //
+#ifndef EA_PLATFORM_PLAYSTATION2 // la PS2 de venta no tiene EA Messenger
         && bStrCmp(PackageFilename, "OL_EAMessenger.fng") != 0             //
-        && !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng");
+        && !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng")
+#endif
+        ;
     if (set_current) {
         g_pOLCurrentScreen = this;
     }
+#endif
 }
 
 MenuScreen::~MenuScreen() {
     FESoundControl(false, PackageFilename);
+#ifdef EA_BUILD_A124 // el prototipo apaga EA Messenger y no lleva la pantalla online actual
+    bEnableEAMessenger = false;
+#else
 
     bool clear_current = bStrCmp(PackageFilename, "InGameDialog.fng") != 0 && bStrCmp(PackageFilename, "OL_Dialog.fng") != 0 &&
         bStrCmp(PackageFilename, "ControllerUnplugged.fng") != 0 && bStrCmp(PackageFilename, "Dialog.fng") != 0 &&
         bStrCmp(PackageFilename, "EA_Trax.fng") != 0 && bStrCmp(PackageFilename, "OL_Dialog_Stacked_Buttons.fng") != 0 &&
         bStrCmp(PackageFilename, "OL_GameRoom_Car_Select.fng") != 0 && bStrCmp(PackageFilename, "OL_GameRoom_Edit_Race.fng") != 0 &&
-        bStrCmp(PackageFilename, "OL_GameRoom_Player_Details.fng") != 0 && bStrCmp(PackageFilename, "OL_EAMessenger.fng") != 0 &&
-        !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng");
+        bStrCmp(PackageFilename, "OL_GameRoom_Player_Details.fng") != 0
+#ifndef EA_PLATFORM_PLAYSTATION2 // la PS2 de venta no tiene EA Messenger
+        && bStrCmp(PackageFilename, "OL_EAMessenger.fng") != 0 && !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng")
+#endif
+        ;
     if (clear_current) {
         g_pOLCurrentScreen = nullptr;
     }
+#endif
 }
+
+#ifdef EA_BUILD_A124 // el prototipo une partidas online desde cualquier pantalla (invitaciones de EA Messenger)
+extern const char *g_GameRoomName;
+extern ChallengeInfo *gSelfChallengeInfo;
+char gCallingScreenPackageName[64];
+uint32 gAcceptingGameDialogHandle;
+
+void MenuScreen::HandleGameSessionJoinDialog(int result) {
+    if (result >= 0) {
+        gAcceptingGameDialogHandle =
+            DialogInterface::ShowMessage(GetPackageName(), "animating", dialog_none, 0x91070ff2, gBuddySettings.buddyName);
+    } else {
+        DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff,
+                                       GetLocalizedString(0x331f4f58));
+    }
+}
+#endif
 
 void MenuScreen::BaseNotify(u32 Message, FEObject *pObject, u32 Param1, u32 Param2) {
     if (!CheckKeyboard(Message)) {
         bool notify = true;
-        if (Message == FEMSG_MOUSE_CHANGED && ConstructData.pPackage->GetControlMask() == 0) {
-            notify = false;
+        switch (Message) {
+        case FEMSG_MOUSE_CHANGED:
+            if (ConstructData.pPackage->GetControlMask() == 0) {
+                notify = false;
+            }
+            break;
+#ifdef EA_BUILD_A124 // el prototipo atiende aqui el chat de voz, EA Messenger, los retos y la cuenta atras online
+        case __PAD_BUTTON3__:
+            if (VoiceCore::instance().IsHeadsetConnected()) {
+                VoiceCore::instance().SetMicStatus(true);
+            }
+            break;
+        case __PAD_BUTTON3_RELEASED__:
+            if (VoiceCore::instance().IsHeadsetConnected()) {
+                VoiceCore::instance().SetMicStatus(false);
+            }
+            break;
+        case 0xf764cbe7:
+            if (GetPackage()->GetNameHash() == FEHashUpper("GarageMain.fng") ||
+                GetPackage()->GetNameHash() == FEHashUpper("EA_Trax.fng") ||
+                GetPackage()->GetNameHash() == FEHashUpper("OL_EAMessenger.fng")) {
+                return;
+            }
+            if (FEDatabase->GetOnlineSettings()->GetState() >= cOnlineSettings::OLS_LOBBY_IDLE) {
+                bool found = false;
+                Invite *info;
+                char gamename[36] = "";
+                char password[13] = "";
+                int gameident = 0;
+
+                if (gSelfChallengeInfo) {
+                    gameident = gSelfChallengeInfo->gameIdent;
+                    found = true;
+                } else {
+                    for (int i = 0; i < 5; i++) {
+                        info = LobbyChat::Instance().GetReceivedInvite(i);
+                        if (!info) {
+                            break;
+                        }
+                        if (!bStrCmp(info->player, gBuddySettings.buddyName)) {
+                            gameident = info->gameIdent;
+                            found = true;
+                        }
+                    }
+                }
+
+                if (found) {
+                    if (gSelfChallengeInfo) {
+                        bStrCpy(gamename, gSelfChallengeInfo->challengeName);
+                        bStrCpy(password, gSelfChallengeInfo->password);
+                        delete gSelfChallengeInfo;
+                        gSelfChallengeInfo = nullptr;
+                    } else {
+                        info = LobbyChat::Instance().GetReceivedInvite(gBuddySettings.buddyName, gameident);
+                        TagFieldGetString(TagFieldFind(info->gameSettings, "GAMENAME"), gamename, 36, "unknown game");
+                        TagFieldGetString(TagFieldFind(info->gameSettings, "PASSWORD"), password, 13, "");
+                        LobbyChat::Instance().RespondToInvite(info->player, info->gameIdent, LobbyChatN::RESPONSE_ACCEPT);
+                    }
+
+                    cOnlineSettings *settings = FEDatabase->GetOnlineSettings();
+                    bStrCpy(settings->Password, password[0] ? password : "");
+                    bStrCpy(settings->VerifyPassword, password[0] ? password : "");
+                    settings->Passworded = password[0] != 0;
+                    HandleGameSessionJoinDialog(LobbyGameSessions::Instance().JoinSession(gamename, password, ChallengeAcceptGameCB, this));
+                } else {
+                    DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff,
+                                                   GetLocalizedString(0x331f4f58));
+                }
+            }
+            EnteringChallenge = false;
+            break;
+        case __PAD_BUTTON1__:
+            if (!cFEng::Get()->FindPackage("Dialog.fng") && (RealTimer - MessengerCreationTimer).GetSeconds() > g_KBDelaySeconds) {
+                if (FEDatabase->GetOnlineSettings()->GetState() >= cOnlineSettings::OLS_LOBBY_IDLE) {
+                    if (bEnableEAMessenger && !cFEng::Get()->FindPackage("Dialog.fng")) {
+                        if (!ShowingEAMessenger) {
+                            cFEng::Get()->QueuePackagePush("OL_EAMessenger.fng", 0, Param1, false);
+                            ShowingEAMessenger = true;
+                        }
+                    }
+                }
+            }
+            break;
+        case 0x9757a0c0:
+            UpdateEAMIcons();
+            break;
+        case 0x971391a2:
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
+                if (UIOLGameRoom::mGameCountdown > 0) {
+                    FEngSetScript(GetPackageName(), 0xb977eeb0, FEHASH_FLASH, false);
+                    FEPrintf(GetPackageName(), 0xb977eeb0, "%s %d", GetLocalizedString(0x250d0152), UIOLGameRoom::mGameCountdown);
+                } else if (UIOLGameRoom::mGameCountdown == 0) {
+                    UIOLGameRoom::mGameCountdown = -1;
+                    SetSoundControlState(false, SNDSTATE_NIS_321, "NIS 321");
+                    if (GetPackage()->GetNameHash() != FEHashUpper("GarageMain.fng") &&
+                        GetPackage()->GetNameHash() != FEHashUpper("EA_Trax.fng") &&
+                        GetPackage()->GetNameHash() != FEHashUpper("OL_GameRoom.fng")) {
+                        cFEng::Get()->QueuePackagePop(1);
+                    }
+                } else {
+                    FEngSetScript(GetPackageName(), 0xb977eeb0, FEHASH_HIDE, true);
+                }
+            }
+            break;
+        case 0x2c0e485a:
+            if (TheOnlineManager.IsOnlineRace()) {
+                ExitOnlineMode(nullptr);
+                new EQuitToFE(GARAGETYPE_MAIN_FE, nullptr);
+            }
+            break;
+#endif
         }
         if (notify) {
             NotificationMessage(Message, pObject, Param1, Param2);
         }
     }
 }
+
+#ifdef EA_BUILD_A124
+void MenuScreen::ChallengeAcceptGameCB(LobbyApiMsgT *msg, void *context) {
+    if (gAcceptingGameDialogHandle) {
+        DialogInterface::DismissDialog(gAcceptingGameDialogHandle);
+        gAcceptingGameDialogHandle = 0;
+    }
+
+    if (msg->code == 0) {
+        FEDatabase->GetOnlineSettings()->GameDetails = eJOINING;
+        cFEng::Get()->FindPackageWithControl();
+        cFEng::Get()->QueuePackageSwitch(g_GameRoomName, 0, 0, false);
+    } else {
+        FEngSetScript(gCallingScreenPackageName, 0x47ff4e7c, 0x6ebbfb68, true);
+        if (msg->code == 'ugam') {
+            DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, GetLocalizedString(0x331f4f58));
+        } else if (msg->code == 'full') {
+            DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, GetLocalizedString(0xd155595a));
+        } else if (msg->code == 'pass') {
+            DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, GetLocalizedString(0xb5eaa702));
+        } else if (msg->code == 'asta') {
+            DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, GetLocalizedString(0x1c098ddf));
+        } else if (msg->code == 'invp') {
+            DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, GetLocalizedString(0x4ad41e75));
+        } else {
+            DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, GetLocalizedString(0x7aa591cc));
+        }
+    }
+    FEDatabase->GetOnlineSettings()->SetState(cOnlineSettings::OLS_LOBBY_IDLE);
+}
+#endif
+
+#ifdef EA_BUILD_A124 // solo el prototipo tiene teclado online que se pueda cancelar
+void MenuScreen::FEngAbortTextInput() {
+    if (cFEng::Get()->IsPackagePushed("Keyboard.fng")) {
+        cFEng::Get()->QueuePackageMessage(0x911AB364, "Keyboard.fng", nullptr);
+    }
+}
+#endif
 
 const char *MenuScreen::FEngGetEditedString() {
     return FEDatabase->mFEKeyboardSettings.Buffer;
@@ -83,6 +298,17 @@ void MenuScreen::FEngEndTextInput() {
     mStartCapturingFromKeyboard = 0;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x5865E0): la edicion va en el sitio, con el teclado del PC (gKeyboardManager). Ni Keyboard.fng ni
+// FEKeyboardSettings: new de 0xC B, FEngFindString del paquete, StartCapture, el byte de mEnabled a 0 y el contador a 1.
+void MenuScreen::FEngBeginTextInput(uint32 object_hash, uint32 edit_mode, const char *initial_string, const char * /* title_string */,
+                                    uint32 max_text_length) {
+    TextInputObject =
+        new FEngTextInputObject(this, FEngFindString(GetPackageName(), object_hash), edit_mode, initial_string, max_text_length);
+    gKeyboardManager.Disable();
+    mStartCapturingFromKeyboard = 1;
+}
+#else
 void MenuScreen::FEngBeginTextInput(uint32 /* object_hash */, uint32 edit_mode, const char *initial_string, const char *title_string,
                                     uint32 max_text_length) {
     bool is_plat_pc = false;
@@ -105,26 +331,34 @@ void MenuScreen::FEngBeginTextInput(uint32 /* object_hash */, uint32 edit_mode, 
         case 2:
             kbd_mode = 5;
             break;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        case 3: // las dos PS2 tienen el caso explicito (un bloque mas en la tabla de saltos)
+            kbd_mode = 1;
+            break;
+#endif
         case 4:
             kbd_mode = 4;
             break;
         case 5: kbd_mode = 2; break;
         case 6: kbd_mode = 3; break;
+#ifndef EA_PLATFORM_PLAYSTATION2
         case 1:
         case 3:
             break;
+#endif
     }
     FEDatabase->mFEKeyboardSettings.Mode = kbd_mode;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    cFEng::Get()->QueuePackagePush("Keyboard.fng", 0, 0, false);
+#else
     cFEng::Get()->QueuePackagePush("Keyboard_GC.fng", 0, 0, false);
+#endif
 }
+#endif
 
 bool MenuScreen::CheckKeyboard(uint32 msg) {
-    if (msg == FEMSG_SCREEN_TICK) {
-        if (TextInputObject == nullptr) {
-            return false;
-        }
-
+    if (msg == FEMSG_SCREEN_TICK && TextInputObject != nullptr) {
         if (mStartCapturingFromKeyboard == 1) {
             mStartCapturingFromKeyboard++;
             return true;
@@ -137,6 +371,15 @@ bool MenuScreen::CheckKeyboard(uint32 msg) {
     }
 
     if (TextInputObject != nullptr) {
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32) // PC tambien (speed.exe 0x59B2FB)
+        if (msg == 0xD15C04EC) {
+            gKeyboardManager.RevertToOriginalString();
+            gKeyboardManager.EndCapture();
+            TextInputObject->Notify(FEMSG_SCREEN_TICK);
+            FEngEndTextInput();
+            return false;
+        }
+#endif
         if (gKeyboardManager.IsCapturing()) {
             if (msg == __PAD_BACK__) {
                 TextInputObject->EscapePressed();
@@ -165,13 +408,19 @@ void MenuScreen::BaseNotifySound(u32 msg, FEObject * /* obj */, u32 /* controlle
         case 0x7D35DA25:
             soundToPlay = static_cast<eMenuSoundTriggers>(0xC);
             break;
+#ifndef EA_BUILD_A124
         case 0x905FB857:
             soundToPlay = static_cast<eMenuSoundTriggers>(0xC);
             break;
+#endif
         case 0xEE54C987:
             soundToPlay = static_cast<eMenuSoundTriggers>(0xd);
             break;
+#ifdef EA_BUILD_A124
+        case 0xBE28F861:
+#else
         case 0x5C928AC2:
+#endif
             soundToPlay = static_cast<eMenuSoundTriggers>(0xe);
             break;
         case 0x6A95F040:
@@ -357,6 +606,7 @@ void MenuScreen::BaseNotifySound(u32 msg, FEObject * /* obj */, u32 /* controlle
         case __UISND_OPTION_MENU_EXIT__:
             soundToPlay = static_cast<eMenuSoundTriggers>(0x9b);
             break;
+#ifndef EA_BUILD_A124 // la A124 no tiene los cuatro ultimos sonidos de menu
         case 0x80F21152:
             soundToPlay = static_cast<eMenuSoundTriggers>(0x9c);
             break;
@@ -369,6 +619,7 @@ void MenuScreen::BaseNotifySound(u32 msg, FEObject * /* obj */, u32 /* controlle
         case 0x6E437A7B:
             soundToPlay = static_cast<eMenuSoundTriggers>(0x9f);
             break;
+#endif
         case 0x4A7C2341:
             soundToPlay = static_cast<eMenuSoundTriggers>(0x0);
             break;
@@ -582,3 +833,66 @@ void MenuScreen::BaseNotifySound(u32 msg, FEObject * /* obj */, u32 /* controlle
         g_pEAXSound->PlayUISoundFX(soundToPlay);
     }
 }
+
+#ifdef EA_BUILD_A124 // los iconos de estado de EA Messenger y el chat de voz solo existen en el prototipo
+int MenuScreen::gEAMIconState;
+
+void MenuScreen::UpdateStatusIcons(int iconType, bool on) {
+    int iconMask = 1 << iconType;
+    int prevEAMIconState = gEAMIconState;
+
+    if (on) {
+        gEAMIconState |= iconMask;
+    } else {
+        iconMask ^= 0xFF;
+        gEAMIconState &= iconMask;
+    }
+
+    if (gEAMIconState != prevEAMIconState) {
+        cFEng::Get()->QueueGameMessage(0x9757A0C0, nullptr, 0xFF);
+    }
+}
+
+void MenuScreen::UpdateEAMIcons() {
+    for (int i = 0; i < 4; i++) {
+        const char *pkg = PackageFilename;
+        switch (i) {
+            case 0:
+                if (gEAMIconState & 1) {
+                    FEngSetScript(pkg, 0xFC050956, FEHASH_ACTIVE, false);
+                } else {
+                    FEngSetScript(pkg, 0xFC050956, FEHASH_IDLE, true);
+                }
+                break;
+            case 1:
+                if (gEAMIconState & 2) {
+                    FEngSetScript(pkg, 0x94D342D6, FEHASH_ACTIVE, false);
+                } else {
+                    FEngSetScript(pkg, 0x94D342D6, FEHASH_IDLE, true);
+                }
+                break;
+            case 2:
+                if (gEAMIconState & 4) {
+                    FEngSetScript(pkg, 0x7D50BD09, FEHASH_ACTIVE, false);
+                } else {
+                    FEngSetScript(pkg, 0x7D50BD09, FEHASH_IDLE, true);
+                }
+                break;
+            case 3:
+                if (gEAMIconState & 8) {
+                    FEngSetScript(pkg, 0x024C278B, FEHASH_ACTIVE, false);
+                } else {
+                    FEngSetScript(pkg, 0x024C278B, FEHASH_IDLE, true);
+                }
+                break;
+        }
+    }
+}
+
+void MenuScreen::MaybeShutdownVoIPChat() {
+    if (BuddyCore::instance()->InVoiceChat()) {
+        BuddyCore::instance()->SetVoiceChatState(false);
+        ConnectionCore::Instance().LeaveSession();
+    }
+}
+#endif

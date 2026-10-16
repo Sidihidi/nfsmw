@@ -40,13 +40,24 @@ uiRepSheetRival::uiRepSheetRival(ScreenConstructorData *sd)
       launch_race(nullptr) //
       ,
       RivalStreamer(sd->PackageFilename, bIsInGame) {
+#ifndef EA_BUILD_A124
     new EFadeScreenOff(0x161a918);
+#endif
     bMidRivalFlow = false;
     bOneOff = false;
     if (bIsInGame) {
         bMidRivalFlow = sd->Arg == 2;
         bOneOff = sd->Arg == 3;
     }
+#ifdef EA_BUILD_A124
+    if (FEDatabase->IsPostRivalMode()) {
+        CarViewer::HideAllCars();
+        iCurrentViewBin = FEDatabase->GetCareerSettings()->GetCurrentBin();
+        cFEng::Get()->QueuePackageMessage(0x0b21a45f, GetPackageName(), nullptr);
+    } else {
+        cFEng::Get()->QueuePackageMessage(0xaf922178, GetPackageName(), nullptr);
+    }
+#endif
     Setup();
 }
 
@@ -72,8 +83,10 @@ void uiRepSheetRival::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u3
             if (bMidRivalFlow) {
                 new ERaceSheetOff();
                 MFlowReadyForOutro().Post(UCrc32(0x20d60dbf));
-            } else if ((FEDatabase->GetGameMode() & 0x20000) != 0) {
+            } else if (FEDatabase->IsPostRivalMode()) {
+#ifndef EA_BUILD_A124
                 new EEnterBin(FEDatabase->GetCareerSettings()->GetCurrentBin() - 1);
+#endif
                 uiRepSheetRivalFlow::Get()->StartFlow(1);
             } else if (launch_race != nullptr) {
                 if (bIsInGame) {
@@ -91,7 +104,7 @@ void uiRepSheetRival::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u3
             if (!bMidRivalFlow) {
                 if (bOneOff) {
                     new EUnPause();
-                } else if ((FEDatabase->GetGameMode() & 0x20000) == 0) {
+                } else if (!FEDatabase->IsPostRivalMode()) {
                     if (bIsInGame) {
                         cFEng::Get()->QueuePackageSwitch("InGameReputationOverview.fng", 1, 0, false);
                     } else {
@@ -113,7 +126,9 @@ void uiRepSheetRival::Setup() {
     pTagImg = FEngFindImage(GetPackageName(), 0xf5a2a087);
     pBGImg = FEngFindImage(GetPackageName(), 0x2cbe1dd0);
     RivalStreamer.Init(iCurrentViewBin, pRivalImg, pTagImg, pBGImg);
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+    FEngSetInvisible(GetPackageName(), 0x1c7fcf8b);
+#else
     FEngSetInvisible(reinterpret_cast<FEObject *>(pDefeatedImg));
     FEngSetInvisible(reinterpret_cast<FEObject *>(pDefeatedImgBG));
     unsigned int defeatedTexture = GetDefeatedTexture();
@@ -121,7 +136,6 @@ void uiRepSheetRival::Setup() {
     FEngSetTextureHash(pDefeatedImgBG, defeatedTexture);
     unsigned int texList = defeatedTexture;
     eLoadStreamingTexture(&texList, 1, TextureLoadedCallback, reinterpret_cast<uintptr_t>(this), 0);
-#endif
     if (bIsInGame && bMidRivalFlow) {
         cFEng::Get()->QueuePackageMessage(0x34297cb0, GetPackageName(), nullptr);
     } else {
@@ -134,6 +148,7 @@ void uiRepSheetRival::Setup() {
             cFEng::Get()->QueuePackageMessage(0xaf922178, GetPackageName(), nullptr);
         }
     }
+#endif
     RefreshHeader();
 }
 
@@ -199,9 +214,19 @@ void uiRepSheetRival::RefreshHeader() {
         }
         SetupRace(i + 1, race);
     }
+#ifdef EA_BUILD_A124
+    if (launch_race == nullptr) {
+        cFEng::Get()->QueuePackageMessage(0xb4c144b1, GetPackageName(), nullptr);
+    }
+#endif
+#ifdef EA_BUILD_A124 // la A124 pone el nombre del perfil y el dinero sin rotulos
+    FEPrintf(GetPackageName(), 0xb514e2d8, "%s", FEDatabase->GetMultiplayerProfile(0)->GetProfileName());
+    FEPrintf(GetPackageName(), 0xf91a59f6, "%$d", FEDatabase->GetCareerSettings()->GetCash());
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FEPrintf(GetPackageName(), 0xb514e2d8, "%s %$d", GetLocalizedString(0xce6b99b1), stable->GetTotalBounty());
     FEPrintf(GetPackageName(), 0xf91a59f6, "%s %$d", GetLocalizedString(0x073b79e0), FEDatabase->GetCareerSettings()->GetCash());
+#endif
 }
 
 void uiRepSheetRival::SetupRace(unsigned int num, GRaceParameters *race) {

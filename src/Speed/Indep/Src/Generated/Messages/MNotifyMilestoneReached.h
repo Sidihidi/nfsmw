@@ -27,8 +27,6 @@ class MNotifyMilestoneReached : public Hermes::Message {
     MNotifyMilestoneReached(const char *_MilestoneName, float _ValueReached)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fMilestoneName(_MilestoneName), fValueReached(_ValueReached) {}
 
-    ~MNotifyMilestoneReached() {}
-
     const char *GetMilestoneName() const {
         return fMilestoneName;
     }
@@ -55,9 +53,9 @@ class MNotifyMilestoneReached : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyMilestoneReached::HandleMessage_LuaBinding(const MNotifyMilestoneReached &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyMilestoneReached::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

@@ -47,8 +47,8 @@ inline void NearPtLineXZ(const UMath::Vector3 &pt, const UMath::Vector3 &p0, flo
     float u = (pt.x - p0.x) * diffVec.x + (pt.z - p0.z) * diffVec.z;
     u *= den;
     u = UMath::Max(UMath::Min(u, 1.0f), 0.0f);
-    nearPt.x = u * diffVec.x + p0.x;
-    nearPt.z = u * diffVec.z + p0.z;
+    nearPt.x = p0.x + u * diffVec.x;
+    nearPt.z = p0.z + u * diffVec.z;
 }
 
 bool WCollisionMgr::FindFaceInTriStrip(const UMath::Vector3 &pt, const WCollisionStripSphere *sp, const WCollisionStrip *strip,
@@ -132,7 +132,14 @@ static void CalcCollisionFaceNormal(UMath::Vector3 *norm, UMath::Vector4 *facePt
         norm->z = 0.0f;
         norm->y = 1.0f;
     } else {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        float invlen = VU0_rsqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+        norm->x = normal.x * invlen;
+        norm->y = normal.y * invlen;
+        norm->z = normal.z * invlen;
+#else
         v3unit(&normal, norm);
+#endif
     }
     if (norm->y < 0.0f) {
         norm->y = -norm->y;
@@ -167,7 +174,7 @@ bool WCollisionMgr::FindFaceInTriStrip(const UMath::Matrix4 &vectorMat, const UM
             UMath::Vector3 norm;
             CalcCollisionFaceNormal(&norm, reinterpret_cast<UMath::Vector4 *>(&face));
             faceY = pt.y - WWorldMath::GetPlaneY(norm, face.fPt2, pt);
-            if (faceY < bestFaceY && -1.0f < faceY && this->SurfacePassesExclusion(face.fSurface)) {
+            if (faceY < bestFaceY && faceY > -1.0f && this->SurfacePassesExclusion(face.fSurface)) {
                 bestFaceY = faceY;
                 retFaceInd = i;
                 foundFace = true;
@@ -232,14 +239,6 @@ bool WCollisionMgr::FindFaceInCInst(const UMath::Vector3 &pt, const WCollisionIn
                 float dist;
                 UMath::Vector3 norm;
                 face.GetNormal(&norm);
-                if (norm.y < 0.0f) {
-                    norm.y = -norm.y;
-                    norm.x = -norm.x;
-                    norm.z = -norm.z;
-                }
-                if (norm.y >= 0.9999f) {
-                    norm.y = 0.9999f;
-                }
                 dist = tpt.y - WWorldMath::GetPlaneY(norm, face.fPt0, tpt);
 
                 bool minYBelowTestPoint = (face.MinY() - 0.5f) < tpt.y;
@@ -320,7 +319,7 @@ bool WCollisionMgr::FindFaceInCInst(const UMath::Matrix4 &vectorMat, const UMath
             WCollisionTri face;
             if (this->FindFaceInTriStrip(combinedMat, UMath::Vector3::kZero, sp, strip, faceY, face)) {
                 float dist = faceY;
-                if (0.0f < dist && dist < leastYDist) {
+                if (dist > 0.0f && dist < leastYDist) {
                     leastYDist = dist;
                     retVal = face;
                     retDist = dist;
@@ -404,11 +403,11 @@ int WCollisionMgr::CheckHitWorld(const UMath::Vector4 *inputSeg, WorldCollisionI
             UMath::Addxyz(seg[0], diffVec, seg[1]);
         }
 
-        hitWorld = 0;
-
         UMath::Add(UMath::Vector4To3(seg[0]), UMath::Vector4To3(seg[1]), UMath::Vector4To3(segPosRad));
         UMath::Scale(UMath::Vector4To3(segPosRad), 0.5f, UMath::Vector4To3(segPosRad));
         segPosRad.w = len * 0.5f;
+
+        hitWorld = 0;
     }
 
     {
@@ -563,8 +562,25 @@ void WCollisionMgr::GetInstanceListGuts(const NodeIndexList &nodeInds, WCollisio
                 const WCollisionInstance *cInst = WCollisionAssets::Get().Instance(instInd);
 
                 if ((cInst != nullptr) && (cInst->fGroupNumber == 0 || IsSceneryGroupEnabled(cInst->fGroupNumber)) &&
-                    (cInst->fCollisionArticle != nullptr) && this->InstancePassesExclusion(*cInst) && cInst->fIterStamp != fIterCount) {
+                    (cInst->fCollisionArticle != nullptr) && this->InstancePassesExclusion(*cInst)
+#ifndef EA_BUILD_A124
+                    && cInst->fIterStamp != fIterCount
+#endif
+                    ) {
+#ifdef EA_BUILD_A124
+                    bool isDupe = false;
+                    for (WCollisionInstanceCacheList::iterator dupIt = instList.begin(); dupIt != instList.end(); ++dupIt) {
+                        if (*dupIt == cInst) {
+                            isDupe = true;
+                            break;
+                        }
+                    }
+                    if (isDupe) {
+                        continue;
+                    }
+#else
                     const_cast<WCollisionInstance *>(cInst)->fIterStamp = fIterCount;
+#endif
 
                     UMath::Vector3 instPos;
                     cInst->CalcPosition(instPos);
@@ -625,10 +641,28 @@ void WCollisionMgr::GetInstanceListGuts(const NodeIndexList &nodeInds, WCollisio
                 const WCollisionInstance *cInst = WCollisionAssets::Get().Instance(instInd);
 
                 if ((cInst != nullptr) && (cInst->fGroupNumber == 0 || IsSceneryGroupEnabled(cInst->fGroupNumber)) &&
-                    (cInst->fCollisionArticle != nullptr) && this->InstancePassesExclusion(*cInst) && cInst->fIterStamp != fIterCount) {
+                    (cInst->fCollisionArticle != nullptr) && this->InstancePassesExclusion(*cInst)
+#ifndef EA_BUILD_A124
+                    && cInst->fIterStamp != fIterCount
+#endif
+                    ) {
+#ifdef EA_BUILD_A124
+                    bool isDupe = false;
+                    for (WCollisionInstanceCacheList::iterator dupIt = instList.begin(); dupIt != instList.end(); ++dupIt) {
+                        if (*dupIt == cInst) {
+                            isDupe = true;
+                            break;
+                        }
+                    }
+                    if (isDupe) {
+                        continue;
+                    }
+#endif
                     float instRad = cInst->fInvPosRadius.w;
                     float instRadSq = instRad * instRad;
+#ifndef EA_BUILD_A124
                     const_cast<WCollisionInstance *>(cInst)->fIterStamp = fIterCount;
+#endif
 
                     UMath::Vector3 diffVec;
                     UMath::Vector3 nearPt;
@@ -942,10 +976,10 @@ bool WCollisionMgr::GetBarrierNormal(const WCollisionInstanceCacheList &instList
                         intersectionPt.y < barrier->YTop()) {
                         float distSq = UMath::DistanceSquare(UMath::Vector4To3(intersectionPt), UMath::Vector4To3(tseg[0]));
                         if (distSq < closestDistSq) {
-                            UMath::Copy(intersectionPt, closestIntersectionPt);
+                            closestDistSq = distSq;
                             closestBarrier = barrier;
                             closestBarrierInst = &cInst;
-                            closestDistSq = distSq;
+                            UMath::Copy(intersectionPt, closestIntersectionPt);
                         }
                     }
                 }
@@ -975,7 +1009,11 @@ bool WCollisionMgr::GetBarrierNormal(const WCollisionInstanceCacheList &instList
             b.fPts[0].w = closestBarrier->fPts[0].w;
             b.fPts[1].w = closestBarrier->fPts[1].w;
 
+#ifdef EA_BUILD_A124
+            UCrc32 surfaceHash(closestBarrierInst->fCollisionArticle->GetSurface(b.GetWSurface().Surface()));
+#else
             const Attrib::Collection *surfaceHash = closestBarrierInst->fCollisionArticle->GetSurface(b.GetWSurface().Surface());
+#endif
 
             cInfo.fBle = WCollisionBarrierListEntry(b, surfaceHash, closestDistSq);
         }
@@ -984,7 +1022,6 @@ bool WCollisionMgr::GetBarrierNormal(const WCollisionInstanceCacheList &instList
 
         cInfo.fCollidePt.w = 1.0f;
         cInfo.fBle.fB.GetNormal(UMath::Vector4To3(cInfo.fNormal));
-        cInfo.fNormal.y = 0.0f;
         cInfo.fNormal.w = 0.0f;
 
         UMath::Vector3 testVec;
@@ -1001,8 +1038,9 @@ bool WCollisionMgr::GetBarrierNormal(const WCollisionInstanceCacheList &instList
 // UNSOLVED https://decomp.me/scratch/hGkzc
 void WCollisionMgr::GetBarrierList(WCollisionBarrierList &barrierList, const WCollisionInstanceCacheList &instList, const UMath::Vector3 &pos,
                                    float radius) {
-    float radiusSq = radius * radius;
     barrierList.reserve(21);
+    float radiusSq = radius * radius;
+
 
     for (WCollisionInstanceCacheList::const_iterator iIter = instList.begin(); iIter != instList.end(); ++iIter) {
         const WCollisionInstance &cInst = **iIter;
@@ -1047,8 +1085,13 @@ void WCollisionMgr::GetBarrierList(WCollisionBarrierList &barrierList, const WCo
                     UMath::RotateTranslate(UMath::Vector4To3(wBarrier.fPts[0]), t.fTransform, UMath::Vector4To3(wBarrier.fPts[0]));
                     UMath::RotateTranslate(UMath::Vector4To3(wBarrier.fPts[1]), t.fTransform, UMath::Vector4To3(wBarrier.fPts[1]));
 
+#ifdef EA_BUILD_A124
+                    UCrc32 surfaceHash(cInst.fCollisionArticle->GetSurface(wBarrier.GetWSurface().Surface()));
+                    WCollisionBarrierListEntry ble(wBarrier, surfaceHash, distsqr);
+#else
                     const Attrib::Collection *collection = cInst.fCollisionArticle->GetSurface(wBarrier.GetWSurface().Surface());
                     WCollisionBarrierListEntry ble(wBarrier, collection, distsqr);
+#endif
 
                     if (1) {
                         barrierList.insert(std::upper_bound(barrierList.begin(), barrierList.end(), ble), ble);
@@ -1185,7 +1228,9 @@ void WCollisionMgr::GetTriList(const WCollisionInstanceCacheList &instList, cons
                                 }
                             }
 
-                            face.fSurfaceRef = reinterpret_cast<const SimSurface *>(cArt->GetSurface(face.fSurface.Surface()));
+#ifndef EA_BUILD_A124 // la A124 no resuelve la superficie del triangulo al recogerlo
+                            face.fSurfaceRef = cArt->GetSurface(face.fSurface.Surface());
+#endif
                             triList.add_tri(face);
                         }
                     next_tri:

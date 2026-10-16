@@ -363,23 +363,23 @@ void Collection::Init() {
 }
 
 bool Collection::AddTo(IBoundable *irbc, const Bounds *root, const SimSurface &defsurface, bool parsechildren) const {
-    bool result = false;
+    bool added = false;
 
     if (root != nullptr) {
         if (parsechildren && root->fNumChildren != 0) {
             for (unsigned int i = 0; i < root->fNumChildren; i++) {
                 if (AddNode(irbc, GetChild(root, i), defsurface, true)) {
-                    result = true;
+                    added = true;
                 }
             }
         }
 
-        if (!result && AddNode(irbc, root, defsurface, false)) {
-            result = true;
+        if (!added && AddNode(irbc, root, defsurface, false)) {
+            added = true;
         }
     }
 
-    return result;
+    return added;
 }
 
 bool Collection::AddNode(IBoundable *iboundable, const Bounds *geom, const SimSurface &defsurface, bool ischild) const {

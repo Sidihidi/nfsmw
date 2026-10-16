@@ -6,7 +6,9 @@ UTL::COM::Object::_IList::_IList(unsigned int icount) {
     reserve(icount);
 }
 
+#ifndef EA_BUILD_A124
 UTL::COM::Object::_IList::~_IList() {}
+#endif
 
 void UTL::COM::Object::_IList::Add(HINTERFACE handle, IUnknown *ref) {
     _IPair pair(handle, ref);

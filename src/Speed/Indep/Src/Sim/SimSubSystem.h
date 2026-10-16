@@ -11,16 +11,11 @@ class SubSystem {
     typedef void (*InitCallback)();
     typedef void (*RestoreCallback)();
 
-#if EA_BUILD_A124 // TODO is this necessary?
-    SubSystem(const char *name, InitCallback initcb, RestoreCallback restorecb) {
-
-#else
     SubSystem(const char *name, InitCallback initcb, RestoreCallback restorecb)
         : mInit(initcb),       //
           mRestore(restorecb), //
           mSig(name),          //
           mName(name) {
-#endif
         mNext = mHead;
         mHead = this;
     }

@@ -15,8 +15,18 @@ void MemcardEnter(const char *from, const char *to, uint32 op, MemCardOpType ter
     gMemcardSetup.mSuccessMsg = successMsg;
     gMemcardSetup.mFailedMsg = failedMsg;
     MemoryCard::GetInstance()->ShowMessages(true);
-    MemoryCard::GetInstance()->SetPlayerNum((op >> 17) & 1);
-    gMemcardSetup.mMemScreen = TheGameFlowManager.GetState() == GAMEFLOW_STATE_IN_FRONTEND ? "MC_Main_GC.fng" : "InGame_MC_Main_GC.fng";
+#ifndef EA_BUILD_A124
+    MemoryCard::GetInstance()->SetPlayerNum((op & 0x20000) != 0);
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+    gMemcardSetup.mMemScreen = TheGameFlowManager.IsInFrontend() ? "MC_Main.fng" : "InGame_MC_Main.fng";
+#else
+    gMemcardSetup.mMemScreen = TheGameFlowManager.IsInFrontend() ? "MC_Main_GC.fng" : "InGame_MC_Main_GC.fng";
+#endif
+#ifdef EA_BUILD_A124
+    // La A124 elige la pantalla antes y lee el jugador de las opciones extra (GetExtraOptions, uiMemcardInterface.hpp:192).
+    MemoryCard::GetInstance()->SetPlayerNum((gMemcardSetup.GetExtraOptions() & 0x20000) != 0);
+#endif
     uint32 cmd = gMemcardSetup.mOp & 0xf;
     switch (cmd) {
         case 1:
@@ -42,7 +52,9 @@ void MemcardExit(unsigned int msg) {
         feng->QueuePackageMessage(hash, gMemcardSetup.mMemScreen, nullptr);
     }
     MemoryCard::GetInstance()->SetMemcardScreenInitialized(false);
+#ifdef EA_PLATFORM_GAMECUBE
     MemoryCard::GetInstance()->SetMemcardScreenExiting(true);
+#endif
 }
 
 uint32 MemcardGetCurrentUIOperation() {

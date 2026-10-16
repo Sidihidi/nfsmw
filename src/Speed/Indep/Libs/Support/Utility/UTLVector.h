@@ -116,8 +116,17 @@ template <typename T, int Alignment = DEFAULT_VECTOR_ALIGNMENT> class Vector {
     }
 
     void assign(const_iterator srcBeg, const_iterator srcEnd) {
-        size_type minSize = srcEnd - srcBeg;
+        // r31-cam: `srcIt` declarada ANTES de `minSize`. La diferencia de
+        // punteros `srcEnd - srcBeg` debe llegar al emisor SIN plegarse como
+        // ((base+n*4)-base)>>2: con srcIt despues, gcse/cse2 funden la resta
+        // con el `add` del end() y el conteo sale como (n*4)>>2 -- el original
+        // del GOWE69 conserva el `subf` (UTLVector.h:301 del original, mapa
+        // de lineas del _Storage<Director*,2> ctor en zCamera). Con la copia
+        // de srcIt mediando entre el add y la resta, el grupo de combine no
+        // se forma y el subf sobrevive; ademas el reparto r23/r24 del cuerpo
+        // entero del ctor depende de esta forma (98,08 -> 98,81 en zCamera).
         const_iterator srcIt = srcBeg;
+        size_type minSize = srcEnd - srcBeg;
         if (srcIt == 0) {
             // El objetivo emite aqui `reserve` + un bucle de CRECIMIENTO con
             // push_back() -- leido del desensamblado de
@@ -218,7 +227,7 @@ template <typename T, int Alignment = DEFAULT_VECTOR_ALIGNMENT> class Vector {
 
     iterator erase(iterator begIt, iterator endIt) {
         if (begIt == endIt) {
-            return end();
+            return begIt;
         }
 
         size_type iPos = indexof(begIt);
@@ -235,7 +244,7 @@ template <typename T, int Alignment = DEFAULT_VECTOR_ALIGNMENT> class Vector {
             new (&mBegin[dest]) T(mBegin[src]);
         }
         mSize = size() - num;
-        return end();
+        return iPos < size() ? &mBegin[iPos] : end();
     }
 
     iterator erase(iterator pos) {

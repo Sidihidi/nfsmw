@@ -34,15 +34,39 @@ EngageEventDialog::EngageEventDialog(ScreenConstructorData *sd)
         distUnits = GetLocalizedString(0x867dcfd9);
     }
 
+#ifdef EA_BUILD_A124 // la A124 redondea la milla a 1600 m
+    FEPrintf(GetPackageName(), 0xbce13923, "%$0.1f %s", parms->GetRaceLengthMeters() * (kph ? 0.001f : 0.000625f), distUnits);
+#else
     FEPrintf(GetPackageName(), 0xbce13923, "%$0.1f %s",
              parms->GetRaceLengthMeters() * (kph ? 0.001f : 0.0006213728f), distUnits);
+#endif
 
     unsigned int hash;
+#ifdef EA_BUILD_A124 // la A124 muestra la densidad de policia, no si hay policia
+    switch (parms->GetCopDensity()) {
+        case 1:
+            hash = LANGUAGE_COMMON_MINIMUM;
+            break;
+        case 2:
+            hash = 0xa2cca838;
+            break;
+        case 3:
+            hash = LANGUAGE_COMMON_MAXIMUM;
+            break;
+        case 0:
+            hash = LANGUAGE_COMMON_NONE;
+            break;
+        default:
+            hash = 0;
+            break;
+    }
+#else
     if (parms->GetCopsEnabled()) {
         hash = LANGUAGE_COMMON_MAXIMUM;
     } else {
         hash = LANGUAGE_COMMON_MINIMUM;
     }
+#endif
     FEngSetLanguageHash(GetPackageName(), 0x762f1d7a, hash);
 
     GRaceSaveInfo *info = GRaceDatabase::Get().GetScoreInfo(parms->GetEventHash());
@@ -55,7 +79,11 @@ EngageEventDialog::EngageEventDialog(ScreenConstructorData *sd)
         timer.PrintToString(buf, 0);
         FEPrintf(GetPackageName(), 0x8fd41bb4, "%s", buf);
     } else {
+#ifdef EA_BUILD_A124
+        FEPrintf(GetPackageName(), 0x8fd41bb4, "--:--:--");
+#else
         FEPrintf(GetPackageName(), 0x8fd41bb4, "%s", GetLocalizedString(0x472aa00a));
+#endif
     }
 
     const char *speedUnits;
@@ -76,7 +104,7 @@ EngageEventDialog::EngageEventDialog(ScreenConstructorData *sd)
     FEPrintf(GetPackageName(), 0x45276f1f, "%$0.0f", parms->GetCashValue());
 
     TrackMap = reinterpret_cast<FEMultiImage *>(FEngFindObject(GetPackageName(), FEngHashString("TRACK_MAP")));
-    MapStreamer = new ("", 0) UITrackMapStreamer();
+    MapStreamer = new ("MapStreamer", 0) UITrackMapStreamer();
     MapStreamer->Init(parms, TrackMap, 0, 0);
 }
 
@@ -96,6 +124,48 @@ void EngageEventDialog::NotifyTheGameDeclineEvent() {
 // STRIPPED
 void EngageEventDialog::NotifyTheGameButton3() {}
 
+#ifdef EA_BUILD_A124 // la A124 tiene tres botones y navega entre aceptar y rechazar
+void EngageEventDialog::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
+    switch (msg) {
+        case 0xc98356ba:
+            MapStreamer->UpdateAnimation();
+            break;
+        case 0x35f8620b:
+            FEngSetCurrentButton(GetPackageName(), 0x63857de0);
+            break;
+        case 0x911ab364:
+            NotifyTheGameDeclineEvent();
+            cFEng::Get()->QueuePackagePop(0);
+            break;
+        case 0x9120409e:
+            if (FEngGetCurrentButton(GetPackageName())->NameHash == 0x63857de0) {
+                FEngSetCurrentButton(GetPackageName(), 0xd72f002a);
+            }
+            break;
+        case 0xb5971bf1:
+            if (FEngGetCurrentButton(GetPackageName())->NameHash == 0xd72f002a) {
+                FEngSetCurrentButton(GetPackageName(), 0x63857de0);
+            }
+            break;
+        case 0x0c407210:
+            switch (obj->NameHash) {
+                case 0xd72f002a:
+                    NotifyTheGameAcceptEvent();
+                    cFEng::Get()->QueuePackagePop(0);
+                    break;
+                case FEHASH_BUTTON3:
+                    NotifyTheGameButton3();
+                    cFEng::Get()->QueuePackagePop(0);
+                    break;
+                case 0x63857de0:
+                    NotifyTheGameDeclineEvent();
+                    cFEng::Get()->QueuePackagePop(0);
+                    break;
+            }
+            break;
+    }
+}
+#else
 void EngageEventDialog::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
     switch (msg) {
         case 0xc98356ba:
@@ -120,5 +190,6 @@ void EngageEventDialog::NotificationMessage(u32 msg, FEObject *obj, u32 param1, 
         }
     }
 }
+#endif
 
 } // namespace nsEngageEventDialog

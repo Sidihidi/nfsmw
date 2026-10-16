@@ -16,8 +16,10 @@ class UnicodeFile {
     void Unload();
     short *First();
     short *Next();
+  private:
     void FixEndian();
     void FixEOLs();
+  public:
     void LineWrap(int maxCharacters);
 
     short *data_; // offset 0x0, size 0x4

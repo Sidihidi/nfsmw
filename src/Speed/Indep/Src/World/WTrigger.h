@@ -33,14 +33,14 @@ class WTrigger : public CARP::Trigger {
         if ((this->fFlags & 1) == 0) {
             return false;
         } else {
-            if (this->fFlags & 0x400) {
+            if ((this->fFlags & 0x400) == 0) {
+                return true;
+            } else {
                 if (allowSilencables) {
                     return true;
                 } else {
                     return false;
                 }
-            } else {
-                return true;
             }
         }
     }

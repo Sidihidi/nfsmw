@@ -44,8 +44,9 @@ def _hdrr():
             if nombres[s[0]:nombres.index(b'\0', s[0])] == b'.mdebug':
                 f.seek(s[4])
                 h = struct.unpack('<HH23I', f.read(0x60))
-                return dict(cbLineOffset=h[4], ipdMax=h[7], cbPdOffset=h[8], isymMax=h[9],
-                            cbSymOffset=h[10], issMax=h[15], cbSsOffset=h[16])
+                return dict(cbLineOffset=h[4], ipdMax=h[7], cbPdOffset=h[8],
+                            isymMax=h[9], cbSymOffset=h[10], issMax=h[15],
+                            cbSsOffset=h[16], ifdMax=h[19], cbFdOffset=h[20])
     raise SystemExit('%s no tiene .mdebug' % ELF)
 
 
@@ -54,6 +55,7 @@ PDR_OFF, PDR_N = _H['cbPdOffset'], _H['ipdMax']
 SYM_OFF, SYM_N = _H['cbSymOffset'], _H['isymMax']
 SS_OFF, SS_SIZE = _H['cbSsOffset'], _H['issMax']
 LINE_OFF = _H['cbLineOffset']
+FD_OFF, FDR_N = _H['cbFdOffset'], _H['ifdMax']
 
 ST = {0: 'nil', 1: 'global', 2: 'static', 3: 'param', 4: 'local', 5: 'label',
       6: 'proc', 7: 'block', 8: 'end', 11: 'file', 14: 'staticproc'}
@@ -70,11 +72,14 @@ def carga():
     pdrs = []
     for i in range(PDR_N):
         o = i * 52
+        # PDR canonico ecoff32 (include/coff/sym.h): adr, isym, iline, regmask,
+        # regoffset, iopt, fregmask, fregoffset, frameoffset, framereg(u16),
+        # pcreg(u16), lnLow, lnHigh, cbLineOffset.  El adr es RELATIVO al adr
+        # del FDR.  Los PDR del codigo MW llevan lnLow=lnHigh=-1: sin lineas.
         adr, isym, iline, regmask, regoffset, iopt, fregmask, fregoffset, \
-            frameoffset, framereg, pcreg, irline, lnLow, lnHigh, cbLineOffset = \
-            struct.unpack('<IiiiiiiiihhIhh I'.replace(' ', ''), praw[o:o + 52])
-        pdrs.append(dict(adr=adr, isym=isym, irline=irline,
-                         lnLow=lnLow - 65536 if lnLow > 32768 else lnLow,
+            frameoffset, framereg, pcreg, lnLow, lnHigh, cbLineOffset = \
+            struct.unpack('<IiiiiiiiihhiiI'.replace(' ', ''), praw[o:o + 52])
+        pdrs.append(dict(adr=adr, isym=isym, iline=iline, lnLow=lnLow,
                          lnHigh=lnHigh, cbLineOffset=cbLineOffset,
                          frameoffset=frameoffset))
     _cache['pdrs'] = pdrs
@@ -116,25 +121,72 @@ def _cadena(iss):
 
 
 def decodifica_lineas(pdr):
-    """Bytes delta de la tabla de lineas. Formato: cada byte avanza una
-    instruccion (4 B); valores 0x80+... calibrado empiricamente."""
-    f = open(ELF, 'rb')
-    f.seek(LINE_OFF + pdr['cbLineOffset'])
-    raw = f.read(8192)
-    f.close()
+    """Tabla delta de lineas del PDR (formato calibrado en la ronda 27 contra
+    gas/ecoff.c:ecoff_build_lineno de binutils y una sonda del ee-gcc real):
+
+      nibble bajo  = (numero de instrucciones de la entrada) - 1
+      nibble alto  = delta de linea: 1..7 suma, 9..15 resta (d-16) y 8 es la
+                     forma de 3 bytes con un int16 big-endian a continuacion
+
+    La linea inicial es pdr['lnLow']; el cbLineOffset del PDR es relativo al
+    cbLineOffset del FDR (los 4 ficheros GNU .s: crt0, snd smtflt59, klib,
+    tlbtrap).  Los PDR del codigo MW no tienen tabla (devuelve []).
+    Para el mapa completo de lineas usar scripts/mdebug_lineas.py."""
+    fdrs = _cache.get('fdrs')
+    if fdrs is None:
+        # FDRs perezosos: solo hacen falta para la parte GNU
+        fd = open(ELF, 'rb')
+        fd.seek(FD_OFF)
+        fraw = fd.read(FDR_N * 72)
+        fd.close()
+        fdrs = [struct.unpack_from('<18I', fraw, i * 72) for i in range(FDR_N)]
+        _cache['fdrs'] = fdrs
+    # localizar el FDR del PDR por su indice en la lista
+    idx = None
+    for k, p in enumerate(_cache['pdrs']):
+        if p is pdr:
+            idx = k
+            break
+    if idx is None:
+        return []
+    base = 0
+    for v in fdrs:
+        ipd, cpd = v[10] & 0xFFFF, v[10] >> 16
+        if ipd <= idx < ipd + cpd and v[16]:
+            base = v[16]
+            break
+    f2 = open(ELF, 'rb')
+    f2.seek(LINE_OFF + base + pdr['cbLineOffset'])
+    raw = f2.read(4096)
+    f2.close()
     out = []
     line = pdr['lnLow']
     addr = pdr['adr']
-    for b in raw:
-        if b == 0:
+    # fin del procedimiento: el adr del siguiente PDR del mismo FDR
+    fin = None
+    for k2 in range(idx + 1, PDR_N):
+        if _cache['pdrs'][k2]['adr'] != 0xFFFFFFFF:
+            fin = _cache['pdrs'][k2]['adr']
             break
-        if b < 0x80:
-            line += b
-        else:
-            line -= (0x100 - b)
-        out.append((addr, line))
-        addr += 4
-        if line > pdr['lnHigh'] + 1 or len(out) > 2000:
+    o = 0
+    while o < len(raw):
+        b = raw[o]
+        o += 1
+        d = b >> 4
+        if d:
+            if d == 8:
+                if o + 1 >= len(raw):
+                    break
+                line += struct.unpack_from('>h', raw, o)[0]
+                o += 2
+            else:
+                line += d - 16 if d > 8 else d
+        for _ in range((b & 0xF) + 1):
+            if fin is not None and addr >= fin:
+                return out
+            out.append((addr, line))
+            addr += 4
+        if line > pdr['lnHigh'] + 8 or len(out) > 4000:
             break
     return out
 

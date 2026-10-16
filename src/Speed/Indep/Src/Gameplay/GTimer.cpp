@@ -47,8 +47,8 @@ GEventTimer::~GEventTimer() {
 }
 
 void GEventTimer::Reset() {
-    mElapsed = 0.0f;
     mRunning = false;
+    mElapsed = 0.0f;
     mInterval = 1.0f;
     mNameHash = 0;
     mName[0] = '\0';

@@ -28,7 +28,7 @@ struct DiscBundleSectionMember {
 // total size: 0x114
 struct DiscBundleSection {
     int GetMemoryImageSize() {
-        return NumMembers * sizeof(DiscBundleSectionMember) + 0x14;
+        return NumMembers * sizeof(DiscBundleSectionMember) + offsetof(DiscBundleSection, Members);
     }
 
     DiscBundleSection *GetMemoryImageNext() {
@@ -128,19 +128,27 @@ struct TrackStreamingBarrier {
 struct HoleMovement;
 
 enum HoleFillerMethod {
-    HOLE_FILLER_METHOD_LINEAR_BOTTOM_ALL_THE_WAY = 0,
-    HOLE_FILLER_METHOD_SUPER_SCOOPER = 1,
-    HOLE_FILLER_METHOD_LINEAR_BOTTOM = 2,
-    HOLE_FILLER_METHOD_LINEAR_TOP = 3,
-    HOLE_FILLER_METHOD_BIGGEST_FIRST_BOTTOM = 4,
-    HOLE_FILLER_METHOD_BIGGEST_FIRST_TOP = 5,
-    NUM_HOLE_FILLER_METHODS = 6,
+    HOLE_FILLER_METHOD_LINEAR_BOTTOM_ALL_THE_WAY,
+    // La A124 aun no tiene el SUPER_SCOOPER: su enum en los stabs va de 0 a 4 y NUM_HOLE_FILLER_METHODS vale 5.
+#ifndef EA_BUILD_A124
+    HOLE_FILLER_METHOD_SUPER_SCOOPER,
+#endif
+    HOLE_FILLER_METHOD_LINEAR_BOTTOM,
+    HOLE_FILLER_METHOD_LINEAR_TOP,
+    HOLE_FILLER_METHOD_BIGGEST_FIRST_BOTTOM,
+    HOLE_FILLER_METHOD_BIGGEST_FIRST_TOP,
+    NUM_HOLE_FILLER_METHODS,
 };
 
 class TSMemoryPool;
 
 // total size: 0x888
 class TrackStreamer {
+    // PC: ?GetCombinedSectionNumber@TrackStreamer@@AAEHH@Z (private), y la llaman GIcon::FindSection y
+    // GManager::SpawnSectionIcons, UnspawnSectionIcons y SpawnAllLoadedSectionIcons.
+    friend class GIcon;
+    friend class GManager;
+
   public:
     TrackStreamer();
     enum eLoadingPhase {
@@ -357,7 +365,7 @@ class TrackStreamer {
     }
 
     int GetCombinedSectionNumber(int section_number);
-
+  private:
   private:
     void ClearCurrentZones();
     bool DetermineCurrentZones(int16 *current_zones);

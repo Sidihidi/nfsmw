@@ -59,6 +59,9 @@ void DestroySoundDriver();
 
 #include "Speed/Indep/Src/EAXSound/EAXCommon.hpp"
 #include "Speed/Indep/Src/EAXSound/EAXFrontEnd.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h" // ScreenPrintf
+#endif
 
 Attrib::StringKey crcEngineAudio("EngineAudio");
 Attrib::StringKey crcAudioSystem("AudioSystem");
@@ -91,12 +94,35 @@ bool bIsMapInQueuedFileLoad = false;
 unsigned int g_ActiveCtlStates = 0;
 extern unsigned int g_laststartanimid;
 extern bool g_bWasLastNISaStart;
-int RUN_SOUND_STATE = 1;
+bool RUN_SOUND_STATE = true;
 unsigned int g_ActiveSFXStates = 0;
 unsigned int g_PrevActiveCtlStates = 0;
 unsigned int g_PrevActiveSFXStates = 0;
-unsigned int g_CtlStateActions[18] = {0xFFFFFFFF, 63, 0, 28, 190, 188, 1145, 289, 512, 51, 2104, 127, 1, 127, 56, 0x1000, 0xFFFFFFFF, 0xFFFFFFFF};
-extern const char *csfxedit[];
+// Una entrada por estado de eSNDCTLSTATE: 15 en la A124 (sin STOP_MUSIC ni GAMESTARTRACE, y con otras mascaras para
+// FE_UPSCREEN, FE_SMS_MESSAGE y FADEOUT), 17 en SLUS (sin SYSTEM_HUD) y 18 en GameCube (.data de cada binario).
+unsigned int g_CtlStateActions[MAX_SNDCTL_STATES] = {
+    0xFFFFFFFF, 63, 0, 28,
+#ifdef EA_BUILD_A124
+    184, 61,
+#else
+    190, 188,
+#endif
+    1145, 289, 512, 51, 2104, 127,
+#ifndef EA_BUILD_A124
+    1, 127,
+#endif
+    56,
+#ifdef EA_BUILD_A124
+    0,
+#else
+    0x1000,
+#endif
+    0xFFFFFFFF,
+#ifndef EA_PLATFORM_PLAYSTATION2
+    0xFFFFFFFF,
+#endif
+};
+extern char *csfxedit[];
 bool bHasStartNewGameOccured = false;
 bool gbHasStartNewGamePlayBeenProcessed = false;
 bool bIsAnFEToIngameTransition = false;
@@ -118,6 +144,9 @@ extern bool bReadCallbackToggle;
 bool gbAudioInterruptsWorldDataRead;
 bool gbWorldDataBlocksAudioRead;
 bool bReadCallbackToggle;
+#ifdef EA_BUILD_A124
+char prevSoundFile[50];
+#endif
 bool bStreamBlockState = false;
 bool bAudioInterrupt = false;
 bool bStreamReadTiming = false;
@@ -127,35 +156,91 @@ unsigned int uAudioInterruptTicks = 0;
 extern int GameFlowSndState[];
 // .bss:0x8045DD78, 0x3C B = 15 enteros (EAXSound.cpp:1002 hace bMemSet de 0x3C).
 int GameFlowSndState[15];
-extern "C" void SNDSYS_service();
+// r75: fuera extern SNDSYS_service duplicado; snd/sndo.h ya lo declara (via EAXS_StreamChannel.h).
 void RegisterStates();
 void RegisterSFX();
 
 int bStrICmp(const char *s1, const char *s2);
 void SoundPause(bool on, eSNDPAUSE_REASON reason);
-void SetSoundControlState(bool on, eSNDCTLSTATE state, const char *caller);
+
+#ifdef EA_BUILD_A124
+// Solo la A124 (lineas 269-284 de su EAXSound.cpp): el nombre de cada motivo de pausa.
+char *GetPauseReasonName(eSNDPAUSE_REASON state) {
+    switch (state) {
+        case ePAUSE_ERROR:
+            return "ePAUSE_ERROR";
+        case eSNDPAUSE_PAUSEMENU:
+            return "eSNDPAUSE_PAUSEMENU";
+        case eSNDPAUSE_SIMSTATE_IDLE:
+            return "eSNDPAUSE_SIMSTATE_IDLE";
+        case eSNDPAUSE_SIMSTATE_INIT:
+            return "eSNDPAUSE_SIMSTATE_INIT";
+        case eSNDPAUSE_SIMSTATE_ACTIVE:
+            return "eSNDPAUSE_SIMSTATE_ACTIVE";
+        case eSNDPAUSE_MEMCARD:
+            return "eSNDPAUSE_MEMCARD";
+        case eSNDPAUSE_ONLINE:
+            return "eSNDPAUSE_ONLINE";
+        case eSNDPAUSE_MOVIE:
+            return "eSNDPAUSE_MOVIE";
+        case eSNDPAUSE_QUITTOFE:
+            return "eSNDPAUSE_QUITTOFE";
+        case eSNDPAUSE_NISON:
+            return "eSNDPAUSE_NISON";
+        case eSNDPAUSE_PHOTOFINISH:
+            return "eSNDPAUSE_PHOTOFINISH";
+        case eSNDPAUSE_SMS_MESSAGE:
+            return "eSNDPAUSE_SMS_MESSAGE";
+    }
+    return "UNKNOWN PAUSE REASON";
+}
+#endif
 
 bool g_EAXIsPaused() {
-    return (g_ActiveCtlStates & 0x3483b) != 0;
+#ifdef EA_BUILD_A124 // la A124 aun lleva la pausa en EAXSound
+    return g_pEAXSound->m_bIsPaused;
+#else
+    // Los estados que paran el sonido; las dos PS2 no tienen SNDSTATE_SYSTEM_HUD (SLUS: 0x1483B).
+    if ((g_ActiveCtlStates & SEND_STATE(SNDSTATE_OFF)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_PAUSE)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_FE)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_FE_UPSCREEN)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_FE_SMS_MESSAGE)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_FMV)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_MINILOAD)) ||
+        (g_ActiveCtlStates & SEND_STATE(SNDSTATE_ERROR))
+#ifndef EA_PLATFORM_PLAYSTATION2
+        || (g_ActiveCtlStates & SEND_STATE(SNDSTATE_SYSTEM_HUD))
+#endif
+        ) {
+        return true;
+    }
+    return false;
+#endif
 }
 
 void EAXSound::START_321Countdown() {
     int id;
     SFXObj_Pathfinder *ppf;
+#ifndef EA_BUILD_A124
     SFXObj_NISStream *pnis;
+#endif
 
-    if (IsSoundEnabled && IsAudioStreamingEnabled) {
-        id = 0x40010010;
-        ppf = static_cast<SFXObj_Pathfinder *>(this->GetSFXBase_Object(id));
-        if (ppf) {
-            ppf->Set321(true);
-        }
-        id = 0x40000050;
-        pnis = static_cast<SFXObj_NISStream *>(this->GetSFXBase_Object(id));
-        if (pnis) {
-            pnis->StartNIS();
-        }
+    if (!IsSoundEnabled || !IsAudioStreamingEnabled) {
+        return;
     }
+    id = 0x40010010;
+    ppf = static_cast<SFXObj_Pathfinder *>(this->GetSFXBase_Object(id));
+    if (ppf) {
+        ppf->Set321(true);
+    }
+#ifndef EA_BUILD_A124
+    id = 0x40000050;
+    pnis = static_cast<SFXObj_NISStream *>(this->GetSFXBase_Object(id));
+    if (pnis) {
+        pnis->StartNIS();
+    }
+#endif
 }
 
 bool EAXSound::AreResourceLoadsPending() {
@@ -174,9 +259,13 @@ void EAXSound::QueueNISButtonThrough(unsigned int anim_id, int camera_track_numb
     id = 0x40000050;
     pnis = static_cast<SFXObj_NISStream *>(this->GetSFXBase_Object(id));
     if (camera_track_number == -1) {
+#ifdef EA_BUILD_A124 // la A124 no excluye las dos NIS de salida
+        pnis->QueueNISStream(g_laststartanimid, -1, true, false);
+#else
         if (g_laststartanimid != 0x0D0E5A9D && g_laststartanimid != 0xCBFF6594) {
             pnis->QueueNISStream(g_laststartanimid, -1, true, false);
         }
+#endif
     } else if (g_bWasLastNISaStart) {
         pnis->QueueNISStream(anim_id, camera_track_number, true, false);
     } else {
@@ -241,11 +330,25 @@ void EAXSound::PlayNIS() {
         pnis = static_cast<SFXObj_NISStream *>(this->GetSFXBase_Object(id));
         pnis->StartNIS();
         SoundPause(true, eSNDPAUSE_NISON);
+#ifdef EA_BUILD_A124
+        // Solo la A124: encadena SetSoundControlState(true, SNDSTATE_NIS_INTRO, "NIS:Type?") con tail-call
+        // (A124 0x5c0: SoundPause jal + SetSoundControlState j; SLUS y GC terminan en SoundPause).
+        SetSoundControlState(true, SNDSTATE_NIS_INTRO, "NIS:Type?");
+#endif
     }
 }
 
 void EAXSound::PlayUISoundFX(eMenuSoundTriggers etriggertype) {
     if (IsSoundEnabled) {
+#ifdef EA_BUILD_A124
+        if (DEBUG_PRINT_FE_SND) {
+            ScreenPrintf(-300, -80, 15.0f, "Prev FE Sound Played: %s
+", prevSoundFile);
+            ScreenPrintf(-300, -65, 15.0f, "FE Sound Played: %s
+", GetFESoundName(etriggertype));
+            bSafeStrCpy(prevSoundFile, GetFESoundName(etriggertype), 50);
+        }
+#endif
         if (etriggertype < UISND_COMMON_MAX_NUM) {
             if (this->m_pCmnSnd != nullptr) {
                 this->m_pCmnSnd->Play(etriggertype);
@@ -390,10 +493,7 @@ bool EAXSound::SetSFXInputCallback(int nid, int *ptr) {
 }
 
 int EAXSound::GetStateRefCount(int nstate) {
-    if (!m_pStateMgr[nstate]) {
-        return 0;
-    }
-    return m_pStateMgr[nstate]->GetStateObjCount();
+    return m_pStateMgr[nstate] ? m_pStateMgr[nstate]->GetStateObjCount() : 0;
 }
 
 void EAXSound::SetSFXBaseObject(SFX_Base *psb, eMAINMAPSTATES estate, int ntype, int instance) {
@@ -440,8 +540,8 @@ SFX_Base *EAXSound::GetSFXBase_Object(int nID) {
     SFX_Base *ReturnObj = nullptr;
     int nState = (static_cast<unsigned int>(nID) >> 16) & 0xFF;
     if (m_pStateMgr[nState]) {
-        int nInstanceID = (static_cast<unsigned int>(nID) >> 11) & 0x1F;
-        int SFXID_Number = (static_cast<unsigned int>(nID) >> 4) & 0x7F;
+        int nInstanceID = (nID >> 11) & 0x1F;
+        int SFXID_Number = (nID >> 4) & 0x7F;
         if (!m_pStateMgr[nState]->GetStateObj(nInstanceID)) {
             return nullptr;
         }
@@ -456,8 +556,8 @@ SndBase *EAXSound::GetSndBase_Object(int nID) {
     SndBase *ReturnObj = nullptr;
     int nState = (static_cast<unsigned int>(nID) >> 16) & 0xFF;
     if (m_pStateMgr[nState]) {
-        int nInstanceID = (static_cast<unsigned int>(nID) >> 11) & 0x1F;
-        int SFXID_Number = (static_cast<unsigned int>(nID) >> 4) & 0x7F;
+        int nInstanceID = (nID >> 11) & 0x1F;
+        int SFXID_Number = (nID >> 4) & 0x7F;
         if (!m_pStateMgr[nState]->GetStateObj(nInstanceID)) {
             return nullptr;
         }
@@ -481,6 +581,33 @@ float EAXSound::GetCurMusicVolume() {
     return this->m_pCurAudioSettings->GetMasteredIGMusicVol();
 }
 
+// Las dos PS2 la tienen (EAXSound.cpp:1002-1024 de la A124); en GameCube el enlazador la quita (el DWARF la da con
+// la escala de volumen del disco de demostracion, DemoDiscManager, que este cuerpo no lleva).
+int EAXSound::GetMasterVolume(eMasterMixChannel eMasterMixChannel) {
+    if (this->m_pCurAudioSettings) {
+        switch (eMasterMixChannel) {
+        case eMASTER_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * 32767.0f);
+        case eSPEECH_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * this->m_pCurAudioSettings->GetMasteredSpeechVol() * 32767.0f);
+        case eFEMUSIC_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * this->m_pCurAudioSettings->GetMasteredFEMusicVol() * 32767.0f);
+        case eMUSIC_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * this->m_pCurAudioSettings->GetMasteredIGMusicVol() * 32767.0f);
+        case eSFX_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * this->m_pCurAudioSettings->GetMasteredSoundEffectsVol() * 32767.0f);
+        case eENGINE_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * this->m_pCurAudioSettings->GetMasteredCarVol() * 32767.0f);
+        case eTIRE_VOL:
+            return static_cast<int>(this->m_pCurAudioSettings->MasterVol * this->m_pCurAudioSettings->GetMasteredCarVol() * 32767.0f);
+        default:
+            return 0x7FFF;
+        }
+    }
+
+    return 0;
+}
+
 void EAXSound::ReInitMasterVolumes() {
     int i;
 }
@@ -499,6 +626,13 @@ unsigned int EAXSound::Random(int range) {
 
 float EAXSound::Random(float range) {
     return bRandom(range, &SoundRandomSeed);
+}
+
+// En el fuente de todas las versiones (DWARF de GameCube); solo la A124 la conserva al enlazar (EAXSound.cpp:1084-1087).
+void EAXSound::RestoreDriver() {
+    if (this->m_pEAXSND8Wrapper) {
+        this->m_pEAXSND8Wrapper->RestoreSoundDriver();
+    }
 }
 
 void EAXSound::UpdateSongInfo() {}
@@ -623,7 +757,15 @@ void EAXSound::InitializeSoundBootLoad() {
     this->mAttributes = new Attrib::Gen::audiosystem(0x7e4b0ed2, 0, nullptr);
     this->RefreshLocalAttr();
     gAEMSMgr.Init();
+    // La cache de voz tiene un tamano por build: 0x4B000 en el prototipo A124, 0x32000 en la PS2 de
+    // venta y 0x1B000 en GameCube (lui/ori de InitializeSoundBootLoad en cada binario).
+#ifdef EA_BUILD_A124
+    gSpeechCache.Init(0x4B000);
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    gSpeechCache.Init(0x32000);
+#else
     gSpeechCache.Init(0x1B000);
+#endif
     CSTATEMGR_Base::ClearClassLists();
     RegisterStates();
     RegisterSFX();
@@ -636,7 +778,9 @@ void EAXSound::StartNewGamePlay() {
         return;
     }
 
+#ifndef EA_BUILD_A124
     SetSoundControlState(true, SNDSTATE_STOP_MUSIC, "RestartRace");
+#endif
 
     if (bHasStartNewGameOccured) {
         if (this->m_pCmnSnd) {
@@ -644,12 +788,14 @@ void EAXSound::StartNewGamePlay() {
             this->m_pCmnSnd = nullptr;
         }
 
+#ifndef EA_BUILD_A124 // la A124 no para los canales de stream
         for (int s = 0; s < 4; s++) {
             if (this->m_pStreamManager->GetStreamChannel(s) && s != 1) {
                 this->m_pStreamManager->GetStreamChannel(s)->Stop();
                 this->m_pStreamManager->GetStreamChannel(s)->PurgeStream();
             }
         }
+#endif
 
         for (int n = 0; n < 13; n++) {
             if (n != 1) {
@@ -729,14 +875,29 @@ void EAXSound::StartNewGamePlay() {
 
     id = 0x40010010;
     SFXObj_Pathfinder *ppf = static_cast<SFXObj_Pathfinder *>(this->GetSFXBase_Object(id));
+#ifdef EA_BUILD_A124
+    // La A124 no comprueba ppf antes de elegir la pantalla partida y, fuera de las carreras de aceleracion, activa el
+    // 321 del pathfinder (lineas 1402-1419 de su EAXSound.cpp).
+    if (this->m_ePlayerMixMode == EAXS3D_TWO_PLAYER_MIX) {
+        ppf->SetSplitScreen(true);
+    } else {
+        ppf->SetSplitScreen(false);
+    }
+
+    if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters()->GetRaceType() != GRace::kRaceType_Drag) {
+        if (ppf) {
+            ppf->Set321(true);
+        }
+    }
+#else
     if (ppf) {
         if (this->m_ePlayerMixMode == EAXS3D_TWO_PLAYER_MIX) {
             ppf->SetSplitScreen(true);
         } else {
             ppf->SetSplitScreen(false);
         }
-
     }
+#endif
 
     gbHasStartNewGamePlayBeenProcessed = true;
 }
@@ -781,7 +942,7 @@ void EAXSound::InitializeFrontEnd() {
     this->m_pCmnSnd = new ("AUD:EAXCommon", 0) EAXCommon();
     this->m_pFESnd = new ("AUD:EAXFrontEnd", 0) EAXFrontEnd();
     this->RefreshLocalAttr();
-    Speech::Manager::Init(2);
+    Speech::Manager::Init(SPEECH_FRONTEND_MODE);
     SoundRandomSeed = bRandom(-1);
     this->m_pCurAudioSettings = &FEDatabase->CurrentUserProfiles[0]->GetOptions()->TheAudioSettings;
     EAXAemsManager::m_RequiredSlots[3]++;
@@ -809,13 +970,13 @@ void EAXSound::MixMapReadyCallback() {
 
 void EAXSound::AttachPlayerCars() {
     int num_attached = 0;
-    for (int n = 0; n < UTL::Collections::Listable<EAX_CarState, 10>::Count(); n++) {
-        if (UTL::Collections::Listable<EAX_CarState, 10>::GetList()[n]->GetContext() == Sound::CONTEXT_PLAYER) {
+    for (int n = 0; n < EAX_CarState::Count(); n++) {
+        if (EAX_CarState::GetList()[n]->GetContext() == Sound::CONTEXT_PLAYER) {
             num_attached++;
             CSTATE_Base *newcar =
-                m_pStateMgr[eMM_PLAYERCAR]->GetFreeState(UTL::Collections::Listable<EAX_CarState, 10>::GetList()[n]);
+                m_pStateMgr[eMM_PLAYERCAR]->GetFreeState(EAX_CarState::GetList()[n]);
             if (newcar != nullptr) {
-                newcar->Attach(UTL::Collections::Listable<EAX_CarState, 10>::GetList()[n]);
+                newcar->Attach(EAX_CarState::GetList()[n]);
                 if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
                     if (num_attached == 2) {
                         return;
@@ -837,7 +998,11 @@ void EAXSound::PlayFEMusic(int nIndex) {
     MControlPathfinder(true, 0, 0, 0).Send(UCrc32("Pathfinder5"));
 }
 
+#ifdef EA_BUILD_A124
+unsigned int GenerateUpgradedEngine(EAX_CarState *pCar);
+#else
 unsigned int GenerateUpgradedEngine(EAX_CarState *pCar, int playerUpgrade);
+#endif
 
 namespace Physics {
 namespace Info {
@@ -849,7 +1014,11 @@ float MaxTorque(const Attrib::Gen::engine &engine, float &atrpm);
 
 // Sound::Wheel::Reset and Sound::Engine::Reset are defined inline in EAXCarState.hpp.
 
+#ifdef EA_BUILD_A124
+inline EAX_CarState::EAX_CarState(const Attrib::Collection *atr, Sound::Context context, unsigned int wuid)
+#else
 inline EAX_CarState::EAX_CarState(const Attrib::Collection *atr, Sound::Context context, unsigned int wuid, HSIMABLE__ *handle)
+#endif
     : mVel0(0.0f, 0.0f, 0.0f) //
     , mRacePos(0) //
     , mBrake(0.0f) //
@@ -863,11 +1032,19 @@ inline EAX_CarState::EAX_CarState(const Attrib::Collection *atr, Sound::Context 
     , mHotPursuit(0) //
     , mAttributes(atr, 0, nullptr) //
     , mWorldID(wuid) //
-    , mEngineInfo(static_cast<const Attrib::Collection *>(nullptr), 0, nullptr) {
+    , mEngineInfo(static_cast<const Attrib::Collection *>(nullptr), 0, nullptr) //
+#ifdef EA_BUILD_A124
+    , mContext(context) // la A124 guarda mContext antes que mWorldID: va en la lista
+#endif
+{
+#ifndef EA_BUILD_A124
     static int PlayerUpgrade = 0;
+#endif
     float max_torque_rpm;
 
+#ifndef EA_BUILD_A124
     this->mContext = context;
+#endif
     this->mSimUpdating = 1;
 #ifndef EA_BUILD_A124
     this->mHandle = handle;
@@ -887,6 +1064,7 @@ inline EAX_CarState::EAX_CarState(const Attrib::Collection *atr, Sound::Context 
     Attrib::Gen::pvehicle vehicleinfo(this->mAttributes);
     Attrib::Gen::engine engine(vehicleinfo.engine(0), 0, nullptr);
 
+#ifndef EA_BUILD_A124
     if (this->mContext == Sound::CONTEXT_PLAYER) {
         int phys_cur_upgrade = this->mAttributes.engine_current();
         int phys_num_upgrades = this->mAttributes.engine_upgrades();
@@ -900,6 +1078,9 @@ inline EAX_CarState::EAX_CarState(const Attrib::Collection *atr, Sound::Context 
     }
 
     this->mEngineInfo.ChangeWithDefault(GenerateUpgradedEngine(this, PlayerUpgrade));
+#else
+    this->mEngineInfo.ChangeWithDefault(GenerateUpgradedEngine(this));
+#endif
     this->mMaxTorque = Physics::Info::MaxTorque(engine, max_torque_rpm);
     this->mMaxRPM = engine.MAX_RPM();
     this->mMinRPM = engine.IDLE();
@@ -914,7 +1095,7 @@ inline EAX_CarState::EAX_CarState(const Attrib::Collection *atr, Sound::Context 
     }
 }
 
-template class UTL::Collections::Listable<EAX_CarState, 10>::List;
+template class UTL::Collections::Listable<EAX_CarState, EAX_CarState::List::Limit>::List;
 template class UTL::Vector<EAX_HeliState *, 16>;
 
 void EAXSound::Update(float t) {
@@ -1002,9 +1183,17 @@ void EAXSound::Update(float t) {
 
         bMemSet(GameFlowSndState, '\0', 0x3C);
         gb_DORESTART_RACE = 0;
+#ifndef EA_BUILD_A124
+        // La A124 termina el bloque aqui (b + sw gb_DORESTART_RACE); el resto llama a PauseMenu.
         SetSoundControlState(false, SNDSTATE_PAUSE, "PauseMenu");
+#endif
     } else {
         if (gb_Is321 != 0) {
+#ifdef EA_BUILD_A124
+            // Solo la A124: primero encola el NIS del arranque con el hash de "RESTART_FAKE" (bStringHash +
+            // QueueNISButtonThrough(hash, -1) antes del Start321Reving).
+            this->QueueNISButtonThrough(bStringHash("RESTART_FAKE"), -1);
+#endif
             if (g_pNISRevMgr != nullptr) {
                 g_pNISRevMgr->Start321Reving();
             }
@@ -1059,7 +1248,7 @@ void EAXSound::Update(float t) {
 
         this->m_prevSndGameMode = this->m_eSndGameMode;
         if (!this->AreResourceLoadsPending()) {
-            UTL::Collections::Listable<CarSoundConn, 10>::ForEach(CarSoundConn::SetAssetsLoaded);
+            CarSoundConn::ForEach(CarSoundConn::SetAssetsLoaded);
         }
         SNDSYS_service();
     }
@@ -1067,8 +1256,8 @@ void EAXSound::Update(float t) {
 
 void EAXSound::CommitAssets() {
     CSTATEMGR_CarState::ResolveCarBanks();
-    for (CarSoundConn *const *iter = UTL::Collections::Listable<CarSoundConn, 10>::GetList().begin();
-         iter != UTL::Collections::Listable<CarSoundConn, 10>::GetList().end(); ++iter) {
+    for (CarSoundConn *const *iter = CarSoundConn::GetList().begin();
+         iter != CarSoundConn::GetList().end(); ++iter) {
         CarSoundConn *pconn = *iter;
         if (!pconn->mConnected) {
             pconn->mConnected = true;
@@ -1135,7 +1324,10 @@ void EAXSound::DestroyEAXCar(EAX_CarState *pCar) {
             attachedcar = m_pStateMgr[eMM_TRAFFIC]->GetStateObj(pCar);
         }
         break;
+    // Las dos PS2 saltan con una tabla de 7 entradas (hasta CONTEXT_TRAILER), las tres ultimas al camion.
     case Sound::CONTEXT_ONLINE:
+    case Sound::CONTEXT_TRACTOR:
+    case Sound::CONTEXT_TRAILER:
     default:
         if (m_pStateMgr[eMM_TRUCK] != nullptr) {
             attachedcar = m_pStateMgr[eMM_TRUCK]->GetStateObj(pCar);
@@ -1153,9 +1345,11 @@ void EAXSound::LoadFrontEndSoundBanks(void (*callback)(int), int callback_param)
         return;
     }
 
+#ifndef EA_BUILD_A124
     if (IsSpeechEnabled) {
         gSpeechCache.Validate();
     }
+#endif
 
     gIsPauseForPause = 0;
     bSyncTaskRun();
@@ -1166,12 +1360,19 @@ void EAXSound::LoadFrontEndSoundBanks(void (*callback)(int), int callback_param)
     this->m_pStreamManager = new ("EAXS_StreamManager", false) EAXS_StreamManager();
     this->m_pStreamManager->InitializeStreams(SNDGM_FRONTEND);
 
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+    g_ActiveCtlStates = 0;
+    g_ActiveSFXStates = 0;
+    g_PrevActiveCtlStates = 0;
+    g_PrevActiveSFXStates = 0;
+#elif !defined(EA_BUILD_A124)
     if ((g_ActiveCtlStates & 0x20000) == 0) {
         g_ActiveCtlStates = 0;
         g_ActiveSFXStates = 0;
         g_PrevActiveCtlStates = 0;
         g_PrevActiveSFXStates = 0;
     }
+#endif
 
     this->InitializeFrontEnd();
 
@@ -1187,9 +1388,11 @@ void EAXSound::LoadFrontEndSoundBanks(void (*callback)(int), int callback_param)
     this->ReInitMasterVolumes();
     bSyncTaskRun();
 
+#ifndef EA_BUILD_A124
     if (IsSpeechEnabled) {
         gSpeechCache.Validate();
     }
+#endif
 }
 
 void EAXSound::UnloadFrontEndSoundBanks() {
@@ -1198,9 +1401,11 @@ void EAXSound::UnloadFrontEndSoundBanks() {
     }
     int n;
 
+#ifndef EA_BUILD_A124
     if (IsSpeechEnabled) {
         gSpeechCache.Validate();
     }
+#endif
 
     gIsPauseForPause = 0;
     while (g_pEAXSound->AreResourceLoadsPending()) {
@@ -1249,9 +1454,11 @@ void EAXSound::UnloadFrontEndSoundBanks() {
     gAEMSMgr.ResetBankLoadParams();
     bSyncTaskRun();
 
+#ifndef EA_BUILD_A124
     if (IsSpeechEnabled) {
         gSpeechCache.Validate();
     }
+#endif
 }
 
 void g_LoadSndAsset(Attrib::StringKey filename, eSNDDATAPATH path, eSNDDATATYPE datatype) {
@@ -1292,59 +1499,67 @@ void EAXSound::StopSND11() {}
 void EAXSound::StartSND11() {}
 
 void EAXSound::LoadInGameSoundBanks(void (*callback)(int), int callback_param) {
-    if (!IsSoundEnabled) {
-        return;
-    }
+    if (IsSoundEnabled) {
+#ifndef EA_BUILD_A124
+        if (IsSpeechEnabled) {
+            gSpeechCache.Validate();
+        }
+#endif
+        gIsPauseForPause = 0;
+        bIsAnFEToIngameTransition = true;
+        this->m_pStreamManager = new ("EAXS_StreamManager", false) EAXS_StreamManager();
 
-    if (IsSpeechEnabled) {
-        gSpeechCache.Validate();
-    }
+        if (FEDatabase->IsSplitScreenMode()) {
+            this->m_pStreamManager->InitializeStreams(SNDGM_SPLITSCREEN);
+            this->m_ePlayerMixMode = EAXS3D_TWO_PLAYER_MIX;
+        } else {
+            this->m_pStreamManager->InitializeStreams(SNDGM_FREEROAM);
+            this->m_ePlayerMixMode = EAXS3D_SINGLE_PLAYER_MIX;
+        }
 
-    gIsPauseForPause = 0;
-    bIsAnFEToIngameTransition = true;
-    this->m_pStreamManager = new ("EAXS_StreamManager", false) EAXS_StreamManager();
+        bHasDataLoadOccured = true;
+        bHasStartNewGameOccured = false;
+        this->m_pCurAudioSettings = FEDatabase->GetAudioSettings();
+        this->m_pEAXSND8Wrapper->ReInit();
 
-    if (FEDatabase->IsSplitScreenMode()) {
-        this->m_pStreamManager->InitializeStreams(SNDGM_SPLITSCREEN);
-        this->m_ePlayerMixMode = EAXS3D_TWO_PLAYER_MIX;
-    } else {
-        this->m_pStreamManager->InitializeStreams(SNDGM_FREEROAM);
-        this->m_ePlayerMixMode = EAXS3D_SINGLE_PLAYER_MIX;
-    }
+        g_pEAXSound->SetSndGameMode(SND_STREETRACE);
+        gAEMSMgr.ResetBankLoadParams();
+        CSTATEMGR_CarState::ResetCarBanks();
+        bMemSet(g_SndAssetList, 0, sizeof(g_SndAssetList));
+        this->RefreshLocalAttr();
 
-    bHasDataLoadOccured = true;
-    bHasStartNewGameOccured = false;
-    this->m_pCurAudioSettings = FEDatabase->GetAudioSettings();
-    this->m_pEAXSND8Wrapper->ReInit();
+        if (this->m_ePlayerMixMode == EAXS3D_TWO_PLAYER_MIX) {
+            IsSpeechEnabled = false;
+            Speech::Manager::Init(SPEECH_SPLITSCREEN_MODE);
+        } else {
+            IsSpeechEnabled = true;
+            Speech::Manager::Init(SPEECH_GAME_MODE);
+        }
 
-    g_pEAXSound->SetSndGameMode(SND_STREETRACE);
-    gAEMSMgr.ResetBankLoadParams();
-    CSTATEMGR_CarState::ResetCarBanks();
-    bMemSet(g_SndAssetList, 0, sizeof(g_SndAssetList));
-    this->RefreshLocalAttr();
+        LoadCommonIngameFiles();
 
-    if (this->m_ePlayerMixMode == EAXS3D_TWO_PLAYER_MIX) {
-        IsSpeechEnabled = false;
-        Speech::Manager::Init(SPEECH_SPLITSCREEN_MODE);
-    } else {
-        IsSpeechEnabled = true;
-        Speech::Manager::Init(SPEECH_GAME_MODE);
-    }
-
-    LoadCommonIngameFiles();
-
-    if ((g_ActiveCtlStates & 0x20000) == 0) {
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
         g_ActiveCtlStates = 0;
         g_ActiveSFXStates = 0;
         g_PrevActiveCtlStates = 0;
         g_PrevActiveSFXStates = 0;
-    }
+#elif !defined(EA_BUILD_A124)
+        if ((g_ActiveCtlStates & 0x20000) == 0) {
+            g_ActiveCtlStates = 0;
+            g_ActiveSFXStates = 0;
+            g_PrevActiveCtlStates = 0;
+            g_PrevActiveSFXStates = 0;
+        }
+#endif
 
-    gAEMSMgr.m_ExternalLoadCallback = callback;
-    gAEMSMgr.m_ExternalLoadCallbackParam = callback_param;
+        gAEMSMgr.m_ExternalLoadCallback = callback;
+        gAEMSMgr.m_ExternalLoadCallbackParam = callback_param;
 
-    if (IsSpeechEnabled) {
-        gSpeechCache.Validate();
+#ifndef EA_BUILD_A124
+        if (IsSpeechEnabled) {
+            gSpeechCache.Validate();
+        }
+#endif
     }
 }
 
@@ -1391,9 +1606,11 @@ void EAXSound::UnLoadInGameSoundBanks() {
         this->mmsgMRestartRace = nullptr;
     }
 
+#ifndef EA_BUILD_A124
     if (IsSpeechEnabled) {
         gSpeechCache.Validate();
     }
+#endif
 
     Speech::Manager::Destroy();
     bSyncTaskRun();
@@ -1432,18 +1649,222 @@ void EAXSound::UnLoadInGameSoundBanks() {
 
 // LoadInGameSoundBanks, etc. go here when implemented
 
+#ifdef EA_BUILD_A124
+// La pausa a mano de la A124 (lineas 2827-3117 de su EAXSound.cpp); la version final la lleva SetSoundControlState.
+void EAXSound::EnterPauseMenu(eSNDPAUSE_REASON pause_reason) {
+    if (!IsSoundEnabled) {
+        return;
+    }
+
+    m_LastPauseReason = pause_reason;
+    GetSFXBase_Object(0x40000010); // la A124 lo pide y no usa el resultado
+
+    switch (pause_reason) {
+        case eSNDPAUSE_PAUSEMENU:
+            gIsPauseForPause++;
+            // sin break: el menu de pausa cuenta y luego pausa como los demas motivos
+        case ePAUSE_ERROR:
+        default:
+            m_bIsPaused = true;
+            t_Paused = t_CurTime;
+            m_bAudioIsPaused = true;
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Pause();
+                }
+            }
+            break;
+
+        case eSNDPAUSE_PHOTOFINISH:
+            gIsPauseForPause++;
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Pause();
+                }
+            }
+            m_bIsPaused = true;
+            t_Paused = t_CurTime;
+            m_bAudioIsPaused = true;
+            break;
+
+        case eSNDPAUSE_NISON:
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Resume();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Resume();
+                }
+            }
+            break;
+
+        case eSNDPAUSE_SIMSTATE_INIT:
+        case eSNDPAUSE_MEMCARD:
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Pause();
+                }
+            }
+            m_bIsPaused = true;
+            t_Paused = t_CurTime;
+            m_bAudioIsPaused = true;
+            break;
+
+        case eSNDPAUSE_SIMSTATE_IDLE: {
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Pause();
+                }
+            }
+            // Asi en el binario: con un NIS, !INIS::Exists() es falso y nunca pregunta IsLoaded ni IsPlaying.
+            INIS *nis = INIS::Get();
+            if (!nis || (!INIS::Exists() && !nis->IsLoaded() && !nis->IsPlaying())) {
+                m_bIsPaused = true;
+                t_Paused = t_CurTime;
+                m_bAudioIsPaused = true;
+            }
+            break;
+        }
+
+        case eSNDPAUSE_ONLINE:
+            m_bIsPaused = true;
+            t_Paused = t_CurTime;
+            m_bAudioIsPaused = true;
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Pause();
+                }
+            }
+            break;
+
+        case eSNDPAUSE_MOVIE:
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Pause();
+                }
+            }
+            break;
+
+        case eSNDPAUSE_SMS_MESSAGE:
+            if (m_pStreamManager) {
+                if (m_pStreamManager->GetStreamChannel(1)) {
+                    m_pStreamManager->GetStreamChannel(1)->Pause();
+                }
+                if (m_pStreamManager->GetStreamChannel(0)) {
+                    m_pStreamManager->GetStreamChannel(0)->Resume();
+                }
+                if (m_pStreamManager->GetStreamChannel(2)) {
+                    m_pStreamManager->GetStreamChannel(2)->Pause();
+                }
+            }
+            break;
+    }
+}
+
+void EAXSound::ExitPauseMenu(eSNDPAUSE_REASON pause_reason) {
+    if (!IsSoundEnabled) {
+        return;
+    }
+
+    if (pause_reason == eSNDPAUSE_PAUSEMENU || pause_reason == eSNDPAUSE_PHOTOFINISH) {
+        gIsPauseForPause--;
+    }
+
+    if (gIsPauseForPause > 0) {
+        return;
+    }
+
+    gIsPauseForPause = 0;
+    if (pause_reason == eSNDPAUSE_SMS_MESSAGE) {
+        return;
+    }
+
+    this->m_bIsPaused = false;
+    this->m_bAudioIsPaused = false;
+    if (pause_reason == eSNDPAUSE_QUITTOFE) {
+        if (this->m_pStreamManager->GetStreamChannel(1)) {
+            this->m_pStreamManager->GetStreamChannel(1)->PurgeStream();
+        }
+        if (this->m_pStreamManager->GetStreamChannel(0)) {
+            this->m_pStreamManager->GetStreamChannel(0)->PurgeStream();
+        }
+        if (this->m_pStreamManager->GetStreamChannel(2)) {
+            this->m_pStreamManager->GetStreamChannel(2)->PurgeStream();
+        }
+    }
+
+    if (this->m_pStreamManager->GetStreamChannel(1)) {
+        this->m_pStreamManager->GetStreamChannel(1)->Resume();
+    }
+    if (this->m_pStreamManager->GetStreamChannel(0)) {
+        this->m_pStreamManager->GetStreamChannel(0)->Resume();
+    }
+    if (this->m_pStreamManager->GetStreamChannel(2)) {
+        this->m_pStreamManager->GetStreamChannel(2)->Resume();
+    }
+}
+#endif
+
 void EAXSound::ReStartRace(bool bIs321) {
     if (!IsSoundEnabled) {
         return;
     }
 
+#ifndef EA_BUILD_A124
     SetSoundControlState(true, SNDSTATE_STOP_MUSIC, "RestartRace");
+#endif
 
     for (int s = 0; s < 4; s++) {
         if (this->m_pStreamManager->GetStreamChannel(s) != nullptr) {
+#ifdef EA_BUILD_A124
+            // La A124 no para el canal 1, lo pausa, y no reanuda ninguno.
+            if (s != 1) {
+                this->m_pStreamManager->GetStreamChannel(s)->Stop();
+                this->m_pStreamManager->GetStreamChannel(s)->PurgeStream();
+            } else {
+                this->m_pStreamManager->GetStreamChannel(s)->Pause();
+            }
+#else
             this->m_pStreamManager->GetStreamChannel(s)->Stop();
             this->m_pStreamManager->GetStreamChannel(s)->PurgeStream();
             this->m_pStreamManager->GetStreamChannel(s)->Resume();
+#endif
         }
     }
 
@@ -1467,18 +1888,23 @@ void EAXSound::ReStartRace(bool bIs321) {
 }
 
 void InitializeSoundDriver() {
-    int poolSize = 0x4000;
-    if (IsSoundEnabled) {
-        poolSize = 0x11F000;
-    }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    int size = IsSoundEnabled ? 0x158000 : 0x4000;
+#elif defined(EA_PLATFORM_WIN32)
+    int size = IsSoundEnabled ? 0x567000 : 0x4000; // PC: neg/sbb/and 0x563000/add 0x4000 en el exe
+#else
+    int size = IsSoundEnabled ? 0x11F000 : 0x4000;
+#endif
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+    size += (INCREASE_MUSICSTREAM_BLOCKS + INCREASE_NISSFXSTRM_BLOCKS) * STREAMBLOCK_SIZE;
+#endif
 
     gAudioMemoryManager.InitMemoryPool(
 #ifndef EA_BUILD_A124
         AUD_MAIN_MEM_POOL,
 #endif
-        poolSize);
-    void *mem = gAudioMemoryManager.AllocateMemory(0xBC, "AUD:EAXSound", false);
-    g_pEAXSound = new (mem) EAXSound();
+        size);
+    g_pEAXSound = new ("AUD:EAXSound") EAXSound();
     g_pEAXSound->InitializeDriver();
 }
 
@@ -1500,8 +1926,45 @@ void UnloadAemsFrontEnd() {
     }
 }
 
-void SoundPause(bool bpause, eSNDPAUSE_REASON esndpause) {}
+void SoundPause(bool bpause, eSNDPAUSE_REASON esndpause) {
+#ifdef EA_BUILD_A124 // la A124 aun pausa a mano cuando no corre la maquina de estados
+    // El return es del original: sin el, EE-GCC salta a las ultimas llamadas con j y el original las hace con jal.
+    if (RUN_SOUND_STATE) {
+        return;
+    }
 
+    if (bpause) {
+        g_pEAXSound->EnterPauseMenu(esndpause);
+        g_pEAXSound->Update(0.015f);
+    } else {
+        g_pEAXSound->ExitPauseMenu(esndpause);
+    }
+#endif
+}
+
+#ifdef EA_BUILD_A124
+// La A124 compara el nombre del paquete con bStrICmp, sin la tabla de claves ni el switch (lineas 3407-3460 de su
+// EAXSound.cpp); Pause_Options.fng se compara dos veces.
+void FESoundControl(bool bOn, const char *name) {
+    if (g_pEAXSound == nullptr) {
+        return;
+    }
+
+    if (g_pEAXSound->GetSndGameMode() != SND_FRONTEND && g_pEAXSound->GetSndGameMode() != SND_LOADING_SCREEN) {
+        if (!bStrICmp(name, "Pause_Main.fng") || !bStrICmp(name, "Pause_Options.fng")) {
+            SetSoundControlState(bOn, SNDSTATE_PAUSE, "PauseMenu");
+        } else if (!bStrICmp(name, "InGamePhotoMaster.fng")) {
+            SetSoundControlState(bOn, SNDSTATE_PAUSE, "PhotoScreen");
+        } else if (!bStrICmp(name, "Pause_Options.fng")) {
+        } else if (!bStrICmp(name, "EA_Trax.fng") || !bStrICmp(name, "FadeScreen.fng")) {
+        } else if (!bStrICmp(name, "SixDaysLater.fng")) {
+            SetSoundControlState(bOn, SNDSTATE_PAUSE, "SixDaysLater");
+        } else {
+            SetSoundControlState(bOn, SNDSTATE_FE_UPSCREEN, "IG FE Screen");
+        }
+    }
+}
+#else
 void FESoundControl(bool bOn, const char *name) {
     if (g_pEAXSound == nullptr) {
         return;
@@ -1658,31 +2121,26 @@ FRONTEND_FMV_STATE: if (index == 10 || index >= 14) {
         SetSoundControlState(bOn, SNDSTATE_FMV, "name");
     }
 }
+#endif
 
-void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, const char *Reason) {
-    if (RUN_SOUND_STATE == 0 || g_pEAXSound == nullptr || !IsSoundEnabled) {
+#ifdef EA_BUILD_A124
+void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, char *Reason)
+#else
+void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, const char *Reason)
+#endif
+{
+    if (!RUN_SOUND_STATE || g_pEAXSound == nullptr || !IsSoundEnabled) {
         return;
     }
 
 #ifndef EA_BUILD_A124
-    if (g_pEAXSound->m_bPause_MainFNG) {
-        if (!bON) {
-            if (esndstate != SNDSTATE_MINILOAD) {
-                if (esndstate <= SNDSTATE_FE_SMS_MESSAGE) {
-                    if (esndstate > SNDSTATE_NIS_ARREST) {
-                        return;
-                    }
-                }
-            }
-        }
+    if (g_pEAXSound->m_bPause_MainFNG && !bON && esndstate != SNDSTATE_MINILOAD && esndstate <= SNDSTATE_FE_SMS_MESSAGE &&
+        esndstate > SNDSTATE_NIS_ARREST) {
+        return;
     }
 #endif
 
-    if ((g_ActiveCtlStates & (1 << esndstate)) != 0) {
-        if (bON) {
-            return;
-        }
-    } else if (!bON) {
+    if (((g_ActiveCtlStates & (1 << esndstate)) && bON) || (!(g_ActiveCtlStates & (1 << esndstate)) && !bON)) {
         return;
     }
 
@@ -1696,13 +2154,13 @@ void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, const char *Reason) 
     }
 
     g_ActiveSFXStates = 0;
-    for (int n = 0; n < 18; n++) {
+    for (int n = 0; n < MAX_SNDCTL_STATES; n++) {
         if ((g_ActiveCtlStates & (1 << n)) != 0) {
             g_ActiveSFXStates |= g_CtlStateActions[n];
         }
     }
 
-    for (int state = 0; state < 13; state++) {
+    for (int state = 0; state < MAX_SFX_STATE; state++) {
         if ((g_ActiveSFXStates & (1 << state)) != (g_PrevActiveSFXStates & (1 << state)) &&
             g_pEAXSound->GetStreamManager()) {
             if ((g_ActiveSFXStates & (1 << state)) != 0) {
@@ -1745,9 +2203,11 @@ void SetSoundControlState(bool bON, eSNDCTLSTATE esndstate, const char *Reason) 
         }
     }
 
+#ifndef EA_PLATFORM_PLAYSTATION2 // ni la A124 ni SLUS actualizan el sonido al entrar en SNDSTATE_ERROR
     if (esndstate == SNDSTATE_ERROR) {
         g_pEAXSound->Update(0.1f);
     }
+#endif
 }
 
 void LoadAemsInGame(void (*callback)(int), int callback_param) {

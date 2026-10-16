@@ -136,16 +136,15 @@ inline int LobbyGames::PingPlayer(int index, LobbyApiPlayT *game, LobbyPingManag
 inline void LobbyGames::AbortCommand(int32 commandID) { LobbyCore::Instance().AbortCommand(commandID); }
 
 int32 LobbyGames::Init() {
-    int32 rc = -1;
-    if (LobbyCore::Instance().pLobbyRef) {
-        Reset();
-        if (LobbyCore::Instance().RegisterGlobalCallback(LOBBYAPI_CBTYPE_EVNT, GlobalEventCB, this) < 0) {
-            Reset();
-        } else {
-            rc = 0;
-        }
+    if (!LobbyCore::Instance().pLobbyRef) {
+        return -1;
     }
-    return rc;
+    Reset();
+    if (LobbyCore::Instance().RegisterGlobalCallback(LOBBYAPI_CBTYPE_EVNT, GlobalEventCB, this) < 0) {
+        Reset();
+        return -1;
+    }
+    return 0;
 }
 
 void LobbyGames::Reset() {

@@ -53,6 +53,14 @@ struct WCollisionStrip {
     unsigned int NumTris() const {
         return NumVerts() - 2;
     }
+
+    unsigned int TotalSize() const {
+        return NumVerts() * sizeof(WCollisionPackedVert);
+    }
+
+    const WCollisionStrip *NextStrip() const {
+        return reinterpret_cast<const WCollisionStrip *>(reinterpret_cast<const char *>(this) + TotalSize());
+    }
 
     unsigned int Flags() const {
         return *reinterpret_cast<const unsigned short *>(&Verts()[1].surface);
@@ -60,19 +68,23 @@ struct WCollisionStrip {
 
     inline void MakeFace(unsigned int ind, const UMath::Vector3 &cp, WCollisionTri &retFace) const {
         const WCollisionPackedVert *v = &Verts()[ind];
-        retFace.fPt0.x = static_cast<float>(v->x) / 128.0f + cp.x;
-        retFace.fPt0.y = static_cast<float>(v->y) / 128.0f + cp.y;
-        retFace.fPt0.z = static_cast<float>(v->z) / 128.0f + cp.z;
+        retFace.fPt0.x = cp.x + static_cast<float>(v->x) / 128.0f;
+        retFace.fPt0.y = cp.y + static_cast<float>(v->y) / 128.0f;
+        retFace.fPt0.z = cp.z + static_cast<float>(v->z) / 128.0f;
+#ifdef EA_BUILD_A124
+        retFace.fSurfaceHash = nullptr;
+#else
         retFace.fSurfaceRef = nullptr;
+#endif
         v++;
-        retFace.fPt1.x = static_cast<float>(v->x) / 128.0f + cp.x;
-        retFace.fPt1.y = static_cast<float>(v->y) / 128.0f + cp.y;
-        retFace.fPt1.z = static_cast<float>(v->z) / 128.0f + cp.z;
+        retFace.fPt1.x = cp.x + static_cast<float>(v->x) / 128.0f;
+        retFace.fPt1.y = cp.y + static_cast<float>(v->y) / 128.0f;
+        retFace.fPt1.z = cp.z + static_cast<float>(v->z) / 128.0f;
         retFace.fFlags = 0;
         v++;
-        retFace.fPt2.x = static_cast<float>(v->x) / 128.0f + cp.x;
-        retFace.fPt2.y = static_cast<float>(v->y) / 128.0f + cp.y;
-        retFace.fPt2.z = static_cast<float>(v->z) / 128.0f + cp.z;
+        retFace.fPt2.x = cp.x + static_cast<float>(v->x) / 128.0f;
+        retFace.fPt2.y = cp.y + static_cast<float>(v->y) / 128.0f;
+        retFace.fPt2.z = cp.z + static_cast<float>(v->z) / 128.0f;
         retFace.fSurface = WSurface(v->surface);
     }
 
@@ -80,9 +92,9 @@ struct WCollisionStrip {
         const WCollisionPackedVert *v = Verts() + ind + 2;
         retFace.fPt0 = retFace.fPt1;
         retFace.fPt1 = retFace.fPt2;
-        retFace.fPt2.x = static_cast<float>(v->x) * (1.0f / 128.0f) + cp.x;
-        retFace.fPt2.y = static_cast<float>(v->y) * (1.0f / 128.0f) + cp.y;
-        retFace.fPt2.z = static_cast<float>(v->z) * (1.0f / 128.0f) + cp.z;
+        retFace.fPt2.x = cp.x + static_cast<float>(v->x) * (1.0f / 128.0f);
+        retFace.fPt2.y = cp.y + static_cast<float>(v->y) * (1.0f / 128.0f);
+        retFace.fPt2.z = cp.z + static_cast<float>(v->z) * (1.0f / 128.0f);
         retFace.fSurface = WSurface(v->surface);
     }
 };
@@ -90,14 +102,31 @@ struct WCollisionStrip {
 // total size: 0x10
 struct WCollisionArticle {
     void Resolve();
+
+    // The article, its strip spheres, strips, edges and surfaces, rounded up to 64 bytes.
+    unsigned int TotalSize() const {
+        unsigned int size = sizeof(WCollisionArticle) + fStripsSize;
+        size += fEdgesSize;
+        size += fSurfacesSize;
+        return (size + 63) & 0x0FFFFFC0;
+    }
 
+#ifdef EA_BUILD_A124
+    // La A124 guarda en el articulo el HASH de la superficie y su GetSurface devuelve una referencia a el (stabs:
+    // `unsigned int &GetSurface()`, con dataStart como unica local): es la GetSurfaceIndRef de GameCube con el nombre
+    // viejo. Quien la llama busca la superficie con SimSurface::Lookup.
+    const unsigned int &GetSurface(unsigned int ind) const {
+        const char *dataStart = reinterpret_cast<const char *>(&this[1]) + fStripsSize + fEdgesSize;
+        return reinterpret_cast<const unsigned int *>(dataStart)[ind];
+    }
+#else
     const Attrib::Collection *GetSurface(unsigned int ind) const {
         // TODO 64 bit
-        unsigned int off = fStripsSize + sizeof(WCollisionArticle);
-        const char *dataStart = reinterpret_cast<const char *>(this) + off + fEdgesSize;
+        const char *dataStart = reinterpret_cast<const char *>(&this[1]) + fStripsSize + fEdgesSize;
         unsigned int ref = reinterpret_cast<const unsigned int *>(dataStart)[ind];
         return reinterpret_cast<const Attrib::Collection *>(ref);
     }
+#endif
 
     const WCollisionBarrier *GetBarrier(unsigned int ind) const {
         const char *dataStart = reinterpret_cast<const char *>(&this[1]) + fStripsSize;
@@ -109,6 +138,14 @@ struct WCollisionArticle {
         const WCollisionStripSphere *stripSp = reinterpret_cast<const WCollisionStripSphere *>(dataStart);
         return &stripSp[ind];
     }
+
+#ifdef EA_BUILD_A124
+    // In the prototype the strips follow the strip spheres one after the other (WDbgCollisionDraw walks them with
+    // NextStrip); the offset of each sphere came later.
+    const WCollisionStrip *GetStrip() const {
+        return reinterpret_cast<const WCollisionStrip *>(GetStripSphere(fNumStrips));
+    }
+#endif
 
     unsigned short fNumStrips;         // offset 0x0, size 0x2
     unsigned short fStripsSize;        // offset 0x2, size 0x2
@@ -191,8 +228,8 @@ struct WCollisionBarrier {
         } else if (u > 1.0f) {
             return (x2 - px) * (x2 - px) + (z2 - pz) * (z2 - pz);
         } else {
-            float nearX = u * (x2 - x1) + x1 - px;
-            float nearZ = u * (z2 - z1) + z1 - pz;
+            float nearX = x1 + u * (x2 - x1) - px;
+            float nearZ = z1 + u * (z2 - z1) - pz;
             return nearX * nearX + nearZ * nearZ;
         }
     }
@@ -220,15 +257,20 @@ struct WCollisionBarrierListEntry {
           fDistanceToSq(0.0f) {
     }
 
-    WCollisionBarrierListEntry(const WCollisionBarrier &b, const Attrib::Collection *surfHash, float disttosq)
-        : fB(b), //
 #ifdef EA_BUILD_A124
-          fSurfaceHash(), // TODO
-#else
-          fSurfaceRef(surfHash), //
-#endif
+    // La A124 guarda el hash (stabs de GetBarrierList y GetBarrierNormal: surfaceHash es un UCrc32 en la pila).
+    WCollisionBarrierListEntry(const WCollisionBarrier &b, const UCrc32 &surfHash, float disttosq)
+        : fB(b), //
+          fSurfaceHash(surfHash), //
           fDistanceToSq(disttosq) {
     }
+#else
+    WCollisionBarrierListEntry(const WCollisionBarrier &b, const Attrib::Collection *surfHash, float disttosq)
+        : fB(b), //
+          fSurfaceRef(surfHash), //
+          fDistanceToSq(disttosq) {
+    }
+#endif
 
     bool operator<(const WCollisionBarrierListEntry &rhs) const {
         return fDistanceToSq < rhs.fDistanceToSq;

@@ -29,6 +29,9 @@ struct LOCALE_LANGUAGE {
     unsigned int stringcount;
 };
 
+// El fichero de textos se guarda en little endian: en PlayStation 2 se lee tal cual y en GameCube se
+// recompone byte a byte (y LOCALE_create da la vuelta a las cadenas unicode).
+#ifdef __BIG_ENDIAN__
 static inline unsigned int little_get(const void *src, int n) {
     if (n == 4) {
         return (static_cast<const unsigned char *>(src)[3] << 24) |
@@ -52,6 +55,14 @@ static inline void little_put(void *dst, unsigned int data, int n) {
         static_cast<unsigned char *>(dst)[0] = static_cast<unsigned char>(data);
     }
 }
+#else
+#define little_get(src, n) \
+    ((n) == 4 ? *reinterpret_cast<const unsigned int *>(src) \
+     : (n) == 2 ? *reinterpret_cast<const unsigned short *>(src) : *reinterpret_cast<const unsigned char *>(src))
+#define little_put(dst, data, n) \
+    ((n) == 2 ? (void)(*reinterpret_cast<unsigned short *>(dst) = (data)) \
+              : (void)(*reinterpret_cast<unsigned char *>(dst) = (data)))
+#endif
 
 int LOCALE_getstate(const void *localefile, LOCALESTATE state) {
     int value;
@@ -153,6 +164,7 @@ const char *LOCALE_getstrA(const void *localefile, int stringid) {
 }
 
 void *LOCALE_create(void *localefile, int unicode) {
+#ifdef __BIG_ENDIAN__
     const LOCALE_HEADER *header;
     int languagecount;
     int lang;
@@ -184,5 +196,6 @@ void *LOCALE_create(void *localefile, int unicode) {
             }
         }
     }
+#endif
     return localefile;
 }

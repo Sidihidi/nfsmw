@@ -313,7 +313,7 @@ int iSPCH_AddEvent(unsigned int *parms) {
         goto abort;
     }
 
-    *(int *)&eventSpec = parms[0];
+    eventSpec = *(EventSpec *)parms;
     event = iSPCH_FindEvent(&eventSpec);
     if (event == 0) {
         goto abort;
@@ -468,7 +468,7 @@ static int iSPCH_ChooseEventSearch(SPCHType_FollowData *followData, unsigned int
 
             if (gFilterSetting[inChannel] == 1) {
                 if (VoxEvent_GetFilterPriorityFlag(event)) {
-                    *(int *)&eventSpec = gVoxEvents.events[i].memParms[0];
+                    eventSpec = *(EventSpec *)&gVoxEvents.events[i].memParms[0];
                     priorityFiltered = iSPCH_TestEventPriority(&eventSpec, event);
                 }
             }
@@ -525,7 +525,7 @@ static inline int VoxEvent_GetFollowEventData(VoxEvent *event, SPCHType_FollowDa
 
 static int iSPCH_ChooseEvent(unsigned int inChannel) {
     VoxEvent *lastEvent;
-    int choice;
+    int choice = -1;
     SPCHType_FollowData followData;
     int followFlag;
 
@@ -697,7 +697,7 @@ int SPCH_Choose(unsigned int inChannel) {
             goto abort;
         }
 
-        *(int *)&eventSpec = gVoxEvents.events[choice].memParms[0];
+        eventSpec = *(EventSpec *)&gVoxEvents.events[choice].memParms[0];
 
         eventOK = iSPCH_Callback_EventRule(&eventSpec);
         if (eventOK == kSPCH_EventRule_OK) {

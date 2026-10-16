@@ -74,8 +74,13 @@ SoundCar::SoundCar(const BehaviorParams &params, Sound::Context ctx)
 
     this->mSoundRPM = this->mEngineInfo.IDLE();
 
+#ifndef EA_BUILD_A124
     SoundConn::Pkt_Car_Open pkt(this->GetOwner()->GetAttributes().GetConstCollection(), this->GetOwner()->GetWorldID(), ctx,
                                 this->GetVehicle()->IsSpooled(), this->GetOwner()->GetInstanceHandle());
+#else
+    SoundConn::Pkt_Car_Open pkt(this->GetOwner()->GetAttributes().GetConstCollection(), this->GetOwner()->GetWorldID(), ctx,
+                                this->GetVehicle()->IsSpooled());
+#endif
 
     this->mSoundService = this->OpenService(UCRC32_EAXSOUND, &pkt);
 }
@@ -403,12 +408,16 @@ void SoundRacer::OnService(SoundConn::Pkt_Car_Service &svc) {
     Base::OnService(svc);
 
     if (this->mEngineDamage != nullptr) {
+#ifdef EA_BUILD_A124
+        svc.SetEngineBlown(this->mEngineDamage->IsBlown());
+#else
         if (this->mEngineDamage->IsBlown()) {
             svc.SetEngineBlown(1);
         }
         if (this->mEngineDamage->IsSabotaged()) {
             svc.SetEngineBlown(2);
         }
+#endif
     }
 }
 

@@ -14,9 +14,11 @@ TuningSlider::TuningSlider(Physics::Tunings::Path path, unsigned int title, unsi
     HelpBlurb = help_blurb;
     bActive = active;
     TuningPath = path;
+#ifndef EA_BUILD_A124
     bMovedLastUpdate = true;
     FEToggleWidget &self = *this;
     self.BlinkArrows(0);
+#endif
 }
 
 void TuningSlider::Act(const char *parent_pkg, uint32 data) {
@@ -29,9 +31,14 @@ void TuningSlider::Act(const char *parent_pkg, uint32 data) {
         Current = Current - Increment;
     }
     Current = bMin(bMax(Current, Min), Max);
-    Negative.SetValue(Min + (Max + Min) * 0.5f - Current);
+    Negative.SetValue((Max + Min) * 0.5f + Min - Current);
     Positive.SetValue(Current);
+#ifdef EA_BUILD_A124
+    // La A124 solo redibuja (CustomTuning.cpp:56, `jalr` a la ranura de Draw); SLUS y GameCube pasan por Update.
+    Draw();
+#else
     Update(data);
+#endif
 }
 
 void TuningSlider::CheckMouse(const char *parent_pkg, const float mouse_x, const float mouse_y) {}
@@ -59,7 +66,7 @@ void TuningSlider::Draw() {
 void TuningSlider::Position() {}
 
 void TuningSlider::SetFocus(const char *parent_pkg) {
-    FEngSetCurrentButton(parent_pkg, GetTitleObject()->NameHash);
+    FEngSetCurrentButton(parent_pkg, GetTitleObject());
     if (bActive) {
         const u32 FEObj_Init = 0x1744B3;
         FEngSetScript(GetTitleObject(), FEHASH_UNHIGHLIGHT, true);
@@ -67,6 +74,11 @@ void TuningSlider::SetFocus(const char *parent_pkg) {
         FEngSetScript(pSliderGroup, FEObj_Init, true);
 #endif
     }
+#ifdef EA_BUILD_A124
+    else {
+        FEngSetScript(GetTitleObject(), FEHASH_UNHIGHLIGHT, true);
+    }
+#endif
 }
 
 void TuningSlider::UnsetFocus() {
@@ -77,9 +89,11 @@ void TuningSlider::UnsetFocus() {
         FEngSetScript(pSliderGroup, FEObj_Init, true);
 #endif
     } else {
+#ifdef EA_BUILD_A124
+        FEngSetScript(GetTitleObject(), FEHASH_UNHIGHLIGHT, true);
+#else
         const u32 FEObj_GREY = 0x163C76;
         FEngSetScript(GetTitleObject(), FEObj_GREY, true);
-#ifndef EA_BUILD_A124
         FEngSetScript(pSliderGroup, FEObj_GREY, true);
 #endif
     }

@@ -6,16 +6,16 @@
 #endif
 
 #include "AnimMemoryMap.h"
+#include "AnimUtil.h"
 #include "BoneMask.h"
+#include "eagl4supportdef.h"
 
 namespace EAGL4Anim {
 
-void EulF3(float *&data, float *output);
-void QuatF4(float *&data, float *output);
-void TranF3(float *&data, float *output);
-void EulF3Interp(float w, float *&data0, float *&data1, float *output);
-void QuatF4Interp(float w, float *&data0, float *&data1, float *output);
-void TranF3Interp(float w, float *&data0, float *&data1, float *output);
+typedef void (*NonInterpFn)(float *&, float *);
+typedef void (*InterpFn)(float, float *&, float *&, float *);
+
+float qt0[7];
 
 // total size: 0x10
 class RawPoseChannel : public AnimMemoryMap {
@@ -86,77 +86,9 @@ class RawPoseChannel : public AnimMemoryMap {
 
     static int ComputeSize(int sigSize, int poseSize, int numFrames) {}
 
-    int GetNumBones() const {}
+    inline int GetNumBones() const;
 
-    void EvalInterpFrame(float t, int frame0, int frame1, float *outputPose, const BoneMask *boneMask) {
-        int count;
-        int *s;
-        float *d0;
-        float *d1;
-        float *out;
-        int *end;
-        void (*func)(float w, float *&data0, float *&data1, float *output);
-
-        s = GetInterpSig();
-        d0 = GetFrame(frame0);
-        d1 = GetFrame(frame1);
-        out = outputPose;
-        end = reinterpret_cast<int *>(GetAnimData());
-
-        if (!boneMask) {
-
-            while (s < end) {
-
-                int j;
-
-                count = *s++;
-
-                for (j = 0; j < count; j++) {
-                    func = reinterpret_cast<void (*)(float, float *&, float *&, float *)>(*s++);
-                    func(t, d0, d1, &out[4]);
-                }
-
-                out += 12;
-            }
-        } else {
-
-            int j;
-            int i = 0;
-
-            while (s < end) {
-
-                count = *s++;
-
-                if (boneMask->GetBone(i)) {
-
-                    for (j = 0; j < count; j++) {
-                        func = reinterpret_cast<void (*)(float, float *&, float *&, float *)>(*s++);
-                        func(t, d0, d1, &out[4]);
-                    }
-                } else {
-
-                    for (j = 0; j < count; j++) {
-
-                        func = reinterpret_cast<void (*)(float, float *&, float *&, float *)>(*s++);
-
-                        if (func == EulF3Interp || func == TranF3Interp) {
-
-                            d0 += 3;
-                            d1 += 3;
-
-                        } else if (func == QuatF4Interp) {
-
-                            d0 += 4;
-                            d1 += 4;
-                        }
-                    }
-                }
-
-                out += 12;
-                i++;
-            }
-        }
-    }
+    inline void EvalInterpFrame(float t, int frame0, int frame1, float *outputPose, const BoneMask *boneMask);
 
     static void InitAnimMemoryMap(AnimMemoryMap *anim);
 
@@ -171,6 +103,66 @@ class RawPoseChannel : public AnimMemoryMap {
     int mFrameSize; // offset 0x8, size 0x4
     int mNumFrames; // offset 0xC, size 0x4
 };
+
+inline void EulF3(float *&data, float *output) {
+    float eulData[3];
+
+    eulData[0] = DegToRad(*data++);
+    eulData[1] = DegToRad(*data++);
+    eulData[2] = DegToRad(*data++);
+
+    EulToQuat(eulData, output);
+}
+
+inline void QuatF4(float *&data, float *output) {
+    output[0] = *data++;
+    output[1] = *data++;
+    output[2] = *data++;
+    output[3] = *data++;
+}
+
+inline void TranF3(float *&data, float *output) {
+    output[4] = *data++;
+    output[5] = *data++;
+    output[6] = *data++;
+}
+
+inline void EulF3Interp(float w, float *&data0, float *&data1, float *output) {
+    EulF3(data0, qt0);
+    EulF3(data1, output);
+    QuatBlendF4(w, qt0, output, output);
+}
+
+inline void QuatF4Interp(float w, float *&data0, float *&data1, float *output) {
+    QuatF4(data0, qt0);
+    QuatF4(data1, output);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    VU0_fastqslerp(*reinterpret_cast<const RQUAT *>(qt0), *reinterpret_cast<const RQUAT *>(output), *reinterpret_cast<RQUAT *>(output), w);
+#else
+    FastQuatBlendF4(w, qt0, output, output);
+#endif
+}
+
+inline void TranF3Interp(float w, float *&data0, float *&data1, float *output) {
+    TranF3(data0, qt0);
+    TranF3(data1, output);
+    LinearBlendF3(w, &qt0[4], &output[4], &output[4]);
+}
+
+inline int RawPoseChannel::GetNumBones() const {
+    RawPoseChannel *nonConst_this = const_cast<RawPoseChannel *>(this);
+    int count;
+    int *s = nonConst_this->GetNonInterpSig();
+    int *end = nonConst_this->GetInterpSig();
+    int numBones = 0;
+
+    while (s < end) {
+        count = *s++;
+        s += count;
+        numBones++;
+    }
+    return numBones;
+}
 
 }; // namespace EAGL4Anim
 

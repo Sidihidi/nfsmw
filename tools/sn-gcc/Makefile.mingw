@@ -1,0 +1,72 @@
+# Windows build (i686, mingw-w64) of SN Systems' GCC 2.95.3 ("SN BUILD v1.79 for Nintendo Gamecube")
+# cc1.exe / cc1plus.exe, from SN's GPL source, with SN's own MSVC/WinNT host configuration (config.h,
+# hconfig.h, auto-host.h and SNMisc.c exactly as SN shipped them; build.sh puts them back).
+#
+# The generated files (insn-*.c, genrtl.*, tree-check.h) come from the Linux generator run of
+# Makefile.linux (GEN): they do not depend on the host (HOST_WIDE_INT is 32 bits on both), so no Windows
+# program has to run during the build.  -Wl,--no-insert-timestamp makes the .exe reproducible.
+MAKEFLAGS += -r
+.SUFFIXES:
+SRC   := src/gcc
+INC   := src/include
+GEN   ?= gen
+OBJ   ?= objw
+BIN   ?= .
+MINGW_CC ?= i686-w64-mingw32-gcc
+CC    := $(MINGW_CC)
+DEFS  := -DIN_GCC -DHAIFA -DCROSS_COMPILE -DMULTIBYTE_CHARS
+INCS  := -I$(GEN) -I$(SRC) -I$(SRC)/config -I$(INC)
+CFLAGS := -O2 -std=gnu89 -w -fcommon -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks $(EXTRA) $(DEFS) $(INCS)
+LDFLAGS := -static -Wl,--no-insert-timestamp $(LDEXTRA)
+
+BACKEND := toplev version tree print-tree stor-layout fold-const function \
+ stmt except expr calls expmed explow optabs intl varasm rtl print-rtl rtlanal \
+ emit-rtl real dbxout sdbout dwarfout dwarf2out xcoffout bitmap alias \
+ gcse integrate jump cse loop unroll flow stupid combine varray regclass \
+ regmove local-alloc global reload reload1 caller-save reorg \
+ haifa-sched final recog reg-stack lcm profile getpwd convert mbchar \
+ dyn-string splay-tree graph sbitmap resource hash obstack SNMisc
+GENC := genrtl insn-peep insn-opinit insn-recog insn-extract insn-output insn-emit insn-attrtab
+C_OBJS   := c-parse c-lang c-lex c-pragma c-decl c-typeck c-convert c-aux-info c-common c-iterate
+CXX_OBJS := c-common c-pragma cp/call cp/decl cp/errfn cp/expr cp/pt cp/sig \
+ cp/typeck2 cp/class cp/decl2 cp/error cp/lex cp/parse cp/ptree cp/rtti \
+ cp/spew cp/typeck cp/cvt cp/except cp/friend cp/init cp/method cp/search \
+ cp/semantics cp/tree cp/xref cp/repo
+
+BO := $(addprefix $(OBJ)/,$(addsuffix .o,$(BACKEND))) $(addprefix $(OBJ)/g-,$(addsuffix .o,$(GENC)))
+CO := $(addprefix $(OBJ)/,$(addsuffix .o,$(C_OBJS)))
+XO := $(addprefix $(OBJ)/,$(addsuffix .o,$(CXX_OBJS)))
+
+all: $(BIN)/cc1plus.exe $(BIN)/cc1.exe
+
+# SN_CPP_BUILD selects cp/cp-tree.h in rs6000.c (SN's vsgcc.dsp defines it for cc1plus).  varasm.c is
+# compiled a second time for cc1plus with SN_DOLLAR_LC (patches/dollar-lc.patch): the $LC convention is
+# only in cc1plus, as in the binary patch it replaces.
+$(BIN)/cc1plus.exe: $(filter-out $(OBJ)/varasm.o,$(BO)) $(OBJ)/varasm-cxx.o $(OBJ)/rs6000-cxx.o $(XO)
+	$(CC) $(LDFLAGS) -o $@ $^
+$(BIN)/cc1.exe: $(BO) $(OBJ)/rs6000.o $(CO)
+	$(CC) $(LDFLAGS) -o $@ $^
+$(OBJ)/%.o: $(SRC)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJ)/g-%.o: $(GEN)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJ)/toplev.o: $(SRC)/toplev.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DTARGET_NAME=\"Dolphin\" -c -o $@ $<
+$(OBJ)/intl.o: $(SRC)/intl.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DLOCALEDIR=\"//locale\" -c -o $@ $<
+$(OBJ)/rs6000.o: $(SRC)/config/rs6000/rs6000.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJ)/rs6000-cxx.o: $(SRC)/config/rs6000/rs6000.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DSN_CPP_BUILD -c -o $@ $<
+$(OBJ)/varasm-cxx.o: $(SRC)/varasm.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DSN_DOLLAR_LC -c -o $@ $<
+clean:
+	rm -rf $(OBJ) $(BIN)/cc1.exe $(BIN)/cc1plus.exe
+.PHONY: all clean

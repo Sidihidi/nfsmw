@@ -21,6 +21,7 @@ extern "C" {
 #endif
 
 int SNDSTRM_setvol(int sndStrmHandle, Snd::Channel sourceChannel, float volume) {
+    SNDI_CHECKINSTALLED();
     int i = 0;
     SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndStrmHandle);
 

@@ -71,7 +71,7 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
             floorKey = 0;
         } else {
 
-            int timeIndex;
+            int timeIndex = 0;
 
             if (mPrevKey) {
 
@@ -128,18 +128,80 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
 
     if (boneMask == nullptr) {
 
-        StatelessF3::DofInfo *dofInfos = statelessF3->GetDofInfo();
         short *dataBuf = statelessF3->GetData();
-        short *frameData = statelessF3->GetFrameData(dataBuf, floorKey);
+        StatelessF3::DofInfo *dofInfos = statelessF3->GetDofInfo();
         unsigned short *dofIdxs = statelessF3->mDofIdxs;
+        short *frameData = statelessF3->GetFrameData(dataBuf, floorKey);
         int nBones = statelessF3->mNumBones;
+#ifndef EA_PLATFORM_PLAYSTATION2
         int ibone;
         int index;
+#endif
 
         if (slerpReqd) {
 
             int nextKey = floorKey + 1;
             short *nextFrameData = statelessF3->GetFrameData(dataBuf, nextKey);
+
+            // asm de EA en PS2 (VU0 autorizado en la ronda 17; docs/asm-de-ea.md): en las dos PS2 los bucles de huesos
+            // son bloques de asm con addi (el compilador da addiu), j a etiqueta local con nop propio, $8-$12 fijos en
+            // todos los bloques y lqc2/qmtc2.ni/vmulx/ctc2/vmfir/vitof0 sin patron en ee-gcc. Los registros de los
+            // operandos los reparte el compilador.
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "ori $9, $0, 4\n"
+                             "lui $11, 0x3f80\n"
+                             "mtc1 $11, $f4\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lh $10, 0(%1)\n"
+                             "mult $10, $10, $9\n"
+                             "addu $10, %2, $10\n"
+                             "lh $8, 0(%3)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.x vf1, vi1\n"
+                             "lh $8, 2(%3)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.y vf1, vi1\n"
+                             "lh $8, 4(%3)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.z vf1, vi1\n"
+                             "lh $8, 0(%4)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.x vf2, vi1\n"
+                             "lh $8, 2(%4)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.y vf2, vi1\n"
+                             "lh $8, 4(%4)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.z vf2, vi1\n"
+                             "lqc2 vf4, 16(%5)\n"
+                             "vitof0.xyzw vf1, vf1\n"
+                             "vmul.xyz vf1, vf4, vf1\n"
+                             "vitof0.xyzw vf2, vf2\n"
+                             "vmul.xyz vf2, vf4, vf2\n"
+                             "qmtc2.ni %6, vf3\n"
+                             "vsub.xyz vf2, vf2, vf1\n"
+                             "vmulx.xyzw vf2, vf2, vf3x\n"
+                             "vadd.xyz vf2, vf2, vf1\n"
+                             "sqc2 vf2, 0($10)\n"
+                             "swc1 $f4, 12($10)\n"
+                             "addiu %3, %3, 6\n"
+                             "addiu %4, %4, 6\n"
+                             "addiu %1, %1, 2\n"
+                             "addiu %5, %5, 32\n"
+                             "addi %0, %0, -1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(nBones), "r"(dofIdxs), "r"(sqt), "r"(frameData), "r"(nextFrameData), "r"(dofInfos),
+                               "r"(scale)
+                             : "$8", "$9", "$10", "$11", "$f4");
+#else
             UMath::Vector3 prev;
             UMath::Vector3 next;
 
@@ -156,8 +218,49 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
                 sqt[index + 1] = prev.y + scale * (next.y - prev.y);
                 sqt[index + 2] = prev.z + scale * (next.z - prev.z);
             }
+#endif
         } else {
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "ori $9, $0, 4\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lh $10, 0(%1)\n"
+                             "mult $10, $10, $9\n"
+                             "addu $10, %2, $10\n"
+                             "lh $8, 0(%3)\n"
+                             "mtc1 $8, $f4\n"
+                             "cvt.s.w $f4, $f4\n"
+                             "lwc1 $f5, 16(%4)\n"
+                             "mul.s $f5, $f5, $f4\n"
+                             "lh $8, 2(%3)\n"
+                             "mtc1 $8, $f4\n"
+                             "cvt.s.w $f4, $f4\n"
+                             "lwc1 $f6, 20(%4)\n"
+                             "mul.s $f6, $f6, $f4\n"
+                             "lh $8, 4(%3)\n"
+                             "mtc1 $8, $f4\n"
+                             "cvt.s.w $f4, $f4\n"
+                             "lwc1 $f7, 24(%4)\n"
+                             "mul.s $f7, $f7, $f4\n"
+                             "swc1 $f5, 0($10)\n"
+                             "swc1 $f6, 4($10)\n"
+                             "swc1 $f7, 8($10)\n"
+                             "addiu %3, %3, 6\n"
+                             "addiu %1, %1, 2\n"
+                             "addiu %4, %4, 32\n"
+                             "addi %0, %0, -1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(nBones), "r"(dofIdxs), "r"(sqt), "r"(frameData), "r"(dofInfos)
+                             : "$8", "$9", "$10", "$f4", "$f5", "$f6", "$f7");
+#else
             for (ibone = 0; ibone < nBones; ibone++) {
 
                 index = dofIdxs[ibone];
@@ -167,6 +270,7 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
                 sqt[index + 2] = rangePtr[2] * frameData[2];
                 frameData += 3;
             }
+#endif
         }
 
         if (statelessF3->mNumConstBones) {
@@ -174,6 +278,33 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
             unsigned short *constIdxs = statelessF3->GetConstBoneIdx();
             float *constBuf = statelessF3->GetConstData(dataBuf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "ori $9, $0, 4\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lh $10, 0(%1)\n"
+                             "mult $10, $10, $9\n"
+                             "addu $10, %2, $10\n"
+                             "lw $8, 0(%3)\n"
+                             "sw $8, 0($10)\n"
+                             "lw $8, 4(%3)\n"
+                             "sw $8, 4($10)\n"
+                             "lw $8, 8(%3)\n"
+                             "sw $8, 8($10)\n"
+                             "addiu %3, %3, 12\n"
+                             "addiu %1, %1, 2\n"
+                             "addi %0, %0, -1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(statelessF3->mNumConstBones), "r"(constIdxs), "r"(sqt), "r"(constBuf)
+                             : "$8", "$9", "$10");
+#else
             for (ibone = 0; ibone < statelessF3->mNumConstBones; ibone++) {
 
                 index = constIdxs[ibone];
@@ -181,6 +312,7 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
                 sqt[index + 1] = constBuf[ibone * 3 + 1];
                 sqt[index + 2] = constBuf[ibone * 3 + 2];
             }
+#endif
         }
     } else {
 
@@ -190,7 +322,7 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
     return true;
 }
 
-bool FnStatelessF3::EvalSQTMask(float, float *sqt, const BoneMask *boneMask, bool slerpReqd, int floorKey,
+bool FnStatelessF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask, bool slerpReqd, int floorKey,
                                 float scale) {
 
     if (boneMask != mBoneMask) {
@@ -199,10 +331,10 @@ bool FnStatelessF3::EvalSQTMask(float, float *sqt, const BoneMask *boneMask, boo
     }
 
     StatelessF3 *statelessF3 = reinterpret_cast<StatelessF3 *>(mpAnim);
-    StatelessF3::DofInfo *dofInfos = statelessF3->GetDofInfo();
     short *dataBuf = statelessF3->GetData();
-    short *frameData = statelessF3->GetFrameData(dataBuf, floorKey);
+    StatelessF3::DofInfo *dofInfos = statelessF3->GetDofInfo();
     unsigned short *dofIdxs = statelessF3->mDofIdxs;
+    short *frameData = statelessF3->GetFrameData(dataBuf, floorKey);
     int nBones = statelessF3->mNumBones;
     unsigned char boneIdxs[120];
     int ibone;
@@ -235,9 +367,9 @@ bool FnStatelessF3::EvalSQTMask(float, float *sqt, const BoneMask *boneMask, boo
                 nextFrameData += 3;
 
                 index = dofIdxs[ibone];
-                sqt[index] = prev.x + scale * (next.x - prev.x);
-                sqt[index + 1] = prev.y + scale * (next.y - prev.y);
-                sqt[index + 2] = prev.z + scale * (next.z - prev.z);
+                sqt[index] = scale * (next.x - prev.x) + prev.x;
+                sqt[index + 1] = scale * (next.y - prev.y) + prev.y;
+                sqt[index + 2] = scale * (next.z - prev.z) + prev.z;
             }
         }
     } else {
@@ -284,18 +416,76 @@ bool FnStatelessF3::EvalSQTfast(float currTime, float *sqt, const BoneMask *bone
     if (boneMask == nullptr) {
 
         StatelessF3 *statelessF3 = reinterpret_cast<StatelessF3 *>(mpAnim);
-        StatelessF3::DofInfo *dofInfos = statelessF3->GetDofInfo();
         short *dataBuf = statelessF3->GetData();
-        short *frameData = statelessF3->GetFrameData(dataBuf, floorKey);
+        StatelessF3::DofInfo *dofInfos = statelessF3->GetDofInfo();
         unsigned short *dofIdxs = statelessF3->mDofIdxs;
+        short *frameData = statelessF3->GetFrameData(dataBuf, floorKey);
         int nBones = statelessF3->mNumBones;
+#ifndef EA_PLATFORM_PLAYSTATION2
         int ibone;
         int index;
+#endif
 
         if (slerpReqd) {
 
             int nextKey = floorKey + 1;
             short *nextFrameData = statelessF3->GetFrameData(dataBuf, nextKey);
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "ori $9, $0, 4\n"
+                             "lui $11, 0x3f80\n"
+                             "mtc1 $11, $f4\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lh $10, 0(%1)\n"
+                             "mult $10, $10, $9\n"
+                             "addu $10, %2, $10\n"
+                             "lh $8, 0(%3)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.x vf1, vi1\n"
+                             "lh $8, 2(%3)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.y vf1, vi1\n"
+                             "lh $8, 4(%3)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.z vf1, vi1\n"
+                             "lh $8, 0(%4)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.x vf2, vi1\n"
+                             "lh $8, 2(%4)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.y vf2, vi1\n"
+                             "lh $8, 4(%4)\n"
+                             "ctc2 $8, $vi1\n"
+                             "vmfir.z vf2, vi1\n"
+                             "lqc2 vf4, 16(%5)\n"
+                             "vitof0.xyzw vf1, vf1\n"
+                             "vmul.xyz vf1, vf4, vf1\n"
+                             "vitof0.xyzw vf2, vf2\n"
+                             "vmul.xyz vf2, vf4, vf2\n"
+                             "qmtc2.ni %6, vf3\n"
+                             "vsub.xyz vf2, vf2, vf1\n"
+                             "vmulx.xyzw vf2, vf2, vf3x\n"
+                             "vadd.xyz vf2, vf2, vf1\n"
+                             "sqc2 vf2, 0($10)\n"
+                             "swc1 $f4, 12($10)\n"
+                             "addiu %3, %3, 6\n"
+                             "addiu %4, %4, 6\n"
+                             "addiu %1, %1, 2\n"
+                             "addiu %5, %5, 32\n"
+                             "addi %0, %0, -1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(nBones), "r"(dofIdxs), "r"(sqt), "r"(frameData), "r"(nextFrameData), "r"(dofInfos),
+                               "r"(scale)
+                             : "$8", "$9", "$10", "$11", "$f4");
+#else
             UMath::Vector3 prev;
             UMath::Vector3 next;
 
@@ -312,8 +502,49 @@ bool FnStatelessF3::EvalSQTfast(float currTime, float *sqt, const BoneMask *bone
                 sqt[index + 1] = prev.y + scale * (next.y - prev.y);
                 sqt[index + 2] = prev.z + scale * (next.z - prev.z);
             }
+#endif
         } else {
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "ori $9, $0, 4\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lh $10, 0(%1)\n"
+                             "mult $10, $10, $9\n"
+                             "addu $10, %2, $10\n"
+                             "lh $8, 0(%3)\n"
+                             "mtc1 $8, $f4\n"
+                             "cvt.s.w $f4, $f4\n"
+                             "lwc1 $f5, 16(%4)\n"
+                             "mul.s $f5, $f5, $f4\n"
+                             "lh $8, 2(%3)\n"
+                             "mtc1 $8, $f4\n"
+                             "cvt.s.w $f4, $f4\n"
+                             "lwc1 $f6, 20(%4)\n"
+                             "mul.s $f6, $f6, $f4\n"
+                             "lh $8, 4(%3)\n"
+                             "mtc1 $8, $f4\n"
+                             "cvt.s.w $f4, $f4\n"
+                             "lwc1 $f7, 24(%4)\n"
+                             "mul.s $f7, $f7, $f4\n"
+                             "swc1 $f5, 0($10)\n"
+                             "swc1 $f6, 4($10)\n"
+                             "swc1 $f7, 8($10)\n"
+                             "addiu %3, %3, 6\n"
+                             "addiu %1, %1, 2\n"
+                             "addiu %4, %4, 32\n"
+                             "addi %0, %0, -1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(nBones), "r"(dofIdxs), "r"(sqt), "r"(frameData), "r"(dofInfos)
+                             : "$8", "$9", "$10", "$f4", "$f5", "$f6", "$f7");
+#else
             for (ibone = 0; ibone < nBones; ibone++) {
 
                 index = dofIdxs[ibone];
@@ -323,6 +554,7 @@ bool FnStatelessF3::EvalSQTfast(float currTime, float *sqt, const BoneMask *bone
                 sqt[index + 2] = dofInfo.mRange[2] * frameData[2];
                 frameData += 3;
             }
+#endif
         }
 
         if (statelessF3->mNumConstBones) {
@@ -330,6 +562,33 @@ bool FnStatelessF3::EvalSQTfast(float currTime, float *sqt, const BoneMask *bone
             unsigned short *constIdxs = statelessF3->GetConstBoneIdx();
             float *constBuf = statelessF3->GetConstData(dataBuf);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+            asm __volatile__(".set noreorder\n"
+                             "ori $9, $0, 4\n"
+                             "1:\n"
+                             "blez %0, 2f\n"
+                             "nop\n"
+                             "lh $10, 0(%1)\n"
+                             "mult $10, $10, $9\n"
+                             "addu $10, %2, $10\n"
+                             "lw $8, 0(%3)\n"
+                             "sw $8, 0($10)\n"
+                             "lw $8, 4(%3)\n"
+                             "sw $8, 4($10)\n"
+                             "lw $8, 8(%3)\n"
+                             "sw $8, 8($10)\n"
+                             "addiu %3, %3, 12\n"
+                             "addiu %1, %1, 2\n"
+                             "addi %0, %0, -1\n"
+                             "j 1b\n"
+                             "nop\n"
+                             "2:\n"
+                             "nop\n"
+                             ".set reorder"
+                             :
+                             : "r"(statelessF3->mNumConstBones), "r"(constIdxs), "r"(sqt), "r"(constBuf)
+                             : "$8", "$9", "$10");
+#else
             for (ibone = 0; ibone < statelessF3->mNumConstBones; ibone++) {
 
                 index = constIdxs[ibone];
@@ -337,6 +596,7 @@ bool FnStatelessF3::EvalSQTfast(float currTime, float *sqt, const BoneMask *bone
                 sqt[index + 1] = constBuf[ibone * 3 + 1];
                 sqt[index + 2] = constBuf[ibone * 3 + 2];
             }
+#endif
         }
     } else {
 

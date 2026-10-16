@@ -64,11 +64,11 @@ void CWorldAnimCtrl::Clear() {
     m_localDelayTime = 0.0f;
     m_isAllocated = 0;
     LocalDelayElapsed = 0.0f;
-    m_f_speed_modifier = 1.0f;
+    MasterDelayElapsed = 0.0f;
     PlayDirection = eACPD_FWD;
     PlayState = eACPS_STOPPED;
     StartType = eACST_IMMEDIATE;
-    MasterDelayElapsed = 0.0f;
+    m_f_speed_modifier = 1.0f;
 }
 
 void CWorldAnimCtrl::SetEvalTime(float time) {
@@ -100,9 +100,9 @@ void CWorldAnimCtrl::Cleanup() {
 }
 
 void CWorldAnimCtrl::SetLoopRange(uint32 loop_range_start, uint32 loop_range_end) {
-    m_loop_range_end = loop_range_end;
-    m_loop_range_start = loop_range_start;
     m_flags |= 0x40;
+    m_loop_range_start = loop_range_start;
+    m_loop_range_end = loop_range_end;
 }
 
 float CWorldAnimCtrl::GetLoopRangeScaledStart() {
@@ -143,8 +143,8 @@ void CWorldAnimCtrl::Play() {
 }
 
 void CWorldAnimCtrl::Stop() {
-    m_evalTime = 0.0f;
     PlayState = eACPS_STOPPED;
+    m_evalTime = 0.0f;
 }
 
 void CWorldAnimCtrl::Pause() {
@@ -164,8 +164,8 @@ void CWorldAnimCtrl::JumpToEndForTrigger() {
 }
 
 void CWorldAnimCtrl::JumpToBeginForTrigger() {
-    PlayState = eACPS_PAUSED;
     m_evalTime = 0.0f;
+    PlayState = eACPS_PAUSED;
     PlayDirection = eACPD_FWD;
 }
 
@@ -198,7 +198,7 @@ int CWorldAnimCtrl::AdvanceAnimTime(float timestep) {
 
     bool triggered = m_flags & 0x800;
     bool linear = m_flags & 8;
-    bool loop = m_flags & 0x20 ? !triggered : false;
+    bool loop = (m_flags & 0x20) && !triggered;
     bool pingpong = m_flags & 0x10;
     bool range;
     bool print_out_here;

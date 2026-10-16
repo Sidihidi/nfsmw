@@ -35,7 +35,6 @@ int SNDAEMS_addmodulebank(void *pBank, char *streamFileName, int streamFileNameO
             errorcode = midiret;
             goto abort;
         }
-        errorcode = midiret;
     }
 
     residentSize = pModuleBank->residentsize;

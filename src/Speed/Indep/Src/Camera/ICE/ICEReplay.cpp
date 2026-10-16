@@ -38,7 +38,7 @@ static float ReplayNosScore(ICEAnchor *pAnchor) {
     return score;
 }
 
-static bool ReplayNosMirror(ICEAnchor *pAnchor) {
+static bool ReplayNosMirror(ICEAnchor *p_car) {
 
     return false;
 }
@@ -224,6 +224,15 @@ unsigned int GetReplayCategoryHash(int n) {
     return ReplayCategoryTable[n].nNameHash;
 }
 
+char *GetReplayCategoryName(unsigned int category_hash) {
+    for (int i = 0; i < 6; i++) {
+        if (category_hash == ReplayCategoryTable[i].nNameHash) {
+            return ReplayCategoryTable[i].pName;
+        }
+    }
+    return "Unknown";
+}
+
 ReplayCategory *GetReplayCategory(unsigned int hash) {
 
     for (int i = 0; i < 6; i++) {
@@ -255,7 +264,7 @@ bool ICEReplay::CameraCutIsGood(ICEData *camera, float param, ICEAnchor *p_car) 
     ICE::Matrix4 mWorldToCar;
 
     ICE::Copy(&mCarToWorld, p_car->GetGeometryOrientation(), p_car->GetGeometryPosition());
-    ICE::Invert(&mWorldToCar, &mCarToWorld);
+    ICE::InvertTransformationMatrix(&mWorldToCar, &mCarToWorld);
 
     ICE::Vector3 *p_pos = reinterpret_cast<ICE::Vector3 *>(old_cam->GetPosition());
     ICE::Vector3 *p_tar = reinterpret_cast<ICE::Vector3 *>(old_cam->GetTarget());

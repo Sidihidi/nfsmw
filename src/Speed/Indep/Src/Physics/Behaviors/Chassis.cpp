@@ -232,7 +232,7 @@ void Chassis::ComputeAckerman(float steering, const Chassis::State &state, UMath
     // Ackermann steering geometry causes the outside wheel to have a smaller turning angle than the inside wheel
     // this is determined by the distance of the wheel to the center of the rear axle
     // this equation is a modified version of 1/tan(L/(R+T/2)), where L is the wheelbase, R is the steering radius, and T is the track width
-    float steer_outside = (wheelbase * steer_inside) / (wheeltrack * steer_inside + wheelbase);
+    float steer_outside = (wheelbase * steer_inside) / (wheelbase + wheeltrack * steer_inside);
     float steer0, steer1; // 0 - right, 1 - left
     if (going_right) {
         steer0 = steer_inside;
@@ -427,7 +427,7 @@ void Chassis::DoAerodynamics(const Chassis::State &state, float drag_pct, float 
             UVector3 aero_center(state.cog.x, state.cog.y, state.cog.z);
             // when at least 1 wheel is grounded, change the downforce forward position using the aero CG and axle positions
             if (state.ground_effect != 0.0f) {
-                aero_center.z = (aero_front_z - aero_rear_z) * (this->mAttributes.AERO_CG() * 0.01f) + aero_rear_z;
+                aero_center.z = aero_rear_z + (aero_front_z - aero_rear_z) * (this->mAttributes.AERO_CG() * 0.01f);
             }
 
             if (Tweak_PlaneDynamics != 0.0f) {

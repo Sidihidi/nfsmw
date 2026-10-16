@@ -1,11 +1,11 @@
 #include "./sndcmn.h"
 
-float SNDI_cos(float x) {
-    while (x > 6.2831855f) {
-        x -= 6.2831855f;
+float SNDI_cos(float input) {
+    while (input > 6.2831855f) {
+        input -= 6.2831855f;
     }
 
-    float x2 = x * x;
+    float x2 = input * input;
     float x4 = x2 * x2;
     float x6 = x2 * x4;
     float x8 = x4 * x4;

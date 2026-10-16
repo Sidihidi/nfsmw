@@ -27,8 +27,6 @@ class MPerpEscaped : public Hermes::Message {
 
     MPerpEscaped(HSIMABLE _Perpetrator) : Hermes::Message(_GetKind(), _GetSize(), 0), fPerpetrator(_Perpetrator) {}
 
-    ~MPerpEscaped() {}
-
     HSIMABLE GetPerpetrator() const {
         return fPerpetrator;
     }
@@ -46,9 +44,9 @@ class MPerpEscaped : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MPerpEscaped::HandleMessage_LuaBinding(const MPerpEscaped &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MPerpEscaped::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

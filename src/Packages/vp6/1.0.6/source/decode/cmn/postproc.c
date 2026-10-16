@@ -1,126 +1,52 @@
-typedef int INT32;
-typedef unsigned char UINT8;
-typedef unsigned int UINT32;
+#include "postp.h"
+#include "duck_mem.h"
 
-typedef struct {
-    unsigned int VideoFrameWidth;
-    unsigned int VideoFrameHeight;
-    int YStride;
-    int UVStride;
-    unsigned int HFragPixels;
-    unsigned int VFragPixels;
-    unsigned int HScale;
-    unsigned int HRatio;
-    unsigned int VScale;
-    unsigned int VRatio;
-    unsigned int ScalingMode;
-    unsigned int Interlaced;
-    unsigned int ExpandedFrameWidth;
-    unsigned int ExpandedFrameHeight;
-} CONFIG_TYPE;
+#include <stdlib.h>
+#include <math.h>
 
-typedef struct {
-    int Vp3VersionNo;
-    int FrameType;
-    int PostProcessingLevel;
-    int FrameQIndex;
-    unsigned char *LastFrameRecon;
-    unsigned char *PostProcessBuffer;
-    unsigned char *FragInfo;
-    unsigned int FragInfoElementSize;
-    unsigned int FragInfoCodedMask;
-    int *FragQIndex;
-    int *FragmentVariances;
-    unsigned char *FragDeblockingFlag;
-    int *BoundingValuePtr;
-    int *FiltBoundingValue;
-    int *DeblockValuePtr;
-    int *DeblockBoundingValue;
-    CONFIG_TYPE Configuration;
-    unsigned int ReconYDataOffset;
-    unsigned int ReconUDataOffset;
-    unsigned int ReconVDataOffset;
-    unsigned int YPlaneFragments;
-    unsigned int UVPlaneFragments;
-    unsigned int UnitFragments;
-    unsigned int HFragments;
-    unsigned int VFragments;
-    int YStride;
-    int UVStride;
-    int *FiltBoundingValueAlloc;
-    int *DeblockBoundingValueAlloc;
-    int *FragQIndexAlloc;
-    int *FragmentVariancesAlloc;
-    unsigned char *FragDeblockingFlagAlloc;
-    unsigned int MVBorder;
-    unsigned char *IntermediateBufferAlloc;
-    unsigned char *IntermediateBuffer;
-    unsigned int DeInterlaceMode;
-    unsigned int AddNoiseMode;
-} POSTPROC_INSTANCE;
-
-extern void *duck_malloc(unsigned long size, int type);
-extern void duck_free(void *mem);
-extern void PostProcMachineSpecificConfig(UINT32 Version);
+/* Asi las declara esta unidad y no con los prototipos de <string.h>: en
+   GameCube memcpy se llama sin prototipo (lleva crclr delante) y el memset de
+   CreatePostProcInstance no se expande como incorporado. */
 extern void *memset(void *, int, unsigned long);
 extern void *memcpy();
-extern void SimpleDeblockFrame(POSTPROC_INSTANCE *ppi, UINT8 *SrcPtr, UINT8 *DesPtr);
-extern void DeblockFrame(POSTPROC_INSTANCE *ppi, UINT8 *SrcPtr, UINT8 *DesPtr);
-extern void DeblockFrameInterlaced(POSTPROC_INSTANCE *ppi, UINT8 *SrcPtr, UINT8 *DesPtr);
-extern void DeringFrame(POSTPROC_INSTANCE *ppi, UINT8 *SrcPtr, UINT8 *DesPtr);
-extern void DeringFrameInterlaced(POSTPROC_INSTANCE *ppi, UINT8 *SrcPtr, UINT8 *DesPtr);
-extern void UpdateUMVBorder(POSTPROC_INSTANCE *ppi, UINT8 *DesPtr);
-extern double exp(double);
-extern int rand(void);
-extern double sqrt(double);
-
-extern UINT32 *DCQuantScaleV2;
-extern UINT32 *DCQuantScaleUV;
-extern UINT32 *DCQuantScaleV1;
-extern UINT32 DeringModifierV1[64];
-extern UINT32 *LoopFilterLimitValuesV2;
-extern UINT32 *DeblockLimitValuesV2;
-extern UINT32 LoopFilterLimitValuesVp4[64];
-extern UINT32 LoopFilterLimitValuesVp5[64];
-extern UINT32 LoopFilterLimitValuesVp6[64];
-extern UINT32 DeblockLimitValuesVp4[64];
-extern UINT32 DeblockLimitValuesVp5[64];
-extern UINT32 DeblockLimitValuesVp6[64];
 
 UINT8 LimitVal_VP31[768];
 
-void (*FilteringVert_12)(unsigned int, unsigned char *, int);
-void (*FilteringHoriz_12)(unsigned int, unsigned char *, int);
-void (*FilteringVert_8)(unsigned int, unsigned char *, int);
-void (*FilteringHoriz_8)(unsigned int, unsigned char *, int);
-void (*VerticalBand_4_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*LastVerticalBand_4_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*VerticalBand_3_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*LastVerticalBand_3_5_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*HorizontalLine_1_2_Scale)(const unsigned char *, unsigned int, unsigned char *, unsigned int);
-void (*HorizontalLine_3_5_Scale)(const unsigned char *, unsigned int, unsigned char *, unsigned int);
-void (*HorizontalLine_4_5_Scale)(const unsigned char *, unsigned int, unsigned char *, unsigned int);
-void (*VerticalBand_1_2_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*LastVerticalBand_1_2_Scale)(unsigned char *, unsigned int, unsigned int);
-void (*FilterHoriz_Simple)(POSTPROC_INSTANCE *, unsigned char *, int, int *);
-void (*FilterVert_Simple)(POSTPROC_INSTANCE *, unsigned char *, int, int *);
-void (*DeringBlockWeak)(POSTPROC_INSTANCE *, const unsigned char *, unsigned char *, int, unsigned int,
-                        unsigned int *);
-void (*DeringBlockStrong)(POSTPROC_INSTANCE *, const unsigned char *, unsigned char *, int,
-                          unsigned int, unsigned int *);
-void (*DeblockLoopFilteredBand)(POSTPROC_INSTANCE *, unsigned char *, unsigned char *, unsigned int,
-                                unsigned int, unsigned int, unsigned int *);
-void (*DeblockNonFilteredBand)(POSTPROC_INSTANCE *, unsigned char *, unsigned char *, unsigned int,
-                               unsigned int, unsigned int, unsigned int *);
-void (*DeblockNonFilteredBandNewFilter)(POSTPROC_INSTANCE *, unsigned char *, unsigned char *,
-                                        unsigned int, unsigned int, unsigned int, unsigned int *);
-int *(*SetupBoundingValueArray)(POSTPROC_INSTANCE *, int);
-int *(*SetupDeblockValueArray)(POSTPROC_INSTANCE *, int);
-void (*FilterHoriz)(POSTPROC_INSTANCE *, unsigned char *, int, int *);
-void (*FilterVert)(POSTPROC_INSTANCE *, unsigned char *, int, int *);
-void (*ClampLevels)(POSTPROC_INSTANCE *, int, int, unsigned char *, unsigned char *);
-void (*FastDeInterlace)(unsigned char *, unsigned char *, int, int, int);
-void (*PlaneAddNoise)(unsigned char *, unsigned int, unsigned int, int, int);
+void (*FilteringVert_12)(UINT32 QValue, UINT8 *Src, INT32 Pitch);
+void (*FilteringHoriz_12)(UINT32 QValue, UINT8 *Src, INT32 Pitch);
+void (*FilteringVert_8)(UINT32 QValue, UINT8 *Src, INT32 Pitch);
+void (*FilteringHoriz_8)(UINT32 QValue, UINT8 *Src, INT32 Pitch);
+void (*VerticalBand_4_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*LastVerticalBand_4_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*VerticalBand_3_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*LastVerticalBand_3_5_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*HorizontalLine_1_2_Scale)(const unsigned char *source, unsigned int sourceWidth, unsigned char *dest,
+                                 unsigned int destWidth);
+void (*HorizontalLine_3_5_Scale)(const unsigned char *source, unsigned int sourceWidth, unsigned char *dest,
+                                 unsigned int destWidth);
+void (*HorizontalLine_4_5_Scale)(const unsigned char *source, unsigned int sourceWidth, unsigned char *dest,
+                                 unsigned int destWidth);
+void (*VerticalBand_1_2_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*LastVerticalBand_1_2_Scale)(unsigned char *dest, unsigned int destPitch, unsigned int destWidth);
+void (*FilterHoriz_Simple)(xPB_INST ppi, UINT8 *PixelPtr, INT32 LineLength, INT32 *BoundingValuePtr);
+void (*FilterVert_Simple)(xPB_INST ppi, UINT8 *PixelPtr, INT32 LineLength, INT32 *BoundingValuePtr);
+void (*DeringBlockWeak)(xPB_INST pbi, const UINT8 *SrcPtr, UINT8 *DstPtr, INT32 Pitch, UINT32 FragQIndex,
+                        UINT32 *QuantScale);
+void (*DeringBlockStrong)(xPB_INST pbi, const UINT8 *SrcPtr, UINT8 *DstPtr, INT32 Pitch, UINT32 FragQIndex,
+                          UINT32 *QuantScale);
+void (*DeblockLoopFilteredBand)(xPB_INST pbi, UINT8 *SrcPtr, UINT8 *DesPtr, UINT32 PlaneLineStep,
+                                UINT32 FragsAcross, UINT32 StartFrag, UINT32 *QuantScale);
+void (*DeblockNonFilteredBand)(xPB_INST pbi, UINT8 *SrcPtr, UINT8 *DesPtr, UINT32 PlaneLineStep,
+                               UINT32 FragsAcross, UINT32 StartFrag, UINT32 *QuantScale);
+void (*DeblockNonFilteredBandNewFilter)(xPB_INST pbi, UINT8 *SrcPtr, UINT8 *DesPtr, UINT32 PlaneLineStep,
+                                        UINT32 FragsAcross, UINT32 StartFrag, UINT32 *QuantScale);
+INT32 *(*SetupBoundingValueArray)(xPB_INST ppi, INT32 FLimit);
+INT32 *(*SetupDeblockValueArray)(xPB_INST pbi, INT32 FLimit);
+void (*FilterHoriz)(xPB_INST ppi, UINT8 *PixelPtr, INT32 LineLength, INT32 *BoundingValuePtr);
+void (*FilterVert)(xPB_INST ppi, UINT8 *PixelPtr, INT32 LineLength, INT32 *BoundingValuePtr);
+void (*ClampLevels)(xPB_INST pbi, INT32 BlackClamp, INT32 WhiteClamp, UINT8 *Src, UINT8 *Dst);
+void (*FastDeInterlace)(UINT8 *SrcPtr, UINT8 *DstPtr, INT32 Width, INT32 Height, INT32 Stride);
+void (*PlaneAddNoise)(UINT8 *Start, UINT32 Width, UINT32 Height, INT32 Pitch, int q);
 
 void InitPostProcessing(UINT32 *DCQuantScaleV2p, UINT32 *DCQuantScaleUVp, UINT32 *DCQuantScaleV1p,
                         UINT32 Version) {
@@ -128,14 +54,7 @@ void InitPostProcessing(UINT32 *DCQuantScaleV2p, UINT32 *DCQuantScaleUVp, UINT32
 
     for (i = 0; i < 768; i++) {
         int x = i - 256;
-        if (x >= 0) {
-            if (x > 255) {
-                x = 255;
-            }
-            LimitVal_VP31[i] = x;
-        } else {
-            LimitVal_VP31[i] = 0;
-        }
+        LimitVal_VP31[i] = (x < 0) ? 0 : ((x > 255) ? 255 : x);
     }
 
     DCQuantScaleV2 = DCQuantScaleV2p;
@@ -273,15 +192,17 @@ void ChangePostProcConfiguration(POSTPROC_INSTANCE *ppi, CONFIG_TYPE *Configurat
 POSTPROC_INSTANCE *CreatePostProcInstance(CONFIG_TYPE *ConfigurationInit) {
     POSTPROC_INSTANCE *ppi;
 
-    ppi = duck_malloc(sizeof(POSTPROC_INSTANCE), 0);
-    if (ppi) {
-        memset(ppi, 0, sizeof(POSTPROC_INSTANCE));
-        ChangePostProcConfiguration(ppi, ConfigurationInit);
-        ppi->AddNoiseMode = 1;
-        return ppi;
-    }
+    ppi = duck_malloc(sizeof(POSTPROC_INSTANCE), DMEM_GENERAL);
+    if (!ppi)
+        return 0;
 
-    return 0;
+    memset(ppi, 0, sizeof(POSTPROC_INSTANCE));
+
+    ChangePostProcConfiguration(ppi, ConfigurationInit);
+
+    ppi->AddNoiseMode = 1;
+
+    return ppi;
 }
 
 void DeletePostProcInstance(POSTPROC_INSTANCE **ppi) {
@@ -384,7 +305,7 @@ void PostProcess(POSTPROC_INSTANCE *ppi, INT32 Vp3VersionNo, INT32 FrameType,
                  INT32 PostProcessingLevel, INT32 FrameQIndex, UINT8 *LastFrameRecon,
                  UINT8 *PostProcessBuffer, UINT8 *FragInfo, UINT32 FragInfoElementSize,
                  UINT32 FragInfoCodedMask) {
-    UINT32 PlaneSize;
+    UINT32 ReconUVPlaneSize;
 
     ppi->Vp3VersionNo = Vp3VersionNo;
     ppi->FrameType = FrameType;
@@ -404,11 +325,11 @@ void PostProcess(POSTPROC_INSTANCE *ppi, INT32 Vp3VersionNo, INT32 FrameType,
             if (ppi->Configuration.Interlaced && ppi->DeInterlaceMode) {
                 SimpleDeblockFrame(ppi, ppi->LastFrameRecon, ppi->IntermediateBuffer);
 
-                PlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
+                ReconUVPlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
                 memcpy(ppi->PostProcessBuffer + ppi->ReconUDataOffset,
-                       ppi->IntermediateBuffer + ppi->ReconUDataOffset, PlaneSize);
+                       ppi->IntermediateBuffer + ppi->ReconUDataOffset, ReconUVPlaneSize);
                 memcpy(ppi->PostProcessBuffer + ppi->ReconVDataOffset,
-                       ppi->IntermediateBuffer + ppi->ReconVDataOffset, PlaneSize);
+                       ppi->IntermediateBuffer + ppi->ReconVDataOffset, ReconUVPlaneSize);
 
                 FastDeInterlace(ppi->IntermediateBuffer + ppi->ReconYDataOffset,
                                 ppi->PostProcessBuffer + ppi->ReconYDataOffset,
@@ -435,11 +356,11 @@ void PostProcess(POSTPROC_INSTANCE *ppi, INT32 Vp3VersionNo, INT32 FrameType,
                 UpdateUMVBorder(ppi, ppi->IntermediateBuffer);
                 DeringFrameInterlaced(ppi, ppi->IntermediateBuffer, ppi->IntermediateBuffer);
 
-                PlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
+                ReconUVPlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
                 memcpy(ppi->PostProcessBuffer + ppi->ReconUDataOffset,
-                       ppi->IntermediateBuffer + ppi->ReconUDataOffset, PlaneSize);
+                       ppi->IntermediateBuffer + ppi->ReconUDataOffset, ReconUVPlaneSize);
                 memcpy(ppi->PostProcessBuffer + ppi->ReconVDataOffset,
-                       ppi->IntermediateBuffer + ppi->ReconVDataOffset, PlaneSize);
+                       ppi->IntermediateBuffer + ppi->ReconVDataOffset, ReconUVPlaneSize);
 
                 FastDeInterlace(ppi->IntermediateBuffer + ppi->ReconYDataOffset,
                                 ppi->PostProcessBuffer + ppi->ReconYDataOffset,
@@ -464,11 +385,11 @@ void PostProcess(POSTPROC_INSTANCE *ppi, INT32 Vp3VersionNo, INT32 FrameType,
                 if (ppi->DeInterlaceMode) {
                     DeblockFrameInterlaced(ppi, ppi->LastFrameRecon, ppi->IntermediateBuffer);
 
-                    PlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
+                    ReconUVPlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
                     memcpy(ppi->PostProcessBuffer + ppi->ReconUDataOffset,
-                           ppi->IntermediateBuffer + ppi->ReconUDataOffset, PlaneSize);
+                           ppi->IntermediateBuffer + ppi->ReconUDataOffset, ReconUVPlaneSize);
                     memcpy(ppi->PostProcessBuffer + ppi->ReconVDataOffset,
-                           ppi->IntermediateBuffer + ppi->ReconVDataOffset, PlaneSize);
+                           ppi->IntermediateBuffer + ppi->ReconVDataOffset, ReconUVPlaneSize);
 
                     FastDeInterlace(ppi->IntermediateBuffer + ppi->ReconYDataOffset,
                                     ppi->PostProcessBuffer + ppi->ReconYDataOffset,
@@ -495,11 +416,11 @@ void PostProcess(POSTPROC_INSTANCE *ppi, INT32 Vp3VersionNo, INT32 FrameType,
                 } else {
                     DeblockFrameInterlaced(ppi, ppi->LastFrameRecon, ppi->IntermediateBuffer);
 
-                    PlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
+                    ReconUVPlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
                     memcpy(ppi->PostProcessBuffer + ppi->ReconUDataOffset,
-                           ppi->IntermediateBuffer + ppi->ReconUDataOffset, PlaneSize);
+                           ppi->IntermediateBuffer + ppi->ReconUDataOffset, ReconUVPlaneSize);
                     memcpy(ppi->PostProcessBuffer + ppi->ReconVDataOffset,
-                           ppi->IntermediateBuffer + ppi->ReconVDataOffset, PlaneSize);
+                           ppi->IntermediateBuffer + ppi->ReconVDataOffset, ReconUVPlaneSize);
 
                     FastDeInterlace(ppi->IntermediateBuffer + ppi->ReconYDataOffset,
                                     ppi->PostProcessBuffer + ppi->ReconYDataOffset,
@@ -520,11 +441,11 @@ void PostProcess(POSTPROC_INSTANCE *ppi, INT32 Vp3VersionNo, INT32 FrameType,
 
     case 0:
         if (ppi->Configuration.Interlaced && ppi->DeInterlaceMode) {
-            PlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
+            ReconUVPlaneSize = ppi->VFragments * (ppi->YStride + ppi->YStride);
             memcpy(ppi->PostProcessBuffer + ppi->ReconUDataOffset,
-                   ppi->LastFrameRecon + ppi->ReconUDataOffset, PlaneSize);
+                   ppi->LastFrameRecon + ppi->ReconUDataOffset, ReconUVPlaneSize);
             memcpy(ppi->PostProcessBuffer + ppi->ReconVDataOffset,
-                   ppi->LastFrameRecon + ppi->ReconVDataOffset, PlaneSize);
+                   ppi->LastFrameRecon + ppi->ReconVDataOffset, ReconUVPlaneSize);
 
             FastDeInterlace(ppi->LastFrameRecon + ppi->ReconYDataOffset,
                             ppi->PostProcessBuffer + ppi->ReconYDataOffset,

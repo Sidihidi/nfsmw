@@ -26,7 +26,6 @@ class MEnterPostRaceFlow : public Hermes::Message {
 
     MEnterPostRaceFlow() : Hermes::Message(_GetKind(), _GetSize(), 0) {}
 
-    ~MEnterPostRaceFlow() {}
 };
 
 
@@ -34,9 +33,9 @@ class MEnterPostRaceFlow : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MEnterPostRaceFlow::HandleMessage_LuaBinding(const MEnterPostRaceFlow &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MEnterPostRaceFlow::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

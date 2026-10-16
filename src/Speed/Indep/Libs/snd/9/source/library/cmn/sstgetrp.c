@@ -11,11 +11,11 @@ Snd::SNDSTREAMREQUEST *SNDSTRMI_getrequestptr(int sndrequesthandle) {
         return NULL;
     }
 
-    Snd::SNDSTREAMREQUEST *preq = (Snd::SNDSTREAMREQUEST *)pssc->allocatedrequests.phead;
+    Snd::SNDSTREAMREQUEST *pssr = (Snd::SNDSTREAMREQUEST *)pssc->allocatedrequests.phead;
 
-    while (preq != NULL && preq->sndrequesthandle != sndrequesthandle) {
-        preq = (Snd::SNDSTREAMREQUEST *)preq->node.pnext;
+    while (pssr != NULL && pssr->sndrequesthandle != sndrequesthandle) {
+        pssr = (Snd::SNDSTREAMREQUEST *)pssr->node.pnext;
     }
 
-    return preq;
+    return pssr;
 }

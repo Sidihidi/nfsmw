@@ -29,16 +29,10 @@ void (*NFSMixMap::mMapReadyCB)() = nullptr;
 
 NFSMixMap::NFSMixMap() : AudioMemBase() {
     this->m_pStateProcs = nullptr;
-#ifdef EA_BUILD_A124
-    this->m_fDeltaTimeRatio[0] = 1.0f;
     this->m_nStateMapCount = 0;
+    // ps2_fixes pone 0.0f aqui para Black Edition; lo nuestro es lo que reproduce el DOL.
     this->m_fDeltaTimeRatio[1] = 1.0f;
-#else
-// ps2_fixes pone 0.0f aqui para Black Edition; lo nuestro es lo que reproduce el DOL.
-    this->m_fDeltaTimeRatio[1] = 1.0f;
-    this->m_nStateMapCount = 0;
     this->m_fDeltaTimeRatio[0] = 1.0f;
-#endif
 }
 
 NFSMixMap::~NFSMixMap() {}
@@ -569,10 +563,20 @@ stEvtMixCtlSharedData *NFSMixMap::GetNextEvtMixCtlShared(bool bincrement) {
 
 stEvtMixCtlUniqueData *NFSMixMap::GetNextEvtMixCtlUnique(bool bincrement) {
     stEvtMixCtlUniqueData *pAddr = &this->m_pEvtMixCtlData_U[this->m_nAssignedEvtMixCtlUnique];
+#ifdef EA_BUILD_A124
+    // La A124 devuelve la entrada sin inicializarla.
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC y X360 inicializan output antes que qoutput.
+    pAddr->output = 0;
+    pAddr->qoutput = 0x7FFF;
+#else
     pAddr->qoutput = 0x7FFF;
     pAddr->output = 0;
+#endif
+#ifndef EA_BUILD_A124
     pAddr->reset = 0;
     pAddr->reset_level = -10000;
+#endif
     if (bincrement) {
         this->m_nAssignedEvtMixCtlUnique++;
     }
@@ -677,7 +681,7 @@ stCurveDataProc *NFSMixMap::GetCurveDataPtr(stMixCtlParams *pparams) {
         return nullptr;
     }
 
-    int ncurve = (pparams->nINPUTID >> 24) & 0xF;
+    int ncurve = (static_cast<unsigned int>(pparams->nINPUTID) >> 24) & 0xF; // srl en las dos PS2
     int noffset = 0;
     for (int m = 0; m < ncurve; m++) {
         noffset += this->m_CurveProcsTotal[m][0];
@@ -784,9 +788,9 @@ void NFSMixMap::AssignMixCtlDataPtrs(stMixCtlProc *pmixctl, stMixCtlParams *ppar
         pmixctl->psdata = &this->m_pMixCtlData_S[this->m_AssignedMixCtlsShared];
         this->m_AssignedMixCtlsShared++;
     } else {
-        int ncurveid = pparms->nINPUTID & 0x00FF0000;
-        int nOBJIDType = (pparms->nINPUTID >> 16) & 0xE000U;
         int nstateid = pparms->nINPUTID & 0x0F000000U;
+        int nOBJIDType = (pparms->nINPUTID >> 16) & 0xE000U;
+        int ncurveid = pparms->nINPUTID & 0x00FF0000;
         int MIXCTLOBJID = nstateid | ncurveid | nOBJIDType | ctlcount | (this->GetMapType() << 8);
         bool bfound = false;
 
@@ -1068,18 +1072,18 @@ int *NFSMixMap::GetObjectPtr(int sfxid, bool busedB, bool bHACKINIT) {
             int ninst = (sfxid >> 11) & 0x1F;
             int nidx = sfxid & 0xFF;
             stMixCtlProc *pmxctlproc = this->m_pStateProcs[nstate]->GetMixCtlProc(nidx, ninst);
-            if (!busedB) {
-                ptr = &pmxctlproc->pudata->pstCurveData->Q15Output;
+            if (busedB) {
+                ptr = &pmxctlproc->pudata->CmpdBOut;
                 break;
             }
 
-            ptr = &pmxctlproc->pudata->CmpdBOut;
+            ptr = &pmxctlproc->pudata->pstCurveData->Q15Output;
             break;
         }
         case 0x20000000: {
             int nstate = (sfxid >> 16) & 0xFF;
             int ninst = (sfxid >> 11) & 0x1F;
-            int ntype = sfxid & 0x10000000;
+            int ntype = (sfxid >> 28) & 1;
             int nidx = sfxid & 0xFF;
 
             if (ntype == 0) {
@@ -1096,8 +1100,14 @@ int *NFSMixMap::GetObjectPtr(int sfxid, bool busedB, bool bHACKINIT) {
         }
         case 0x40000000:
         case 0x60000000: {
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+            // X360 calcula idx tras la llamada (el clrlwi va despues del bctrl).
+            int *pinput = (*this->mGetOutPtrCB)(sfxid);
+            int idx = sfxid & 0xF;
+#else
             int idx = sfxid & 0xF;
             int *pinput = (*this->mGetOutPtrCB)(sfxid);
+#endif
             if (pinput == nullptr) {
                 pinput = this->GetNextInputBlock(true);
                 (*this->mSetSFXOutCB)(sfxid, pinput);
@@ -1113,9 +1123,7 @@ int *NFSMixMap::GetObjectPtr(int sfxid, bool busedB, bool bHACKINIT) {
             int ninst = (sfxid >> 11) & 0x1F;
             int nidx = sfxid & 0xFF;
             if (bHACKINIT) {
-                p3d = this->m_pStateProcs[nState]->Get3DMixCtlProc(nidx, ninst);
-                ptr = reinterpret_cast<int *>(p3d);
-                break;
+                return reinterpret_cast<int *>(this->m_pStateProcs[nState]->Get3DMixCtlProc(nidx, ninst));
             }
 
             p3d = this->m_pStateProcs[nState]->Get3DMixCtlProc(nidx, ninst);
@@ -1326,7 +1334,7 @@ void NFSMixMap::UpdateMasterChannels() {
         pMChD_S = pMChP->pMixChData_S;
 
         if (pMChD_U->pOutputs[0xF] & 1U) {
-            pMChD_U->Output = *reinterpret_cast<short *>(&pMChD_S->pMapParams->MixData);
+            pMChD_U->Output = static_cast<short>(pMChD_S->pMapParams->MixData >> 16);
             pMChD_U->Output &= 0xFFFF;
 
             if ((pMChD_U->Output & 0x8000) != 0) {
@@ -1352,7 +1360,8 @@ void NFSMixMap::MixMasterChannels() {
 
     for (int nmst = 0; nmst < this->m_MasterChannelsAdded; pMChP++, nmst++) {
         int *pPresets = pMChP->pMixChData_S->pPRESETS;
-        int masterindex = *pPresets++;
+        // unsigned: el original extrae el tipo con desplazamiento logico (srl en las dos PS2).
+        unsigned int masterindex = *pPresets++;
         int NumPresets = masterindex & 0xF;
         int type = (masterindex >> 24) & 0xF;
 
@@ -1909,7 +1918,7 @@ void NFSMixMap::Update3DMixCtls() {
                 float fdistratio;
                 float fcents = 0.0f;
 
-                if ((this->m_CurCamState < 3) || (this->m_CurCamState == DMIX_NFS_NIS_CAM)) {
+                if ((this->m_CurCamState <= DMIX_NFS_INCAR_CAM) || (this->m_CurCamState == DMIX_NFS_NIS_CAM)) {
                     fcurdist = static_cast<float>(p3Dproc->p3DMixCtlData_U->pInputs[0]) * 0.01f;
                     fvel = static_cast<float>(p3Dproc->p3DMixCtlData_U->pInputs[13]) * 0.01f;
 

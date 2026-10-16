@@ -27,8 +27,6 @@ class MUnspawnCop : public Hermes::Message {
 
     MUnspawnCop(HSIMABLE _CopHandle, int _Param) : Hermes::Message(_GetKind(), _GetSize(), 0), fCopHandle(_CopHandle), fParam(_Param) {}
 
-    ~MUnspawnCop() {}
-
     HSIMABLE GetCopHandle() const {
         return fCopHandle;
     }
@@ -55,9 +53,9 @@ class MUnspawnCop : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MUnspawnCop::HandleMessage_LuaBinding(const MUnspawnCop &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MUnspawnCop::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

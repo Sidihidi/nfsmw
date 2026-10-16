@@ -11,7 +11,7 @@
 
 // Definido en QuickGame.cpp (zSim): el objetivo lo tiene GLOBAL en .data 0x804358AC
 // y el zFe2 original lo referencia como UND.
-extern int bSawLoadingScreen;
+extern bool bSawLoadingScreen;
 
 void *LoadingScreen::mLoadingScreenPtr = nullptr;
 

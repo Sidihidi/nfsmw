@@ -18,7 +18,13 @@ bool DebugVehicleSelection::mOnOff = false;
 
 void DebugVehicleSelection::Init() {
     if (mThis == nullptr) {
-        mThis = ::new ("DebugVehicleSelection", 0) DebugVehicleSelection();
+#ifdef EA_PLATFORM_XENON
+        // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto.
+        mThis = ::new (static_cast<DebugVehicleSelection *>(bMalloc(sizeof(DebugVehicleSelection), "DebugVehicleSelection", 0, 0)))
+#else
+        mThis = ::new ("DebugVehicleSelection", 0)
+#endif
+            DebugVehicleSelection();
     }
 }
 

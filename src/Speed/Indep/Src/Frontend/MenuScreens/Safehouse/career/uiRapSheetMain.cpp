@@ -7,6 +7,9 @@
 
 uiRapSheetMain::uiRapSheetMain(ScreenConstructorData *sd) : UIWidgetMenu(sd) {
     button_pressed = 0;
+#ifdef EA_PLATFORM_WIN32
+    m_unknown128 = 0;
+#endif
     RefreshHeader();
 }
 
@@ -28,6 +31,7 @@ void uiRapSheetMain::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u3
         switch (button_pressed) {
         case __BUTTON_1__:
             cFEng::Get()->QueuePackageSwitch("RapSheetRS.fng", 0, 0, 0);
+            button_num = 1;
             break;
         case __BUTTON_2__:
             cFEng::Get()->QueuePackageSwitch("RapSheetVD.fng", 0, 0, 0);

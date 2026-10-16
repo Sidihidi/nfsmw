@@ -7,14 +7,26 @@
 NitrousGauge::NitrousGauge(UTL::COM::Object *pOutter, const char *pkg_name, int player_number)
     : HudElement(pkg_name, 0x80000800ULL), //
       INos(pOutter),                       //
-      mNos(0)                              //
+#ifdef EA_BUILD_A124
+      mNosChanged(false), //
+#endif
+      mNos(0) //
 {
+#ifdef EA_BUILD_A124 // la A124 hashea los nombres en tiempo de ejecucion
+    RegisterGroup(FEHashUpper("NOS_Meter_Group"));
+    mpDataNosMeterIcon = FEngFindObject(GetPackageName(), FEHashUpper("NOS_ICON_GROUP"));
+    mpNosMeterBar = RegisterMultiImage(FEHashUpper("NOS_Meter_Multi_Image"));
+#else
     RegisterGroup(0x87C38E97);
     mpDataNosMeterIcon = FEngFindObject(GetPackageName(), 0x27DDF583);
     mpNosMeterBar = RegisterMultiImage(0xEDFB6D37);
+#endif
 }
 
 void NitrousGauge::Update(IPlayer *player) {
+#ifdef EA_BUILD_A124
+    mNosChanged = false;
+#endif
     if (mpNosMeterBar != nullptr) {
         float min_angle = 175.0f;
         if (bStrICmp(GetPackageName(), "HUD_Drag.fng") == 0) {
@@ -30,8 +42,25 @@ void NitrousGauge::Update(IPlayer *player) {
         const float angle = min_angle + frac * (max_angle - min_angle);
         FEngSetMultiImageRot(mpNosMeterBar, angle);
     }
+#ifdef EA_BUILD_A124 // la A124 pone el icono segun quede nitro
+    if (mpDataNosMeterIcon != nullptr) {
+        if (mNos > 0.0f) {
+            FEngSetScript(mpDataNosMeterIcon, FEHashUpper("ACTIVATE"), true);
+        } else {
+            FEngSetScript(mpDataNosMeterIcon, FEHashUpper("Init"), true);
+        }
+    }
+#endif
 }
 
+#ifdef EA_BUILD_A124
+void NitrousGauge::SetNos(float nos) {
+    if (mNos != nos) {
+        mNos = nos;
+        mNosChanged = true;
+    }
+}
+#else
 void NitrousGauge::SetNos(float nos) {
     if (nos <= 0) {
         if (!FEngIsScriptSet(mpDataNosMeterIcon, 0x1744B3)) {
@@ -48,3 +77,4 @@ void NitrousGauge::SetNos(float nos) {
     }
     mNos = nos;
 }
+#endif

@@ -1,3 +1,10 @@
+// Prefijo comun de las unidades de juego del original (como zFEng.cpp): en la A124 los 402 primeros tipos de
+// los stabs son los mismos en todas, y la .rodata empieza por las cadenas de bWare.hpp.
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/Libs/Support/Utility/UStandard.h"
+#include "Speed/Indep/Libs/Support/Utility/UCOM.h"
+#include "Speed/Indep/Libs/Support/Utility/UCollections.h"
+
 #include "Speed/Indep/Src/Misc/QuickSpline.cpp"
 
 #include "Speed/Indep/Src/Misc/BuildRegion.cpp"
@@ -56,8 +63,16 @@
 
 #include "Speed/Indep/Src/Misc/EasterEggs.cpp"
 
+#include "Speed/Indep/Src/Misc/Base64.cpp"
+
 #include "Speed/Indep/Src/Misc/Table.cpp"
 
 #include "Speed/Indep/Src/Misc/Timer.cpp"
+
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/debugtrap.cpp"
+
+#include "Speed/Indep/Src/Misc/TestHooks/inputsimulation.cpp"
+#endif
 
 #include "Speed/Indep/Src/Misc/Hermes.cpp"

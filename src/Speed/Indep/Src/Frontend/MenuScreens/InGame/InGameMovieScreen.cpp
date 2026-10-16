@@ -21,10 +21,15 @@
 
 static bool gInGameMoviePlaying = false;
 char InGameAnyMovieScreen::MovieFilename[64] = "unknown";
+#ifdef EA_PLATFORM_PLAYSTATION2
+static const char *InGameMovieScreenName = "InGameAnyMovie.fng";
+#endif
 
 InGameAnyMovieScreen::InGameAnyMovieScreen(ScreenConstructorData *sd) : MenuScreen(sd) {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     bAllowingControllerErrors = FEManager::Get()->IsAllowingControllerError();
+#endif
+#ifndef EA_BUILD_A124
     FEManager::Get()->AllowControllerError(false);
     while (TheCarLoader.IsLoadingInProgress() || TheTrackStreamer.IsLoadingInProgress() || g_pEAXSound->AreResourceLoadsPending()) {
         MiniMainLoop();
@@ -37,10 +42,10 @@ InGameAnyMovieScreen::InGameAnyMovieScreen(ScreenConstructorData *sd) : MenuScre
 }
 
 InGameAnyMovieScreen::~InGameAnyMovieScreen() {
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     FEManager::Get()->AllowControllerError(bAllowingControllerErrors);
-#endif
     gInGameMoviePlaying = false;
+#endif
 }
 
 MenuScreen *InGameAnyMovieScreen::Create(ScreenConstructorData *sd) {
@@ -56,7 +61,7 @@ void InGameAnyMovieScreen::NotificationMessage(u32 msg, FEObject *obj, u32 param
         case 0xb5af2461:
         case 0x406415e3:
 #ifndef EA_BUILD_A124
-            if (FEDatabase->GetCareerSettings()->GetCurrentBin() < 0x10 || SkipMovies || MoviePlayer_Bypass())
+            if (FEDatabase->GetCareerSettings()->GetCurrentBin() <= 0xF || SkipMovies || MoviePlayer_Bypass())
 #endif
             {
                 mSubtitler.Update(0xc3960eb9);
@@ -72,16 +77,28 @@ bool InGameAnyMovieScreen::IsPlaying() {
 
 void InGameAnyMovieScreen::LaunchMovie(const char *filename) {
     InGameAnyMovieScreen::SetMovieName(filename);
+#ifndef EA_PLATFORM_PLAYSTATION2
     gInGameMoviePlaying = true;
+#endif
     if (cFEng::Get()->IsPackageInControl(GetLoadingScreenPackageName())) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        cFEng::Get()->QueuePackageSwitch(InGameMovieScreenName, 0, 0, false);
+#else
         cFEng::Get()->QueuePackageSwitch(GetFEngPackageName(), 0, 0, false);
+#endif
     } else {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        cFEng::Get()->QueuePackagePush(InGameMovieScreenName, 0, 0, false);
+#else
         cFEng::Get()->QueuePackagePush(GetFEngPackageName(), 0, 0, false);
+#endif
     }
 }
 
 void InGameAnyMovieScreen::DismissMovie() {
+#ifndef EA_PLATFORM_PLAYSTATION2
     gInGameMoviePlaying = false;
+#endif
     MNotifyMovieFinished().Post(UCrc32(0x20d60dbf));
     cFEng::Get()->QueuePackagePop(0);
     new EFadeScreenOn(

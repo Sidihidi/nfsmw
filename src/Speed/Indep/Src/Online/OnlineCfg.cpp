@@ -8,6 +8,7 @@
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
+#include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 
 extern int SkipMovies;
 extern const char *SkipFEPlayerCar;

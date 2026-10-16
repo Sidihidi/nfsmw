@@ -40,8 +40,13 @@ class eStreamingPackHeaderLoadingInfo {
   public:
     int32 HeaderChunksSize;              // offset 0x0, size 0x4
     int32 HeaderChunksMemCopied;         // offset 0x4, size 0x4
+#ifdef EA_BUILD_A124
+    void (*LoadingDoneCallback)(uint32); // offset 0x8, size 0x4
+    uint32 LoadingDoneCallbackParam;     // offset 0xC, size 0x4
+#else
     void (*LoadingDoneCallback)(void *); // offset 0x8, size 0x4
     void *LoadingDoneCallbackParam;      // offset 0xC, size 0x4
+#endif
 };
 
 extern SlotPool *eStreamingPackSlotPool;
@@ -66,10 +71,9 @@ class eStreamingPack : public bTNode<eStreamingPack> {
     struct eSolidListHeader *SolidListHeader;     // offset 0x3C, size 0x4
     struct TexturePackHeader *pTexturePackHeader; // offset 0x40, size 0x4
 
+    // El bMemSet no es del operator new: el original lo hace en CreateStreamingPack (mapa de lineas de GameCube y de la A124).
     void *operator new(size_t size) {
-        void *streaming_pack = bOMalloc(eStreamingPackSlotPool);
-        bMemSet(streaming_pack, 0x0, 0x44);
-        return streaming_pack;
+        return bOMalloc(eStreamingPackSlotPool);
     }
     void operator delete(void *ptr) {
         bFree(eStreamingPackSlotPool, ptr);
@@ -134,12 +138,26 @@ class eStreamPackLoader {
     eStreamingEntry *GetStreamingEntry(uint32 name_hash);
     bChunk *GetAlignedChunkDataPtr(uint8 *chunk_data);
     struct eStreamingPackLoadTable *GetStreamPackLoadingTable();
+    // La A124 recibe los parametros de AddQueuedFile2 como int (InternalLoadedStreamingEntryCallback__17eStreamPackLoaderiii
+    // y las tres fases de la cabecera); GameCube y las de venta, como void *.
+#ifdef EA_BUILD_A124
+    static void InternalLoadedStreamingEntryCallback(int callback_param, int error_status, int callback_param2);
+#else
     static void InternalLoadedStreamingEntryCallback(void *callback_param, int error_status, void *callback_param2);
+#endif
     void InternalLoadStreamingEntry(eStreamingPackLoadTable *loading_table, struct eStreamingPack *streaming_pack,
                                     struct eStreamingEntry *streaming_entry);
 
+    // La API publica de la A124 pasa la llamada de vuelta y su parametro como uint32 (LoadStreamingEntry__...PFUi_vUii,
+    // CreateStreamingPack__...PFUi_vUii y DeleteStreamingPack__...PCcPFUi_vUi, que ademas avisa al terminar); GameCube y
+    // las de venta, como void *.
+#ifdef EA_BUILD_A124
+    void LoadStreamingEntry(uint32 *name_hash_table, int num_hashes, void (*callback)(uint32), uint32 param0, int memory_pool_num);
+    void LoadStreamingEntry(uint32 name_hash, void (*callback)(uint32), uint32 param0, int memory_pool_num);
+#else
     void LoadStreamingEntry(uint32 *name_hash_table, int num_hashes, void (*callback)(void *), void *param0, int memory_pool_num);
     void LoadStreamingEntry(uint32 name_hash, void (*callback)(void *), void *param0, int memory_pool_num);
+#endif
     int IsLoaded(uint32 name_hash);
     void UnloadStreamingEntry(uint32 name_hash, eStreamingPack *streaming_pack);
     void UnloadStreamingEntry(uint32 *name_hash_table, int num_hashes);
@@ -148,12 +166,24 @@ class eStreamPackLoader {
     int TestLoadStreamingEntry(uint32 *name_hash_table, int num_hashes, int memory_pool_num, bool error_if_out_in_main_pool);
     bool DefragmentAllocation(void *allocation);
     void WaitForLoadingToFinish(const char *filename);
+#ifdef EA_BUILD_A124
+    static void InternalLoadingHeaderPhase1Callback(int callback_param, int error_status, int callback_param2);
+    static void InternalLoadingHeaderPhase2Callback(int callback_param, int error_status, int callback_param2);
+    static void InternalLoadingHeaderPhase3Callback(int callback_param);
+#else
     static void InternalLoadingHeaderPhase1Callback(void *callback_param, int error_status, void *callback_param2);
     static void InternalLoadingHeaderPhase2Callback(void *callback_param, int error_status, void *callback_param2);
     static void InternalLoadingHeaderPhase3Callback(void *callback_param);
+#endif
+#ifdef EA_BUILD_A124
+    eStreamingPack *CreateStreamingPack(const char *filename, void (*callback_function)(uint32), uint32 callback_param, int memory_pool_num);
+
+    int DeleteStreamingPack(const char *filename, void (*callback_function)(uint32) = nullptr, uint32 callback_param = 0);
+#else
     eStreamingPack *CreateStreamingPack(const char *filename, void (*callback_function)(void *), void *callback_param, int memory_pool_num);
 
     int DeleteStreamingPack(const char *filename);
+#endif
 
     void DisableStreamingPack(const char *filename) {}
 
@@ -195,8 +225,13 @@ class eStreamingPackLoadTable {
     int8 MemoryPoolNum;                  // offset 0x0, size 0x1
     int8 Locked;                         // offset 0x1, size 0x1
     int16 NumLoadsPending;               // offset 0x2, size 0x2
+#ifdef EA_BUILD_A124
+    void (*Callback)(uint32);            // offset 0x4, size 0x4
+    uint32 Param;                        // offset 0x8, size 0x4
+#else
     void (*Callback)(void *);            // offset 0x4, size 0x4
     void *Param;                         // offset 0x8, size 0x4
+#endif
     eStreamPackLoader *StreamPackLoader; // offset 0xC, size 0x4
 };
 

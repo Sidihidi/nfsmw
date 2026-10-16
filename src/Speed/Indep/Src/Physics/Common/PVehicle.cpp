@@ -3,6 +3,10 @@
 #include "Speed/Indep/Libs/Support/Utility/UCollections.h"
 #include "Speed/Indep/Libs/Support/Utility/UTLVector.h"
 #include "Speed/Indep/Src/AI/AITarget.h"
+// Los stabs de la A124 parsean aqui (entre Explosion.cpp y la primera funcion de este fichero) ecar, camerainfo,
+// CameraMover, engine, engineaudio y EAX_CarState: la cadena "Attrib::Gen::ecar" de zPhysics.
+#include "Speed/Indep/Src/Camera/CameraMover.hpp"
+#include "Speed/Indep/Src/EAXSound/EAXCarState.hpp"
 #include "Speed/Indep/Src/Camera/CameraAI.hpp"
 #include "Speed/Indep/Src/Debug/Debugable.h"
 #include "Speed/Indep/Src/Frontend/Database/VehicleDB.hpp"
@@ -183,7 +187,11 @@ class PVehicle : public PhysicsObject,
     };
 
     // total size: 0x100
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    struct ManagementList : public UTL::FixedVector<ManageNode, 20, 16> {
+#else
     struct ManagementList : public UTL::FixedVector<ManageNode, 10, 16> {
+#endif
         ManagementList() {
             reserve(10);
         }
@@ -577,14 +585,14 @@ PVehicle::Resource::Resource(const Attrib::Gen::pvehicle &pvehicle, bool spool, 
 }
 
 void PVehicle::CleanResources() {
-    for (PVehicle *pv = mInstances.GetHead(); pv != mInstances.EndOfList();) {
-        PVehicle *next = pv->GetNext();
+    for (PVehicle *dirty = mInstances.GetHead(); dirty != mInstances.EndOfList();) {
+        PVehicle *next = dirty->GetNext();
 
-        if (pv && pv->IsDirty()) {
-            delete pv;
+        if (dirty && dirty->IsDirty()) {
+            delete dirty;
         }
 
-        pv = next;
+        dirty = next;
     }
 }
 
@@ -594,8 +602,11 @@ bool CanInstancesShareResourceCost(CarType type) {
     if (usage == CAR_USAGE_TYPE_COP) {
         return true;
     }
+    if (usage == CAR_USAGE_TYPE_TRAFFIC) {
+        return true;
+    }
 
-    return usage == CAR_USAGE_TYPE_TRAFFIC;
+    return false;
 }
 
 unsigned int PVehicle::CountResources() {
@@ -1198,7 +1209,9 @@ struct AIBehavior {
 
 static AIBehavior ai_behaviors[] = {
     {DRIVER_NONE, UCrc32::kNull, UCrc32("AIVehicleEmpty")},
+#ifndef EA_BUILD_A124
     {DRIVER_NIS, UCrc32::kNull, UCrc32("AIVehicleEmpty")},
+#endif
     {DRIVER_RACER, UCrc32::kNull, UCrc32("AIVehicleRacecar")},
     {DRIVER_TRAFFIC, UCrc32::kNull, UCrc32("AIVehicleTraffic")},
     {DRIVER_COP, UCrc32("CHOPPER"), UCrc32("AIVehicleHelicopter")},
@@ -1770,7 +1783,13 @@ void PVehicle::OnTaskSimulate(float dT) {
         if (IsStaging()) {
 
             DoStaging(dT);
-        } else if (mPerfectLaunch.IsSet() && mTranny) {
+        }
+#ifdef EA_BUILD_A124
+        else {
+            mPerfectLaunch.Tick(dT);
+        }
+#else
+        else if (mPerfectLaunch.IsSet() && mTranny) {
 
             if (!mTranny->IsGearChanging()) {
 
@@ -1788,6 +1807,7 @@ void PVehicle::OnTaskSimulate(float dT) {
                 mPerfectLaunch.Clear();
             }
         }
+#endif
     } else if (mPhysicsMode == PHYSICS_MODE_EMULATED) {
 
         mTimeInAir = 0.0f;
@@ -1855,6 +1875,15 @@ bool PVehicle::OnExplosion(const UMath::Vector3 &normal, const UMath::Vector3 &p
 void PVehicle::OnTaskFX(float dT) {
     IRigidBody &rigidBody = *GetRigidBody();
 
+#ifdef EA_BUILD_A124
+    if (mForceStop & 4) {
+        GlareOff(VehicleFX::LIGHT_HEADLIGHTS);
+        GlareOff(VehicleFX::LIGHT_REVERSE);
+        GlareOff(VehicleFX::LIGHT_BRAKELIGHTS);
+        return;
+    }
+
+#endif
     if (!INIS::Get()) {
         GlareOn(VehicleFX::LIGHT_HEADLIGHTS);
     }
@@ -2074,14 +2103,19 @@ void PVehicle::ComputeHeading(UMath::Vector3 *v) {
 
 void PVehicle::ForceStopOn(char forceStopBits) {
     mForceStop |= forceStopBits;
+#ifndef EA_BUILD_A124
+    // La A124 solo cambia los bits (24 B, sin llamada).
     if (mInput) {
         mInput->ClearInput();
     }
+#endif
 }
 
 void PVehicle::ForceStopOff(char forceStopBits) {
     mForceStop &= ~forceStopBits;
+#ifndef EA_BUILD_A124
     if (mInput) {
         mInput->ClearInput();
     }
+#endif
 }

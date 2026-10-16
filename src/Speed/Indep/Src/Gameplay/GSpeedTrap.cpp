@@ -6,16 +6,16 @@
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/gameplay.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
 
-GSpeedTrap::GSpeedTrap() {
-    mFlags = 0;
-    mBinNumber = 0;
-    mSpeedTrapKey = 0;
-#ifndef EA_BUILD_A124
-    mCameraMarkerKey = 0;
+GSpeedTrap::GSpeedTrap()
+    :
+#ifdef EA_BUILD_A124
+      mSpeedTrapKey(0),
 #endif
-    mRequiredValue = 0.0f;
-    mRecordedValue = 0.0f;
-}
+      mFlags(0), mBinNumber(0),
+#ifndef EA_BUILD_A124
+      mSpeedTrapKey(0), mCameraMarkerKey(0),
+#endif
+      mRequiredValue(0.0f), mRecordedValue(0.0f) {}
 
 float GSpeedTrap::GetBounty() const {
     Attrib::Gen::gameplay trap(mSpeedTrapKey, 0, NULL);
@@ -37,6 +37,16 @@ unsigned int GSpeedTrap::GetJumpMarkerKey() const {
     Attrib::Gen::gameplay trap(mSpeedTrapKey, 0, NULL);
     const GCollectionKey &marker = trap.SpawnPoint();
     return marker.GetCollectionKey();
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+void GSpeedTrap::DebugForceComplete() {
+    if (GetIsLocked()) {
+        Unlock();
+    }
+    if (GetIsActive()) {
+        NotifyTriggered(GetTriggerSpeed());
+    }
 }
 
 void GSpeedTrap::Init(unsigned int trapKey) {

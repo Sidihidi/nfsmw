@@ -6,6 +6,9 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/MemCard/uiMemcardInterface.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 extern unsigned long g_GC_Disk_GameName;
 
@@ -14,7 +17,7 @@ void DisplayMessage(const wchar_t *msg, unsigned int count, const wchar_t **str)
 
 MemcardCallbacks gMemcardCallbacks;
 
-void DisplayStatus(int status) {}
+void DisplayStatus(int i) {}
 
 MemoryCard *MemcardCallbacks::GetMemcard() {
     return MemoryCard::GetInstance();
@@ -27,9 +30,11 @@ UIMemcardBase *MemcardCallbacks::GetScreen() {
 void MemcardCallbacks::ShowMessage(const wchar_t *msg, unsigned int nOptions, const wchar_t **options) {
     UIMemcardBase *pScreen;
 
+#ifdef EA_PLATFORM_GAMECUBE
     if (GetMemcard()->IsMemcardScreenExiting()) {
         return;
     }
+#endif
 
     JLog(MJ_ShowMesssage);
     JLog(msg);
@@ -49,7 +54,7 @@ void MemcardCallbacks::ShowMessage(const wchar_t *msg, unsigned int nOptions, co
             return;
         }
 
-        GetMemcard()->m_PendingMessage = BNEW MemoryCardMessage(msg, nOptions, options);
+        GetMemcard()->m_PendingMessage = new ("Memcard Msg", 0) MemoryCardMessage(msg, nOptions, options);
         GetMemcard()->HandleAutoSaveError();
         return;
     }
@@ -74,7 +79,7 @@ void MemcardCallbacks::ShowMessage(const wchar_t *msg, unsigned int nOptions, co
             GetMemcard()->ReleasePendingMessage();
         }
 
-        GetMemcard()->m_PendingMessage = BNEW MemoryCardMessage(msg, nOptions, options);
+        GetMemcard()->m_PendingMessage = new ("Memcard Msg", 0) MemoryCardMessage(msg, nOptions, options);
     } else {
         GetScreen()->ShowMessage(msg, nOptions, options[0], options[1], options[2]);
     }
@@ -101,26 +106,34 @@ void MemcardCallbacks::ClearMessage() {
         return;
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (!pScreen->IsInButtonAnimation()) {
+#ifdef EA_BUILD_A124 // la A124 aun borra el mensaje
+        pScreen->SetMessage(nullptr);
+#endif
+    }
+#else
     if (GetMemcard()->GetOp() == MemoryCard::MO_Save && pScreen->IsInButtonAnimation()) {
     }
+#endif
 }
 
 void MemcardCallbacks::BootupCheckDone(RealmcIface::CardStatus status, RealmcIface::BootupCheckResults res) {
     JLog(MJ_BootupCheckDone);
     JLog(status);
     JLog(res.mEntryFound);
-
     GetMemcard()->m_MemOp = 0;
     GetMemcard()->m_pImp->DestructSaveInfo();
     GetMemcard()->m_LastError = static_cast<unsigned short>(status);
     GetMemcard()->m_SpecialError = static_cast<unsigned short>(status);
-
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_PLAYSTATION2) // solo GameCube reintenta; PS2 y PC van a la plataforma
     if ((status != RealmcIface::STATUS_OK && GetMemcard()->GetPendingMessage() != nullptr) || status == RealmcIface::STATUS_UNKNOWN) {
         GetMemcard()->ReleasePendingMessage();
         GetMemcard()->BootupCheck(GetMemcard()->IsAutoLoading() && !FEDatabase->bProfileLoaded ? GetScreen()->m_FileName : nullptr);
-    } else {
-        GetMemcard()->m_pImp->BootupCheckDone(status, &res);
-        GetMemcard()->m_bBootFoundFile = res.mEntryFound;
+    } else
+#endif
+    {   GetMemcard()->m_pImp->BootupCheckDone(status, &res);
+        GetMemcard()->SetBootFound(res.mEntryFound);
 
         if (GetMemcard()->m_bRetryBootCheck) {
             GetScreen()->SetStringCheckingCard();
@@ -152,6 +165,11 @@ void MemcardCallbacks::SaveDone(const char *filename) {
     GetMemcard()->m_bCardRemoved = false;
 
     if (GetMemcard()->IsManualSave() && gMemcardSetup.GetCommand() != MCO_AutoSave) {
+#ifdef EA_BUILD_A124 // la A124 activa siempre el autoguardado tras guardar a mano
+        GetMemcard()->SetRetryAutoSave(false);
+        GetMemcard()->SetAutoSaveEnabled(true);
+    } else if (GetMemcard()->IsAutoSaving()) {
+#else
         if (FEDatabase->GetGameplaySettings()->AutoSaveOn) {
             GetMemcard()->SetRetryAutoSave(false);
             GetMemcard()->SetAutoSaveEnabled(true);
@@ -159,9 +177,10 @@ void MemcardCallbacks::SaveDone(const char *filename) {
             cFEng::Get()->QueueGameMessage(0x461A18EE, nullptr, 0xFF);
         }
     } else if (GetMemcard()->IsAutoSaving() || gMemcardSetup.GetCommand() == MCO_AutoSave) {
+#endif
         GetMemcard()->m_bAutoSaveCardPulled = false;
 
-#ifndef EA_BUILD_A124
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
         if (GetMemcard()->m_bFoundAutoSaveFile) {
             FEDatabase->bAutoSaveOverwriteConfirmed = true;
         }
@@ -178,7 +197,15 @@ void MemcardCallbacks::SaveDone(const char *filename) {
         if (gMemcardSetup.GetCommand() == MCO_AutoSave) {
             cFEng::Get()->QueueGameMessage(0x461A18EE, nullptr, 0xFF);
         }
+#ifdef EA_BUILD_A124 // la A124 limpia la orden de la tarjeta y manda los datos de la carrera a Juice
+        else {
+            gMemcardSetup.Clear();
+        }
     }
+    JuiceStatsDB::Instance()->SubmitCareerData(filename);
+#else
+    }
+#endif
 }
 
 RealmcIface::DataStatus MemcardCallbacks::CheckLoadedData(const char *data) {
@@ -208,6 +235,7 @@ void MemcardCallbacks::LoadDone(const char *filename) {
         if (FEDatabase->LoadUserProfileFromBuffer(GetMemcard()->GetData(), GetMemcard()->GetSize(), GetMemcard()->GetPlayerNum())) {
             FEDatabase->DeallocBackupDB();
 
+#ifndef EA_BUILD_A124 // la A124 trata igual el perfil del segundo jugador
             if (GetMemcard()->GetPlayerNum() != 0) {
                 if (GetMemcard()->m_pBuffer != nullptr) {
                     bFree(GetMemcard()->m_pBuffer);
@@ -217,11 +245,16 @@ void MemcardCallbacks::LoadDone(const char *filename) {
                 cFEng::Get()->QueueGameMessage(0x461A18EE, nullptr, 0xFF);
                 return;
             }
+#endif
 
             FEDatabase->bProfileLoaded = true;
+#ifdef EA_BUILD_A124 // la A124 no autoguarda en pantalla partida
+            if (FEDatabase->GetGameplaySettings()->AutoSaveOn && !FEDatabase->IsSplitScreenMode()) {
+#else
             GetMemcard()->m_bCardRemoved = false;
 
             if (FEDatabase->GetGameplaySettings()->AutoSaveOn) {
+#endif
                 if (GetMemcard()->m_pBuffer != nullptr) {
                     bFree(GetMemcard()->m_pBuffer);
                     GetMemcard()->m_pBuffer = nullptr;
@@ -229,7 +262,11 @@ void MemcardCallbacks::LoadDone(const char *filename) {
 
                 GetMemcard()->SetAutoSaveEnabled(true);
             } else {
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 no distinguen la carga del arranque
+                cFEng::Get()->QueueGameMessage(0x461A18EE, nullptr, 0xFF);
+#else
                 cFEng::Get()->QueueGameMessage(gMemcardSetup.GetCommand() == MCO_BootList ? 0xA4BB7AE1 : 0x461A18EE, nullptr, 0xFF);
+#endif
             }
         } else {
             GetMemcard()->ShowMessages(false);
@@ -259,7 +296,9 @@ void MemcardCallbacks::DeleteDone(const char *filename) {
 
     if (bStrCmp(&filename[idx], FEDatabase->GetUserProfile(0)->GetProfileName()) == 0) {
         FEDatabase->DefaultProfile();
+#ifndef EA_BUILD_A124
         FEDatabase->bProfileLoaded = false;
+#endif
     }
 
     GetMemcard()->m_MemOp = 0;
@@ -288,13 +327,15 @@ void MemcardCallbacks::FoundEntry(const RealmcIface::EntryInfo *info) {
         return;
     }
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // solo GameCube mira el codigo del disco
     if (bStrNCmp(reinterpret_cast<const char *>(&g_GC_Disk_GameName), info->mGameCode, 4) != 0) {
         return;
     }
+#endif
 
     iSize = GetMemcard()->GetSize();
     iGuessSize = info->mUserDataSize;
-    fDefault = info->mStatus != RealmcIface::STATUS_OK ? MCFF_Corrupted : MCFF_OK;
+    fDefault = info->mStatus == RealmcIface::STATUS_OK ? MCFF_OK : MCFF_Corrupted;
 
     if (GetMemcard()->IsTypeProfile()) {
         unsigned int sec = GetMemcard()->m_TimeOffsetSec;
@@ -382,7 +423,11 @@ void MemcardCallbacks::FindEntriesDone(RealmcIface::CardStatus status) {
     } else if (GetMemcard()->IsCheckingCardForOverwrite()) {
         GetMemcard()->m_bCheckingCardForOverwrite = false;
 
+#ifdef EA_BUILD_A124 // la A124 no pregunta si la pantalla de la tarjeta ya esta abierta
+        if (GetMemcard()->m_bFoundAutoSaveFile && !GetMemcard()->IsMemcardScreenShowing()) {
+#else
         if (GetMemcard()->m_bFoundAutoSaveFile) {
+#endif
             GetMemcard()->HandleAutoSaveOverwriteMessage();
         } else {
             GetMemcard()->DoAutoSave();
@@ -390,21 +435,23 @@ void MemcardCallbacks::FindEntriesDone(RealmcIface::CardStatus status) {
     } else {
         cFEng::Get()->QueueGameMessage(0x5A051729, GetScreen()->GetPackageName(), 0xFF);
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // ni PS2 ni PC (speed.exe 0x54F6D0)
         GetMemcard()->SetBootFound(GetMemcard()->m_EntryCount > 0);
+#endif
     }
 }
 
 void MemcardCallbacks::Retry(RealmcIface::CardStatus status) {
     JLog(MJ_Retry);
     JLog(status);
-
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PS2 y PC solo lo registran
     if (GetScreen() != nullptr) {
         GetScreen()->SetStringCheckingCard();
-
         if (GetMemcard()->GetOp() == MemoryCard::MO_List) {
             GetScreen()->EmptyFileList();
         }
     }
+#endif
 }
 
 void MemcardCallbacks::Failed(RealmcIface::TaskResult result, RealmcIface::CardStatus status) {
@@ -522,6 +569,15 @@ void MemcardCallbacks::Failed(RealmcIface::TaskResult result, RealmcIface::CardS
     }
 }
 
+#ifdef EA_BUILD_A124
+void MemcardCallbacks::CardChanged(RealmcIface::CardStatus status) {
+    if (status == RealmcIface::STATUS_NO_CARD || status == RealmcIface::STATUS_CARD_CHANGED) {
+        cFEng::Get()->QueueGameMessage(0x8867412D, nullptr, 0xFF);
+    } else {
+        cFEng::Get()->QueueGameMessage(0x3A2BE557, nullptr, 0xFF);
+    }
+}
+#else
 void MemcardCallbacks::CardChanged(RealmcIface::TaskResult result, RealmcIface::CardStatus status) {
     if ((result == RealmcIface::RESULT_RETRY && status == RealmcIface::STATUS_CARD_CHANGED) || status == RealmcIface::STATUS_OK) {
         cFEng::Get()->QueueGameMessage(0x3A2BE557, nullptr, 0xFF);
@@ -529,6 +585,7 @@ void MemcardCallbacks::CardChanged(RealmcIface::TaskResult result, RealmcIface::
         cFEng::Get()->QueueGameMessage(0x8867412D, nullptr, 0xFF);
     }
 }
+#endif
 
 void MemcardCallbacks::CardChecked(const RealmcIface::CardInfo *info) {
     unsigned int msg;
@@ -549,12 +606,14 @@ void MemcardCallbacks::CardChecked(const RealmcIface::CardInfo *info) {
             case RealmcIface::STATUS_CARD_DAMAGED:
             case RealmcIface::STATUS_WRONG_DEVICE:
             case RealmcIface::STATUS_CARD_ERROR:
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
                 GetMemcard()->m_bFoundAutoSaveFile = true;
+#endif
                 GetMemcard()->DoAutoSave();
-                break;
+                return;
 
             case RealmcIface::STATUS_OK:
-#ifndef EA_BUILD_A124
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
                 if (!FEDatabase->bAutoSaveOverwriteConfirmed) {
                     char fileName[32];
                     UserProfile *pProfile;
@@ -567,15 +626,15 @@ void MemcardCallbacks::CardChecked(const RealmcIface::CardInfo *info) {
                     bStrCat(fileName, GetMemcard()->GetPrefix(), pProfile->GetProfileName());
                     GetMemcard()->m_bFoundAutoSaveFile = false;
                     GetMemcard()->List(fileName, nullptr);
-                    break;
+                    return;
                 }
 #endif
                 GetMemcard()->DoAutoSave();
-                break;
+                return;
 
             case RealmcIface::STATUS_NO_CARD:
                 GetMemcard()->HandleAutoSaveError();
-                break;
+                return;
         }
     } else {
         MemoryCard::SetMessageMode(1, true);
@@ -608,18 +667,25 @@ void MemcardCallbacks::CardRemoved() {
         GetMemcard()->HandleAutoSaveError();
     } else {
         if (FEDatabase->GetGameplaySettings()->AutoSaveOn) {
-            if (!MemoryCard::GetInstance()->IsAutoSaving()) {
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PS2 y PC la marcan aunque se este autoguardando
+            if (!MemoryCard::GetInstance()->IsAutoSaving())
+#endif
+            {
                 GetMemcard()->m_bCardRemoved = true;
             }
         }
 
         FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
 
+#ifdef EA_BUILD_A124 // la A124 avisa aunque no este en opciones
+        cFEng::Get()->QueueGameMessage(0x7E998E5E, nullptr, 0xFF);
+#else
         if (FEDatabase->IsOptionsMode()) {
             cFEng::Get()->QueueGameMessage(0x7E998E5E, nullptr, 0xFF);
         }
+#endif
 
-#ifndef EA_BUILD_A124
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // PC tampoco (speed.exe 0x560CE0)
         FEDatabase->bAutoSaveOverwriteConfirmed = false;
 #endif
     }
@@ -695,7 +761,7 @@ void MemcardCallbacks::SetAutosaveDone(RealmcIface::TaskResult res, RealmcIface:
 
     if (flag == RealmcIface::AUTOSAVE_ENABLE) {
         if (gMemcardSetup.GetCommand() == MCO_EnableAutoSave && FEDatabase->IsOptionsMode()) {
-#ifndef EA_BUILD_A124
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
             FEDatabase->bAutoSaveOverwriteConfirmed = false;
 #endif
         }
@@ -705,6 +771,12 @@ void MemcardCallbacks::SetAutosaveDone(RealmcIface::TaskResult res, RealmcIface:
     }
 }
 
+#ifdef EA_BUILD_A124 // la A124 no registra en el joylog ni mira la pantalla de la tarjeta
+void MemcardCallbacks::SetMonitorDone(RealmcIface::CardStatus status, RealmcIface::MonitorState state) {
+    GetMemcard()->m_MemOp = 0;
+    cFEng::Get()->QueueGameMessage(state == RealmcIface::MONITOR_ON ? 0x54B3AC6C : 0xEB29392A, nullptr, 0xFF);
+}
+#else
 void MemcardCallbacks::SetMonitorDone(RealmcIface::CardStatus status, RealmcIface::MonitorState state) {
     unsigned int msg;
 
@@ -713,7 +785,9 @@ void MemcardCallbacks::SetMonitorDone(RealmcIface::CardStatus status, RealmcIfac
     JLog(state);
 
     GetMemcard()->m_MemOp = 0;
+#ifndef EA_BUILD_A124
     GetMemcard()->m_bMonitorOn = state == RealmcIface::MONITOR_ON || state == RealmcIface::MONITOR_ON_USER_CANCELLED;
+#endif
 
     if (state == RealmcIface::MONITOR_ON) {
         if (status == RealmcIface::STATUS_OK) {
@@ -731,6 +805,7 @@ void MemcardCallbacks::SetMonitorDone(RealmcIface::CardStatus status, RealmcIfac
 
     cFEng::Get()->QueueGameMessage(msg, nullptr, 0xFF);
 }
+#endif
 
 RealmcIface::TaskStatus MemcardCallbacks::LoadReady(const char *entryName, unsigned int headerSize, unsigned int bodySize, char *&headerData,
                                                     char *&bodyData) {
@@ -836,9 +911,11 @@ void IJoyHelper::EmulateMemoryCardLibrary(int aJoyOp) {
             gMemcardCallbacks.LoadReady(pBuf, 0, 0, pBuf1, pBuf1);
             break;
 
+#ifndef EA_BUILD_A124 // la A124 no tiene este caso (tabla de 18)
         case MJ_SetMonitorDone:
             gMemcardCallbacks.SetMonitorDone(RealmcIface::STATUS_OK, RealmcIface::MONITOR_ON);
             break;
+#endif
     }
 
     delete[] pBuf;

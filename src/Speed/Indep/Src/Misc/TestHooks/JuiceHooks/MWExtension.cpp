@@ -18,7 +18,6 @@
 extern int BuildVersionChangelistNumber;
 extern int ForceJuiceConnect;
 extern char *ForceJuiceConnectIP;
-extern int gJuiceEnabled;
 extern int GetJoylogChannelRepeatCount(int channel);
 extern int ASYNCFILE_getstatus(int handle);
 extern int bStrCmp(const char *a, const char *b);
@@ -32,7 +31,7 @@ extern int countDown;
 
 bool JuicePutStringFunction(int terminal_channel, const char *s) {
     Juice::GameHook *gameHook =
-        reinterpret_cast<Juice::GameHook *(*)(int, const char *)>(Juice::GameHook::Instance)(terminal_channel, s);
+        Juice::GameHook::Instance();
     gameHook->LogText(s);
     return true;
 }
@@ -46,8 +45,8 @@ void InitJuice() {
     gJuiceEnabled = 1;
     Juice::MWExtension::Instance();
     Juice::JuiceDirtyNet::Instance();
-    reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->Initialize();
-    reinterpret_cast<Juice::GameHook *(*)()>(Juice::GameHook::Instance)()->InitTrapHandler();
+    Juice::GameHook::Instance()->Initialize();
+    Juice::GameHook::Instance()->InitTrapHandler();
     WriteJoylogFileHeader();
 }
 
@@ -70,8 +69,6 @@ namespace Juice {
 char MWExtension::mFileName[256];
 char MWExtension::mJuiceBuildName[32];
 
-static char changeList[32];
-static char name[255];
 
 MWExtension *MWExtension::Instance() {
     static MWExtension mwExt;
@@ -97,11 +94,13 @@ char *MWExtension::GetBuildDate() {
 }
 
 char *MWExtension::GetChangeList() {
+    static char changeList[32];
     bSPrintf(changeList, "%d", BuildVersionChangelistNumber);
     return changeList;
 }
 
 char *MWExtension::GetConsoleName() {
+    static char name[255];
     bMemSet(name, '\0', 0xff);
     return "Default PS2";
 }
@@ -213,52 +212,52 @@ void MWExtension::JuicePadToGamePad(tJuicePad *juiceInput, void *gameInput) {
     }
     if (JuicePad::Instance()->DidInputHappen() == 1) {
         mHasExecutedRPC = 1;
-        if (JuicePad::Instance()->IsButtonPressed(1) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_DPADUP) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_UP);
         }
-        if (JuicePad::Instance()->IsButtonPressed(2) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_DPADDOWN) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_DOWN);
         }
-        if (JuicePad::Instance()->IsButtonPressed(3) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_DPADLEFT) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_LEFT);
         }
-        if (JuicePad::Instance()->IsButtonPressed(4) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_DPADRIGHT) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_RIGHT);
         }
-        if (JuicePad::Instance()->IsButtonPressed(5) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTON1) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_ACCEPT);
         }
-        if (JuicePad::Instance()->IsButtonPressed(6) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTON2) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_CANCEL);
         }
-        if (JuicePad::Instance()->IsButtonPressed(8) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTON4) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_Y);
         }
-        if (JuicePad::Instance()->IsButtonPressed(7) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTON3) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_X);
         }
-        if (JuicePad::Instance()->IsButtonPressed(9) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONL1) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_L1);
         }
-        if (JuicePad::Instance()->IsButtonPressed(10) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONL2) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_WHITE);
         }
-        if (JuicePad::Instance()->IsButtonPressed(11) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONL3) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_LSTICKBUTTON);
         }
-        if (JuicePad::Instance()->IsButtonPressed(12) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONR1) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_R1);
         }
-        if (JuicePad::Instance()->IsButtonPressed(13) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONR2) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_BLACK);
         }
-        if (JuicePad::Instance()->IsButtonPressed(14) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONR3) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_RSTICKBUTTON);
         }
-        if (JuicePad::Instance()->IsButtonPressed(15) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONSTART) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_START);
         }
-        if (JuicePad::Instance()->IsButtonPressed(16) != 0) {
+        if (JuicePad::Instance()->IsButtonPressed(JUICEPAD_BUTTONSELECT) != 0) {
             MWJuicePad::Instance()->PressButton(0, JUICE_BACK);
             return;
         }
@@ -321,26 +320,22 @@ char *MWExtension::GetScreenName() {
     FEPackage *package = cFEng::Get()->FindPackageWithControl();
     if (package != nullptr) {
         package = cFEng::Get()->FindPackageWithControl();
-        bStrCpy(screenName, *reinterpret_cast<char **>(reinterpret_cast<char *>(package) + 0xc));
+        bStrCpy(screenName, package->GetName());
     }
     return screenName;
 }
 
 char *MWExtension::GetCursorPos() {
-    static char cursorPos[32];
-    bMemSet(cursorPos, '\0', 0x20);
+    static char cursor_pos[32];
+    bMemSet(cursor_pos, '\0', 0x20);
     FEPackage *package = cFEng::Get()->FindPackageWithControl();
-    FEObject *button;
-    if (package == nullptr) {
-        goto no_button;
+    if (package != nullptr) {
+        FEObject *button = package->GetCurrentButton();
+        if (button != nullptr) {
+            bSPrintf(cursor_pos, "%d", button->NameHash);
+            return cursor_pos;
+        }
     }
-    button = *reinterpret_cast<FEObject **>(reinterpret_cast<char *>(package) + 0x98);
-    if (button == nullptr) {
-        goto no_button;
-    }
-    bSPrintf(cursorPos, "%d", *reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(button) + 0x10));
-    return cursorPos;
-no_button:
     return "null";
 }
 
@@ -426,7 +421,7 @@ void MWExtension::JuiceLowFrameRateLog(const float &fps) {
         if (countDown == logCountDownMax) {
             bSPrintf(outcomeString, "INST_%.0f", fps);
             bReleasePrintf("FRAME RATE: (%s) %s", zoneName, outcomeString);
-            reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GameEvent(
+            GameHook::Instance()->GameEvent(
                 "WORLD", "FPS", outcomeString, static_cast<int>(fps), fps, zoneName, tempImgName, tempPlayerPos);
 
             int polyCount = DoPolyCount();
@@ -437,7 +432,7 @@ void MWExtension::JuiceLowFrameRateLog(const float &fps) {
                 bSPrintf(outcomeString, "INS_%.0f {G_%.0f - S_%d", fps, PreviousGpuFrameRate,
                         rigidBodyCount);
             }
-            reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GameEvent(
+            GameHook::Instance()->GameEvent(
                 "WORLD", "FPS_D", outcomeString, rigidBodyCount, fps, zoneName, tempImgName, tempPlayerPos);
         }
 
@@ -445,7 +440,7 @@ void MWExtension::JuiceLowFrameRateLog(const float &fps) {
             countDown = logCountDownMax - 1;
             bSPrintf(outcomeString, "SUST_%.0f", fpsTolerateValue);
             bReleasePrintf("FRAME RATE: (%s) %s for %d frames", zoneName, outcomeString, logCountDownMax);
-            reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GameEvent(
+            GameHook::Instance()->GameEvent(
                 "WORLD", "FPS", outcomeString, static_cast<int>(fpsTolerateValue), fpsTolerateValue,
                 zoneName, tempImgName, tempPlayerPos);
 
@@ -457,7 +452,7 @@ void MWExtension::JuiceLowFrameRateLog(const float &fps) {
                 bSPrintf(outcomeString, "SUS_%.0f {G_%.0f - S_%d", fps, PreviousGpuFrameRate,
                         rigidBodyCount);
             }
-            reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GameEvent(
+            GameHook::Instance()->GameEvent(
                 "WORLD", "FPS_D", outcomeString, rigidBodyCount, fps, zoneName, tempImgName, tempPlayerPos);
         } else {
             countDown--;
@@ -468,7 +463,7 @@ void MWExtension::JuiceLowFrameRateLog(const float &fps) {
 }
 
 void MWExtension::JuiceScreenshot(char *fileName) {
-    reinterpret_cast<GameHook *(*)(void *, char *)>(GameHook::Instance)(this, fileName)
+    GameHook::Instance()
         ->LogText("[MW SS] - Calling Juice screenshot");
 }
 

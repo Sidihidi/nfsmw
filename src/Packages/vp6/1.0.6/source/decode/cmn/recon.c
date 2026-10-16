@@ -1,75 +1,54 @@
-typedef struct {
-    unsigned char pad0[0x74];
-    int CurrentReconStride;    /* 0x74 */
-    unsigned char pad1[4];
-    int MvShift;               /* 0x7c */
-    unsigned char pad2[0x88 - 0x80];
-    int FrameReconStride;      /* 0x88 */
-} MBI_TYPE;
+#include <string.h>
+#include <math.h>
 
-typedef struct {
-    MBI_TYPE mbi;
-    unsigned char pad3[0x13c - 0x8c];
-    void **field_13c;
-    unsigned char pad4[0x294 - 0x140];
-    unsigned char *field_294;
-} PB_INSTANCE;
+#include "pbdll.h"
+#include "vputil.h"
 
-typedef void (*Copy12x12_FUNC)(unsigned char *src, unsigned char *dest, unsigned int srcStride,
-                               unsigned int destStep);
-typedef void (*FilterFunc)(void *info, unsigned char *dest, int step);
+UINT32 Var16Point(UINT8 *DataPtr, INT32 SourceStride) {
+    UINT32 i;
+    UINT32 XSum = 0;
+    UINT32 XXSum = 0;
+    UINT8 *DiffPtr;
 
-extern Copy12x12_FUNC Copy12x12;
-extern FilterFunc FilteringHoriz_12;
-extern FilterFunc FilteringVert_12;
+    DiffPtr = DataPtr;
 
-int Var16Point(unsigned char *Data, int Stride) {
-    int i;
-    int Sum = 0;
-    int SumSq = 0;
+    for (i = 0; i < 8; i += 2) {
+        XSum += DiffPtr[0];
+        XXSum += DiffPtr[0] * DiffPtr[0];
+        XSum += DiffPtr[2];
+        XXSum += DiffPtr[2] * DiffPtr[2];
+        XSum += DiffPtr[4];
+        XXSum += DiffPtr[4] * DiffPtr[4];
+        XSum += DiffPtr[6];
+        XXSum += DiffPtr[6] * DiffPtr[6];
 
-    for (i = 0; i < 4; i++) {
-        int a = Data[0];
-        int b = Data[2];
-        int c = Data[4];
-        int d = Data[6];
-        Sum += a;
-        Sum += b;
-        Sum += c;
-        Sum += d;
-        SumSq += a * a;
-        SumSq += b * b;
-        SumSq += c * c;
-        SumSq += d * d;
-        Data += Stride * 2;
+        DiffPtr += (SourceStride << 1);
     }
 
-    return ((unsigned int)(16 * SumSq - Sum * Sum)) >> 8;
+    return ((XXSum << 4) - XSum * XSum) >> 8;
 }
 
-void VP6_PredictFiltered(PB_INSTANCE *pbi, unsigned char *SrcPtr, int mx, int my) {
-    int mVx;
-    int mVy;
-    int ReconIndex;
-    MBI_TYPE *mbi;
-    unsigned char *TempBuffer;
-    int BoundaryX;
-    int BoundaryY;
+void VP6_PredictFiltered(PB_INSTANCE *pbi, UINT8 *SrcPtr, INT32 mx, INT32 my) {
+    INT32 mVx;
+    INT32 mVy;
+    INT32 ReconIndex;
+    MACROBLOCK_INFO *mbi;
+    UINT8 *TempBuffer;
+    INT32 BoundaryX;
+    INT32 BoundaryY;
 
     mbi = &pbi->mbi;
-    TempBuffer = pbi->field_294;
+    TempBuffer = pbi->LoopFilteredBlock;
 
-    if (mx > 0) {
+    if (mx > 0)
         mVx = mx >> mbi->MvShift;
-    } else {
+    else
         mVx = -(-mx >> mbi->MvShift);
-    }
 
-    if (my > 0) {
+    if (my > 0)
         mVy = my >> mbi->MvShift;
-    } else {
+    else
         mVy = -(-my >> mbi->MvShift);
-    }
 
     ReconIndex = mbi->FrameReconStride * mVy + mVx - 2 * mbi->CurrentReconStride - 2;
 
@@ -78,11 +57,9 @@ void VP6_PredictFiltered(PB_INSTANCE *pbi, unsigned char *SrcPtr, int mx, int my
     BoundaryX = (8 - (mVx & 7)) & 7;
     BoundaryY = (8 - (mVy & 7)) & 7;
 
-    if (BoundaryX != 0) {
-        FilteringHoriz_12(*pbi->field_13c, TempBuffer + (BoundaryX + 2), 16);
-    }
+    if (BoundaryX)
+        FilteringHoriz_12(pbi->quantizer->FrameQIndex, TempBuffer + (BoundaryX + 2), 16);
 
-    if (BoundaryY != 0) {
-        FilteringVert_12(*pbi->field_13c, TempBuffer + (BoundaryY * 16 + 32), 16);
-    }
+    if (BoundaryY)
+        FilteringVert_12(pbi->quantizer->FrameQIndex, TempBuffer + (BoundaryY * 16 + 32), 16);
 }

@@ -18,14 +18,16 @@ CarCustomizeManager gCarCustomizeManager;
 
 void CarCustomizeManager::TakeControl(eCustomizeEntryPoint entry_point, FECarRecord *tuning_car) {
     if (!g_bCustomizeManagerHasControl) {
+#ifndef EA_BUILD_A124
         FEDatabase->SetGameMode(eFE_GAME_MODE_CUSTOMIZE);
+#endif
         g_bCustomizeManagerHasControl = 1;
 #ifndef EA_BUILD_A124
         for (int i = 0; i < 3; i++) {
             Showcase::FromColor[i] = nullptr;
         }
-#endif
         TheTempColoredPart = nullptr;
+#endif
         EntryPoint = entry_point;
         TuningCar = tuning_car;
         FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
@@ -57,11 +59,11 @@ bool CarCustomizeManager::CanTradeIn(SelectablePart *part) {
         return false;
     }
     switch (part->GetSlotID()) {
-        case 0x4c ... 0x53:
+        case 0x4c: case 0x4d: case 0x4e: case 0x4f: case 0x50: case 0x51: case 0x52: case 0x53:
         case 0x5b:
-        case 0x63 ... 0x73:
+        case 0x63: case 0x64: case 0x65: case 0x66: case 0x67: case 0x68: case 0x69: case 0x6a: case 0x6b: case 0x6c: case 0x6d: case 0x6e: case 0x6f: case 0x70: case 0x71: case 0x72: case 0x73:
         case 0x7b:
-        case 0x83 ... 0x87:
+        case 0x83: case 0x84: case 0x85: case 0x86: case 0x87:
             return false;
     }
     return true;
@@ -71,19 +73,25 @@ void CarCustomizeManager::AddToCart(SelectablePart *part) {
     ShoppingCartItem *existing = IsPartTypeInCart(part);
     SelectablePart *trade_in = nullptr;
     if (existing) {
-        if (CanTradeIn(part) && existing->TradeIn) {
+        if (
+#ifndef EA_BUILD_A124
+            CanTradeIn(part) &&
+#endif
+            existing->TradeIn) {
             trade_in = new ("SelectablePart 9", 0) SelectablePart(existing->TradeIn);
         }
         RemoveFromCart(existing);
     } else {
-        if (!part->IsPerformancePkg()) {
-            if (CanTradeIn(part)) {
-                CarPart *installed = GetInstalledCarPart(part->GetSlotID());
-                if (installed) {
-                    trade_in = new ("SelectablePart 10", 0) SelectablePart(installed, part->GetSlotID(), installed->GetUpgradeLevel(), Physics::Upgrades::PUT_MAX, false,
-                                                  CPS_INSTALLED, 0, false);
-                    trade_in->SetPrice(GetPartPrice(trade_in));
-                }
+        if (!part->IsPerformancePkg()
+#ifndef EA_BUILD_A124
+            && CanTradeIn(part)
+#endif
+        ) {
+            CarPart *installed = GetInstalledCarPart(part->GetSlotID());
+            if (installed) {
+                trade_in = new ("SelectablePart 10", 0) SelectablePart(installed, part->GetSlotID(), installed->GetUpgradeLevel(), Physics::Upgrades::PUT_MAX, false,
+                                              CPS_INSTALLED, 0, false);
+                trade_in->SetPrice(GetPartPrice(trade_in));
             }
         }
     }
@@ -101,6 +109,11 @@ bool CarCustomizeManager::RemoveFromCart(ShoppingCartItem *item) {
         return true;
     }
     return false;
+}
+
+void CarCustomizeManager::AddRemovalCarPart(uint32 slot_id) {
+    SelectablePart remover(nullptr, slot_id, 0, Physics::Upgrades::PUT_MAX, false, CPS_AVAILABLE, 0, false);
+    gCarCustomizeManager.AddToCart(&remover);
 }
 
 ShoppingCartItem *CarCustomizeManager::IsPartTypeInCart(SelectablePart *to_find) {
@@ -172,6 +185,17 @@ int CarCustomizeManager::GetCartTotal(eCustomizeCartTotals type) {
     for (ShoppingCartItem *item = ShoppingCart.GetHead(); item != ShoppingCart.EndOfList(); item = item->GetNext()) {
         if (!item->IsActive())
             continue;
+#ifdef EA_BUILD_A124
+        // La A124 es la forma simple: sin paquetes de rendimiento ni ranuras excluidas (oraculo A124 0x5c0d18,
+        // 252 B: type==0||type==2 -> backroom ? 1 : precio; trade-in con /4 de GetTradeInPrice).
+        if (type == 0 || type == 2) {
+            if (IsInBackRoom()) {
+                total += 1;
+            } else {
+                total += item->GetBuyingPart()->GetPrice();
+            }
+        }
+#else
         if (type == 0 || type == 2) {
             SelectablePart *buy = item->GetBuyingPart();
             if (buy->IsPerformancePkg()) {
@@ -182,9 +206,9 @@ int CarCustomizeManager::GetCartTotal(eCustomizeCartTotals type) {
                 }
             } else {
                 switch (buy->GetSlotID()) {
-                    case 0x4f ... 0x52:
+                    case 0x4f: case 0x50: case 0x51: case 0x52:
                     case 0x72:
-                    case 0x85 ... 0x87:
+                    case 0x85: case 0x86: case 0x87:
                         break;
                     default:
                         if (IsInBackRoom()) {
@@ -196,6 +220,7 @@ int CarCustomizeManager::GetCartTotal(eCustomizeCartTotals type) {
                 }
             }
         }
+#endif
         if (type == 1 || (type == 2 && !IsInBackRoom())) {
             total -= item->GetTradeInPrice();
         }
@@ -210,14 +235,22 @@ void CarCustomizeManager::Checkout() {
         if (!item->IsActive())
             continue;
         SelectablePart *part = item->GetBuyingPart();
-        if (IsCareerMode() && item->GetBuyingPart()->GetSlotID() != 0x72) {
+        if (IsCareerMode()
+#ifndef EA_BUILD_A124
+            && item->GetBuyingPart()->GetSlotID() != 0x72
+#endif
+        ) {
             if (!IsInBackRoom()) {
+#ifdef EA_BUILD_A124
+                FEDatabase->GetCareerSettings()->SpendCash(item->GetPartPrice() - item->GetTradeInPrice());
+#else
                 int cost = item->GetPartPrice() - item->GetTradeInPrice();
                 if (cost >= 0) {
                     FEDatabase->GetCareerSettings()->SpendCash(cost);
                 } else {
                     FEDatabase->GetCareerSettings()->AwardCash(-cost);
                 }
+#endif
             } else {
                 if (item->GetBuyingPart()->IsPerformancePkg()) {
                     TheFEMarkerManager.UtilizeMarker(static_cast<Physics::Upgrades::Type>(static_cast<int>(item->GetBuyingPart()->GetPhysicsType())));
@@ -233,7 +266,7 @@ void CarCustomizeManager::Checkout() {
             UpdateHeatOnVehicle(part, career_record);
         }
     }
-    EmptyCart();
+    ShoppingCart.DeleteAllElements();
     ResetPreview();
 }
 
@@ -264,11 +297,16 @@ int CarCustomizeManager::GetPartPrice(SelectablePart *part) {
     int price = 0;
     if ((part != nullptr) && !IsInBackRoom()) {
         if (part->IsPerformancePkg()) {
+#ifdef EA_BUILD_A124
+            price = UnlockSystem::GetPerfPackageCost(GetUnlockFilter(), part->GetPhysicsType(), part->GetUpgradeLevel(), 0);
+#else
             int level = GetMaxPackages(part->GetPhysicsType());
             level -= GetNumPackages(part->GetPhysicsType()) - part->GetUpgradeLevel();
             price = UnlockSystem::GetPerfPackageCost(GetUnlockFilter(), part->GetPhysicsType(), level, 0);
+#endif
         } else {
             switch (part->GetSlotID()) {
+#ifndef EA_BUILD_A124
                 case CARSLOTID_VINYL_COLOUR0_0:
                 case CARSLOTID_VINYL_COLOUR0_1:
                 case CARSLOTID_VINYL_COLOUR0_2:
@@ -278,6 +316,7 @@ int CarCustomizeManager::GetPartPrice(SelectablePart *part) {
                 case CARSLOTID_HUD_NEEDLE_COLOUR:
                 case CARSLOTID_HUD_CHARACTER_COLOUR:
                     break;
+#endif
                 default:
                     price = UnlockSystem::GetCarPartCost(GetUnlockFilter(), part->GetSlotID(), part->GetPart(), 0);
             }
@@ -286,12 +325,14 @@ int CarCustomizeManager::GetPartPrice(SelectablePart *part) {
     return price;
 }
 
+#ifndef EA_BUILD_A124
 void CarCustomizeManager::SetTempColoredPart(SelectablePart *part) {
     if (TheTempColoredPart) {
         delete TheTempColoredPart;
     }
     TheTempColoredPart = part;
 }
+#endif
 
 void CarCustomizeManager::ClearTempColoredPart() {
     if (TheTempColoredPart) {
@@ -301,10 +342,10 @@ void CarCustomizeManager::ClearTempColoredPart() {
 }
 
 CarPart *CarCustomizeManager::GetStockCarPart(unsigned int slot_id) {
-    RideInfo ride;
-    FEDatabase->GetPlayerCarStable(0)->BuildRideForPlayer(TuningCar->Handle, 0, &ride);
-    ride.SetStockParts();
-    return ride.GetPart(slot_id);
+    RideInfo info;
+    FEDatabase->GetPlayerCarStable(0)->BuildRideForPlayer(TuningCar->Handle, 0, &info);
+    info.SetStockParts();
+    return info.GetPart(slot_id);
 }
 
 void CarCustomizeManager::ResetToStockCarParts() {
@@ -397,6 +438,26 @@ int CarCustomizeManager::GetInstalledPerfPkg(Physics::Upgrades::Type type) {
 }
 
 int CarCustomizeManager::GetMaxPackages(Physics::Upgrades::Type type) {
+#ifdef EA_BUILD_A124
+    switch (type) {
+        case 0:
+            return 6;
+        case 1:
+            return 6;
+        case 2:
+            return 6;
+        case 3:
+            return 6;
+        case 4:
+            return 6;
+        case 5:
+            return 6;
+        case 6:
+            return 6;
+        default:
+            return -1;
+    }
+#else
     switch (type) {
         case 0:
             return 3;
@@ -415,6 +476,7 @@ int CarCustomizeManager::GetMaxPackages(Physics::Upgrades::Type type) {
         default:
             return -1;
     }
+#endif
 }
 
 int CarCustomizeManager::GetNumPackages(Physics::Upgrades::Type type) {
@@ -508,54 +570,49 @@ float CarCustomizeManager::GetPerformanceRating(ePerformanceRatingType type, boo
 }
 
 void CarCustomizeManager::UpdateHeatOnVehicle(SelectablePart *part, FECareerRecord *record) {
-    if (!part)
-        return;
-    if (!record)
-        return;
-    if (part->IsPerformancePkg())
-        return;
-    if (!IsCareerMode())
-        return;
+    if (part && record && !part->IsPerformancePkg() && IsCareerMode()) {
+        float heat_factor = CustomizeIsInBackRoom() ? 0.75f : 1.0f;
 
-    float heat_factor = CustomizeIsInBackRoom() ? 0.75f : 1.0f;
-
-    switch (part->GetSlotID()) {
-        case 0x2c:
-            record->AdjustHeatOnSpoilerApplied(heat_factor);
-            break;
-        case 0x3f:
-            record->AdjustHeatOnHoodApplied(heat_factor);
-            break;
-        case 0x3e:
-            record->AdjustHeatOnRoofScoopApplied(heat_factor);
-            break;
-        case 0x42:
-            record->AdjustHeatOnRimApplied(heat_factor);
-            break;
-        case 0x83:
-            record->AdjustHeatOnWindowTintApplied(heat_factor);
-            break;
-        case 0x4c:
-            record->AdjustHeatOnPaintApplied(heat_factor);
-            break;
-        case 0x4e:
-            record->AdjustHeatOnRimPaintApplied(heat_factor);
-            break;
-        case 0x4d:
-            record->AdjustHeatOnVinylApplied(heat_factor);
-            break;
-        case 0x17:
-        case 0x69:
-            record->AdjustHeatOnBodyKitApplied(heat_factor);
-            break;
-        case 0x53:
-        case 0x5b:
-        case 0x63 ... 0x68:
-        case 0x6b ... 0x70:
-        case 0x73:
-        case 0x7b:
-            record->AdjustHeatOnDecalApplied(heat_factor);
-            break;
+        switch (part->GetSlotID()) {
+            case 0x17:
+                record->AdjustHeatOnBodyKitApplied(heat_factor);
+                break;
+            case 0x2c:
+                record->AdjustHeatOnSpoilerApplied(heat_factor);
+                break;
+            case 0x3f:
+                record->AdjustHeatOnHoodApplied(heat_factor);
+                break;
+            case 0x3e:
+                record->AdjustHeatOnRoofScoopApplied(heat_factor);
+                break;
+            case 0x42:
+                record->AdjustHeatOnRimApplied(heat_factor);
+                break;
+            case 0x83:
+                record->AdjustHeatOnWindowTintApplied(heat_factor);
+                break;
+            case 0x4c:
+                record->AdjustHeatOnPaintApplied(heat_factor);
+                break;
+            case 0x4e:
+                record->AdjustHeatOnRimPaintApplied(heat_factor);
+                break;
+            case 0x4d:
+                record->AdjustHeatOnVinylApplied(heat_factor);
+                break;
+            case 0x69:
+                record->AdjustHeatOnBodyKitApplied(heat_factor);
+                break;
+            case 0x53:
+            case 0x5b:
+            case 0x63: case 0x64: case 0x65: case 0x66: case 0x67: case 0x68:
+            case 0x6b: case 0x6c: case 0x6d: case 0x6e: case 0x6f: case 0x70:
+            case 0x73:
+            case 0x7b:
+                record->AdjustHeatOnDecalApplied(heat_factor);
+                break;
+        }
     }
 }
 
@@ -667,7 +724,9 @@ unsigned int CarCustomizeManager::GetUnlockHash(eCustomizeCategory cat, int upgr
             name = "VISUAL_DECALS";
             break;
     }
-    if (name && upgrade_lvl) {
+    if (!name || !upgrade_lvl) {
+        return 0x9bb9ccc3;
+    } else {
         char buf[100];
         FEngSNPrintf(buf, 100, "CUSTOMIZATION_%s_%d", name, upgrade_lvl);
         unsigned int hash = FEngHashString(buf);
@@ -704,6 +763,13 @@ bool CarCustomizeManager::IsPartLocked(SelectablePart *part
                                        int perf_unlock_level
 #endif
 ) {
+#ifdef EA_BUILD_A124
+    if (part->IsPerformancePkg()) {
+        return !UnlockSystem::IsPerfPackageUnlocked(GetUnlockFilter(), part->GetPhysicsType(), part->GetUpgradeLevel(), 0, false);
+    } else {
+        return !UnlockSystem::IsCarPartUnlocked(GetUnlockFilter(), part->GetSlotID(), part->GetPart(), 0, false);
+    }
+#else
     if (part->IsPerformancePkg()) {
         return !UnlockSystem::IsPerfPackageUnlocked(GetUnlockFilter(), part->GetPhysicsType(),
 #ifndef EA_BUILD_A124
@@ -747,6 +813,7 @@ bool CarCustomizeManager::IsPartLocked(SelectablePart *part
             }
         }
     }
+#endif
 }
 
 bool CarCustomizeManager::IsPartNew(SelectablePart *part
@@ -756,22 +823,208 @@ bool CarCustomizeManager::IsPartNew(SelectablePart *part
 #endif
 ) {
     eUnlockableEntity ent;
+#ifdef EA_BUILD_A124
+    // El prototipo desbloquea por el nivel del propio paquete: una sola llamada tras elegir la entidad.
     if (part->IsPerformancePkg()) {
         ent = MapPerfPkgToUnlockable(part->GetPhysicsType());
-        return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent,
-#ifndef EA_BUILD_A124
-                                             perf_unlock_level
+    } else {
+        ent = MapCarPartToUnlockable(part->GetSlotID(), part->GetPart());
+    }
+    return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent, part->GetUpgradeLevel());
 #else
-                                             part->GetUpgradeLevel() // the prototype unlocks by the level of the package itself
-#endif
-        );
+    if (part->IsPerformancePkg()) {
+        ent = MapPerfPkgToUnlockable(part->GetPhysicsType());
+        return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent, perf_unlock_level);
     } else {
         ent = MapCarPartToUnlockable(part->GetSlotID(), part->GetPart());
         return UnlockSystem::IsUnlockableNew(GetUnlockFilter(), ent, part->GetUpgradeLevel());
     }
+#endif
 }
 
 bool CarCustomizeManager::IsCategoryNew(unsigned int cat) {
+#ifdef EA_BUILD_A124 // el prototipo numera de otra forma lo desbloqueable; las categorias compuestas suman tambien la suya
+    bool answer = false;
+    eUnlockableEntity titty;
+
+    switch (cat) {
+        case 0x801:
+            titty = static_cast<eUnlockableEntity>(1);
+            break;
+        case 0x802:
+            titty = static_cast<eUnlockableEntity>(2);
+            break;
+        case 0x803:
+            titty = static_cast<eUnlockableEntity>(3);
+            break;
+        case 0x101:
+            titty = static_cast<eUnlockableEntity>(0xb);
+            break;
+        case 0x102:
+            titty = static_cast<eUnlockableEntity>(0xc);
+            break;
+        case 0x103:
+            titty = static_cast<eUnlockableEntity>(0xd);
+            break;
+        case 0x104:
+            titty = static_cast<eUnlockableEntity>(0xe);
+            break;
+        case 0x105:
+            titty = static_cast<eUnlockableEntity>(0xf);
+            break;
+        case 0x307:
+            titty = static_cast<eUnlockableEntity>(0x11);
+            break;
+        case 0x201:
+            titty = static_cast<eUnlockableEntity>(8);
+            break;
+        case 0x202:
+            titty = static_cast<eUnlockableEntity>(7);
+            break;
+        case 0x203:
+            titty = static_cast<eUnlockableEntity>(6);
+            break;
+        case 0x204:
+            titty = static_cast<eUnlockableEntity>(10);
+            break;
+        case 0x205:
+            titty = static_cast<eUnlockableEntity>(4);
+            break;
+        case 0x206:
+            titty = static_cast<eUnlockableEntity>(5);
+            break;
+        case 0x207:
+            titty = static_cast<eUnlockableEntity>(9);
+            break;
+        case 0x301:
+            titty = static_cast<eUnlockableEntity>(0x17);
+            break;
+        case 0x302:
+            answer |= IsCategoryNew(0x402);
+            answer |= IsCategoryNew(0x403);
+            answer |= IsCategoryNew(0x404);
+            answer |= IsCategoryNew(0x405);
+            answer |= IsCategoryNew(0x406);
+            answer |= IsCategoryNew(0x407);
+            answer |= IsCategoryNew(0x408);
+            answer |= IsCategoryNew(0x409);
+        case 0x303:
+            titty = static_cast<eUnlockableEntity>(0x18);
+            break;
+        case 0x304:
+            titty = static_cast<eUnlockableEntity>(0x12);
+            break;
+        case 0x305:
+            answer |= IsCategoryNew(0x501);
+            answer |= IsCategoryNew(0x502);
+            answer |= IsCategoryNew(0x505);
+            answer |= IsCategoryNew(0x506);
+            answer |= IsCategoryNew(0x601);
+            answer |= IsCategoryNew(0x602);
+            answer |= IsCategoryNew(0x603);
+            answer |= IsCategoryNew(0x604);
+            answer |= IsCategoryNew(0x605);
+            answer |= IsCategoryNew(0x606);
+        case 0x306:
+            titty = static_cast<eUnlockableEntity>(0x2b);
+            break;
+        case 0x402:
+            titty = static_cast<eUnlockableEntity>(0x23);
+            break;
+        case 0x403:
+            titty = static_cast<eUnlockableEntity>(0x24);
+            break;
+        case 0x404:
+            titty = static_cast<eUnlockableEntity>(0x25);
+            break;
+        case 0x405:
+            titty = static_cast<eUnlockableEntity>(0x26);
+            break;
+        case 0x406:
+            titty = static_cast<eUnlockableEntity>(0x27);
+            break;
+        case 0x407:
+            titty = static_cast<eUnlockableEntity>(0x28);
+            break;
+        case 0x408:
+            titty = static_cast<eUnlockableEntity>(0x29);
+            break;
+        case 0x409:
+            titty = static_cast<eUnlockableEntity>(0x2a);
+            break;
+        case 0x702:
+            titty = static_cast<eUnlockableEntity>(0x19);
+            break;
+        case 0x703:
+            titty = static_cast<eUnlockableEntity>(0x1a);
+            break;
+        case 0x704:
+            titty = static_cast<eUnlockableEntity>(0x1b);
+            break;
+        case 0x705:
+            titty = static_cast<eUnlockableEntity>(0x1c);
+            break;
+        case 0x706:
+            titty = static_cast<eUnlockableEntity>(0x1d);
+            break;
+        case 0x707:
+            titty = static_cast<eUnlockableEntity>(0x1e);
+            break;
+        case 0x708:
+            titty = static_cast<eUnlockableEntity>(0x1f);
+            break;
+        case 0x709:
+            titty = static_cast<eUnlockableEntity>(0x20);
+            break;
+        case 0x70a:
+            titty = static_cast<eUnlockableEntity>(0x21);
+            break;
+        case 0x70b:
+            titty = static_cast<eUnlockableEntity>(0x22);
+            break;
+        case 0x501:
+            titty = static_cast<eUnlockableEntity>(0x2c);
+            break;
+        case 0x502:
+            titty = static_cast<eUnlockableEntity>(0x2d);
+            break;
+        case 0x503:
+            titty = static_cast<eUnlockableEntity>(0x2e);
+            break;
+        case 0x504:
+            titty = static_cast<eUnlockableEntity>(0x2f);
+            break;
+        case 0x505:
+            titty = static_cast<eUnlockableEntity>(0x30);
+            break;
+        case 0x506:
+            titty = static_cast<eUnlockableEntity>(0x31);
+            break;
+        case 0x601:
+            titty = static_cast<eUnlockableEntity>(0x33);
+            break;
+        case 0x602:
+            titty = static_cast<eUnlockableEntity>(0x34);
+            break;
+        case 0x603:
+            titty = static_cast<eUnlockableEntity>(0x35);
+            break;
+        case 0x604:
+            titty = static_cast<eUnlockableEntity>(0x36);
+            break;
+        case 0x605:
+            titty = static_cast<eUnlockableEntity>(0x37);
+            break;
+        case 0x606:
+            titty = static_cast<eUnlockableEntity>(0x38);
+            break;
+        default:
+            return true;
+    }
+
+    answer |= UnlockSystem::IsUnlockableNew(GetUnlockFilter(), titty, -2);
+    return answer;
+#else
     bool answer = false;
     eUnlockableEntity titty;
 
@@ -943,10 +1196,202 @@ bool CarCustomizeManager::IsCategoryNew(unsigned int cat) {
             return true;
     }
 
-    return answer | UnlockSystem::IsUnlockableNew(GetUnlockFilter(), titty, -2);
+    answer |= UnlockSystem::IsUnlockableNew(GetUnlockFilter(), titty, -2);
+    return answer;
+#endif
 }
 
 bool CarCustomizeManager::IsCategoryLocked(unsigned int cat, bool backroom) {
+#ifdef EA_BUILD_A124 // el prototipo numera de otra forma lo desbloqueable y mira cada categoria hija
+    eUnlockableEntity titty;
+
+    switch (cat) {
+        case 0x801:
+            titty = static_cast<eUnlockableEntity>(1);
+            break;
+        case 0x802:
+            titty = static_cast<eUnlockableEntity>(2);
+            break;
+        case 0x803:
+            titty = static_cast<eUnlockableEntity>(3);
+            break;
+        case 0x101:
+            titty = static_cast<eUnlockableEntity>(0xb);
+            break;
+        case 0x102:
+            titty = static_cast<eUnlockableEntity>(0xc);
+            break;
+        case 0x103:
+            titty = static_cast<eUnlockableEntity>(0xd);
+            break;
+        case 0x104:
+            titty = static_cast<eUnlockableEntity>(0xe);
+            break;
+        case 0x105:
+            titty = static_cast<eUnlockableEntity>(0xf);
+            break;
+        case 0x307:
+            titty = static_cast<eUnlockableEntity>(0x11);
+            break;
+        case 0x201:
+            titty = static_cast<eUnlockableEntity>(8);
+            break;
+        case 0x202:
+            titty = static_cast<eUnlockableEntity>(7);
+            break;
+        case 0x203:
+            titty = static_cast<eUnlockableEntity>(6);
+            break;
+        case 0x204:
+            titty = static_cast<eUnlockableEntity>(10);
+            break;
+        case 0x205:
+            titty = static_cast<eUnlockableEntity>(4);
+            break;
+        case 0x206:
+            titty = static_cast<eUnlockableEntity>(5);
+            break;
+        case 0x207:
+            titty = static_cast<eUnlockableEntity>(9);
+            break;
+        case 0x301:
+            titty = static_cast<eUnlockableEntity>(0x17);
+            break;
+        case 0x302: {
+            bool locked = false;
+            locked |= IsCategoryLocked(0x402, backroom);
+            locked |= IsCategoryLocked(0x403, backroom);
+            locked |= IsCategoryLocked(0x404, backroom);
+            locked |= IsCategoryLocked(0x405, backroom);
+            locked |= IsCategoryLocked(0x406, backroom);
+            locked |= IsCategoryLocked(0x407, backroom);
+            locked |= IsCategoryLocked(0x408, backroom);
+            locked |= IsCategoryLocked(0x409, backroom);
+            return locked;
+        }
+        case 0x303:
+            titty = static_cast<eUnlockableEntity>(0x18);
+            break;
+        case 0x304:
+            titty = static_cast<eUnlockableEntity>(0x12);
+            break;
+        case 0x305: {
+            bool locked = false;
+            locked |= IsCategoryLocked(0x501, backroom);
+            locked |= IsCategoryLocked(0x502, backroom);
+            locked |= IsCategoryLocked(0x505, backroom);
+            locked |= IsCategoryLocked(0x506, backroom);
+            locked |= IsCategoryLocked(0x601, backroom);
+            locked |= IsCategoryLocked(0x602, backroom);
+            locked |= IsCategoryLocked(0x603, backroom);
+            locked |= IsCategoryLocked(0x604, backroom);
+            locked |= IsCategoryLocked(0x605, backroom);
+            locked |= IsCategoryLocked(0x606, backroom);
+            return locked;
+        }
+        case 0x306:
+            titty = static_cast<eUnlockableEntity>(0x2b);
+            break;
+        case 0x402:
+            titty = static_cast<eUnlockableEntity>(0x23);
+            break;
+        case 0x403:
+            titty = static_cast<eUnlockableEntity>(0x24);
+            break;
+        case 0x404:
+            titty = static_cast<eUnlockableEntity>(0x25);
+            break;
+        case 0x405:
+            titty = static_cast<eUnlockableEntity>(0x26);
+            break;
+        case 0x406:
+            titty = static_cast<eUnlockableEntity>(0x27);
+            break;
+        case 0x407:
+            titty = static_cast<eUnlockableEntity>(0x28);
+            break;
+        case 0x408:
+            titty = static_cast<eUnlockableEntity>(0x29);
+            break;
+        case 0x409:
+            titty = static_cast<eUnlockableEntity>(0x2a);
+            break;
+        case 0x702:
+            titty = static_cast<eUnlockableEntity>(0x19);
+            break;
+        case 0x703:
+            titty = static_cast<eUnlockableEntity>(0x1a);
+            break;
+        case 0x704:
+            titty = static_cast<eUnlockableEntity>(0x1b);
+            break;
+        case 0x705:
+            titty = static_cast<eUnlockableEntity>(0x1c);
+            break;
+        case 0x706:
+            titty = static_cast<eUnlockableEntity>(0x1d);
+            break;
+        case 0x707:
+            titty = static_cast<eUnlockableEntity>(0x1e);
+            break;
+        case 0x708:
+            titty = static_cast<eUnlockableEntity>(0x1f);
+            break;
+        case 0x709:
+            titty = static_cast<eUnlockableEntity>(0x20);
+            break;
+        case 0x70a:
+            titty = static_cast<eUnlockableEntity>(0x21);
+            break;
+        case 0x70b:
+            titty = static_cast<eUnlockableEntity>(0x22);
+            break;
+        case 0x501:
+            titty = static_cast<eUnlockableEntity>(0x2c);
+            break;
+        case 0x502:
+            titty = static_cast<eUnlockableEntity>(0x2d);
+            break;
+        case 0x503:
+            titty = static_cast<eUnlockableEntity>(0x2e);
+            break;
+        case 0x504:
+            titty = static_cast<eUnlockableEntity>(0x2f);
+            break;
+        case 0x505:
+            titty = static_cast<eUnlockableEntity>(0x30);
+            break;
+        case 0x506:
+            titty = static_cast<eUnlockableEntity>(0x31);
+            break;
+        case 0x601:
+            titty = static_cast<eUnlockableEntity>(0x33);
+            break;
+        case 0x602:
+            titty = static_cast<eUnlockableEntity>(0x34);
+            break;
+        case 0x603:
+            titty = static_cast<eUnlockableEntity>(0x35);
+            break;
+        case 0x604:
+            titty = static_cast<eUnlockableEntity>(0x36);
+            break;
+        case 0x605:
+            titty = static_cast<eUnlockableEntity>(0x37);
+            break;
+        case 0x606:
+            titty = static_cast<eUnlockableEntity>(0x38);
+            break;
+        default:
+            return true;
+    }
+
+    if (backroom) {
+        return !UnlockSystem::IsBackroomAvailable(GetUnlockFilter(), titty, 0);
+    } else {
+        return !UnlockSystem::IsUnlockableUnlocked(GetUnlockFilter(), titty, 0, 0, false);
+    }
+#else
     eUnlockableEntity titty;
     int level = 0;
 
@@ -1106,6 +1551,7 @@ bool CarCustomizeManager::IsCategoryLocked(unsigned int cat, bool backroom) {
     } else {
         return !UnlockSystem::IsUnlockableUnlocked(GetUnlockFilter(), titty, level, 0, false);
     }
+#endif
 }
 
 bool CarCustomizeManager::IsRimCategoryLocked(unsigned int cat, bool backroom) {
@@ -1177,6 +1623,7 @@ bool CarCustomizeManager::IsVinylCategoryLocked(unsigned int cat, bool backroom)
     unsigned int group = 0;
     switch (cat) {
         case 0x402:
+            group = 0;
             break;
         case 0x403:
             group = 1;
@@ -1262,7 +1709,9 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
         car_type = static_cast<CarType>(-1);
     }
     CarPart *part = CarPartDB.NewGetFirstCarPart(car_type, car_slot, 0, -1);
+#ifndef EA_BUILD_A124
     eUnlockableEntity unlock_ent = MapCarPartToUnlockable(car_slot, nullptr);
+#endif
     while (part) {
         SelectablePart *sel_part;
         unsigned int status;
@@ -1280,7 +1729,26 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                 }
                 break;
             }
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124
+        }
+        // A124 (oraculo GetCarPartList 0x5c2da8, banco 100 %): sin
+        // MapCarPartToUnlockable, sin caso 0x42, sin vinilos del 0x4d y sin
+        // niveles de desbloqueo. En backroom filtra IsCarPartUnlocked; fuera
+        // de backroom descartan IsCareerMode con la marca de perfil a
+        // estrenar (palabra en UserProfile+0x7498 en la epoca) y el nivel
+        // maximo. Transcripcion desde el oraculo como SetupMilestones.
+        if (CustomizeIsInBackRoom()) {
+            if (!UnlockSystem::IsCarPartUnlocked(UNLOCK_CAREER_MODE, car_slot, part, 0, true)) {
+                part = CarPartDB.NewGetNextCarPart(part, car_type, car_slot, 0, -1);
+                continue;
+            }
+        } else if (IsCareerMode() && !FEDatabase->GetUserProfile(0)->CareerModeHasBeenCompletedAtLeastOnce &&
+                   part->GetUpgradeLevel() == Physics::Upgrades::PUT_MAX) {
+            part = CarPartDB.NewGetNextCarPart(part, car_type, car_slot, 0, -1);
+            continue;
+        }
+        sel_part = new ("SelectablePart 12", 0) SelectablePart(part, car_slot, part->GetUpgradeLevel(), Physics::Upgrades::PUT_MAX, false, CPS_AVAILABLE, 0, false);
+#else
             case 0x42:
                 if (param != 0) {
                     if (part->GetBrandNameHash() != param) {
@@ -1289,7 +1757,6 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                     }
                 }
                 break;
-#endif
             case 0x4d: {
                 bool exists = true;
                 bool is_collectors;
@@ -1350,6 +1817,7 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                 sel_part = new ("SelectablePart 12", 0) SelectablePart(part, car_slot, part->GetUpgradeLevel(), Physics::Upgrades::PUT_MAX, false, CPS_AVAILABLE, 0, false);
                 break;
         }
+#endif
 
         status = CPS_AVAILABLE;
         if (IsPartLocked(sel_part
@@ -1428,11 +1896,17 @@ bool CarCustomizeManager::IsTurbo() {
 }
 
 float CarCustomizeManager::GetActualHeat() {
-    FECareerRecord *career;
-    if (!TuningCar || (career = FEDatabase->GetPlayerCarStable(0)->GetCareerRecordByHandle(TuningCar->CareerHandle)) == 0) {
+    FEPlayerCarDB *stable;
+    FECareerRecord *record;
+    if (!TuningCar) {
         return -1.0f;
     }
-    return career->GetVehicleHeat();
+    stable = FEDatabase->GetPlayerCarStable(0);
+    record = stable->GetCareerRecordByHandle(TuningCar->CareerHandle);
+    if (record) {
+        return record->GetVehicleHeat();
+    }
+    return -1.0f;
 }
 
 float CarCustomizeManager::GetPreviewHeat(SelectablePart *part) {
@@ -1471,7 +1945,11 @@ int CarCustomizeManager::GetNumCustomizeMarkers() {
 
 bool CarCustomizeManager::IsCastrolCar() {
     if (TuningCar->GetType() == 0x34) {
+#ifdef EA_BUILD_A124
+        return true;
+#else
         return gEasterEggs.IsEasterEggUnlocked(EASTER_EGG_CASTROL);
+#endif
     }
     return false;
 }

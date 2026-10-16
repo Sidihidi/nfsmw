@@ -10,8 +10,8 @@ bQuaternion &bQuaternion::Slerp(bQuaternion &r, const bQuaternion &target, float
     if ((1.0f - bAbs(cos_theta)) > 0.05f) {
         unsigned short theta = bACos(bAbs(cos_theta));
         float sin_theta = bSin(theta);
-        unsigned short a1 = static_cast<unsigned short>(static_cast<int>((1.0f - t) * static_cast<float>(theta)) & 0xffff);
-        unsigned short a2 = static_cast<unsigned short>(static_cast<int>(t * static_cast<float>(theta)) & 0xffff);
+        unsigned short a1 = static_cast<unsigned short>(bFloatToInt((1.0f - t) * static_cast<float>(theta)) & 0xffff);
+        unsigned short a2 = static_cast<unsigned short>(bFloatToInt(t * static_cast<float>(theta)) & 0xffff);
 
         scale1 = bSin(a1) / sin_theta;
         scale2 = bSin(a2) / sin_theta;

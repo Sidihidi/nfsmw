@@ -112,4 +112,7 @@ struct LobbyChat {
     static int maxActiveInvites;
 };
 
+// La A124 lo expande en zFe (UIOLGameRoom::UIOLGameRoom): el cuerpo esta en la cabecera, no en LobbyChat.cpp.
+inline int LobbyChat::GetNumReceivedInvites() { return receivedInvites.CountElements(); }
+
 #endif

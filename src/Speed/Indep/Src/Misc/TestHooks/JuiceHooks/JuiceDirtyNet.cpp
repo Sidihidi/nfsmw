@@ -5,20 +5,20 @@ extern "C" void NetConnStartup(const char *params);
 extern "C" int NetConnQuery(const char *name, NetConfigRecT *configs, int count);
 extern "C" int NetConnConnect(NetConfigRecT *configs, int flags);
 extern "C" int printf(const char *format, ...);
-extern char *NetConnMAC();
-extern ProtoAriesRefT *ProtoAriesCreate(int memSize);
-extern long SocketInTextGetAddr(const char *host);
-extern int ProtoAriesConnect(ProtoAriesRefT *ref, int flags, long address, int port);
-extern int ProtoAriesPeek(ProtoAriesRefT *ref, int *kind, int *code, char **data);
-extern int ProtoAriesRecv(ProtoAriesRefT *ref, int *kind, int *channel, char *buf, int size);
-extern int ProtoAriesSend(ProtoAriesRefT *ref, int length, int channel, char *buf, int size);
-extern long ProtoAriesStatus(void *ref, int selector);
-extern int ProtoAriesUnconnect(void *ref);
-extern void ProtoAriesDestroy(void *ref);
-extern int NetConnStatus(int kind, int data, int flag);
-extern void NetConnShutdown(int flags);
-extern void NetConnIdle();
-extern char *SocketInAddrGetText(long address);
+extern "C" char *NetConnMAC();
+extern "C" ProtoAriesRefT *ProtoAriesCreate(int memSize);
+extern "C" long SocketInTextGetAddr(const char *host);
+extern "C" int ProtoAriesConnect(ProtoAriesRefT *ref, int flags, long address, int port);
+extern "C" int ProtoAriesPeek(ProtoAriesRefT *ref, int *kind, int *code, char **data);
+extern "C" int ProtoAriesRecv(ProtoAriesRefT *ref, int *kind, int *channel, char *buf, int size);
+extern "C" int ProtoAriesSend(ProtoAriesRefT *ref, int length, int channel, char *buf, int size);
+extern "C" long ProtoAriesStatus(void *ref, int selector);
+extern "C" int ProtoAriesUnconnect(void *ref);
+extern "C" void ProtoAriesDestroy(void *ref);
+extern "C" int NetConnStatus(int kind, int data, void *buffer);
+extern "C" void NetConnShutdown(int flags);
+extern "C" void NetConnIdle();
+extern "C" char *SocketInAddrGetText(long address);
 
 namespace Juice {
 
@@ -47,19 +47,20 @@ int JuiceDirtyNet::Initialize() {
     int cnt = NetConnQuery("mc0:", configs, 4);
     if (cnt == 0) {
         printf("\nNo network configurations found on mc0\n");
+        GameHook::Instance()->DisableJuice();
+        return 0;
     } else if (cnt < 0) {
         printf("\nError occured loading network configurations\n");
-    } else {
-        printf("\nConfiguration Loaded Starting Juice\n");
-        int error = NetConnConnect(configs, 0);
-        printf("\nNetConnConnect returned: %d\n", error);
-        if (error > -1) {
-            goto done;
-        }
+        GameHook::Instance()->DisableJuice();
+        return 0;
     }
-    connected = 0;
-    GameHook::Instance()->DisableJuice();
-done:
+    printf("\nConfiguration Loaded Starting Juice\n");
+    int error = NetConnConnect(configs, 0);
+    printf("\nNetConnConnect returned: %d\n", error);
+    if (error < 0) {
+        connected = 0;
+        GameHook::Instance()->DisableJuice();
+    }
     return connected;
 }
 
@@ -91,22 +92,17 @@ int JuiceDirtyNet::Recv(char *buf, int *channel, int size) {
 int JuiceDirtyNet::Send(int length, int channel, char *sendBuffer) {
     int ret_val;
     unsigned int timeDiff = 0;
-    unsigned int startTime =
-        reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GetCurrentSystemTime();
+    unsigned int startTime = GameHook::Instance()->GetCurrentSystemTime();
     do {
         NetConnIdle();
         ret_val = ProtoAriesSend(mAries, length, channel, sendBuffer, length);
         if (ret_val < 0) {
             NetConnIdle();
-            char *vtable = *reinterpret_cast<char **>(IExtension::sCurrentExtension);
-            short offset = *reinterpret_cast<short *>(vtable + 0xc0);
-            void (**notify)(char *, int) = reinterpret_cast<void (**)(char *, int)>(vtable + 0xc4);
-            (*notify)(
-                reinterpret_cast<char *>(IExtension::sCurrentExtension) + offset, 5);
+            IExtension::sCurrentExtension->ThreadYield(5);
             NetConnIdle();
         }
         NetConnIdle();
-        timeDiff += reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GetTimeElapsed(&startTime);
+        timeDiff += GameHook::Instance()->GetTimeElapsed(startTime);
     } while (ret_val < 0 || timeDiff > 3000);
     return ret_val;
 }
@@ -130,14 +126,14 @@ void JuiceDirtyNet::FreeEverything() {
 char *JuiceDirtyNet::GetLocalIpAddress() {
     long address = 0;
     unsigned int elapsed = 0;
-    unsigned int startTime = reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GetCurrentSystemTime();
+    unsigned int startTime = GameHook::Instance()->GetCurrentSystemTime();
     if (NetConnStatus(0x706c7567, 0, 0) != 0) {
         while (address == 0) {
             address = NetConnStatus(0x61646472, 0, 0);
             if (NetConnStatus(0x706c7567, 0, 0) == 0 || elapsed > 3000) {
                 break;
             }
-            elapsed += reinterpret_cast<GameHook *(*)()>(GameHook::Instance)()->GetTimeElapsed(&startTime);
+            elapsed += GameHook::Instance()->GetTimeElapsed(startTime);
         }
     }
     return SocketInAddrGetText(address);

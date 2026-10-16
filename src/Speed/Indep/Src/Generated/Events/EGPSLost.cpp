@@ -9,6 +9,7 @@ EGPSLost::EGPSLost() : Event(0x10) {
 }
 
 EGPSLost::~EGPSLost() {
+#ifndef EA_BUILD_A124 // la A124 aun no avisa de la perdida del GPS (su destructor no llama a nada)
     if (IPlayer::First(PLAYER_LOCAL)->GetHud()) {
         IGenericMessage *igenericmessage;
 
@@ -17,6 +18,7 @@ EGPSLost::~EGPSLost() {
             igenericmessage->RequestGenericMessage(GetTranslatedString(0xee236ed9), false, FEHASH_ZOOMINRED, 0, 0, GenericMessage_Priority_1);
         }
     }
+#endif
 }
 
 const char *EGPSLost::GetEventName() const {

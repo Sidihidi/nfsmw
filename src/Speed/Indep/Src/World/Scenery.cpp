@@ -18,6 +18,12 @@
 #include "Speed/Indep/bWare/Inc/SpeedScript.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/bFunk.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#include "Speed/Indep/Src/Misc/Config.h"
+#include "Speed/Indep/Src/Misc/bFile.hpp"
+#include "Speed/Indep/bWare/Inc/bDebug.hpp"
+#endif
 
 // El ELF carga aqui 1/2.237f (0x3EE4E0C2), no el 0.44703001f de
 // ConversionUtil.hpp: el volcado DWARF nombra un segundo inline MPH2MPS(float x)
@@ -60,10 +66,10 @@ class PrecullerBooBooManager {
         return (*p & GetBit(n)) != 0;
     }
 
-    int GetSectionNumber(bVector3 &position) {
-        int nx = (static_cast<unsigned int>(static_cast<int>(position.x)) >> 5) & 0x7F;
-        int ny = (static_cast<int>(position.y) & 0xFE0) << 2;
-        return ny | nx;
+    int GetSectionNumber(bVector3 &pos) {
+        int nx = (bFloatToInt(pos.x) >> 5) & 0x7F;
+        int ny = (bFloatToInt(pos.y) >> 5) & 0x7F;
+        return (ny << 7) + nx;
     }
 
   private:
@@ -112,9 +118,10 @@ SceneryOverrideInfo *SceneryOverrideInfoTable = nullptr;
 int NumSceneryOverrideInfos = 0;
 signed char SceneryGroupEnabledTable[4096] = {1};
 eModel *pVisibleZoneBoundaryModel = nullptr;
-int PrecullerMode = 1;
+ePrecullerMode PrecullerMode = PRECULLER_MODE_ON;
 int DisablePrecullerCounter = 0;
 eModel *pDebugModel = nullptr;
+int RunPrecullingTool = 0; // el LoadGlobalChunks de PS2 agranda el pool del streamer si esta puesta
 
 RegionQuery RegionInfo;
 short SceneryOverrideHashTable[257];
@@ -197,6 +204,58 @@ void LoadPrecullerBooBooScript(const char *filename, bool reset) {
     }
 }
 
+#ifdef EA_BUILD_A124
+const char *PrecullerNetworkBooBooFilename = "..\\..\\World\\Global\\Scripts\\PrecullerBooBooScript.hoo";
+
+// La herramienta de la A124 que anade a mano una linea BOOBOO al guion desde la posicion de la camara.
+void ModifyPrecullerBooBooScript(const char *filename, bool set) {
+    DoScreenPrintf = 1;
+    if (!TrackInfo::GetLoadedTrackInfo()) {
+        ScreenPrintf(-250, 100, 3.0f, "Need to be in game!", filename);
+        return;
+    }
+    if (!bFileExists(filename)) {
+        ScreenPrintf(-250, 100, 3.0f, "Cannot open %s", filename);
+        return;
+    }
+
+    char computer_name[80];
+
+    memset(computer_name, 0, sizeof(computer_name));
+    bGetComputerName(computer_name, sizeof(computer_name));
+    Camera *camera = eViews[EVIEW_PLAYER1].GetCamera();
+    const char *option;
+
+    if (set) {
+        option = "SET";
+        gPrecullerBooBooManager.Set(*camera->GetPosition());
+    } else {
+        option = "CLR";
+        gPrecullerBooBooManager.Clr(*camera->GetPosition());
+    }
+
+    char text[512];
+
+    bSPrintf(text, "BOOBOO:  %s %-3s  %s  Pos =%8.2f,%8.2f,%7.2f   Angle=0x%04x   User=%s\n",
+             TrackInfo::GetLoadedTrackInfo()->RegionName,
+             GetScenerySectionName(TheVisibleSectionManager.GetDrivableSectionNumber(
+                 reinterpret_cast<bVector2 *>(camera->GetPosition()))),
+             option,
+             camera->GetPosition()->x, camera->GetPosition()->y, camera->GetPosition()->z,
+             bATan(camera->GetDirection()->x, camera->GetDirection()->y), computer_name);
+    bAppendToFile(filename, text, bStrLen(text));
+    ScreenPrintf(-250, 100, 3.0f, "Updated %s", filename);
+}
+
+void SetPrecullerBooBoo() {
+    ModifyPrecullerBooBooScript(PrecullerNetworkBooBooFilename, true);
+}
+
+void ClrPrecullerBooBoo() {
+    ModifyPrecullerBooBooScript(PrecullerNetworkBooBooFilename, false);
+}
+#endif
+
 void LoadPrecullerBooBooScripts() {
     LoadPrecullerBooBooScript("TRACKS\\PrecullerBooBooScript.hoo", true);
 }
@@ -248,8 +307,8 @@ void EnableSceneryGroup(unsigned int group_name_hash, bool flip_artwork) {
     }
 }
 
-void DisableSceneryGroup(unsigned int name_hash) {
-    SceneryGroup *group = FindSceneryGroup(name_hash);
+void DisableSceneryGroup(unsigned int group_name_hash) {
+    SceneryGroup *group = FindSceneryGroup(group_name_hash);
     if (group != nullptr) {
         group->DisableRendering();
         SceneryGroupEnabledTable[group->GroupNumber] = 0;
@@ -470,14 +529,12 @@ int LoaderScenery(bChunk *chunk) {
 
             ModelHeirarchy::Node *node = mH->GetNodes();
             for (unsigned int i = 0; i < mH->mNumNodes; i++) {
-#ifndef EA_BUILD_A124
                 bPlatEndianSwap(&node[i].mNodeName);
                 bPlatEndianSwap(&node[i].mFlags);
                 bPlatEndianSwap(&node[i].mModelHash);
                 bPlatEndianSwap(&node[i].mParent);
                 bPlatEndianSwap(&node[i].mNumChildren);
                 bPlatEndianSwap(&node[i].mChildIndex);
-#endif
             }
 
             HeirarchyMap[mH->mNameHash] = mH;
@@ -631,7 +688,7 @@ void RenderVisibleSectionBoundary(VisibleSectionBoundary *boundary, eView *view)
     bVector3 position;
     position.z = 0.0f;
     TopologyCoordinate topology_coordinate;
-    float pos = static_cast<float>((static_cast<int>(WorldTimer.GetSeconds() * 262144.0f) & 0xffff)) * 6.103515625e-05f;
+    float pos = static_cast<float>((bFloatToInt(WorldTimer.GetSeconds() * 262144.0f) & 0xffff)) * 6.103515625e-05f;
 
     int point_number;
     for (point_number = 0; point_number < boundary->GetNumPoints(); point_number++) {
@@ -690,9 +747,9 @@ void CloseVisibleZones() {
     }
 }
 
-int IsInTable(short *section_numbers, int num_sections, int section_number) {
-    for (int i = 0; i < num_sections; i++) {
-        if (section_numbers[i] == section_number) {
+int IsInTable(short *table, int num_entries, int entry) {
+    for (int i = 0; i < num_entries; i++) {
+        if (table[i] == entry) {
             return i;
         }
     }
@@ -771,7 +828,7 @@ void ScenerySectionHeader::DrawAScenery(int scenery_instance_number, SceneryCull
         if (pixel_size >= far_clip_size) {
             model = scenery_info->pModel[2];
         }
-    } else if (eGetCurrentViewMode() > EVIEWMODE_ONE_RVM) {
+    } else if (eGetCurrentViewMode() >= EVIEWMODE_TWOH) {
         if (pixel_size > 0x16) {
             model = scenery_info->pModel[2];
         }
@@ -780,7 +837,7 @@ void ScenerySectionHeader::DrawAScenery(int scenery_instance_number, SceneryCull
 
         if (scenery_info->pModel[0] != nullptr) {
             eSolid *solid = (scenery_info->pModel[0] != nullptr) ? scenery_info->pModel[0]->GetSolid() : nullptr;
-            if ((solid != nullptr) && solid->NumPolys > 39) {
+            if ((solid != nullptr) && solid->NumPolys >= 40) {
                 float ratio = solid->Density;
                 if (ratio < 6.0f) {
                     ratio = 6.0f;
@@ -788,10 +845,10 @@ void ScenerySectionHeader::DrawAScenery(int scenery_instance_number, SceneryCull
                 density = static_cast<float>(pixel_size) / ratio;
             }
         }
-        if (density < 8.7f) {
-            model = scenery_info->pModel[2];
-        } else {
+        if (density >= 8.7f) {
             model = scenery_info->pModel[0];
+        } else {
+            model = scenery_info->pModel[2];
         }
     }
 
@@ -931,12 +988,13 @@ int GrandSceneryCullInfo::WhatSectionsShouldWeDraw(short *sections_to_draw, int 
     DrivableScenerySection *drivable_scenery_section;
     int iViewID = scenery_cull_info->pView->GetID();
 #ifdef EA_BUILD_A124
-    if (iViewID == 17 || iViewID == 18) {
+    // El prototipo busca siempre desde la camara del jugador 1.
+    if (iViewID == EVIEW_SHADOWMAP1 || iViewID == EVIEW_SHADOWMAP2) {
         drivable_scenery_section = TheVisibleSectionManager.FindDrivableSection(
-            reinterpret_cast<const bVector2 *>(eGetView(1, false)->GetCamera()->GetPosition()));
+            reinterpret_cast<const bVector2 *>(eGetView(EVIEW_PLAYER1, false)->GetCamera()->GetPosition()));
 #else
     if (iViewID == EVIEW_SHADOWMAP1 || iViewID == EVIEW_SHADOWMAP2) {
-        int iViewPlayer = iViewID - 12;
+        int iViewPlayer = iViewID - EVIEW_SHADOWMAP1 + EVIEW_PLAYER1;
         drivable_scenery_section = TheVisibleSectionManager.FindDrivableSection(
             reinterpret_cast<const bVector2 *>(eGetView(iViewPlayer, false)->GetCamera()->GetPosition()));
 #endif
@@ -996,6 +1054,7 @@ int GrandSceneryCullInfo::WhatSectionsShouldWeDraw(short *sections_to_draw, int 
                 num_sections_to_draw = ToggleIsInTable(sections_to_draw, num_sections_to_draw, max_sections_to_draw, ScenerySectionToBlink);
             }
             if (SeeulatorToolActive && SeeulatorRefreshTrackStreamer != 0) {
+                void RefreshTrackStreamer();
                 RefreshTrackStreamer();
                 SeeulatorRefreshTrackStreamer = 0;
             }
@@ -1037,21 +1096,21 @@ void GrandSceneryCullInfo::DoCulling() {
         scenery_cull_info->Direction = *scenery_cull_info->pView->GetCamera()->GetDirection();
         scenery_cull_info->H = scenery_cull_info->pView->H;
 
-        if (PrecullerMode == 0) {
+        if (PrecullerMode == PRECULLER_MODE_OFF) {
             enable_preculling = false;
-        } else if (PrecullerMode == 2) {
+        } else if (PrecullerMode == PRECULLER_MODE_BLINKING) {
             int time = RealTimeFrames % 0x3D;
             if (time < 0xF) {
                 enable_preculling = false;
             }
-        } else if (PrecullerMode == 3) {
+        } else if (PrecullerMode == PRECULLER_MODE_HIGH_SPEED) {
             Camera *camera = scenery_cull_info->pView->GetCamera();
             if (bLength(camera->GetVelocityPosition()) < EnablePrecullingSpeed) {
                 enable_preculling = false;
             }
         }
 
-        if (DisablePrecullerCounter > 0 && PrecullerMode != 2) {
+        if (DisablePrecullerCounter > 0 && PrecullerMode != PRECULLER_MODE_BLINKING) {
             enable_preculling = false;
         }
 

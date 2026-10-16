@@ -4,6 +4,9 @@
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
 #include "Speed/Indep/Src/Lua/LuaGameHooks.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/World/TimeOfDay.hpp"
+#endif
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 
 extern "C" {
@@ -248,9 +251,9 @@ template <typename C> struct VoidMethodBinder {
             MethodPtrType *methodPtrAddr = (MethodPtrType *)lua_touserdata(luaState, lua_upvalueindex(1));
             C *const objPtr = Parameter<C *>::Translate(luaState, 1);
 
-            T1 arg1 = Parameter<T1>::Translate(luaState, 2);
+            T1 parm1 = Parameter<T1>::Translate(luaState, 2);
 
-            (objPtr->**methodPtrAddr)(arg1);
+            (objPtr->**methodPtrAddr)(parm1);
             return 0;
         }
     };
@@ -551,7 +554,9 @@ void LuaBindery::BindToGameCode(lua_State *luaState) {
     BindVoidFunction(luaState, "SaveStartPositions", Game_SaveStartPositions, "Game");
     BindVoidFunction(luaState, "RestoreStartPositions", Game_RestoreStartPositions, "Game");
     BindVoidFunction(luaState, "EnterPostRaceFlow", Game_EnterPostRaceFlow, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindFunction(luaState, "ShowOnlinePostRaceScreen", FE_ShowOnlinePostRaceScreen, "Game");
+#endif
     BindVoidFunction(luaState, "SetCopsEnabled", Game_SetCopsEnabled, "Game");
     BindVoidFunction(luaState, "NoNewPursuitsOrCops", Game_NoNewPursuitsOrCops, "Game");
     BindVoidFunction(luaState, "ForcePursuitStart", Game_ForcePursuitStart, "Game");
@@ -575,10 +580,12 @@ void LuaBindery::BindToGameCode(lua_State *luaState) {
     BindVoidFunction(luaState, "UnlockRace", Game_UnlockRace, "Game");
     BindVoidFunction(luaState, "NotifyCountdownDone", Game_NotifyCountdownDone, "Game");
     BindVoidFunction(luaState, "ResetCopsForRestart", Game_ResetCopsForRestart, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindVoidFunction(luaState, "ShowTriggerIcon", Game_ShowTriggerIcon, "Game");
     BindVoidFunction(luaState, "HideTriggerIcon", Game_HideTriggerIcon, "Game");
     BindVoidFunction(luaState, "WarpToMarkerWhenRoaming", Game_WarpToMarkerWhenRoaming, "Game");
     BindVoidFunction(luaState, "DoSpecialFinalization", Game_DoSpecialFinalization, "Game");
+#endif
     BindFunction(luaState, "IsActiveSpeedTrap", Game_IsActiveSpeedTrap, "Game");
     BindFunction(luaState, "IsActiveMenuGate", Game_IsActiveMenuGate, "Game");
     BindFunction(luaState, "GetSimTime", Game_GetSimTime, "Game");
@@ -589,19 +596,25 @@ void LuaBindery::BindToGameCode(lua_State *luaState) {
     BindFunction(luaState, "GetNumRacers", Game_GetNumRacers, "Game");
     BindFunction(luaState, "GetSimableSpeedKmh", Game_GetSimableSpeedKmh, "Game");
     BindFunction(luaState, "RacerIsHuman", Game_RacerIsHuman, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindFunction(luaState, "PlayerIsLocal", Game_PlayerIsLocal, "Game");
+#endif
     BindFunction(luaState, "IsRaceCompleted", Game_IsRaceCompleted, "Game");
     BindFunction(luaState, "IsRaceUnlocked", Game_IsRaceUnlocked, "Game");
     BindFunction(luaState, "IsOnlineGame", Game_IsOnlineGame, "Game");
     BindFunction(luaState, "IsLANGame", Game_IsLANGame, "Game");
     BindFunction(luaState, "AllRacersDone", Game_AllRacersDone, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindFunction(luaState, "AllHumanPlayersDone", Game_AllHumanPlayersDone, "Game");
+#endif
     BindFunction(luaState, "SimableDistance", Game_SimableDistance, "Game");
     BindFunction(luaState, "SimableAngle", Game_SimableAngle, "Game");
     BindFunction(luaState, "AllowEngageEvents", Game_AllowEngageEvents, "Game");
     BindFunction(luaState, "AllowMenuGates", Game_AllowMenuGates, "Game");
     BindFunction(luaState, "AllowEngageSafehouse", Game_AllowEngageSafehouse, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindFunction(luaState, "DoSpecialSetup", Game_DoSpecialSetup, "Game");
+#endif
 
     BindFunction(luaState, "IsNextGen", Platform_IsNextGen, "Platform");
 
@@ -623,7 +636,9 @@ void LuaBindery::BindToGameCode(lua_State *luaState) {
     BindVoidMethod(luaState, "GRaceStatus", "DisableBarriers", &GRaceStatus::DisableBarriers);
     BindVoidMethod(luaState, "GRaceStatus", "EnableBinBarriers", &GRaceStatus::EnableBinBarriers);
     BindVoidMethod(luaState, "GRaceStatus", "NotifyScriptWhenLoaded", &GRaceStatus::NotifyScriptWhenLoaded);
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindVoidMethod(luaState, "GRaceStatus", "SetHasBeenWon", &GRaceStatus::SetHasBeenWon);
+#endif
 
     BindFunction(luaState, "GetPlayerBounty", Game_GetPlayerBounty, "Game");
     BindVoidFunction(luaState, "AwardPlayerBounty", Game_AwardPlayerBounty, "Game");
@@ -649,14 +664,24 @@ void LuaBindery::BindToGameCode(lua_State *luaState) {
     BindVoidFunction(luaState, "PlayTutorial", Game_PlayTutorial, "Game");
     BindVoidFunction(luaState, "DoSafeHouseIntro", Game_DoSafeHouseIntro, "Game");
     BindVoidFunction(luaState, "DoZoneMenuAction", Game_DoZoneMenuAction, "Game");
+#ifdef EA_BUILD_A124 // el prototipo pone la hora directamente, sin pasar por la actividad
+    BindVoidFunction(luaState, "SetCurrentTimeOfDay", SetCurrentTimeOfDay, "Game");
+#else
     BindFunction(luaState, "SetCurrentTimeOfDay", Game_SetTimeOfDay, "Game");
+#endif
+#ifndef EA_BUILD_A124
     BindVoidFunction(luaState, "ReloadWorld", Game_ReloadWorld, "Game");
+#endif
     BindFunction(luaState, "IsCareerMode", Game_IsCareerMode, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindFunction(luaState, "IsSplitScreen", Game_IsSplitScreen, "Game");
+#endif
     BindVoidFunction(luaState, "SetHasRapSheet", Game_SetHasRapSheet, "Game");
     BindVoidFunction(luaState, "SetWorldHeat", Game_SetWorldHeat, "Game");
     BindVoidFunction(luaState, "ShowWinningPostRaceScreen", FE_ShowWinningPostRaceScreen, "Game");
     BindVoidFunction(luaState, "ShowLosingPostRaceScreen", FE_ShowLosingPostRaceScreen, "Game");
+#ifndef EA_BUILD_A124 // el prototipo no lo tiene
     BindVoidFunction(luaState, "PreventPlayerBeingBusted", Game_PreventPlayerBeingBusted, "Game");
     BindFunction(luaState, "CalculateRanking", Game_CalculateRanking, "Game");
+#endif
 }

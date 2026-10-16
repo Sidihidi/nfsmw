@@ -38,7 +38,7 @@ class CarLoader {
     bool MakeSpaceInPool(int size);
 
     void *AllocateUserMemory(int size, const char *debug_name) {
-        return bMalloc(size, debug_name, 0, CarLoaderMemoryPoolNumber & 0xF | 0x2000);
+        return bMalloc(size, debug_name, 0, CarLoaderMemoryPoolNumber & 0xF | BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT));
     };
 
     void FreeUserMemory(void *mem) {

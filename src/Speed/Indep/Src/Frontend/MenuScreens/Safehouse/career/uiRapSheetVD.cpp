@@ -36,8 +36,8 @@ void uiRapSheetVD::NotificationMessage(u32 msg, FEObject* pobj, u32 param1, u32 
     if (msg == 0xE1FDE1D1) { cFEng::Get()->QueuePackageSwitch("RapSheetMain.fng", 0, 0, false); }
 }
 void uiRapSheetVD::Setup() {
-    int numCars = 0;
     ClearData();
+    int numCars = 0;
     FEPlayerCarDB* stable = FEDatabase->GetPlayerCarStable(0);
     for (int i = 0; i < 200; i++) {
         FECarRecord* fe_car = stable->GetCarByIndex(i);

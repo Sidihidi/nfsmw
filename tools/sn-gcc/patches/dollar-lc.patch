@@ -1,0 +1,108 @@
+dollar-lc.patch -- the project's "$LC" convention, written in the compiler's source.
+
+tools/patch-toolchain.py (upstream's, dbalatoni13/nfsmw, 2026-08-10; profile prodg393-gc-cc1plus) patches the
+official cc1plus.exe in the machine code: six calls and three pushes are redirected to helper code in a cave of
+.text.  This is the same change in varasm.c, under #ifdef SN_DOLLAR_LC: constant-pool labels become local
+SYMBOLS `$LCn`, each with `.type ...,@object` and `.size`, so every literal is a symbol of the object (the
+assembler drops `.L` labels): objdiff pairs them with the original's data labels and config/GOWE69/keep.lst
+can name them.  Without the macro, the stock `.LCn` labels are emitted.
+
+Makefile.mingw compiles varasm.c twice and only cc1plus gets -DSN_DOLLAR_LC: the cc1.exe of the official
+toolchain does not carry the binary patch either.  Measured: with this patch the cc1plus.exe built from source
+gives the same assembly as the project's patched cc1plus.exe on all 409 v1.76 units of GameCube.
+
+--- a/gcc/varasm.c
++++ b/gcc/varasm.c
+@@ -142,6 +142,20 @@
+ #include "real.h"
+ #include "toplev.h"
+ #include "dbxout.h"
++
++/* SN_DOLLAR_LC: the decompilation project's convention (tools/patch-toolchain.py, profile
++   prodg393-gc-cc1plus): constant-pool labels are local SYMBOLS $LCn with .type/.size, so that every
++   literal shows up in the object's symbol table.  Without it, the stock .LCn labels.  */
++#ifdef SN_DOLLAR_LC
++#define LC_GENERATE_LABEL(LABEL, NUM) sprintf (LABEL, "*$%s%d", "LC", (unsigned) (NUM))
++#define LC_OUTPUT_LABEL(FILE, NUM) \
++  (fprintf (FILE, "\t.type\t$%s%d,@object\n", "LC", (NUM)), fprintf (FILE, "$%s%d:\n", "LC", (NUM)))
++#define LC_OUTPUT_SIZE(FILE, NUM, SIZE) fprintf (FILE, "\t.size\t$%s%d,%d\n", "LC", (NUM), (int) (SIZE))
++#else
++#define LC_GENERATE_LABEL(LABEL, NUM) ASM_GENERATE_INTERNAL_LABEL (LABEL, "LC", NUM)
++#define LC_OUTPUT_LABEL(FILE, NUM) ASM_OUTPUT_INTERNAL_LABEL (FILE, "LC", NUM)
++#define LC_OUTPUT_SIZE(FILE, NUM, SIZE) ((void) 0)
++#endif
+ #include "sdbout.h"
+ 
+ #include "obstack.h"
+@@ -3137,7 +3151,7 @@
+ 	 future calls to this function to find.  */
+ 	  
+       /* Create a string containing the label name, in LABEL.  */
+-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
++      LC_GENERATE_LABEL (label, const_labelno);
+ 
+       desc = record_constant (exp);
+       desc->next = const_hash_table[hash];
+@@ -3148,7 +3162,7 @@
+   else
+     {
+       /* Create a string containing the label name, in LABEL.  */
+-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
++      LC_GENERATE_LABEL (label, const_labelno);
+     }
+   
+   /* We have a symbol name; construct the SYMBOL_REF and the MEM.  */
+@@ -3261,13 +3275,16 @@
+     ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
+ 
+   /* Output the label itself.  */
+-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", labelno);
++  LC_OUTPUT_LABEL (asm_out_file, labelno);
+ 
+   /* Output the value of EXP.  */
+-  output_constant (exp,
+-		   (TREE_CODE (exp) == STRING_CST
+-		    ? TREE_STRING_LENGTH (exp)
+-		    : int_size_in_bytes (TREE_TYPE (exp))));
++  {
++    int size = (TREE_CODE (exp) == STRING_CST
++		? TREE_STRING_LENGTH (exp)
++		: int_size_in_bytes (TREE_TYPE (exp)));
++    output_constant (exp, size);
++    LC_OUTPUT_SIZE (asm_out_file, labelno, size);
++  }
+ 
+ }
+ 
+@@ -3694,7 +3711,7 @@
+       pool_offset += GET_MODE_SIZE (mode);
+ 
+       /* Create a string containing the label name, in LABEL.  */
+-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
++      LC_GENERATE_LABEL (label, const_labelno);
+ 
+       ++const_labelno;
+ 
+@@ -3848,7 +3865,7 @@
+ 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (pool->align));
+ 
+       /* Output the label.  */
+-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", pool->labelno);
++      LC_OUTPUT_LABEL (asm_out_file, pool->labelno);
+ 
+       /* Output the value of the constant itself.  */
+       switch (GET_MODE_CLASS (pool->mode))
+@@ -3859,11 +3876,13 @@
+ 
+ 	  bcopy ((char *) &CONST_DOUBLE_LOW (x), (char *) &u, sizeof u);
+ 	  assemble_real (u.d, pool->mode);
++	  LC_OUTPUT_SIZE (asm_out_file, pool->labelno, GET_MODE_SIZE (pool->mode));
+ 	  break;
+ 
+ 	case MODE_INT:
+ 	case MODE_PARTIAL_INT:
+ 	  assemble_integer (x, GET_MODE_SIZE (pool->mode), 1);
++	  LC_OUTPUT_SIZE (asm_out_file, pool->labelno, GET_MODE_SIZE (pool->mode));
+ 	  break;
+ 
+ 	default:

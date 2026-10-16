@@ -26,14 +26,14 @@ unsigned int ICE::GetSceneCount() {
     return sceneCount;
 }
 
-unsigned int ICE::GetSceneHash(unsigned int scene_slot_position) {
+unsigned int ICE::GetSceneHash(unsigned int slot) {
     if (TheAnimDirectory != nullptr) {
 
-        if (scene_slot_position < TheAnimDirectory->GetSceneCount()) {
+        if (slot < TheAnimDirectory->GetSceneCount()) {
 
             AnimSceneLoadInfo anim_scene_load_info;
 
-            TheAnimDirectory->GetSceneLoadInfo(scene_slot_position, anim_scene_load_info);
+            TheAnimDirectory->GetSceneLoadInfo(slot, anim_scene_load_info);
 
             return anim_scene_load_info.mAnimSceneHash;
         }

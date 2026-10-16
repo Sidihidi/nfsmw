@@ -3,6 +3,9 @@
  * original les pone snstd, _sn_iobf y _sn_stat_g detras de STT_FILE fopen.c). */
 #include "local.h"
 
+/* En PlayStation 2 la libc de SN no lleva estos retoques: fopen.c es el de newlib y __sfp/__sinit viven en
+ * su findfp.c. */
+#ifndef EA_PLATFORM_PLAYSTATION2
 static FILE _sn_iobf[10];
 static struct _glue _sn_stat_g;
 extern struct __sbuf *_sn_IO_buf_ptr;
@@ -83,6 +86,7 @@ found:
     fp->_data = d;
     return fp;
 }
+#endif
 
 FILE *_fopen_r(struct _reent *ptr, const char *file, const char *mode)
 {
@@ -92,10 +96,15 @@ FILE *_fopen_r(struct _reent *ptr, const char *file, const char *mode)
 
     if ((flags = __sflags(ptr, mode, &oflags)) == 0)
         return NULL;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if ((fp = __sfp(ptr)) == NULL)
+        return NULL;
+#else
     if ((fp = _sn_sfp(ptr)) == NULL)
         return NULL;
 
     fp->_flags &= __SNBF;
+#endif
 
     if ((f = _open_r(fp->_data, file, oflags, 0666)) < 0) {
         fp->_flags = 0; /* release */

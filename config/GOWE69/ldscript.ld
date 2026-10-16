@@ -18,10 +18,14 @@ SECTIONS
     . =  ALIGN(8);
 	.over      :
 	{
-		/* _overlay_start = .; */
+		/* Los ._o extraidos de zOnline/zFEOverlay ya exportan los dos marcadores (los sintetiza
+		   dtk al trocear el .over del binario): PROVIDE solo entra si no hay definicion, asi el
+		   enlace principal no cambia y el de trypromo (que sustituye zOnline por el nuestro,
+		   sin marcador) resuelve _overlay_start desde aqui. */
+		PROVIDE (_overlay_start = .);
 		*zOnline.o(.over .rodata)
 		*zFEOverlay.o(.over .rodata)
-		/* _overlay_end = .; */
+		PROVIDE (_overlay_end = .);
 	} =0
 	. =  ALIGN(16);
 	.ctors	  : 

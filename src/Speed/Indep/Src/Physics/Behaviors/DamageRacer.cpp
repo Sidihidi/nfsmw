@@ -35,10 +35,18 @@ DamageRacer::DamageRacer(const BehaviorParams &bp, const DamageParams &dp)
 DamageRacer::~DamageRacer() {}
 
 eTireDamage DamageRacer::GetTireDamage(unsigned int wheelId) const {
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+    // X360 vuelca la rama NONE primero (cmplwi 4 + blt).
+    if (wheelId >= 4) {
+        return TIRE_DAMAGE_NONE;
+    }
+    return static_cast<eTireDamage>(this->mDamage[wheelId]);
+#else
     if (wheelId > 3) {
         return TIRE_DAMAGE_NONE;
     }
     return static_cast<eTireDamage>(this->mDamage[wheelId]);
+#endif
 }
 
 unsigned int DamageRacer::GetNumBlowouts() const {
@@ -80,11 +88,10 @@ DamageZone::Info DamageRacer::GetZoneDamage() const {
 }
 
 bool DamageRacer::CanDamageVisuals() const {
-    bool canDamage = true;
-    if (FEDatabase != nullptr) {
-        canDamage = FEDatabase->GetGameplaySettings()->Damage != 0;
+    if (FEDatabase && !FEDatabase->GetGameplaySettings()->Damage) {
+        return false;
     }
-    return canDamage;
+    return DamageVehicle::CanDamageVisuals();
 }
 
 void DamageRacer::OnTaskSimulate(float dT) {

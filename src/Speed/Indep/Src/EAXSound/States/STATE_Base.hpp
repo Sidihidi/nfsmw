@@ -16,13 +16,13 @@
 
 // Decl: 26
 #define DECLARE_STATETYPE()                                                                                                                          \
-  public:                                                                                                                                         \
+  protected:                                                                                                                                      \
     static CSTATE_Base::StateInfo s_StateInfo;                                                                                                       \
                                                                                                                                                      \
   public:                                                                                                                                            \
     CSTATE_Base::StateInfo *GetStateInfo() const override;                                                                                           \
     const char *GetStateName() const override;                                                                                                       \
-    static CSTATE_Base::StateInfo *GetStaticStateInfo();                                                                                            \
+    static CSTATE_Base::StateInfo *GetStaticStateInfo() { return &s_StateInfo; }                                                                    \
     static CSTATE_Base *CreateState(uint32 allocator);
 
 // Decl: 37
@@ -54,7 +54,7 @@
         return new (theClass::s_StateInfo.stateName) theClass;                                                                                       \
     }
 
-#define STATEINFO(classType) (&classType::s_StateInfo) // Decl: 53
+#define STATEINFO(classType) (classType::GetStaticStateInfo()) // Decl: 53
 
 class SndBase;
 class SFXCTL;

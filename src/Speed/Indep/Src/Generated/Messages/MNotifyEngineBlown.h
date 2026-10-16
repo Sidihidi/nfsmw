@@ -27,8 +27,6 @@ class MNotifyEngineBlown : public Hermes::Message {
 
     MNotifyEngineBlown(HSIMABLE _Racer) : Hermes::Message(_GetKind(), _GetSize(), 0), fRacer(_Racer) {}
 
-    ~MNotifyEngineBlown() {}
-
     HSIMABLE GetRacer() const {
         return fRacer;
     }
@@ -46,9 +44,9 @@ class MNotifyEngineBlown : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyEngineBlown::HandleMessage_LuaBinding(const MNotifyEngineBlown &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyEngineBlown::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

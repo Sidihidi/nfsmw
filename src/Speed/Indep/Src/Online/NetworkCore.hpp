@@ -6,8 +6,13 @@
 #endif
 
 #include "Speed/Indep/bWare/Inc/bList.hpp"
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/PSX2/Src/Online/PlatformNetworkCore.hpp"
+#endif
 
 struct NetGameLinkRefT;
+
+extern int NetworkUseLobbies;
 
 struct NetGamePacketSyncT {
     uint32 repl;
@@ -44,7 +49,29 @@ struct DirtyAddrT {
     char strMachineAddr[64];
 };
 
-class NetworkCore : public PlatformNetworkCore {
+// DirtySock NetGameLink: estado del enlace. Ninguna build trae sus stabs; la A124 solo lee la latencia en +0xC
+// (UIOLGameRoom::NotificationMessage la pasa a LobbyGameSessions::SetSessionLatency). Los tres campos previos llevan
+// los nombres de DirtySock sin verificar.
+struct NetGameLinkStatT {
+    int32 isopen;
+    int32 isconn;
+    uint32 conntime;
+    int32 late;
+};
+
+extern "C" {
+NetGameLinkStatT *NetGameLinkStatus(NetGameLinkRefT *link);
+}
+
+// La base PlatformNetworkCore solo esta reconstruida en PS2 (Speed/PSX2); en PC el
+// subsistema online vive todavia en los unassigned de SPEED_EXE_1_3 y su base no se
+// ha levantado. Mientras, NetworkCore compila en PC sin la base (nadie la instancia:
+// zOnline solo enlaza fuentes en la A124).
+class NetworkCore
+#ifdef EA_PLATFORM_PLAYSTATION2
+    : public PlatformNetworkCore
+#endif
+{
   public:
     typedef int (*ProcFunc)(void *context);
 

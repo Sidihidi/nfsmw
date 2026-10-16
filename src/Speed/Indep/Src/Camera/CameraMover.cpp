@@ -1,4 +1,5 @@
 #include "Speed\Indep\Src\Camera\CameraMover.hpp"
+#include "Speed/Indep/Src/Physics/PVehicle.h" // VehicleClass::CHOPPER (antes via CameraMover.hpp)
 #include "Speed/Indep/Src/Camera/ICE/ICEManager.hpp"
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
@@ -38,7 +39,12 @@ void CameraMoverRestartRace() {
     WeHaveCheckedIfJR2ServerExists = 0;
     CameraAI::Reset();
 
+#ifdef EA_PLATFORM_XENON
+    // X360 escribe el limite como <= 3 (ble, tope 0x194); el resto usa < 4 (blt, tope 0x204). Mismas 3 pasadas.
+    for (int view_id = 1; view_id <= 3; ++view_id) {
+#else
     for (int view_id = 1; view_id < 4; ++view_id) {
+#endif
         eView *view = eGetView(view_id, false);
 
         if (view != nullptr) {
@@ -55,18 +61,23 @@ bool DoesCameraTypeDisablePreculler(CameraMoverTypes type) {
     if (type == CM_DEBUG_WORLD) {
         return true;
     }
+#ifdef EA_BUILD_A124 // la A124 solo apaga el preculler en la camara de depuracion (CameraMover.cpp:190-194)
+    return false;
+#else
     return type == CM_TRACK_CAR;
+#endif
 }
 
 CameraMover::CameraMover(int view_id, CameraMoverTypes type)
     : mCollider(WCollider::Create(0, WCollider::kColliderShape_Sphere, 0x1c, 0)), mWPos(0.025f) {
-    Type = type;
     ViewID = view_id;
     Enabled = 0;
+    Type = type;
+
     fAccumulatedClearance = 0;
     fAccumulatedAdjust = 0;
     fSavedAdjust = 0;
-    vSavedForward.z = 0; vSavedForward.y = 0; vSavedForward.x = 0;
+    vSavedForward.x = vSavedForward.y = vSavedForward.z = 0;
     if (view_id == -1) {
         this->pView = nullptr;
         this->pCamera = nullptr;
@@ -74,7 +85,12 @@ CameraMover::CameraMover(int view_id, CameraMoverTypes type)
     } else {
         this->pView = eGetView(view_id, false);
         this->pCamera = pView->GetCamera();
+        // El plano lejano: 12000 solo en GameCube; las dos PS2, PC y X360 cargan 10000.
+#ifdef EA_PLATFORM_GAMECUBE
         this->pCamera->SetFarZ(12000.0f);
+#else
+        this->pCamera->SetFarZ(10000.0f);
+#endif
         this->RenderDash = this->pCamera->GetRenderDash();
         Enable();
     }
@@ -124,8 +140,7 @@ void CameraMover::Disable() {
 void CameraMover::ChopperNoise(bMatrix4 *world_to_camera, float f_scale, bool useWorldTimer) {
 
     if (f_scale > 0.0f) {
-        const UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, 10>::List &vehicles =
-            UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, 10>::GetList(VEHICLE_AICOPS);
+        const IVehicle::List &vehicles = IVehicle::GetList(VEHICLE_AICOPS);
         for (IVehicle *const *iter = vehicles.begin(); iter != vehicles.end(); iter++) {
             IVehicle *vehicle = *iter;
             if (!vehicle->IsActive()) {
@@ -146,8 +161,14 @@ void CameraMover::ChopperNoise(bMatrix4 *world_to_camera, float f_scale, bool us
             dir.z = 0.0f;
             float distance = bLength(&dir);
 
+#ifdef EA_BUILD_A124
+            // La A124 oye el helicoptero hasta 50 (`lui 0x4248` y 1/50 en su asm); la version de venta, hasta 40.
+            if (distance < 50.0f) {
+                float intensity = f_scale * (1.0f - distance * 0.02f);
+#else
             if (distance < 40.0f) {
                 float intensity = f_scale * (1.0f - distance * 0.025f);
+#endif
 
                 bVector4 v_frequency;
                 bVector4 v_magnitude;
@@ -410,7 +431,7 @@ void CameraMover::IsoProjectionMatrix(bMatrix4 *dest, bVector3 *eye, bVector3 *l
 }
 
 float CameraMover::AdjustHeightAroundCar(const bVector3 *pos, bVector3 *eye, bVector3 *look) {
-    for (Avoidables::const_iterator i = TheAvoidables->begin(); i != TheAvoidables->end(); ++i) {
+    for (CameraAI::Avoidables::const_iterator i = TheAvoidables->begin(); i != TheAvoidables->end(); ++i) {
         UMath::Matrix4 mat;
         bMatrix4 car;
         UMath::Vector3 dim;
@@ -479,7 +500,7 @@ bVector3 *CameraMover::DutchAroundCar(bVector3 *eye, bVector3 *look) {
     ret.z = 0.0f;
     ret.y = 0.0f;
 
-    for (Avoidables::const_iterator i = TheAvoidables->begin(); i != TheAvoidables->end(); ++i) {
+    for (CameraAI::Avoidables::const_iterator i = TheAvoidables->begin(); i != TheAvoidables->end(); ++i) {
         UMath::Matrix4 mat;
         bMatrix4 car;
         bVector3 delta;
@@ -538,14 +559,7 @@ bool CameraMover::MinGapCars(bMatrix4 *dest, bVector3 *pos, bVector3 *dim) {
     int count = 0;
     float height;
 
-    while (1) {
-        height = AdjustHeightAroundCar(cam, pos, dim);
-        if (count > 15) {
-            break;
-        }
-        if (height <= 0.0f) {
-            break;
-        }
+    while (height = AdjustHeightAroundCar(cam, pos, dim), count < 16 && height > 0.0f) {
         cam->z += height;
         heighted = true;
         count++;
@@ -598,6 +612,7 @@ bool CameraMover::MinGapTopology(bMatrix4 *pMatrix, bVector3 *pCarPos) {
 
     bool bViolates;
 
+#ifndef EA_BUILD_A124
     {
         float fRadius = (bDistBetween(pCarPos, pCameraPos) + 1.0f) * 0.5f;
 
@@ -611,6 +626,7 @@ bool CameraMover::MinGapTopology(bMatrix4 *pMatrix, bVector3 *pCarPos) {
 
         mCollider->Refresh(usCenter, fRadius, true);
     }
+#endif
 
     UMath::Vector3 usCamPos;
     UMath::Vector3 usCarPos;
@@ -626,12 +642,13 @@ bool CameraMover::MinGapTopology(bMatrix4 *pMatrix, bVector3 *pCarPos) {
 
     *pCameraPos += (const bVector3 &)vAdjust;
 
+#ifndef EA_BUILD_A124
     {
         bool inTunnel = AmIinATunnel(eGetView(ViewID, true), 1);
 
         eUnSwizzleWorldVector(*pCameraPos, (bVector3 &)usCamPos);
 
-        if (!inTunnel && usCamPos.y < pCarPos->z + 0.5f) {
+        if (!inTunnel && pCameraPos->z < pCarPos->z + 0.5f) {
             usCamPos.y = pCarPos->z + 0.5f;
         }
 
@@ -655,6 +672,7 @@ bool CameraMover::MinGapTopology(bMatrix4 *pMatrix, bVector3 *pCarPos) {
             }
         }
     }
+#endif
 
     bVector3 vCarCameraSpace;
 
@@ -794,12 +812,12 @@ void UpdateCameraMovers(float dT) {
 
                 LongVector fix_eye;
                 LongVector fix_look;
-                fix_eye.x = static_cast<int>(eye.x * 65536.0f);
-                fix_eye.y = static_cast<int>(eye.y * 65536.0f);
-                fix_eye.z = static_cast<int>(eye.z * 65536.0f);
-                fix_look.x = static_cast<int>(look.x * 65536.0f);
-                fix_look.y = static_cast<int>(look.y * 65536.0f);
-                fix_look.z = static_cast<int>(look.z * 65536.0f);
+                fix_eye.x = bFloatToInt(eye.x * 65536.0f);
+                fix_eye.y = bFloatToInt(eye.y * 65536.0f);
+                fix_eye.z = bFloatToInt(eye.z * 65536.0f);
+                fix_look.x = bFloatToInt(look.x * 65536.0f);
+                fix_look.y = bFloatToInt(look.y * 65536.0f);
+                fix_look.z = bFloatToInt(look.z * 65536.0f);
                 espSetCameraPositionFix(&fix_eye, &fix_look);
 
                 {
@@ -857,7 +875,10 @@ void UpdateCameraMovers(float dT) {
             }
 #endif
 
-            int streaming_pos = view_id == 2;
+            int streaming_pos = 0;
+            if (view_id == 2) {
+                streaming_pos = 1;
+            }
 
             TheTrackStreamer.PredictStreamingPosition(streaming_pos, &position, &velocity, &direction
 #ifndef EA_BUILD_A124
@@ -868,6 +889,79 @@ void UpdateCameraMovers(float dT) {
         }
     }
 
+}
+
+// total size: 0xC
+class BBController {
+  public:
+    BBController(float start, float end) : DomainStart(start), DomainEnd(end) {}
+
+    virtual ~BBController();
+
+    float GetValue(float param);
+
+  protected:
+    virtual float Function(float domain) = 0;
+
+  private:
+    float DomainStart; // offset 0x0, size 0x4
+    float DomainEnd;   // offset 0x4, size 0x4
+};
+
+// total size: 0x14
+class SinController : public BBController {
+  public:
+    SinController(float start, float end, float rangemin, float rangemax);
+
+    ~SinController() override;
+
+  protected:
+    float Function(float domain) override;
+
+  private:
+    float RangeMin; // offset 0xC, size 0x4
+    float RangeMax; // offset 0x10, size 0x4
+};
+
+// total size: 0x14
+class LinController : public BBController {
+  public:
+    LinController(float start, float end, float rangemin, float rangemax);
+
+    ~LinController() override;
+
+  protected:
+    float Function(float domain) override;
+
+  private:
+    float RangeMin; // offset 0xC, size 0x4
+    float RangeMax; // offset 0x10, size 0x4
+};
+
+BBController::~BBController() {}
+
+SinController::SinController(float start, float end, float rangemin, float rangemax)
+    : BBController(start, end), //
+      RangeMin(rangemin),       //
+      RangeMax(rangemax) {}
+
+SinController::~SinController() {}
+
+float SinController::Function(float domain) {
+    float v = (bSin(domain) - -1.0f) * 0.5f;
+    return v * (RangeMax - RangeMin) + RangeMin;
+}
+
+LinController::LinController(float start, float end, float rangemin, float rangemax)
+    : BBController(start, end), //
+      RangeMin(rangemin),       //
+      RangeMax(rangemax) {}
+
+LinController::~LinController() {}
+
+float LinController::Function(float domain) {
+    float v = domain;
+    return v * (RangeMax - RangeMin) + RangeMin;
 }
 
 CameraAnchor::~CameraAnchor() {}
@@ -943,14 +1037,14 @@ POV *CameraAnchor::GetPov(int pov_type) {
         break;
     }
 
-    float zoom = mZoom > 0.0f ? mZoom : 1.0f;
+    float zoom_scale = mZoom > 0.0f ? mZoom : 1.0f;
     int index = eGetCurrentViewMode() == EVIEWMODE_TWOH;
 
     mPOV.Angle = bDegToAng(mCameraInfoAttributes.ANGLE(index));
-    mPOV.Lag = mCameraInfoAttributes.LAG(index) / zoom;
+    mPOV.Lag = mCameraInfoAttributes.LAG(index) / zoom_scale;
     mPOV.Height = mCameraInfoAttributes.HEIGHT(index);
     mPOV.LatOffset = mCameraInfoAttributes.LATOFFSET(index);
-    mPOV.Fov = bDegToAng(mCameraInfoAttributes.FOV(index) * zoom);
+    mPOV.Fov = bDegToAng(mCameraInfoAttributes.FOV(index) * zoom_scale);
     mPOV.AllowTilting = mCameraInfoAttributes.TILTING(index);
     mPOV.Stiffness = mCameraInfoAttributes.STIFFNESS(index);
 

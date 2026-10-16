@@ -2,15 +2,43 @@
 #include "Speed/Indep/Src/FEng/FEngStandard.h"
 #include "types.h"
 
-char FEUpperCase(char val) {
-    return static_cast<unsigned int>(val - 'a') > 25 ? val : val - 0x20;
-}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+char FEUpperCase(char val) {
+    if (val >= 'a' && val <= 'z') {
+        val -= 0x20;
+    }
+    return val;
+}
 // STRIPPED
 // AUSENTE del objetivo: zFEng.o del original no trae este simbolo y ninguna de
 // las 526 unidades lo referencia. El cuerpo vacio emitia un `blr` de 4 B que
 // objdiff no compara y que sobraba en .text.
 // char FELowerCase(char val) {}
+
+
+
+
+
+
+
+
 
 int FEStricmp(const char *dst, const char *src) {
     char f, l;
@@ -24,13 +52,52 @@ int FEStricmp(const char *dst, const char *src) {
     return f - l;
 }
 
+
 // STRIPPED
 // AUSENTE del objetivo: zFEng.o del original no trae este simbolo y ninguna de
 // las 526 unidades lo referencia. El cuerpo vacio emitia un `blr` de 4 B que
 // objdiff no compara y que sobraba en .text.
 // bool FEStrInStr(const char *pString, const char *pSubString) {}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FENode::FENode() : name(nullptr), nameHash(0) {}
+
+
+
+
+
+
 
 FENode::~FENode() {
     if (name) {
@@ -38,26 +105,47 @@ FENode::~FENode() {
     }
 }
 
+
+
+
+
+
+
+
+
+
 bool FENode::SetName(const char *theName) {
     bool retval = false;
     int Len;
 
     if (name) {
+
         delete[] name;
         name = nullptr;
     }
+
     if (theName) {
         Len = FEngStrLen(theName);
 
         name = FNEW char[Len + 1];
+
         if (name) {
-            retval = true;
+
             FEngStrCpy(name, theName);
+            retval = true;
         }
     }
+
+
     nameHash = FEHashUpper(name);
     return retval;
 }
+
+
+
+
+
+
 
 void FEMinList::AddNode(FEMinNode *insertpoint, FEMinNode *node) {
     if (!node) {
@@ -84,6 +172,72 @@ void FEMinList::AddNode(FEMinNode *insertpoint, FEMinNode *node) {
     numElements++;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEMinNode *FEMinList::RemNode(FEMinNode *node) {
     if (node) {
         if (node == head) {
@@ -105,6 +259,21 @@ FEMinNode *FEMinList::RemNode(FEMinNode *node) {
     return node;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEMinNode *FEMinList::RemHead() {
     FEMinNode *n = head;
     if (n) {
@@ -112,6 +281,25 @@ FEMinNode *FEMinList::RemHead() {
     }
     return n;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 FEMinNode *FEMinList::FindNode(u32 ordinalnumber) const {
     u32 i = 0;
@@ -123,16 +311,144 @@ FEMinNode *FEMinList::FindNode(u32 ordinalnumber) const {
     return n;
 }
 
-FENode *FEList::FindNode(const char *pName, FENode *node) const {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FENode *FEList::FindNode(const char *name, FENode *node) const {
     FENode *retn = nullptr;
-    u32 Hash = FEHashUpper(pName);
+    u32 Hash = FEHashUpper(name);
     while (node) {
         if (node->GetName()) {
-            if (Hash == node->GetNameHash() && FEStricmp(node->GetName(), pName) == 0) {
+            if (Hash == node->GetNameHash() && FEStricmp(node->GetName(), name) == 0) {
                 retn = node;
                 break;
             }
-        } else if (!pName) {
+        } else if (!name) {
             retn = node;
             break;
         }
@@ -141,9 +457,44 @@ FENode *FEList::FindNode(const char *pName, FENode *node) const {
     return retn;
 }
 
+
+
+
+
+
+
+
+
+
+
+
 FENode *FEList::FindNode(const char *pName) const {
     return FindNode(pName, static_cast<FENode *>(head));
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 u32 FEHash(const char *String) {
     u32 Hash = 0xFFFFFFFF;
@@ -159,6 +510,7 @@ u32 FEHash(const char *String) {
     return Hash;
 }
 
+
 u32 FEHashUpper(const char *String) {
     u32 Hash = 0xFFFFFFFF;
 
@@ -171,4 +523,173 @@ u32 FEHashUpper(const char *String) {
     }
 
     return Hash;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FEHashNode::~FEHashNode() {
+    if (Name) { delete[] Name; }
+    if (myPtr) { delete myPtr; }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FEHashList::~FEHashList() {
+    FEHashNode *n = GetHead();
+
+
+    while (n) {
+
+        RemNode(n);
+        delete n;
+
+        n = GetHead();
+    }
+
+    delete[] HashTable;
+    HashTable = nullptr;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void FEHashList::RemHashEntry(FEHashNode *n) {
+
+
+    if (n->myPtr) {
+
+        u32 Bucket = n->Hash % TableSize;
+
+        HashTable[Bucket].RemNode(n->myPtr);
+        delete n->myPtr;
+        n->myPtr = nullptr;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void FEHashList::RemNode(FEHashNode *n) {
+    if (NodeList.RemNode(n)) {
+        RemHashEntry(n);
+    }
 }

@@ -97,6 +97,8 @@ void iSPCH_RuleSet(EventSpec *eventSpec, VoxEvent *event, int sentenceNum, unsig
             break;
         case kParmType_Constant:
         case kParmType_User:
+        case kParmType_Context:
+        case kParmType_Match:
             break;
         }
     }

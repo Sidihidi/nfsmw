@@ -169,7 +169,6 @@ void AIInit(unsigned char *stack);
 extern void (*MIXinitfn)(MIXCONFIG *);
 extern void (*MIXaudioslicefn)(void *, int);
 void SNDPKTPLAYI_flushcallbackdata();
-void SNDSYSI_100hzserver();
 void SNDSYSI_variabletimerservice();
 
 namespace Snd {
@@ -826,37 +825,37 @@ int SNDPLATFORM_outputcaps() {
 }
 
 int SNDPLATFORM_outputset() {
-    SNDSYSSET set;
+    SNDSYSSET sss;
 
-    set = sndgs.sso.set;
+    sss = sndgs.sso.set;
 
     if (sndgs.installed) {
         sndgs.sso.set = sndgs.prevset;
     }
 
-    set.outputrate = 32000;
+    sss.outputrate = 32000;
 
-    if (set.outputchannels < sndgs.sso.cap.outputchannelsmin) {
-        set.outputchannels = sndgs.sso.cap.outputchannelsmin;
+    if (sss.outputchannels < sndgs.sso.cap.outputchannelsmin) {
+        sss.outputchannels = sndgs.sso.cap.outputchannelsmin;
     }
-    if (set.outputchannels > sndgs.sso.cap.outputchannelsmax) {
-        set.outputchannels = sndgs.sso.cap.outputchannelsmax;
+    if (sss.outputchannels > sndgs.sso.cap.outputchannelsmax) {
+        sss.outputchannels = sndgs.sso.cap.outputchannelsmax;
     }
-    if (set.voicesmaincpu > sndgs.sso.cap.voicesmaincpumax) {
-        set.voicesmaincpu = sndgs.sso.cap.voicesmaincpumax;
+    if (sss.voicesmaincpu > sndgs.sso.cap.voicesmaincpumax) {
+        sss.voicesmaincpu = sndgs.sso.cap.voicesmaincpumax;
     }
-    if (set.voicesdsp > sndgs.sso.cap.voicesdspmax) {
-        set.voicesdsp = sndgs.sso.cap.voicesdspmax;
+    if (sss.voicesdsp > sndgs.sso.cap.voicesdspmax) {
+        sss.voicesdsp = sndgs.sso.cap.voicesdspmax;
     }
-    if (set.maxstreams > 32) {
-        set.maxstreams = 32;
+    if (sss.maxstreams > 32) {
+        sss.maxstreams = 32;
     }
     if (sndgs.installed) {
         return SND_OK;
     }
 
-    sndgs.voicestotal = set.voicesmaincpu + set.voicesdsp;
-    sndgs.sso.set = set;
+    sndgs.voicestotal = sss.voicesmaincpu + sss.voicesdsp;
+    sndgs.sso.set = sss;
 
     return SND_OK;
 }
@@ -1634,7 +1633,7 @@ unsigned int SNDPLATFORM_memalloc(int playloc, int size) {
     return size;
 }
 
-unsigned int SNDPLATFORM_memfree(int playloc, unsigned int addr) {
+int SNDPLATFORM_memfree(int playloc, unsigned int addr) {
     if (sndgs.sso.vec.aramfree == 0) {
         SNDARAM_free(addr);
     } else {

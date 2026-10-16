@@ -199,9 +199,9 @@ int SNDVOICEI_get(int handle) {
     if (voice >= sndgs.voicestotal) return -8;
 
     CHANPUB *pv = &sndgs.chan[voice];
-    if (pv->status != 0 && pv->handle == handle) {
-        return voice;
+    if (pv->status == 0 || pv->handle != handle) {
+        voice = -8;
     }
 
-    return -8;
+    return voice;
 }

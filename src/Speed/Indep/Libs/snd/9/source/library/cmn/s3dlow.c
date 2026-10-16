@@ -2,6 +2,7 @@
 #include "Speed/Indep/Libs/snd/9/source/library/cmn/sndenum.h"
 
 int SND3dpos(STREAMHANDLE shandle, int azimuth, int elevation) {
+    SNDI_CHECKINSTALLED();
     elevation = SNDI_clipint32(elevation, -0x4000, 0x3FFF);
 
     int voice = SNDVOICEI_get(shandle);

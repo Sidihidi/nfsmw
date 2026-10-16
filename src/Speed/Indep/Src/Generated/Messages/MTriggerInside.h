@@ -27,8 +27,6 @@ class MTriggerInside : public Hermes::Message {
 
     MTriggerInside(GCollectionKey _Sender, HSIMABLE _Element) : Hermes::Message(_GetKind(), _GetSize(), 0), fSender(_Sender), fElement(_Element) {}
 
-    ~MTriggerInside() {}
-
     GCollectionKey GetSender() const {
         return fSender;
     }
@@ -55,9 +53,9 @@ class MTriggerInside : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MTriggerInside::HandleMessage_LuaBinding(const MTriggerInside &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MTriggerInside::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

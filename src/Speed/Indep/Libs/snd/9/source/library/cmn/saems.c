@@ -10,6 +10,8 @@
 
 #ifdef EA_PLATFORM_GAMECUBE
 #include "dolphin/os/OSCache.h"
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+#include <eekernel.h>
 #endif
 
 void SNDAEMSI_bankpitchmult(int handle, int value);
@@ -152,10 +154,10 @@ int SNDAEMSI_updatedestroy(AemsDef::DESTROYSTATE *pds) {
     }
 
     AemsDef::PLAYERSTATE *pplayerstate;
-    int *pOffset = reinterpret_cast<int *>(&pds->settings.pModule[1]);
+    int *poffset = reinterpret_cast<int *>(&pds->settings.pModule[1]);
     for (i = 0; i < pds->settings.pModule->numPlayers; i++) {
         pplayerstate = reinterpret_cast<AemsDef::PLAYERSTATE *>(
-            reinterpret_cast<char *>(pds->settings.pModuleInstance) + *pOffset++
+            reinterpret_cast<char *>(pds->settings.pModuleInstance) + *poffset++
         );
         if (pplayerstate->settings.sampletype >= 0) {
             SNDAEMSplayerstopfn[pplayerstate->settings.sampletype](pplayerstate);
@@ -164,7 +166,7 @@ int SNDAEMSI_updatedestroy(AemsDef::DESTROYSTATE *pds) {
 
     for (i = 0; i < pds->settings.pModule->numClassControllers; i++) {
         AemsDef::ControlClassState *pControlClassState = reinterpret_cast<AemsDef::ControlClassState *>(
-            reinterpret_cast<char *>(pds->settings.pModuleInstance) + *pOffset++
+            reinterpret_cast<char *>(pds->settings.pModuleInstance) + *poffset++
         );
 
         if (pControlClassState->settings.pClass != NULL) {
@@ -266,16 +268,17 @@ int UpdateControlClass(AemsDef::ControlClassState *pControlClassState) {
 int UpdateSetGlobalVariable(AemsDef::SetGlobalVariableState *pSetGlobalVariableState) {
     int value;
 
-    if (pSetGlobalVariableState->settings.prevValue != pSetGlobalVariableState->inputs.value) {
-        pSetGlobalVariableState->settings.prevValue = pSetGlobalVariableState->inputs.value;
-
-        value = SNDI_clipint32(
-            pSetGlobalVariableState->settings.prevValue,
-            pSetGlobalVariableState->settings.minValue,
-            pSetGlobalVariableState->settings.maxValue
-        );
-        Csis::GlobalVariable::SetFast(&pSetGlobalVariableState->settings.globalVariableHandle, &value);
+    if (pSetGlobalVariableState->settings.prevValue == pSetGlobalVariableState->inputs.value) {
+        return 0;
     }
+    pSetGlobalVariableState->settings.prevValue = pSetGlobalVariableState->inputs.value;
+
+    value = SNDI_clipint32(
+        pSetGlobalVariableState->settings.prevValue,
+        pSetGlobalVariableState->settings.minValue,
+        pSetGlobalVariableState->settings.maxValue
+    );
+    Csis::GlobalVariable::SetFast(&pSetGlobalVariableState->settings.globalVariableHandle, &value);
 
     return 0;
 }
@@ -474,48 +477,53 @@ int SNDAEMSI_updateenvelope(AemsDef::ENVELOPESTATE *penvelopestate) {
 
 // 1218
 int SNDAEMSI_updatetable(AemsDef::TABLESTATE *ptablestate) {
-    if (ptablestate->inputvalue != ptablestate->settings.previnputvalue) {
-        AemsDef::TABLE *ptable = ptablestate->settings.ptable;
-        ptablestate->settings.previnputvalue = ptablestate->inputvalue;
+    AemsDef::TABLE *ptable;
+    float floatindex;
+    int indexa;
 
-        float floatindex;
-        int indexa = SNDI_clipint32(ptablestate->inputvalue, ptable->minvalue, ptable->maxvalue);
-        indexa -= ptable->minvalue;
-        floatindex = ptable->resolution;
+    if (ptablestate->inputvalue == ptablestate->settings.previnputvalue) {
+        return ptablestate->settings.outputvalue;
+    }
 
-        if (ptable->resolution == 1.0f) {
-            if (ptable->sizeofentry == 2) {
-                ptablestate->settings.outputvalue = ptable->table.entry16[indexa];
-            } else if (ptable->sizeofentry == 1) {
-                ptablestate->settings.outputvalue = ptable->table.entry8[indexa];
-            } else {
-                ptablestate->settings.outputvalue = ptable->table.entry32[indexa];
-            }
+    ptable = ptablestate->settings.ptable;
+    ptablestate->settings.previnputvalue = ptablestate->inputvalue;
+
+    indexa = SNDI_clipint32(ptablestate->inputvalue, ptable->minvalue, ptable->maxvalue);
+    indexa -= ptable->minvalue;
+
+    if (ptable->resolution == 1.0f) {
+        if (ptable->sizeofentry == 2) {
+            ptablestate->settings.outputvalue = ptable->table.entry16[indexa];
+        } else if (ptable->sizeofentry == 1) {
+            ptablestate->settings.outputvalue = ptable->table.entry8[indexa];
         } else {
-            floatindex = indexa * ptable->resolution;
-            indexa = SNDI_ftoitruncpositive(floatindex);
-            floatindex -= indexa;
-
-            int indexb = indexa;
-            if (++indexb >= ptable->numentries) {
-                indexb = ptable->numentries - 1;
-            }
-
-            float entrya;
-            float entryb;
-
-            if (ptable->sizeofentry == 2) {
-                entrya = ptable->table.entry16[indexa];
-                entryb = ptable->table.entry16[indexb];
-            } else if (ptable->sizeofentry == 1) {
-                entrya = ptable->table.entry8[indexa];
-                entryb = ptable->table.entry8[indexb];
-            } else {
-                entrya = ptable->table.entry32[indexa];
-                entryb = ptable->table.entry32[indexb];
-            }
-            ptablestate->settings.outputvalue = SNDI_ftoifast(floatindex * (entryb - entrya) + entrya);
+            ptablestate->settings.outputvalue = ptable->table.entry32[indexa];
         }
+    } else {
+        int indexb;
+        float entrya;
+        float entryb;
+
+        floatindex = indexa * ptable->resolution;
+        indexa = SNDI_ftoitruncpositive(floatindex);
+        floatindex -= indexa;
+
+        indexb = indexa;
+        if (++indexb >= ptable->numentries) {
+            indexb = ptable->numentries - 1;
+        }
+
+        if (ptable->sizeofentry == 2) {
+            entrya = ptable->table.entry16[indexa];
+            entryb = ptable->table.entry16[indexb];
+        } else if (ptable->sizeofentry == 1) {
+            entrya = ptable->table.entry8[indexa];
+            entryb = ptable->table.entry8[indexb];
+        } else {
+            entrya = ptable->table.entry32[indexa];
+            entryb = ptable->table.entry32[indexb];
+        }
+        ptablestate->settings.outputvalue = SNDI_ftoifast(floatindex * (entryb - entrya) + entrya);
     }
 
     return ptablestate->settings.outputvalue;
@@ -633,7 +641,8 @@ int SNDAEMSI_updatescale(AemsDef::SCALESTATE *pscalestate) {
         output *= pscalestate->input[i];
     }
 
-    return SNDI_ftoifast(output * pscalestate->settings.scalereciprocal);
+    output *= pscalestate->settings.scalereciprocal;
+    return SNDI_ftoifast(output);
 }
 
 // 1529
@@ -912,7 +921,7 @@ int SNDAEMSI_updateplayer(AemsDef::PLAYERSTATE *pplayerstate) {
         } else if (outputplaystate == 1) {
             if (pplayerstate->settings.sampletype >= 0) {
                 SNDAEMSplayerunpausefn[pplayerstate->settings.sampletype](pplayerstate);
-            } else if ((((unsigned int *)pplayerstate->settings.prevplaycontrol)[0] & ~0xFFFF) != 0x2010000) {
+            } else if (pplayerstate->settings.prevplaycontrol[0] != 2 || pplayerstate->settings.prevplaycontrol[1] != 1) {
                 int sampleselect = pplayerstate->sampleselect;
                 if (sampleselect >= pplayerstate->settings.psamplegroup->numentries) {
                     sampleselect = pplayerstate->settings.psamplegroup->numentries - 1;
@@ -939,15 +948,11 @@ int SNDAEMSI_updateplayer(AemsDef::PLAYERSTATE *pplayerstate) {
         pplayerstate->settings.prevplaycontrol[1] = pplayerstate->settings.prevplaycontrol[0];
         pplayerstate->settings.prevplaycontrol[0] = outputplaystate;
     }
-    if (outputplaystate == 1 && pplayerstate->settings.sampletype < 0) {
+    if (outputplaystate == 1 && pplayerstate->settings.sampletype >= 0) {
+        outputplaystate = SNDAEMSplayerupdatefn[pplayerstate->settings.sampletype](pplayerstate);
+    }
+    if (pplayerstate->settings.sampletype < 0) {
         outputplaystate = 0;
-    } else {
-        if (outputplaystate == 1) {
-            outputplaystate = SNDAEMSplayerupdatefn[pplayerstate->settings.sampletype](pplayerstate);
-        }
-        if (pplayerstate->settings.sampletype & 0x80) {
-            outputplaystate = 0;
-        }
     }
 
     return outputplaystate;
@@ -1049,12 +1054,12 @@ int SNDAEMSI_updatesubtractmin(AemsDef::SUBTRACTMINSTATE *psubtractminstate) {
     }
 }
 
-int SNDAEMSI_updatemultiplymax(AemsDef::MULTIPLYMAXSTATE *psubtractminstate) {
-    int output = psubtractminstate->inputa;
-    output *= psubtractminstate->inputb;
+int SNDAEMSI_updatemultiplymax(AemsDef::MULTIPLYMAXSTATE *pmultiplymaxstate) {
+    int output = pmultiplymaxstate->inputa;
+    output *= pmultiplymaxstate->inputb;
 
-    if (output > psubtractminstate->settings.maxvalue) {
-        return psubtractminstate->settings.maxvalue;
+    if (output > pmultiplymaxstate->settings.maxvalue) {
+        return pmultiplymaxstate->settings.maxvalue;
     } else {
         return output;
     }
@@ -1226,6 +1231,11 @@ void SNDAEMSI_restore() {
 }
 
 int SNDAEMS_removemodulebank(int mbhandle) {
+#ifdef EA_PLATFORM_WIN32 // speed.exe 0x81A984: sin el snd instalado devuelve -10 (cmp byte [sndgs.installed], 0)
+    if (sndgs.installed == 0) {
+        return SNDERR_NO_DRIVER;
+    }
+#endif
     if (sndaems.logremovemodulebank != NULL) {
         sndaems.logremovemodulebank();
     }
@@ -1289,6 +1299,7 @@ int SNDAEMS_removemodulebank(int mbhandle) {
 }
 
 int SNDAEMSI_stopmodulebanks() {
+    SNDI_CHECKINSTALLED();
     SNDSYS_entercritical();
 
     char *pLink = reinterpret_cast<char *>(sndaems.modulebank.GetHead());
@@ -1364,8 +1375,12 @@ void SNDAEMSI_resolvemodulebank(
     firstbank = sndaems.modulebank.IsEmpty();
     sndaems.modulebank.Push(&pModuleBank->ln);
 
-    int funcfixupdelta = reinterpret_cast<char *>(pfuncfixupheader) - reinterpret_cast<char *>(pModuleBank);
-
+#ifdef EA_PLATFORM_PLAYSTATION2
+    for (i = 0; i < pfuncfixupheader->numfixups; i++) {
+        puint = reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(pModuleBank) + pfuncfixupheader->fixup[i]);
+        *puint = 0x0C000000 | (sndaemsfuncs[*reinterpret_cast<unsigned short *>(puint)] >> 2);
+    }
+#else
     i = 0;
     if (i < pfuncfixupheader->numfixups) {
         unsigned short *funcbase = reinterpret_cast<unsigned short *>(sndaemsfuncs);
@@ -1387,6 +1402,9 @@ void SNDAEMSI_resolvemodulebank(
             i++;
         } while (i < pfuncfixupheader->numfixups);
     }
+#endif
+
+    int funcfixupdelta = reinterpret_cast<char *>(pfuncfixupheader) - reinterpret_cast<char *>(pModuleBank);
 
     pFakeModuleBankStart = reinterpret_cast<char *>(pModuleBank) + funcfixupdelta - pModuleBank->funcfixupoffset;
 
@@ -1466,6 +1484,8 @@ void SNDAEMSI_resolvemodulebank(
 #ifdef EA_PLATFORM_GAMECUBE
     ICInvalidateRange(pModuleBank, pModuleBank->totalsize);
     DCFlushRange(pModuleBank, pModuleBank->totalsize);
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    FlushCache(0);
 #endif
     SNDSYS_leavecritical();
 }

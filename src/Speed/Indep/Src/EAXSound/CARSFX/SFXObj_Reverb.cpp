@@ -31,7 +31,7 @@ bool SFXObj_Reverb::bUnavailable = true;       // Decl: 92
 SFXObj_Reverb::ReverbStructure SFXObj_Reverb::m_EchoAllocs[4]; // Decl: 94
 
 SFXObj_Reverb::SFXObj_Reverb() : CARSFX() {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     if (this->m_EchoBuffer == nullptr) {
         this->m_EchoBuffer = gAudioMemoryManager.AllocateMemory(0xA000, "ReverbBuffer", false);
         this->m_UnusedBuffer = this->m_EchoBuffer;
@@ -49,7 +49,7 @@ SFXObj_Reverb::~SFXObj_Reverb() {
 }
 
 int SFXObj_Reverb::GetController(int Index) {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     return Index == 0 ? 6 : -1;
 #else
     return Index != 0 ? -1 : 6;
@@ -156,8 +156,63 @@ void SFXObj_Reverb::Destroy() {
 
 static const int DEBUG_REVERB_BUFFER = 0; // size: 0x4, Decl: 367
 
-// STRIPPED
-void *SFXObj_Reverb::AllocReverbBuffer(char *name, int size) {}
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); las dos PS2 la tienen
+void *SFXObj_Reverb::AllocReverbBuffer(char *name, int size) {
+    int index;
+    unsigned int unalignedaddr;
+    void *ptr;
 
-// STRIPPED
-bool SFXObj_Reverb::FreeReverbBuffer(void *ptr) {}
+    if (m_EchoBuffer == nullptr) {
+        return nullptr;
+    }
+    if (bUnavailable) {
+        return nullptr;
+    }
+    if (size + (static_cast<char *>(m_UnusedBuffer) - static_cast<char *>(m_EchoBuffer)) > 0xA000) {
+        return nullptr;
+    }
+    index = -1;
+    for (int n = 0; n < NUMBER_REVERB_ALLOCS && index == -1; n++) {
+        if (m_EchoAllocs[n].Alloc == nullptr) {
+            index = n;
+        }
+    }
+    if (index == -1) {
+        return nullptr;
+    }
+    unalignedaddr = reinterpret_cast<unsigned int>(m_UnusedBuffer);
+    ptr = reinterpret_cast<void *>((unalignedaddr + 15) & ~15);
+    m_UnusedBuffer = static_cast<char *>(ptr) + size;
+    m_EchoAllocs[index].Alloc = ptr;
+    m_EchoAllocs[index].Size = size;
+    return ptr;
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); las dos PS2 la tienen
+bool SFXObj_Reverb::FreeReverbBuffer(void *ptr) {
+    int index = -1;
+    bool FoundAlloc;
+    bool OtherAllocsStillExists;
+
+    FoundAlloc = OtherAllocsStillExists = false;
+
+    for (int n = 0; n < NUMBER_REVERB_ALLOCS; n++) {
+        if (m_EchoAllocs[n].Alloc == ptr) {
+            index = n;
+            FoundAlloc = true;
+        } else if (m_EchoAllocs[n].Alloc != nullptr) {
+            OtherAllocsStillExists = true;
+        }
+    }
+    if (!FoundAlloc) {
+        return false;
+    }
+    if (OtherAllocsStillExists) {
+        bUnavailable = true;
+    } else {
+        bUnavailable = false;
+        m_UnusedBuffer = m_EchoBuffer;
+    }
+    m_EchoAllocs[index].Clear();
+    return true;
+}

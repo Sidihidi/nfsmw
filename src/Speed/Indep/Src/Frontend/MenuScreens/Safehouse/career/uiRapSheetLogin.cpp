@@ -14,11 +14,13 @@ void uiRapSheetLogin::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u
     switch (msg) {
     case 0x7EABCA56:
     case 0x406415E3:
+#ifndef EA_BUILD_A124
         if (screen == 0) {
             g_pEAXSound->StopUISoundFX(UISND_RAPSHEET_LOGIN);
         } else if (screen == 2) {
             g_pEAXSound->StopUISoundFX(UISND_RAPSHEET_LOGIN2);
         }
+#endif
         screen = 3;
         break;
     case 0x911AB364:

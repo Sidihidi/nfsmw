@@ -30,9 +30,9 @@ void ECinematicMoment_MakeEvent_Callback(const void *staticData) {
     new ECinematicMoment(((ECinematicMoment::StaticData *) staticData)->fGenericGroupName, ((ECinematicMoment::StaticData *) staticData)->fGenericTrackName, ((ECinematicMoment::StaticData *) staticData)->fEventRadius);
 }
 
-int ECinematicMoment_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 3) {
-        new ECinematicMoment(lua_tostring(L, 1), lua_tostring(L, 2), lua_tonumber(L, 3));
+int ECinematicMoment_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 3) {
+        new ECinematicMoment(lua_tostring(luaState, 1), lua_tostring(luaState, 2), lua_tonumber(luaState, 3));
     }
     return 0;
 }

@@ -43,14 +43,14 @@ void THREAD_init() {
     g_thMain = (THREAD *)OSGetCurrentThread();
 }
 
-bool THREAD_create(THREAD *thread, int (*func)(void *), void *param, void *stack, int stacksize, int priority) {
+bool THREAD_create(THREAD *hThread, int (*func)(void *), void *param, void *stack_addr, int stack_size, int prio) {
     bool ok = true;
 
-    if (OSCreateThread((OSThread *)thread, (void *(*)(void *))func, param, (char *)stack + stacksize,
-                       stacksize, ThreadRealPriority2GCPriority(priority), 1) == 0) {
+    if (OSCreateThread((OSThread *)hThread, (void *(*)(void *))func, param, (char *)stack_addr + stack_size,
+                       stack_size, ThreadRealPriority2GCPriority(prio), 1) == 0) {
         ok = false;
     }
-    OSResumeThread((OSThread *)thread);
+    OSResumeThread((OSThread *)hThread);
     return ok;
 }
 

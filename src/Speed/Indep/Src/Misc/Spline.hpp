@@ -140,9 +140,9 @@ struct tCubic1D {
         }
     }
 
-    void SetValDesired(float v) {
-        ValDesired = v;
-        if (v != Val) {
+    void SetValDesired(float pV) {
+        ValDesired = pV;
+        if (pV != Val) {
             state = 2;
         }
     }

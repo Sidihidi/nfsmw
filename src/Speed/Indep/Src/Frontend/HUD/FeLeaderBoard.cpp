@@ -35,6 +35,7 @@ LeaderBoard::LeaderBoard(UTL::COM::Object *pOutter, const char *pkg_name, int pl
         mDataRacerTextBackings[i] = static_cast<FEImage *>(FEngFindObject(pkg_name, FEHashUpper(sztemp)));
     }
 
+#ifndef EA_BUILD_A124 // la A124 no limpia la tabla de corredores al crear el marcador
     for (int i = 0; i < 4; i++) {
         mTopRacers[i].mHasHeadset = false;
         mTopRacers[i].mIsBusted = false;
@@ -49,6 +50,7 @@ LeaderBoard::LeaderBoard(UTL::COM::Object *pOutter, const char *pkg_name, int pl
             mTopRacers[i].mRaceTimeOfSegment[j] = 0.0f;
         }
     }
+#endif
 }
 
 void LeaderBoard::Update(IPlayer *player) {
@@ -117,7 +119,7 @@ void LeaderBoard::Update(IPlayer *player) {
         }
         int numRacerNumToClearFrom = mNumRacers > 1 ? mNumRacers : 0;
 
-        for (int i = numRacerNumToClearFrom; i <= 3; i++) {
+        for (int i = numRacerNumToClearFrom; i < 4; i++) {
             FEngSetInvisible(mDataRacerText[i]);
             FEngSetInvisible(mDataRacerNum[i]);
             FEngSetInvisible(mDataRacerIcon[i]);
@@ -147,24 +149,24 @@ void LeaderBoard::Update(IPlayer *player) {
 }
 
 void LeaderBoard::SetRacerName(int pos, const char *name) {
-    if (pos > 3)
+    if (pos >= 4)
         return;
     bStrCpy(mTopRacers[pos].mRacerName, name);
 }
 void LeaderBoard::SetRacerNum(int pos, int num) {
-    if (pos > 3)
+    if (pos >= 4)
         return;
     mTopRacers[pos].mRacerNum = num;
 }
 
 void LeaderBoard::SetRacerTotalPoints(int pos, float points) {
-    if (pos > 3)
+    if (pos >= 4)
         return;
     mTopRacers[pos].mTotalPoints = points;
 }
 
 void LeaderBoard::SetRacerNumLapsCompleted(int pos, int numLaps, float time, IPlayer *player) {
-    if (pos > 3)
+    if (pos >= 4)
         return;
     if (numLaps > 0 && numLaps < mNumLaps && numLaps > mTopRacers[pos].mNumLapsCompleted && pos == mPlayerIndex) {
         ShowLapTime(player);
@@ -174,30 +176,33 @@ void LeaderBoard::SetRacerNumLapsCompleted(int pos, int numLaps, float time, IPl
 }
 
 void LeaderBoard::SetRacerPercentComplete(int pos, float percent, float time, IPlayer *player) {
-    if (pos > 3)
+    if (pos >= 4)
         return;
+#ifdef EA_BUILD_A124 // el prototipo no filtra el porcentaje antes de redondear
+    int ipercent = bFloatToInt(percent * static_cast<float>(mNumLaps));
+    if (ipercent > 0.0f && ipercent > bFloatToInt(mTopRacers[pos].mPercentComplete * static_cast<float>(mNumLaps))) {
+#else
     if (percent > 0.0f && percent < 100.0f) {
-        int ipercent = static_cast<int>(percent * static_cast<float>(mNumLaps));
-        if (ipercent > static_cast<int>(mTopRacers[pos].mPercentComplete * static_cast<float>(mNumLaps))) {
+        int ipercent = bFloatToInt(percent * static_cast<float>(mNumLaps));
+        if (ipercent > bFloatToInt(mTopRacers[pos].mPercentComplete * static_cast<float>(mNumLaps))) {
+#endif
             bool showSplitTime = false;
             int index = 0;
             GRace::Type raceType = GRaceStatus::Get().GetRaceType();
             switch (raceType) {
                 case GRace::kRaceType_Circuit:
                 case GRace::kRaceType_Knockout: {
-                    int q = ipercent / 50;
-                    if (ipercent == q * 50) {
+                    if (ipercent % 50 == 0) {
                         showSplitTime = true;
-                        index = q;
+                        index = ipercent / 50;
                     }
                     break;
                 }
                 case GRace::kRaceType_P2P:
                 case GRace::kRaceType_Tollbooth: {
-                    int q = ipercent / 25;
-                    if (ipercent == q * 25) {
+                    if (ipercent % 25 == 0) {
                         showSplitTime = true;
-                        index = q;
+                        index = ipercent / 25;
                     }
                     break;
                 }
@@ -205,7 +210,10 @@ void LeaderBoard::SetRacerPercentComplete(int pos, float percent, float time, IP
                     break;
             }
             if (showSplitTime) {
-                if (mTopRacers[pos].mRaceTimeOfSegment[index] == 0.0f) {
+#ifndef EA_BUILD_A124 // el prototipo no guarda solo el primer paso
+                if (mTopRacers[pos].mRaceTimeOfSegment[index] == 0.0f)
+#endif
+                {
                     mTopRacers[pos].mRaceTimeOfSegment[index] = time;
                     if (mPlayerIndex == 0) {
                         if (pos == 1) {
@@ -216,13 +224,15 @@ void LeaderBoard::SetRacerPercentComplete(int pos, float percent, float time, IP
                     }
                 }
             }
+#ifndef EA_BUILD_A124
         }
+#endif
     }
     mTopRacers[pos].mPercentComplete = percent;
 }
 
 void LeaderBoard::SetRacerHasHeadset(int pos, bool racerHasHeadset) {
-    if (pos > 3)
+    if (pos >= 4)
         return;
     mTopRacers[pos].mHasHeadset = racerHasHeadset;
 }
@@ -245,11 +255,11 @@ bool LeaderBoard::ShowSplitTime(IPlayer *player) {
     }
 
     if (mPlayerIndex == 0) {
-        int ipercent = static_cast<int>(mTopRacers[1].mPercentComplete * static_cast<float>(mNumLaps));
+        int ipercent = bFloatToInt(mTopRacers[1].mPercentComplete * static_cast<float>(mNumLaps));
         index = ipercent / divisor;
         timer = Timer(mTopRacers[1].mRaceTimeOfSegment[index] - mTopRacers[0].mRaceTimeOfSegment[index]);
     } else {
-        int ipercent = static_cast<int>(mTopRacers[mPlayerIndex].mPercentComplete * static_cast<float>(mNumLaps));
+        int ipercent = bFloatToInt(mTopRacers[mPlayerIndex].mPercentComplete * static_cast<float>(mNumLaps));
         index = ipercent / divisor;
         timer = Timer(mTopRacers[mPlayerIndex].mRaceTimeOfSegment[index] - mTopRacers[0].mRaceTimeOfSegment[index]);
     }

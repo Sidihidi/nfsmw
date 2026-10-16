@@ -23,8 +23,8 @@ void EKillObject_MakeEvent_Callback(const void *staticData) {
     new EKillObject(gEventDynamicData.fhSimable, gEventDynamicData.fhModel);
 }
 
-int EKillObject_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EKillObject_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EKillObject(gEventDynamicData.fhSimable, gEventDynamicData.fhModel);
     }
     return 0;

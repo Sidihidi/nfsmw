@@ -136,7 +136,7 @@ void CSTATE_Base::CreateSFXObjs() {
 
 void CSTATE_Base::ForceCreateSFXCtrls(int iSFXCtrls) {
     for (int n = 0; n < 32; n++) {
-        if ((iSFXCtrls >> n) & 1) {
+        if (iSFXCtrls & (1 << n)) {
             this->NewSFXCtrl(n);
         }
     }
@@ -197,8 +197,14 @@ void CSTATE_Base::SortSFXCtl() {
                 bFound = true;
 
                 if (TmpSFXCTLArray[n]->GetSFX_ID() < LastSmalledID) {
+#ifdef EA_PLATFORM_WIN32
+                    // PC actualiza LastSmalledID antes que UsedIndex.
+                    LastSmalledID = TmpSFXCTLArray[n]->GetSFX_ID();
+                    UsedIndex = n;
+#else
                     UsedIndex = n;
                     LastSmalledID = TmpSFXCTLArray[n]->GetSFX_ID();
+#endif
                 }
             }
         }

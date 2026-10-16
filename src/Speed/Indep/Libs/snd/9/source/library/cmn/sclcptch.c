@@ -20,53 +20,51 @@ unsigned char sndcents[256] = {
 };
 
 int iSNDdetunetolinear(int detune) {
-    int factor = 0x1000;
+    int pitch = 0x1000;
+    int cents256;
 
     while (detune > 0x4AF) {
         detune -= 0x4B0;
-        factor <<= 1;
+        pitch <<= 1;
     }
 
     while (detune <= -0x4B0) {
         detune += 0x4B0;
-        factor >>= 1;
+        pitch >>= 1;
     }
 
-    detune = (detune * 0x369D) >> 16;
-    if (detune < -0xFF) {
-        detune = -0xFF;
+    cents256 = (detune * 0x369D) >> 16;
+    if (cents256 < -0xFF) {
+        cents256 = -0xFF;
     }
 
-    if (detune < 0) {
-        factor = factor * (sndcents[detune + 0x100] + 0x100) >> 9;
+    if (cents256 < 0) {
+        pitch = pitch * (sndcents[cents256 + 0x100] + 0x100) >> 9;
     } else {
-        factor = factor * (sndcents[detune] + 0x100) >> 8;
+        pitch = pitch * (sndcents[cents256] + 0x100) >> 8;
     }
-    return factor;
+    return pitch;
 }
 
 void iSNDcalcpitch(int chan) {
     CHANPUB *pchan = &sndgs.chan[chan];
+    int detune;
+    int bend;
 
     if (pchan->detunepitch == 0) {
-        int detune = pchan->initialdetune;
+        detune = pchan->initialdetune;
 
-        if (*(unsigned short *)&pchan->bendrange != 0) {
-            signed char bend;
-
+        if (pchan->bendrange != 0) {
             if (pchan->pbendtable != NULL) {
                 bend = pchan->pbendtable->xlate[pchan->pitchbend];
             } else {
                 bend = pchan->pitchbend;
             }
-            int bendrange = *(short *)&pchan->bendrange;
-            detune += (((int)bend - 0x40) * (short)bendrange) >> 6;
+            detune += ((bend - 0x40) * pchan->bendrange) >> 6;
         }
 
         if (pchan->ppitchlfo != NULL) {
-            int lfodepth = pchan->pitchlfodepth;
-            int lfo = pchan->ppitchlfo->xlate[pchan->curpitchlfoentry];
-            detune += (((signed char)lfo - 0x40) * lfodepth) >> 6;
+            detune += ((pchan->ppitchlfo->xlate[pchan->curpitchlfoentry] - 0x40) * pchan->pitchlfodepth) >> 6;
         }
 
         pchan->detunepitch = iSNDdetunetolinear(detune);

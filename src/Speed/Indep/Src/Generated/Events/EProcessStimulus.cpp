@@ -73,9 +73,9 @@ void EProcessStimulus_MakeEvent_Callback(const void *staticData) {
                          gEventDynamicData.fEventSeqSystem);
 }
 
-int EProcessStimulus_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 3) {
-        new EProcessStimulus(UCrc32(lua_tostring(L, 1)), UCrc32(lua_tostring(L, 2)), UCrc32(lua_tostring(L, 3)), gEventDynamicData.fEventSeqEngine,
+int EProcessStimulus_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 3) {
+        new EProcessStimulus(UCrc32(lua_tostring(luaState, 1)), UCrc32(lua_tostring(luaState, 2)), UCrc32(lua_tostring(luaState, 3)), gEventDynamicData.fEventSeqEngine,
                              gEventDynamicData.fEventSeqSystem);
     }
     return 0;

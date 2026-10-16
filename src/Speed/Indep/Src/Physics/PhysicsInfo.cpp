@@ -6,6 +6,13 @@
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Src/Sim/UTil.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/chassis.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/transmission.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/tires.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/induction.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/nos.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/engine.h"
+#include "Speed/Indep/Src/Generated/AttribSys/Classes/pvehicle.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/brakes.h"
 
 using namespace Attrib::Gen;
@@ -198,11 +205,12 @@ float Physics::Info::MaxInductedPower(const Attrib::Gen::pvehicle &pvehicle, con
     float rpm_step = (engine.MAX_RPM() - engine.IDLE()) / (float)(engine.Num_TORQUE() - 1);
     for (unsigned int i = 0; i < engine.Num_TORQUE(); ++i) {
         // seems like the rpm and spool params are swapped here too
-        float power = engine.TORQUE(i) * (InductionBoost(engine, induction, rpm, 1.0f, tunings, nullptr) + 1.0f) * rpm * (1.0f / 5252.0f);
+        float pt_torque = engine.TORQUE(i) * (InductionBoost(engine, induction, rpm, 1.0f, tunings, nullptr) + 1.0f);
+        float hp = FTLB2HP(pt_torque, rpm);
 
-        if (power > maxpower) {
+        if (hp > maxpower) {
             // new peak
-            maxpower = power;
+            maxpower = hp;
         }
 
         rpm += rpm_step;
@@ -354,34 +362,30 @@ bool Physics::Info::ShiftPoints(const Attrib::Gen::transmission &transmission, c
         float rpm = (engine.IDLE() + redline) * 0.5f;
         float max = rpm;
 
-        if (rpm < redline) {
-            // find the upshift RPM for this gear using predicted engine torque
-            while (flag) {
-                // seems like the rpm and spool params are swapped in both instances
-                // so either it's a mistake that was copy-pasted or it was a deliberate choice
-                float currenttorque = Torque(engine, max) * (InductionBoost(engine, induction, 1.0f, max, nullptr, nullptr) + 1.0f);
-                float shiftuptorque;
-                if (UMath::Abs(g1) > 0.00001f) {
-                    float ratio = g2 / g1;
-                    float next_rpm = ratio * max;
-                    shiftuptorque = Torque(engine, next_rpm) * g2 / g1 * (InductionBoost(engine, induction, 1.0f, next_rpm, nullptr, nullptr) + 1.0f);
-                } else {
-                    shiftuptorque = 0.0f;
-                }
-
-                // set the upshift RPM to the current max
-                if (shiftuptorque > currenttorque) {
-                    shift_up[j] = max;
-                    flag = 0;
-                    break;
-                }
-
-                max += 50.0f;
-                // set the upshift RPM to the redline RPM
-                if (max >= redline)
-                    break;
+        // find the upshift RPM for this gear using predicted engine torque
+        while (max < redline && flag) {
+            // seems like the rpm and spool params are swapped in both instances
+            // so either it's a mistake that was copy-pasted or it was a deliberate choice
+            float currenttorque = Torque(engine, max) * (InductionBoost(engine, induction, 1.0f, max, nullptr, nullptr) + 1.0f);
+            float shiftuptorque;
+            if (UMath::Abs(g1) > 0.00001f) {
+                float ratio = g2 / g1;
+                float next_rpm = ratio * max;
+                shiftuptorque = Torque(engine, next_rpm) * g2 / g1 * (InductionBoost(engine, induction, 1.0f, next_rpm, nullptr, nullptr) + 1.0f);
+            } else {
+                shiftuptorque = 0.0f;
             }
+
+            // set the upshift RPM to the current max
+            if (shiftuptorque > currenttorque) {
+                shift_up[j] = max;
+                flag = 0;
+                break;
+            }
+
+            max += 50.0f;
         }
+        // set the upshift RPM to the redline RPM
         if (flag) {
             shift_up[j] = redline - 100.0f;
         }
@@ -525,7 +529,7 @@ bool PerfStats::Fetch(const Attrib::Gen::pvehicle &pvehicle, struct bVector2 *gr
         float total_gear_ratio = transmission.GEAR_RATIO(gear + 2) * final_gear;
         float differential_w = speed / wheel_radius;
         float power_range = (max_w - min_w) / max_w;
-        float w = differential_w * total_gear_ratio * power_range + min_w;
+        float w = min_w + differential_w * total_gear_ratio * power_range;
         float rpm = RPS2RPM(w);
         rpm = UMath::Clamp(rpm, idle, redline);
 
@@ -689,7 +693,9 @@ void Physics::Info::Init() {
                     all_cars.push_back(performance);
                 }
 
+#ifndef EA_BUILD_A124
                 Physics::Upgrades::Flush();
+#endif
             }
         }
 
@@ -713,7 +719,9 @@ void Physics::Info::Init() {
                 all_cars.push_back(performance);
             }
 
+#ifndef EA_BUILD_A124
             Physics::Upgrades::Flush();
+#endif
         }
     }
 

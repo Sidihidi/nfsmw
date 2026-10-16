@@ -12,6 +12,31 @@
 
 void (*FECodeListBox::mpDefaultCallback)(FECodeListBox *) = FECodeListBox::DefaultSelectCallback;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Decl: speed/indep/src/feng/FECodeListBox.cpp (line 42)
 FECodeListBox::FECodeListBox()
     : mpobRenderer(nullptr),                  //
@@ -40,8 +65,7 @@ FECodeListBox::FECodeListBox()
     Type = FE_CodeList;
 }
 
-// Decl:: speed/indep/src/feng/FECodeListBox.cpp (line 69)
-FECodeListBox::FECodeListBox(const FECodeListBox &Object, bool bReference)
+FECodeListBox::FECodeListBox(const FECodeListBox &Object, bool bReference) // Decl:: speed/indep/src/feng/FECodeListBox.cpp (line 69)
     : FEObject(Object, bReference),                    //
       mpobRenderer(Object.mpobRenderer),               //
       mulNumVisibleColumns(0),                         //
@@ -68,6 +92,8 @@ FECodeListBox::FECodeListBox(const FECodeListBox &Object, bool bReference)
       mpvCallbackData(Object.mpvCallbackData) {
     CopyProperties(Object);
 }
+
+
 
 void FECodeListBox::CopyProperties(const FECodeListBox &Object) {
     u32 ulNumCells;
@@ -111,6 +137,40 @@ void FECodeListBox::CopyProperties(const FECodeListBox &Object) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FECodeListBox::~FECodeListBox() {
     if (mpstCells) {
         delete[] mpstCells;
@@ -123,12 +183,34 @@ FECodeListBox::~FECodeListBox() {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FECodeListBox::Initialize(u32 ulNumVisCols, u32 ulNumVisRows) {
     FEListBoxCell *pstOldCells = mpstCells;
     u32 ulOldNumVisibleColumns = mulNumVisibleColumns;
     u32 ulOldNumVisibleRows = mulNumVisibleRows;
     mulNumVisibleColumns = ulNumVisCols;
     mulNumVisibleRows = ulNumVisRows;
+
+
     i32 ulNumCells = ulNumVisRows * ulNumVisCols;
     mpstCells = FNEW FEListBoxCell[ulNumCells];
     FEListBox::InitializeCell(mpstCells, mulNumVisibleRows * mulNumVisibleColumns);
@@ -173,9 +255,43 @@ void FECodeListBox::Initialize(u32 ulNumVisCols, u32 ulNumVisRows) {
     mulFlags |= 1;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FEObject *FECodeListBox::Clone(bool bReference) {
     return FNEW FECodeListBox(*this, bReference);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FECodeListBox::FillAllCells() {
     if (!mulNumTotalColumns || !mulNumTotalRows || !mulNumVisibleRows || !mulNumVisibleColumns) {
@@ -217,15 +333,141 @@ void FECodeListBox::FillAllCells() {
     }
 }
 
-void FECodeListBox::SetTotalNumColumns(u32 ulNumColumns) {
-    mulNumTotalColumns = ulNumColumns;
-    mulCurrentVirtualColumn = CalculateCurrentFromTarget(mulTargetColumn, ulNumColumns, mulNumVisibleColumns);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void FECodeListBox::SetTotalNumColumns(u32 ulNumTotalColumns) {
+    mulNumTotalColumns = ulNumTotalColumns;
+    mulCurrentVirtualColumn = CalculateCurrentFromTarget(mulTargetColumn, ulNumTotalColumns, mulNumVisibleColumns);
 }
 
-void FECodeListBox::SetTotalNumRows(u32 ulNumRows) {
-    mulNumTotalRows = ulNumRows;
-    mulCurrentVirtualRow = CalculateCurrentFromTarget(mulTargetRow, ulNumRows, mulNumVisibleRows);
+
+
+
+
+
+
+
+
+
+
+
+void FECodeListBox::SetTotalNumRows(u32 ulNumTotalRows) {
+    mulNumTotalRows = ulNumTotalRows;
+    mulCurrentVirtualRow = CalculateCurrentFromTarget(mulTargetRow, ulNumTotalRows, mulNumVisibleRows);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FECodeListBox::AllocateStrings(u32 ulNumStrings, u32 ulStringSize) {
     short *psOldStrings = mpsStrings;
@@ -250,8 +492,20 @@ void FECodeListBox::AllocateStrings(u32 ulNumStrings, u32 ulStringSize) {
             } while (i < mulNumVisibleRows);
         }
     } else {
-        mpsStrings = static_cast<short *>(FEngMalloc((ulNumStrings * ulStringSize) << 1, 0, 0));
-        mppsStringData = static_cast<short **>(FEngMalloc(ulNumStrings * 4, 0, 0));
+
+
+
+
+
+
+        mpsStrings = FNEW short[ulNumStrings * ulStringSize];
+
+
+
+        mppsStringData = FNEW short *[ulNumStrings];
+
+
+
         FEngMemSet(mpsStrings, 0, ulNumStrings * (ulStringSize + ulStringSize));
         for (i = 0; i < ulNumStrings; i++) {
             mppsStringData[i] = mpsStrings + i * ulStringSize;
@@ -284,10 +538,140 @@ cleanup_ptrs:
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FECodeListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
     ScrollSelection(lColumnNum, mulCurrentVirtualColumn, mulTargetColumn, mulNumTotalColumns, mulNumVisibleColumns, true);
     ScrollSelection(lRowNum, mulCurrentVirtualRow, mulTargetRow, mulNumTotalRows, mulNumVisibleRows, false);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FECodeListBox::Update(float fNumTicks) {
     if (mpSelectionCallback) {
@@ -304,11 +688,77 @@ void FECodeListBox::Update(float fNumTicks) {
     }
 }
 
-void FECodeListBox::DefaultSelectCallback(FECodeListBox *pList) {
-    FEColor stColor = pList->GetSelectionColor();
-    stColor.a = static_cast<int>(pList->GetAlphaHilite() * 255.0f);
-    pList->SetSelectionColor(stColor);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void FECodeListBox::DefaultSelectCallback(FECodeListBox *pobListBox) {
+    FEColor stColor = pobListBox->GetSelectionColor();
+    stColor.a = static_cast<int>(pobListBox->GetAlphaHilite() * 255.0f);
+    pobListBox->SetSelectionColor(stColor);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 short *FECodeListBox::AllocateString() {
     short *psRet = mppsStringData[mulCurrentString++];
@@ -316,10 +766,43 @@ short *FECodeListBox::AllocateString() {
     return psRet;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FECodeListBox::DeallocateString(short *psString) {
     mulCurrentString--;
     mppsStringData[mulCurrentString] = psString;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 inline i32 GetRealValue(i32 i, i32 lNumTotal, i32 lCurrentVirtual, i32 lNumVisible) { // Decl: speed/indep/src/feng/FECodeListBox.cpp:807
     int lRet;
@@ -341,13 +824,93 @@ inline i32 GetRealValue(i32 i, i32 lNumTotal, i32 lCurrentVirtual, i32 lNumVisib
     return lRet;
 }
 
-i32 FECodeListBox::GetRealColumn(i32 lColumn) const {
-    return GetRealValue(lColumn, mulNumTotalColumns, mulCurrentVirtualColumn, mulNumVisibleColumns);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+i32 FECodeListBox::GetRealColumn(i32 i) const {
+    return GetRealValue(i, mulNumTotalColumns, mulCurrentVirtualColumn, mulNumVisibleColumns);
 }
 
-i32 FECodeListBox::GetRealRow(i32 lRow) const {
-    return GetRealValue(lRow, mulNumTotalRows, mulCurrentVirtualRow, mulNumVisibleRows);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+i32 FECodeListBox::GetRealRow(i32 i) const {
+    return GetRealValue(i, mulNumTotalRows, mulCurrentVirtualRow, mulNumVisibleRows);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 bool FECodeListBox::CheckMovement(i32 lNumMove, i32 lCurrentVirtual, i32 lTarget, i32 lNumTotal, i32 lNumVis) {
     if ((mulFlags & 4) && lNumTotal <= lNumVis) {
@@ -382,6 +945,46 @@ success:
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool FECodeListBox::MakeMove(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ulTarget, u32 ulNumTotal, u32 ulNumVis) {
     if (mulFlags & 8) {
         ulCurrentVirtual = GetValidIndex(static_cast<int>(ulCurrentVirtual) + lNumMove, ulNumTotal);
@@ -415,6 +1018,47 @@ bool FECodeListBox::MakeMove(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ulTarget,
     }
     return true;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 bool FECodeListBox::ScrollSelection(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ulTarget, u32 ulNumTotal, u32 ulNumVis, bool bColumn) {
     if (lNumMove == 0)
@@ -568,6 +1212,51 @@ bool FECodeListBox::ScrollSelection(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ul
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 u32 FECodeListBox::CalculateCurrentFromTarget(u32 ulTarget, u32 ulNumTotal, u32 ulNumVisible) {
     if (ulTarget >= ulNumTotal) {
         ulTarget = (ulNumTotal != 0) ? ulNumTotal - 1 : 0;
@@ -579,53 +1268,69 @@ u32 FECodeListBox::CalculateCurrentFromTarget(u32 ulTarget, u32 ulNumTotal, u32 
     return static_cast<u32>(lRet);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FECodeListBox::SetCellColor(u32 ulStartColumn, u32 ulStartRow, u32 ulColor, u32 ulNumColumns, u32 ulNumRows) {
-    u32 endRow = ulNumRows + ulStartRow;
-    u32 i = ulStartRow;
-    u32 endColumn = ulNumColumns + ulStartColumn;
-    while (i < endRow) {
-        u32 j = ulStartColumn;
-        while (j < endColumn) {
-            i32 lCIndex = GetRealColumn(j);
-            i32 lRIndex = GetRealRow(i);
-            FEListBoxCell *pstCell = &mpstCells[lRIndex * mulNumVisibleColumns + lCIndex];
-            pstCell->ulColor = ulColor;
-            j++;
+    ulNumColumns += ulStartColumn;
+    ulNumRows += ulStartRow;
+
+    for (u32 i = ulStartRow; i < ulNumRows; i++) {
+
+        for (u32 j = ulStartColumn; j < ulNumColumns; j++) {
+            GetPCellData(j, i)->ulColor = ulColor;
         }
-        i++;
     }
 }
 
 void FECodeListBox::SetCellScale(u32 ulStartColumn, u32 ulStartRow, const FEPoint &stScale, u32 ulNumColumns, u32 ulNumRows) {
-    u32 endRow = ulNumRows + ulStartRow;
-    u32 i = ulStartRow;
-    u32 endColumn = ulNumColumns + ulStartColumn;
-    while (i < endRow) {
-        u32 j = ulStartColumn;
-        while (j < endColumn) {
-            i32 lCIndex = GetRealColumn(j);
-            i32 lRIndex = GetRealRow(i);
-            FEListBoxCell *pstCell = &mpstCells[lRIndex * mulNumVisibleColumns + lCIndex];
-            pstCell->stScale = stScale;
-            j++;
+    ulNumColumns += ulStartColumn;
+    ulNumRows += ulStartRow;
+
+    for (u32 i = ulStartRow; i < ulNumRows; i++) {
+
+        for (u32 j = ulStartColumn; j < ulNumColumns; j++) {
+            GetPCellData(j, i)->stScale = stScale;
         }
-        i++;
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 void FECodeListBox::SetCellJustification(u32 ulStartColumn, u32 ulStartRow, u32 ulJustification, u32 ulNumColumns, u32 ulNumRows) {
-    u32 endRow = ulNumRows + ulStartRow;
-    u32 i = ulStartRow;
-    u32 endColumn = ulNumColumns + ulStartColumn;
-    while (i < endRow) {
-        u32 j = ulStartColumn;
-        while (j < endColumn) {
-            i32 lCIndex = GetRealColumn(j);
-            i32 lRIndex = GetRealRow(i);
-            FEListBoxCell *pstCell = &mpstCells[lRIndex * mulNumVisibleColumns + lCIndex];
-            pstCell->ulJustification = ulJustification;
-            j++;
+    ulNumColumns += ulStartColumn;
+    ulNumRows += ulStartRow;
+
+    for (u32 i = ulStartRow; i < ulNumRows; i++) {
+
+        for (u32 j = ulStartColumn; j < ulNumColumns; j++) {
+            GetPCellData(j, i)->ulJustification = ulJustification;
         }
-        i++;
     }
 }
+
+
+
+
+

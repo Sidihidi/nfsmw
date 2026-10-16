@@ -14,8 +14,13 @@ void eMulMatrix(bMatrix4 *ab, bMatrix4 *a, bMatrix4 *b);
 void eMulVector(bVector4 *vm, const bMatrix4 *m, const bVector4 *v);
 void eMulVector(bVector3 *vm, const bMatrix4 *m, const bVector3 *v);
 void eProject(float x, float y, float z, float (*mtx)[4], float *pm, float *vp, float *sx, float *sy, float *sz);
+#ifdef EA_PLATFORM_PLAYSTATION2
+void eRotTransPers(bVector4 *dest, bMatrix4 *m, bVector4 *src);
+int eGetClipFlags(bVector4 *v, bMatrix4 *m);
+#else
 void eRotTransPers(bVector3 *dest, const bVector3 *src, bMatrix4 *wv, bMatrix4 *vs, float xOrig, float yOrig, float width, float height, float zNear,
                    float zFar);
+#endif
 void eCreateAxisRotationMatrix(bMatrix4 *dest, bVector3 &axis, bAngle angle);
 void eCreateLookAtMatrix(bMatrix4 *mat, bVector3 &eye, bVector3 &center, bVector3 &up);
 float eSin(float a);
@@ -32,6 +37,9 @@ float ePowf(float x, float y);
 
 extern bMatrix4 eMathIdentityMatrix; // size: 0x40
 extern bMatrix4 eMathZeroMatrix;     // size: 0x40
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern bVector4 eUnitVector4; // size: 0x10
+#endif
 
 inline struct bMatrix4 *eGetIdentityMatrix() {
     return &eMathIdentityMatrix;
@@ -43,7 +51,7 @@ inline struct bMatrix4 *eGetZeroMatrix() {
 
 
 inline struct bMatrix4 *eTransposeMatrix(struct bMatrix4 *dest, struct bMatrix4 *m) {
-    bTransposeMatrix(dest, m);
+    return bTransposeMatrix(dest, m);
 }
 
 #endif

@@ -19,22 +19,22 @@ struct TagResolverNode {
     unsigned int fTag;                                // offset 0x0, size 0x4
     void (*fResolver)(const UData *, const UGroup *); // offset 0x4, size 0x4
 
-    inline TagResolverNode(unsigned int tag = 0, void (*resolver)(const UData *, const UGroup *) = 0)
-        : fTag(tag), fResolver(resolver) {}
+    inline TagResolverNode(unsigned int tag = 0, void (*func)(const UData *, const UGroup *) = 0)
+        : fTag(tag), fResolver(func) {}
 
-    inline TagResolverNode(const TagResolverNode &src) {
-        fTag = src.fTag;
-        fResolver = src.fResolver;
+    inline TagResolverNode(const TagResolverNode &trn) {
+        fTag = trn.fTag;
+        fResolver = trn.fResolver;
     }
 
-    inline TagResolverNode &operator=(const TagResolverNode &src) {
-        fTag = src.fTag;
-        fResolver = src.fResolver;
+    inline TagResolverNode &operator=(const TagResolverNode &trn) {
+        fTag = trn.fTag;
+        fResolver = trn.fResolver;
         return *this;
     }
 
-    inline bool operator<(const TagResolverNode &rhs) const {
-        return fTag < rhs.fTag;
+    inline bool operator<(const TagResolverNode &trn) const {
+        return fTag < trn.fTag;
     }
 };
 
@@ -64,9 +64,9 @@ static void EventSeqEngineResolver(const UData *d, const UGroup *context) {
 // Decl: Carp.cpp GC
 static void EventSeqSystemResolver(const UData *d, const UGroup *context) {
     const EventSeqSystem *s = static_cast<const EventSeqSystem *>(d->GetDataConst());
-    EventSeqState **states = const_cast<EventSeqState **>(s->GetStates());
+    const EventSeqState *const *states = s->GetStates();
     for (unsigned int i = 0; i < s->mNumStates; i++) {
-        new (&states[i]) TagReference(context);
+        new (const_cast<EventSeqState **>(&states[i])) TagReference(context);
     }
 }
 
@@ -75,7 +75,7 @@ static void EventSeqStateResolver(const UData *d, const UGroup *context) {
     const EventSeqState *s = static_cast<const EventSeqState *>(d->GetDataConst());
     new (const_cast<StimulusFilter **>(&s->mFilter)) TagReference(context);
 
-    EventSeqResponse *responses = const_cast<EventSeqResponse *>(s->GetResponses());
+    const EventSeqResponse *responses = s->GetResponses();
     for (unsigned int i = 0; i < s->mNumStimuli; i++) {
         new (const_cast<EventSeqAction **>(&responses[i].mActionSeq)) TagReference(context);
     }
@@ -84,9 +84,9 @@ static void EventSeqStateResolver(const UData *d, const UGroup *context) {
 // Decl: Carp.cpp GC
 static void EventSeqActionResolver(const UData *d, const UGroup *context) {
     const EventSeqAction *a = static_cast<const EventSeqAction *>(d->GetDataConst());
-    EventList **eventLists = const_cast<EventList **>(a->GetEventListArray());
+    const EventList *const *eventlists = a->GetEventListArray();
     for (unsigned int i = 0; i < a->mNumTags + a->mNumTimes; i++) {
-        new (&eventLists[i]) TagReference(context);
+        new (const_cast<EventList **>(&eventlists[i])) TagReference(context);
     }
 }
 
@@ -118,29 +118,29 @@ static void StimulusFilterResolver(const UData *d, const UGroup *context) {
 
 // Decl: Carp.cpp GC
 static void CollisionInstanceResolver(const UData *d, const UGroup *context) {
-    CollisionInstance *instance = static_cast<CollisionInstance *>(const_cast<void *>(d->GetDataConst()));
-    for (unsigned int i = 0; i < d->DataCount(); i++, instance++) {
-        new (const_cast<WCollisionArticle **>(&instance->fCollisionArticle)) TagReference(context);
+    const CollisionInstance *i = static_cast<const CollisionInstance *>(d->GetDataConst());
+    for (unsigned int j = 0; j < d->DataCount(); j++, i++) {
+        new (const_cast<WCollisionArticle **>(&i->fCollisionArticle)) TagReference(context);
     }
 }
 
 // Decl: Carp.cpp GC
-void AddUDataTagResolver(unsigned int tag, void (*resolver)(const UData *, const UGroup *)) {
-    gDataResolverMap.push_back(TagResolverNode(tag, resolver));
+void AddUDataTagResolver(unsigned int dataTag, void (*dtrFunc)(const UData *, const UGroup *)) {
+    gDataResolverMap.push_back(TagResolverNode(dataTag, dtrFunc));
 }
 
 // Decl: Carp.cpp GC
-void ResolveData(const UGroup *context, const UData *data) {
+void ResolveData(const UGroup *g, const UData *d) {
     unsigned int tag;
-    if (data->fIndexed) {
-        tag = (data->fTag & 0xFFFF0000U) | 0x2020U;
+    if (d->fIndexed) {
+        tag = (d->fTag & 0xFFFF0000U) | 0x2020U;
     } else {
-        tag = data->fTag;
+        tag = d->fTag;
     }
     TagResolverNode searchNode(tag, 0);
     std::vector<TagResolverNode>::iterator node = std::lower_bound(gDataResolverMap.begin(), gDataResolverMap.end(), searchNode);
     if (node != gDataResolverMap.end() && node->fTag == searchNode.fTag) {
-        node->fResolver(data, context);
+        node->fResolver(d, g);
     }
 }
 

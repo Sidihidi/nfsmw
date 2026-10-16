@@ -20,8 +20,10 @@ CARSFX_Rain::~CARSFX_Rain() {
 }
 
 int CARSFX_Rain::GetController(int Index) {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     return Index == 0 ? 6 : -1;
+#elif defined(EA_PLATFORM_XENON)
+    return Index != 0 ? -1 : 1; // NFS.exe: X360 engancha la lluvia al controlador 1
 #else
     return Index != 0 ? -1 : 6;
 #endif
@@ -53,22 +55,12 @@ void CARSFX_Rain::Play() {
 }
 
 void CARSFX_Rain::Stop() {
-#ifdef EA_BUILD_A124
-    Csis::FX_Weather *pCsisRain = this->m_pCsisRain;
-    if (pCsisRain != nullptr) {
-        pCsisRain->SetRain_on_off(1);
-        this->bFadingOut = true;
-        this->m_fTimeLeftToFadeOut = 10.0f;
-        pCsisRain->CommitMemberData();
-    }
-#else
     if (this->m_pCsisRain != nullptr) {
-        this->bFadingOut = true;
         this->m_fTimeLeftToFadeOut = 10.0f;
+        this->bFadingOut = true;
         this->m_pCsisRain->SetRain_on_off(1);
         this->m_pCsisRain->CommitMemberData();
     }
-#endif
 }
 
 void CARSFX_Rain::Destroy() {
@@ -84,11 +76,8 @@ void CARSFX_Rain::QueueWeatherStream() {
 
     int nweathertype = 0;
     if (Speech::Manager::GetSpeechModule(0)->DonePlaying() == true) {
-#ifdef EA_BUILD_A124
+        // PS2 y speed.exe comparan en double; GameCube en float porque compila con -fdefault-single-float
         if (this->m_fWeatherIntensity < 0.5) {
-#else
-        if (this->m_fWeatherIntensity < 0.5f) {
-#endif
             nweathertype = 1;
             // TODO aud_moment_strm::key_thunder_distant
             MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, 0x016C4FA1).Send(UCrc32("MomentStrm"));
@@ -118,7 +107,7 @@ void CARSFX_Rain::UpdateParams(float t) {
 #endif
     }
 
-    if (0.01f < this->m_fWeatherIntensity) {
+    if (this->m_fWeatherIntensity > 0.01f) {
         if (this->m_pCsisRain == nullptr) {
             this->Play();
         }
@@ -129,7 +118,7 @@ void CARSFX_Rain::UpdateParams(float t) {
     bool IsWorldDataStreaming(unsigned int strmhandle);
 
     this->m_fThunderTime += t;
-    if (0.25f < this->m_fWeatherIntensity && !IsWorldDataStreaming(0) && this->m_fThunderTime > this->m_fThunderDeltaTime) {
+    if (this->m_fWeatherIntensity > 0.25f && !IsWorldDataStreaming(0) && this->m_fThunderTime > this->m_fThunderDeltaTime) {
         if (this->m_BlockStrmTest == 0) {
             this->m_fThunderTime = 0.0f;
             if (this->m_bWeatherStreamQueued == true) {

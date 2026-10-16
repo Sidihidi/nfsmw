@@ -23,6 +23,9 @@
 
 // TODO these are in Render.hpp in carbon, do we want that to exist here?
 extern unsigned int numCopsActiveView;
+#ifdef EA_BUILD_A124
+extern unsigned int numCopsActive;
+#endif
 extern float renderModifier;
 
 static const float Tweak_MaxCarAnimTime = 10.0f;
@@ -46,15 +49,25 @@ struct TireState : public bTNode<TireState> {
         {
         }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Las dos PS2 sueltan el grupo aqui (lineas 67-68 de la A124) y ~TireState llama a este destructor por
+        // cada efecto; GameCube, PC y Xbox 360 lo hacen a mano en ~TireState.
+        ~Effect() {
+            if (mGroup != nullptr) {
+                mGroup->UnSubscribe();
+            }
+        }
+#endif
+
         void ResetGroup() {
             mGroup = nullptr;
             mEmitterKey = 0;
             mMinVel = 0.0f;
-            mNeedsLazyInit = true;
-#ifndef EA_BUILD_A124
-            mZeroParticleFrameCount = 0;
-#endif
             mMaxVel = 0.0f;
+#ifndef EA_BUILD_A124 // la A124 no marca la reinicializacion perezosa ni tiene el contador
+            mZeroParticleFrameCount = 0;
+            mNeedsLazyInit = true;
+#endif
         }
 
 #ifndef EA_BUILD_A124
@@ -125,8 +138,8 @@ void TireState::Effect::FreeUpFX() {
         this->mGroup->UnSubscribe();
     }
 
-    this->mGroup = nullptr;
     this->mNeedsLazyInit = true;
+    this->mGroup = nullptr;
     this->mZeroParticleFrameCount = 0;
 }
 #endif
@@ -177,15 +190,15 @@ void TireState::Effect::Update(float speed, const bVector3 *car_velocity, const 
     float intensity = UMath::Ramp(speed, this->mMinVel, this->mMaxVel);
 
     if (intensity <= 0.0f) {
+#ifndef EA_BUILD_A124 // la A124 no suelta el grupo de emisores
         if (this->mGroup != nullptr) {
             this->mGroup->SetOldSurfaceEffectFlag();
             this->mGroup->UnSubscribe();
             this->mGroup = nullptr;
             this->mNeedsLazyInit = true;
-#ifndef EA_BUILD_A124
             this->mZeroParticleFrameCount = 0;
-#endif
         }
+#endif
         return;
     }
 
@@ -193,9 +206,7 @@ void TireState::Effect::Update(float speed, const bVector3 *car_velocity, const 
         this->LazyInit();
     }
 
-    if (this->mGroup == nullptr || intensity <= 0.0f) {
-        return;
-    } else {
+    if (this->mGroup != nullptr && intensity > 0.0f) {
         // TODO
         const bMatrix4 *orientation = false ? this->mGroup->GetLocalWorld() : car_matrix;
 
@@ -209,25 +220,22 @@ void TireState::Effect::Update(float speed, const bVector3 *car_velocity, const 
         this->mGroup->SetIntensity(intensity);
         this->mGroup->Update(dT);
 
-#ifndef EA_BUILD_A124
+#ifndef EA_BUILD_A124 // la A124 no cuenta los cuadros sin particulas ni suelta el grupo
         if (this->mGroup->GetNumParticles() == 0) {
             this->mZeroParticleFrameCount++;
         }
 
-        if (this->mZeroParticleFrameCount < 11) {
+        if (this->mZeroParticleFrameCount <= 10) {
             return;
         }
-#endif
 
         this->mGroup->SetOldSurfaceEffectFlag();
-    }
-
-    this->mGroup->UnSubscribe();
-    this->mGroup = nullptr;
-    this->mNeedsLazyInit = true;
-#ifndef EA_BUILD_A124
-    this->mZeroParticleFrameCount = 0;
+        this->mGroup->UnSubscribe();
+        this->mGroup = nullptr;
+        this->mNeedsLazyInit = true;
+        this->mZeroParticleFrameCount = 0;
 #endif
+    }
 }
 
 TireState::TireState()
@@ -247,6 +255,7 @@ TireState::~TireState() {
     this->KillSkids();
     this->Remove();
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (this->mDriveFX.mGroup != nullptr) {
         this->mDriveFX.mGroup->UnSubscribe();
     }
@@ -258,6 +267,7 @@ TireState::~TireState() {
     if (this->mSlipFX.mGroup != nullptr) {
         this->mSlipFX.mGroup->UnSubscribe();
     }
+#endif
 }
 
 static const float MinimumSkidWidthScale = 0.3f;
@@ -338,15 +348,14 @@ void TireState::DoSkids(float intensity, const bVector3 *deltaPos, const bMatrix
 #define APPROX_ZERO(flt) (!(flt > 1.192092896e-07f || flt < (-1.192092896e-07f)))
 
 void TireState::DoFX(float slip, float skid, float speed, const bVector3 *car_velocity, const bMatrix4 *car_matrix, float dT) {
-    // TODO PS2
-#ifndef EA_BUILD_A124
     if (APPROX_ZERO(slip) && APPROX_ZERO(skid) && APPROX_ZERO(speed)) {
+#ifndef EA_BUILD_A124 // la A124 no tiene FreeUpFX: solo sale
         this->mDriveFX.FreeUpFX();
         this->mSlipFX.FreeUpFX();
         this->mSkidFX.FreeUpFX();
+#endif
         return;
     }
-#endif
 
     if (this->mWPos.OnValidFace()) {
         this->SetSurface(SimSurface(this->mWPos.GetSurface()));
@@ -354,11 +363,21 @@ void TireState::DoFX(float slip, float skid, float speed, const bVector3 *car_ve
         this->mSlipFX.Update(slip, car_velocity, car_matrix, dT, this->mGroundPos);
         this->mSkidFX.Update(skid, car_velocity, car_matrix, dT, this->mGroundPos);
 
+#ifdef EA_BUILD_A124
+        // la A124 cuenta los coches de policia de las dos vistas (numCopsActive) y no mira las INIS
+        if (numCopsActive < 3) {
+            this->mDriveFX.Update(speed, car_velocity, car_matrix, dT, this->mGroundPos);
+        }
+#elif defined(EA_PLATFORM_WIN32)
+        // PC no mira las vistas con policia ni las INIS
+        this->mDriveFX.Update(speed, car_velocity, car_matrix, dT, this->mGroundPos);
+#else
         if (numCopsActiveView < 2) {
             if (!INIS::Exists()) {
                 this->mDriveFX.Update(speed, car_velocity, car_matrix, dT, this->mGroundPos);
             }
         }
+#endif
     }
 }
 
@@ -367,9 +386,9 @@ void TireState::SetSurface(const SimSurface &surface) {
     unsigned int numslide = surface.Num_TireSlideEffects();
     unsigned int numdrive = surface.Num_TireDriveEffects();
 
-    unsigned int slip_index = !this->mFlat || numslip < 3 ? (this->mRaining && numslip > 1 ? 1 : 0) : 2;
-    unsigned int slide_index = !this->mFlat || numslide < 3 ? (this->mRaining && numslide > 1 ? 1 : 0) : 2;
-    unsigned int drive_index = !this->mFlat || numdrive < 3 ? (this->mRaining && numdrive > 1 ? 1 : 0) : 2;
+    unsigned int slip_index = !this->mFlat || numslip <= 2 ? (this->mRaining && numslip > 1 ? 1 : 0) : 2;
+    unsigned int slide_index = !this->mFlat || numslide <= 2 ? (this->mRaining && numslide > 1 ? 1 : 0) : 2;
+    unsigned int drive_index = !this->mFlat || numdrive <= 2 ? (this->mRaining && numdrive > 1 ? 1 : 0) : 2;
 
     const TireEffectRecord &slip_record = surface.TireSlipEffects(slip_index);
     const TireEffectRecord &slide_record = surface.TireSlideEffects(slide_index);
@@ -405,7 +424,12 @@ void RenderConn::Pkt_Car_Service::HidePart(const UCrc32 &partname) {
     int id = GetCarPartIDFromCrc(partname);
 
     // TODO in Undercover this check is inside the inline, but that doesn't seem to match here
+#ifdef EA_PLATFORM_XENON
+    // X360 escribe `<= 74`, no `< 75U` (probado al 100 %).
+    if (id - 1 <= 74U) {
+#else
     if (id - 1 < 75U) {
+#endif
         this->mPartState.Set(id);
     }
 }
@@ -414,7 +438,7 @@ Sim::Connection *CarRenderConn::Construct(const Sim::ConnectionData &data) {
     RenderConn::Pkt_Car_Open *oc = reinterpret_cast<RenderConn::Pkt_Car_Open *>(data.pkt);
     CarType ct = CarPartDB.GetCarType(oc->mModelHash);
 
-    if (ct == -1 || ct > 0x53) {
+    if (ct == CARTYPE_NONE || ct >= NUM_CARTYPES) {
         return nullptr;
     }
 
@@ -446,7 +470,9 @@ CarRenderConn::CarRenderConn(const Sim::ConnectionData &data, CarType ct, Render
       mDistanceToView(0.0f),                                                //
       mFlashTime(0.0f),                                                     //
       mShifting(0.0f),                                                      //
+#ifndef EA_PLATFORM_WIN32
       mDoContrailEffect(false),                                             //
+#endif
       mUsage(oc->mUsage),                                                   //
       mFlags() {
     bIdentity(&this->mRenderMatrix);
@@ -516,7 +542,11 @@ bool CarRenderConn::TestVisibility(float distance) {
         return false;
     }
 
-    return this->mDistanceToView <= distance;
+    if (this->mDistanceToView > distance) {
+        return false;
+    }
+
+    return true;
 }
 
 void CarRenderConn::OnEvent(EventID id) {
@@ -542,9 +572,13 @@ static const float Tweak_MaxDistForSteeringAnim = 100.0f;
 
 void CarRenderConn::UpdateSteering(float dT, const RenderConn::Pkt_Car_Service &data) {
 
+#ifdef EA_BUILD_A124
+    // la A124 no escala la distancia con renderModifier
+    if (!this->TestVisibility(Tweak_MaxDistForSteeringAnim)) {
+#else
     if (!this->TestVisibility(renderModifier * Tweak_MaxDistForSteeringAnim)) {
-        this->mSteering[1] = 0.0f;
-        this->mSteering[0] = 0.0f;
+#endif
+        this->mSteering[0] = this->mSteering[1] = 0.0f;
         return;
     }
 
@@ -590,52 +624,54 @@ void CarRenderConn::UpdateParts(float dT, const RenderConn::Pkt_Car_Service &dat
 
 // TODO the multification by M_TWOPI inside Sinr is getting optimized out I think
 void CarRenderConn::AddRoadNoise(float speed, unsigned int tires, const RoadNoiseRecord &noise) {
-    if (noise.Frequency * noise.Amplitude * noise.MaxSpeed > 0.0f) {
-        float intensity = UMath::Ramp(speed, noise.MinSpeed, noise.MaxSpeed);
-        float frequency = noise.Frequency * intensity;
-        float amplitude = this->GetAttributes().RoadNoise() * DEG2RAD(noise.Amplitude) * intensity;
-
-        unsigned int front = 3;
-        unsigned int rear = 12;
-        unsigned int right = 9;
-        unsigned int left = 6;
-
-        unsigned int do_front = tires & front;
-        unsigned int do_rear = tires & rear;
-        unsigned int do_left = tires & left;
-        unsigned int do_right = tires & right;
-        unsigned int do_pitch;
-        unsigned int do_roll = do_front | do_rear;
-
-        float noise_pitch = 0.0f;
-        if (do_roll) {
-            float pitch_frequency = frequency * static_cast<float>(M_TWOPI);
-            float pitch_wave = UMath::Sinr(this->mAnimTime * pitch_frequency) * 0.5f;
-            noise_pitch = amplitude * pitch_wave;
-            if (!do_front) {
-                noise_pitch = UMath::Abs(noise_pitch);
-            }
-            if (!do_rear) {
-                noise_pitch = -UMath::Abs(noise_pitch);
-            }
-        }
-
-        float noise_roll = 0.0f;
-        if (do_roll) {
-            float roll_time = this->mAnimTime + 0.33f;
-            float roll_frequency = frequency * static_cast<float>(M_TWOPI);
-            noise_roll = amplitude * UMath::Sinr(roll_time * roll_frequency);
-            if (!do_right) {
-                noise_roll = UMath::Abs(noise_roll);
-            }
-            if (!do_left) {
-                noise_roll = -UMath::Abs(noise_roll);
-            }
-        }
-
-        this->mRoadNoise.y += noise_pitch;
-        this->mRoadNoise.x += noise_roll;
+    if (noise.Frequency * noise.Amplitude * noise.MaxSpeed <= 0.0f) {
+        return;
     }
+
+    float intensity = UMath::Ramp(speed, noise.MinSpeed, noise.MaxSpeed);
+    float frequency = noise.Frequency * intensity;
+    float amplitude = this->GetAttributes().RoadNoise() * DEG2RAD(noise.Amplitude) * intensity;
+
+    unsigned int front = 3;
+    unsigned int rear = 12;
+    unsigned int right = 9;
+    unsigned int left = 6;
+
+    unsigned int do_front = tires & front;
+    unsigned int do_rear = tires & rear;
+    unsigned int do_left = tires & left;
+    unsigned int do_right = tires & right;
+    unsigned int do_pitch;
+    unsigned int do_roll = do_front | do_rear;
+
+    float noise_pitch = 0.0f;
+    if (do_roll) {
+        float pitch_frequency = frequency * static_cast<float>(M_TWOPI);
+        float pitch_wave = UMath::Sinr(this->mAnimTime * pitch_frequency) * 0.5f;
+        noise_pitch = amplitude * pitch_wave;
+        if (!do_front) {
+            noise_pitch = UMath::Abs(noise_pitch);
+        }
+        if (!do_rear) {
+            noise_pitch = -UMath::Abs(noise_pitch);
+        }
+    }
+
+    float noise_roll = 0.0f;
+    if (do_roll) {
+        float roll_time = this->mAnimTime + 0.33f;
+        float roll_frequency = frequency * static_cast<float>(M_TWOPI);
+        noise_roll = amplitude * UMath::Sinr(roll_time * roll_frequency);
+        if (!do_right) {
+            noise_roll = UMath::Abs(noise_roll);
+        }
+        if (!do_left) {
+            noise_roll = -UMath::Abs(noise_roll);
+        }
+    }
+
+    this->mRoadNoise.y += noise_pitch;
+    this->mRoadNoise.x += noise_roll;
 }
 
 static const RoadNoiseRecord Tweak_BlowOutNoise(4.0f, 1.0f, 0.0f, 10.0f);
@@ -647,7 +683,11 @@ int Tweak_DisableRoadNoise = 0;
 void CarRenderConn::UpdateRoadNoise(float dT, float carspeed, const RenderConn::Pkt_Car_Service &data) {
     UMath::Clear(this->mRoadNoise);
 
+#ifdef EA_BUILD_A124
+    if (!this->TestVisibility(Tweak_MaxDistForRoadNoiseAnim) || Tweak_DisableRoadNoise != 0) {
+#else
     if (!this->TestVisibility(renderModifier * Tweak_MaxDistForRoadNoiseAnim) || Tweak_DisableRoadNoise != 0) {
+#endif
         return;
     }
 
@@ -683,7 +723,11 @@ static const float Tweak_EngineAnimShiftDownScale = 0.25f;
 static const float Tweak_EngineAnimShiftMinSpeed = 10.0f;
 
 void CarRenderConn::UpdateEngineAnimation(float dT, const RenderConn::Pkt_Car_Service &data) {
+#ifdef EA_BUILD_A124
+    if (!this->TestVisibility(Tweak_MaxDistanceForEngineAnim)) {
+#else
     if (!this->TestVisibility(renderModifier * Tweak_MaxDistanceForEngineAnim)) {
+#endif
         this->mEnginePower = 0.0f;
         this->mEngineVibrationAngle = 0.0f;
         this->mEngineTorqueAngle = 0.0f;
@@ -699,7 +743,7 @@ void CarRenderConn::UpdateEngineAnimation(float dT, const RenderConn::Pkt_Car_Se
         const float max_pitch = DEG2RAD(this->GetAttributes().ShiftAngle());
         const int gear = data.mGear - G_FIRST;
 
-        if (0.0f < shift_speed && 0.0f < max_pitch && gear >= 0 && Tweak_EngineAnimShiftMinSpeed < car_speed) {
+        if (shift_speed > 0.0f && max_pitch > 0.0f && gear >= 0 && car_speed > Tweak_EngineAnimShiftMinSpeed) {
             float fwd_accel = bDot(this->GetAcceleration(), reinterpret_cast<const bVector3 *>(&this->mRenderMatrix.v0)) / 9.8f;
             float accel_ratio = UMath::Ramp(UMath::Abs(fwd_accel), Tweak_EngineAnimShiftMinAcc, Tweak_EngineAnimShiftMaxAcc);
             float gear_ratio = UMath::Pow(Tweak_EngineAnimShiftGearScale, static_cast<float>(gear));
@@ -741,7 +785,7 @@ void CarRenderConn::UpdateEngineAnimation(float dT, const RenderConn::Pkt_Car_Se
         float desired_angle = max_rev * UMath::Ramp(rev_accel * this->GetAttributes().EngineRev(), 0.0f, 0.2f);
 
         if (this->mEngineTorqueAngle < desired_angle) {
-            this->mEngineTorqueAngle = rev_speed * dT + this->mEngineTorqueAngle;
+            this->mEngineTorqueAngle = this->mEngineTorqueAngle + rev_speed * dT;
             this->mEngineTorqueAngle = UMath::Min(this->mEngineTorqueAngle, desired_angle);
         } else {
             this->mEngineTorqueAngle = this->mEngineTorqueAngle - rev_speed * dT;
@@ -766,7 +810,11 @@ static const float Tweak_BodyAnimNoiseReduction = 0.2f;
 static const float Tweak_MaxDistanceForBodyAnim = 80.0f;
 
 void CarRenderConn::UpdateBodyAnimation(float dT, const RenderConn::Pkt_Car_Service &data) {
+#ifdef EA_BUILD_A124
+    if (!this->TestVisibility(Tweak_MaxDistanceForBodyAnim)) {
+#else
     if (!this->TestVisibility(renderModifier * Tweak_MaxDistanceForBodyAnim)) {
+#endif
         this->mExtraBodyAngle = UMath::Vector2::kZero;
         return;
     }
@@ -815,6 +863,7 @@ void CarRenderConn::UpdateBodyAnimation(float dT, const RenderConn::Pkt_Car_Serv
     }
 }
 
+#ifndef EA_PLATFORM_WIN32
 static const bool twkDoContrails = true;
 
 void CarRenderConn::UpdateContrails(const RenderConn::Pkt_Car_Service &data, float dT) {
@@ -829,6 +878,7 @@ void CarRenderConn::UpdateContrails(const RenderConn::Pkt_Car_Service &data, flo
 
     this->mDoContrailEffect = false;
 }
+#endif
 
 static const float Tweak_WheelHopMinBurnout = 1.0f;
 static const float Tweak_WheelHopMaxBurnout = 5.0f;
@@ -854,7 +904,11 @@ void CarRenderConn::UpdateTires(float dT, float carspeed, const RenderConn::Pkt_
 
     this->mFlatTireAngle = UMath::Vector3::kZero;
 
+#ifdef EA_BUILD_A124
+    if (this->TestVisibility(Tweak_MaxDistanceForWheelHopAnim)) {
+#else
     if (this->TestVisibility(renderModifier * Tweak_MaxDistanceForWheelHopAnim)) {
+#endif
         flatten_tires = true;
 
         float hop_scale = this->GetAttributes().WheelHopScale();
@@ -1003,7 +1057,11 @@ static void StopEffect(VehicleRenderConn::Effect *effect) {
 }
 
 void CarRenderConn::UpdateEffects(const RenderConn::Pkt_Car_Service &data, float dT) {
+#ifdef EA_BUILD_A124
+    if (!this->TestVisibility(Tweak_MaxDistanceForVehicleEffects)) {
+#else
     if (!this->TestVisibility(renderModifier * Tweak_MaxDistanceForVehicleEffects)) {
+#endif
         std::for_each(this->mPipeEffects.begin(), this->mPipeEffects.end(), StopEffect);
         std::for_each(this->mEngineEffects.begin(), this->mEngineEffects.end(), StopEffect);
         return;
@@ -1068,7 +1126,7 @@ void CarRenderConn::Update(const RenderConn::Pkt_Car_Service &data, float dT) {
     float carspeed = bLength(this->GetVelocity());
 
     this->mAnimTime += dT;
-    if (10.0f <= this->mAnimTime) {
+    if (this->mAnimTime >= 10.0f) {
         this->mAnimTime -= 10.0f;
     }
 
@@ -1083,9 +1141,11 @@ void CarRenderConn::Update(const RenderConn::Pkt_Car_Service &data, float dT) {
     this->UpdateBodyAnimation(dT, data);
     this->UpdateEngineAnimation(dT, data);
 
+#ifndef EA_PLATFORM_WIN32
     if (this->GetFlag(CF_ISPLAYER)) {
         this->UpdateContrails(data, dT);
     }
+#endif
 
     this->UpdateRenderMatrix(dT);
     this->UpdateEffects(data, dT);
@@ -1099,7 +1159,7 @@ void CarRenderConn::BuildRenderMatrix(float dT) {
     CarRenderInfo *car_render_info = this->GetRenderInfo();
     bVector4 offset(this->GetModelOffset());
 
-    if (0.0f < dT) {
+    if (dT > 0.0f) {
         UMath::Vector3 e0;
         UMath::Vector3 e1;
         UMath::Matrix4ToEuler(reinterpret_cast<const UMath::Matrix4 &>(this->mRenderMatrix), e0);
@@ -1131,7 +1191,11 @@ void CarRenderConn::BuildRenderMatrix(float dT) {
 }
 
 void CarRenderConn::UpdateRenderMatrix(float dT) {
+#ifdef EA_BUILD_A124
+    if (Tweak_AllowRenderBodyMotion && this->TestVisibility(Tweak_MaxDistanceForRenderBodyMotion)) {
+#else
     if (Tweak_AllowRenderBodyMotion && this->TestVisibility(renderModifier * Tweak_MaxDistanceForRenderBodyMotion)) {
+#endif
         bMatrix4 tire_matrices_world[4];
         bMatrix4 brake_matrices_world[4];
 
@@ -1173,7 +1237,7 @@ void CarRenderConn::UpdateRenderMatrix(float dT) {
 
         float wheel_well = INCH2METERS(this->GetAttributes().WheelWell());
 
-        if (0.0f < wheel_well) {
+        if (wheel_well > 0.0f) {
             float tire_top = this->mTireMatrices[0].v3.z + this->mTireRadius[0];
 
             for (int i = 1; i < 4; i++) {
@@ -1254,7 +1318,11 @@ void CarRenderConn::OnLoaded(CarRenderInfo *carrender_info) {
                 numSpokes = bAbs(GetAttributes().WheelSpokeCount());
             }
 
+#ifdef EA_PLATFORM_WIN32
+            if (numSpokes > 0) {
+#else
             if (numSpokes != 0) {
+#endif
                 mMaxWheelRenderDeltaAngle = DEG2RAD(360.0f / (2.0f * numSpokes) - 1.0f);
             }
         }
@@ -1332,7 +1400,22 @@ void CarRenderConn::OnRender(eView *view, int reflection) {
         }
     }
 
-    if (view->GetID() > EVIEW_SHADOWMATTE && view->GetID() < NUM_EVIEWS) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) || (defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124))
+    // speed.exe 0x750EB8: el reflejo de la carretera no pinta el coche desde el que mira su jugador (NFS.exe de X360: 0x82522170)
+    if (view->GetID() == EVIEW_PLAYER1_REFLECTION || view->GetID() == EVIEW_PLAYER2_REFLECTION) {
+        int player = view->GetID() - EVIEW_PLAYER1_REFLECTION; // PC suma la vista del jugador aparte: (id - 4) * 0x70 + &eViews[1]
+        CameraMover *mover = eGetView(EVIEW_PLAYER1 + player, false)->GetCameraMover();
+        if (mover != nullptr && !mover->OutsidePOV()) {
+            CameraAnchor *anchor = mover->GetAnchor();
+
+            if (anchor != nullptr && anchor->GetWorldID() == this->GetWorldID()) {
+                return;
+            }
+        }
+    }
+#endif
+
+    if (view->GetID() >= EVIEW_FIRST_ENVMAP && view->GetID() <= EVIEW_LAST_ENVMAP) {
         CameraMover *mover = eGetView(1, false)->GetCameraMover();
 
         if (mover != nullptr) {
@@ -1344,11 +1427,18 @@ void CarRenderConn::OnRender(eView *view, int reflection) {
         }
     }
 
-    if (this->mDoContrailEffect && mover != nullptr && mover->OutsidePOV() && (view->GetID() == 1 || view->GetID() == 2)) {
+#ifndef EA_PLATFORM_WIN32
+    if (this->mDoContrailEffect && mover != nullptr && mover->OutsidePOV() &&
+#ifdef EA_BUILD_A124
+        view->GetID() == 1) {
+#else
+        (view->GetID() == 1 || view->GetID() == 2)) {
+#endif
         const Attrib::Collection *cspec = Attrib::FindCollection(0x6F5943F1, 0x16AFDE7B);
         AddXenonEffect(0, cspec, reinterpret_cast<const UMath::Matrix4 *>(this->GetBodyMatrix()),
                        reinterpret_cast<const UMath::Vector4 *>(this->GetVelocity()));
     }
+#endif
 
     if (view->GetID() == EVIEW_PLAYER1_RVM) {
         CameraAnchor *anchor = mover->GetAnchor();
@@ -1370,7 +1460,11 @@ void CarRenderConn::OnRender(eView *view, int reflection) {
 
     EVIEWMODE view_mode = eGetCurrentViewMode();
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (reflection == 0 || (view->GetID() == EVIEW_PLAYER1_REFLECTION && view_mode < EVIEWMODE_TWOH)) {
+#else
     if (reflection == 0) {
+#endif
         bMatrix4 render_matrix(this->mRenderMatrix);
 
         if (this->IsViewAnchor(view)) {
@@ -1388,6 +1482,9 @@ void CarRenderConn::OnRender(eView *view, int reflection) {
 
         int render_flags = 0;
         if (reflection != 0) {
+#ifdef EA_BUILD_A124
+            car_render_info->RenderTextureHeadlights(view, &render_matrix, 0);
+#endif
             render_flags = 0x401;
             render_matrix.v2.x = -render_matrix.v2.x;
             render_matrix.v2.y = -render_matrix.v2.y;
@@ -1404,14 +1501,14 @@ void CarRenderConn::OnRender(eView *view, int reflection) {
                 if (car_render_info->Render(view, &Position, &render_matrix, this->mTireMatrices, this->mBrakeMatrices, this->mTireMatrices,
                                             render_flags, 0, reflection, static_cast<float>(static_cast<int>(car_render_info->GetMinLodLevel())),
                                             car_render_info->GetMinLodLevel(), static_cast<CARPART_LOD>(0)) &&
-                    view->GetID() < EVIEW_PLAYER1_GLOW) {
+                    view->GetID() <= 3) {
                     this->mLastVisibleFrame = eGetFrameCounter();
                 }
             }
         } else {
             if (car_render_info->Render(view, &Position, &render_matrix, this->mTireMatrices, this->mBrakeMatrices, this->mTireMatrices, render_flags,
                                         0, reflection, 1.0f, car_render_info->GetMinLodLevel(), car_render_info->GetMinLodLevel()) &&
-                view->GetID() < 4) {
+                view->GetID() <= 3) {
                 this->mLastVisibleFrame = eGetFrameCounter();
             }
         }

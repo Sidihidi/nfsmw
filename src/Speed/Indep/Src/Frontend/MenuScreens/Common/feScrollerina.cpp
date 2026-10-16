@@ -6,6 +6,17 @@
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 
+ScrollerDatumNode *ScrollerDatum::Find(const char *to_find) {
+    if (!Strings.IsEmpty()) {
+        for (ScrollerDatumNode *node = Strings.GetHead(); node != Strings.EndOfList(); node = node->GetNext()) {
+            if (bStrICmp(node->String, to_find) == 0) {
+                return node;
+            }
+        }
+    }
+    return nullptr;
+}
+
 void ScrollerSlot::SetScript(unsigned int script_hash) {
     ScrollerSlotNode *node = FEStrings.GetHead();
     while (node != FEStrings.EndOfList()) {
@@ -111,6 +122,17 @@ void Scrollerina::AddData(ScrollerDatum *datum) {
     if (!SelectedDatum) {
         SelectedDatum = Data.GetHead();
     }
+}
+
+ScrollerDatum *Scrollerina::FindDatum(const char *to_find) {
+    if (!Data.IsEmpty()) {
+        for (ScrollerDatum *datum = Data.GetHead(); datum != Data.EndOfList(); datum = datum->GetNext()) {
+            if (datum->Find(to_find)) {
+                return datum;
+            }
+        }
+    }
+    return nullptr;
 }
 
 ScrollerDatum *Scrollerina::FindDatumInSlot(ScrollerSlot *to_find) {
@@ -453,6 +475,19 @@ void Scrollerina::Update(bool print) {
     DrawScrollBar();
 }
 
+bool Scrollerina::Reset(bool update) {
+    if (!Slots.IsEmpty()) {
+        SelectedSlot = Slots.GetHead();
+        SelectedDatum = Data.GetHead();
+        TopDatum = Data.GetHead();
+        if (update) {
+            Update(true);
+        }
+        return true;
+    }
+    return false;
+}
+
 void Scrollerina::Enable(ScrollerDatum *datum) {
     if (!datum || Slots.IsEmpty() || Data.IsEmpty()) {
         return;
@@ -466,10 +501,35 @@ void Scrollerina::Enable(ScrollerDatum *datum) {
     }
 }
 
+void Scrollerina::Disable(ScrollerDatum *datum) {
+    if (!datum || Slots.IsEmpty() || Data.IsEmpty()) {
+        return;
+    }
+    datum->Disable();
+
+    ScrollerSlot *slot = FindSlotWithDatum(datum);
+
+    if (slot != nullptr) {
+        if (datum == SelectedDatum) {
+            if (Scroll(eSD_NEXT)) {
+                if (slot != Slots.GetTail()) {
+                    slot->Disable();
+                }
+            } else if (Scroll(eSD_PREV)) {
+                if (slot != Slots.GetHead()) {
+                    slot->Disable();
+                }
+            }
+        } else {
+            slot->Disable();
+        }
+    }
+}
+
 void Scrollerina::CountListIndices() {
     bool found_view = false;
-    iNumSlots = 0;
     iViewHeadDataIndex = 1;
+    iNumSlots = 0;
     iNumData = 0;
     {
         ScrollerSlot *slot = Slots.GetHead();
@@ -525,8 +585,8 @@ void Scrollerina::SetSelected(ScrollerSlot *slot) {
     if (!datum)
         return;
     UnHighlightSelected();
-    SelectedDatum = datum;
     SelectedSlot = slot;
+    SelectedDatum = datum;
     HighlightSelected();
     Update(true);
     bViewNeedsSync = false;
@@ -573,5 +633,31 @@ void Scrollerina::FindSize() {
         vTopLeft.y = top;
         vSize.x = bAbs(right - left);
         vSize.y = bAbs(bottom - top);
+    }
+}
+
+void Scrollerina::DeleteScrollerData() {
+    while (!Data.IsEmpty()) {
+        delete Data.RemoveHead();
+    }
+    SelectedDatum = nullptr;
+    TopDatum = nullptr;
+    iNumData = 0;
+}
+
+const char *Scrollerina::GetActiveSelection() {
+    if (Data.IsEmpty()) {
+        return nullptr;
+    }
+    if (SelectedDatum) {
+        return SelectedDatum->Strings.GetHead()->String;
+    }
+    return nullptr;
+}
+
+void Scrollerina::SetSelectedDatum(unsigned int index) {
+    Reset(false);
+    for (unsigned int i = 0; i < index; i++) {
+        ScrollNext();
     }
 }

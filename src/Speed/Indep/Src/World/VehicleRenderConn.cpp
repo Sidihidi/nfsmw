@@ -122,13 +122,12 @@ VehicleRenderConn::VehicleRenderConn(const Sim::ConnectionData &data, CarType ty
       mState(S_None),                                                            //
       mCarType(type),                                                            //
       mWorldRef(0),                                                              //
-      mModelOffset(0.0f, 0.0f, 0.0f, 0.0f) {
-    this->mRideInfo = nullptr;
-    this->mRenderInfo = nullptr;
-    this->mHide = false;
-    this->mWCollider = nullptr;
-    this->mSkinSlot = 0;
-
+      mRideInfo(nullptr),                                                        //
+      mRenderInfo(nullptr),                                                      //
+      mModelOffset(0.0f, 0.0f, 0.0f, 0.0f),                                      //
+      mHide(false),                                                              //
+      mWCollider(nullptr),                                                       //
+      mSkinSlot(0) {
     CarTypeInfo *car_type_info = GetCarTypeInfo(type);
     this->mAttributes.ChangeWithDefault(Attrib::StringToLowerCaseKey(car_type_info->BaseModelName));
 }
@@ -476,12 +475,12 @@ void VehicleRenderConn::RenderFlares(eView *view, int reflection, int renderFlar
         info->pCarTypeInfo->GetCarUsageType();
         if (reflection == 0) {
             float NOSamount;
-            if (view->GetID() == 1 || view->GetID() == 2) {
+            if (view->GetID() == EVIEW_PLAYER1 || view->GetID() == EVIEW_PLAYER2) {
                 if (info->matrixIndex < 0) {
                     info->matrixIndex = 0;
                 }
                 info->matrixIndex++;
-                if (info->matrixIndex > 2) {
+                if (info->matrixIndex >= 3) {
                     info->matrixIndex = 0;
                 }
                 info->LastFewMatrices[info->matrixIndex] = render_matrix;

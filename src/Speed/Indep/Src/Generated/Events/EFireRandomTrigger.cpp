@@ -49,10 +49,10 @@ void EFireRandomTrigger_MakeEvent_Callback(const void *staticData) {
                            gEventDynamicData.fhSimable);
 }
 
-int EFireRandomTrigger_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 8) {
-        new EFireRandomTrigger((CARP::Trigger *) lua_tostring(L, 1), lua_tonumber(L, 2), (CARP::Trigger *) lua_tostring(L, 3), lua_tonumber(L, 4),
-                               (CARP::Trigger *) lua_tostring(L, 5), lua_tonumber(L, 6), (CARP::Trigger *) lua_tostring(L, 7), lua_tonumber(L, 8),
+int EFireRandomTrigger_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 8) {
+        new EFireRandomTrigger((CARP::Trigger *) lua_tostring(luaState, 1), lua_tonumber(luaState, 2), (CARP::Trigger *) lua_tostring(luaState, 3), lua_tonumber(luaState, 4),
+                               (CARP::Trigger *) lua_tostring(luaState, 5), lua_tonumber(luaState, 6), (CARP::Trigger *) lua_tostring(luaState, 7), lua_tonumber(luaState, 8),
                                gEventDynamicData.fhSimable);
     }
     return 0;

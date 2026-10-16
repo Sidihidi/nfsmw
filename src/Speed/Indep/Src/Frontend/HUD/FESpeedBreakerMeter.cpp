@@ -39,7 +39,7 @@ void SpeedBreakerMeter::Update(IPlayer *player) {
         const float min_pursuit = 0.0f;
         const float max_pursuit = 1.0f;
         const float frac = (mPursuitLevel - min_pursuit) / (max_pursuit - min_pursuit);
-        const float angle = frac * (max_angle - min_angle) + min_angle;
+        const float angle = min_angle + frac * (max_angle - min_angle);
         FEngSetMultiImageRot(mpSpeedBreakerMeterBar, angle);
 
         if (FEngIsScriptSet(reinterpret_cast<FEObject *>(mpSpeedBreakerGroup), FEHASH_FADEIN)) {
@@ -71,6 +71,6 @@ void SpeedBreakerMeter::SetPursuitLevel(float level) {
     if (mPursuitLevel == level) {
         return;
     }
-    mPursuitLevel = level;
     mPursuitLevelChanged = true;
+    mPursuitLevel = level;
 }

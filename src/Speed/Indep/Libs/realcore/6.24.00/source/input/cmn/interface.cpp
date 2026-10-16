@@ -11,7 +11,11 @@
    define aqui, asi que su vtable sale aqui y las otras tres no.  */
 #define REALINPUT_INPUT_IMPLEMENTATION
 #include "../../../include/common/realcore/input.h"
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "../ps2/ps2_interface.h"
+#else
 #include "../gc/gc_interface.h"
+#endif
 
 namespace RealInput {
 
@@ -20,7 +24,12 @@ extern Interface *gInterface;
 Interface *Interface::CreateInstance(const ConfigOptions &options) {
     if (gInterface == nullptr) {
         SetAllocator(options.mAllocator);
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // la A124 y SLUS llaman a __Q29RealInput12Ps2InterfaceRCQ29RealInput13ConfigOptions
+        gInterface = new Ps2Interface(options);
+#else
         gInterface = new GcInterface(options);
+#endif
     }
     return gInterface;
 }

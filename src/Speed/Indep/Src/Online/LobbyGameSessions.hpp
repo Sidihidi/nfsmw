@@ -40,6 +40,9 @@ struct FilterGameSessionParamsT {
     FilterGameSessionParamsT(uint32 count, GRace::Type gameMode, YesNoAny rankedGames, YesNoAny collisionDetection,
                              YesNoAny performanceMatching, eOnlineDisconnectPerc disconnectPerc);
     FilterGameSessionParamsT(uint32 count, const char *sessionNameSubstring);
+    // La A124 lo declara (LobbyGameSessions.hpp:109): startsearch y el destructor global de OnlineSessionFilter llaman
+    // a _$_24FilterGameSessionParamsT.
+    ~FilterGameSessionParamsT() {}
 
     uint32 count;
     GRace::Type gameMode;
@@ -51,6 +54,8 @@ struct FilterGameSessionParamsT {
 };
 
 struct ExtraSessionData {
+    ~ExtraSessionData() {}
+
     int32 pingToHostInMsec;
 };
 
@@ -89,7 +94,9 @@ struct LobbyGameSessions {
     bool FoundAllSessions();
     void SetSortField(LobbyGameSessionsN::SortField sortField, bool ascending);
     GameSession *GetMySession() const;
-    char *GetSessionDisplayName(const GameSession *session);
+    // const en la A124: UIOLLobbyRoom::JoinSession la pasa como argumento variadico a DialogInterface::ShowMessage, y con
+    // char * la sobrecarga privada (..., const char *, va_list) seria exacta y no compilaria.
+    const char *GetSessionDisplayName(const GameSession *session);
     inline eOnlineDisconnectPerc GetSessionDisconnectPercentage(const GameSession *session);
     ExtraSessionData *GetExtraSessionDataByIdent(int32 ident);
     OnlineRaceModeE GetRaceMode(const GameSession *session);
@@ -148,6 +155,8 @@ struct LobbyGameSessions {
     Timer hostHurryTimer;
     Timer hostInactiveTimer;
 
+  public:
+    // Publicos en la A124 (stab /2); UIOLGameRoom::UpdateInfoBox los lee y los borra.
     static bool mHurryTimerStarted;
     static bool mHurryTimerStopped;
 };

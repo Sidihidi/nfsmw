@@ -145,9 +145,9 @@ zBWare.o:bMemoryUseSharedStrings
 # aparicion), pero SE DESPLAZAN si se anade un literal antes en la unidad:
 # keepchk.py los valida contra nuestro objeto y avisa.
 # @lc zBWare "SlotPool::GetAllocatedSlots"
-zBWare.o:$LC243
+zBWare.o:$LC258
 # @lc zBWare "bSharedStringPool"
-zBWare.o:$LC299
+zBWare.o:$LC316
 zBWare.o:SendPacketFunction
 zBWare.o:ServiceMonitorFunction
 zBWare.o:bPListAllocationNumber
@@ -173,6 +173,7 @@ zCamera.o:gap_06_80416FE8_data
 zCamera.o:gap_06_80417054_data
 zCamera.o:gap_06_80417085_data
 zCamera.o:gap_07_8045A99C_bss
+zPhysics.o:pad_07_804801B4_bss
 zCamera.o:gap_07_8045AA34_bss
 zCamera.o:gap_07_8045AA4C_bss
 zCamera.o:gap_07_8045AA64_bss
@@ -404,13 +405,13 @@ zFEng.o:lbl_8041D078
 zFEng.o:lbl_8041D14C
 zFEng.o:lbl_8041D174
 # @lc zFEng "FEngine::Render()"
-zFEng.o:$LC130
+zFEng.o:$LC239
 # @lc zFEng "Object traversal"
-zFEng.o:$LC132
+zFEng.o:$LC241
 # @lc zFEng "SortObjects()"
-zFEng.o:$LC133
+zFEng.o:$LC242
 # @lc zFEng "RenderObjectList()"
-zFEng.o:$LC134
+zFEng.o:$LC243
 zFoundation.o:pad_05_803EB230_rodata
 zFoundation.o:SN_FPE
 zFoundation.o:lbl_803EB3A8
@@ -491,13 +492,20 @@ zMiscSmall.o:gap_06_8041EEC0_data
 zMiscSmall.o:gap_06_8041EED0_data
 zMiscSmall.o:gap_06_8041EFA0_data
 zMiscSmall.o:gap_06_8041EFE4_data
-zMission.o:gap_07_804801B4_bss
 zOnline.o:lbl_803A4240
 zOnline.o:lbl_803A4268
 zOnline.o:lbl_803A4274
 zOnline.o:lbl_803A4280
 zOnline.o:lbl_803A428C
 zOnline.o:lbl_803a4234
+# r26: el pool comun de zOnline compilado (los $LC son locales y -strip-unused-data los tira; los lbl_ del extraido ya estan arriba)
+zOnline.o:$LC65
+zOnline.o:$LC66
+zOnline.o:$LC67
+zOnline.o:$LC90
+zOnline.o:$LC91
+zOnline.o:$LC163
+zOnline.o:$LC164
 zPhysics.o:pad_05_803F68F0_rodata
 zPhysics.o:lbl_8041EFF0
 zPhysics.o:lbl_8041F00C
@@ -924,257 +932,250 @@ auto_05_80412A00_rodata.o:lbl_80412A00
 zDynamics.o:_t9zDynTailA1i0.d
 zDynamics.o:_t9zDynTailB1i0.d
 zMission.o:pad_05_803F6890_rodata
+zMission.o:$LC65
+zMission.o:$LC66
+zMission.o:$LC67
+zMission.o:$LC68
+zMission.o:$LC69
+zMission.o:$LC75
+zMission.o:$LC76
 # zFe: cadenas MUERTAS que el objetivo si tiene. cc1plus las emite, nadie las
 # referencia y -strip-unused-data se lleva `size & ~7` de cada una, dejando una
 # cola de 1..7 B: en el objeto estan enteras (por eso `datadiff` no las ve) y en
 # el enlace faltan. Generadas con `python scripts/deadstr.py zFe --keep`.
 # Los numeros los mantiene `lcfix.py` por las directivas @lc de encima.
 # @lc zFe "Attrib::Attribute"
-zFe.o:$LC58
+zFe.o:$LC164
 # @lc zFe "Attrib::Instance"
-zFe.o:$LC59
+zFe.o:$LC165
 # @lc zFe "Attrib::Definition"
-zFe.o:$LC60
-# @lc zFe "Attrib::Class"
-zFe.o:$LC61
-# @lc zFe "Attrib::Database"
-zFe.o:$LC62
-# @lc zFe "Attrib::TypeDesc"
-zFe.o:$LC63
-# @lc zFe "Attrib::RefSpec"
-zFe.o:$LC64
-# @lc zFe "Attrib::Blob"
-zFe.o:$LC65
-# @lc zFe "Attrib::Gen::milestonetypes"
-zFe.o:$LC182
-# @lc zFe "Attrib::TAttrib"
-zFe.o:$LC157
-# @lc zFe "Attrib::Gen::audioimpact"
-zFe.o:$LC161
-# @lc zFe "Attrib::Gen::audioscrape"
-zFe.o:$LC162
-# @lc zFe "Attrib::Gen::speechtune"
-zFe.o:$LC837
-# @lc zFe "Attrib::Gen::effects"
-zFe.o:$LC160
-# @lc zFe "Attrib::Gen::speech"
-zFe.o:$LC176
-# @lc zFe "WorldBodyConn"
 zFe.o:$LC166
-# @lc zFe "Pkt_Body_Open"
+# @lc zFe "Attrib::Class"
 zFe.o:$LC167
-# @lc zFe "Pkt_Body_Service"
+# @lc zFe "Attrib::Database"
 zFe.o:$LC168
-# @lc zFe "World_UpdateBody"
+# @lc zFe "Attrib::TypeDesc"
 zFe.o:$LC169
-# @lc zFe "Pkt_Body_Send"
-zFe.o:$LC170
-# @lc zFe "World_OneShotEffect"
+# @lc zFe "Attrib::RefSpec"
 zFe.o:$LC171
-# @lc zFe "Pkt_Effect_Send"
+# @lc zFe "Attrib::Blob"
 zFe.o:$LC172
+# @lc zFe "Attrib::TAttrib"
+zFe.o:$LC262
+# @lc zFe "Attrib::Gen::audioimpact"
+zFe.o:$LC509
+# @lc zFe "Attrib::Gen::effects"
+zFe.o:$LC497
+# @lc zFe "WorldBodyConn"
+zFe.o:$LC499
+# @lc zFe "Pkt_Body_Open"
+zFe.o:$LC500
+# @lc zFe "Pkt_Body_Service"
+zFe.o:$LC501
+# @lc zFe "World_UpdateBody"
+zFe.o:$LC502
+# @lc zFe "Pkt_Body_Send"
+zFe.o:$LC503
+# @lc zFe "World_OneShotEffect"
+zFe.o:$LC504
+# @lc zFe "Pkt_Effect_Send"
+zFe.o:$LC505
 # @lc zFe "WorldEffectConn"
-zFe.o:$LC173
+zFe.o:$LC506
 # @lc zFe "Pkt_Effect_Open"
-zFe.o:$LC174
+zFe.o:$LC507
 # @lc zFe "Pkt_Effect_Service"
-zFe.o:$LC175
+zFe.o:$LC508
 # @lc zFe "Attrib::Gen::pvehicle"
-zFe.o:$LC177
+zFe.o:$LC261
 # @lc zFe "Attrib::Gen::simsurface"
-zFe.o:$LC156
+zFe.o:$LC270
 # @lc zFe "Attrib::Gen::engine"
-zFe.o:$LC178
+zFe.o:$LC495
 # @lc zFe "Attrib::Gen::gameplay"
-zFe.o:$LC181
+zFe.o:$LC326
 # @lc zFe "19.8.31"
-zFe.o:$LC185
+zFe.o:$LC330
 # @lc zFe "GManager"
-zFe.o:$LC194
+zFe.o:$LC331
 # @lc zFe "Attrib::Gen::camerainfo"
-zFe.o:$LC159
+zFe.o:$LC352
 # @lc zFe "Attrib::Gen::ecar"
-zFe.o:$LC158
+zFe.o:$LC351
 # @lc zFe "VehicleParams"
-zFe.o:$LC342
+zFe.o:$LC837
 # @lc zFe "Attrib::Gen::aivehicle"
-zFe.o:$LC186
+zFe.o:$LC385
 # @lc zFe "Attrib::Gen::pursuitescalation"
-zFe.o:$LC188
+zFe.o:$LC387
 # @lc zFe "Attrib::Gen::pursuitlevels"
-zFe.o:$LC187
+zFe.o:$LC386
 # @lc zFe "Attrib::Gen::pursuitsupport"
-zFe.o:$LC189
+zFe.o:$LC388
 # @lc zFe "SMS_MESSAGE_%d_VOICE"
-zFe.o:$LC192
+zFe.o:$LC459
 # @lc zFe "Attrib::Gen::engineaudio"
-zFe.o:$LC179
+zFe.o:$LC496
 # @lc zFe "Attrib::Gen::audiosystem"
-zFe.o:$LC180
+zFe.o:$LC524
 # @lc zFe "Licenced"
-zFe.o:$LC594
+zFe.o:$LC180
 # @lc zFe "PathEvent"
-zFe.o:$LC595
+zFe.o:$LC181
 # @lc zFe "PathControl"
-zFe.o:$LC597
+zFe.o:$LC183
 # zFe2: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zFe2 "GAMECUBE"
-zFe2.o:$LC72
+zFe2.o:$LC65
 # @lc zFe2 "Attrib::Attribute"
-zFe2.o:$LC73
-# @lc zFe2 "Attrib::Instance"
-zFe2.o:$LC74
-# @lc zFe2 "Attrib::Definition"
-zFe2.o:$LC75
-# @lc zFe2 "Attrib::Class"
-zFe2.o:$LC76
-# @lc zFe2 "Attrib::Database"
-zFe2.o:$LC77
-# @lc zFe2 "Attrib::TypeDesc"
-zFe2.o:$LC78
-# @lc zFe2 "Attrib::Blob"
-zFe2.o:$LC80
-# @lc zFe2 "Attrib::Gen::milestonetypes"
-zFe2.o:$LC171
-# @lc zFe2 "Attrib::TAttrib"
-zFe2.o:$LC172
-# @lc zFe2 "Attrib::Gen::audioimpact"
-zFe2.o:$LC173
-# @lc zFe2 "Attrib::Gen::audioscrape"
-zFe2.o:$LC174
-# @lc zFe2 "Attrib::Gen::effects"
-zFe2.o:$LC175
-# @lc zFe2 "Attrib::Gen::speech"
-zFe2.o:$LC176
-# @lc zFe2 "WorldBodyConn"
 zFe2.o:$LC185
-# @lc zFe2 "Pkt_Body_Open"
+# @lc zFe2 "Attrib::Instance"
 zFe2.o:$LC186
-# @lc zFe2 "Pkt_Body_Service"
+# @lc zFe2 "Attrib::Definition"
 zFe2.o:$LC187
-# @lc zFe2 "World_UpdateBody"
+# @lc zFe2 "Attrib::Class"
 zFe2.o:$LC188
-# @lc zFe2 "Pkt_Body_Send"
+# @lc zFe2 "Attrib::Database"
 zFe2.o:$LC189
-# @lc zFe2 "World_OneShotEffect"
+# @lc zFe2 "Attrib::TypeDesc"
 zFe2.o:$LC190
-# @lc zFe2 "Pkt_Effect_Send"
-zFe2.o:$LC191
-# @lc zFe2 "WorldEffectConn"
+# @lc zFe2 "Attrib::Blob"
 zFe2.o:$LC192
+# @lc zFe2 "Attrib::TAttrib"
+zFe2.o:$LC199
+# @lc zFe2 "Attrib::Gen::audioimpact"
+zFe2.o:$LC396
+# @lc zFe2 "Attrib::Gen::effects"
+zFe2.o:$LC384
+# @lc zFe2 "WorldBodyConn"
+zFe2.o:$LC386
+# @lc zFe2 "Pkt_Body_Open"
+zFe2.o:$LC387
+# @lc zFe2 "Pkt_Body_Service"
+zFe2.o:$LC388
+# @lc zFe2 "World_UpdateBody"
+zFe2.o:$LC389
+# @lc zFe2 "Pkt_Body_Send"
+zFe2.o:$LC390
+# @lc zFe2 "World_OneShotEffect"
+zFe2.o:$LC391
+# @lc zFe2 "Pkt_Effect_Send"
+zFe2.o:$LC392
+# @lc zFe2 "WorldEffectConn"
+zFe2.o:$LC393
 # @lc zFe2 "Pkt_Effect_Open"
-zFe2.o:$LC193
+zFe2.o:$LC394
 # @lc zFe2 "Pkt_Effect_Service"
-zFe2.o:$LC194
+zFe2.o:$LC395
 # @lc zFe2 "Attrib::Gen::simsurface"
-zFe2.o:$LC220
+zFe2.o:$LC207
 # @lc zFe2 "Attrib::Gen::gameplay"
-zFe2.o:$LC282
+zFe2.o:$LC268
 # @lc zFe2 "Attrib::Gen::aivehicle"
-zFe2.o:$LC2
+zFe2.o:$LC264
 # @lc zFe2 "Attrib::Gen::pursuitescalation"
-zFe2.o:$LC4
+zFe2.o:$LC266
 # @lc zFe2 "Attrib::Gen::pursuitsupport"
-zFe2.o:$LC5
+zFe2.o:$LC267
 # @lc zFe2 "SMS_MESSAGE_%d_FROM"
-zFe2.o:$LC7
+zFe2.o:$LC351
 # @lc zFe2 "SMS_MESSAGE_%d_VOICE"
-zFe2.o:$LC8
+zFe2.o:$LC352
 # @lc zFe2 "SMS_MESSAGE_%d_SUBJECT"
-zFe2.o:$LC9
+zFe2.o:$LC353
 # @lc zFe2 "SoundID"
-zFe2.o:$LC11
+zFe2.o:$LC404
 # @lc zFe2 "GManager"
-zFe2.o:$LC416
+zFe2.o:$LC438
 # @lc zFe2 "VehicleParams"
-zFe2.o:$LC419
+zFe2.o:$LC441
 # @lc zFe2 "Attrib::Gen::engineaudio"
-zFe2.o:$LC488
+zFe2.o:$LC511
 # @lc zFe2 "ZoneType"
-zFe2.o:$LC723
+zFe2.o:$LC756
 # @lc zFe2 "ScrollerDatumNode"
-zFe2.o:$LC375
+zFe2.o:$LC769
 # @lc zFe2 "ScrollerSlotNode"
-zFe2.o:$LC377
+zFe2.o:$LC771
 # @lc zFe2 "Licenced"
-zFe2.o:$LC996
+zFe2.o:$LC1064
 # @lc zFe2 "PathEvent"
-zFe2.o:$LC997
+zFe2.o:$LC1065
 # @lc zFe2 "PathControl"
-zFe2.o:$LC999
+zFe2.o:$LC1067
 # zCamera: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zCamera "GAMECUBE"
-zCamera.o:$LC58
-# @lc zCamera "Attrib::Attribute"
-zCamera.o:$LC59
-# @lc zCamera "Attrib::Instance"
-zCamera.o:$LC60
-# @lc zCamera "Attrib::Definition"
-zCamera.o:$LC61
-# @lc zCamera "Attrib::Class"
-zCamera.o:$LC62
-# @lc zCamera "Attrib::Database"
-zCamera.o:$LC63
-# @lc zCamera "Attrib::TypeDesc"
-zCamera.o:$LC64
-# @lc zCamera "Attrib::RefSpec"
 zCamera.o:$LC65
+# @lc zCamera "Attrib::Attribute"
+zCamera.o:$LC188
+# @lc zCamera "Attrib::Instance"
+zCamera.o:$LC189
+# @lc zCamera "Attrib::Definition"
+zCamera.o:$LC190
+# @lc zCamera "Attrib::Class"
+zCamera.o:$LC191
+# @lc zCamera "Attrib::Database"
+zCamera.o:$LC192
+# @lc zCamera "Attrib::TypeDesc"
+zCamera.o:$LC193
+# @lc zCamera "Attrib::RefSpec"
+zCamera.o:$LC195
 # @lc zCamera "Attrib::Blob"
-zCamera.o:$LC66
+zCamera.o:$LC196
 # @lc zCamera "Attrib::Gen::gameplay"
-zCamera.o:$LC157
+zCamera.o:$LC202
 # @lc zCamera "Attrib::TAttrib"
-zCamera.o:$LC158
+zCamera.o:$LC203
 # @lc zCamera "Attrib::Gen::engine"
-zCamera.o:$LC220
+zCamera.o:$LC603
 # @lc zCamera "19.8.31"
-zCamera.o:$LC228
+zCamera.o:$LC270
 # @lc zCamera "GManager"
-zCamera.o:$LC231
+zCamera.o:$LC271
 # @lc zCamera "VehicleParams"
-zCamera.o:$LC266
+zCamera.o:$LC470
 # @lc zCamera "Attrib::Gen::aivehicle"
-zCamera.o:$LC315
+zCamera.o:$LC343
 # @lc zCamera "Attrib::Gen::pursuitescalation"
-zCamera.o:$LC316
+zCamera.o:$LC345
 # @lc zCamera "Attrib::Gen::pursuitlevels"
-zCamera.o:$LC317
+zCamera.o:$LC344
 # @lc zCamera "Attrib::Gen::pursuitsupport"
-zCamera.o:$LC318
+zCamera.o:$LC346
 # @lc zCamera "SMS_MESSAGE_%d"
-zCamera.o:$LC398
+zCamera.o:$LC435
 # @lc zCamera "SMS_MESSAGE_%d_FROM"
-zCamera.o:$LC399
+zCamera.o:$LC436
 # @lc zCamera "SMS_MESSAGE_%d_VOICE"
-zCamera.o:$LC400
+zCamera.o:$LC437
 # @lc zCamera "SMS_MESSAGE_%d_SUBJECT"
-zCamera.o:$LC401
+zCamera.o:$LC438
 # @lc zCamera "Attrib::Gen::speechtune"
-zCamera.o:$LC553
+zCamera.o:$LC635
 # @lc zCamera "Attrib::Gen::visuallook"
-zCamera.o:$LC606
+zCamera.o:$LC693
 # @lc zCamera "Attrib::Gen::effects"
-zCamera.o:$LC607
+zCamera.o:$LC605
 # @lc zCamera "WorldBodyConn"
-zCamera.o:$LC609
+zCamera.o:$LC607
 # @lc zCamera "Pkt_Body_Open"
-zCamera.o:$LC610
+zCamera.o:$LC608
 # @lc zCamera "Pkt_Body_Service"
-zCamera.o:$LC611
+zCamera.o:$LC609
 # @lc zCamera "World_UpdateBody"
-zCamera.o:$LC612
+zCamera.o:$LC610
 # @lc zCamera "Pkt_Body_Send"
-zCamera.o:$LC613
+zCamera.o:$LC611
 # @lc zCamera "World_OneShotEffect"
-zCamera.o:$LC614
+zCamera.o:$LC612
 # @lc zCamera "Pkt_Effect_Send"
-zCamera.o:$LC615
+zCamera.o:$LC613
 # @lc zCamera "WorldEffectConn"
-zCamera.o:$LC616
+zCamera.o:$LC614
 # @lc zCamera "Pkt_Effect_Open"
-zCamera.o:$LC617
+zCamera.o:$LC615
 # @lc zCamera "Pkt_Effect_Service"
-zCamera.o:$LC618
+zCamera.o:$LC616
 # zFeOverlay: cadenas muertas que el objetivo SI tiene (deadstr.py).
 zFeOverlay.o:$LC77
 zFeOverlay.o:$LC78
@@ -1206,165 +1207,165 @@ zFeOverlay.o:$LC419
 zFeOverlay.o:$LC432
 # zEcstasy: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zEcstasy "Attrib::Attribute"
-zEcstasy.o:$LC147
+zEcstasy.o:$LC189
 # @lc zEcstasy "Attrib::Instance"
-zEcstasy.o:$LC148
+zEcstasy.o:$LC190
 # @lc zEcstasy "Attrib::Definition"
-zEcstasy.o:$LC149
+zEcstasy.o:$LC191
 # @lc zEcstasy "Attrib::Class"
-zEcstasy.o:$LC150
+zEcstasy.o:$LC192
 # @lc zEcstasy "Attrib::Database"
-zEcstasy.o:$LC151
+zEcstasy.o:$LC193
 # @lc zEcstasy "Attrib::TypeDesc"
-zEcstasy.o:$LC152
+zEcstasy.o:$LC194
 # @lc zEcstasy "Attrib::RefSpec"
-zEcstasy.o:$LC153
+zEcstasy.o:$LC195
 # @lc zEcstasy "Attrib::Blob"
-zEcstasy.o:$LC154
+zEcstasy.o:$LC196
 # @lc zEcstasy "Attrib::Gen::pvehicle"
-zEcstasy.o:$LC158
+zEcstasy.o:$LC202
 # @lc zEcstasy "Attrib::TAttrib"
-zEcstasy.o:$LC159
+zEcstasy.o:$LC203
 # @lc zEcstasy "Attrib::Gen::simsurface"
-zEcstasy.o:$LC167
+zEcstasy.o:$LC211
 # @lc zEcstasy "Attrib::Gen::engine"
-zEcstasy.o:$LC219
+zEcstasy.o:$LC384
 # @lc zEcstasy "Attrib::Gen::gameplay"
-zEcstasy.o:$LC229
+zEcstasy.o:$LC272
 # @lc zEcstasy "19.8.31"
-zEcstasy.o:$LC230
+zEcstasy.o:$LC276
 # @lc zEcstasy "Attrib::Gen::aivehicle"
-zEcstasy.o:$LC245
+zEcstasy.o:$LC268
 # @lc zEcstasy "Attrib::Gen::pursuitescalation"
-zEcstasy.o:$LC246
+zEcstasy.o:$LC270
 # @lc zEcstasy "Attrib::Gen::pursuitlevels"
-zEcstasy.o:$LC247
+zEcstasy.o:$LC269
 # @lc zEcstasy "Attrib::Gen::pursuitsupport"
-zEcstasy.o:$LC248
+zEcstasy.o:$LC271
 # @lc zEcstasy "SMS_MESSAGE_%d"
-zEcstasy.o:$LC337
+zEcstasy.o:$LC374
 # @lc zEcstasy "SMS_MESSAGE_%d_FROM"
-zEcstasy.o:$LC338
+zEcstasy.o:$LC375
 # @lc zEcstasy "SMS_MESSAGE_%d_VOICE"
-zEcstasy.o:$LC339
+zEcstasy.o:$LC376
 # @lc zEcstasy "SMS_MESSAGE_%d_SUBJECT"
-zEcstasy.o:$LC340
+zEcstasy.o:$LC377
 # @lc zEcstasy "Attrib::Gen::engineaudio"
-zEcstasy.o:$LC347
+zEcstasy.o:$LC385
 # @lc zEcstasy "Attrib::Gen::audiosystem"
-zEcstasy.o:$LC360
+zEcstasy.o:$LC413
 # @lc zEcstasy "GManager"
-zEcstasy.o:$LC400
+zEcstasy.o:$LC456
 # @lc zEcstasy "Attrib::Gen::camerainfo"
-zEcstasy.o:$LC410
+zEcstasy.o:$LC465
 # @lc zEcstasy "Attrib::Gen::ecar"
-zEcstasy.o:$LC411
+zEcstasy.o:$LC464
 # @lc zEcstasy "Attrib::Gen::visuallook"
-zEcstasy.o:$LC889
+zEcstasy.o:$LC589
 # zPlatform: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zPlatform "GAMECUBE"
-zPlatform.o:$LC59
+zPlatform.o:$LC66
 # @lc zPlatform "Attrib::Attribute"
-zPlatform.o:$LC151
+zPlatform.o:$LC179
 # @lc zPlatform "Attrib::Instance"
-zPlatform.o:$LC152
+zPlatform.o:$LC180
 # @lc zPlatform "Attrib::Definition"
-zPlatform.o:$LC153
+zPlatform.o:$LC181
 # @lc zPlatform "Attrib::Class"
-zPlatform.o:$LC154
+zPlatform.o:$LC182
 # @lc zPlatform "Attrib::Database"
-zPlatform.o:$LC155
+zPlatform.o:$LC183
 # @lc zPlatform "Attrib::TypeDesc"
-zPlatform.o:$LC156
+zPlatform.o:$LC184
 # @lc zPlatform "Attrib::RefSpec"
-zPlatform.o:$LC157
+zPlatform.o:$LC185
 # @lc zPlatform "Attrib::Blob"
-zPlatform.o:$LC158
+zPlatform.o:$LC186
 # @lc zPlatform "Attrib::Gen::pvehicle"
-zPlatform.o:$LC162
+zPlatform.o:$LC192
 # @lc zPlatform "Attrib::TAttrib"
-zPlatform.o:$LC163
+zPlatform.o:$LC193
 # @lc zPlatform "Attrib::Gen::simsurface"
-zPlatform.o:$LC171
+zPlatform.o:$LC201
 # @lc zPlatform "Attrib::Gen::engine"
-zPlatform.o:$LC223
+zPlatform.o:$LC365
 # @lc zPlatform "Attrib::Gen::gameplay"
-zPlatform.o:$LC233
+zPlatform.o:$LC262
 # @lc zPlatform "19.8.31"
-zPlatform.o:$LC234
+zPlatform.o:$LC266
 # @lc zPlatform "Attrib::Gen::emitterdata"
-zPlatform.o:$LC237
+zPlatform.o:$LC495
 # @lc zPlatform "Attrib::Gen::emittergroup"
-zPlatform.o:$LC238
+zPlatform.o:$LC494
 # @lc zPlatform "Attrib::Gen::aivehicle"
-zPlatform.o:$LC249
+zPlatform.o:$LC258
 # @lc zPlatform "Attrib::Gen::pursuitescalation"
-zPlatform.o:$LC250
+zPlatform.o:$LC260
 # @lc zPlatform "Attrib::Gen::pursuitlevels"
-zPlatform.o:$LC251
+zPlatform.o:$LC259
 # @lc zPlatform "Attrib::Gen::pursuitsupport"
-zPlatform.o:$LC252
+zPlatform.o:$LC261
 # @lc zPlatform "SMS_MESSAGE_%d"
-zPlatform.o:$LC341
+zPlatform.o:$LC355
 # @lc zPlatform "SMS_MESSAGE_%d_FROM"
-zPlatform.o:$LC342
+zPlatform.o:$LC356
 # @lc zPlatform "SMS_MESSAGE_%d_VOICE"
-zPlatform.o:$LC343
+zPlatform.o:$LC357
 # @lc zPlatform "SMS_MESSAGE_%d_SUBJECT"
-zPlatform.o:$LC344
+zPlatform.o:$LC358
 # @lc zPlatform "Attrib::Gen::engineaudio"
-zPlatform.o:$LC351
+zPlatform.o:$LC366
 # @lc zPlatform "Attrib::Gen::audiosystem"
-zPlatform.o:$LC364
+zPlatform.o:$LC418
 # zLua: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zLua "Attrib::Attribute"
-zLua.o:$LC58
+zLua.o:$LC164
 # @lc zLua "Attrib::Instance"
-zLua.o:$LC59
+zLua.o:$LC165
 # @lc zLua "Attrib::Definition"
-zLua.o:$LC60
+zLua.o:$LC166
 # @lc zLua "Attrib::Class"
-zLua.o:$LC61
+zLua.o:$LC167
 # @lc zLua "Attrib::Database"
-zLua.o:$LC62
+zLua.o:$LC168
 # @lc zLua "Attrib::TypeDesc"
-zLua.o:$LC63
-# @lc zLua "Attrib::Blob"
-zLua.o:$LC65
-# @lc zLua "Attrib::TAttrib"
-zLua.o:$LC67
-# @lc zLua "Attrib::Gen::simsurface"
 zLua.o:$LC169
+# @lc zLua "Attrib::Blob"
+zLua.o:$LC172
+# @lc zLua "Attrib::TAttrib"
+zLua.o:$LC185
+# @lc zLua "Attrib::Gen::simsurface"
+zLua.o:$LC193
 # @lc zLua "Attrib::Gen::engine"
-zLua.o:$LC470
+zLua.o:$LC690
 # @lc zLua "Attrib::Gen::aivehicle"
-zLua.o:$LC487
+zLua.o:$LC501
 # @lc zLua "Attrib::Gen::pursuitescalation"
-zLua.o:$LC488
+zLua.o:$LC503
 # @lc zLua "Attrib::Gen::pursuitlevels"
-zLua.o:$LC480
+zLua.o:$LC502
 # @lc zLua "Attrib::Gen::pursuitsupport"
-zLua.o:$LC489
+zLua.o:$LC504
 # @lc zLua "SMS_MESSAGE_%d"
-zLua.o:$LC578
+zLua.o:$LC593
 # @lc zLua "SMS_MESSAGE_%d_FROM"
-zLua.o:$LC579
+zLua.o:$LC594
 # @lc zLua "SMS_MESSAGE_%d_VOICE"
-zLua.o:$LC580
+zLua.o:$LC595
 # @lc zLua "SMS_MESSAGE_%d_SUBJECT"
-zLua.o:$LC581
+zLua.o:$LC596
 # @lc zLua "GManager"
-zLua.o:$LC483
+zLua.o:$LC603
 # @lc zLua "Attrib::Gen::engineaudio"
-zLua.o:$LC471
+zLua.o:$LC691
 # @lc zLua "Attrib::Gen::audiosystem"
-zLua.o:$LC477
+zLua.o:$LC773
 # @lc zLua "Attrib::Gen::speech"
-zLua.o:$LC468
+zLua.o:$LC704
 # @lc zLua "Attrib::Gen::visuallook"
-zLua.o:$LC482
+zLua.o:$LC776
 # @lc zLua "table index is NaN"
-zLua.o:$LC778
+zLua.o:$LC916
 # zAnim: cadenas muertas que el objetivo SI tiene (deadstr.py).
 zAnim.o:$LC188
 zAnim.o:$LC189
@@ -1386,832 +1387,798 @@ zAnim.o:$LC318
 zAnim.o:$LC319
 # zMain: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zMain "Attrib::Attribute"
-zMain.o:$LC58
+zMain.o:$LC164
 # @lc zMain "Attrib::Instance"
-zMain.o:$LC59
+zMain.o:$LC165
 # @lc zMain "Attrib::Definition"
-zMain.o:$LC60
+zMain.o:$LC166
 # @lc zMain "Attrib::Class"
-zMain.o:$LC61
+zMain.o:$LC167
 # @lc zMain "Attrib::Database"
-zMain.o:$LC62
+zMain.o:$LC168
 # @lc zMain "Attrib::TypeDesc"
-zMain.o:$LC63
+zMain.o:$LC169
 # @lc zMain "Attrib::RefSpec"
-zMain.o:$LC64
+zMain.o:$LC171
 # @lc zMain "Attrib::Blob"
-zMain.o:$LC65
+zMain.o:$LC172
 # @lc zMain "AIParams"
-zMain.o:$LC429
+zMain.o:$LC292
 # @lc zMain "RBComplexParams"
-zMain.o:$LC430
+zMain.o:$LC293
 # @lc zMain "RBSimpleParams"
-zMain.o:$LC431
+zMain.o:$LC294
 # @lc zMain "SuspensionParams"
-zMain.o:$LC432
+zMain.o:$LC295
 # @lc zMain "EngineParams"
-zMain.o:$LC433
+zMain.o:$LC296
 # @lc zMain "DamageParams"
-zMain.o:$LC434
+zMain.o:$LC297
 # @lc zMain "WorldBodyConn"
-zMain.o:$LC316
+zMain.o:$LC208
 # @lc zMain "Pkt_Body_Open"
-zMain.o:$LC317
+zMain.o:$LC209
 # @lc zMain "Pkt_Body_Service"
-zMain.o:$LC318
+zMain.o:$LC210
 # @lc zMain "World_OneShotEffect"
-zMain.o:$LC321
+zMain.o:$LC213
 # @lc zMain "Pkt_Effect_Send"
-zMain.o:$LC322
+zMain.o:$LC214
 # @lc zMain "WorldEffectConn"
-zMain.o:$LC323
+zMain.o:$LC215
 # @lc zMain "Pkt_Effect_Open"
-zMain.o:$LC324
+zMain.o:$LC216
 # @lc zMain "Pkt_Effect_Service"
-zMain.o:$LC325
+zMain.o:$LC217
 # zTrack: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zTrack "Attrib::Attribute"
-zTrack.o:$LC146
+zTrack.o:$LC188
 # @lc zTrack "Attrib::Instance"
-zTrack.o:$LC147
+zTrack.o:$LC189
 # @lc zTrack "Attrib::Definition"
-zTrack.o:$LC148
+zTrack.o:$LC190
 # @lc zTrack "Attrib::Class"
-zTrack.o:$LC149
+zTrack.o:$LC191
 # @lc zTrack "Attrib::Database"
-zTrack.o:$LC150
+zTrack.o:$LC192
 # @lc zTrack "Attrib::TypeDesc"
-zTrack.o:$LC151
+zTrack.o:$LC193
 # @lc zTrack "Attrib::RefSpec"
-zTrack.o:$LC152
+zTrack.o:$LC195
 # @lc zTrack "Attrib::Blob"
-zTrack.o:$LC153
+zTrack.o:$LC196
 # @lc zTrack "Attrib::Gen::pvehicle"
-zTrack.o:$LC157
+zTrack.o:$LC223
 # @lc zTrack "Attrib::TAttrib"
-zTrack.o:$LC158
+zTrack.o:$LC203
 # @lc zTrack "Attrib::Gen::simsurface"
-zTrack.o:$LC166
+zTrack.o:$LC229
 # @lc zTrack "Attrib::Gen::engine"
-zTrack.o:$LC218
+zTrack.o:$LC408
 # @lc zTrack "Attrib::Gen::gameplay"
-zTrack.o:$LC237
+zTrack.o:$LC295
 # @lc zTrack "19.8.31"
-zTrack.o:$LC239
+zTrack.o:$LC299
 # @lc zTrack "LoadingPriority%d"
-zTrack.o:$LC363
+zTrack.o:$LC473
 # @lc zTrack "Attrib::Gen::camerainfo"
-zTrack.o:$LC445
+zTrack.o:$LC367
 # @lc zTrack "Attrib::Gen::ecar"
-zTrack.o:$LC446
+zTrack.o:$LC366
 # zEAXSound: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zEAXSound "GAMECUBE"
-zEAXSound.o:$LC61
+zEAXSound.o:$LC65
 # @lc zEAXSound "Attrib::Attribute"
-zEAXSound.o:$LC147
+zEAXSound.o:$LC164
 # @lc zEAXSound "Attrib::Instance"
-zEAXSound.o:$LC148
+zEAXSound.o:$LC165
 # @lc zEAXSound "Attrib::Definition"
-zEAXSound.o:$LC149
+zEAXSound.o:$LC166
 # @lc zEAXSound "Attrib::Class"
-zEAXSound.o:$LC150
+zEAXSound.o:$LC167
 # @lc zEAXSound "Attrib::Database"
-zEAXSound.o:$LC151
+zEAXSound.o:$LC168
 # @lc zEAXSound "Attrib::TypeDesc"
-zEAXSound.o:$LC152
+zEAXSound.o:$LC169
 # @lc zEAXSound "Attrib::Blob"
-zEAXSound.o:$LC154
+zEAXSound.o:$LC172
 # @lc zEAXSound "Attrib::TAttrib"
-zEAXSound.o:$LC159
+zEAXSound.o:$LC186
 # @lc zEAXSound "Attrib::Gen::gameplay"
-zEAXSound.o:$LC229
+zEAXSound.o:$LC311
 # @lc zEAXSound "19.8.31"
-zEAXSound.o:$LC230
+zEAXSound.o:$LC315
 # @lc zEAXSound "Attrib::Gen::aivehicle"
-zEAXSound.o:$LC245
+zEAXSound.o:$LC307
 # @lc zEAXSound "Attrib::Gen::pursuitescalation"
-zEAXSound.o:$LC246
+zEAXSound.o:$LC309
 # @lc zEAXSound "Attrib::Gen::pursuitlevels"
-zEAXSound.o:$LC247
+zEAXSound.o:$LC308
 # @lc zEAXSound "Attrib::Gen::pursuitsupport"
-zEAXSound.o:$LC248
+zEAXSound.o:$LC310
 # @lc zEAXSound "SMS_MESSAGE_%d"
-zEAXSound.o:$LC337
-# @lc zEAXSound "SMS_MESSAGE_%d_FROM"
-zEAXSound.o:$LC338
-# @lc zEAXSound "SMS_MESSAGE_%d_VOICE"
-zEAXSound.o:$LC339
-# @lc zEAXSound "SMS_MESSAGE_%d_SUBJECT"
-zEAXSound.o:$LC340
-# @lc zEAXSound "Attrib::Gen::acceltrans"
-zEAXSound.o:$LC361
-# @lc zEAXSound "Attrib::Gen::shiftpattern"
-zEAXSound.o:$LC362
-# @lc zEAXSound "Attrib::Gen::turbosfx"
-zEAXSound.o:$LC363
-# @lc zEAXSound "MPerpBusted"
-zEAXSound.o:$LC393
-# @lc zEAXSound "Attrib::Gen::effects"
-zEAXSound.o:$LC394
-# @lc zEAXSound "WorldBodyConn"
-zEAXSound.o:$LC396
-# @lc zEAXSound "Pkt_Body_Open"
-zEAXSound.o:$LC397
-# @lc zEAXSound "Pkt_Body_Service"
-zEAXSound.o:$LC398
-# @lc zEAXSound "World_UpdateBody"
-zEAXSound.o:$LC399
-# @lc zEAXSound "Pkt_Body_Send"
-zEAXSound.o:$LC400
-# @lc zEAXSound "World_OneShotEffect"
-zEAXSound.o:$LC401
-# @lc zEAXSound "Pkt_Effect_Send"
-zEAXSound.o:$LC402
-# @lc zEAXSound "WorldEffectConn"
-zEAXSound.o:$LC403
-# @lc zEAXSound "Pkt_Effect_Open"
 zEAXSound.o:$LC404
-# @lc zEAXSound "Pkt_Effect_Service"
+# @lc zEAXSound "SMS_MESSAGE_%d_FROM"
 zEAXSound.o:$LC405
-# @lc zEAXSound "Pkt_Heli_Open"
+# @lc zEAXSound "SMS_MESSAGE_%d_VOICE"
+zEAXSound.o:$LC406
+# @lc zEAXSound "SMS_MESSAGE_%d_SUBJECT"
 zEAXSound.o:$LC407
+# @lc zEAXSound "Attrib::Gen::acceltrans"
+zEAXSound.o:$LC415
+# @lc zEAXSound "Attrib::Gen::shiftpattern"
+zEAXSound.o:$LC416
+# @lc zEAXSound "Attrib::Gen::turbosfx"
+zEAXSound.o:$LC417
+# @lc zEAXSound "MPerpBusted"
+zEAXSound.o:$LC449
+# @lc zEAXSound "Attrib::Gen::effects"
+zEAXSound.o:$LC279
+# @lc zEAXSound "WorldBodyConn"
+zEAXSound.o:$LC281
+# @lc zEAXSound "Pkt_Body_Open"
+zEAXSound.o:$LC282
+# @lc zEAXSound "Pkt_Body_Service"
+zEAXSound.o:$LC283
+# @lc zEAXSound "World_UpdateBody"
+zEAXSound.o:$LC284
+# @lc zEAXSound "Pkt_Body_Send"
+zEAXSound.o:$LC285
+# @lc zEAXSound "World_OneShotEffect"
+zEAXSound.o:$LC286
+# @lc zEAXSound "Pkt_Effect_Send"
+zEAXSound.o:$LC287
+# @lc zEAXSound "WorldEffectConn"
+zEAXSound.o:$LC288
+# @lc zEAXSound "Pkt_Effect_Open"
+zEAXSound.o:$LC289
+# @lc zEAXSound "Pkt_Effect_Service"
+zEAXSound.o:$LC290
+# @lc zEAXSound "Pkt_Heli_Open"
+zEAXSound.o:$LC458
 # @lc zEAXSound "Pkt_Car_Open"
-zEAXSound.o:$LC409
+zEAXSound.o:$LC453
 # @lc zEAXSound "SpeechSampleMap node"
-zEAXSound.o:$LC414
+zEAXSound.o:$LC462
 # @lc zEAXSound "Attrib::Gen::camerainfo"
-zEAXSound.o:$LC528
+zEAXSound.o:$LC685
 # @lc zEAXSound "Attrib::Gen::ecar"
-zEAXSound.o:$LC529
+zEAXSound.o:$LC684
 # @lc zEAXSound "VehicleParams"
-zEAXSound.o:$LC531
+zEAXSound.o:$LC822
 # @lc zEAXSound "Attrib::Gen::speechtune"
-zEAXSound.o:$LC670
+zEAXSound.o:$LC826
 # zEAXSound2: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zEAXSound2 "bad_alloc"
-zEAXSound2.o:$LC58
+zEAXSound2.o:$LC67
 # @lc zEAXSound2 "GAMECUBE"
-zEAXSound2.o:$LC146
+zEAXSound2.o:$LC65
 # @lc zEAXSound2 "Attrib::Attribute"
-zEAXSound2.o:$LC147
+zEAXSound2.o:$LC165
 # @lc zEAXSound2 "Attrib::Instance"
-zEAXSound2.o:$LC148
+zEAXSound2.o:$LC166
 # @lc zEAXSound2 "Attrib::Definition"
-zEAXSound2.o:$LC149
+zEAXSound2.o:$LC167
 # @lc zEAXSound2 "Attrib::Class"
-zEAXSound2.o:$LC150
+zEAXSound2.o:$LC168
 # @lc zEAXSound2 "Attrib::Database"
-zEAXSound2.o:$LC151
+zEAXSound2.o:$LC169
 # @lc zEAXSound2 "Attrib::TypeDesc"
-zEAXSound2.o:$LC152
+zEAXSound2.o:$LC170
 # @lc zEAXSound2 "Attrib::RefSpec"
-zEAXSound2.o:$LC153
+zEAXSound2.o:$LC171
 # @lc zEAXSound2 "Attrib::Blob"
-zEAXSound2.o:$LC154
+zEAXSound2.o:$LC172
 # @lc zEAXSound2 "Attrib::TAttrib"
-zEAXSound2.o:$LC159
+zEAXSound2.o:$LC179
 # @lc zEAXSound2 "Attrib::Gen::engine"
-zEAXSound2.o:$LC219
+zEAXSound2.o:$LC257
 # @lc zEAXSound2 "Attrib::Gen::gameplay"
-zEAXSound2.o:$LC266
+zEAXSound2.o:$LC321
 # @lc zEAXSound2 "19.8.31"
-zEAXSound2.o:$LC268
+zEAXSound2.o:$LC325
 # @lc zEAXSound2 "GManager"
-zEAXSound2.o:$LC271
+zEAXSound2.o:$LC326
 # @lc zEAXSound2 "Attrib::Gen::aivehicle"
-zEAXSound2.o:$LC304
+zEAXSound2.o:$LC345
 # @lc zEAXSound2 "Attrib::Gen::pursuitescalation"
-zEAXSound2.o:$LC305
+zEAXSound2.o:$LC347
 # @lc zEAXSound2 "Attrib::Gen::pursuitlevels"
-zEAXSound2.o:$LC306
+zEAXSound2.o:$LC346
 # @lc zEAXSound2 "Attrib::Gen::pursuitsupport"
-zEAXSound2.o:$LC307
+zEAXSound2.o:$LC348
 # @lc zEAXSound2 "SMS_MESSAGE_%d"
-zEAXSound2.o:$LC387
+zEAXSound2.o:$LC437
 # @lc zEAXSound2 "SMS_MESSAGE_%d_FROM"
-zEAXSound2.o:$LC388
+zEAXSound2.o:$LC438
 # @lc zEAXSound2 "SMS_MESSAGE_%d_VOICE"
-zEAXSound2.o:$LC389
+zEAXSound2.o:$LC439
 # @lc zEAXSound2 "SMS_MESSAGE_%d_SUBJECT"
-zEAXSound2.o:$LC390
+zEAXSound2.o:$LC440
 # @lc zEAXSound2 "Attrib::Gen::audiosystem"
-zEAXSound2.o:$LC397
+zEAXSound2.o:$LC447
 # @lc zEAXSound2 "Attrib::Gen::effects"
-zEAXSound2.o:$LC414
+zEAXSound2.o:$LC282
 # @lc zEAXSound2 "WorldBodyConn"
-zEAXSound2.o:$LC416
+zEAXSound2.o:$LC284
 # @lc zEAXSound2 "Pkt_Body_Open"
-zEAXSound2.o:$LC417
+zEAXSound2.o:$LC285
 # @lc zEAXSound2 "Pkt_Body_Service"
-zEAXSound2.o:$LC418
+zEAXSound2.o:$LC286
 # @lc zEAXSound2 "World_UpdateBody"
-zEAXSound2.o:$LC419
+zEAXSound2.o:$LC287
 # @lc zEAXSound2 "Pkt_Body_Send"
-zEAXSound2.o:$LC420
+zEAXSound2.o:$LC288
 # @lc zEAXSound2 "World_OneShotEffect"
-zEAXSound2.o:$LC421
+zEAXSound2.o:$LC289
 # @lc zEAXSound2 "Pkt_Effect_Send"
-zEAXSound2.o:$LC422
+zEAXSound2.o:$LC290
 # @lc zEAXSound2 "WorldEffectConn"
-zEAXSound2.o:$LC423
+zEAXSound2.o:$LC291
 # @lc zEAXSound2 "Pkt_Effect_Open"
-zEAXSound2.o:$LC424
+zEAXSound2.o:$LC292
 # @lc zEAXSound2 "Pkt_Effect_Service"
-zEAXSound2.o:$LC425
+zEAXSound2.o:$LC293
 # @lc zEAXSound2 "HeliSoundConn"
-zEAXSound2.o:$LC498
+zEAXSound2.o:$LC559
 # @lc zEAXSound2 "Pkt_Heli_Open"
-zEAXSound2.o:$LC499
+zEAXSound2.o:$LC560
 # @lc zEAXSound2 "CarSoundConn"
-zEAXSound2.o:$LC500
+zEAXSound2.o:$LC554
 # @lc zEAXSound2 "Pkt_Car_Open"
-zEAXSound2.o:$LC501
+zEAXSound2.o:$LC555
 # @lc zEAXSound2 "Attrib::Gen::speech"
-zEAXSound2.o:$LC667
+zEAXSound2.o:$LC725
 # @lc zEAXSound2 "Attrib::Gen::speechtune"
-zEAXSound2.o:$LC805
+zEAXSound2.o:$LC867
 # zSpeech: cadenas muertas que el objetivo SI tiene (deadstr.py).
 zSpeech.o:$LC58
 # @lc zSpeech "Attrib::Attribute"
-zSpeech.o:$LC58
-# @lc zSpeech "Attrib::Instance"
-zSpeech.o:$LC59
-# @lc zSpeech "Attrib::Definition"
-zSpeech.o:$LC60
-# @lc zSpeech "Attrib::Class"
-zSpeech.o:$LC61
-# @lc zSpeech "Attrib::Database"
-zSpeech.o:$LC62
-# @lc zSpeech "Attrib::TypeDesc"
-zSpeech.o:$LC63
-# @lc zSpeech "Attrib::RefSpec"
-zSpeech.o:$LC64
-# @lc zSpeech "Attrib::Blob"
-zSpeech.o:$LC65
-# @lc zSpeech "MGeneric"
-zSpeech.o:$LC66
-# @lc zSpeech "Attrib::Gen::simsurface"
-zSpeech.o:$LC157
-# @lc zSpeech "Attrib::TAttrib"
-zSpeech.o:$LC158
-# @lc zSpeech "Attrib::Gen::ecar"
-zSpeech.o:$LC160
-# @lc zSpeech "Attrib::Gen::camerainfo"
-zSpeech.o:$LC161
-# @lc zSpeech "Attrib::Gen::effects"
-zSpeech.o:$LC162
-# @lc zSpeech "Attrib::Gen::audioimpact"
-zSpeech.o:$LC163
-# @lc zSpeech "Attrib::Gen::audioscrape"
 zSpeech.o:$LC164
-# @lc zSpeech "WorldBodyConn"
+# @lc zSpeech "Attrib::Instance"
+zSpeech.o:$LC165
+# @lc zSpeech "Attrib::Definition"
+zSpeech.o:$LC166
+# @lc zSpeech "Attrib::Class"
+zSpeech.o:$LC167
+# @lc zSpeech "Attrib::Database"
 zSpeech.o:$LC168
-# @lc zSpeech "Pkt_Body_Open"
+# @lc zSpeech "Attrib::TypeDesc"
 zSpeech.o:$LC169
-# @lc zSpeech "Pkt_Body_Service"
-zSpeech.o:$LC170
-# @lc zSpeech "World_UpdateBody"
+# @lc zSpeech "Attrib::RefSpec"
 zSpeech.o:$LC171
-# @lc zSpeech "Pkt_Body_Send"
+# @lc zSpeech "Attrib::Blob"
 zSpeech.o:$LC172
-# @lc zSpeech "World_OneShotEffect"
-zSpeech.o:$LC173
-# @lc zSpeech "Pkt_Effect_Send"
-zSpeech.o:$LC174
-# @lc zSpeech "WorldEffectConn"
-zSpeech.o:$LC175
-# @lc zSpeech "Pkt_Effect_Open"
-zSpeech.o:$LC176
-# @lc zSpeech "Pkt_Effect_Service"
-zSpeech.o:$LC177
-# @lc zSpeech "Attrib::Gen::engine"
+# @lc zSpeech "Attrib::Gen::simsurface"
 zSpeech.o:$LC179
-# @lc zSpeech "Attrib::Gen::engineaudio"
+# @lc zSpeech "Attrib::TAttrib"
 zSpeech.o:$LC180
-# @lc zSpeech "MAudioReflection"
-zSpeech.o:$LC181
-# @lc zSpeech "Attrib::Gen::gameplay"
-zSpeech.o:$LC186
-# @lc zSpeech "PlayerNum"
-zSpeech.o:$LC182
-# @lc zSpeech "Covered"
+# @lc zSpeech "Attrib::Gen::effects"
 zSpeech.o:$LC184
-# @lc zSpeech "Attrib::Gen::milestonetypes"
-zSpeech.o:$LC188
+# @lc zSpeech "Attrib::Gen::audioimpact"
+zSpeech.o:$LC185
+# @lc zSpeech "WorldBodyConn"
+zSpeech.o:$LC214
+# @lc zSpeech "Pkt_Body_Open"
+zSpeech.o:$LC215
+# @lc zSpeech "Pkt_Body_Service"
+zSpeech.o:$LC216
+# @lc zSpeech "World_UpdateBody"
+zSpeech.o:$LC217
+# @lc zSpeech "Pkt_Body_Send"
+zSpeech.o:$LC218
+# @lc zSpeech "World_OneShotEffect"
+zSpeech.o:$LC219
+# @lc zSpeech "Pkt_Effect_Send"
+zSpeech.o:$LC220
+# @lc zSpeech "WorldEffectConn"
+zSpeech.o:$LC221
+# @lc zSpeech "Pkt_Effect_Open"
+zSpeech.o:$LC222
+# @lc zSpeech "Pkt_Effect_Service"
+zSpeech.o:$LC223
+# @lc zSpeech "Attrib::Gen::engine"
+zSpeech.o:$LC225
+# @lc zSpeech "Attrib::Gen::engineaudio"
+zSpeech.o:$LC226
+# @lc zSpeech "Attrib::Gen::gameplay"
+zSpeech.o:$LC233
 # @lc zSpeech "19.8.31"
-zSpeech.o:$LC201
+zSpeech.o:$LC315
 # @lc zSpeech "Attrib::Gen::aivehicle"
-zSpeech.o:$LC202
+zSpeech.o:$LC318
 # @lc zSpeech "Attrib::Gen::pursuitescalation"
-zSpeech.o:$LC203
+zSpeech.o:$LC319
 # @lc zSpeech "Attrib::Gen::pursuitsupport"
-zSpeech.o:$LC204
+zSpeech.o:$LC320
 # @lc zSpeech "SMS_MESSAGE_%d"
-zSpeech.o:$LC373
+zSpeech.o:$LC423
 # @lc zSpeech "SMS_MESSAGE_%d_FROM"
-zSpeech.o:$LC374
+zSpeech.o:$LC424
 # @lc zSpeech "SMS_MESSAGE_%d_VOICE"
-zSpeech.o:$LC375
+zSpeech.o:$LC425
 # @lc zSpeech "SMS_MESSAGE_%d_SUBJECT"
-zSpeech.o:$LC376
+zSpeech.o:$LC426
 # @lc zSpeech "Velocity"
-zSpeech.o:$LC452
+zSpeech.o:$LC504
 # @lc zSpeech "hSimable"
-zSpeech.o:$LC453
+zSpeech.o:$LC505
 # @lc zSpeech "AttribKey"
-zSpeech.o:$LC455
+zSpeech.o:$LC507
 # @lc zSpeech "MPursuitBreaker"
-zSpeech.o:$LC456
+zSpeech.o:$LC508
 # @lc zSpeech "StartBreaker"
-zSpeech.o:$LC457
+zSpeech.o:$LC509
 # @lc zSpeech "Speech::ScheduledSpeechEvent"
-zSpeech.o:$LC195
+zSpeech.o:$LC309
 # @lc zSpeech "CopHandle"
-zSpeech.o:$LC867
+zSpeech.o:$LC920
 # @lc zSpeech "ISimable"
-zSpeech.o:$LC864
+zSpeech.o:$LC917
 # @lc zSpeech "BackupType"
-zSpeech.o:$LC671
+zSpeech.o:$LC722
 # @lc zSpeech "SoundID"
-zSpeech.o:$LC693
+zSpeech.o:$LC744
 # @lc zSpeech "Licenced"
-zSpeech.o:$LC769
+zSpeech.o:$LC820
 # @lc zSpeech "PathEvent"
-zSpeech.o:$LC770
+zSpeech.o:$LC821
 # @lc zSpeech "PathControl"
-zSpeech.o:$LC772
+zSpeech.o:$LC823
 # @lc zSpeech "VehicleParams"
-zSpeech.o:$LC189
+zSpeech.o:$LC294
 # @lc zSpeech "Perpetrator"
-zSpeech.o:$LC863
+zSpeech.o:$LC916
 # zPhysics: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zPhysics "Attrib::Attribute"
-zPhysics.o:$LC58
+zPhysics.o:$LC164
 # @lc zPhysics "Attrib::Definition"
-zPhysics.o:$LC60
+zPhysics.o:$LC166
 # @lc zPhysics "Attrib::Class"
-zPhysics.o:$LC61
+zPhysics.o:$LC167
 # @lc zPhysics "Attrib::Database"
-zPhysics.o:$LC62
+zPhysics.o:$LC168
 # @lc zPhysics "Attrib::TypeDesc"
-zPhysics.o:$LC63
+zPhysics.o:$LC169
 # @lc zPhysics "Attrib::Blob"
-zPhysics.o:$LC65
-# @lc zPhysics "Attrib::Gen::milestonetypes"
-zPhysics.o:$LC377
+zPhysics.o:$LC172
 # @lc zPhysics "Attrib::TAttrib"
-zPhysics.o:$LC157
-# @lc zPhysics "Attrib::Gen::audioimpact"
-zPhysics.o:$LC383
-# @lc zPhysics "Attrib::Gen::audioscrape"
-zPhysics.o:$LC384
-# @lc zPhysics "Attrib::Gen::engineaudio"
-zPhysics.o:$LC395
-# @lc zPhysics "Attrib::Gen::audiosystem"
-zPhysics.o:$LC400
-# @lc zPhysics "Attrib::Gen::camerainfo"
-zPhysics.o:$LC381
-# @lc zPhysics "Attrib::Gen::explosion"
-zPhysics.o:$LC369
-# @lc zPhysics "Attrib::Gen::speech"
-zPhysics.o:$LC359
-# @lc zPhysics "Attrib::Gen::world"
-zPhysics.o:$LC486
+zPhysics.o:$LC187
 # @lc zPhysics "Attrib::Gen::gameplay"
-zPhysics.o:$LC234
+zPhysics.o:$LC301
 # @lc zPhysics "19.8.31"
-zPhysics.o:$LC235
+zPhysics.o:$LC305
 # @lc zPhysics "Attrib::Gen::aivehicle"
-zPhysics.o:$LC250
+zPhysics.o:$LC297
 # @lc zPhysics "Attrib::Gen::pursuitescalation"
-zPhysics.o:$LC251
+zPhysics.o:$LC299
 # @lc zPhysics "Attrib::Gen::pursuitlevels"
-zPhysics.o:$LC252
+zPhysics.o:$LC298
 # @lc zPhysics "Attrib::Gen::pursuitsupport"
-zPhysics.o:$LC253
+zPhysics.o:$LC300
 # @lc zPhysics "Attrib::Gen::presetride"
-zPhysics.o:$LC322
+zPhysics.o:$LC687
 # @lc zPhysics "SMS_MESSAGE_%d"
-zPhysics.o:$LC342
-# @lc zPhysics "SMS_MESSAGE_%d_FROM"
-zPhysics.o:$LC343
-# @lc zPhysics "SMS_MESSAGE_%d_VOICE"
-zPhysics.o:$LC344
-# @lc zPhysics "SMS_MESSAGE_%d_SUBJECT"
-zPhysics.o:$LC345
-# @lc zPhysics "AnchorWorldID"
 zPhysics.o:$LC403
+# @lc zPhysics "SMS_MESSAGE_%d_FROM"
+zPhysics.o:$LC404
+# @lc zPhysics "SMS_MESSAGE_%d_VOICE"
+zPhysics.o:$LC405
+# @lc zPhysics "SMS_MESSAGE_%d_SUBJECT"
+zPhysics.o:$LC406
+# @lc zPhysics "AnchorWorldID"
+zPhysics.o:$LC508
 # @lc zPhysics "Attrib::Gen::effects"
-zPhysics.o:$LC382
+zPhysics.o:$LC278
 # @lc zPhysics "Pkt_Body_Service"
-zPhysics.o:$LC387
+zPhysics.o:$LC282
 # @lc zPhysics "World_UpdateBody"
-zPhysics.o:$LC388
+zPhysics.o:$LC283
 # @lc zPhysics "Pkt_Body_Send"
-zPhysics.o:$LC389
+zPhysics.o:$LC284
 # @lc zPhysics "World_OneShotEffect"
-zPhysics.o:$LC390
+zPhysics.o:$LC285
 # @lc zPhysics "Pkt_Effect_Send"
-zPhysics.o:$LC391
+zPhysics.o:$LC286
 # @lc zPhysics "WorldEffectConn"
-zPhysics.o:$LC392
+zPhysics.o:$LC287
 # @lc zPhysics "Pkt_Effect_Open"
-zPhysics.o:$LC393
+zPhysics.o:$LC288
 # @lc zPhysics "Pkt_Effect_Service"
-zPhysics.o:$LC394
+zPhysics.o:$LC289
 # @lc zPhysics "GManager"
-zPhysics.o:$LC585
+zPhysics.o:$LC429
 # @lc zPhysics "Attrib::Gen::ecar"
-zPhysics.o:$LC380
+zPhysics.o:$LC450
 # @lc zPhysics "CarRenderConn"
-zPhysics.o:$LC588
+zPhysics.o:$LC652
 # @lc zPhysics "Pkt_Car_Open"
-zPhysics.o:$LC589
+zPhysics.o:$LC653
 # @lc zPhysics "Pkt_Car_Service"
-zPhysics.o:$LC592
+zPhysics.o:$LC656
 # @lc zPhysics "HeliRenderConn"
-zPhysics.o:$LC593
+zPhysics.o:$LC657
 # @lc zPhysics "Pkt_Heli_Open"
-zPhysics.o:$LC594
+zPhysics.o:$LC658
 # @lc zPhysics "Pkt_Heli_Service"
-zPhysics.o:$LC595
+zPhysics.o:$LC659
 # @lc zPhysics "VehicleFragmentConn"
-zPhysics.o:$LC596
+zPhysics.o:$LC660
 # @lc zPhysics "Pkt_VehicleFragment_Open"
-zPhysics.o:$LC597
+zPhysics.o:$LC661
 # @lc zPhysics "Pkt_VehicleFragment_Service"
-zPhysics.o:$LC598
+zPhysics.o:$LC662
 # @lc zPhysics "Pkt_Smackable_Service"
-zPhysics.o:$LC601
+zPhysics.o:$LC667
 # zPhysicsBehaviors: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zPhysicsBehaviors "GAMECUBE"
-zPhysicsBehaviors.o:$LC145
+zPhysicsBehaviors.o:$LC65
 # @lc zPhysicsBehaviors "Attrib::Attribute"
-zPhysicsBehaviors.o:$LC146
+zPhysicsBehaviors.o:$LC165
 # @lc zPhysicsBehaviors "Attrib::Instance"
-zPhysicsBehaviors.o:$LC147
+zPhysicsBehaviors.o:$LC166
 # @lc zPhysicsBehaviors "Attrib::Definition"
-zPhysicsBehaviors.o:$LC148
+zPhysicsBehaviors.o:$LC167
 # @lc zPhysicsBehaviors "Attrib::Class"
-zPhysicsBehaviors.o:$LC149
+zPhysicsBehaviors.o:$LC168
 # @lc zPhysicsBehaviors "Attrib::Database"
-zPhysicsBehaviors.o:$LC150
+zPhysicsBehaviors.o:$LC169
 # @lc zPhysicsBehaviors "Attrib::TypeDesc"
-zPhysicsBehaviors.o:$LC151
+zPhysicsBehaviors.o:$LC170
 # @lc zPhysicsBehaviors "Attrib::Blob"
-zPhysicsBehaviors.o:$LC153
+zPhysicsBehaviors.o:$LC172
 # @lc zPhysicsBehaviors "AIParams"
-zPhysicsBehaviors.o:$LC227
+zPhysicsBehaviors.o:$LC243
 # @lc zPhysicsBehaviors "Attrib::Gen::gameplay"
-zPhysicsBehaviors.o:$LC405
+zPhysicsBehaviors.o:$LC361
 # @lc zPhysicsBehaviors "19.8.31"
-zPhysicsBehaviors.o:$LC406
+zPhysicsBehaviors.o:$LC365
 # @lc zPhysicsBehaviors "Attrib::Gen::aivehicle"
-zPhysicsBehaviors.o:$LC421
+zPhysicsBehaviors.o:$LC357
 # @lc zPhysicsBehaviors "Attrib::Gen::pursuitescalation"
-zPhysicsBehaviors.o:$LC422
+zPhysicsBehaviors.o:$LC359
 # @lc zPhysicsBehaviors "Attrib::Gen::pursuitlevels"
-zPhysicsBehaviors.o:$LC423
+zPhysicsBehaviors.o:$LC358
 # @lc zPhysicsBehaviors "Attrib::Gen::pursuitsupport"
-zPhysicsBehaviors.o:$LC424
+zPhysicsBehaviors.o:$LC360
 # @lc zPhysicsBehaviors "SMS_MESSAGE_%d"
-zPhysicsBehaviors.o:$LC513
+zPhysicsBehaviors.o:$LC454
 # @lc zPhysicsBehaviors "SMS_MESSAGE_%d_FROM"
-zPhysicsBehaviors.o:$LC514
+zPhysicsBehaviors.o:$LC455
 # @lc zPhysicsBehaviors "SMS_MESSAGE_%d_VOICE"
-zPhysicsBehaviors.o:$LC515
+zPhysicsBehaviors.o:$LC456
 # @lc zPhysicsBehaviors "SMS_MESSAGE_%d_SUBJECT"
-zPhysicsBehaviors.o:$LC516
+zPhysicsBehaviors.o:$LC457
 # @lc zPhysicsBehaviors "Attrib::Gen::camerainfo"
-zPhysicsBehaviors.o:$LC566
+zPhysicsBehaviors.o:$LC649
 # @lc zPhysicsBehaviors "Attrib::Gen::ecar"
-zPhysicsBehaviors.o:$LC567
+zPhysicsBehaviors.o:$LC648
 # @lc zPhysicsBehaviors "WorldBodyConn"
-zPhysicsBehaviors.o:$LC1153
+zPhysicsBehaviors.o:$LC1548
 # @lc zPhysicsBehaviors "Pkt_Body_Open"
-zPhysicsBehaviors.o:$LC1154
+zPhysicsBehaviors.o:$LC1549
 # @lc zPhysicsBehaviors "Pkt_Body_Service"
-zPhysicsBehaviors.o:$LC1155
+zPhysicsBehaviors.o:$LC1550
 # @lc zPhysicsBehaviors "World_UpdateBody"
-zPhysicsBehaviors.o:$LC1156
+zPhysicsBehaviors.o:$LC1551
 # @lc zPhysicsBehaviors "Pkt_Body_Send"
-zPhysicsBehaviors.o:$LC1157
+zPhysicsBehaviors.o:$LC1552
 # @lc zPhysicsBehaviors "World_OneShotEffect"
-zPhysicsBehaviors.o:$LC1158
+zPhysicsBehaviors.o:$LC1553
 # @lc zPhysicsBehaviors "Pkt_Effect_Send"
-zPhysicsBehaviors.o:$LC1159
+zPhysicsBehaviors.o:$LC1554
 # @lc zPhysicsBehaviors "WorldEffectConn"
-zPhysicsBehaviors.o:$LC1160
+zPhysicsBehaviors.o:$LC1555
 # @lc zPhysicsBehaviors "Pkt_Effect_Open"
-zPhysicsBehaviors.o:$LC1161
+zPhysicsBehaviors.o:$LC1556
 # @lc zPhysicsBehaviors "Pkt_Effect_Service"
-zPhysicsBehaviors.o:$LC1162
+zPhysicsBehaviors.o:$LC1557
 # @lc zPhysicsBehaviors "Pkt_Car_Service"
-zPhysicsBehaviors.o:$LC1167
+zPhysicsBehaviors.o:$LC306
 # @lc zPhysicsBehaviors "Pkt_Heli_Service"
-zPhysicsBehaviors.o:$LC1170
+zPhysicsBehaviors.o:$LC309
 # @lc zPhysicsBehaviors "Pkt_VehicleFragment_Service"
-zPhysicsBehaviors.o:$LC1173
+zPhysicsBehaviors.o:$LC312
 # @lc zPhysicsBehaviors "SmackableRenderConn"
-zPhysicsBehaviors.o:$LC1174
+zPhysicsBehaviors.o:$LC315
 # @lc zPhysicsBehaviors "Pkt_Smackable_Open"
-zPhysicsBehaviors.o:$LC1175
+zPhysicsBehaviors.o:$LC316
 # @lc zPhysicsBehaviors "Pkt_Smackable_Service"
-zPhysicsBehaviors.o:$LC1176
+zPhysicsBehaviors.o:$LC317
 # @lc zPhysicsBehaviors "Attrib::Gen::engineaudio"
-zPhysicsBehaviors.o:$LC1490
+zPhysicsBehaviors.o:$LC1566
 # zAI: cadenas muertas que el objetivo SI tiene (deadstr.py).
 zAI.o:$LC145
 # @lc zAI "Attrib::Attribute"
-zAI.o:$LC145
+zAI.o:$LC165
 # @lc zAI "Attrib::Instance"
-zAI.o:$LC146
+zAI.o:$LC166
 # @lc zAI "Attrib::Definition"
-zAI.o:$LC147
+zAI.o:$LC167
 # @lc zAI "Attrib::Class"
-zAI.o:$LC148
+zAI.o:$LC168
 # @lc zAI "Attrib::Database"
-zAI.o:$LC149
+zAI.o:$LC169
 # @lc zAI "Attrib::TypeDesc"
-zAI.o:$LC150
+zAI.o:$LC170
 # @lc zAI "Attrib::RefSpec"
-zAI.o:$LC151
+zAI.o:$LC171
 # @lc zAI "Attrib::Blob"
-zAI.o:$LC152
+zAI.o:$LC172
 # @lc zAI "Attrib::TAttrib"
-zAI.o:$LC156
+zAI.o:$LC179
 # @lc zAI "Attrib::Gen::simsurface"
-zAI.o:$LC155
+zAI.o:$LC187
 # @lc zAI "Attrib::Gen::engine"
-zAI.o:$LC223
+zAI.o:$LC538
 # @lc zAI "Attrib::Gen::gameplay"
-zAI.o:$LC231
+zAI.o:$LC395
 # @lc zAI "19.8.31"
-zAI.o:$LC232
+zAI.o:$LC399
 # @lc zAI "AIParams"
-zAI.o:$LC321
+zAI.o:$LC253
 # @lc zAI "RBComplexParams"
-zAI.o:$LC322
+zAI.o:$LC254
 # @lc zAI "RBSimpleParams"
-zAI.o:$LC323
+zAI.o:$LC255
 # @lc zAI "SuspensionParams"
-zAI.o:$LC324
+zAI.o:$LC256
 # @lc zAI "EngineParams"
-zAI.o:$LC325
+zAI.o:$LC257
 # @lc zAI "DamageParams"
-zAI.o:$LC326
+zAI.o:$LC258
 # @lc zAI "GManager"
-zAI.o:$LC336
+zAI.o:$LC426
 # @lc zAI "Attrib::Gen::engineaudio"
-zAI.o:$LC407
+zAI.o:$LC539
 # @lc zAI "Attrib::Gen::speech"
-zAI.o:$LC157
+zAI.o:$LC555
 zAI.o:$LC444
 zAI.o:$LC445
 zAI.o:$LC446
 zAI.o:$LC447
 # @lc zAI "Attrib::Gen::speechtune"
-zAI.o:$LC463
+zAI.o:$LC569
 # @lc zAI "Attrib::Gen::camerainfo"
-zAI.o:$LC1619
+zAI.o:$LC1745
 # @lc zAI "Attrib::Gen::ecar"
-zAI.o:$LC1620
+zAI.o:$LC1744
 # zGameplay: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zGameplay "bad_alloc"
-zGameplay.o:$LC3
+zGameplay.o:$LC72
 # @lc zGameplay "GAMECUBE"
-zGameplay.o:$LC59
+zGameplay.o:$LC74
 # @lc zGameplay "Attrib::Attribute"
-zGameplay.o:$LC60
+zGameplay.o:$LC76
 # @lc zGameplay "Attrib::Instance"
-zGameplay.o:$LC61
+zGameplay.o:$LC77
 # @lc zGameplay "Attrib::Definition"
-zGameplay.o:$LC62
+zGameplay.o:$LC78
 # @lc zGameplay "Attrib::Class"
-zGameplay.o:$LC63
+zGameplay.o:$LC79
 # @lc zGameplay "Attrib::Database"
-zGameplay.o:$LC64
+zGameplay.o:$LC80
 # @lc zGameplay "Attrib::TypeDesc"
-zGameplay.o:$LC65
+zGameplay.o:$LC81
 # @lc zGameplay "Attrib::RefSpec"
-zGameplay.o:$LC66
+zGameplay.o:$LC83
 # @lc zGameplay "Attrib::Blob"
-zGameplay.o:$LC67
+zGameplay.o:$LC84
 # @lc zGameplay "Attrib::Gen::simsurface"
-zGameplay.o:$LC169
+zGameplay.o:$LC188
 # @lc zGameplay "Attrib::Gen::engine"
-zGameplay.o:$LC221
+zGameplay.o:$LC420
 # @lc zGameplay "19.8.31"
-zGameplay.o:$LC229
+zGameplay.o:$LC246
 # @lc zGameplay "Attrib::Gen::emitterdata"
-zGameplay.o:$LC235
+zGameplay.o:$LC276
 # @lc zGameplay "Attrib::Gen::emittergroup"
-zGameplay.o:$LC236
+zGameplay.o:$LC275
 # @lc zGameplay "Attrib::Gen::aivehicle"
-zGameplay.o:$LC252
+zGameplay.o:$LC285
 # @lc zGameplay "Attrib::Gen::pursuitescalation"
-zGameplay.o:$LC253
+zGameplay.o:$LC287
 # @lc zGameplay "Attrib::Gen::pursuitlevels"
-zGameplay.o:$LC254
+zGameplay.o:$LC286
 # @lc zGameplay "Attrib::Gen::pursuitsupport"
-zGameplay.o:$LC255
+zGameplay.o:$LC288
 # @lc zGameplay "SMS_MESSAGE_%d"
-zGameplay.o:$LC344
+zGameplay.o:$LC386
 # @lc zGameplay "SMS_MESSAGE_%d_FROM"
-zGameplay.o:$LC345
+zGameplay.o:$LC387
 # @lc zGameplay "SMS_MESSAGE_%d_VOICE"
-zGameplay.o:$LC346
-# @lc zGameplay "SMS_MESSAGE_%d_SUBJECT"
-zGameplay.o:$LC347
-# @lc zGameplay "Attrib::Gen::engineaudio"
-zGameplay.o:$LC375
-# @lc zGameplay "Attrib::Gen::audiosystem"
 zGameplay.o:$LC388
+# @lc zGameplay "SMS_MESSAGE_%d_SUBJECT"
+zGameplay.o:$LC389
+# @lc zGameplay "Attrib::Gen::engineaudio"
+zGameplay.o:$LC421
+# @lc zGameplay "Attrib::Gen::audiosystem"
+zGameplay.o:$LC449
 # @lc zGameplay "Attrib::Gen::speech"
-zGameplay.o:$LC595
+zGameplay.o:$LC676
 # zSim: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zSim "Attrib::Attribute"
-zSim.o:$LC155
+zSim.o:$LC175
 # @lc zSim "Attrib::Instance"
-zSim.o:$LC156
+zSim.o:$LC176
 # @lc zSim "Attrib::Definition"
-zSim.o:$LC157
+zSim.o:$LC177
 # @lc zSim "Attrib::Class"
-zSim.o:$LC158
+zSim.o:$LC178
 # @lc zSim "Attrib::Database"
-zSim.o:$LC159
+zSim.o:$LC179
 # @lc zSim "Attrib::TypeDesc"
-zSim.o:$LC160
+zSim.o:$LC180
 # @lc zSim "Attrib::RefSpec"
-zSim.o:$LC161
+zSim.o:$LC181
 # @lc zSim "Attrib::Blob"
-zSim.o:$LC162
+zSim.o:$LC182
 # @lc zSim "AIParams"
-zSim.o:$LC375
+zSim.o:$LC461
 # @lc zSim "RBComplexParams"
-zSim.o:$LC376
+zSim.o:$LC462
 # @lc zSim "RBSimpleParams"
-zSim.o:$LC377
+zSim.o:$LC463
 # @lc zSim "SuspensionParams"
-zSim.o:$LC378
+zSim.o:$LC464
 # @lc zSim "EngineParams"
-zSim.o:$LC379
+zSim.o:$LC465
 # @lc zSim "DamageParams"
-zSim.o:$LC380
+zSim.o:$LC466
 # @lc zSim "WorldBodyConn"
-zSim.o:$LC387
+zSim.o:$LC475
 # @lc zSim "Pkt_Body_Open"
-zSim.o:$LC388
+zSim.o:$LC476
 # @lc zSim "Pkt_Body_Service"
-zSim.o:$LC389
+zSim.o:$LC477
 # @lc zSim "World_UpdateBody"
-zSim.o:$LC390
+zSim.o:$LC478
 # @lc zSim "Pkt_Body_Send"
-zSim.o:$LC391
+zSim.o:$LC479
 # @lc zSim "Pkt_Effect_Service"
-zSim.o:$LC396
+zSim.o:$LC484
 # zWorld: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zWorld "GAMECUBE"
-zWorld.o:$LC58
+zWorld.o:$LC65
 # @lc zWorld "Attrib::Attribute"
-zWorld.o:$LC155
+zWorld.o:$LC164
 # @lc zWorld "Attrib::Instance"
-zWorld.o:$LC156
+zWorld.o:$LC165
 # @lc zWorld "Attrib::Definition"
-zWorld.o:$LC157
+zWorld.o:$LC166
 # @lc zWorld "Attrib::Class"
-zWorld.o:$LC158
-# @lc zWorld "Attrib::Database"
-zWorld.o:$LC159
-# @lc zWorld "Attrib::TypeDesc"
-zWorld.o:$LC160
-# @lc zWorld "Attrib::RefSpec"
-zWorld.o:$LC161
-# @lc zWorld "Attrib::Blob"
-zWorld.o:$LC162
-# @lc zWorld "Attrib::TAttrib"
 zWorld.o:$LC167
+# @lc zWorld "Attrib::Database"
+zWorld.o:$LC168
+# @lc zWorld "Attrib::TypeDesc"
+zWorld.o:$LC169
+# @lc zWorld "Attrib::RefSpec"
+zWorld.o:$LC171
+# @lc zWorld "Attrib::Blob"
+zWorld.o:$LC172
+# @lc zWorld "Attrib::TAttrib"
+zWorld.o:$LC199
 # @lc zWorld "Attrib::Gen::engine"
-zWorld.o:$LC227
+zWorld.o:$LC410
 # @lc zWorld "Attrib::Gen::gameplay"
-zWorld.o:$LC251
+zWorld.o:$LC310
 # @lc zWorld "19.8.31"
-zWorld.o:$LC253
+zWorld.o:$LC314
 # @lc zWorld "GManager"
-zWorld.o:$LC256
+zWorld.o:$LC315
 # @lc zWorld "Attrib::Gen::camerainfo"
-zWorld.o:$LC266
+zWorld.o:$LC324
 # @lc zWorld "Attrib::Gen::emitterdata"
-zWorld.o:$LC304
+zWorld.o:$LC581
 # @lc zWorld "Attrib::Gen::aivehicle"
-zWorld.o:$LC363
-# @lc zWorld "Attrib::Gen::pursuitescalation"
-zWorld.o:$LC364
-# @lc zWorld "Attrib::Gen::pursuitlevels"
-zWorld.o:$LC365
-# @lc zWorld "Attrib::Gen::pursuitsupport"
-zWorld.o:$LC366
-# @lc zWorld "SMS_MESSAGE_%d"
-zWorld.o:$LC446
-# @lc zWorld "SMS_MESSAGE_%d_FROM"
-zWorld.o:$LC447
-# @lc zWorld "SMS_MESSAGE_%d_VOICE"
-zWorld.o:$LC448
-# @lc zWorld "SMS_MESSAGE_%d_SUBJECT"
-zWorld.o:$LC449
-# @lc zWorld "Attrib::Gen::effects"
-zWorld.o:$LC466
-# @lc zWorld "WorldBodyConn"
-zWorld.o:$LC468
-# @lc zWorld "Pkt_Body_Open"
 zWorld.o:$LC469
-# @lc zWorld "Pkt_Body_Service"
-zWorld.o:$LC470
-# @lc zWorld "World_UpdateBody"
+# @lc zWorld "Attrib::Gen::pursuitescalation"
 zWorld.o:$LC471
-# @lc zWorld "Pkt_Body_Send"
+# @lc zWorld "Attrib::Gen::pursuitlevels"
+zWorld.o:$LC470
+# @lc zWorld "Attrib::Gen::pursuitsupport"
 zWorld.o:$LC472
+# @lc zWorld "SMS_MESSAGE_%d"
+zWorld.o:$LC552
+# @lc zWorld "SMS_MESSAGE_%d_FROM"
+zWorld.o:$LC553
+# @lc zWorld "SMS_MESSAGE_%d_VOICE"
+zWorld.o:$LC554
+# @lc zWorld "SMS_MESSAGE_%d_SUBJECT"
+zWorld.o:$LC555
+# @lc zWorld "Attrib::Gen::effects"
+zWorld.o:$LC380
+# @lc zWorld "WorldBodyConn"
+zWorld.o:$LC382
+# @lc zWorld "Pkt_Body_Open"
+zWorld.o:$LC383
+# @lc zWorld "Pkt_Body_Service"
+zWorld.o:$LC384
+# @lc zWorld "World_UpdateBody"
+zWorld.o:$LC385
+# @lc zWorld "Pkt_Body_Send"
+zWorld.o:$LC386
 # @lc zWorld "World_OneShotEffect"
-zWorld.o:$LC473
+zWorld.o:$LC387
 # @lc zWorld "Pkt_Effect_Send"
-zWorld.o:$LC474
+zWorld.o:$LC388
 # @lc zWorld "WorldEffectConn"
-zWorld.o:$LC475
+zWorld.o:$LC389
 # @lc zWorld "Pkt_Effect_Open"
-zWorld.o:$LC476
+zWorld.o:$LC390
 # @lc zWorld "Pkt_Effect_Service"
-zWorld.o:$LC477
+zWorld.o:$LC391
 # @lc zWorld "Pkt_Car_Open"
-zWorld.o:$LC479
+zWorld.o:$LC393
 # @lc zWorld "Pkt_Heli_Open"
-zWorld.o:$LC484
+zWorld.o:$LC398
 # @lc zWorld "Pkt_VehicleFragment_Open"
-zWorld.o:$LC487
+zWorld.o:$LC401
 # @lc zWorld "Pkt_Smackable_Open"
-zWorld.o:$LC490
+zWorld.o:$LC406
 # zWorld2: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zWorld2 "GAMECUBE"
-zWorld2.o:$LC163
+zWorld2.o:$LC65
 # @lc zWorld2 "Attrib::Attribute"
-zWorld2.o:$LC164
+zWorld2.o:$LC182
 # @lc zWorld2 "Attrib::Instance"
-zWorld2.o:$LC165
+zWorld2.o:$LC183
 # @lc zWorld2 "Attrib::Definition"
-zWorld2.o:$LC166
+zWorld2.o:$LC184
 # @lc zWorld2 "Attrib::Class"
-zWorld2.o:$LC167
+zWorld2.o:$LC185
 # @lc zWorld2 "Attrib::Database"
-zWorld2.o:$LC168
+zWorld2.o:$LC186
 # @lc zWorld2 "Attrib::TypeDesc"
-zWorld2.o:$LC169
+zWorld2.o:$LC187
 # @lc zWorld2 "Attrib::Blob"
-zWorld2.o:$LC171
-# @lc zWorld2 "Attrib::Gen::simsurface"
-zWorld2.o:$LC175
-# @lc zWorld2 "Attrib::Gen::world"
 zWorld2.o:$LC190
+# @lc zWorld2 "Attrib::Gen::simsurface"
+zWorld2.o:$LC196
+# @lc zWorld2 "Attrib::Gen::world"
+zWorld2.o:$LC212
 # @lc zWorld2 "Attrib::Gen::pvehicle"
-zWorld2.o:$LC402
+zWorld2.o:$LC448
 # @lc zWorld2 "VehicleParams"
-zWorld2.o:$LC412
-# @lc zWorld2 "Attrib::Gen::gameplay"
-zWorld2.o:$LC413
-# @lc zWorld2 "19.8.31"
-zWorld2.o:$LC414
-# @lc zWorld2 "Attrib::Gen::emitterdata"
-zWorld2.o:$LC417
-# @lc zWorld2 "Attrib::Gen::emittergroup"
-zWorld2.o:$LC418
-# @lc zWorld2 "Attrib::Gen::aivehicle"
-zWorld2.o:$LC431
-# @lc zWorld2 "Attrib::Gen::pursuitescalation"
-zWorld2.o:$LC432
-# @lc zWorld2 "Attrib::Gen::pursuitlevels"
-zWorld2.o:$LC433
-# @lc zWorld2 "Attrib::Gen::pursuitsupport"
-zWorld2.o:$LC434
-# @lc zWorld2 "AIParams"
 zWorld2.o:$LC452
-# @lc zWorld2 "RBComplexParams"
+# @lc zWorld2 "Attrib::Gen::gameplay"
 zWorld2.o:$LC453
-# @lc zWorld2 "RBSimpleParams"
-zWorld2.o:$LC454
-# @lc zWorld2 "SuspensionParams"
-zWorld2.o:$LC455
-# @lc zWorld2 "EngineParams"
-zWorld2.o:$LC456
-# @lc zWorld2 "DamageParams"
+# @lc zWorld2 "19.8.31"
 zWorld2.o:$LC457
+# @lc zWorld2 "Attrib::Gen::emitterdata"
+zWorld2.o:$LC819
+# @lc zWorld2 "Attrib::Gen::emittergroup"
+zWorld2.o:$LC818
+# @lc zWorld2 "Attrib::Gen::aivehicle"
+zWorld2.o:$LC469
+# @lc zWorld2 "Attrib::Gen::pursuitescalation"
+zWorld2.o:$LC471
+# @lc zWorld2 "Attrib::Gen::pursuitlevels"
+zWorld2.o:$LC470
+# @lc zWorld2 "Attrib::Gen::pursuitsupport"
+zWorld2.o:$LC472
+# @lc zWorld2 "AIParams"
+zWorld2.o:$LC490
+# @lc zWorld2 "RBComplexParams"
+zWorld2.o:$LC491
+# @lc zWorld2 "RBSimpleParams"
+zWorld2.o:$LC492
+# @lc zWorld2 "SuspensionParams"
+zWorld2.o:$LC493
+# @lc zWorld2 "EngineParams"
+zWorld2.o:$LC494
+# @lc zWorld2 "DamageParams"
+zWorld2.o:$LC495
 # @lc zWorld2 "Pkt_Body_Open"
-zWorld2.o:$LC739
+zWorld2.o:$LC806
 # @lc zWorld2 "Pkt_Body_Send"
-zWorld2.o:$LC742
+zWorld2.o:$LC809
 # @lc zWorld2 "Pkt_Effect_Send"
-zWorld2.o:$LC744
+zWorld2.o:$LC811
 # @lc zWorld2 "Pkt_Effect_Open"
-zWorld2.o:$LC746
+zWorld2.o:$LC813
 # @lc zWorld2 "Attrib::Gen::audioimpact"
-zWorld2.o:$LC748
+zWorld2.o:$LC815
 # zPlatform: huecos escritos a mano sin entrada (gapchk.py).
 zPlatform.o:lbl_8041F8C3
 zPlatform.o:lbl_80402108
@@ -2228,1238 +2195,1174 @@ zSim.o:lbl_804358B0
 zSim.o:gap_06_804358B8_data
 # zSim: cadenas muertas que el objetivo SI tiene (deadstr.py).
 # @lc zSim "Attrib::Attribute"
-zSim.o:$LC155
+zSim.o:$LC175
 # @lc zSim "Attrib::Instance"
-zSim.o:$LC156
+zSim.o:$LC176
 # @lc zSim "Attrib::Definition"
-zSim.o:$LC157
+zSim.o:$LC177
 # @lc zSim "Attrib::Class"
-zSim.o:$LC158
+zSim.o:$LC178
 # @lc zSim "Attrib::Database"
-zSim.o:$LC159
+zSim.o:$LC179
 # @lc zSim "Attrib::TypeDesc"
-zSim.o:$LC160
+zSim.o:$LC180
 # @lc zSim "Attrib::RefSpec"
-zSim.o:$LC161
+zSim.o:$LC181
 # @lc zSim "Attrib::Blob"
-zSim.o:$LC162
+zSim.o:$LC182
 # @lc zSim "AIParams"
-zSim.o:$LC375
+zSim.o:$LC461
 # @lc zSim "RBComplexParams"
-zSim.o:$LC376
+zSim.o:$LC462
 # @lc zSim "RBSimpleParams"
-zSim.o:$LC377
+zSim.o:$LC463
 # @lc zSim "SuspensionParams"
-zSim.o:$LC378
+zSim.o:$LC464
 # @lc zSim "EngineParams"
-zSim.o:$LC379
+zSim.o:$LC465
 # @lc zSim "DamageParams"
-zSim.o:$LC380
+zSim.o:$LC466
 # @lc zSim "WorldBodyConn"
-zSim.o:$LC387
+zSim.o:$LC475
 # @lc zSim "Pkt_Body_Open"
-zSim.o:$LC388
+zSim.o:$LC476
 # @lc zSim "Pkt_Body_Service"
-zSim.o:$LC389
+zSim.o:$LC477
 # @lc zSim "World_UpdateBody"
-zSim.o:$LC390
-# @lc zSim "Pkt_Body_Send"
-zSim.o:$LC391
-# @lc zSim "Pkt_Effect_Service"
-zSim.o:$LC396
-# @lc zSim "NISName"
-zSim.o:$LC551
-# @lc zSim "MPerpBusted"
-zSim.o:$LC552
-# @lc zSim "Perpetrator"
-zSim.o:$LC553
-# @lc zSim "ISimable"
-zSim.o:$LC554
-# @lc zSim "SimTime"
-zSim.o:$LC627
-# @lc zSim "TimeStep"
-zSim.o:$LC628
-# @lc zSim "FEngHUD"
 zSim.o:$LC478
+# @lc zSim "Pkt_Body_Send"
+zSim.o:$LC479
+# @lc zSim "Pkt_Effect_Service"
+zSim.o:$LC484
+# @lc zSim "NISName"
+zSim.o:$LC647
+# @lc zSim "MPerpBusted"
+zSim.o:$LC648
+# @lc zSim "Perpetrator"
+zSim.o:$LC649
+# @lc zSim "ISimable"
+zSim.o:$LC650
+# @lc zSim "SimTime"
+zSim.o:$LC729
+# @lc zSim "TimeStep"
+zSim.o:$LC730
+# @lc zSim "FEngHUD"
+zSim.o:$LC568
 # @lc zSim "MNISComplete"
-zSim.o:$LC550
+zSim.o:$LC646
 # @lc zSim "MNotifyMovieFinished"
-zSim.o:$LC555
+zSim.o:$LC651
 # @lc zSim "MNotifySimTick"
-zSim.o:$LC626
+zSim.o:$LC728
 zSim.o:lbl_80404940
 # iter6: retain the eathread constructor and its entry
 eathread_thread.o:GlobalThreadDynamicDataInit
 eathread_thread.o:gThreadDynamicDataConstructor
 # zAI: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zAI "Attrib::Gen::trafficpattern"
-zAI.o:$LC162
+zAI.o:$LC295
 # @lc zAI "Attrib::Gen::pvehicle"
-zAI.o:$LC163
+zAI.o:$LC178
 # @lc zAI "Attrib::Gen::chassis"
-zAI.o:$LC222
+zAI.o:$LC969
 # @lc zAI "Attrib::Gen::nos"
-zAI.o:$LC224
+zAI.o:$LC972
 # @lc zAI "Attrib::Gen::tires"
-zAI.o:$LC225
+zAI.o:$LC970
 # @lc zAI "16.2.1"
-zAI.o:$LC233
+zAI.o:$LC396
 # @lc zAI "1.2.3"
-zAI.o:$LC234
+zAI.o:$LC397
 # @lc zAI "Attrib::Gen::aivehicle"
-zAI.o:$LC158
+zAI.o:$LC391
 # @lc zAI "Attrib::Gen::pursuitescalation"
-zAI.o:$LC160
+zAI.o:$LC393
 # @lc zAI "Attrib::Gen::pursuitlevels"
-zAI.o:$LC159
+zAI.o:$LC392
 # @lc zAI "Attrib::Gen::pursuitsupport"
-zAI.o:$LC161
+zAI.o:$LC394
 # @lc zAI "Attrib::Gen::rigidbodyspecs"
-zAI.o:$LC847
+zAI.o:$LC971
 # @lc zAI "Attrib::Gen::collisionreactions"
-zAI.o:$LC965
+zAI.o:$LC1090
 # @lc zAI "Attrib::Gen::smackable"
-zAI.o:$LC966
+zAI.o:$LC1091
 # @lc zAI "%s %s"
-zAI.o:$LC1376
+zAI.o:$LC1501
 # @lc zAI "%s"
-zAI.o:$LC1377
+zAI.o:$LC1502
 # @lc zAI "%d"
-zAI.o:$LC1378
+zAI.o:$LC1503
 # @lc zAI "%d%s"
-zAI.o:$LC1383
+zAI.o:$LC1508
 # @lc zAI "%0.0f"
-zAI.o:$LC1390
+zAI.o:$LC1515
 # @lc zAI "+%s"
-zAI.o:$LC1395
+zAI.o:$LC1520
 # @lc zAI "%s%d"
-zAI.o:$LC1396
+zAI.o:$LC1521
 # zFe: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 zFe.o:$LC58
 # @lc zFe "ScrollerDatumNode"
-zFe.o:$LC258
+zFe.o:$LC251
 # @lc zFe "ScrollerSlotNode"
-zFe.o:$LC260
+zFe.o:$LC253
 # @lc zFe "Challenge"
-zFe.o:$LC203
+zFe.o:$LC475
 # @lc zFe "MainQuickRace"
-zFe.o:$LC204
+zFe.o:$LC476
 # @lc zFe "MainCustomize"
-zFe.o:$LC205
+zFe.o:$LC477
 # @lc zFe "MainOptions"
-zFe.o:$LC206
+zFe.o:$LC478
 # @lc zFe "MainCareer"
-zFe.o:$LC207
+zFe.o:$LC479
 # @lc zFe "MainProfileManager"
-zFe.o:$LC208
+zFe.o:$LC480
 # @lc zFe "AOSFXMasterVol"
-zFe.o:$LC507
+zFe.o:$LC589
 # @lc zFe "AOCarVol"
-zFe.o:$LC508
+zFe.o:$LC590
 # @lc zFe "AOSpeechVol"
-zFe.o:$LC509
+zFe.o:$LC591
 # @lc zFe "AOFEMusicVol"
-zFe.o:$LC510
+zFe.o:$LC592
 # @lc zFe "AOIGMusicVol"
-zFe.o:$LC511
-# @lc zFe "AOEATraxMusicMode"
-zFe.o:$LC513
-# @lc zFe "AOAudioMode"
-zFe.o:$LC514
-# @lc zFe "AudioSettings"
-zFe.o:$LC515
-# @lc zFe "VOWideScreen"
-zFe.o:$LC516
-# @lc zFe "VideoSettings"
-zFe.o:$LC517
-# @lc zFe "GOAutoSave"
-zFe.o:$LC518
-# @lc zFe "GOJumpCams"
-zFe.o:$LC519
-# @lc zFe "GODamage"
-zFe.o:$LC520
-# @lc zFe "GORearview"
-zFe.o:$LC521
-# @lc zFe "GOSpeedoUnits"
-zFe.o:$LC522
-# @lc zFe "GOExploringMiniMap"
-zFe.o:$LC523
-# @lc zFe "GORacingMiniMap"
-zFe.o:$LC524
-# @lc zFe "GameplaySettings"
-zFe.o:$LC525
-# @lc zFe "POTransmission"
-zFe.o:$LC526
-# @lc zFe "PODriveCam"
-zFe.o:$LC527
-# @lc zFe "POGauges"
-zFe.o:$LC528
-# @lc zFe "POPosition"
-zFe.o:$LC529
-# @lc zFe "POSplitTime"
-zFe.o:$LC530
-# @lc zFe "POScore"
-zFe.o:$LC531
-# @lc zFe "POLeaderBoard"
-zFe.o:$LC532
-# @lc zFe "PlayerSettings"
-zFe.o:$LC533
-# @lc zFe "COConfig"
-zFe.o:$LC535
-# @lc zFe "COVibration"
-zFe.o:$LC537
-# @lc zFe "%s %s"
-zFe.o:$LC540
-# @lc zFe "%0.0f"
-zFe.o:$LC551
-# @lc zFe "+%s"
-zFe.o:$LC556
-# @lc zFe "%s%d"
-zFe.o:$LC557
-# @lc zFe "MControlPathfinder"
 zFe.o:$LC593
-# @lc zFe "PartID"
+# @lc zFe "AOEATraxMusicMode"
+zFe.o:$LC595
+# @lc zFe "AOAudioMode"
+zFe.o:$LC596
+# @lc zFe "AudioSettings"
+zFe.o:$LC597
+# @lc zFe "VOWideScreen"
 zFe.o:$LC598
-# @lc zFe "Attrib::Gen::frontend"
+# @lc zFe "VideoSettings"
+zFe.o:$LC599
+# @lc zFe "GOAutoSave"
+zFe.o:$LC600
+# @lc zFe "GOJumpCams"
+zFe.o:$LC601
+# @lc zFe "GODamage"
+zFe.o:$LC602
+# @lc zFe "GORearview"
+zFe.o:$LC603
+# @lc zFe "GOSpeedoUnits"
+zFe.o:$LC604
+# @lc zFe "GOExploringMiniMap"
+zFe.o:$LC605
+# @lc zFe "GORacingMiniMap"
+zFe.o:$LC606
+# @lc zFe "GameplaySettings"
+zFe.o:$LC607
+# @lc zFe "POTransmission"
+zFe.o:$LC608
+# @lc zFe "PODriveCam"
+zFe.o:$LC609
+# @lc zFe "POGauges"
+zFe.o:$LC610
+# @lc zFe "POPosition"
+zFe.o:$LC611
+# @lc zFe "POSplitTime"
+zFe.o:$LC612
+# @lc zFe "POScore"
+zFe.o:$LC613
+# @lc zFe "POLeaderBoard"
+zFe.o:$LC614
+# @lc zFe "PlayerSettings"
+zFe.o:$LC615
+# @lc zFe "COConfig"
 zFe.o:$LC618
+# @lc zFe "COVibration"
+zFe.o:$LC620
+# @lc zFe "%s %s"
+zFe.o:$LC623
+# @lc zFe "%0.0f"
+zFe.o:$LC634
+# @lc zFe "+%s"
+zFe.o:$LC639
+# @lc zFe "%s%d"
+zFe.o:$LC640
+# @lc zFe "MControlPathfinder"
+zFe.o:$LC179
+# @lc zFe "PartID"
+zFe.o:$LC184
+# @lc zFe "Attrib::Gen::frontend"
+zFe.o:$LC695
 # @lc zFe "RepSheetIcon"
-zFe.o:$LC690
+zFe.o:$LC767
 # @lc zFe "ImageArraySlot"
-zFe.o:$LC698
+zFe.o:$LC775
 # @lc zFe "MilestoneDatum"
-zFe.o:$LC735
+zFe.o:$LC812
 # @lc zFe "SpeedTrapDatum"
-zFe.o:$LC736
+zFe.o:$LC813
 # @lc zFe "BountyDatum"
-zFe.o:$LC745
+zFe.o:$LC822
 # @lc zFe "_EU"
-zFe.o:$LC856
+zFe.o:$LC569
 # zFe2: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zFe2 "Attrib::RefSpec"
-zFe2.o:$LC79
+zFe2.o:$LC191
 # @lc zFe2 "Attrib::Gen::pvehicle"
-zFe2.o:$LC214
+zFe2.o:$LC198
 # @lc zFe2 "Attrib::Gen::engine"
-zFe2.o:$LC272
+zFe2.o:$LC510
 # @lc zFe2 "Attrib::Gen::pursuitlevels"
-zFe2.o:$LC3
+zFe2.o:$LC265
 # @lc zFe2 "Attrib::Gen::presetride"
-zFe2.o:$LC360
+zFe2.o:$LC1287
 # @lc zFe2 "MMiscSound"
-zFe2.o:$LC10
+zFe2.o:$LC403
 # @lc zFe2 "Attrib::Gen::audiosystem"
-zFe2.o:$LC501
+zFe2.o:$LC524
 # @lc zFe2 "MCountdownDone"
-zFe2.o:$LC502
+zFe2.o:$LC525
 # @lc zFe2 "Attrib::Gen::camerainfo"
-zFe2.o:$LC542
+zFe2.o:$LC565
 # @lc zFe2 "Attrib::Gen::ecar"
-zFe2.o:$LC543
+zFe2.o:$LC564
 # @lc zFe2 "Chyron"
-zFe2.o:$LC861
+zFe2.o:$LC923
 # @lc zFe2 "FEKeyboard"
-zFe2.o:$LC875
+zFe2.o:$LC939
 # @lc zFe2 "MNotifyRaceAbandoned"
-zFe2.o:$LC886
+zFe2.o:$LC950
 # @lc zFe2 "MFlowReadyForOutro"
-zFe2.o:$LC951
+zFe2.o:$LC1015
 # @lc zFe2 "_EU"
-zFe2.o:$LC985
+zFe2.o:$LC1051
 # @lc zFe2 "MControlPathfinder"
-zFe2.o:$LC995
+zFe2.o:$LC1063
 # @lc zFe2 "PartID"
-zFe2.o:$LC1000
-# @lc zFe2 "InGameAnyMovieScreen"
 zFe2.o:$LC1068
+# @lc zFe2 "InGameAnyMovieScreen"
+zFe2.o:$LC1141
 # @lc zFe2 "Attrib::Gen::frontend"
-zFe2.o:$LC1149
+zFe2.o:$LC1223
 # @lc zFe2 "Attrib::Gen::music"
-zFe2.o:$LC1150
+zFe2.o:$LC1224
 # @lc zFe2 "Attrib::Gen::fecooling"
-zFe2.o:$LC1210
+zFe2.o:$LC1285
 # @lc zFe2 "Attrib::Gen::infractions"
-zFe2.o:$LC1211
+zFe2.o:$LC1286
 # @lc zFe2 "Ez"
-zFe2.o:$LC1593
+zFe2.o:$LC1754
 # @lc zFe2 "?"
-zFe2.o:$LC401
+zFe2.o:$LC422
 # @lc zFe2 "C "
-zFe2.o:$LC1595
+zFe2.o:$LC1756
 # zGameplay: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zGameplay "Attrib::Gen::gameplay"
-zGameplay.o:$LC158
+zGameplay.o:$LC178
 # @lc zGameplay "Attrib::TAttrib"
-zGameplay.o:$LC159
+zGameplay.o:$LC179
 # @lc zGameplay "Attrib::Gen::pvehicle"
-zGameplay.o:$LC161
+zGameplay.o:$LC180
 # @lc zGameplay "1.2.3"
-zGameplay.o:$LC231
+zGameplay.o:$LC244
 # @lc zGameplay "VehicleParams"
-zGameplay.o:$LC397
+zGameplay.o:$LC461
 # @lc zGameplay "MSetTrafficSpeed"
-zGameplay.o:$LC580
+zGameplay.o:$LC657
 # @lc zGameplay "Attrib::Gen::milestonetypes"
-zGameplay.o:$LC597
+zGameplay.o:$LC678
 # @lc zGameplay "C0"
-zGameplay.o:$LC416
+zGameplay.o:$LC480
 # @lc zGameplay "A "
-zGameplay.o:$LC441
+zGameplay.o:$LC507
 # zEAXSound: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zEAXSound "Attrib::RefSpec"
-zEAXSound.o:$LC153
+zEAXSound.o:$LC171
 # @lc zEAXSound "Attrib::Gen::pvehicle"
-zEAXSound.o:$LC158
+zEAXSound.o:$LC240
 # @lc zEAXSound "Attrib::Gen::simsurface"
-zEAXSound.o:$LC167
+zEAXSound.o:$LC185
 # @lc zEAXSound "Attrib::Gen::engine"
-zEAXSound.o:$LC219
+zEAXSound.o:$LC241
 # @lc zEAXSound "16.2.1"
-zEAXSound.o:$LC231
+zEAXSound.o:$LC312
 # @lc zEAXSound "1.2.3"
-zEAXSound.o:$LC232
+zEAXSound.o:$LC313
 # @lc zEAXSound "Attrib::Gen::engineaudio"
-zEAXSound.o:$LC347
+zEAXSound.o:$LC242
 # @lc zEAXSound "Attrib::Gen::audiosystem"
-zEAXSound.o:$LC360
+zEAXSound.o:$LC414
 # @lc zEAXSound "MControlPathfinder"
-zEAXSound.o:$LC392
+zEAXSound.o:$LC443
 # @lc zEAXSound "Attrib::Gen::speech"
-zEAXSound.o:$LC413
+zEAXSound.o:$LC461
 # @lc zEAXSound "AUD:EAXCommon"
-zEAXSound.o:$LC438
+zEAXSound.o:$LC487
 # @lc zEAXSound "AUD:EAXFrontEnd"
-zEAXSound.o:$LC439
+zEAXSound.o:$LC488
 # @lc zEAXSound "MMiscSound"
-zEAXSound.o:$LC506
+zEAXSound.o:$LC554
 # @lc zEAXSound "MGamePlayMoment"
-zEAXSound.o:$LC514
+zEAXSound.o:$LC664
 # @lc zEAXSound "Attrib::Gen::audioimpact"
-zEAXSound.o:$LC564
+zEAXSound.o:$LC291
 # @lc zEAXSound "Attrib::Gen::audioscrape"
-zEAXSound.o:$LC567
+zEAXSound.o:$LC722
 # @lc zEAXSound "Sound::CollisionEvent"
-zEAXSound.o:$LC574
+zEAXSound.o:$LC729
 # @lc zEAXSound "Attrib::Gen::aud_stitch_loop"
-zEAXSound.o:$LC624
+zEAXSound.o:$LC779
 # @lc zEAXSound "STL"
-zEAXSound.o:$LC1028
+zEAXSound.o:$LC75
 # @lc zEAXSound "C0"
-zEAXSound.o:$LC584
+zEAXSound.o:$LC739
 # zEAXSound2: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zEAXSound2 "Attrib::Gen::pvehicle"
-zEAXSound2.o:$LC158
+zEAXSound2.o:$LC178
 # @lc zEAXSound2 "Attrib::Gen::simsurface"
-zEAXSound2.o:$LC167
+zEAXSound2.o:$LC187
 # @lc zEAXSound2 "Attrib::Gen::acceltrans"
-zEAXSound2.o:$LC236
+zEAXSound2.o:$LC251
 # @lc zEAXSound2 "Attrib::Gen::engineaudio"
-zEAXSound2.o:$LC237
+zEAXSound2.o:$LC252
 # @lc zEAXSound2 "Attrib::Gen::shiftpattern"
-zEAXSound2.o:$LC238
+zEAXSound2.o:$LC253
 # @lc zEAXSound2 "Attrib::Gen::turbosfx"
-zEAXSound2.o:$LC239
+zEAXSound2.o:$LC254
 # @lc zEAXSound2 "16.2.1"
-zEAXSound2.o:$LC269
+zEAXSound2.o:$LC322
 # @lc zEAXSound2 "1.2.3"
-zEAXSound2.o:$LC270
+zEAXSound2.o:$LC323
 # @lc zEAXSound2 "Attrib::Gen::audioimpact"
-zEAXSound2.o:$LC426
+zEAXSound2.o:$LC294
 # @lc zEAXSound2 "MGamePlayMoment"
-zEAXSound2.o:$LC430
+zEAXSound2.o:$LC470
 # @lc zEAXSound2 "MPursuitBreaker"
-zEAXSound2.o:$LC431
+zEAXSound2.o:$LC477
 # @lc zEAXSound2 "MControlPathfinder"
-zEAXSound2.o:$LC432
+zEAXSound2.o:$LC479
 # @lc zEAXSound2 "MPerpBusted"
-zEAXSound2.o:$LC433
+zEAXSound2.o:$LC485
 # @lc zEAXSound2 "MMiscSound"
-zEAXSound2.o:$LC435
+zEAXSound2.o:$LC489
 # @lc zEAXSound2 "Attrib::Gen::smackable"
-zEAXSound2.o:$LC463
+zEAXSound2.o:$LC519
 # @lc zEAXSound2 "AUD: WorldObject"
-zEAXSound2.o:$LC484
+zEAXSound2.o:$LC540
 # @lc zEAXSound2 "Stitch Loop"
-zEAXSound2.o:$LC577
+zEAXSound2.o:$LC635
 # @lc zEAXSound2 "Attrib::Gen::aud_moment_strm"
-zEAXSound2.o:$LC679
+zEAXSound2.o:$LC469
 # @lc zEAXSound2 "MNotifyMusicFlow"
-zEAXSound2.o:$LC794
+zEAXSound2.o:$LC851
 # @lc zEAXSound2 "PATH5: Pursuit breaker sound filter fader"
-zEAXSound2.o:$LC846
+zEAXSound2.o:$LC911
 # @lc zEAXSound2 "eMM_MAIN"
-zEAXSound2.o:$LC1054
+zEAXSound2.o:$LC1119
 # @lc zEAXSound2 "eMM_PLAYERCAR"
-zEAXSound2.o:$LC1055
+zEAXSound2.o:$LC1120
 # @lc zEAXSound2 "eMM_AIRACECAR"
-zEAXSound2.o:$LC1056
+zEAXSound2.o:$LC1121
 # @lc zEAXSound2 "eMM_TRAFFIC"
-zEAXSound2.o:$LC1057
+zEAXSound2.o:$LC1122
 # @lc zEAXSound2 "Dynamic MIx Map"
-zEAXSound2.o:$LC1110
+zEAXSound2.o:$LC1175
 # @lc zEAXSound2 "Event MixMap"
-zEAXSound2.o:$LC1112
+zEAXSound2.o:$LC1177
 # zPhysicsBehaviors: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zPhysicsBehaviors "Attrib::RefSpec"
-zPhysicsBehaviors.o:$LC152
+zPhysicsBehaviors.o:$LC171
 # @lc zPhysicsBehaviors "Attrib::Gen::simsurface"
-zPhysicsBehaviors.o:$LC164
+zPhysicsBehaviors.o:$LC187
 # @lc zPhysicsBehaviors "Attrib::TAttrib"
-zPhysicsBehaviors.o:$LC165
+zPhysicsBehaviors.o:$LC179
 # @lc zPhysicsBehaviors "Attrib::Gen::pvehicle"
-zPhysicsBehaviors.o:$LC216
+zPhysicsBehaviors.o:$LC178
 # @lc zPhysicsBehaviors "Attrib::Gen::chopperspecs"
-zPhysicsBehaviors.o:$LC217
+zPhysicsBehaviors.o:$LC338
 # @lc zPhysicsBehaviors "Attrib::Gen::damagespecs"
-zPhysicsBehaviors.o:$LC218
+zPhysicsBehaviors.o:$LC339
 # @lc zPhysicsBehaviors "Attrib::Gen::tires"
-zPhysicsBehaviors.o:$LC219
+zPhysicsBehaviors.o:$LC340
 # @lc zPhysicsBehaviors "Attrib::Gen::chassis"
-zPhysicsBehaviors.o:$LC220
+zPhysicsBehaviors.o:$LC341
 # @lc zPhysicsBehaviors "Attrib::Gen::brakes"
-zPhysicsBehaviors.o:$LC221
+zPhysicsBehaviors.o:$LC342
 # @lc zPhysicsBehaviors "Attrib::Gen::engine"
-zPhysicsBehaviors.o:$LC222
+zPhysicsBehaviors.o:$LC343
 # @lc zPhysicsBehaviors "Attrib::Gen::transmission"
-zPhysicsBehaviors.o:$LC223
+zPhysicsBehaviors.o:$LC344
 # @lc zPhysicsBehaviors "Attrib::Gen::induction"
-zPhysicsBehaviors.o:$LC224
+zPhysicsBehaviors.o:$LC345
 # @lc zPhysicsBehaviors "Attrib::Gen::nos"
-zPhysicsBehaviors.o:$LC225
+zPhysicsBehaviors.o:$LC346
 # @lc zPhysicsBehaviors "Attrib::Gen::rigidbodyspecs"
-zPhysicsBehaviors.o:$LC226
+zPhysicsBehaviors.o:$LC335
 # @lc zPhysicsBehaviors "RBComplexParams"
-zPhysicsBehaviors.o:$LC228
+zPhysicsBehaviors.o:$LC244
 # @lc zPhysicsBehaviors "RBSimpleParams"
-zPhysicsBehaviors.o:$LC229
+zPhysicsBehaviors.o:$LC245
 # @lc zPhysicsBehaviors "SuspensionParams"
-zPhysicsBehaviors.o:$LC230
+zPhysicsBehaviors.o:$LC246
 # @lc zPhysicsBehaviors "EngineParams"
-zPhysicsBehaviors.o:$LC231
+zPhysicsBehaviors.o:$LC247
 # @lc zPhysicsBehaviors "DamageParams"
-zPhysicsBehaviors.o:$LC232
+zPhysicsBehaviors.o:$LC248
 # @lc zPhysicsBehaviors "Attrib::Gen::collisionreactions"
-zPhysicsBehaviors.o:$LC325
+zPhysicsBehaviors.o:$LC548
 # @lc zPhysicsBehaviors "VehicleParams"
-zPhysicsBehaviors.o:$LC350
+zPhysicsBehaviors.o:$LC242
 # @lc zPhysicsBehaviors "Attrib::Gen::smackable"
-zPhysicsBehaviors.o:$LC364
+zPhysicsBehaviors.o:$LC336
 # @lc zPhysicsBehaviors "16.2.1"
-zPhysicsBehaviors.o:$LC407
+zPhysicsBehaviors.o:$LC362
 # @lc zPhysicsBehaviors "1.2.3"
-zPhysicsBehaviors.o:$LC408
+zPhysicsBehaviors.o:$LC363
 # @lc zPhysicsBehaviors "Attrib::Gen::effects"
-zPhysicsBehaviors.o:$LC1151
+zPhysicsBehaviors.o:$LC1531
 # @lc zPhysicsBehaviors "8"
-zPhysicsBehaviors.o:$LC1643
+zPhysicsBehaviors.o:$LC1722
 # @lc zPhysicsBehaviors "C0"
-zPhysicsBehaviors.o:$LC673
+zPhysicsBehaviors.o:$LC758
 # r52-jf: bloques del prefijo de bWare escritos a mano. Llevan simbolo y nadie
 # los referencia, asi que -strip-unused-data se los llevaba enteros (92 B cada uno).
 zAI.o:lbl_803C8C60
 zGameModes.o:lbl_803EBB48
 # zPhysics: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zPhysics "Attrib::Instance"
-zPhysics.o:$LC59
+zPhysics.o:$LC165
 # @lc zPhysics "Attrib::RefSpec"
-zPhysics.o:$LC64
+zPhysics.o:$LC171
 # @lc zPhysics "Attrib::Gen::simsurface"
-zPhysics.o:$LC156
-# @lc zPhysics "MGeneric"
-zPhysics.o:$LC158
-# @lc zPhysics "High"
-zPhysics.o:$LC159
-# @lc zPhysics "Medium"
-zPhysics.o:$LC160
-# @lc zPhysics "Low"
-zPhysics.o:$LC161
-# @lc zPhysics "Reflection"
-zPhysics.o:$LC162
+zPhysics.o:$LC186
 # @lc zPhysics "SmackableParams"
-zPhysics.o:$LC163
+zPhysics.o:$LC241
 # @lc zPhysics "Attrib::Gen::pvehicle"
-zPhysics.o:$LC222
+zPhysics.o:$LC242
 # @lc zPhysics "Attrib::Gen::chassis"
-zPhysics.o:$LC223
+zPhysics.o:$LC717
 # @lc zPhysics "Attrib::Gen::engine"
-zPhysics.o:$LC224
+zPhysics.o:$LC490
 # @lc zPhysics "Attrib::Gen::induction"
-zPhysics.o:$LC225
+zPhysics.o:$LC720
 # @lc zPhysics "Attrib::Gen::nos"
-zPhysics.o:$LC226
+zPhysics.o:$LC721
 # @lc zPhysics "Attrib::Gen::tires"
-zPhysics.o:$LC227
+zPhysics.o:$LC719
 # @lc zPhysics "Attrib::Gen::transmission"
-zPhysics.o:$LC228
+zPhysics.o:$LC718
 # @lc zPhysics "16.2.1"
-zPhysics.o:$LC236
+zPhysics.o:$LC302
 # @lc zPhysics "1.2.3"
-zPhysics.o:$LC237
+zPhysics.o:$LC303
 # @lc zPhysics "VehicleParams"
-zPhysics.o:$LC358
+zPhysics.o:$LC246
 # @lc zPhysics "ExplosionParams"
-zPhysics.o:$LC360
-# @lc zPhysics "16.1.0"
-zPhysics.o:$LC378
+zPhysics.o:$LC247
 # @lc zPhysics "1.8.1"
-zPhysics.o:$LC379
-# @lc zPhysics "MAudioReflection"
-zPhysics.o:$LC396
-# @lc zPhysics "PlayerNum"
-zPhysics.o:$LC397
-# @lc zPhysics "Dist"
-zPhysics.o:$LC398
-# @lc zPhysics "Covered"
-zPhysics.o:$LC399
+zPhysics.o:$LC304
 # @lc zPhysics "GRaceStatus"
-zPhysics.o:$LC401
+zPhysics.o:$LC310
 # @lc zPhysics "MJumpCut"
-zPhysics.o:$LC402
+zPhysics.o:$LC507
 # @lc zPhysics "Attrib::Gen::rigidbodyspecs"
-zPhysics.o:$LC487
+zPhysics.o:$LC206
 # @lc zPhysics "Attrib::Gen::smackable"
-zPhysics.o:$LC488
-# @lc zPhysics "PAD_DEAD_ZONE"
-zPhysics.o:$LC552
-# @lc zPhysics "SKID_AUDIO_SCALE"
-zPhysics.o:$LC553
-# @lc zPhysics "ROLLING_RESISTANCE"
-zPhysics.o:$LC554
-# @lc zPhysics "TYRE_DAMAGE_RADIUS"
-zPhysics.o:$LC555
-# @lc zPhysics "ENABLE_ROLL_STOPS_THRESHOLD"
-zPhysics.o:$LC556
-# @lc zPhysics "BASE_FRICTION_MASS"
-zPhysics.o:$LC557
-# @lc zPhysics "SHRED_DRAG"
-zPhysics.o:$LC558
-# @lc zPhysics "MIN_BUTTON_VALUE"
-zPhysics.o:$LC559
-# @lc zPhysics "WHEEL_SPIN_EXTRA_RPM"
-zPhysics.o:$LC560
-# @lc zPhysics "DAMAGE_SCALE_COLLISION"
-zPhysics.o:$LC561
-# @lc zPhysics "EMP_LIFETIME"
-zPhysics.o:$LC562
-# @lc zPhysics "MAX_WHEEL_SPIN_RATE_AI"
-zPhysics.o:$LC563
-# @lc zPhysics "POST_BRAKE_ACCEL_COUNT"
-zPhysics.o:$LC564
-# @lc zPhysics "POST_BRAKE_ACCEL_SCALE"
-zPhysics.o:$LC565
-# @lc zPhysics "POST_BRAKE_ACCEL_MIN"
-zPhysics.o:$LC566
+zPhysics.o:$LC207
 # @lc zPhysics "Attrib::Gen::junkman"
-zPhysics.o:$LC620
+zPhysics.o:$LC686
 # @lc zPhysics "Attrib::Gen::brakes"
-zPhysics.o:$LC643
+zPhysics.o:$LC722
 # zAnim: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 zAnim.o:$LC148
 zAnim.o:$LC302
 zAnim.o:$LC303
 zAnim.o:$LC379
 # @lc zAnim "CBasicCharacterAnimEntity"
-zAnim.o:$LC385
+zAnim.o:$LC484
 # @lc zAnim "CPropAnimEntity"
-zAnim.o:$LC386
+zAnim.o:$LC485
 # @lc zAnim "WorldAnimEntityInfo*[]"
-zAnim.o:$LC415
+zAnim.o:$LC514
 # @lc zAnim "EAGL4::SQT buffer CAnimPart"
-zAnim.o:$LC433
+zAnim.o:$LC536
 # @lc zAnim "CWorldAnimEntity*"
-zAnim.o:$LC461
+zAnim.o:$LC566
 # @lc zAnim "Unnamed MyEAGLNewOverride"
-zAnim.o:$LC371
+zAnim.o:$LC483
 # @lc zAnim "CAnimResourceFileProxy"
-zAnim.o:$LC429
+zAnim.o:$LC530
 # @lc zAnim "CAnimProperty"
-zAnim.o:$LC441
+zAnim.o:$LC546
 # @lc zAnim "GenericNISControlScenario"
-zAnim.o:$LC487
+zAnim.o:$LC592
 # zEagl4Anim: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zEagl4Anim "C0"
-zEagl4Anim.o:$LC77
+zEagl4Anim.o:$LC181
 # @lc zEagl4Anim "8"
-zEagl4Anim.o:$LC170
+zEagl4Anim.o:$LC297
 # @lc zEagl4Anim "?"
-zEagl4Anim.o:$LC116
+zEagl4Anim.o:$LC226
 # zSpeech: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zSpeech "Attrib::Gen::speech"
-zSpeech.o:$LC159
+zSpeech.o:$LC181
 # @lc zSpeech "Attrib::Gen::pvehicle"
-zSpeech.o:$LC178
-# @lc zSpeech "Dist"
-zSpeech.o:$LC183
+zSpeech.o:$LC224
 # @lc zSpeech "Attrib::Gen::audiosystem"
-zSpeech.o:$LC185
+zSpeech.o:$LC232
 # @lc zSpeech "16.2.1"
-zSpeech.o:$LC199
+zSpeech.o:$LC312
 # @lc zSpeech "1.2.3"
-zSpeech.o:$LC200
+zSpeech.o:$LC313
 # @lc zSpeech "Attrib::Gen::pursuitlevels"
-zSpeech.o:$LC191
+zSpeech.o:$LC296
 # @lc zSpeech "MGamePlayMoment"
-zSpeech.o:$LC449
+zSpeech.o:$LC501
 # @lc zSpeech "Vector"
-zSpeech.o:$LC451
+zSpeech.o:$LC503
 # @lc zSpeech "Attrib::Gen::speechtune"
-zSpeech.o:$LC190
+zSpeech.o:$LC295
 # @lc zSpeech "MNotifyCellCallComplete"
-zSpeech.o:$LC196
+zSpeech.o:$LC310
 # @lc zSpeech "MNotifyCellCallStarted"
-zSpeech.o:$LC197
+zSpeech.o:$LC311
 # @lc zSpeech "MNotifySpeechStatus"
-zSpeech.o:$LC193
+zSpeech.o:$LC307
 # @lc zSpeech "MUnspawnCop"
-zSpeech.o:$LC866
+zSpeech.o:$LC919
 # @lc zSpeech "Param"
-zSpeech.o:$LC868
+zSpeech.o:$LC921
 # @lc zSpeech "MReqBackup"
-zSpeech.o:$LC670
+zSpeech.o:$LC721
 # @lc zSpeech "MMiscSound"
-zSpeech.o:$LC692
+zSpeech.o:$LC743
 # @lc zSpeech "MReqRoadBlock"
-zSpeech.o:$LC748
+zSpeech.o:$LC799
 # @lc zSpeech "Data"
-zSpeech.o:$LC749
+zSpeech.o:$LC800
 # @lc zSpeech "MControlPathfinder"
-zSpeech.o:$LC768
+zSpeech.o:$LC819
 # @lc zSpeech "PartID"
-zSpeech.o:$LC773
+zSpeech.o:$LC824
 # @lc zSpeech "MNotifyMusicFlow"
-zSpeech.o:$LC774
+zSpeech.o:$LC825
 # @lc zSpeech "Part"
-zSpeech.o:$LC775
+zSpeech.o:$LC826
 # @lc zSpeech "Attrib::Gen::smackable"
-zSpeech.o:$LC861
+zSpeech.o:$LC923
 # @lc zSpeech "MPerpBusted"
-zSpeech.o:$LC862
+zSpeech.o:$LC915
 # @lc zSpeech "MRestartRace"
-zSpeech.o:$LC865
-# @lc zSpeech "SpeechFlow: Pursuit"
-zSpeech.o:$LC887
-# @lc zSpeech "SpeechFlow: Strategy"
-zSpeech.o:$LC888
-# @lc zSpeech "SpeechFlow: Observer"
-zSpeech.o:$LC889
-# @lc zSpeech "SpeechFlow: Roadblock"
-zSpeech.o:$LC890
-# @lc zSpeech "MusicFlow: Interactive"
-zSpeech.o:$LC891
-# @lc zSpeech "SoundAI CarCustomization"
 zSpeech.o:$LC918
+# @lc zSpeech "SpeechFlow: Pursuit"
+zSpeech.o:$LC941
+# @lc zSpeech "SpeechFlow: Strategy"
+zSpeech.o:$LC942
+# @lc zSpeech "SpeechFlow: Observer"
+zSpeech.o:$LC943
+# @lc zSpeech "SpeechFlow: Roadblock"
+zSpeech.o:$LC944
+# @lc zSpeech "MusicFlow: Interactive"
+zSpeech.o:$LC945
+# @lc zSpeech "SoundAI CarCustomization"
+zSpeech.o:$LC972
 # @lc zSpeech "C0"
-zSpeech.o:$LC415
+zSpeech.o:$LC466
 # zPlatform: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zPlatform "_EU"
-zPlatform.o:$LC60
+zPlatform.o:$LC69
 # @lc zPlatform "16.2.1"
-zPlatform.o:$LC235
+zPlatform.o:$LC263
 # @lc zPlatform "1.2.3"
-zPlatform.o:$LC236
+zPlatform.o:$LC264
 # @lc zPlatform "Attrib::Gen::emitteruv"
-zPlatform.o:$LC493
+zPlatform.o:$LC549
 # @lc zPlatform "Attrib::Gen::fuelcell_effect"
-zPlatform.o:$LC494
+zPlatform.o:$LC550
 # @lc zPlatform "Attrib::Gen::fuelcell_emitter"
-zPlatform.o:$LC495
+zPlatform.o:$LC551
 # zTrack: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zTrack "16.2.1"
-zTrack.o:$LC240
+zTrack.o:$LC296
 # @lc zTrack "1.2.3"
-zTrack.o:$LC241
+zTrack.o:$LC297
 # @lc zTrack "SkidPoints"
-zTrack.o:$LC276
+zTrack.o:$LC332
 # @lc zTrack "SkidPoint"
-zTrack.o:$LC277
+zTrack.o:$LC333
 # @lc zTrack "Dot"
-zTrack.o:$LC278
+zTrack.o:$LC334
 # @lc zTrack "Skids"
-zTrack.o:$LC280
+zTrack.o:$LC336
 # @lc zTrack "Skid"
-zTrack.o:$LC281
+zTrack.o:$LC337
 # @lc zTrack "Track Streaming Buffer"
-zTrack.o:$LC311
+zTrack.o:$LC428
 # @lc zTrack "TSMemoryPool"
-zTrack.o:$LC312
+zTrack.o:$LC429
 # @lc zTrack "TrackStreamingTrail"
-zTrack.o:$LC315
-# @lc zTrack "TrackStreamingPredict"
-zTrack.o:$LC316
-# @lc zTrack "TrackStreamingLoadedZone"
-zTrack.o:$LC317
-# @lc zTrack "TrackStreamingAudioRead"
-zTrack.o:$LC318
-# @lc zTrack "TrackStreamingAudioBlock"
-zTrack.o:$LC319
-# @lc zTrack "TrackStreamingLoadingBar"
-zTrack.o:$LC320
-# @lc zTrack "TrackStreamingTrailPoint"
-zTrack.o:$LC340
-# @lc zTrack "PredictZones"
-zTrack.o:$LC342
-# @lc zTrack "TrackStreamingPredictPoint"
-zTrack.o:$LC343
-# @lc zTrack "LoadingPriorityLoaded"
-zTrack.o:$LC364
-# @lc zTrack "LoadingPriorityPoint"
-zTrack.o:$LC365
-# @lc zTrack "Section"
-zTrack.o:$LC366
-# @lc zTrack "%d/%d"
-zTrack.o:$LC374
-# @lc zTrack "NumSectionsLoaded"
-zTrack.o:$LC375
-# @lc zTrack "AmountLoaded"
-zTrack.o:$LC376
-# @lc zTrack "VisibleSectionOverlay"
 zTrack.o:$LC432
+# @lc zTrack "TrackStreamingPredict"
+zTrack.o:$LC433
+# @lc zTrack "TrackStreamingLoadedZone"
+zTrack.o:$LC434
+# @lc zTrack "TrackStreamingAudioRead"
+zTrack.o:$LC435
+# @lc zTrack "TrackStreamingAudioBlock"
+zTrack.o:$LC436
+# @lc zTrack "TrackStreamingLoadingBar"
+zTrack.o:$LC437
+# @lc zTrack "TrackStreamingTrailPoint"
+zTrack.o:$LC450
+# @lc zTrack "PredictZones"
+zTrack.o:$LC452
+# @lc zTrack "TrackStreamingPredictPoint"
+zTrack.o:$LC453
+# @lc zTrack "LoadingPriorityLoaded"
+zTrack.o:$LC474
+# @lc zTrack "LoadingPriorityPoint"
+zTrack.o:$LC475
+# @lc zTrack "Section"
+zTrack.o:$LC476
+# @lc zTrack "%d/%d"
+zTrack.o:$LC484
+# @lc zTrack "NumSectionsLoaded"
+zTrack.o:$LC485
+# @lc zTrack "AmountLoaded"
+zTrack.o:$LC486
+# @lc zTrack "VisibleSectionOverlay"
+zTrack.o:$LC542
 # zMain: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zMain "MAIEngineRev"
-zMain.o:$LC338
+zMain.o:$LC218
 # @lc zMain "MAudioReflection"
-zMain.o:$LC372
+zMain.o:$LC225
 # @lc zMain "MBreakerStopCops"
-zMain.o:$LC436
+zMain.o:$LC298
 # @lc zMain "done"
-zMain.o:$LC454
+zMain.o:$LC575
 # @lc zMain "MSetTrafficSpeed"
-zMain.o:$LC526
+zMain.o:$LC346
 # @lc zMain "MGamePlayMoment"
-zMain.o:$LC550
+zMain.o:$LC351
 # @lc zMain "MNotifyMovieFinished"
-zMain.o:$LC621
+zMain.o:$LC357
 # @lc zMain "%s %s"
-zMain.o:$LC664
+zMain.o:$LC781
 # @lc zMain "%d"
-zMain.o:$LC665
+zMain.o:$LC782
 # @lc zMain "%d%s"
-zMain.o:$LC670
+zMain.o:$LC787
 # @lc zMain "%0.0f"
-zMain.o:$LC677
-# @lc zMain "+%s"
-zMain.o:$LC682
-# @lc zMain "%s%d"
-zMain.o:$LC683
-# @lc zMain "MMiscSound"
-zMain.o:$LC694
-# @lc zMain "MSetCopAutoSpawnMode"
-zMain.o:$LC716
-# @lc zMain "MFlowReadyForOutro"
-zMain.o:$LC734
-# @lc zMain "MNotifyMusicFlow"
-zMain.o:$LC765
-# @lc zMain "MNotifyVehicleDestroyed"
-zMain.o:$LC778
-# @lc zMain "MAcceptEnterCareerEvent"
-zMain.o:$LC785
-# @lc zMain "MControlPathfinder"
-zMain.o:$LC786
-# @lc zMain "MCountdownDone"
-zMain.o:$LC792
-# @lc zMain "MDeclineEnterCareerEvent"
-zMain.o:$LC793
-# @lc zMain "MEnteringGameplay"
 zMain.o:$LC794
-# @lc zMain "MEnterSafeHouse"
-zMain.o:$LC796
-# @lc zMain "MForcePursuitStart"
-zMain.o:$LC798
-# @lc zMain "MICECameraFinished"
-zMain.o:$LC801
-# @lc zMain "MJackKnife"
-zMain.o:$LC802
-# @lc zMain "MJumpCut"
-zMain.o:$LC803
-# @lc zMain "MLoadingComplete"
-zMain.o:$LC806
-# @lc zMain "MNISComplete"
-zMain.o:$LC807
-# @lc zMain "MNotifyChallengePassed"
-zMain.o:$LC811
-# @lc zMain "MNotifyFinished"
-zMain.o:$LC813
-# @lc zMain "MNotifyKnockedOut"
-zMain.o:$LC816
-# @lc zMain "MNotifyMessageDone"
-zMain.o:$LC817
-# @lc zMain "MNotifyMilestoneProgress"
-zMain.o:$LC818
-# @lc zMain "MNotifyMilestoneReached"
-zMain.o:$LC821
-# @lc zMain "MNotifyPlayerRep"
-zMain.o:$LC824
-# @lc zMain "MNotifyPursuitLength"
-zMain.o:$LC827
-# @lc zMain "MNotifyRaceAbandoned"
-zMain.o:$LC830
-# @lc zMain "MNotifyRacePlacement"
-zMain.o:$LC831
-# @lc zMain "MNotifyRaceTime"
-zMain.o:$LC835
-# @lc zMain "MNotifyRaceTimeExpired"
-zMain.o:$LC839
-# @lc zMain "MNotifyRaceTimeSecTick"
-zMain.o:$LC840
-# @lc zMain "MNotifySpeedTrap"
-zMain.o:$LC847
-# @lc zMain "MNotifyTimer"
-zMain.o:$LC850
-# @lc zMain "MPerpBusted"
-zMain.o:$LC852
-# @lc zMain "MPerpEscaped"
-zMain.o:$LC853
-# @lc zMain "MPursuitBreaker"
-zMain.o:$LC855
-# @lc zMain "MReqBackup"
-zMain.o:$LC859
-# @lc zMain "MReqRoadBlock"
-zMain.o:$LC862
-# @lc zMain "MSetCopsEnabled"
-zMain.o:$LC865
-# @lc zMain "MStateEnter"
-zMain.o:$LC873
-# @lc zMain "MStateExit"
+# @lc zMain "+%s"
+zMain.o:$LC799
+# @lc zMain "%s%d"
+zMain.o:$LC800
+# @lc zMain "MMiscSound"
+zMain.o:$LC359
+# @lc zMain "MSetCopAutoSpawnMode"
+zMain.o:$LC363
+# @lc zMain "MFlowReadyForOutro"
+zMain.o:$LC366
+# @lc zMain "MNotifyMusicFlow"
 zMain.o:$LC874
+# @lc zMain "MNotifyVehicleDestroyed"
+zMain.o:$LC887
+# @lc zMain "MAcceptEnterCareerEvent"
+zMain.o:$LC894
+# @lc zMain "MControlPathfinder"
+zMain.o:$LC895
+# @lc zMain "MCountdownDone"
+zMain.o:$LC901
+# @lc zMain "MDeclineEnterCareerEvent"
+zMain.o:$LC902
+# @lc zMain "MEnteringGameplay"
+zMain.o:$LC903
+# @lc zMain "MEnterSafeHouse"
+zMain.o:$LC905
+# @lc zMain "MForcePursuitStart"
+zMain.o:$LC907
+# @lc zMain "MICECameraFinished"
+zMain.o:$LC910
+# @lc zMain "MJackKnife"
+zMain.o:$LC911
+# @lc zMain "MJumpCut"
+zMain.o:$LC912
+# @lc zMain "MLoadingComplete"
+zMain.o:$LC915
+# @lc zMain "MNISComplete"
+zMain.o:$LC916
+# @lc zMain "MNotifyChallengePassed"
+zMain.o:$LC920
+# @lc zMain "MNotifyFinished"
+zMain.o:$LC922
+# @lc zMain "MNotifyKnockedOut"
+zMain.o:$LC925
+# @lc zMain "MNotifyMessageDone"
+zMain.o:$LC926
+# @lc zMain "MNotifyMilestoneProgress"
+zMain.o:$LC927
+# @lc zMain "MNotifyMilestoneReached"
+zMain.o:$LC930
+# @lc zMain "MNotifyPlayerRep"
+zMain.o:$LC933
+# @lc zMain "MNotifyPursuitLength"
+zMain.o:$LC936
+# @lc zMain "MNotifyRaceAbandoned"
+zMain.o:$LC939
+# @lc zMain "MNotifyRacePlacement"
+zMain.o:$LC940
+# @lc zMain "MNotifyRaceTime"
+zMain.o:$LC944
+# @lc zMain "MNotifyRaceTimeExpired"
+zMain.o:$LC948
+# @lc zMain "MNotifyRaceTimeSecTick"
+zMain.o:$LC949
+# @lc zMain "MNotifySpeedTrap"
+zMain.o:$LC956
+# @lc zMain "MNotifyTimer"
+zMain.o:$LC959
+# @lc zMain "MPerpBusted"
+zMain.o:$LC961
+# @lc zMain "MPerpEscaped"
+zMain.o:$LC962
+# @lc zMain "MPursuitBreaker"
+zMain.o:$LC964
+# @lc zMain "MReqBackup"
+zMain.o:$LC968
+# @lc zMain "MReqRoadBlock"
+zMain.o:$LC971
+# @lc zMain "MSetCopsEnabled"
+zMain.o:$LC974
+# @lc zMain "MStateEnter"
+zMain.o:$LC982
+# @lc zMain "MStateExit"
+zMain.o:$LC983
 # @lc zMain "MTriggerEnter"
-zMain.o:$LC875
+zMain.o:$LC984
 # @lc zMain "MTriggerExit"
-zMain.o:$LC877
+zMain.o:$LC986
 # @lc zMain "MTriggerInside"
-zMain.o:$LC878
+zMain.o:$LC987
 # @lc zMain "MUnspawnCop"
-zMain.o:$LC879
+zMain.o:$LC988
 # zLua: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zLua "Attrib::Gen::gameplay"
-zLua.o:$LC66
+zLua.o:$LC249
 # @lc zLua "Attrib::Gen::pvehicle"
-zLua.o:$LC469
+zLua.o:$LC184
 # @lc zLua "16.2.1"
-zLua.o:$LC171
+zLua.o:$LC277
 # @lc zLua "1.2.3"
-zLua.o:$LC172
-# @lc zLua "Attrib::Gen::ecar"
-zLua.o:$LC452
-# @lc zLua "Attrib::Gen::camerainfo"
-zLua.o:$LC453
+zLua.o:$LC278
 # @lc zLua "Attrib::Gen::effects"
-zLua.o:$LC454
+zLua.o:$LC663
 # @lc zLua "Attrib::Gen::audioimpact"
-zLua.o:$LC455
-# @lc zLua "Attrib::Gen::audioscrape"
-zLua.o:$LC456
+zLua.o:$LC675
 # @lc zLua "WorldBodyConn"
-zLua.o:$LC458
+zLua.o:$LC665
 # @lc zLua "Pkt_Body_Open"
-zLua.o:$LC459
+zLua.o:$LC666
 # @lc zLua "Pkt_Body_Service"
-zLua.o:$LC460
+zLua.o:$LC667
 # @lc zLua "World_UpdateBody"
-zLua.o:$LC461
+zLua.o:$LC668
 # @lc zLua "Pkt_Body_Send"
-zLua.o:$LC462
+zLua.o:$LC669
 # @lc zLua "World_OneShotEffect"
-zLua.o:$LC463
+zLua.o:$LC670
 # @lc zLua "Pkt_Effect_Send"
-zLua.o:$LC464
+zLua.o:$LC671
 # @lc zLua "WorldEffectConn"
-zLua.o:$LC465
+zLua.o:$LC672
 # @lc zLua "Pkt_Effect_Open"
-zLua.o:$LC466
+zLua.o:$LC673
 # @lc zLua "Pkt_Effect_Service"
-zLua.o:$LC467
+zLua.o:$LC674
 # @lc zLua "MGamePlayMoment"
-zLua.o:$LC629
+zLua.o:$LC758
 # @lc zLua "Position"
-zLua.o:$LC630
-# @lc zLua "Vector"
-zLua.o:$LC631
-# @lc zLua "Velocity"
-zLua.o:$LC632
-# @lc zLua "hSimable"
-zLua.o:$LC618
-# @lc zLua "AttribKey"
-zLua.o:$LC634
-# @lc zLua "MAIEngineRev"
-zLua.o:$LC617
-# @lc zLua "CarID"
-zLua.o:$LC620
-# @lc zLua "CarState"
-zLua.o:$LC621
-# @lc zLua "EAX_CarState"
-zLua.o:$LC622
-# @lc zLua "PatterToPlay"
-zLua.o:$LC623
-# @lc zLua "MForcePursuitStart"
-zLua.o:$LC603
-# @lc zLua "MinHeatLevel"
-zLua.o:$LC604
-# @lc zLua "MJackKnife"
-zLua.o:$LC611
-# @lc zLua "MFlowReadyForOutro"
-zLua.o:$LC643
-# @lc zLua "NISName"
-zLua.o:$LC594
-# @lc zLua "TrapActivity"
-zLua.o:$LC596
-# @lc zLua "Racer"
-zLua.o:$LC597
-# @lc zLua "SpeedKmh"
-zLua.o:$LC598
-# @lc zLua "Placing"
-zLua.o:$LC600
-# @lc zLua "ChallengeName"
-zLua.o:$LC626
-# @lc zLua "Sender"
-zLua.o:$LC628
-# @lc zLua "MNotifyMovieFinished"
-zLua.o:$LC641
-# @lc zLua "MNotifyPlayerRep"
-zLua.o:$LC608
-# @lc zLua "RepPoints"
-zLua.o:$LC609
-# @lc zLua "MControlPathfinder"
-zLua.o:$LC635
-# @lc zLua "Licenced"
-zLua.o:$LC636
-# @lc zLua "PathEvent"
-zLua.o:$LC637
-# @lc zLua "PathControl"
-zLua.o:$LC639
-# @lc zLua "PartID"
-zLua.o:$LC640
-# @lc zLua "MSetCopsEnabled"
-zLua.o:$LC606
-# @lc zLua "CopsEnabled"
-zLua.o:$LC607
-# @lc zLua "MSetTrafficSpeed"
-zLua.o:$LC612
-# @lc zLua "SpeedDefault"
-zLua.o:$LC613
-# @lc zLua "SpeedHighway"
-zLua.o:$LC614
-# @lc zLua "FixSpeed"
-zLua.o:$LC615
-# @lc zLua "no value"
-zLua.o:$LC730
-# @lc zLua "Lua 5.0.1"
-zLua.o:$LC733
-# @lc zLua "attempt to yield across metamethod/C-call boundary"
 zLua.o:$LC759
-# @lc zLua "cannot yield a C function"
+# @lc zLua "Vector"
 zLua.o:$LC760
+# @lc zLua "Velocity"
+zLua.o:$LC761
+# @lc zLua "hSimable"
+zLua.o:$LC747
+# @lc zLua "AttribKey"
+zLua.o:$LC763
+# @lc zLua "MAIEngineRev"
+zLua.o:$LC746
+# @lc zLua "CarID"
+zLua.o:$LC749
+# @lc zLua "CarState"
+zLua.o:$LC750
+# @lc zLua "EAX_CarState"
+zLua.o:$LC751
+# @lc zLua "PatterToPlay"
+zLua.o:$LC752
+# @lc zLua "MForcePursuitStart"
+zLua.o:$LC732
+# @lc zLua "MinHeatLevel"
+zLua.o:$LC733
+# @lc zLua "MJackKnife"
+zLua.o:$LC740
+# @lc zLua "MFlowReadyForOutro"
+zLua.o:$LC772
+# @lc zLua "NISName"
+zLua.o:$LC723
+# @lc zLua "TrapActivity"
+zLua.o:$LC725
+# @lc zLua "Racer"
+zLua.o:$LC726
+# @lc zLua "SpeedKmh"
+zLua.o:$LC727
+# @lc zLua "Placing"
+zLua.o:$LC729
+# @lc zLua "ChallengeName"
+zLua.o:$LC755
+# @lc zLua "Sender"
+zLua.o:$LC757
+# @lc zLua "MNotifyMovieFinished"
+zLua.o:$LC770
+# @lc zLua "MNotifyPlayerRep"
+zLua.o:$LC737
+# @lc zLua "RepPoints"
+zLua.o:$LC738
+# @lc zLua "MControlPathfinder"
+zLua.o:$LC764
+# @lc zLua "Licenced"
+zLua.o:$LC765
+# @lc zLua "PathEvent"
+zLua.o:$LC766
+# @lc zLua "PathControl"
+zLua.o:$LC768
+# @lc zLua "PartID"
+zLua.o:$LC769
+# @lc zLua "MSetCopsEnabled"
+zLua.o:$LC735
+# @lc zLua "CopsEnabled"
+zLua.o:$LC736
+# @lc zLua "MSetTrafficSpeed"
+zLua.o:$LC741
+# @lc zLua "SpeedDefault"
+zLua.o:$LC742
+# @lc zLua "SpeedHighway"
+zLua.o:$LC743
+# @lc zLua "FixSpeed"
+zLua.o:$LC744
+# @lc zLua "no value"
+zLua.o:$LC849
+# @lc zLua "Lua 5.0.1"
+zLua.o:$LC852
+# @lc zLua "attempt to yield across metamethod/C-call boundary"
+zLua.o:$LC880
+# @lc zLua "cannot yield a C function"
+zLua.o:$LC881
 # @lc zLua "%s expected, got %s"
-zLua.o:$LC830
+zLua.o:$LC968
 # @lc zLua "stack overflow (%s)"
-zLua.o:$LC833
+zLua.o:$LC971
 # @lc zLua "value expected"
-zLua.o:$LC834
+zLua.o:$LC972
 # @lc zLua "C0"
-zLua.o:$LC160
+zLua.o:$LC267
 # @lc zLua "cannot read %s: %s"
-zLua.o:$LC839
+zLua.o:$LC977
 # @lc zLua "=stdin"
-zLua.o:$LC840
+zLua.o:$LC978
 # @lc zLua "@%s"
-zLua.o:$LC841
+zLua.o:$LC979
 # @lc zLua "r"
-zLua.o:$LC842
+zLua.o:$LC980
 # @lc zLua "rb"
-zLua.o:$LC843
+zLua.o:$LC981
 # zWorld: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zWorld "Attrib::Gen::pvehicle"
-zWorld.o:$LC166
+zWorld.o:$LC290
 # @lc zWorld "Attrib::Gen::simsurface"
-zWorld.o:$LC175
+zWorld.o:$LC198
 # @lc zWorld "Attrib::Gen::tires"
-zWorld.o:$LC230
+zWorld.o:$LC797
 # @lc zWorld "16.2.1"
-zWorld.o:$LC254
+zWorld.o:$LC311
 # @lc zWorld "1.2.3"
-zWorld.o:$LC255
+zWorld.o:$LC312
 # @lc zWorld "Attrib::Gen::ecar"
-zWorld.o:$LC267
+zWorld.o:$LC323
 # @lc zWorld "VehicleParams"
-zWorld.o:$LC269
+zWorld.o:$LC562
 # @lc zWorld "Attrib::Gen::emittergroup"
-zWorld.o:$LC305
+zWorld.o:$LC580
 # @lc zWorld "DebugWorld"
-zWorld.o:$LC459
+zWorld.o:$LC566
 # @lc zWorld "CarRenderInfo"
-zWorld.o:$LC546
+zWorld.o:$LC632
 # @lc zWorld "VehiclePartDamageBehaviour"
-zWorld.o:$LC564
+zWorld.o:$LC650
 # @lc zWorld "RideInfo"
-zWorld.o:$LC689
+zWorld.o:$LC790
 # @lc zWorld "Remove Duplicates"
-zWorld.o:$LC1082
+zWorld.o:$LC1184
 # @lc zWorld "CarLoaderPool"
-zWorld.o:$LC1089
+zWorld.o:$LC1191
 # @lc zWorld "TestAlloc"
-zWorld.o:$LC1097
+zWorld.o:$LC1199
 # @lc zWorld "Defragment Textures"
-zWorld.o:$LC1098
+zWorld.o:$LC1200
 # @lc zWorld "Defragment Solids"
-zWorld.o:$LC1099
+zWorld.o:$LC1201
 # @lc zWorld "CarLoaderDefragment"
-zWorld.o:$LC1106
+zWorld.o:$LC1208
 # @lc zWorld "Parameter Accessor Blend Buffer"
-zWorld.o:$LC1198
+zWorld.o:$LC1338
 # @lc zWorld "ParameterMapLayer"
-zWorld.o:$LC1205
+zWorld.o:$LC1345
 # @lc zWorld "Attrib::Gen::visuallook"
-zWorld.o:$LC1206
+zWorld.o:$LC1346
 # @lc zWorld "Attrib::Gen::visuallookeffect"
-zWorld.o:$LC1207
+zWorld.o:$LC1347
 # @lc zWorld "VisualLookEffect"
-zWorld.o:$LC1225
+zWorld.o:$LC1365
 # @lc zWorld "VisualLookEffectTarget"
-zWorld.o:$LC1227
+zWorld.o:$LC1367
 # c53wld: el nombre viejo `pad_05_80409D58_rodata` YA NO EXISTE en nuestro objeto
 zWorld.o:lbl_80409D58
 # zWorld2: cadenas muertas que el enlazador se lleva y el objetivo SI tiene (deadlink.py)
 # @lc zWorld2 "Attrib::RefSpec"
-zWorld2.o:$LC170
+zWorld2.o:$LC189
 # @lc zWorld2 "Attrib::TAttrib"
-zWorld2.o:$LC176
+zWorld2.o:$LC197
 # @lc zWorld2 "CollisionInstanceList"
-zWorld2.o:$LC235
+zWorld2.o:$LC260
 # @lc zWorld2 "CollisionObjectList"
-zWorld2.o:$LC236
+zWorld2.o:$LC261
 # @lc zWorld2 "WCollisionPack"
-zWorld2.o:$LC237
+zWorld2.o:$LC262
 # @lc zWorld2 "WCollisionAssets"
-zWorld2.o:$LC238
+zWorld2.o:$LC263
 # @lc zWorld2 "WCollisionObject"
-zWorld2.o:$LC240
+zWorld2.o:$LC265
 # @lc zWorld2 "WGrid Nodes"
-zWorld2.o:$LC328
+zWorld2.o:$LC374
 # @lc zWorld2 "WGrid"
-zWorld2.o:$LC329
+zWorld2.o:$LC375
 # @lc zWorld2 "16.2.1"
-zWorld2.o:$LC415
+zWorld2.o:$LC454
 # @lc zWorld2 "1.2.3"
-zWorld2.o:$LC416
+zWorld2.o:$LC455
 # @lc zWorld2 "WRoadNav CookieTrail"
-zWorld2.o:$LC491
+zWorld2.o:$LC529
 # @lc zWorld2 "WRoadNav Path Buffer"
-zWorld2.o:$LC493
+zWorld2.o:$LC531
 # @lc zWorld2 "Attrib::Gen::effects"
-zWorld2.o:$LC736
+zWorld2.o:$LC803
 # @lc zWorld2 "FastVector"
-zWorld2.o:$LC773
+zWorld2.o:$LC845
 # @lc zFe "OMAudio"
-zFe.o:$LC494
+zFe.o:$LC576
 # @lc zFe "OMVideo"
-zFe.o:$LC495
+zFe.o:$LC577
 # @lc zFe "OMGameplay"
-zFe.o:$LC496
+zFe.o:$LC578
 # @lc zFe "OMPlayer"
-zFe.o:$LC497
+zFe.o:$LC579
 # @lc zFe "OMController"
-zFe.o:$LC498
+zFe.o:$LC580
 # @lc zFe "OMEATrax"
-zFe.o:$LC499
+zFe.o:$LC581
 # @lc zFe "OMCredits"
-zFe.o:$LC500
+zFe.o:$LC582
 # @lc zFe "pm_RestartRace"
-zFe.o:$LC562
+zFe.o:$LC645
 # @lc zFe "pm_QuitRaceToFE"
-zFe.o:$LC563
+zFe.o:$LC646
 # @lc zFe "pm_QuitRaceToFreeRoam"
-zFe.o:$LC564
+zFe.o:$LC647
 # @lc zFe "pm_QuitMainMenu"
-zFe.o:$LC565
+zFe.o:$LC648
 # @lc zFe "pm_QuitQuickRace"
-zFe.o:$LC566
+zFe.o:$LC649
 # @lc zFe "pm_ResumeFreeRoam"
-zFe.o:$LC567
+zFe.o:$LC650
 # @lc zFe "pm_SwitchToOptions"
-zFe.o:$LC568
+zFe.o:$LC651
 # @lc zFe "pm_SwitchToTuning"
-zFe.o:$LC569
-# @lc zFe "pm_ResumeRace"
-zFe.o:$LC570
-# @lc zFe "JukeBoxScrollerSlot"
-zFe.o:$LC602
-# @lc zFe "JukeBoxScrollerDatum"
-zFe.o:$LC605
-# @lc zFe "RapSheetUSArraySlot"
-zFe.o:$LC625
-# @lc zFe "RapSheetUSDatum"
-zFe.o:$LC626
-# @lc zFe "RapSheetVDArraySlot"
-zFe.o:$LC634
-# @lc zFe "RapSheetVDDatum"
-zFe.o:$LC635
-# @lc zFe "RapSheetCTSArraySlot"
-zFe.o:$LC639
-# @lc zFe "RapSheetCTSDatum"
-zFe.o:$LC640
-# @lc zFe "RapSheetRankingsTimerArraySlot"
 zFe.o:$LC652
-# @lc zFe "RapSheetRankingsArraySlot"
+# @lc zFe "pm_ResumeRace"
 zFe.o:$LC653
-# @lc zFe "RapSheetRankingsDatum"
-zFe.o:$LC676
-# @lc zFe "RaceDatum"
-zFe.o:$LC715
-# @lc zFe "UITrackMapStreamer"
+# @lc zFe "JukeBoxScrollerSlot"
+zFe.o:$LC679
+# @lc zFe "JukeBoxScrollerDatum"
+zFe.o:$LC682
+# @lc zFe "RapSheetUSArraySlot"
+zFe.o:$LC702
+# @lc zFe "RapSheetUSDatum"
+zFe.o:$LC703
+# @lc zFe "RapSheetVDArraySlot"
+zFe.o:$LC711
+# @lc zFe "RapSheetVDDatum"
+zFe.o:$LC712
+# @lc zFe "RapSheetCTSArraySlot"
+zFe.o:$LC716
+# @lc zFe "RapSheetCTSDatum"
+zFe.o:$LC717
+# @lc zFe "RapSheetRankingsTimerArraySlot"
+zFe.o:$LC729
+# @lc zFe "RapSheetRankingsArraySlot"
 zFe.o:$LC730
+# @lc zFe "RapSheetRankingsDatum"
+zFe.o:$LC753
+# @lc zFe "RaceDatum"
+zFe.o:$LC792
+# @lc zFe "UITrackMapStreamer"
+zFe.o:$LC807
 # @lc zFe "uiRepSheetRivalFlow"
-zFe.o:$LC758
+zFe.o:$LC835
 # @lc zFe "SMSSortNode"
-zFe.o:$LC823
+zFe.o:$LC905
 # @lc zFe "SMSDatum"
-zFe.o:$LC824
+zFe.o:$LC906
 # @lc zFe "SMSSlot"
-zFe.o:$LC828
+zFe.o:$LC910
 # @lc zFe "CResumeFreeRoam"
-zFe.o:$LC841
+zFe.o:$LC922
 # @lc zFe "CTop15"
-zFe.o:$LC842
+zFe.o:$LC923
 # @lc zFe "CCarSelect"
-zFe.o:$LC843
+zFe.o:$LC924
 # @lc zFe "CRapSheet"
-zFe.o:$LC844
+zFe.o:$LC925
 # @lc zFe "CSave"
-zFe.o:$LC845
+zFe.o:$LC926
 # @lc zFe "cFEng"
-zFe.o:$LC959
+zFe.o:$LC1042
 # @lc zFe "FEngine"
-zFe.o:$LC960
+zFe.o:$LC1043
 # @lc zFe "FEManager"
-zFe.o:$LC964
+zFe.o:$LC1047
 # @lc zFe "cFEngGameInterface"
-zFe.o:$LC965
+zFe.o:$LC1048
 # @lc zFe "cFEngRender"
-zFe.o:$LC966
+zFe.o:$LC1049
 # @lc zFe "cFEngJoyInput"
-zFe.o:$LC967
+zFe.o:$LC1050
 # @lc zFe "FEAnyMovieScreen"
-zFe.o:$LC981
+zFe.o:$LC1064
 # @lc zFe "FEAnyTutorialScreen"
-zFe.o:$LC995
+zFe.o:$LC1077
 # @lc zFe "MoviePlayer"
-zFe.o:$LC1037
+zFe.o:$LC1120
 # @lc zFe "MemoryCard"
-zFe.o:$LC1054
+zFe.o:$LC1147
 # @lc zFe "ScrollerSlot"
-zFe.o:$LC1107
+zFe.o:$LC1203
 # @lc zEAXSound "EAX_CarState"
-zEAXSound.o:$LC646
+zEAXSound.o:$LC801
 # @lc zEAXSound "Aud: EAX_HeliState"
-zEAXSound.o:$LC654
+zEAXSound.o:$LC807
 # @lc zEAXSound "AUD:PF MUSIC Stream Channel"
-zEAXSound.o:$LC682
+zEAXSound.o:$LC841
 # @lc zEAXSound "AUD:NIS/SFX Stream Channel"
-zEAXSound.o:$LC683
+zEAXSound.o:$LC842
 # @lc zEAXSound "AUD:Speech Stream Channel"
-zEAXSound.o:$LC684
+zEAXSound.o:$LC843
 zEAXSound.o:$LC1108
 # zFeOverlay: cadenas muertas que el objetivo SI tiene (deadstr2).
 # @lc zFeOverlay "FEGeometryModels"
-zFeOverlay.o:$LC405
+zFeOverlay.o:$LC508
 # @lc zFeOverlay "FrontendRenderingCar"
-zFeOverlay.o:$LC412
+zFeOverlay.o:$LC515
 # @lc zFeOverlay "SelectCarCameraMover"
-zFeOverlay.o:$LC413
+zFeOverlay.o:$LC516
 # @lc zFeOverlay "SelectableCar"
-zFeOverlay.o:$LC457
+zFeOverlay.o:$LC560
 # @lc zFeOverlay "SelectableTrack"
-zFeOverlay.o:$LC458
+zFeOverlay.o:$LC561
 # @lc zFeOverlay "CustomRace"
-zFeOverlay.o:$LC461
+zFeOverlay.o:$LC564
 # @lc zFeOverlay "QuickPlay"
-zFeOverlay.o:$LC462
+zFeOverlay.o:$LC565
 # @lc zFeOverlay "SplitScreen"
-zFeOverlay.o:$LC463
+zFeOverlay.o:$LC566
 # @lc zFeOverlay "MSOption"
-zFeOverlay.o:$LC467
+zFeOverlay.o:$LC570
 # @lc zFeOverlay "TrackDirection"
-zFeOverlay.o:$LC494
+zFeOverlay.o:$LC597
 # @lc zFeOverlay "NumLaps"
-zFeOverlay.o:$LC495
+zFeOverlay.o:$LC598
 # @lc zFeOverlay "TrafficLevel"
-zFeOverlay.o:$LC496
+zFeOverlay.o:$LC599
 # @lc zFeOverlay "NumOpponents"
-zFeOverlay.o:$LC497
+zFeOverlay.o:$LC600
 # @lc zFeOverlay "AISkill"
-zFeOverlay.o:$LC498
+zFeOverlay.o:$LC601
 # @lc zFeOverlay "CatchUp"
-zFeOverlay.o:$LC499
+zFeOverlay.o:$LC602
 # @lc zFeOverlay "ImageArraySlot"
-zFeOverlay.o:$LC526
+zFeOverlay.o:$LC629
 # @lc zFeOverlay "ChallengeDatum"
-zFeOverlay.o:$LC532
+zFeOverlay.o:$LC635
 # @lc zFeOverlay "SelectablePart 9"
-zFeOverlay.o:$LC541
+zFeOverlay.o:$LC644
 # @lc zFeOverlay "SelectablePart 10"
-zFeOverlay.o:$LC542
+zFeOverlay.o:$LC645
 # @lc zFeOverlay "SelectablePart 11"
-zFeOverlay.o:$LC543
+zFeOverlay.o:$LC646
 # @lc zFeOverlay "ShoppingCartItem"
-zFeOverlay.o:$LC544
+zFeOverlay.o:$LC647
 # @lc zFeOverlay "SelectablePart 13"
-zFeOverlay.o:$LC547
+zFeOverlay.o:$LC650
 # @lc zFeOverlay "SelectablePart 12"
-zFeOverlay.o:$LC573
+zFeOverlay.o:$LC676
 # @lc zFeOverlay "FEShoppingCartItem"
-zFeOverlay.o:$LC622
+zFeOverlay.o:$LC725
 # @lc zFeOverlay "CustomizeMainOption"
-zFeOverlay.o:$LC633
+zFeOverlay.o:$LC736
 # @lc zFeOverlay "SelectablePart 14"
-zFeOverlay.o:$LC638
+zFeOverlay.o:$LC741
 # @lc zFeOverlay "SetStockPartOption"
-zFeOverlay.o:$LC639
-# @lc zFeOverlay "CustomizePartOption"
-zFeOverlay.o:$LC667
-# @lc zFeOverlay "SelectablePart 1"
-zFeOverlay.o:$LC669
-# @lc zFeOverlay "SelectablePart 2"
-zFeOverlay.o:$LC670
-# @lc zFeOverlay "HUDLayerOption"
-zFeOverlay.o:$LC688
-# @lc zFeOverlay "HUDColorOption"
-zFeOverlay.o:$LC692
-# @lc zFeOverlay "SelectablePart 3"
-zFeOverlay.o:$LC698
-# @lc zFeOverlay "SelectablePart 4"
-zFeOverlay.o:$LC699
-# @lc zFeOverlay "ArraySlot"
-zFeOverlay.o:$LC700
-# @lc zFeOverlay "SelectablePart 5"
-zFeOverlay.o:$LC701
-# @lc zFeOverlay "CustomizePaintDatum"
-zFeOverlay.o:$LC702
-# @lc zFeOverlay "SelectablePart"
-zFeOverlay.o:$LC706
-# @lc zFeOverlay "SelectablePart 6"
-zFeOverlay.o:$LC709
-# @lc zFeOverlay "SelectablePart 7"
-zFeOverlay.o:$LC710
-# @lc zFeOverlay "SelectablePart 8"
-zFeOverlay.o:$LC731
-# @lc zFeOverlay "CarDatum"
-zFeOverlay.o:$LC739
-# @lc zFeOverlay "DebugCar"
-zFeOverlay.o:$LC740
-# @lc zFeOverlay "DebugCarOption"
 zFeOverlay.o:$LC742
+# @lc zFeOverlay "CustomizePartOption"
+zFeOverlay.o:$LC771
+# @lc zFeOverlay "SelectablePart 1"
+zFeOverlay.o:$LC773
+# @lc zFeOverlay "SelectablePart 2"
+zFeOverlay.o:$LC774
+# @lc zFeOverlay "HUDLayerOption"
+zFeOverlay.o:$LC792
+# @lc zFeOverlay "HUDColorOption"
+zFeOverlay.o:$LC796
+# @lc zFeOverlay "SelectablePart 3"
+zFeOverlay.o:$LC802
+# @lc zFeOverlay "SelectablePart 4"
+zFeOverlay.o:$LC803
+# @lc zFeOverlay "ArraySlot"
+zFeOverlay.o:$LC804
+# @lc zFeOverlay "SelectablePart 5"
+zFeOverlay.o:$LC805
+# @lc zFeOverlay "CustomizePaintDatum"
+zFeOverlay.o:$LC806
+# @lc zFeOverlay "SelectablePart"
+zFeOverlay.o:$LC810
+# @lc zFeOverlay "SelectablePart 6"
+zFeOverlay.o:$LC813
+# @lc zFeOverlay "SelectablePart 7"
+zFeOverlay.o:$LC814
+# @lc zFeOverlay "SelectablePart 8"
+zFeOverlay.o:$LC835
+# @lc zFeOverlay "CarDatum"
+zFeOverlay.o:$LC843
+# @lc zFeOverlay "DebugCar"
+zFeOverlay.o:$LC844
+# @lc zFeOverlay "DebugCarOption"
+zFeOverlay.o:$LC846
 # r61 resto: cadenas muertas que el objetivo SI tiene (zSpeech, zLua).
 # @lc zSpeech "AUD_tmp: Game speech index"
-zSpeech.o:$LC436
+zSpeech.o:$LC487
 # @lc zSpeech "AUD_tmp: SED_NISSFX index"
-zSpeech.o:$LC459
+zSpeech.o:$LC511
 # @lc zSpeech "Speech Cache speaker list"
-zSpeech.o:$LC464
-# @lc zSpeech "SpeechLoadCBData"
-zSpeech.o:$LC466
+zSpeech.o:$LC516
 # @lc zSpeech "Speech::Cache::Alloc"
-zSpeech.o:$LC469
-# @lc zLua "Dist"
-zLua.o:$LC475
-# @lc zLua "Covered"
-zLua.o:$LC476
+zSpeech.o:$LC520
 # r61c aranges P1: los dos huecos de cabecera que crean las rayas nuevas de .bss
 zEAXSound.o:pad_07_8045B1E0_bss
 zEAXSound2.o:pad_07_8045DDF8_bss
@@ -3468,20 +3371,12 @@ zEcstasy.o:pad_07_8045EC40_bss
 auto_05_80413ED0_rodata.o:lbl_80413ED0
 # zLua r64-track (aplicado en la ventana r67): cadenas muertas nuevas que el objetivo SI tiene,
 # colocadas en su sitio por los primer/#include de la r64.
-# @lc zLua "MAudioReflection"
-zLua.o:$LC472
-# @lc zLua "PlayerNum"
-zLua.o:$LC473
-# @lc zLua "VehicleParams"
-zLua.o:$LC478
 # @lc zLua "Attrib::Gen::speechtune"
-zLua.o:$LC479
-# @lc zLua "Attrib::Gen::world"
-zLua.o:$LC481
+zLua.o:$LC707
 # @lc zLua "MLoadingComplete"
-zLua.o:$LC624
+zLua.o:$LC753
 # @lc zLua "MEnterFreeRoam"
-zLua.o:$LC642
+zLua.o:$LC771
 # r76: filesys.cpp pasa a NonMatching (AddToQueue 252->248 B sin el pin). Su .rodata
 # empieza con el "bad_alloc" MUERTO de 0x80413A70 que nadie referencia: al usar el
 # objeto extraido, -strip-unused-data se lo llevaba y el .rodata enlazado salia -8 B.
@@ -3609,3 +3504,51 @@ tasks.o:_.tmp_0.636
 memcard_memvectors.o:_6Realmc.gAllocator
 auto_05_8040F2E0_rodata.o:lbl_8040F2E0
 auto_05_8040F2E0_rodata.o:lbl_8040F30C
+zDynamics.o:pad_06_804170A8_data
+zEagl4Anim.o:pad_06_804170D0_data
+zMission.o:pad_06_8041EF00_data
+zOnline.o:pad_06_80439038_data
+zFeOverlay.o:pad_06_80439058_data
+zPhysics.o:pad_06_8041EF20_data
+# r37 (dol37): los ocho _name de DECLARE_CONTAINER_TYPE (UStandard.h) al principio del .data de las dos unidades
+# enlazadas desde fuente. El sufijo .N lo numera cc1plus y se desplaza con cualquier declaracion nueva en una
+# cabecera comun (UVectorMath.h lo corrio +3 en la r37 y el DOL salio 32 B corto): tras recompilar,
+# `python scripts/lcfix.py zMission zOnline` los vuelve a resolver por su desplazamiento en .data.
+# @data zMission 0x0
+zMission.o:_name.1626
+# @data zMission 0x4
+zMission.o:_name.1630
+# @data zMission 0x8
+zMission.o:_name.1634
+# @data zMission 0xc
+zMission.o:_name.1638
+# @data zMission 0x10
+zMission.o:_name.1642
+# @data zMission 0x14
+zMission.o:_name.1646
+# @data zMission 0x18
+zMission.o:_name.2220
+# @data zMission 0x1c
+zMission.o:_name.2224
+# @data zOnline 0x0
+zOnline.o:_name.2166
+# @data zOnline 0x4
+zOnline.o:_name.2170
+# @data zOnline 0x8
+zOnline.o:_name.2174
+# @data zOnline 0xc
+zOnline.o:_name.2178
+# @data zOnline 0x10
+zOnline.o:_name.2182
+# @data zOnline 0x14
+zOnline.o:_name.2186
+# @data zOnline 0x18
+zOnline.o:_name.2220
+# @data zOnline 0x1c
+zOnline.o:_name.2224
+zPhysics.o:gap_06_8041EFA0_data
+zPhysics.o:gap_06_8041EFE4_data
+zMission.o:$LC90
+zMission.o:$LC91
+zMission.o:$LC163
+zMission.o:$LC164

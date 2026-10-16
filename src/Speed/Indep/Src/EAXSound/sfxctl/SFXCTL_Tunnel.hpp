@@ -28,7 +28,9 @@ struct SFXCTL_Tunnel : public SFXCTL {
         return this->bIsReadyForSwitch;
     }
 
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
     static eTrackPathZoneType m_PlayerZoneType;
 

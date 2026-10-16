@@ -13,7 +13,7 @@
 
 extern CarPartDatabase CarPartDB;
 
-int btestprint = 0;
+bool btestprint = false;
 namespace SoundConn {
 
 void InitServices() {}
@@ -37,75 +37,33 @@ CarSoundConn::CarSoundConn(const Sim::ConnectionData &data)
     unsigned int namehash = bStringHash(att->MODEL(0).GetString());
     CarType ct = CarPartDB.GetCarType(namehash);
     Sound::Context ctx = oc->mCarContext;
-
     (void)ct;
+#ifndef EA_BUILD_A124
     this->mState = new ("EAX_CarState", __LINE__) EAX_CarState(att.GetConstCollection(), ctx, oc->mWorldID, oc->mHandle);
+#else
+    this->mState = new ("EAX_CarState", 0) EAX_CarState(att.GetConstCollection(), ctx, oc->mWorldID);
+#endif
 
     if (!oc->mSpoolLoad) {
         new ECommitAudioAssets();
     }
 }
 
-namespace SoundConn {
+// datos-gc 2026-10-13: ConnectionClass/Size/Type/SType de Pkt_Car_Service y Pkt_Heli_Service
+// viven ahora en la clase en SoundConn.h (forma del DWARF); aqui solo quedaban duplicadas.
 
-inline UCrc32 Pkt_Car_Service::ConnectionClass() {
-    static UCrc32 hash = "CarSoundConn";
-    return hash;
-}
-
-inline unsigned int Pkt_Car_Service::Size() {
-    return sizeof(*this);
-}
-
-inline unsigned int Pkt_Car_Service::Type() {
-    return SType();
-}
-
-inline unsigned int Pkt_Car_Service::SType() {
-    static UCrc32 hash = "Pkt_Car_Service";
-    return hash.GetValue();
-}
-
-inline UCrc32 Pkt_Heli_Service::ConnectionClass() {
-    static UCrc32 hash = "HeliSoundConn";
-    return hash;
-}
-
-inline unsigned int Pkt_Heli_Service::Size() {
-    return sizeof(*this);
-}
-
-inline unsigned int Pkt_Heli_Service::Type() {
-    return SType();
-}
-
-inline unsigned int Pkt_Heli_Service::SType() {
-    static UCrc32 hash = "Pkt_Heli_Service";
-    return hash.GetValue();
-}
-
-} // namespace SoundConn
-
-template <>
-UTL::Collections::Listable<EAX_CarState, 10>::List UTL::Collections::Listable<EAX_CarState, 10>::_mTable =
-    UTL::Collections::Listable<EAX_CarState, 10>::List();
-template <>
-UTL::Collections::Listable<EAX_HeliState, 10>::List UTL::Collections::Listable<EAX_HeliState, 10>::_mTable =
-    UTL::Collections::Listable<EAX_HeliState, 10>::List();
+IMPLEMENT_LISTABLE(EAX_CarState)
+IMPLEMENT_LISTABLE(EAX_HeliState)
 
 UTL::COM::Factory<Sim::ConnectionData const &, Sim::Connection, UCrc32>::Prototype _CarSoundConn(
     "CarSoundConn", CarSoundConn::Construct);
 
-template <>
-UTL::Collections::Listable<CarSoundConn, 10>::List UTL::Collections::Listable<CarSoundConn, 10>::_mTable =
-    UTL::Collections::Listable<CarSoundConn, 10>::List();
+IMPLEMENT_LISTABLE(CarSoundConn)
 
 UTL::COM::Factory<Sim::ConnectionData const &, Sim::Connection, UCrc32>::Prototype _HeliSoundConn(
     "HeliSoundConn", HeliSoundConn::Construct);
 
-template <>
-UTL::Collections::Listable<HeliSoundConn, 10>::List UTL::Collections::Listable<HeliSoundConn, 10>::_mTable =
-    UTL::Collections::Listable<HeliSoundConn, 10>::List();
+IMPLEMENT_LISTABLE(HeliSoundConn)
 
 CarSoundConn::~CarSoundConn() {
     this->mTarget.Set(0);
@@ -223,7 +181,7 @@ HeliSoundConn::HeliSoundConn(const Sim::ConnectionData &data)
     unsigned int namehash = bStringHash(att->MODEL(0).GetString());
     (void)namehash;
 
-    this->mState = new ("Aud: EAX_HeliState", __LINE__) EAX_HeliState(att.GetConstCollection(), oc->mWorldID);
+    this->mState = new ("Aud: EAX_HeliState", 0) EAX_HeliState(att.GetConstCollection(), oc->mWorldID);
     g_pEAXSound->SpawnHelicopter(this->mState);
     this->mState->mSimUpdating = false;
 }
@@ -242,7 +200,7 @@ HeliSoundConn::~HeliSoundConn() {
 void HeliSoundConn::UpdateState(float dT) {
     if (!g_pEAXSound || !this->mTarget.IsValid()) {
         if (!btestprint) {
-            btestprint = 1;
+            btestprint = true;
         }
         return;
     }
@@ -253,9 +211,9 @@ void HeliSoundConn::UpdateState(float dT) {
         return;
     }
 
-    btestprint = 0;
+    btestprint = false;
     this->mState->mSimUpdating = true;
-    bCopy(&this->mState->mMatrix, this->mTarget.GetMatrix());
+    this->mState->mMatrix = *this->mTarget.GetMatrix();
     this->mState->mVel1 = this->mState->mVel0;
     this->mState->mVel0 = *this->mTarget.GetVelocity();
     bSub(&this->mState->mAccel, &this->mState->mVel0, &this->mState->mVel1);
@@ -266,12 +224,12 @@ void HeliSoundConn::UpdateState(float dT) {
 namespace SoundConn {
 
 void UpdateServices(float dT) {
-    typedef UTL::Collections::Listable<CarSoundConn, 10> CarList;
+    typedef UTL::Collections::Listable<CarSoundConn, CarSoundConn::List::Limit> CarList;
     for (CarSoundConn *const *iter = CarList::GetList().begin(); iter != CarList::GetList().end(); ++iter) {
         (*iter)->UpdateState(dT);
     }
 
-    typedef UTL::Collections::Listable<HeliSoundConn, 10> HeliList;
+    typedef UTL::Collections::Listable<HeliSoundConn, HeliSoundConn::List::Limit> HeliList;
     for (HeliSoundConn *const *iter = HeliList::GetList().begin(); iter != HeliList::GetList().end(); ++iter) {
         (*iter)->UpdateState(dT);
     }
@@ -283,6 +241,6 @@ inline unsigned int Sim::Packet::Compress(Sim::Packet *) const { return 0; }
 
 inline unsigned int Sim::Packet::Decompress(Sim::Packet *) const { return 0; }
 
-template class UTL::Collections::Listable<CarSoundConn, 10>::List;
+template class UTL::Collections::Listable<CarSoundConn, CarSoundConn::List::Limit>::List;
 
-template class UTL::Collections::Listable<HeliSoundConn, 10>::List;
+template class UTL::Collections::Listable<HeliSoundConn, HeliSoundConn::List::Limit>::List;

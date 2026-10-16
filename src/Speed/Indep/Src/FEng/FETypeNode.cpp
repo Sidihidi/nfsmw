@@ -5,10 +5,17 @@
 // que es donde el DWARF los declara y donde su direccion (+0x138) los pone.
 extern const u32 FEKeyTypeSize[7];
 
+
+
+
+
+
+
+
 void FEFieldNode::SetDefault(void *pSrc) {
-    if (pDefault) {
-        delete[] pDefault;
-    }
+    delete[] pDefault;
+
+
     pDefault = nullptr;
     if (Size != 0) {
         pDefault = FNEW u8[Size];
@@ -16,20 +23,25 @@ void FEFieldNode::SetDefault(void *pSrc) {
     }
 }
 
+
 void FEFieldNode::GetDefault(void *pDest) {
-    if (pDefault != nullptr) {
+    if (Size != 0 && pDefault != nullptr) {
         FEngMemCpy(pDest, pDefault, Size);
     }
 }
 
-void FETypeNode::AddField(const char *pName, i32 iType) {
+void FETypeNode::AddField(const char *pName, i32 Type) {
     FEFieldNode *pField;
+
     pField = FNEW FEFieldNode();
     pField->SetName(pName);
-    pField->SetType(iType);
-    pField->SetSize(FEKeyTypeSize[iType]);
+
+
+
+
+    pField->SetType(Type);
+    pField->SetSize(FEKeyTypeSize[Type]);
     AppendField(pField);
-    UpdateOffsets();
 }
 
 void FETypeNode::UpdateOffsets() {
@@ -42,6 +54,8 @@ void FETypeNode::UpdateOffsets() {
     }
 }
 
+
+
 u32 FETypeNode::GetTypeSize() {
     FEFieldNode *pField = GetFirstField();
     u32 Result = 0;
@@ -51,6 +65,10 @@ u32 FETypeNode::GetTypeSize() {
     }
     return Result;
 }
+
+
+
+
 
 FEFieldNode *FETypeNode::GetField(const char *pName) {
     FEFieldNode *pNode = GetFirstField();

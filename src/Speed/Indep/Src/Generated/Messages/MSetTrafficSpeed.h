@@ -27,8 +27,6 @@ class MSetTrafficSpeed : public Hermes::Message {
     MSetTrafficSpeed(float _SpeedDefault, float _SpeedHighway, unsigned int _FixSpeed)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fSpeedDefault(_SpeedDefault), fSpeedHighway(_SpeedHighway), fFixSpeed(_FixSpeed) {}
 
-    ~MSetTrafficSpeed() {}
-
     float GetSpeedDefault() const {
         return fSpeedDefault;
     }
@@ -64,9 +62,9 @@ class MSetTrafficSpeed : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MSetTrafficSpeed::HandleMessage_LuaBinding(const MSetTrafficSpeed &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MSetTrafficSpeed::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

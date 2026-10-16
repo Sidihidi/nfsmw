@@ -10,7 +10,22 @@
 #include "Speed/Indep/Src/FEng/FEGameInterface.h"
 #include "Speed/Indep/Src/FEng/FEMovie.h"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 u32 FEPackage::uHoldDirtyFlags = 0xFFFFFFFF; // size: 0x4, address: 0x8041D158, Decl: speed/indep/src/feng/FEPackage.cpp:26
+
+
 
 bool PackageInitStateCB::Callback(FEObject *pObj) {
     pObj->SetCurrentScript(pObj->FindScript(0x1744b3));
@@ -18,6 +33,8 @@ bool PackageInitStateCB::Callback(FEObject *pObj) {
     pObj->Flags |= FEngDirtyFlagsMask;
     return true;
 }
+
+
 
 FEPackage::FEPackage() {
     Controllers = 0xff;
@@ -43,6 +60,16 @@ FEPackage::FEPackage() {
     NumLibRefs = 0;
     pLibRefs = nullptr;
 }
+
+
+
+
+
+
+
+
+
+
 
 FEPackage::~FEPackage() {
     if (pFilename) {
@@ -72,11 +99,11 @@ FEPackage::~FEPackage() {
     }
 }
 
+
 void FEPackage::SetFilename(const char *pName) {
-    if (pFilename) {
-        delete[] pFilename;
-    }
+    if (pFilename) { delete[] pFilename; }
     pFilename = nullptr;
+
     if (pName) {
         int Len = FEngStrLen(pName);
 
@@ -84,6 +111,15 @@ void FEPackage::SetFilename(const char *pName) {
         FEngStrCpy(pFilename, pName);
     }
 }
+
+
+
+
+
+
+
+
+
 
 bool FEPackage::Startup(FEGameInterface *pGameInterface) {
     bool bResult = true;
@@ -95,27 +131,62 @@ bool FEPackage::Startup(FEGameInterface *pGameInterface) {
     return bResult;
 }
 
+
+
+
+
+
+
+
+
+
 void FEPackage::Shutdown(FEGameInterface *pGameInterface) {
     if (pGameInterface) {
         pGameInterface->UnloadResources(this, NumRequests, pRequests);
     }
 }
 
+
+
+
 bool FEPackage::InitializePackage() {
-    PackageInitStateCB cb;
-    return ForAllObjects(cb);
+    PackageInitStateCB initState;
+    return ForAllObjects(initState);
 }
+
+
+
+
+
+
+
+
+
 
 FEMessageResponse *FEPackage::FindResponse(u32 MsgID) {
     FEMessageResponse *pNode = GetFirstResponse();
     while (pNode) {
         if (pNode->GetMsgID() == MsgID) {
-            return pNode;
+            break;
         }
         pNode = pNode->GetNext();
     }
     return pNode;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 bool FEPackage::ForAllChildren(FEGroup *pGroup, FEObjectCallback &Callback) {
     FEObject *pObj = pGroup->GetFirstChild();
@@ -131,6 +202,19 @@ bool FEPackage::ForAllChildren(FEGroup *pGroup, FEObjectCallback &Callback) {
     return true;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool FEPackage::ForAllObjects(FEObjectCallback &Callback) {
     FEObject *pObj = static_cast<FEObject *>(Objects.GetHead());
     while (pObj) {
@@ -145,15 +229,20 @@ bool FEPackage::ForAllObjects(FEObjectCallback &Callback) {
     return true;
 }
 
+
+
+
+
+
 // File: speed/indep/src/feng/FEPackage.cpp
 // total size: 0xC
-// Decl: speed/indep/src/feng/FEPackage.cpp:211
+// Decl: speed/indep/src/feng/FEPackage.cpp:240
 class FEFindByHash : public FEObjectCallback {
   public:
-    u32 Hash;         // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:213
-    FEObject *pFound; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:214
+    u32 Hash;         // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:242
+    FEObject *pFound; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:243
 
-    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:216
+    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:245
         if (pObj->NameHash == Hash) {
             pFound = pObj;
             return false;
@@ -162,27 +251,44 @@ class FEFindByHash : public FEObjectCallback {
     }
 };
 
+
+
+
+
+
+
 // AUSENTE del objetivo: zFEng.o del original no trae este simbolo y ninguna de
 // las 526 unidades lo referencia. El cuerpo vacio emitia un `blr` de 4 B que
 // objdiff no compara y que sobraba en .text.
 // FEObject *FEPackage::FindObjectByName(const char *pName) {}
 
+
+
+
+
+
+
+
+
 FEObject *FEPackage::FindObjectByHash(u32 NameHash) {
-    FEFindByHash finder;
-    finder.Hash = NameHash;
-    finder.pFound = nullptr;
-    ForAllObjects(finder);
-    return finder.pFound;
+    FEFindByHash Find;
+    Find.Hash = NameHash;
+    Find.pFound = nullptr;
+    ForAllObjects(Find);
+    return Find.pFound;
 }
 
+
+
+
 // total size: 0xC
-// Decl: speed/indep/src/feng/FEPackage.cpp:257
+// Decl: speed/indep/src/feng/FEPackage.cpp:286
 class FEFindByGUID : public FEObjectCallback {
   public:
-    u32 GUID;         // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:259
-    FEObject *pFound; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:260
+    u32 GUID;         // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:288
+    FEObject *pFound; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:289
 
-    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:262
+    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:291
         if (pObj->GUID == GUID) {
             pFound = pObj;
             return false;
@@ -191,29 +297,45 @@ class FEFindByGUID : public FEObjectCallback {
     }
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
 FEObject *FEPackage::FindObjectByGUID(u32 GUID) {
-    FEFindByGUID finder;
-    finder.GUID = GUID;
-    finder.pFound = nullptr;
-    ForAllObjects(finder);
-    return finder.pFound;
+    FEFindByGUID Find;
+    Find.GUID = GUID;
+    Find.pFound = nullptr;
+    ForAllObjects(Find);
+    return Find.pFound;
 }
 
-void FEPackage::IssueScriptMessages(FEngine *pEngine, FEObject *pObj, FEScript *pScript, i32 tOldTime, i32 tNewTime) {
+
+
+
+
+void FEPackage::IssueScriptMessages(FEngine *pEngine, FEObject *pObjPtr, FEScript *pScript, i32 tFrom, i32 tTo) {
     FEEvent *pEvents = &pScript->Events[0];
     int Count = pScript->Events.GetCount();
 
-    if (tNewTime < tOldTime) {
+    if (tTo < tFrom) {
         return;
     }
 
-    if (tNewTime == pScript->Length) {
-        tNewTime++;
+    if (tTo == pScript->Length) {
+        tTo++;
     }
 
     int i = 0;
     while (i < Count) {
-        if (pEvents[i].tTime >= static_cast<u32>(tOldTime)) {
+        if (pEvents[i].tTime >= static_cast<u32>(tFrom)) {
             break;
         }
         i++;
@@ -226,27 +348,27 @@ void FEPackage::IssueScriptMessages(FEngine *pEngine, FEObject *pObj, FEScript *
 
 
 
-    while (i < Count && pEvents[i].tTime < static_cast<u32>(tNewTime)) {
+    while (i < Count && pEvents[i].tTime < static_cast<u32>(tTo)) {
         switch (pEvents[i].Target) {
             case 0:
                 if (pEvents[i].EventID == 0x1B3909AA) {
                     FEObject *pTargetPtr = this->FindObjectByGUID(0);
                     this->SetCurrentButton(pTargetPtr, true);
                 } else {
-                    pEngine->QueueMessage(pEvents[i].EventID, pObj, this, reinterpret_cast<FEObject *>(0), 0);
+                    pEngine->QueueMessage(pEvents[i].EventID, pObjPtr, this, reinterpret_cast<FEObject *>(0), 0);
                 }
                 break;
             case 0xFFFFFFFF:
-                pEngine->SendMessageToGame(pEvents[i].EventID, pObj, this, 0);
+                pEngine->SendMessageToGame(pEvents[i].EventID, pObjPtr, this, 0);
                 break;
             case 0xFFFFFFFC:
-                pEngine->QueueMessage(pEvents[i].EventID, pObj, this, reinterpret_cast<FEObject *>(0xFFFFFFFC), 0);
+                pEngine->QueueMessage(pEvents[i].EventID, pObjPtr, this, reinterpret_cast<FEObject *>(0xFFFFFFFC), 0);
                 break;
             case 0xFFFFFFFB:
-                pEngine->QueueMessage(pEvents[i].EventID, pObj, this, reinterpret_cast<FEObject *>(0xFFFFFFFB), 0);
+                pEngine->QueueMessage(pEvents[i].EventID, pObjPtr, this, reinterpret_cast<FEObject *>(0xFFFFFFFB), 0);
                 break;
             case 0xFFFFFFFA:
-                pEngine->QueueMessage(pEvents[i].EventID, pObj, this, reinterpret_cast<FEObject *>(0xFFFFFFFA), 0);
+                pEngine->QueueMessage(pEvents[i].EventID, pObjPtr, this, reinterpret_cast<FEObject *>(0xFFFFFFFA), 0);
                 break;
             default: {
                 FEObject *pTargetPtr = this->FindObjectByGUID(pEvents[i].Target);
@@ -255,8 +377,8 @@ void FEPackage::IssueScriptMessages(FEngine *pEngine, FEObject *pObj, FEScript *
                     this->SetCurrentButton(pTargetPtr, true);
                     break;
                 }
-                if (pObj) {
-                    pEngine->QueueMessage(pEvents[i].EventID, pObj, this, pTargetPtr, 0);
+                if (pObjPtr) {
+                    pEngine->QueueMessage(pEvents[i].EventID, pObjPtr, this, pTargetPtr, 0);
                 }
                 break;
             }
@@ -264,6 +386,22 @@ void FEPackage::IssueScriptMessages(FEngine *pEngine, FEObject *pObj, FEScript *
         i++;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEPackage::UpdateGroup(FEGroup *pGroup, i32 tDeltaTicks) {
     FEObject *pChild = pGroup->GetFirstChild();
@@ -280,7 +418,28 @@ extern uint32 eFrameCounter; // Decl: speed/indep/src/feng/FEPackage.cpp:400
 uint32 eFrameCounterOLD;  // size: 0x4, address: 0x80473E0C, Decl: speed/indep/src/feng/FEPackage.cpp:401
 uint32 objCount;          // size: 0x4, address: 0x80473E10, Decl: speed/indep/src/feng/FEPackage.cpp:402
 
-void FEPackage::UpdateObject(FEObject *pObj, i32 tDeltaTicks) {
+
+
+
+
+
+
+// total size: 0x8
+class MouseStateArrayOffsetUpdater : public FEObjectCallback {
+  public:
+    FEPackage *pPack; // offset 0x4, size 0x4
+
+    bool Callback(FEObject *pObj) override {
+        if (pObj->Flags & FF_MouseObject) {
+            pPack->UpdateMouseObjectOffsets(pObj);
+        }
+        return true;
+    };
+};
+
+
+
+void FEPackage::UpdateObject(FEObject *pObject, i32 tDeltaTicks) {
     if (eFrameCounterOLD == eFrameCounter) {
         objCount++;
     } else {
@@ -288,14 +447,14 @@ void FEPackage::UpdateObject(FEObject *pObj, i32 tDeltaTicks) {
         eFrameCounterOLD = eFrameCounter;
     }
 
-    u32 Flags = pObj->Flags;
+    u32 Flags = pObject->Flags;
     if (Flags & (FF_DirtyCode | FF_DirtyColor | FF_DirtyTransform)) {
-        pObj->Flags = Flags | FF_Dirty;
+        pObject->Flags = Flags | FF_Dirty;
     } else {
-        pObj->Flags = Flags & (FEPackage::uHoldDirtyFlags | ~FF_Dirty);
+        pObject->Flags = Flags & (FEPackage::uHoldDirtyFlags | ~FF_Dirty);
     }
 
-    FEScript *pScript = pObj->pCurrentScript;
+    FEScript *pScript = pObject->pCurrentScript;
     int tPrevTime = pScript->CurTime;
     int ScrLength = pScript->Length;
     pScript->CurTime = tPrevTime + iTickIncrement;
@@ -307,37 +466,37 @@ void FEPackage::UpdateObject(FEObject *pObj, i32 tDeltaTicks) {
     if (pScript->CurTime >= ScrLength) {
         if (bExecuting) {
             if (pScript->pChainTo) {
-                UpdateObjectTracks(pObj, pScript);
+                UpdateObjectTracks(pObject, pScript);
                 int tOverTime = pScript->CurTime - ScrLength;
                 pScript->CurTime = 0;
                 if (pScript->Events.GetCount()) {
-                    IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, ScrLength);
+                    IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
                 }
                 pScript = pScript->pChainTo;
-                pObj->SetCurrentScript(pScript);
+                pObject->SetCurrentScript(pScript);
                 pScript->CurTime = tOverTime;
                 if (pScript->Events.GetCount()) {
-                    IssueScriptMessages(pEnginePtr, pObj, pScript, 0, pScript->CurTime);
+                    IssueScriptMessages(pEnginePtr, pObject, pScript, 0, pScript->CurTime);
                 }
             } else {
                 PlayAction = pScript->Flags & 3;
                 switch (PlayAction) {
                     case 0:
                         if (pScript->Events.GetCount()) {
-                            IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, ScrLength);
+                            IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
                         }
                         pScript->CurTime = pScript->Length + 1;
                         break;
                     case 1:
                         if (pScript->Length > 0) {
                             if (pScript->Events.GetCount()) {
-                                IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, ScrLength);
+                                IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
                             }
                             pScript->CurTime = pScript->CurTime - (pScript->CurTime / pScript->Length) * pScript->Length;
                             if (pScript->Events.GetCount()) {
-                                IssueScriptMessages(pEnginePtr, pObj, pScript, 0, pScript->CurTime);
+                                IssueScriptMessages(pEnginePtr, pObject, pScript, 0, pScript->CurTime);
                             }
-                            pObj->SetupMoveToTracks();
+                            pObject->SetupMoveToTracks();
                         } else {
                             pScript->CurTime = 0;
                         }
@@ -345,14 +504,14 @@ void FEPackage::UpdateObject(FEObject *pObj, i32 tDeltaTicks) {
                     case 2:
                         if (pScript->Length > 0) {
                             int doubleLen = pScript->Length * 2;
-                            pScript->CurTime = pScript->CurTime - (pScript->CurTime / doubleLen) * doubleLen;
+                            pScript->CurTime = pScript->CurTime % doubleLen;
                         } else {
                             pScript->CurTime = 0;
                         }
                         break;
                 }
             }
-            if (bExecuting && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObj->Flags & FF_DirtyCode)) {
+            if (bExecuting && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObject->Flags & FF_DirtyCode)) {
                 goto finalize;
             }
         }
@@ -362,61 +521,149 @@ void FEPackage::UpdateObject(FEObject *pObj, i32 tDeltaTicks) {
                 PlayAction = pScript->Flags & 3;
                 switch (PlayAction) {
                     case 0:
-                        IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, pScript->CurTime);
+                        IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, pScript->CurTime);
                         break;
                     case 1:
                         if (pScript->CurTime < tPrevTime) {
-                            IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, ScrLength);
-                            IssueScriptMessages(pEnginePtr, pObj, pScript, 0, pScript->CurTime);
+                            IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
+                            IssueScriptMessages(pEnginePtr, pObject, pScript, 0, pScript->CurTime);
                             break;
                         }
-                        IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, pScript->CurTime);
+                        IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, pScript->CurTime);
                         break;
                     case 2:
                         if (tPrevTime < ScrLength) {
-                            IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime, pScript->CurTime);
+                            IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, pScript->CurTime);
                         } else {
-                            IssueScriptMessages(pEnginePtr, pObj, pScript, tPrevTime - ScrLength, 0);
-                            IssueScriptMessages(pEnginePtr, pObj, pScript, 0, pScript->CurTime);
+                            IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime - ScrLength, 0);
+                            IssueScriptMessages(pEnginePtr, pObject, pScript, 0, pScript->CurTime);
                         }
                         break;
                 }
             }
-            if (bExecuting && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObj->Flags & FF_DirtyCode)) {
+            if (bExecuting && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObject->Flags & FF_DirtyCode)) {
                 goto finalize;
             }
         }
     }
 
-    UpdateObjectTracks(pObj, pScript);
+    UpdateObjectTracks(pObject, pScript);
 
 finalize:
-    switch (pObj->Type) {
+    switch (pObject->Type) {
         case FE_Group:
-            UpdateGroup(static_cast<FEGroup *>(pObj), tDeltaTicks);
+            UpdateGroup(static_cast<FEGroup *>(pObject), tDeltaTicks);
             break;
         case FE_List:
-            static_cast<FEListBox *>(pObj)->Update(static_cast<float>(tDeltaTicks));
+            static_cast<FEListBox *>(pObject)->Update(static_cast<float>(tDeltaTicks));
             break;
         case FE_CodeList:
-            static_cast<FECodeListBox *>(pObj)->Update(static_cast<float>(tDeltaTicks));
+            static_cast<FECodeListBox *>(pObject)->Update(static_cast<float>(tDeltaTicks));
             break;
         case FE_Movie:
             if (bExecuting) {
-                static_cast<FEMovie *>(pObj)->Update(tDeltaTicks);
+                static_cast<FEMovie *>(pObject)->Update(tDeltaTicks);
             }
             break;
     }
 
-    if (bExecuting == true && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObj->Flags & FF_DirtyCode)) {
-        pObj->Flags &= FEPackage::uHoldDirtyFlags | ~(FF_DirtyTransform | FF_DirtyColor);
+    if (bExecuting == true && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObject->Flags & FF_DirtyCode)) {
+        pObject->Flags &= FEPackage::uHoldDirtyFlags | ~(FF_DirtyTransform | FF_DirtyColor);
     }
 
-    pObj->Flags &= FEPackage::uHoldDirtyFlags | ~FF_DirtyCode;
-    if (pObj->Flags & (FF_DirtyCode | FF_DirtyColor | FF_DirtyTransform)) {
-        pObj->Flags |= FF_Dirty;
+    pObject->Flags &= FEPackage::uHoldDirtyFlags | ~FF_DirtyCode;
+    if (pObject->Flags & (FF_DirtyCode | FF_DirtyColor | FF_DirtyTransform)) {
+        pObject->Flags |= FF_Dirty;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FEPackage::UpdateObjectTracks(FEObject *pObject, FEScript *pScript) {
     int tTime = pScript->CurTime;
@@ -469,20 +716,55 @@ void FEPackage::UpdateObjectTracks(FEObject *pObject, FEScript *pScript) {
     }
 }
 
-// total size: 0x8
-class MouseStateArrayOffsetUpdater : public FEObjectCallback {
-  public:
-    FEPackage *pPack; // offset 0x4, size 0x4
 
-    bool Callback(FEObject *pObj) override {
-        if (pObj->Flags & FF_MouseObject) {
-            pPack->UpdateMouseObjectOffsets(pObj);
-        }
-        return true;
-    };
-};
 
-// Decl: speed/indep/src/feng/FEPackage.cpp:765
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Decl: speed/indep/src/feng/FEPackage.cpp:767
 void FEPackage::Update(FEngine *pEngine, i32 tDeltaTicks) {
     FEObject *pObject = static_cast<FEObject *>(Objects.GetHead());
     pEnginePtr = pEngine;
@@ -499,6 +781,16 @@ void FEPackage::Update(FEngine *pEngine, i32 tDeltaTicks) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
 void FEPackage::SetCurrentButton(FEObject *pNewButton, bool bSendMsgs) {
     if (bSendMsgs) {
         if (pCurrentButton) {
@@ -513,35 +805,115 @@ void FEPackage::SetCurrentButton(FEObject *pNewButton, bool bSendMsgs) {
     pCurrentButton = pNewButton;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void GetNumSpawnResponses(FEMessageResponse *pMsgResponse, u32 &NumLoad, u32 &StringLength) {
+    u32 i;
+
+    while (pMsgResponse) {
+
+
+        for (i = 0; i < pMsgResponse->GetCount(); i++) {
+
+            if (pMsgResponse->GetResponse(i)->SpawnsPackage() && pMsgResponse->GetResponse(i)->HasString()) {
+
+                NumLoad++;
+                StringLength += FEngStrLen(reinterpret_cast<const char *>(pMsgResponse->GetResponse(i)->ResponseParam)) + 1;
+            }
+        }
+
+        pMsgResponse = pMsgResponse->GetNext();
+    }
+}
+
+
+void SetSpawnResponses(FEMessageResponse *pMsgResponse, u32 &NumLoad, u32 &StringLength, FELoadPackageDescArray *pDesc) {
+    u32 i;
+
+    while (pMsgResponse) {
+
+
+        for (i = 0; i < pMsgResponse->GetCount(); i++) {
+
+            if (pMsgResponse->GetResponse(i)->SpawnsPackage() && pMsgResponse->GetResponse(i)->HasString()) {
+
+                char *pString = reinterpret_cast<char *>(pDesc) + StringLength;
+                FEngStrCpy(pString, reinterpret_cast<const char *>(pMsgResponse->GetResponse(i)->ResponseParam));
+
+                pDesc->Descs[NumLoad].pPackageName = pString;
+                pDesc->Descs[NumLoad].Type = pMsgResponse->GetResponse(i)->ResponseID;
+
+                StringLength += FEngStrLen(pString) + 1;
+                NumLoad++;
+            }
+        }
+
+        pMsgResponse = pMsgResponse->GetNext();
+    }
+}
+
 // total size: 0xC
-// Decl: speed/indep/src/feng/FEPackage.cpp:888
+// Decl: speed/indep/src/feng/FEPackage.cpp:869
 class FEGetNumSpawnResponses : public FEObjectCallback {
   public:
-    ~FEGetNumSpawnResponses() override {} // Decl: speed/indep/src/feng/FEPackage.cpp:888
+    u32 *pNumLoad;      // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:871
+    u32 *pStringLength; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:872
 
-    u32 *pNumLoad;      // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:890
-    u32 *pStringLength; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:891
+    FEGetNumSpawnResponses(u32 &TheNumLoad, u32 &TheStringLength) : pNumLoad(&TheNumLoad), pStringLength(&TheStringLength) {} // Decl: speed/indep/src/feng/FEPackage.cpp:874
 
-    FEGetNumSpawnResponses(u32 &TheNumLoad, u32 &TheStringLength) {} // Decl: speed/indep/src/feng/FEPackage.cpp:893
 
-    bool Callback(FEObject *pObj) override {} // Decl: speed/indep/src/feng/FEPackage.cpp:896
+    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:877
+        GetNumSpawnResponses(pObj->GetFirstResponse(), *pNumLoad, *pStringLength);
+        return true;
+    }
 };
 
 // total size: 0x10
-// Decl: speed/indep/src/feng/FEPackage.cpp:904
+// Decl: speed/indep/src/feng/FEPackage.cpp:885
 class FESetSpawnResponses : public FEObjectCallback {
   public:
-    ~FESetSpawnResponses() override {} // Decl: speed/indep/src/feng/FEPackage.cpp:904
+    u32 *pNumLoad;                 // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:887
+    u32 *pStringLength;            // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:888
+    FELoadPackageDescArray *pDesc; // offset 0xC, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:889
 
-    u32 *pNumLoad;                 // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:906
-    u32 *pStringLength;            // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:907
-    FELoadPackageDescArray *pDesc; // offset 0xC, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:908
+    FESetSpawnResponses(u32 &TheNumLoad, u32 &TheStringLength, FELoadPackageDescArray *pTheDesc) : pNumLoad(&TheNumLoad), pStringLength(&TheStringLength), pDesc(pTheDesc) {} // Decl: speed/indep/src/feng/FEPackage.cpp:891
 
-    FESetSpawnResponses(u32 &TheNumLoad, u32 &TheStringLength, FELoadPackageDescArray *pTheDesc) {} // Decl: speed/indep/src/feng/FEPackage.cpp:910
 
-    bool Callback(FEObject *pObj) override {} // Decl: speed/indep/src/feng/FEPackage.cpp:913
+    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:894
+        SetSpawnResponses(pObj->GetFirstResponse(), *pNumLoad, *pStringLength, pDesc);
+        return true;
+    }
 };
 
+FELoadPackageDescArray *FEPackage::GetLoadPackageDescArray() {
+    u32 StringLength = 0;
+    u32 NumLoad = 0;
+    GetNumSpawnResponses(GetFirstResponse(), NumLoad, StringLength);
+    FEGetNumSpawnResponses Counter(NumLoad, StringLength);
+    ForAllObjects(Counter);
+    if (NumLoad == 0) { return nullptr; }
+    u32 Size = sizeof(u32) + NumLoad * sizeof(FELoadPackageDesc) + StringLength;
+    FELoadPackageDescArray *pDesc = reinterpret_cast<FELoadPackageDescArray *>(FNEW char[Size]);
+    pDesc->Num = NumLoad;
+    StringLength = sizeof(u32) + NumLoad * sizeof(FELoadPackageDesc);
+    NumLoad = 0;
+    SetSpawnResponses(GetFirstResponse(), NumLoad, StringLength, pDesc);
+    FESetSpawnResponses Setter(NumLoad, StringLength, pDesc);
+    ForAllObjects(Setter);
+    return pDesc;
+}
 // total size: 0xC
 // Decl: speed/indep/src/feng/FEPackage.cpp:968
 class ResourceConnector : public FEObjectCallback {
@@ -549,12 +921,42 @@ class ResourceConnector : public FEObjectCallback {
     FEPackage *pPack;             // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:970
     FEResourceRequest **pReqList; // offset 0x8, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:971
 
-    bool Callback(FEObject *pObj) override; // Decl: speed/indep/src/feng/FEPackage.cpp:978
+    bool Callback(FEObject *pObj) override; // Decl: speed/indep/src/feng/FEPackage.cpp:958
 
-    void ConnectListBoxResources(FEListBox *pList); // Decl: speed/indep/src/feng/FEPackage.cpp:1006
+    void ConnectListBoxResources(FEListBox *pList); // Decl: speed/indep/src/feng/FEPackage.cpp:986
 };
 
-bool ResourceConnector::Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:978
+
+void FEPackage::FreeLoadPackageDescArray(FELoadPackageDescArray *pDescArray) const {
+    delete[] reinterpret_cast<char *>(pDescArray);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool ResourceConnector::Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:958
     switch (pObj->Type) {
         case FE_List:
             ConnectListBoxResources(static_cast<FEListBox *>(pObj));
@@ -570,7 +972,19 @@ bool ResourceConnector::Callback(FEObject *pObj) override { // Decl: speed/indep
     return true;
 };
 
-void ResourceConnector::ConnectListBoxResources(FEListBox *pList) { // Decl: speed/indep/src/feng/FEPackage.cpp:1006
+
+
+
+
+
+
+
+
+
+
+
+
+void ResourceConnector::ConnectListBoxResources(FEListBox *pList) { // Decl: speed/indep/src/feng/FEPackage.cpp:986
     pList->SetCurrentColumn(0);
     pList->SetCurrentRow(0);
 
@@ -589,6 +1003,14 @@ void ResourceConnector::ConnectListBoxResources(FEListBox *pList) { // Decl: spe
     }
 };
 
+
+
+
+
+
+
+
+
 void FEPackage::ConnectObjectResources() {
     ResourceConnector resConnector;
     resConnector.pPack = this;
@@ -596,22 +1018,45 @@ void FEPackage::ConnectObjectResources() {
     ForAllObjects(resConnector);
 }
 
-FEObjectMouseState::FEObjectMouseState() {
-    pObject = nullptr;
-    Offset.h = 0.0f;
-    Offset.v = 0.0f;
-    Flags = 0;
-}
 
-FEObjectMouseState::~FEObjectMouseState() {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // total size: 0x8
-// Decl: speed/indep/src/feng/FEPackage.cpp:1074
+// Decl: speed/indep/src/feng/FEPackage.cpp:1055
 class MouseStateObjectCounter : public FEObjectCallback {
   public:
-    int NumMouseObjects; // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:1076
+    int NumMouseObjects; // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:1057
 
-    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:1078
+    bool Callback(FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:1059
         if (pObj->Flags & FF_MouseObject) {
             NumMouseObjects++;
         }
@@ -619,13 +1064,14 @@ class MouseStateObjectCounter : public FEObjectCallback {
     }
 };
 
+
 // total size: 0x8
-// Decl: speed/indep/src/feng/FEPackage.cpp:1089
+// Decl: speed/indep/src/feng/FEPackage.cpp:1070
 class MouseStateArrayBuilder : public FEObjectCallback {
   public:
-    FEPackage *pPack; // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:1091
+    FEPackage *pPack; // offset 0x4, size 0x4, Decl: speed/indep/src/feng/FEPackage.cpp:1072
 
-    bool Callback(struct FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:1093
+    bool Callback(struct FEObject *pObj) override { // Decl: speed/indep/src/feng/FEPackage.cpp:1074
         if (pObj->Flags & FF_MouseObject) {
             pPack->AddMouseObjectState(pObj);
         }
@@ -633,42 +1079,76 @@ class MouseStateArrayBuilder : public FEObjectCallback {
     }
 };
 
+
+
+FEObjectMouseState::FEObjectMouseState() {
+    pObject = nullptr;
+    Offset.v = 0.0f;
+    Offset.h = 0.0f;
+    Flags = 0;
+}
+
+
+FEObjectMouseState::~FEObjectMouseState() {}
+
+
+
+
 void FEPackage::BuildMouseObjectStateList() {
+
     if (MouseObjectStates) {
+
         delete[] MouseObjectStates;
         MouseObjectStates = nullptr;
         NumMouseObjects = 0;
     }
+
     MouseStateObjectCounter the_counter;
     the_counter.NumMouseObjects = 0;
     ForAllObjects(the_counter);
+
+
     if (the_counter.NumMouseObjects > 0) {
-        MouseObjectStates = new (0, 0, (DummyFEngNewType *)NULL) FEObjectMouseState[the_counter.NumMouseObjects];
+
+        MouseObjectStates = FNEW FEObjectMouseState[the_counter.NumMouseObjects];
+
         MouseStateArrayBuilder the_builder;
         the_builder.pPack = this;
         ForAllObjects(the_builder);
     }
 }
 
-bool OffsetCalculatron(u32 NameHash, FEObject *pObj, FEPoint &Offset) {
-    if (NameHash == pObj->NameHash) {
-        FEObjData *pData = pObj->GetObjData();
+
+bool OffsetCalculatron(u32 mouseable, FEObject *obj, FEPoint &Offset) {
+    if (mouseable == obj->NameHash) {
+        FEObjData *pData = obj->GetObjData();
         Offset.h += pData->Pos.x;
         Offset.v += pData->Pos.y;
         return true;
-    } else if (pObj->Type == FE_Group && static_cast<FEGroup *>(pObj)->FindChildRecursive(NameHash)) {
-        FEObjData *pData = pObj->GetObjData();
+    } else if (obj->Type == FE_Group && static_cast<FEGroup *>(obj)->FindChildRecursive(mouseable)) {
+        FEObjData *pData = obj->GetObjData();
         Offset.h += pData->Pos.x;
         Offset.v += pData->Pos.y;
-        FEObject *pChild = static_cast<FEGroup *>(pObj)->GetFirstChild();
+        FEObject *pChild = static_cast<FEGroup *>(obj)->GetFirstChild();
         while (pChild) {
-            OffsetCalculatron(NameHash, pChild, Offset);
+            OffsetCalculatron(mouseable, pChild, Offset);
             pChild = static_cast<FEObject *>(pChild->GetNext());
         }
         return true;
     }
     return false;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 void FEPackage::AddMouseObjectState(FEObject *obj) {
     if (!obj) {
@@ -698,6 +1178,16 @@ void FEPackage::AddMouseObjectState(FEObject *obj) {
     NumMouseObjects++;
 }
 
+
+
+
+
+
+
+
+
+
+
 void FEPackage::UpdateMouseObjectOffsets(FEObject *obj) {
     if (!obj) {
         return;
@@ -724,13 +1214,108 @@ void FEPackage::UpdateMouseObjectOffsets(FEObject *obj) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void FEPackage::SetNumLibraryRefs(u32 NewCount) {
     if (NewCount == 0) {
+
         if (pLibRefs) {
             delete[] reinterpret_cast<char *>(pLibRefs);
         }
         pLibRefs = nullptr;
     } else {
+
         FELibraryRef *pNewList = FNEW FELibraryRef[NewCount];
         u32 CopyCount = NewCount;
         if (NewCount > NumLibRefs) {
@@ -746,6 +1331,33 @@ void FEPackage::SetNumLibraryRefs(u32 NewCount) {
         NumLibRefs = NewCount;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 FELibraryRef *FEPackage::FindLibraryReference(u32 ObjGUID) const {
     for (u32 i = 0; i < NumLibRefs; i++) {

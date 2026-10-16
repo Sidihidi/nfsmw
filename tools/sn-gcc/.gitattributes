@@ -1,0 +1,2 @@
+# The recipe runs on Linux/WSL: the script, the makefiles and the patches must stay LF on every checkout.
+* text eol=lf

@@ -11,7 +11,11 @@
 class EScheduleEventUpdate : public Event {
   public:
     // total size: 0x18
+    // El unico StaticData que se libera con delete (en ~EScheduleEventUpdate): lleva su propio asignador, y las dos
+    // PS2 llaman a __dl__Q220EScheduleEventUpdate10StaticDataPvUi; Event::StaticData no tiene ninguno (DWARF de GC).
     struct StaticData : public Event::StaticData {
+        USE_FASTALLOC(StaticData)
+
         void *fStaticData;           // offset: 0x4, size 0x4
         CARP::EventList *fEventList; // offset: 0x8, size 0x4
         int fTaskHandle;             // offset: 0xc, size 0x4

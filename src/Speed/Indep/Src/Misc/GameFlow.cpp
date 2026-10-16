@@ -51,6 +51,11 @@
 #include "Speed/Indep/Src/World/VisibleSection.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Ecstasy/EcstasyE.hpp"
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/Indep/bWare/Inc/bFunk.hpp"
@@ -83,6 +88,11 @@ const char *SpoilerPorschesModelPackFilename = "CARS\\SPOILER_PORSCHES\\GEOMETRY
 const char *RoofScoopModelPackFilename = "CARS\\ROOF\\GEOMETRY.BIN";
 const char *BrakesModelPackFilename = "CARS\\BRAKES\\GEOMETRY.BIN";
 const char *BrakesTexturePackFilename = "CARS\\BRAKES\\TEXTURES.BIN";
+#ifdef EA_BUILD_A124
+// Solo la A124 (0x617D94/0x617D98): ni el DWARF de GOWE69 ni speed.exe tienen las matriculas.
+const char *LicensePlatesModelPackFilename = "CARS\\PLATES\\GEOMETRY.BIN";
+const char *LicensePlatesTexturePackFilename = "CARS\\PLATES\\TEXTURES.BIN";
+#endif
 const char *CarTexturePackFilename = "CARS\\TEXTURES.BIN";
 const char *WheelsTexturePackFilename = "CARS\\WHEELS\\TEXTURES.BIN";
 const char *DynamicTexturePackFilename = "GLOBAL\\DYNTEX.BIN"; // Decl: 201
@@ -92,7 +102,9 @@ const char *HudSplitScreenTexturePackFilename = "GLOBAL\\HUDTEXSPLIT.BIN"; // De
 const char *HudDragSplitScreenTexturePackFilename = "GLOBAL\\HUDTEXDRAGSPLIT.BIN";
 const char *LoadingBootName = "loading_boot.fng";                       // Decl: 218
 const char *LoadingControllerScreenPackageName = "Loading_Controller.fng"; // Decl: 220
+#ifdef EA_PLATFORM_GAMECUBE
 VMFile *pFrontEndVirtualMemBundle = nullptr;
+#endif
 int CarLoaderPoolSizes[2] = {3500, 1750}; // Decl: 349
 
 int CodeOverlayMemoryPoolNumber = 0; // Decl: 693
@@ -130,6 +142,9 @@ void GenerateMissingCarParts();
 void InitializeSoundLoad();
 extern int AllowCompressedStreamingTexturesInThisPoolNum;
 extern int EmergencySaveMemory;
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern int RunPrecullingTool; // Scenery.cpp
+#endif
 void *GlobalMemoryFile = nullptr; // Decl: 3200
 int FinishedLoadingGlobalSuccesful = 0;
 void LoadAemsInGame(void (*)(intptr_t), intptr_t);
@@ -160,7 +175,7 @@ Attrib::Vault *gDatabaseVault = nullptr;
 
 static Attrib::Vault *sFrontEndVault = nullptr;
 static unsigned char *sFrontEndVaultData = nullptr;
-static int sFrontEndVaultHigh = 0;
+static bool sFrontEndVaultHigh = false;
 
 void RenderTrackMarkers(eView *view) {}
 
@@ -170,6 +185,10 @@ Sim::eUserMode CalculateSimMode() {
         if (SkipFESplitScreen) {
             mode = Sim::USER_SPLIT_SCREEN;
         }
+#ifdef EA_BUILD_A124
+    } else if (TheOnlineManager.IsOnlineRace()) {
+        mode = Sim::USER_ONLINE;
+#endif
     } else if (FEDatabase->IsSplitScreenMode()) {
         mode = Sim::USER_SPLIT_SCREEN;
     }
@@ -301,8 +320,8 @@ void DeactivateMemorySponge() {
     RealTimeFramesEnteringGame = 0;
 }
 
-void LoadMemoryFileCallback(intptr_t param, int error_status) {
-    void *memory_file = reinterpret_cast<void *>(param);
+void LoadMemoryFileCallback(intptr_t callback_param, int error_status) {
+    void *memory_file = reinterpret_cast<void *>(callback_param);
     AddMemoryFile(memory_file);
 }
 
@@ -317,7 +336,9 @@ void *LoadMemoryFile(const char *filename) {
 void BlockUntilMemoryFileLoaded(void *mem) {
     if (mem) {
         while (IsQueuedFileBusy()) {
+#ifndef EA_PLATFORM_PLAYSTATION2
             DVDErrorTask(nullptr, 0);
+#endif
             bThreadYield(8);
             ServiceQueuedFiles();
         }
@@ -344,7 +365,110 @@ void SetLeakDetector() {
 // STRIPPED
 void LeakDetectorFailed() {}
 
-void CheckLeakDetector(const char *debug_name) {}
+void CheckLeakDetector(const char *debug_name) {
+#ifdef EA_BUILD_A124
+    // GameCube y SLUS lo dejan vacio (en el DWARF de GameCube quedan las locales con rangos vacios).
+    int amount_leaked = LeakDetectorFreeMemory - bCountFreeMemory(0);
+    int largest_alloc_leak = LeakDetectorLargestAlloc - bLargestMalloc(0);
+
+    if (amount_leaked != 0 || largest_alloc_leak != 0) {
+        bReleasePrintf("WARNING:  Memory leak in %s!  %d bytes leaked
+", debug_name, amount_leaked);
+        Juice::GameHook::Instance()->GameEvent("MEMORY", "LEAK", "", amount_leaked, 0.0f, debug_name, "", "");
+        bMemoryPrintAllocations(0, LeakDetectorAllocationNumber, 0x7FFFFFFF);
+        LeakDetectorFailed();
+        eForceBackgroundColour(0, 128, 0, 1.0f, "Memory Leak");
+        {
+            const int print_pos_x = -230;
+            int print_pos_y = 120;
+            const int print_increment = 15;
+            int max_prints = 4;
+
+            for (int allocation_number = LeakDetectorAllocationNumber; allocation_number < bMemoryGetAllocationNumber();
+                 allocation_number++) {
+                void *ptr = bMemoryFindAllocation(0, allocation_number);
+                if (ptr) {
+                    char str[128];
+
+                    max_prints--;
+                    bSNPrintf(str, 128, "Memory leak: %d bytes, %s
+", bGetMallocSize(ptr), bGetMallocName(ptr));
+                    Juice::GameHook::Instance()->LogText(str);
+                    {
+                        float duration = 4.0f;
+                        ScreenPrintf(print_pos_x, print_pos_y, duration, "[%d]Memory leak: %d bytes, %s ", allocation_number,
+                                     bGetMallocSize(ptr), bGetMallocName(ptr));
+                    }
+                    print_pos_y += print_increment;
+                    if (max_prints < 2) {
+                        break;
+                    }
+                }
+            }
+        }
+        FEManager::Get()->Update();
+        eDisplayFrame();
+    }
+#endif
+}
+
+#ifdef EA_BUILD_A124
+// Los interruptores del volcado de memoria de la A124 (variables del tweaker; .sbss tras los LeakDetector*).
+int MemoryDumpMainPool = 0;
+int MemoryDumpPersistentPool = 0;
+int MemoryDumpAudioPool = 0;
+int MemoryDumpCarPool = 0;
+int MemoryDumpOnlinePool = 0;
+int MemoryDumpSpeechCachePool = 0;
+int MemoryDumpLanguagePool = 0;
+int MemoryDumpFastMem = 0;
+
+void ServiceMemoryDump() {
+    if (MemoryDumpFastMem) {
+        MemoryDumpFastMem = 0;
+        gFastMem.DumpRecord();
+        bRefreshTweaker();
+        return;
+    }
+    while (true) {
+        const char *pool_name = 0;
+
+        if (MemoryDumpMainPool) {
+            MemoryDumpMainPool = 0;
+            pool_name = "Main Pool";
+        }
+        if (MemoryDumpPersistentPool) {
+            MemoryDumpPersistentPool = 0;
+            pool_name = "Persistent Pool";
+        } else if (MemoryDumpAudioPool) {
+            MemoryDumpAudioPool = 0;
+            pool_name = "Audio Memory Pool";
+        } else if (MemoryDumpCarPool) {
+            MemoryDumpCarPool = 0;
+            pool_name = "Cars";
+        } else if (MemoryDumpOnlinePool) {
+            MemoryDumpOnlinePool = 0;
+            pool_name = "Online";
+        } else if (MemoryDumpSpeechCachePool) {
+            MemoryDumpSpeechCachePool = 0;
+            pool_name = "Speech Cache Memory Pool";
+        } else if (MemoryDumpLanguagePool) {
+            MemoryDumpLanguagePool = 0;
+            pool_name = "LanguageMemoryPool";
+        }
+        if (!pool_name) {
+            return;
+        }
+        int pool_num = bGetMemoryPoolNum(pool_name);
+        if (pool_num >= 0) {
+            bCountFreeMemory(pool_num);
+            bLargestMalloc(pool_num);
+            bMemoryPrintAllocationsByAddress(pool_num, 0, 0x7FFFFFFF);
+        }
+        bRefreshTweaker();
+    }
+}
+#endif
 
 // TODO memory profile stuff stripped from here
 
@@ -420,11 +544,22 @@ void RegionLoader::LoadHandler() {
         bool load_ingame = true;
         LoadLanguageResources(load_global, load_frontend, load_ingame, false);
 
-        int ingamea_allocation_params = 0x2000;
+        int ingamea_allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
+#ifdef EA_BUILD_A124
+        // La A124 hace sitio en el pool del TrackStreamer en las carreras en linea (como el HUD de arrancones).
+        if (TheOnlineManager.GetState() != OLS_DISCONNECTED) {
+            ingamea_allocation_params = 0x2047;
+            TheTrackStreamer.MakeSpaceInPool(bFileSize("Global\\InGameA.bun"), true);
+        }
+#endif
         pResourceInGameA = CreateResourceFile("Global\\InGameA.bun", RESOURCE_FILE_INGAME, 0, 0, 0);
         pResourceInGameA->SetAllocationParams(ingamea_allocation_params, "Global\\InGameA.bun");
+#ifdef EA_BUILD_A124
+        pResourceInGameA->BeginLoading(nullptr, 0);
+#else
         pResourceInGameA->BeginLoading();
-#ifndef EA_BUILD_A124
+#endif
+#ifdef EA_PLATFORM_GAMECUBE
         pResourceInGameB_VM = LoadFileIntoVirtualMemory("GLOBAL\\INGAMEB_VM_NGC.BUN", false, false);
 #endif
         pResourceInGameSplitScreen = nullptr;
@@ -443,7 +578,7 @@ void RegionLoader::LoadHandler() {
         GetTODFilename(GetCurrentTimeOfDay(), basefilename, filename, sizeof(filename));
         pResourceRegion = LoadResourceFile(filename, RESOURCE_FILE_TRACK, 1, &RegionLoader::LoadHandler, reinterpret_cast<intptr_t>(this), 0, 0);
 
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
         char vm_basefilename[48];
         char vm_filename[48];
         bSPrintf(vm_basefilename, "TRACKS\\%s_VM_NGC.BUN", TrackInfo::GetLoadedTrackInfo()->RegionName);
@@ -505,7 +640,7 @@ void RegionLoader::Unload() {
     pResourceInGameB = nullptr;
     pResourceInGameSplitScreen = nullptr;
     pResourceInGameA = nullptr;
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
     UnloadFileFromVirtualMemory(pResourceRegion_VM);
     UnloadFileFromVirtualMemory(pResourceInGameB_VM);
     pResourceRegion_VM = nullptr;
@@ -562,12 +697,17 @@ void TrackLoader::FinishedLoading() {
 
 void TrackLoader::Unload() {
     TheGameFlowManager.SetState(GAMEFLOW_STATE_UNLOADING_TRACK);
+#ifndef EA_BUILD_A124 // la A124 no para el sonido ni saca el paquete de FEng aqui
     SoundPause(false, eSNDPAUSE_QUITTOFE);
     SetSoundControlState(false, SNDSTATE_OFF, "TrackLoader::Unload");
     cFEng::Get()->QueuePackagePop(0);
     cFEng::Get()->ServiceFengOnly();
+#endif
     DeactivateMemorySponge();
     g_pEAXSound->StopSND11();
+#ifdef EA_BUILD_A124
+    bVerifyPoolIntegrity(0);
+#endif
     TheAnimPlayer.KillWorldAnimScene(true, false);
     ServiceSpaceNodes();
     ServiceSpaceNodes();
@@ -591,8 +731,10 @@ void TrackLoader::Unload() {
     WorldConn::RestoreServices();
     TheSlotPoolManager.CleanupExpandedSlotPools();
     bWaitUntilAsyncDone(nullptr);
+#ifndef EA_BUILD_A124
     TheTrackPathManager.Close();
     TheTrackPathManager.Close();
+#endif
     SkipFE = 0;
     bDefaultSeed = Joylog::AddOrGetData(bDefaultSeed, 0x20, JOYLOG_CHANNEL_RANDOM);
     if (TheRaceParameters.AIDemoMode == 0 && TheRaceParameters.ReplayDemoMode == 0) {
@@ -692,8 +834,7 @@ void FinishedGameLoading() {
 }
 
 void WaitForSimulation() {
-    int state = Sim::GetState();
-    if (state < 2) {
+    if (Sim::GetState() <= Sim::STATE_INITIALIZING) {
         TheGameFlowManager.SetSingleFunction(WaitForSimulation, "WaitForSimulation");
     } else {
         TheGameFlowManager.SetSingleFunction(FinishedGameLoading, "FinishedGameLoading");
@@ -832,7 +973,7 @@ Attrib::Vault *InitializeSingleAttributeVault(void *buf, const char *name, unsig
 class HighAttribAlloc : public IAttribAllocator {
   public:
     void *Allocate(std::size_t bytes, const char *name) override {
-        if (bytes < 0x401) {
+        if (bytes <= 0x400) {
             return gFastMem.Alloc(bytes, name);
         } else {
             return bMalloc(bytes, name, 0, 0x40);
@@ -840,7 +981,7 @@ class HighAttribAlloc : public IAttribAllocator {
     }
 
     void Free(void *ptr, std::size_t bytes, const char *name) override {
-        if (bytes < 0x401) {
+        if (bytes <= 0x400) {
             gFastMem.Free(ptr, bytes, name);
         } else {
             bFree(ptr);
@@ -866,8 +1007,8 @@ void LoadFrontEndVault(bool allocHigh) {
     }
     allocFlagsBin |= GetVirtualMemoryAllocParams();
 
+    sFrontEndVaultHigh = allocHigh; // GameCube 3563, antes del asignador (3565): speed.exe guarda en ese orden
     HighAttribAlloc highAllocator;
-    sFrontEndVaultHigh = allocHigh;
     IAttribAllocator *oldAllocator = nullptr;
     if (allocHigh) {
         oldAllocator = AttribAlloc::OverrideAllocator(&highAllocator);
@@ -888,7 +1029,7 @@ void GameFlowManager::LoadFrontend() {
 void UnloadFrontEndVault() {
     HighAttribAlloc highAllocator;
     IAttribAllocator *oldAllocator = nullptr;
-    if (sFrontEndVaultHigh != 0) {
+    if (sFrontEndVaultHigh) {
         oldAllocator = AttribAlloc::OverrideAllocator(&highAllocator);
     }
     gDatabaseVault->Clean();
@@ -903,7 +1044,7 @@ void UnloadFrontEndVault() {
     if (oldAllocator) {
         AttribAlloc::OverrideAllocator(oldAllocator);
     }
-    sFrontEndVaultHigh = 0;
+    sFrontEndVaultHigh = false;
 }
 
 void GameFlowManager::UnloadFrontend() {
@@ -918,7 +1059,12 @@ void GameFlowManager::ReloadTrack() {
 }
 
 void GameFlowManager::UnloadTrack() {
+#ifdef EA_BUILD_A124
+    // la A124 lo encola: SetSingleFunction(BeginGameFlowUnloadTrack, "BeginGameFlowUnloadTrack", 0)
+    SetSingleFunction(BeginGameFlowUnloadTrack, "BeginGameFlowUnloadTrack", 0);
+#else
     BeginGameFlowUnloadTrack(0);
+#endif
 }
 
 void GameFlowManager::CheckForDemoDiscTimeout() {}
@@ -927,16 +1073,22 @@ bool GameFlowManager::IsPaused() {
     return TheOnlineManager.IsOnlineRace() ? false : Sim::GetState() == Sim::STATE_IDLE;
 }
 
+#ifdef EA_PLATFORM_GAMECUBE
 extern "C" unsigned char bin_globala_bun[];
+#endif
 
 void LoadGlobalAChunks() {
+#ifdef EA_PLATFORM_GAMECUBE
 #define ALIGN(n, align) ((n + align) & ~(align - 1))
     int alignment = 0x80;
-    unsigned char *dest = reinterpret_cast<unsigned char *>(ALIGN(reinterpret_cast<uintptr_t>(bin_globala_bun - 1), alignment));
+    unsigned char *aligned_mem = reinterpret_cast<unsigned char *>(ALIGN(reinterpret_cast<uintptr_t>(bin_globala_bun - 1), alignment));
 #undef ALIGN
     // TODO hardcoded size?
-    bOverlappedMemCpy(dest, bin_globala_bun, 0x15df4);
-    LoadEmbeddedChunks(reinterpret_cast<bChunk *>(dest), 0x15df4, "Embedded GlobalA.bun");
+    bOverlappedMemCpy(aligned_mem, bin_globala_bun, 0x15df4);
+    LoadEmbeddedChunks(reinterpret_cast<bChunk *>(aligned_mem), 0x15df4, "Embedded GlobalA.bun");
+#else
+    LoadResourceFile("GLOBAL\\GLOBALA.BUN", RESOURCE_FILE_GLOBAL, 0);
+#endif
     WaitForResourceLoadingComplete();
 }
 
@@ -954,9 +1106,15 @@ void LoadGlobalChunks() {
     ResourceFile *r = LoadResourceFile("GLOBAL\\GLOBALB.LZC", RESOURCE_FILE_GLOBAL, 9);
     r->ChangeFilenameForHotChunking("GLOBAL\\GLOBALB.BUN");
 
+#ifdef EA_PLATFORM_GAMECUBE
     LoadFileIntoVirtualMemory("GLOBAL\\GLOBALB_VM_NGC.LZC", true, false);
+#endif
     LoadResourceFile(BrakesModelPackFilename, RESOURCE_FILE_CAR, 0);
     LoadResourceFile(BrakesTexturePackFilename, RESOURCE_FILE_CAR, 0);
+#ifdef EA_BUILD_A124
+    LoadResourceFile(LicensePlatesModelPackFilename, RESOURCE_FILE_CAR, 0);
+    LoadResourceFile(LicensePlatesTexturePackFilename, RESOURCE_FILE_CAR, 0);
+#endif
     WaitForResourceLoadingComplete();
 
     eLoadStreamingTexturePack(DynamicTexturePackFilename);
@@ -967,12 +1125,20 @@ void LoadGlobalChunks() {
         LoadResourceFile("GLOBAL\\WIDESCREEN_GLOBAL.BUN", RESOURCE_FILE_GLOBAL, 0);
     } else {
         LoadResourceFile("GLOBAL\\THINSCREEN_GLOBAL.BUN", RESOURCE_FILE_GLOBAL, 0);
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+        // SLUS carga tambien la de panoramica (0x3175E4); la A124 y GameCube no.
+        LoadResourceFile("GLOBAL\\WIDESCREEN_GLOBAL.BUN", RESOURCE_FILE_GLOBAL, 0);
+#endif
     }
     // TODO magic
     if (!GetTextureInfo(0xab0e817d, 0, 0)) {
         eLoadStreamingTexture(0xab0e817d);
     }
     WaitForResourceLoadingComplete();
+#ifdef EA_PLATFORM_WIN32
+    // speed.exe (0x66493E) pone el aspecto del FE antes del primer cuadro; GameCube y las dos PS2 no.
+    IVisualTreatment::Get()->SetState(IVisualTreatment::FE_LOOK);
+#endif
     eDisplayFrame();
     eLoadStreamingTexturePack(CarTexturePackFilename);
     eLoadStreamingTexturePack(WheelsTexturePackFilename);
@@ -985,13 +1151,36 @@ void LoadGlobalChunks() {
     eWaitForStreamingTexturePackLoading(nullptr);
     eWaitForStreamingSolidPackLoading(nullptr);
     WaitForResourceLoadingComplete();
+#ifdef EA_PLATFORM_GAMECUBE
+    // Solo GameCube: ni las dos PS2 ni speed.exe guardan nada entre WaitForResourceLoadingComplete y
+    // GenerateMissingCarParts (la variable la lee Platform_G.cpp).
     FinishedLoadingGlobalSuccesful = 1;
+#endif
     GenerateMissingCarParts();
+    // El pool del streamer por plataforma: GOWE69 0x4CF400; la A124 0x870000 (0x8F0000 con RunPrecullingTool, movn en
+    // 0x351E54); SLUS 0x869000 (0x8E9000, 0x317750); speed.exe 0x7EF4000 (0x664A35). Con EmergencySaveMemory las cinco
+    // restan 0x40000 a los dos pools (GameCube pliega la resta del tamano constante: 0x48F400).
+#ifdef EA_PLATFORM_PLAYSTATION2
+#ifdef EA_BUILD_A124
+    int size = 0x870000;
+    if (RunPrecullingTool) {
+        size = 0x8F0000;
+    }
+#else
+    int size = 0x869000;
+    if (RunPrecullingTool) {
+        size = 0x8E9000;
+    }
+#endif
+#elif defined(EA_PLATFORM_WIN32)
+    int size = 0x7EF4000;
+#else
     int size = 0x4cf400;
+#endif
     int car_loader_size = CarLoaderPoolSizes[0] * 0x400;
     if (EmergencySaveMemory != 0) {
         car_loader_size -= 0x40000;
-        size = 0x48f400;
+        size -= 0x40000;
     }
     TheTrackStreamer.InitMemoryPool(size + car_loader_size);
     AllowCompressedStreamingTexturesInThisPoolNum = 7;
@@ -1000,6 +1189,7 @@ void LoadGlobalChunks() {
     BlockWhileQueuedFileBusy();
     UnloadMemoryFile(GlobalMemoryFile);
     GlobalMemoryFile = nullptr;
+#ifndef EA_BUILD_A124
     bool sunset_exists = bFileExists("TRACKS/L2RA_Sunset.BUN");
     if (Joylog::IsCapturing()) {
         Joylog::AddData(static_cast<int>(sunset_exists), 8, JOYLOG_CHANNEL_CONFIG);
@@ -1009,6 +1199,7 @@ void LoadGlobalChunks() {
             bBreak();
         }
     }
+#endif
     LoadFrontEndVault(true);
 }
 
@@ -1025,7 +1216,9 @@ void DelayWaitForLoadingScreen() {
 
 void GameFlowLoadingFrontEndPart3(int) {
     TheGameFlowManager.ClearWaitingForCallback();
+#ifndef EA_BUILD_A124
     LoadingTips::SetDoneLoading(true);
+#endif
     TheGameFlowManager.SetSingleFunction(DelayWaitForLoadingScreen, "Delay wait for Frontennd\n");
 }
 
@@ -1044,25 +1237,41 @@ void GameFlowLoadGarageScreen(ASYNCFILE_CALLBACK callback, intptr_t param) {
     bool compressed;
     int flags;
     int pool;
-    FEManager::Get()->GetGarageBackground()->SetAllocationParams(0x2007, filename);
+    FEManager::Get()->GetGarageBackground()->SetAllocationParams(BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 7, filename);
     FEManager::Get()->GetGarageBackground()->BeginLoading(callback, param);
 }
 
 void GameFlowLoadingFrontEndPart1(int) {
     TheGameFlowManager.ClearWaitingForCallback();
     TheGameFlowManager.SetWaitingForCallback("GameFlowLoadingFrontEndPart2", 0);
+#ifdef EA_BUILD_A124
+    // La A124 carga aqui el fondo del garaje: en el pool 7 si cabe entero, si no en el 0.
+    const char *filename = FEManager::Get()->GetGarageNameFromType();
+    int pool = GetQueuedFileSize(filename) < bLargestMalloc(7) ? 7 : 0;
+    FEManager::Get()->SetGarageBackground(CreateResourceFile(filename, RESOURCE_FILE_FRONTEND, 0, 0, 0));
+    FEManager::Get()->GetGarageBackground()->SetAllocationParams(BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | pool, filename);
+    FEManager::Get()->GetGarageBackground()->BeginLoading(GameFlowLoadingFrontEndPart2, 0);
+#else
     GameFlowLoadGarageScreen(GameFlowLoadingFrontEndPart2, 0);
+#endif
 }
 
 void BeginGameFlowLoadingFrontEnd() {
     TheGameFlowManager.SetState(GAMEFLOW_STATE_LOADING_FRONTEND);
+#ifdef EA_BUILD_A124
+    bReleasePrintf("Loading front end...\n");
+#endif
     TheRaceParameters.InitWithDefaults();
     new ELoadingScreenOn(LoadingScreen::LS_LOADING_FE);
+#ifndef EA_BUILD_A124
     FEManager::Get()->ClearControllerError(4);
     MiniMainLoop();
+#endif
     TheCarLoader.SetLoadingMode(CarLoader::MODE_FRONT_END, 0);
     CodeOverlayLoadingFrontend(nullptr, 0);
+#ifdef EA_PLATFORM_GAMECUBE
     pFrontEndVirtualMemBundle = LoadFileIntoVirtualMemory("FRONTEND\\FRONTB_VM_NGC.LZC", true, true);
+#endif
 
     bool load_global = true;
     bool load_frontend = true;
@@ -1072,7 +1281,7 @@ void BeginGameFlowLoadingFrontEnd() {
     TheGameFlowManager.SetWaitingForCallback("GameFlowLoadingFrontEndPart1", 0);
 
     ResourceFile *r = LoadResourceFile("FRONTEND\\FRONTB.LZC", RESOURCE_FILE_FRONTEND, 9, GameFlowLoadingFrontEndPart1, 0, 0, 0);
-    r->SetAllocationParams(0x2007, "FRONTEND\\FRONTB.LZC");
+    r->SetAllocationParams(BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 7, "FRONTEND\\FRONTB.LZC");
     r->ChangeFilenameForHotChunking("FRONTEND\\FRONTB.BUN");
 }
 
@@ -1123,8 +1332,10 @@ void BeginGameFlowUnloadingFrontEnd() {
             break;
         UnloadResourceFile(r);
     }
+#ifdef EA_PLATFORM_GAMECUBE
     UnloadFileFromVirtualMemory(pFrontEndVirtualMemBundle);
     pFrontEndVirtualMemBundle = nullptr;
+#endif
 
     bool load_global = true;
     bool load_frontend = false;

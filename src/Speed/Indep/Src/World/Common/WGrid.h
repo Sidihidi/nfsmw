@@ -38,14 +38,14 @@ class WGrid {
 
     void RangeCheckROWCOL(unsigned int &row, unsigned int &col) const {
         if (col >= fNumCols) {
-            if (col > 0x7FFFFFFEU) {
+            if (col >= 0x7FFFFFFF) {
                 col = 0;
             } else {
                 col = fNumCols - 1;
             }
         }
         if (row >= fNumRows) {
-            if (row > 0x7FFFFFFEU) {
+            if (row >= 0x7FFFFFFF) {
                 row = 0;
             } else {
                 row = fNumRows - 1;

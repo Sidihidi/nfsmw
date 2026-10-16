@@ -80,10 +80,10 @@ void CustomTuningScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1
         ScrollTypes(eSD_NEXT);
         break;
     case 0xC519BFC4:
-        if (HelpVisible == 0) {
-            ShowHelpBlurb();
-        } else {
+        if (HelpVisible != 0) {
             HideHelpBlurb();
+        } else {
+            ShowHelpBlurb();
         }
         break;
     case 0x911AB364:
@@ -116,20 +116,20 @@ void CustomTuningScreen::ScrollTypes(eScrollDir dir) {
         return;
     }
 
-    int type = CurrentTuningType;
+    int tuning_type = CurrentTuningType;
 
     if (dir == eSD_NEXT) {
-        if (++type > 2) {
-            type = 0;
+        if (++tuning_type > 2) {
+            tuning_type = 0;
         }
     } else if (dir == eSD_PREV) {
-        if (--type < 0) {
-            type = 2;
+        if (--tuning_type < 0) {
+            tuning_type = 2;
         }
     }
 
-    if (type != CurrentTuningType) {
-        CurrentTuningType = type;
+    if (tuning_type != CurrentTuningType) {
+        CurrentTuningType = tuning_type;
         SetSlidersForType();
     }
 }
@@ -302,7 +302,9 @@ void CustomTuningScreen::Setup() {
     TuningRecord = stable->GetCustomizationRecordByHandle(record->Customization);
     if (TuningRecord != nullptr) {
         TempTuningRecord = *TuningRecord;
+#ifndef EA_BUILD_A124 // la A124 no recuerda el reglaje activo
         CurrentTuningType = TuningRecord->GetActiveTuning();
+#endif
     }
 
     AddTuningSlider(stable, record, Physics::Tunings::STEERING, false);
@@ -372,7 +374,9 @@ void CustomTuningScreen::StoreSettings() {
         }
     }
 
+#ifndef EA_BUILD_A124
     TuningRecord->SetActiveTuning(static_cast<eCustomTuningType>(CurrentTuningType));
+#endif
 
     new ETuneVehicle(0, TuningRecord->GetTunings());
 }
@@ -389,6 +393,10 @@ bool CustomTuningScreen::SettingsDidNotChange() {
         }
     }
 
+#ifdef EA_BUILD_A124
+    return true;
+#else
     return CurrentTuningType == TuningRecord->GetActiveTuning();
+#endif
 }
 

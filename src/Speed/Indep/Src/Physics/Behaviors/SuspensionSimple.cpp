@@ -670,7 +670,7 @@ void SuspensionSimple::OnTaskSimulate(float dT) {
     ISimable *owner = this->GetOwner();
 
     float extra_ride = 0.0f;
-    if (this->mNumWheelsOnGround > 1) {
+    if (this->mNumWheelsOnGround >= 2) {
         extra_ride = 2.0f;
     } else if (this->mNumWheelsOnGround == 0) {
         extra_ride = -10.0f;
@@ -696,7 +696,7 @@ void SuspensionSimple::OnTaskSimulate(float dT) {
     grip_factor *= UMath::Ramp(state.speed, 0.0f, Tweak_SimpleMaxOverSteerSpeed);
     grip_factor *= Tweak_OverSteerGripCorrection;
 // TODO
-#ifndef EA_BUILD_A124
+#ifndef EA_PLATFORM_PLAYSTATION2
     if (state.driver_class == 6) {
         grip_factor = 0.0f;
     }
@@ -711,9 +711,11 @@ void SuspensionSimple::OnTaskSimulate(float dT) {
         drag_pct = UMath::Lerp(drag_pct, 0.0f, cheat);
         aero_pct = UMath::Lerp(aero_pct, 1.5f, cheat);
     }
+#ifndef EA_BUILD_A124
     if (state.driver_style == 1) {
         aero_pct = UMath::Max(aero_pct, 1.5f);
     }
+#endif
 
     this->DoAerodynamics(state, drag_pct, aero_pct, this->GetWheel(0).GetLocalArm().z, this->GetWheel(2).GetLocalArm().z, nullptr);
     this->DoDriveForces(state);
@@ -861,7 +863,7 @@ void SuspensionSimple::DoDriveForces(State &state) {
     float front_drive = drive_torque * split;
     bool slip_tires = false;
     bool is_staging = (state.flags & 1) != 0;
-    if (is_staging || (state.gear < 4 && (state.gas_input > 0.5f))) {
+    if (is_staging || (state.gear <= 3 && (state.gas_input > 0.5f))) {
         slip_tires = true;
     }
     float traction_boost = state.nos_boost * state.shift_boost;
@@ -985,7 +987,7 @@ void SuspensionSimple::DoWheelForces(State &state) {
         float penetration = wheel.GetNormal().w;
         float upness = UMath::Clamp(UMath::Dot(groundNormal, vUp), 0.0f, 1.0f);
         const float oldCompression = wheel.GetCompression();
-        float newCompression = rideheight_specs[axle] * upness + penetration;
+        float newCompression = penetration + rideheight_specs[axle] * upness;
         float max_compression = travel_specs[axle];
 
         if (wheel.GetCompression() == 0.0f) {

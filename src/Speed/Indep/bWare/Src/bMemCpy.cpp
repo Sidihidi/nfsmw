@@ -4,6 +4,7 @@ extern "C" {
 
 // TODO
 #ifndef EA_PLATFORM_WIN32
+#ifndef EA_PLATFORM_XENON
 void bMemCpy(void *dest, const void *src, unsigned int numbytes) {
     char *pdest = (char *)dest;
     char *psrc = (char *)src;
@@ -40,7 +41,10 @@ void bMemCpy(void *dest, const void *src, unsigned int numbytes) {
         ++pdest;
     }
 }
+#endif
 
+// X360: bMemSet es el memset de la CRT (bWare.hpp).
+#ifndef EA_PLATFORM_XENON
 void bMemSet(void *dest, unsigned char pattern, unsigned int size) {
     int original_size = size;
     char *pdest = reinterpret_cast<char *>(dest);
@@ -84,7 +88,10 @@ void bMemSet(void *dest, unsigned char pattern, unsigned int size) {
         size--;
     }
 }
+#endif
 
+// X360: bMemCmp es el memcmp de la CRT (bWare.hpp).
+#ifndef EA_PLATFORM_XENON
 int bMemCmp(const void *s1, const void *s2, unsigned int numbytes) {
     if (numbytes == 0) {
         return 0;
@@ -95,6 +102,7 @@ int bMemCmp(const void *s1, const void *s2, unsigned int numbytes) {
     }
     return *reinterpret_cast<const unsigned char *>(s1) - *reinterpret_cast<const unsigned char *>(s2);
 }
+#endif
 #endif
 
 void bOverlappedMemCpy(void *dest, const void *src, unsigned int numbytes) {

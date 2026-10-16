@@ -72,3 +72,44 @@ void *luaM_realloc(lua_State *L, void *block, lu_mem oldsize, lu_mem size, LuaAl
     }
     return block;
 }
+
+/* STRIPPED en GameCube (el DWARF la declara con Range 0xFFFFFFFF); las dos PS2 la tienen */
+const char *luaM_gettypename(LuaAllocType type) {
+    switch (type) {
+    case LUAALLOC_CHAR:
+        return "CHAR";
+    case LUAALLOC_INT:
+        return "INT";
+    case LUAALLOC_STATE:
+        return "STATE";
+    case LUAALLOC_GLOBALSTATE:
+        return "GLOBALSTATE";
+    case LUAALLOC_TABLE:
+        return "TABLE";
+    case LUAALLOC_TOBJECT:
+        return "TOBJECT";
+    case LUAALLOC_LOCVAR:
+        return "LOCVAR";
+    case LUAALLOC_TSTRINGPTR:
+        return "TSTRINGPTR";
+    case LUAALLOC_GCOBJECTPTR:
+        return "GCOBJECTPTR";
+    case LUAALLOC_INSTRUCTION:
+        return "INSTRUCTION";
+    case LUAALLOC_CALLINFO:
+        return "CALLINFO";
+    case LUAALLOC_CLOSURE:
+        return "CLOSURE";
+    case LUAALLOC_UPVAL:
+        return "UPVAL";
+    case LUAALLOC_PROTO:
+        return "PROTO";
+    case LUAALLOC_PROTOPTR:
+        return "PROTOPTR";
+    case LUAALLOC_UDATA:
+        return "UDATA";
+    case LUAALLOC_NODE:
+        return "NODE";
+    }
+    return "INVALID";
+}

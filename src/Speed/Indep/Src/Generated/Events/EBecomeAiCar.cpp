@@ -22,7 +22,10 @@ EBecomeAiCar::~EBecomeAiCar() {
             if (simable->QueryInterface(&vehicle)) {
                 if (simable->QueryInterface(&human_ai)) {
                     if (simable->QueryInterface(&body)) {
-                        if (!human_ai->GetAiControl()) {
+#ifndef EA_BUILD_A124 // la A124 no mira antes si ya lo lleva la IA
+                        if (!human_ai->GetAiControl())
+#endif
+                        {
                             human_ai->SetAiControl(true);
 
                             IVehicleAI *ai_vehicle = vehicle->GetAIVehiclePtr();
@@ -48,8 +51,8 @@ void EBecomeAiCar_MakeEvent_Callback(const void *staticData) {
     new EBecomeAiCar();
 }
 
-int EBecomeAiCar_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EBecomeAiCar_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EBecomeAiCar();
     }
     return 0;

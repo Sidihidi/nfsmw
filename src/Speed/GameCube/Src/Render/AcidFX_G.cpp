@@ -1,4 +1,5 @@
 #include "Speed/Indep/Src/Ecstasy/Ecstasy.hpp"
+#include "Speed/Indep/Src/Ecstasy/EmitterSystem.h"
 #include "Speed/GameCube/Src/Ecstasy/eViewPlat.hpp"
 #include "Speed/GameCube/Src/Ecstasy/eMatrixE.hpp"
 #include "Speed/GameCube/Src/Ecstasy/Ecstasy.hpp"

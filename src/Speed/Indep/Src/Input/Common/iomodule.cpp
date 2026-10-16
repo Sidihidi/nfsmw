@@ -3,6 +3,9 @@
 #include "Speed/Indep/Src/Input/ActionQueue.h"
 #include "Speed/Indep/Src/Misc/Joylog.hpp"
 #include "Speed/Indep/Src/Misc/Joystick.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 IOModule &IOModule::GetIOModule() {
     static IOModule instance;
@@ -94,7 +97,7 @@ bool IOModule::CheckUnplugged() {
 
     fDisconnected = disconnected;
 
-    return needs_required_ports ? !has_required_ports : false;
+    return needs_required_ports && !has_required_ports;
 }
 
 void IOModule::PollDevices() {
@@ -110,11 +113,19 @@ void IOModule::Update() {
     if (fUpdateEnabled) {
         ActionQueue::BeginJoylogFrame();
 
+#ifdef EA_BUILD_A124
+        if ((!gJuiceEnabled && !Joylog::IsReplaying()) ||
+            (gJuiceEnabled && !Juice::GameHook::Instance()->Replay_IsReplaying() && !MWJuicePad::Instance()->IsLastJoyFrame())) {
+#else
         if (!Joylog::IsReplaying()) {
+#endif
             PollDevices();
             UpdateAllDevices();
         }
 
+#ifdef EA_BUILD_A124
+        Juice::GameHook::Instance()->UpdatePad(nullptr);
+#endif
         ActionQueue::EndJoylogFrame();
     }
 }
@@ -187,18 +198,13 @@ void IOModule::Initialize() {
 }
 
 bool IsJoystickTypeWheel(JoystickPort port) {
-    if (port < 0) {
-        return false;
-    }
-    if (port >= IOModule::GetIOModule().GetNumDevices()) {
-        return false;
-    }
-    InputDevice *device = IOModule::GetIOModule().GetDevice(port);
-    if (device == 0) {
-        return false;
-    }
-    if (device->IsWheel()) {
-        return true;
+    if (port > JOYSTICK_PORT_NONE && port < IOModule::GetIOModule().GetNumDevices()) {
+        InputDevice *device = IOModule::GetIOModule().GetDevice(port);
+        if (device != 0) {
+            if (device->IsWheel()) {
+                return true;
+            }
+        }
     }
     return false;
 }

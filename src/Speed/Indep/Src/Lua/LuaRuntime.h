@@ -56,6 +56,8 @@ class LuaRuntime {
     void ResetHeap();
     void FreeEmergencyAllocations();
 
+    static const char *GetLuaTypeName(int typeNum);
+    static void DebugPrintTable(lua_State *state, const char *suffix);
     static int PackIdentifier(const char *src, unsigned char *dest);
     static int UnpackIdentifier(const unsigned char *src, char *dest);
 

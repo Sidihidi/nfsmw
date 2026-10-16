@@ -17,11 +17,15 @@ EReloadHud::~EReloadHud() {
         if (Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN) {
 
             bool isDrag = false;
+#ifndef EA_BUILD_A124
             bool isChallenge = false;
+#endif
 
             if (GRaceStatus::Exists()) {
                 isDrag = GRaceStatus::IsDragRace();
+#ifndef EA_BUILD_A124
                 isChallenge = GRaceStatus::IsChallengeRace();
+#endif
             }
 
             if (player == IPlayer::First(PLAYER_LOCAL)) {
@@ -40,11 +44,16 @@ EReloadHud::~EReloadHud() {
                 }
             }
 
+#ifndef EA_BUILD_A124
+            // La A124 aun no pone el sonido de la intro ni el del reinicio.
             if (!isChallenge) {
                 g_pEAXSound->QueueNISButtonThrough(bStringHash("IntroNisDDEnd"), 0);
             }
+#endif
         } else if (GRaceStatus::Exists()) {
+#ifndef EA_BUILD_A124
             bool isChallenge = GRaceStatus::IsChallengeRace();
+#endif
 
             if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_Drag) {
                 player->SetHud(PHT_DRAG);
@@ -52,9 +61,11 @@ EReloadHud::~EReloadHud() {
                 player->SetHud(PHT_STANDARD);
             }
 
+#ifndef EA_BUILD_A124
             if (!isChallenge && GRaceStatus::Get().GetRaceType() != GRace::kRaceType_None) {
                 g_pEAXSound->QueueNISButtonThrough(bStringHash("RESTART_FAKE"), -1);
             }
+#endif
         } else {
             player->SetHud(PHT_STANDARD);
         }
@@ -69,8 +80,8 @@ void EReloadHud_MakeEvent_Callback(const void *staticData) {
     new EReloadHud();
 }
 
-int EReloadHud_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 0) {
+int EReloadHud_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 0) {
         new EReloadHud();
     }
     return 0;

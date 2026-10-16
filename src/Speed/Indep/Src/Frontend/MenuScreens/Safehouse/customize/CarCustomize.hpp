@@ -101,7 +101,9 @@ class CustomizeShoppingCart : public UIWidgetMenu {
 
     void NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) override;
     static void ShowShoppingCart(const char *parent_pkg);
+#ifndef EA_BUILD_A124
     static void ExitShoppingCart();
+#endif
     FEShoppingCartItem *GetCurrentItem() {
         return nullptr;
     }
@@ -135,8 +137,6 @@ class CustomizeMainOption : public IconOption {
         UnlockStatus = CPS_AVAILABLE;
         Category = to_cat | (from_cat << 16);
     }
-
-    ~CustomizeMainOption() override {}
 
     void React(const char *pkg_name, uint32 data, FEObject *obj, uint32 param1, uint32 param2) override {
         if (data == 0xc407210) {
@@ -494,8 +494,6 @@ class HUDColorOption : public IconOption {
     HUDColorOption(SelectablePart *part)
         : IconOption(0, 0, 0), //
           ThePart(part) {}
-
-    ~HUDColorOption() override {}
 
     void React(const char *parent_pkg, uint32 data, FEObject *obj, uint32 param1, uint32 param2) override {}
 

@@ -146,7 +146,7 @@ float NFSMixShape::GetPitchMultFromCents(int cents) {
     float octaveMulti = 1.0f;
     bool Neg = cents < 0;
 
-    if (cents > 0x4AF) {
+    if (cents >= 0x4B0) {
         do {
             cents = cents - 0x4B0;
             octaveMulti = octaveMulti + octaveMulti;
@@ -223,7 +223,7 @@ found:
         0x0, 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F, 0x0FF, 0x1FF, 0x3FF, 0x7FF,
     };
 
-    if (n > 4) {
+    if (n >= 5) {
         nRem = (nRem << (n - 5)) | fillin[n - 5];
     } else {
         nRem = nRem >> (5 - n);

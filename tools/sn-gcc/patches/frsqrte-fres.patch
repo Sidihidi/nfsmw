@@ -1,0 +1,160 @@
+frsqrte-fres.patch -- PoC: scalar __builtin_frsqrte/__builtin_fres for the
+GameCube backend (SN BUILD v1.79 source), imitating the fnmsubs define_insn
+of rs6000.md:3668 and the __builtin_ps_* machinery of rs6000.c/rs6000.h.
+
+The dossier (docs/asm-de-ea.md, bSqrt) shows the 86 GameCube functions that
+expand bSqrt need frsqrte + fmuls + fnmsubs per Newton step, and that SN's
+rs6000.md has no pattern for frsqrte/fres: the original is asm of EA.
+fmuls comes from plain C (mulsf3); fnmsubs does NOT survive -ffast-math
+(GCC folds -(a*b-c) to c-a*b, which has no pattern), so this PoC alone is
+expected to leave the fnmsubs sites; the full plan adds an fnmsubs-minus
+pattern/builtin on top. fres covers the eRecip site of eMathE.cpp.
+
+What it does: two SFmode unspec define_insns (70/71, free: the tree uses
+0-69) emitting frsqrte/fres under TARGET_POWERPC && TARGET_HARD_FLOAT;
+two GEK_BUILTIN codes + a float->float bdesc table + an SF expander with
+no Rc operand; MD_INIT_BUILTINS always inits (the PS builtins keep their
+-mps-float gate inside gek_init_builtins). Applies to both source-built
+toolchains (3.9.3-src, 3.9.3-v183src); build.sh's generator run takes the
+union of patches so insn-codes.h sees the new patterns. Reference SHAs in
+build.sh do not apply to patched builds; validate by .s comparison.
+
+--- a/gcc/config/rs6000/rs6000.md
++++ b/gcc/config/rs6000/rs6000.md
+@@ -3682,6 +3682,23 @@
+   "! TARGET_POWERPC && TARGET_HARD_FLOAT && TARGET_FUSED_MADD"
+   "{fnms|fnmsub} %0,%1,%2,%3"
+   [(set_attr "type" "dmul")])
++
++;; Scalar single-precision estimates for __builtin_frsqrte/__builtin_fres
++;; (SN-PoC): imitate the fnmsubs define_insn above.  unspec keeps the
++;; estimate from being folded or CSE'd like an exact operation.
++(define_insn "b_frsqrtesf2"
++  [(set (match_operand:SF 0 "gpc_reg_operand" "=f")
++	(unspec:SF [(match_operand:SF 1 "gpc_reg_operand" "f")] 70))]
++  "TARGET_POWERPC && TARGET_HARD_FLOAT"
++  "frsqrte %0,%1"
++  [(set_attr "type" "fp")])
++
++(define_insn "b_fressf2"
++  [(set (match_operand:SF 0 "gpc_reg_operand" "=f")
++	(unspec:SF [(match_operand:SF 1 "gpc_reg_operand" "f")] 71))]
++  "TARGET_POWERPC && TARGET_HARD_FLOAT"
++  "fres %0,%1"
++  [(set_attr "type" "fp")])
+ 
+ (define_expand "sqrtsf2"
+   [(set (match_operand:SF 0 "gpc_reg_operand" "")
+--- a/gcc/config/rs6000/rs6000.h
++++ b/gcc/config/rs6000/rs6000.h
+@@ -3615,6 +3615,8 @@
+   GEK_BUILTIN_NABSPS,
+   GEK_BUILTIN_RESPS,
+   GEK_BUILTIN_RSQRTEPS,
++  GEK_BUILTIN_FRSQRTE,
++  GEK_BUILTIN_FRES,
+   GEK_BUILTIN_LPS,
+   GEK_BUILTIN_LUPS,
+   GEK_BUILTIN_LXPS,
+@@ -3632,11 +3634,13 @@
+ 
+ extern void gek_init_builtins (void);
+ 
++/* SN-PoC: always init so that __builtin_frsqrte/__builtin_fres exist
++   without -mps-float; the PS builtins keep their gate inside
++   gek_init_builtins ().  */
+ #define MD_INIT_BUILTINS      \
+   do                          \
+   {                           \
+-    if (TARGET_PS_FLOAT)      \
+-      gek_init_builtins ();   \
++    gek_init_builtins ();     \
+   }                           \
+   while (0)
+ 
+--- a/gcc/config/rs6000/rs6000.c
++++ b/gcc/config/rs6000/rs6000.c
+@@ -6472,6 +6472,13 @@
+   { CODE_FOR_b_rsqrteps2, "__builtin_ps_rsqrte", GEK_BUILTIN_RSQRTEPS, 0, BI_RC }
+ } ;
+ 
++// 1 float result, 1 float argument: scalar estimates (SN-PoC, never PS-gated)
++static struct builtin_description bdesc_sf1arg[] =
++{
++  { CODE_FOR_b_frsqrtesf2, "__builtin_frsqrte", GEK_BUILTIN_FRSQRTE, 0, 0 },
++  { CODE_FOR_b_fressf2, "__builtin_fres", GEK_BUILTIN_FRES, 0, 0 }
++} ;
++
+ // 1 result, 2 argument opcodes
+ static struct builtin_description bdesc_2arg[] =
+ {
+@@ -6601,6 +6608,17 @@
+                                                                  tree_cons (NULL_TREE, integer_type_node,
+                                                                  endlink))))));
+ 
++  // float = func ( float ) : scalar single-precision estimates (SN-PoC).
++  tree float_ftype_float = build_function_type (float_type_node,
++							tree_cons (NULL_TREE, float_type_node,
++							endlink));
++
++  // __builtin_frsqrte/__builtin_fres are always defined (SN-PoC); the PS
++  // builtins below keep their -mps-float gate, now tested here.
++  gek_init_builtin_desc (bdesc_sf1arg, (sizeof (bdesc_sf1arg) / sizeof (bdesc_sf1arg[0])), float_ftype_float);
++
++  if (TARGET_PS_FLOAT)
++  {
+   // Add all builtins that are more or less simple operations on one operand. 
+   gek_init_builtin_desc(bdesc_1arg,(sizeof(bdesc_1arg)/sizeof(bdesc_1arg[0])),ps_ftype_ps) ;
+   // Add all builtins that are more or less simple operations on two operands. 
+@@ -6620,6 +6638,7 @@
+   def_builtin ("__builtin_psq_stu",  void_ftype_pvoid_ps_int_int,END_BUILTINS+(GEK_BUILTIN_STUPS<<1));
+   def_builtin ("__builtin_psq_stx",  void_ftype_pvoid_ps_int_int_int, END_BUILTINS+(GEK_BUILTIN_STXPS<<1)) ;
+   def_builtin ("__builtin_psq_stux", void_ftype_pvoid_ps_int_int_int, END_BUILTINS+(GEK_BUILTIN_STUXPS<<1)) ;
++  }
+ } ;
+ 
+ /* Errors in the source file can cause expand_expr to return const0_rtx
+@@ -6807,6 +6826,28 @@
+   return op0;
+ } ;
+ 
++/* Subroutine of gek_expand_builtin for scalar SFmode unops without an Rc
++   operand (SN-PoC: __builtin_frsqrte, __builtin_fres).  */
++
++static rtx gek_expand_sf_unop_builtin (enum insn_code icode, tree arglist, rtx target)
++{
++  tree arg0 = TREE_VALUE (arglist);
++  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
++  rtx pat;
++
++  if (! target
++      || GET_MODE (target) != SFmode)
++    target = gen_reg_rtx (SFmode);
++
++  op0 = copy_to_mode_reg (SFmode, op0);
++
++  pat = GEN_FCN (icode) (target, op0);
++  if (! pat)
++    return 0;
++  emit_insn (pat);
++  return target;
++} ;
++
+ /* Expand an expression EXP that calls a built-in function,
+    with result going to TARGET if that's convenient
+    (and in mode MODE if that's convenient).
+@@ -6829,6 +6870,14 @@
+   Rc = (fcode & 1) ;
+   fcode = (fcode >> 1) ;
+ 
++  // scalar SFmode estimates (SN-PoC: no Rc operand)
++  for (i = 0, d = bdesc_sf1arg; i < sizeof (bdesc_sf1arg) / sizeof(*d); i++, d++)
++  {
++    if (d->code == fcode)
++    {
++      return gek_expand_sf_unop_builtin (d->icode, arglist, target);
++    } ;
++  } ;
+ 
+   // 1 arg binops
+   for (i = 0, d = bdesc_1arg; i < sizeof (bdesc_1arg) / sizeof(*d); i++, d++)

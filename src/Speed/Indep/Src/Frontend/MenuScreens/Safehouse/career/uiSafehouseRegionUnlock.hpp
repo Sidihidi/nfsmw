@@ -18,7 +18,7 @@ class uiSafehouseRegionUnlock : public MenuScreen {
     ~uiSafehouseRegionUnlock() override;
 
     void NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) override;
-
+  private:
     void Setup();
 
     FEImage *pRivalImg;                          // offset 0x2C, size 0x4

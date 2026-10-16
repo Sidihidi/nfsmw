@@ -91,6 +91,25 @@ void InputPlayer::FlushInput() {
 }
 
 void InputPlayer::OnTaskSimulate(float dT) {
+#ifdef EA_BUILD_A124
+    if (this->mVehicle->GetForceStop()) {
+        if (this->mVehicle->GetForceStop() & 2) {
+            this->GetOwner()->GetRigidBody()->SetAngularVelocity(UMath::Vector3::kZero);
+            this->GetOwner()->GetRigidBody()->SetLinearVelocity(UMath::Vector3::kZero);
+            if (!(this->mVehicle->GetForceStop() & 8)) {
+                this->SetControlGas(0.0f);
+            }
+            this->SetControlBrake(0.0f);
+        } else {
+            if (!(this->mVehicle->GetForceStop() & 8)) {
+                this->SetControlGas(0.0f);
+            }
+            this->SetControlBrake(1.0f);
+        }
+    } else {
+        PInput::OnTaskSimulate(dT);
+    }
+#else
     if (this->mVehicle->GetForceStop()) {
         this->ClearInput();
         this->SetControlBrake(1.0f);
@@ -101,6 +120,7 @@ void InputPlayer::OnTaskSimulate(float dT) {
     } else {
         PInput::OnTaskSimulate(dT);
     }
+#endif
 }
 
 void InputPlayer::BlockInput(bool block) {
@@ -149,8 +169,8 @@ void InputPlayer::FetchInput() {
 #endif
                                                             ),
                              "InputPlayer");
-    if (this->mHumanAI != nullptr) {
-        player_in_control = this->mHumanAI->GetAiControl() == false;
+    if (this->mHumanAI != nullptr && this->mHumanAI->GetAiControl()) {
+        player_in_control = false;
     }
 
     bool drive_cam_in_control = true;
@@ -282,7 +302,7 @@ void InputPlayer::DoAutoBraking(const float gas_input, const float brake_input) 
     }
     const int current_gear = itranny->GetGear();
     float speed = this->mVehicle->GetSpeed();
-    if (current_gear > G_REVERSE) {
+    if (current_gear >= G_NEUTRAL) {
         if (speed < 8.0f) {
             float brake_ratio = UMath::Ramp(speed, 0.0f, 8.0f);
             this->SetControlBrake(1.0f - brake_ratio * 0.75f);

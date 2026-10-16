@@ -27,7 +27,7 @@ int SNDI_findprime(int samplerate, int delay) {
     delay *= samplerate;
     prime = delay / 1000;
 
-    if (prime <= 2) {
+    if (prime < 3) {
         prime = 3;
     }
 

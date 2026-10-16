@@ -48,11 +48,29 @@ class AITrafficManager : public Sim::Activity, public ITrafficMgr, public IVehic
         }
     };
 
+    struct TypeCounter {
+        Attrib::Key Key;
+        bool ActiveOnly;
+        unsigned int Count;
+
+      public:
+        TypeCounter(Attrib::Key key, bool active_only) : Key(key), ActiveOnly(active_only), Count(0) {}
+
+        void operator()(IVehicle *vehicle) {
+            if (!ActiveOnly || vehicle->IsActive()) {
+                if (vehicle->GetVehicleAttributes().GetCollection() == Key) {
+                    Count++;
+                }
+            }
+        }
+    };
+
     typedef UTL::Std::list<IVehicle *, _type_TrafficList> TrafficList;
 
     static Sim::IActivity *Construct(Sim::Param params);
 
     AITrafficManager(Sim::Param params);
+  private:
     Attrib::Key NextSpawn();
     IVehicle *GetAvailableTrafficVehicle(Attrib::Key key, bool makenew);
     bool SpawnTraffic();
@@ -66,7 +84,7 @@ class AITrafficManager : public Sim::Activity, public ITrafficMgr, public IVehic
     bool ValidateVehicle(IVehicle *ivehicle, float density) const;
     float ComputeDensity() const;
     void Update(float dT);
-
+  public:
     // Overrides
     // IUnknown
     ~AITrafficManager() override;
@@ -84,7 +102,7 @@ class AITrafficManager : public Sim::Activity, public ITrafficMgr, public IVehic
 
     // ITrafficMgr
     void FlushAllTraffic(bool release) override;
-
+  protected:
     // IAttachable
     void OnAttached(IAttachable *pOther) override;
     void OnDetached(IAttachable *pOther) override;

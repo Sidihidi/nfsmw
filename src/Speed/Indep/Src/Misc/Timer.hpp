@@ -109,7 +109,7 @@ class Timer {
     }
 
     void SetTime(float seconds) {
-        this->PackedTime = static_cast<int>(seconds * TIMER_SHIFT_VALUE_FLOAT + 0.5f);
+        this->PackedTime = bFloatToInt(seconds * TIMER_SHIFT_VALUE_FLOAT + 0.5f);
     }
 
     void GetHoursMinsSeconds(int *hours, int *minutes, int *seconds, int *thousandths_seconds);
@@ -163,6 +163,8 @@ void AdvanceRealTime();
 void AdvanceWorldTime();
 float GetDebugRealTime();
 VIDEO_MODE GetVideoMode();
+VIDEO_MODE SetVideoMode(VIDEO_MODE video_mode);
+VIDEO_MODE GetBuildRegionVideoMode();
 
 inline float GetVideoFrameTime(VIDEO_MODE video_mode) {
     if (video_mode == MODE_PAL) {

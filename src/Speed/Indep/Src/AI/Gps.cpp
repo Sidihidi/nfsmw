@@ -90,7 +90,9 @@ Gps::Gps() : Sim::Activity(0) {
     mArrowModel->Init(bStringHash("MARKER_DIRECTION_AID"));
 
     mTask = AddTask("WorldUpdate", 1.0f, 0.0f, Sim::TASK_FRAME_VARIABLE);
+#ifndef EA_BUILD_A124
     Sim::ProfileTask(mTask, "GPS");
+#endif
     mTarget = UMath::Vector3::kZero;
     mPosition = UMath::Vector3::kZero;
     mDirection = UMath::Vector3::kZero;
@@ -127,7 +129,7 @@ void Gps::Update(float dT) {
         return;
     }
 
-    IVehicle *vehicle = UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, 10>::First(VEHICLE_PLAYERS);
+    IVehicle *vehicle = IVehicle::First(VEHICLE_PLAYERS);
     IRigidBody *body;
 
     if (!vehicle || !vehicle->QueryInterface(&body)) {
@@ -218,7 +220,7 @@ bool Gps::Engage(const UMath::Vector3 &target, float maxDeviation) {
         mMaxDeviation = maxDeviation;
     }
 
-    IVehicle *vehicle = UTL::Collections::ListableSet<IVehicle, 10, eVehicleList, 10>::First(VEHICLE_PLAYERS);
+    IVehicle *vehicle = IVehicle::First(VEHICLE_PLAYERS);
     ICollisionBody *body;
 
     if (vehicle && vehicle->QueryInterface(&body)) {
@@ -316,7 +318,7 @@ void Gps::Render(eView *view) {
     }
 
     float scale = bCos(half_fov) * 2.0f;
-    unsigned short angle = static_cast<unsigned short>(half_fov * 0.5f);
+    unsigned short angle = static_cast<unsigned short>(bFloatToInt(half_fov * 0.5f));
     float sin;
     float cos;
 

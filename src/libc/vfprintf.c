@@ -18,10 +18,17 @@
 #include <stdarg.h>
 
 typedef unsigned int size_t;
+#ifdef EA_PLATFORM_PLAYSTATION2
+typedef long quad_t;
+typedef unsigned long u_quad_t;
+typedef unsigned long u_long;
+typedef unsigned short wchar_t;
+#else
 typedef long long quad_t;
 typedef unsigned long long u_quad_t;
 typedef unsigned long u_long;
 typedef unsigned int wchar_t;
+#endif
 
 struct __sbuf {
     unsigned char *_base;
@@ -49,8 +56,11 @@ struct __sFILE {
     struct __sbuf _lb; /* 0x44 */
     int _blksize; /* 0x4c */
     int _offset; /* 0x50 */
+#ifndef EA_PLATFORM_PLAYSTATION2
+    /* La de PlayStation 2 es la FILE de newlib, sin estos dos campos de SN: _data en 0x54. */
     void *_data2; /* 0x54 */
     int _flags2; /* 0x58 */
+#endif
     struct _reent *_data; /* 0x5c */
 };
 
@@ -70,14 +80,20 @@ extern char *alloca();
 #define _REENT _impure_ptr
 #define MB_CUR_MAX __mb_cur_max
 
+#ifdef FLOATING_POINT
+/* La compilacion con coma flotante lleva delante las rutinas de itoa.c: en el ELF original el STT_FILE
+ * `vfprintf.c' empieza en gcc2_compiled. 0x803152A0 (strround) y sus estaticos locales se numeran seguidos
+ * (lower.9, str.13, pch.20 ... blanks.29). */
+#include "itoa.c"
+#endif
+
 /* vfprintf.c se compila dos veces (aqui y desde vfprintf_1.c, sin coma
  * flotante) y cada copia tiene sus propios estaticos. */
-static char pch[128];
-static int cumulative_written = 0;
-static char *pch_pointer = pch;
-
 static int _vfwrite(int fd, const char *buf, unsigned int len, int flush)
 {
+    static char pch[128];
+    static int cumulative_written = 0;
+    static char *pch_pointer = pch;
     unsigned int i;
 
     if (flush == 1) {
@@ -135,6 +151,18 @@ int vfprintf(FILE *fp, const char *fmt0, va_list ap)
 }
 #else
 extern char *add_separators(char *, char *, char *, int *);
+int _vfiprintf_r(struct _reent *, FILE *, const char *, va_list);
+
+/* El VFPRINTF de newlib en su version entera.  No llega al DOL (nadie la llama
+ * y el enlazador la estripa), pero estaba: en vfprintf_1.o los estaticos son
+ * pch.3 ... blanks.12/zeroes.13, tres etiquetas (una funcion) mas que sin
+ * ella.  Y el sufijo no es cosmetico: el hash de GCSE es por NOMBRE de simbolo
+ * y decide que HIGH(blanks)/HIGH(zeroes) se crea antes, que es el desempate
+ * de global-alloc en los PAD de zeroes. */
+int vfiprintf(FILE *fp, const char *fmt0, va_list ap)
+{
+    return _vfiprintf_r(fp->_data, fp, fmt0, ap);
+}
 #endif /* !INTEGER_ONLY */
 
 /*
@@ -144,11 +172,10 @@ extern char *add_separators(char *, char *, char *, int *);
 #ifdef FLOATING_POINT
 extern double sn_log10(double);
 extern void *localeconv(void);
-extern char *fftoa(double, int, int, int, char *);
+extern char *fftoa(double, int, char, int, char *);
 
 #define MAXEXP 308
 #define MAXFRACT 39
-#define MAXEXPLEN 8
 #define BUF (MAXEXP + MAXFRACT + 1) /* + decimal point */
 #else
 #define BUF 40
@@ -170,17 +197,13 @@ extern char *fftoa(double, int, int, int, char *);
 #define to_char(n) ((n) + '0')
 
 #define PADSIZE 16 /* pad chunk size */
-static const char blanks[PADSIZE]
-    = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-          ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
-static const char zeroes[PADSIZE]
-    = { '0', '0', '0', '0', '0', '0', '0', '0',
-          '0', '0', '0', '0', '0', '0', '0', '0' };
 
-/* The SN libc object keeps each expansion as a separate control-flow region.
- * PRINT y PAD van como bloques `{ }' sueltos, que es como los escribe newlib:
- * el `do { } while (0)' anade un nivel de bucle y con el cambia la prioridad
- * (n_refs por loop_depth) de todo lo que hay dentro.  Ver r67-libc.md. */
+/* PRINT, PAD y FLUSH van como bloques `{ }' sueltos, que es como los escribe
+ * newlib: un `do { } while (0)' anade un nivel de bucle y con el cambia la
+ * prioridad (REG_N_REFS se pondera por loop_depth) de todo lo que hay dentro.
+ * En FLUSH son las dos referencias a `fp' de la salida: con el do-while `fp'
+ * pesa 429 y le gana a `ap' (427) en la copia de coma flotante, y el original
+ * los tiene al reves (fp r28, ap r29). */
 #define PRINT(ptr, len)                            \
     {                                              \
         if (fp->_flags & __SSTR) {                 \
@@ -211,11 +234,11 @@ static const char zeroes[PADSIZE]
         }                             \
     }
 
-#define FLUSH()                               \
-    do {                                      \
-        if (!(fp->_flags & __SSTR))           \
-            _vfwrite(fp->_file, 0, 0, 1);     \
-    } while (0)
+#define FLUSH()                           \
+    {                                     \
+        if (!(fp->_flags & __SSTR))       \
+            _vfwrite(fp->_file, 0, 0, 1); \
+    }
 
 /*
  * To extend shorts properly, we need both signed and unsigned
@@ -234,51 +257,45 @@ static const char zeroes[PADSIZE]
                      ? (u_quad_t)(unsigned short)va_arg(ap, int)   \
                      : (u_quad_t)va_arg(ap, unsigned int))
 
-int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
+int _VFPRINTF_R(struct _reent *data, FILE *fp, const char *fmt0, va_list ap)
 {
-
-    register FILE *fp = fp0;
-    register __typeof__(ap0) ap = ap0;
-#ifdef FLOATING_POINT
+    static const char blanks[PADSIZE]
+        = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+              ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
+    static const char zeroes[PADSIZE]
+        = { '0', '0', '0', '0', '0', '0', '0', '0',
+              '0', '0', '0', '0', '0', '0', '0', '0' };
     register const char *fmt; /* format string */
-#else
-    register const char *fmt = fmt0; /* format string */
-#endif
     register int ch; /* character from fmt */
     register int n, m; /* handy integers (short term usage) */
     register char *cp; /* handy char pointer (short term usage) */
     register int flags; /* flags as above */
-    register int ret; /* return value accumulator */
-    register int width; /* width from format (%8d), or 0 */
-    register int prec; /* precision from format (%.3d), or -1 */
+    int ret; /* return value accumulator */
+    int width; /* width from format (%8d), or 0 */
+    int prec; /* precision from format (%.3d), or -1 */
     char sign; /* sign prefix (' ', '+', '-', or \0) */
     wchar_t wc;
-    int state;
 
 #ifdef FLOATING_POINT
     void *decimal_point = localeconv();
     double _fpvalue; /* floating point arguments %[eEfgG] */
     int trim;
-    /* El objetivo reserva 8 B de marco delante de `buf' (buf en 0x10, no en
-     * 0x8) para un objeto de 8 B en memoria y muerto.  `volatile' es lo unico
-     * que lo reproduce: un array <= 8 B sin volatile se va a pseudo y
-     * desaparece, y tomar su direccion en un `if (0)' tampoco lo reserva. */
-    volatile char expstr[MAXEXPLEN]; /* buffer for exponent string */
+    /* Sin uso en la version de SN (el exponente lo escribe fftoa), pero la
+     * declaracion de newlib sigue ahi: es lo que reserva los 8 B de marco que
+     * el original tiene delante de `buf'. */
+    char expstr[7]; /* buffer for exponent string */
 #endif
     u_quad_t _uquad; /* integer arguments %[diouxX] */
     enum { OCT, DEC, HEX } base; /* base for [diouxX] conversion */
-    register int dprec; /* a copy of prec if [diouxX], 0 otherwise */
+    int dprec; /* a copy of prec if [diouxX], 0 otherwise */
     int realsz; /* field size expanded by dprec */
     int size; /* size of converted field or string */
-    register char *number_end;
     const char *xdigs; /* digits for [xX] conversion */
     char buf[BUF]; /* space for %c, %[diouxX], %[eEfgG] */
     char ox[2]; /* space for 0x hex-prefix */
+    int state = 0; /* mbtowc calls from library must not change state */
 
-    state = 0;
-#ifdef FLOATING_POINT
     fmt = fmt0;
-#endif
     ret = 0;
 
     /*
@@ -301,14 +318,13 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
             goto done;
         if (fp->_w <= 0 && (fp->_flags & __SSTR))
             goto error;
-        width = 0;
         fmt++; /* skip over '%' */
-        sign = width;
 
         flags = 0;
         dprec = 0;
-
+        width = 0;
         prec = -1;
+        sign = '\0';
     nextch:
         ch = *fmt++;
     reswitch:
@@ -319,11 +335,8 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
              * flag will be ignored.''
              *	-- ANSI X3J11
              */
-            if (sign)
-                goto nextch;
-            /* FALLTHROUGH */
-        case '+':
-            sign = ch;
+            if (!sign)
+                sign = ' ';
             goto nextch;
         case '#':
             flags |= ALT;
@@ -344,6 +357,9 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
             /* FALLTHROUGH */
         case '-':
             flags |= LADJUST;
+            goto nextch;
+        case '+':
+            sign = '+';
             goto nextch;
         case '.':
             ch = *fmt++;
@@ -545,7 +561,6 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
              *	-- ANSI X3J11
              */
             cp = buf + BUF;
-            number_end = cp;
             if (_uquad != 0 || dprec != 0) {
                 /*
                  * Unsigned mod is hard, and unsigned mod
@@ -586,7 +601,7 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
                 }
             }
             if (base == DEC && (flags & GROUPING))
-                cp = add_separators(buf, cp, number_end, &size);
+                cp = add_separators(buf, cp, buf + BUF, &size);
             else
                 size = buf + BUF - cp;
         skipsize:
@@ -616,9 +631,6 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
          * Compute actual size, so we know how much to pad.
          * size excludes decimal prec; realsz includes it.
          */
-        /* Keep the original SN register lifetimes across the output macros. */
-#ifndef FLOATING_POINT
-#endif
         realsz = dprec > size ? dprec : size;
         if (sign)
             realsz++;
@@ -629,69 +641,15 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
         if ((flags & (LADJUST | ZEROPAD)) == 0)
             PAD(width - realsz, blanks);
 
-        /* Los dos escritores de prefijo comparten la actualizacion final del
-         * buffer.  El `goto' cruzado NO es adorno: es lo unico que reproduce el
-         * empalme de colas del original.  MEDIDO Y NEGATIVO (r65): la forma
-         * limpia de newlib --`if (sign) PRINT(&sign, 1); else if (flags &
-         * HEXPREFIX) { ox[0] = '0'; ox[1] = ch; PRINT(ox, 2); }'-- compila
-         * 16 B DE MAS porque GCC 2.95 no cruza esas dos colas; cuatro variantes
-         * (con y sin barrera sobre `ch', leyendo _flags antes o no) dan los
-         * mismos 16 B.  Las cuatro barreras de dentro son IRREDUCIBLES por el
-         * mismo reparto global de la cabecera de la funcion. */
-        {
-            register unsigned char *prefix_p;
-            register int prefix_w;
-            unsigned char *prefix_old_p;
-            int prefix_old_w;
-            if (sign) {
-                if (fp->_flags & __SSTR) {
-                    if (fp->_w > 1) {
-                        memcpy(fp->_p, &sign, 1);
-                        prefix_p = fp->_p + 1;
-                        prefix_w = fp->_w - 1;
-                        goto prefix_store;
-                    } else {
-                        memcpy(fp->_p, &sign, fp->_w);
-                        prefix_old_p = fp->_p;
-                        prefix_old_w = fp->_w;
-                        fp->_w = 0;
-                        goto prefix_advance;
-                    }
-                } else {
-                    if (fp->_flags == 0 && fp->_file == 0)
-                        fp->_file = 1;
-                    _vfwrite(fp->_file, &sign, 1, 0);
-                }
-                goto prefix_finished;
-            } else if (flags & HEXPREFIX) {
-                register unsigned int prefix_flags = (unsigned short)fp->_flags;
-                ox[0] = '0';
-                ox[1] = ch;
-                if (prefix_flags & __SSTR) {
-                    if (fp->_w > 2) {
-                        memcpy(fp->_p, ox, 2);
-                        prefix_p = fp->_p + 2;
-                        prefix_w = fp->_w - 2;
-                    prefix_store:
-                        fp->_p = prefix_p;
-                        fp->_w = prefix_w;
-                        goto prefix_finished;
-                    } else {
-                        memcpy(fp->_p, ox, fp->_w);
-                        prefix_old_p = fp->_p;
-                        prefix_old_w = fp->_w;
-                        fp->_w = 0;
-                    prefix_advance:
-                        fp->_p = prefix_old_p + prefix_old_w;
-                        goto prefix_finished;
-                    }
-                } else {
-                    if (fp->_flags == 0 && fp->_file == 0)
-                        fp->_file = 1;
-                    _vfwrite(fp->_file, ox, 2, 0);
-                }
-            prefix_finished:;
-            }
+        /* prefix.  Las colas comunes de las dos ramas (`stw' de _p/_w y el
+         * `add'+`stw' de _p) las funde el salto cruzado de jump2, despues del
+         * reparto: la fuente de newlib las lleva duplicadas. */
+        if (sign) {
+            PRINT(&sign, 1);
+        } else if (flags & HEXPREFIX) {
+            ox[0] = '0';
+            ox[1] = ch;
+            PRINT(ox, 2);
         }
 
         /* right-adjusting zero padding */
@@ -702,21 +660,7 @@ int _VFPRINTF_R(struct _reent *data, FILE *fp0, const char *fmt0, va_list ap0)
         PAD(dprec - size, zeroes);
 
         /* the string or number proper */
-        if (fp->_flags & __SSTR) {
-            if (fp->_w > size) {
-                memcpy(fp->_p, cp, size);
-                fp->_p += size;
-                fp->_w -= size;
-            } else {
-                memcpy(fp->_p, cp, fp->_w);
-                fp->_p += fp->_w;
-                fp->_w = 0;
-            }
-        } else {
-            if (fp->_flags == 0 && fp->_file == 0)
-                fp->_file = 1;
-            _vfwrite(fp->_file, cp, size, 0);
-        }
+        PRINT(cp, size);
 
         /* left-adjusting padding (always blank) */
         if (flags & LADJUST)
@@ -738,43 +682,38 @@ char *add_separators(char *dst, char *start, char *end, int *lenp)
     char *buf = alloca(end - start + 10);
     char *p = buf + n - 1;
     char *q;
-    register char *mark;
-    /* IRREDUCIBLES (r65): PERMUTACION pura.  El original reparte state=r7,
-     * mark=r8, count=r12, p=r6; sin los pines nos sale state=r9, mark=r3,
-     * count=r6, p=r8 -- las mismas instrucciones con otros registros.  MEDIDO Y
-     * NEGATIVO: seis formas de declaracion (mark/state/count en tres ordenes,
-     * con y sin `register', con `int state = 0' y con `mark = end' suelto)
-     * dan EL MISMO objeto equivocado.  El orden de la fuente no llega a
-     * allocno_compare.
-     * r67: siguen igual sobre la fuente de hoy: sin `mark' 15 filas, sin
-     * `state' 17 (el cambio de PRINT/PAD no toca esta funcion). */
-    register int state;
+    /* El estado del barrido va en un agregado: en los dos binarios (GameCube y PS2) vive en la pila, `state' en
+     * 0 y `mark' en 4 del marco, y no en registros. */
+    struct {
+        int state;
+        char *mark;
+    } scan;
     register int count = 0;
 
     if (dst == 0 || start == 0 || end == 0)
         return 0;
 
-    state = 0;
-    for (q = start, mark = end; q <= end && state != 2; q++) {
+    scan.state = 0;
+    for (q = start, scan.mark = end; q <= end && scan.state != 2; q++) {
         switch (*q) {
         case '.':
-            mark = q;
-            if (state == 0)
-                state = 1;
+            scan.mark = q;
+            if (scan.state == 0)
+                scan.state = 1;
             break;
         case 'e':
         case 'E':
-            state = 2;
+            scan.state = 2;
             break;
         }
     }
 
-    if (state == 2)
+    if (scan.state == 2)
         return start;
 
     for (q = end; q > start; q--) {
         *p-- = *q;
-        if (q <= mark) {
+        if (q <= scan.mark) {
             if (count % 3 == 0 && count != 0) {
                 *p-- = ',';
                 n++;
@@ -782,7 +721,6 @@ char *add_separators(char *dst, char *start, char *end, int *lenp)
             count++;
         }
     }
-    /* The original keeps the scan state live through the insertion loop. */
     *p = *q;
     n -= 10;
     memcpy(dst, p, n);

@@ -214,10 +214,18 @@ class TextureInfo : public TextureInfoPlatInterface, public bTNode<TextureInfo> 
     }
 
     void Print();
-    void Setup(char *name, void *image_data, int image_width, int image_height, int comp_type, void *palette_data, int num_palette_entries,
+    void Setup(const char *name, void *image_data, int image_width, int image_height, int comp_type, void *palette_data, int num_palette_entries,
                int alpha_usage, int alpha_blend, int alpha_sort);
 
-    int IsLoaded() {}
+    int IsLoaded() {
+        if (!this->ImageData) {
+            return 0;
+        }
+        if (this->PaletteSize != 0 && !this->PaletteData) {
+            return 0;
+        }
+        return 1;
+    }
 
     int IsPartiallyLoaded() {}
 
@@ -235,39 +243,67 @@ class TextureInfo : public TextureInfoPlatInterface, public bTNode<TextureInfo> 
 
     void SetScrollSpeedT(float v) {}
 
-    void SetOffsetS(float v) {}
+    void SetOffsetS(float v) {
+        OffsetS = bFloatToInt(v * 1024.0f);
+    }
 
-    void SetOffsetT(float v) {}
+    void SetOffsetT(float v) {
+        OffsetT = bFloatToInt(v * 1024.0f);
+    }
 
-    void SetScaleS(float v) {}
+    void SetScaleS(float v) {
+        ScaleS = bFloatToInt(v * 256.0f);
+    }
 
-    void SetScaleT(float v) {}
+    void SetScaleT(float v) {
+        ScaleT = bFloatToInt(v * 256.0f);
+    }
 
-    float GetScrollTimeStep() {}
+    float GetScrollTimeStep() {
+        return ScrollTimeStep * (1.0f / 256.0f);
+    }
 
-    float GetScrollSpeedS() {}
+    float GetScrollSpeedS() {
+        return ScrollSpeedS * (1.0f / 1024.0f);
+    }
 
-    float GetScrollSpeedT() {}
+    float GetScrollSpeedT() {
+        return ScrollSpeedT * (1.0f / 1024.0f);
+    }
 
-    float GetOffsetS() {}
+    float GetOffsetS() {
+        return OffsetS * (1.0f / 1024.0f);
+    }
 
-    float GetOffsetT() {}
+    float GetOffsetT() {
+        return OffsetT * (1.0f / 1024.0f);
+    }
 
-    float GetScaleS() {}
+    float GetScaleS() {
+        return ScaleS * (1.0f / 256.0f);
+    }
 
-    float GetScaleT() {}
+    float GetScaleT() {
+        return ScaleT * (1.0f / 256.0f);
+    }
 
     float GetScroll(float time, float speed, int scroll_type, float time_step);
 
-    float GetScrollS(float time_s) {}
+    float GetScrollS(float time_s) {
+        return GetScroll(time_s, GetScrollSpeedS(), ScrollType, GetScrollTimeStep());
+    }
 
-    float GetScrollT(float time_s) {}
+    float GetScrollT(float time_s) {
+        return GetScroll(time_s, GetScrollSpeedT(), ScrollType, GetScrollTimeStep());
+    }
 
     float GetS(unsigned char u, float time_s) {}
 
     float GetT(unsigned char v, float time_s) {}
 
-    bool IsZWrite() {}
+    bool IsZWrite() {
+        return Flags & 1;
+    }
 
     bool IsDoubleSided() {}
 
@@ -418,12 +454,23 @@ void UpdateTextureAnimations();
 TextureInfo *GetTextureInfo(uint32 name_hash, int return_default_texture_if_not_found, int include_unloaded_textures);
 TextureInfo *FixupTextureInfo(TextureInfo *texture_info, uint32 name_hash, TexturePack *texture_pack, bool loading);
 void MaybePrintUnusedTextures();
+// La A124 solo tiene la API con uint32 (eLoadStreamingTexturePack__FPCcPFUi_vUii, eLoadStreamingTexture__FPUiiPFUi_vUii y
+// eUnloadStreamingTexturePack__FPCcPFUi_vUi, que devuelve int): sus llamadores pasan callbacks y parametros uint32.
+#ifdef EA_BUILD_A124
+int eLoadStreamingTexturePack(const char *filename, void (*callback_function)(uint32), uint32 callback_param, int memory_pool_num);
+void eLoadStreamingTexture(uint32 *name_hash_table, int num_hashes, void (*callback)(uint32), uint32 param0, int memory_pool_num);
+#else
 int eLoadStreamingTexturePack(const char *filename, void (*callback_function)(void *), void *callback_param, int memory_pool_num);
 void eLoadStreamingTexture(uint32 *name_hash_table, int num_hashes, void (*callback)(void *), void *param0, int memory_pool_num);
+#endif
 void eWaitForStreamingTexturePackLoading(const char *filename);
 void eUnloadAllStreamingTextures(const char *filename);
 void eUnloadStreamingTexture(unsigned int *name_hash_table, int num_hashes);
+#ifdef EA_BUILD_A124
+int eUnloadStreamingTexturePack(const char *filename, void (*callback_function)(uint32) = nullptr, uint32 callback_param = 0);
+#else
 void eUnloadStreamingTexturePack(const char *filename);
+#endif
 
 TextureInfo *eCreateTextureInfo();
 void eDestroyTextureInfo(TextureInfo *texture_info);
@@ -449,14 +496,28 @@ inline int eLoadStreamingTexturePack(const char *filename) {
     return eLoadStreamingTexturePack(filename, nullptr, nullptr, 0);
 }
 
+// En PS2 las formas con uintptr_t no son envoltorios en linea sino funciones de zEcstasy que llaman al cargador
+// directamente; la A124 tiene ademas las de un solo hash (SLUS y GameCube las expanden en linea).
+#ifdef EA_BUILD_A124
+// (en la A124 uintptr_t es uint32: esta forma es la de arriba)
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+int eLoadStreamingTexturePack(const char *filename, void (*callback_func)(uintptr_t), uintptr_t callback_param, int memory_pool_num);
+#else
 inline void eLoadStreamingTexturePack(const char *filename, void (*callback_func)(uintptr_t), uintptr_t callback_param, int memory_pool_num) {
     eLoadStreamingTexturePack(filename, reinterpret_cast<void (*)(void *)>(callback_func), reinterpret_cast<void *>(callback_param), memory_pool_num);
 }
+#endif
 
 inline void eLoadStreamingTexture(uint32 *name_hash_table, int num_hashes) {
     eLoadStreamingTexture(name_hash_table, num_hashes, nullptr, nullptr, 0);
 }
 
+#ifdef EA_BUILD_A124
+// En la A124 la forma de un hash es una funcion de Texture.cpp (eLoadStreamingTexture__FUiPFUi_vUii) y LoadGlobalChunks
+// la llama con un solo argumento sin expansion de Texture.hpp en los stabs: argumentos por defecto.
+void eLoadStreamingTexture(uint32 name_hash, void (*callback)(uintptr_t) = nullptr, uintptr_t param0 = 0, int memory_pool_num = 0);
+void eUnloadStreamingTexture(uint32 name_hash);
+#else
 inline void eLoadStreamingTexture(uint32 name_hash) {
     eLoadStreamingTexture(&name_hash, 1);
 }
@@ -468,10 +529,17 @@ inline void eLoadStreamingTexture(uint32 name_hash, void (*callback)(uintptr_t),
 inline void eUnloadStreamingTexture(uint32 name_hash) {
     eUnloadStreamingTexture(&name_hash, 1);
 }
+#endif
 
+#ifdef EA_BUILD_A124
+// (en la A124 uintptr_t es uint32: esta forma es la de arriba)
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+void eLoadStreamingTexture(unsigned int *name_hash_table, int num_hashes, void (*callback)(uintptr_t), uintptr_t param0, int memory_pool_num);
+#else
 inline void eLoadStreamingTexture(unsigned int *name_hash_table, int num_hashes, void (*callback)(uintptr_t), uintptr_t param0, int memory_pool_num) {
     eLoadStreamingTexture(name_hash_table, num_hashes, reinterpret_cast<void (*)(void *)>(callback), reinterpret_cast<void *>(param0),
                           memory_pool_num);
 }
+#endif
 
 #endif

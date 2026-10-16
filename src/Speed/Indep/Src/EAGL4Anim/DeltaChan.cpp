@@ -457,7 +457,12 @@ bool FnKeyQuatChan::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
                 deltaData->DecompressValues(iquat, 4, lowKey, lowKey + 1, &mPrevValues[iquat], reinterpret_cast<float *>(&ceilQuat));
 
                 float *blendValue = &sqt[dofIndices[idof]];
+#ifdef EA_PLATFORM_PLAYSTATION2
+                UMath::Vector4 tempQuat = *reinterpret_cast<UMath::Vector4 *>(&mPrevValues[iquat]);
+                VU0_fastqslerp(tempQuat, ceilQuat, *reinterpret_cast<UMath::Vector4 *>(blendValue), t);
+#else
                 FastQuatBlendF4(t, &mPrevValues[iquat], reinterpret_cast<float *>(&ceilQuat), blendValue);
+#endif
             }
         }
     } else {
@@ -514,13 +519,15 @@ bool FnKeyQuatChan::EvalSQTMask(float currTime, float *sqt, const BoneMask *bone
                                         reinterpret_cast<float *>(&ceilQuat));
 
             float *blendValue = &sqt[dofIndices[mDofMask[idof]]];
+#ifdef EA_PLATFORM_PLAYSTATION2
+            UMath::Vector4 tempQuat = *reinterpret_cast<UMath::Vector4 *>(&mPrevValues[mDofMask[idof] * 4]);
+            VU0_fastqslerp(tempQuat, ceilQuat, *reinterpret_cast<UMath::Vector4 *>(blendValue), t);
+#else
             FastQuatBlendF4(t, &mPrevValues[mDofMask[idof] * 4], reinterpret_cast<float *>(&ceilQuat), blendValue);
+#endif
         }
     }
     return true;
 }
-
-// TODO move
-float qt0[7];
 
 }; // namespace EAGL4Anim

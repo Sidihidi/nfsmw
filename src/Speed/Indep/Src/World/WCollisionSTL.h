@@ -38,10 +38,19 @@ struct WCollisionTriList : public WCollisionVector<WCollisionTriBlock *> {
     WCollisionTriList() : mCurrBlock(nullptr) {}
 
     ~WCollisionTriList() {
+#ifdef EA_BUILD_A124
+        Clear();
+#else
         clear_all();
+#endif
     }
 
+    // La A124 lo llama Clear (sus stabs; las dos PS2 lo emiten fuera de linea, y la A124 como Clear__17WCollisionTriList).
+#ifdef EA_BUILD_A124
+    void Clear() {
+#else
     void clear_all() {
+#endif
         for (iterator i = begin(); i != end(); ++i) {
             delete *i;
         }
@@ -58,10 +67,11 @@ struct WCollisionTriList : public WCollisionVector<WCollisionTriBlock *> {
         mCurrBlock->push_back(tri);
     }
 
-    // TODO doesn't exist on PS2
+#ifndef EA_BUILD_A124 // la A124 no lo tiene: WCollider::ReserveLists reserva con el reserve del vector
     void reserve_total() {
         reserve(8);
     }
+#endif
 
     WCollisionTriBlock *mCurrBlock; // offset 0x10, size 0x4
 };

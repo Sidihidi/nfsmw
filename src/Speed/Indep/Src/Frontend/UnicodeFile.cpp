@@ -64,7 +64,7 @@ short *UnicodeFile::Next() {
 
 void UnicodeFile::FixEndian() {
     for (short *p = data_; p != end_; p++) {
-        bEndianSwap16(p);
+        bEndianSwap(p);
     }
 }
 

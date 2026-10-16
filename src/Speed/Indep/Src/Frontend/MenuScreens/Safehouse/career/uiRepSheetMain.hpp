@@ -39,13 +39,17 @@ struct uiRepSheetMain : public IconScrollerMenu {
     ~uiRepSheetMain() override;
     eMenuSoundTriggers NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) override;
     void NotificationMessage(u32 msg, FEObject* pobj, u32 param1, u32 param2) override;
+  private:
     void Setup() override;
-
-#ifndef EA_BUILD_A124
+  public:
+#ifdef EA_BUILD_A124 // la A124 rellena la hoja desde la cabecera de la pantalla
+    void RefreshHeader() override;
+#else
     void NotifyTextureLoaded();
     unsigned int GetDefeatedTexture();
-#endif
     void UpdateInfo();
+#endif
+  private:
     void ScrollRival(eScrollDir dir);
 };
 

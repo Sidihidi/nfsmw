@@ -16,10 +16,14 @@ class uiRapSheetMain : public UIWidgetMenu {
     inline virtual ~uiRapSheetMain() {}
 
     void NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) override;
-
+  private:
     void RefreshHeader();
 
     unsigned int button_pressed; // offset 0x138, size 0x4
+#ifdef EA_PLATFORM_WIN32
+    // PC: el ctor original pone a 0 un u32 en +0x128 (r23; GC/PS2 no lo tienen).
+    unsigned int m_unknown128;
+#endif
 };
 
 #endif

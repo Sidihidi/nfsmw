@@ -13,26 +13,33 @@ class WorldModel;
 
 // total size: 0x20
 class GIcon {
+    // La A124 da private MarkDisposable y GetIsEnabled, y los llama GManager (FreeDisposableIcons...).
+    friend class GManager;
+
   public:
+    // Sin valores a mano: la A124 no tiene los iconos del radar de carrera ni del desbloqueo de zona (sus stabs acaban
+    // en kType_Checkpoint = 14 y kType_Count = 15).
     enum Type {
         kType_Invalid = 0,
-        kType_RaceSprint = 1,
-        kType_RaceCircuit = 2,
-        kType_RaceDrag = 3,
-        kType_RaceKnockout = 4,
-        kType_RaceTollbooth = 5,
-        kType_RaceSpeedtrap = 6,
-        kType_RaceRival = 7,
-        kType_GateSafehouse = 8,
-        kType_GateCarLot = 9,
-        kType_GateCustomShop = 10,
-        kType_HidingSpot = 11,
-        kType_PursuitBreaker = 12,
-        kType_SpeedTrap = 13,
-        kType_SpeedTrapInRace = 14,
-        kType_AreaUnlock = 15,
-        kType_Checkpoint = 16,
-        kType_Count = 17,
+        kType_RaceSprint,
+        kType_RaceCircuit,
+        kType_RaceDrag,
+        kType_RaceKnockout,
+        kType_RaceTollbooth,
+        kType_RaceSpeedtrap,
+        kType_RaceRival,
+        kType_GateSafehouse,
+        kType_GateCarLot,
+        kType_GateCustomShop,
+        kType_HidingSpot,
+        kType_PursuitBreaker,
+        kType_SpeedTrap,
+#ifndef EA_BUILD_A124
+        kType_SpeedTrapInRace,
+        kType_AreaUnlock,
+#endif
+        kType_Checkpoint,
+        kType_Count,
     };
 
     // total size: 0xC
@@ -63,7 +70,15 @@ class GIcon {
 
     void Show() { SetFlag(0x1); }
     void Hide() { ClearFlag(0x1); }
+#ifdef EA_BUILD_A124
+    // La A124 la emite fuera de linea (HidePursuitBreakerIcon la llama) y llama a Hide y SetFlag sin expandirlas.
+    void HideUntilRespawn() {
+        Hide();
+        SetFlag(0x40);
+    }
+#else
     inline void HideUntilRespawn();
+#endif
     void ShowOnMap() { SetFlag(0x2); }
     void HideOnMap() { ClearFlag(0x2); }
     void SetGPSing() { SetFlag(0x80); }
@@ -98,6 +113,7 @@ class GIcon {
         outPos.x = mPosition.x;
         outPos.y = mPosition.y;
     }
+  private:
     void MarkDisposable() {
         SetFlag(0x10);
     }

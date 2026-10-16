@@ -81,7 +81,7 @@ int SFILTER_unpackmtlf(void *pstate, int framestoup, void *psrcp, void *pdstp, i
                 mts.doWholeInit = 1;
                 pups->pDecoder->SetState(&mts, 0);
                 frames = pups->loopend - pups->loopstart + 1;
-                pups->pDecoder->Feed(pups->ploop, frames * sizeof(float), frames);
+                pups->pDecoder->Feed(pups->ploop, (pups->loopend - pups->loopstart + 1) * sizeof(float), frames);
             }
         } while (framestoup > 0);
     }

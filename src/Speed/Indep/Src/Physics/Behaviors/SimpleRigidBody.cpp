@@ -21,6 +21,7 @@ SimpleBodyList TheSimpleBodies;
 
 unsigned int SimpleRigidBody::mCount = 0;
 SimCollisionMap SimpleRigidBody::mCollisionMap[Sim::MaxSimpleBodies];
+SimpleRigidBody *SimpleRigidBody::mMaps[Sim::MaxSimpleBodies];
 
 Behavior *SimpleRigidBody::Construct(const BehaviorParams &params) {
     const RBSimpleParams sp(params.fparams.Fetch<RBSimpleParams>(UCrc32(UCRC32_BASE)));
@@ -144,40 +145,38 @@ void SimpleRigidBody::DoSRBCollisions(SimpleRigidBody *other) {
     float distSquared = UMath::LengthSquare(vec);
     float testRadius = thisRadius + radiusSRB;
 
-    if (distSquared >= testRadius * testRadius) {
-        return;
-    }
+    if (distSquared < testRadius * testRadius) {
+        if (((this->mData->flags & 0x80) != 0) && ((other->mData->flags & 0x80) != 0)) {
+            OBB obbThis;
+            OBB obbOther;
+            UMath::Matrix4 orientThis;
+            UMath::Matrix4 orientOther;
 
-    if (((this->mData->flags & 0x80) != 0) && ((other->mData->flags & 0x80) != 0)) {
-        OBB obbThis;
-        OBB obbOther;
-        UMath::Matrix4 orientThis;
-        UMath::Matrix4 orientOther;
+            UMath::QuaternionToMatrix4(this->GetOrientation(), orientThis);
+            UMath::QuaternionToMatrix4(other->GetOrientation(), orientOther);
 
-        UMath::QuaternionToMatrix4(this->GetOrientation(), orientThis);
-        UMath::QuaternionToMatrix4(other->GetOrientation(), orientOther);
+            const UMath::Vector3 &posThis = this->GetPosition();
+            UMath::Vector3 &posOther = posSRB;
 
-        const UMath::Vector3 &posThis = this->GetPosition();
-        UMath::Vector3 &posOther = posSRB;
+            UMath::Vector3 dimThis;
+            dimThis.x = dimThis.y = thisRadius;
+            dimThis.z = thisRadius * this->GetScalarVelocity();
 
-        UMath::Vector3 dimThis;
-        dimThis.x = dimThis.y = thisRadius;
-        dimThis.z = thisRadius * this->GetScalarVelocity();
+            UMath::Vector4 dimOther;
+            dimOther.x = dimOther.y = dimOther.z = radiusSRB;
+            dimOther.z *= other->GetScalarVelocity();
 
-        UMath::Vector4 dimOther;
-        dimOther.x = dimOther.y = dimOther.z = radiusSRB;
-        dimOther.z *= other->GetScalarVelocity();
+            obbThis.Reset(orientThis, posThis, dimThis);
+            obbOther.Reset(orientOther, posOther, reinterpret_cast<UMath::Vector3 &>(dimOther));
 
-        obbThis.Reset(orientThis, posThis, dimThis);
-        obbOther.Reset(orientOther, posOther, reinterpret_cast<UMath::Vector3 &>(dimOther));
-
-        if (obbThis.CheckOBBOverlap(&obbOther)) {
+            if (obbThis.CheckOBBOverlap(&obbOther)) {
+                cmap.SetCollisionWithSRB(other->GetIndex());
+                cmapother.SetCollisionWithSRB(this->GetIndex());
+            }
+        } else {
             cmap.SetCollisionWithSRB(other->GetIndex());
             cmapother.SetCollisionWithSRB(this->GetIndex());
         }
-    } else {
-        cmap.SetCollisionWithSRB(other->GetIndex());
-        cmapother.SetCollisionWithSRB(this->GetIndex());
     }
 }
 
@@ -209,21 +208,19 @@ void SimpleRigidBody::DoRBCollisions(const float dT) {
         const float distSquared = UMath::DistanceSquare(this->GetPosition(), body->GetPosition());
         const float testRadius = thisRadius + body->GetRadius() + vdist;
 
-        if (distSquared >= testRadius * testRadius) {
-            continue;
-        }
+        if (distSquared < testRadius * testRadius) {
+            if (useobb) {
+                Dynamics::Collision::Geometry geomRB(body->GetMatrix4(), body->GetPosition(), body->GetDimension(),
+                                                     Dynamics::Collision::Geometry::BOX, UVector3(body->GetLinearVelocity()) * dT);
 
-        if (useobb) {
-            Dynamics::Collision::Geometry geomRB(body->GetMatrix4(), body->GetPosition(), body->GetDimension(), Dynamics::Collision::Geometry::BOX,
-                                                 UVector3(body->GetLinearVelocity()) * dT);
+                if (!Dynamics::Collision::Geometry::FindIntersection(&geomRB, &geomSRB, &geomSRB)) {
+                    continue;
+                }
 
-            if (!Dynamics::Collision::Geometry::FindIntersection(&geomRB, &geomSRB, &geomSRB)) {
-                continue;
+                cmap.SetCollisionWithRB(body->GetIndex());
+            } else {
+                cmap.SetCollisionWithRB(body->GetIndex());
             }
-
-            cmap.SetCollisionWithRB(body->GetIndex());
-        } else {
-            cmap.SetCollisionWithRB(body->GetIndex());
         }
     }
 }
@@ -269,10 +266,10 @@ void SimpleRigidBody::Resolve(const UMath::Vector3 &force, const UMath::Vector3 
     this->ResolveForce(force);
 }
 
-void SimpleRigidBody::ResolveForce(const UMath::Vector3 &force) {
+void SimpleRigidBody::ResolveForce(const UMath::Vector3 &f) {
     if (this->CheckAnyFlags(8)) {
         UMath::Vector3 vec;
-        UMath::Scale(force, 1.0f / GetMass(), vec);
+        UMath::Scale(f, 1.0f / GetMass(), vec);
         this->Accelerate(vec, Sim::GetTimeStep());
     }
 }

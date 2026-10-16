@@ -264,6 +264,12 @@ template <typename T> class bTList : public bList {
         return (T *)bList::GetNode(ordinal_number);
     }
 
+    // Una lista entera (los stabs de la A124 la listan detras de GetNode; el DWARF de GameCube tambien la tiene). Va
+    // fuera de la clase y sin inline: la A124 llama a la copia de la plantilla (AddTail__t6bTList1Z14eActiveTextureP5bList,
+    // un salto a bList::AddTail). Los stabs listan tambien un AddHead(bList *) que nadie usa: no se pone, porque en PC
+    // una declaracion de mas cambia el orden de la pila de CompositeWheel.
+    void AddTail(bList *list);
+
     void Sort(SortFuncT check_flip) {
         bList::Sort((SortFunc)check_flip);
     }
@@ -299,6 +305,16 @@ template <typename T> class bTList : public bList {
             return *this;
         }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Las dos PS2 devuelven por valor (SetCurrentMenu de la A124; SLUS copia el iterador con ldl/ldr en FetchData);
+        // X360 devuelve iterator & (??Eiterator@?$bTList@VVehicleFragmentConn@@@@QAAAAV01@H@Z).
+        iterator operator--(int) {
+            validate();
+            iterator tmp = *this;
+            _Ptr = _Ptr->GetPrev();
+            return tmp;
+        }
+#else
         iterator &operator--(int) {
             validate();
             iterator tmp;
@@ -306,6 +322,7 @@ template <typename T> class bTList : public bList {
             _Ptr = _Ptr->GetPrev();
             return tmp;
         }
+#endif
 
         iterator &operator++() {
             validate();
@@ -313,6 +330,16 @@ template <typename T> class bTList : public bList {
             return *this;
         }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+        // Las dos PS2 devuelven por valor (SetCurrentMenu de la A124; SLUS copia el iterador con ldl/ldr en FetchData);
+        // X360 devuelve iterator & (??Eiterator@?$bTList@VVehicleFragmentConn@@@@QAAAAV01@H@Z).
+        iterator operator++(int) {
+            validate();
+            iterator tmp = *this;
+            _Ptr = _Ptr->GetNext();
+            return tmp;
+        }
+#else
         iterator &operator++(int) {
             validate();
             iterator tmp;
@@ -320,6 +347,7 @@ template <typename T> class bTList : public bList {
             _Ptr = _Ptr->GetNext();
             return tmp;
         }
+#endif
 
         pointer &operator*() {
             validate();
@@ -353,6 +381,10 @@ template <typename T> T *bTList<T>::AddSorted(SortFuncT check_flip, T *node) {
         insert_point = insert_point->GetNext();
     }
     return AddTail(node);
+}
+
+template <typename T> void bTList<T>::AddTail(bList *list) {
+    bList::AddTail(list);
 }
 
 // total size: 0xC

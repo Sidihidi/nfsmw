@@ -27,9 +27,9 @@ void EStopObjectEffect_MakeEvent_Callback(const void *staticData) {
     new EStopObjectEffect(((EStopObjectEffect::StaticData *) staticData)->fID, gEventDynamicData.fhModel);
 }
 
-int EStopObjectEffect_MakeEvent_LuaBinding(lua_State *L) {
-    if (lua_gettop(L) == 1) {
-        new EStopObjectEffect(UCrc32(lua_tostring(L, 1)), gEventDynamicData.fhModel);
+int EStopObjectEffect_MakeEvent_LuaBinding(lua_State *luaState) {
+    if (lua_gettop(luaState) == 1) {
+        new EStopObjectEffect(UCrc32(lua_tostring(luaState, 1)), gEventDynamicData.fhModel);
     }
     return 0;
 }

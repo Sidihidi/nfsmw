@@ -34,9 +34,6 @@
 
 #include <algorithm>
 
-float AITrafficManager::mTrafficMinSpawnDist = 0.0f;
-float AITrafficManager::mTrafficMaxSpawnDist = 0.0f;
-
 static const float Tweak_TrafficOffScreenDistance[11] = {130.0f, 120.0f, 110.0f, 100.0f, 90.0f, 80.0f, 70.0f, 60.0f, 55.0f, 45.0f, 40.0f};
 static Table TrafficOffScreenDistance(Tweak_TrafficOffScreenDistance, 11, 0.0f, 1.0f);
 static const float Tweak_TrafficOffScreenTime[11] = {12.0f, 10.0f, 9.0f, 8.0f, 7.0f, 6.5f, 6.0f, 5.5f, 5.0f, 4.5f, 4.0f};
@@ -45,6 +42,9 @@ static const float Tweak_TrafficDensitySpawnRates[11] = {0.0f, 0.05f, 0.1f, 0.12
 static Table TrafficDensitySpawnRates(Tweak_TrafficDensitySpawnRates, 11, 0.0f, 1.0f);
 
 BIND_ACTIVITY_FACTORY(AITrafficManager);
+
+float AITrafficManager::mTrafficMinSpawnDist = 0.0f;
+float AITrafficManager::mTrafficMaxSpawnDist = 0.0f;
 
 // Functionally matching
 // https://decomp.me/scratch/qvQEg
@@ -149,23 +149,6 @@ void AITrafficManager::OnDetached(IAttachable *pOther) {
     Sim::Activity::OnDetached(pOther);
 }
 
-struct TypeCounter {
-    Attrib::Key Key;
-    bool ActiveOnly;
-    unsigned int Count;
-
-  public:
-    TypeCounter(Attrib::Key key, bool active_only) : Key(key), ActiveOnly(active_only), Count(0) {}
-
-    void operator()(IVehicle *vehicle) {
-        if (!ActiveOnly || vehicle->IsActive()) {
-            if (vehicle->GetVehicleAttributes().GetCollection() == Key) {
-                Count++;
-            }
-        }
-    }
-};
-
 Attrib::Key AITrafficManager::NextSpawn() {
     unsigned int num_types = mPattern.Num_Vehicles();
     if (num_types == 0) {
@@ -179,7 +162,11 @@ Attrib::Key AITrafficManager::NextSpawn() {
         if (mPatternTimer[mSpawnIdx] > record.Rate && record.Rate > 0.0f) {
             TypeCounter t = std::for_each(mVehicles.begin(), mVehicles.end(), TypeCounter(record.Vehicle.GetCollectionKey(), true));
             if (t.Count < record.MaxInstances || record.MaxInstances == 0) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+                unsigned int max_traffic = mVehicles.size() + 20 - IVehicle::Count(VEHICLE_ALL);
+#else
                 unsigned int max_traffic = mVehicles.size() + 10 - IVehicle::Count(VEHICLE_ALL);
+#endif
                 if (record.Percent == 0 || t.Count < UMath::Max(1U, max_traffic * record.Percent / 100)) {
                     key = record.Vehicle.GetCollectionKey();
                 }
@@ -291,7 +278,11 @@ bool AITrafficManager::NeedsTraffic() const {
         }
     }
     int active_count = IVehicle::Count(VEHICLE_ALL);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    return (unsigned int)(active_count - inactive_count) < 20;
+#else
     return (unsigned int)(active_count - inactive_count) < 10;
+#endif
 }
 
 void AITrafficManager::UpdateDebug() {
@@ -502,7 +493,11 @@ bool AITrafficManager::ValidateVehicle(IVehicle *ivehicle, float density) const 
         float offscreen_dist = TrafficOffScreenDistance.GetValue(density);
 
         if (ivehicle->GetOffscreenTime() > offscreen_time) {
-            offworld = Sim::DistanceToCamera(ivehicle->GetPosition()) > offscreen_dist;
+            if (Sim::DistanceToCamera(ivehicle->GetPosition()) > offscreen_dist) {
+                offworld = true;
+            } else {
+                offworld = false;
+            }
         }
     }
 
@@ -542,6 +537,18 @@ float AITrafficManager::ComputeDensity() const {
         return UMath::Clamp(static_cast<float>(SkipFETrafficDensity) * 0.01f, 0.0f, 1.0f);
     }
 
+#ifdef EA_BUILD_A124
+    // La A124 devuelve la densidad sin reducirla durante las persecuciones.
+    if (GRaceStatus::Exists()) {
+        if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
+            return UMath::Clamp(static_cast<float>(GRaceStatus::Get().GetTrafficDensity()) * 0.01f, 0.0f, 1.0f);
+        }
+        if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
+            return 1.0f;
+        }
+    }
+    return 0.0f;
+#else
     float density = 0.0f;
     if (GRaceStatus::Exists()) {
         if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) {
@@ -554,6 +561,7 @@ float AITrafficManager::ComputeDensity() const {
         density *= 0.75f;
     }
     return density;
+#endif
 }
 
 void AITrafficManager::Update(float dT) {

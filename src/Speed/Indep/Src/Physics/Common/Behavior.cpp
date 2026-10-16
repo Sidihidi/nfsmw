@@ -1,5 +1,6 @@
 #include "Speed/Indep/Src/Physics/Behavior.h"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/pvehicle.h"
+#include "Speed/Indep/Src/Generated/AttribSys/GenericAccessor.h"
 
 IMPLEMENT_FACTORY(Behavior);
 
@@ -12,15 +13,10 @@ Behavior::Behavior(const BehaviorParams &params, unsigned int num_interfaces)
       mSignature(params.fSig),
       mPriority(0),
       mProfile(0) {
-    const Attrib::Instance &attributes = params.fowner->GetAttributes();
-    unsigned int num = attributes.Get(Attrib::Hash::pvehicle::BEHAVIOR_ORDER).GetLength();
-    while (mPriority < num) {
-        const Attrib::StringKey *order =
-            static_cast<const Attrib::StringKey *>(attributes.GetAttributePointer(Attrib::Hash::pvehicle::BEHAVIOR_ORDER, mPriority));
-        if (order == nullptr) {
-            order = static_cast<const Attrib::StringKey *>(Attrib::DefaultDataArea(sizeof(Attrib::StringKey)));
-        }
-        if (UCrc32(*order) == mMechanic) {
+    const Attrib::Instance &attribs = params.fowner->GetAttributes();
+    unsigned int count = attribs->Num_BEHAVIOR_ORDER();
+    while (mPriority < count) {
+        if (UCrc32(attribs->BEHAVIOR_ORDER(mPriority)) == mMechanic) {
             break;
         }
         mPriority++;

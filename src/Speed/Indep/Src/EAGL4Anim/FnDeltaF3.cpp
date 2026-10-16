@@ -1,5 +1,9 @@
 #include "FnDeltaF3.h"
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/Libs/Support/Utility/UMath.h"
+#endif
+
 namespace EAGL4Anim {
 
 FnDeltaF3::FnDeltaF3()
@@ -74,11 +78,11 @@ bool FnDeltaF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
     unsigned short *binPhys = deltaF->GetPhysical(binData);
     unsigned char *binDelta;
     int frameSize = deltaF->GetFrameDeltaSize();
-    UMath::Vector3 delta;
+    COORD3 delta;
 
     bool preventReverse = floorKey < mPrevKey && !IsReverseDeltaSumEnabled();
     if (floorKey == mNextKey) {
-        UMath::Vector4 *tempBuf = mPrevValues;
+        COORD4 *tempBuf = mPrevValues;
         mPrevValues = mNextValues;
         mNextValues = tempBuf;
         prevDeltaIdx = floorDeltaIdx;
@@ -86,7 +90,7 @@ bool FnDeltaF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
         mNextKey = -1;
     } else if (mPrevKey == -1 || floorBinIdx != prevBinIdx || floorDeltaIdx == 0 || preventReverse) {
         for (int idof = 0; idof < deltaF->GetNumBones(); idof++) {
-            deltaF->UnQuantizePhysical(mMinRangesf[idof], &binPhys[idof * 3], *reinterpret_cast<UMath::Vector3 *>(&mPrevValues[idof]));
+            deltaF->UnQuantizePhysical(mMinRangesf[idof], &binPhys[idof * 3], *reinterpret_cast<COORD3 *>(&mPrevValues[idof]));
         }
         prevDeltaIdx = 0;
     } else {
@@ -98,9 +102,13 @@ bool FnDeltaF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
         for (int iframe = prevDeltaIdx; iframe < floorDeltaIdx; iframe++) {
             for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
                 deltaF->UnQuantizeDelta(mMinRangesf[ibone], binDelta, ibone, delta);
+#ifdef EA_PLATFORM_PLAYSTATION2
+                VU0_v3add(*reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), delta, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]));
+#else
                 mPrevValues[ibone].x += delta.x;
                 mPrevValues[ibone].y += delta.y;
                 mPrevValues[ibone].z += delta.z;
+#endif
             }
             binDelta += frameSize;
         }
@@ -109,9 +117,13 @@ bool FnDeltaF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
         for (int iframe = prevDeltaIdx - 1; iframe >= floorDeltaIdx; iframe--) {
             for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
                 deltaF->UnQuantizeDelta(mMinRangesf[ibone], binDelta, ibone, delta);
+#ifdef EA_PLATFORM_PLAYSTATION2
+                VU0_v3sub(*reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), delta, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]));
+#else
                 mPrevValues[ibone].x -= delta.x;
                 mPrevValues[ibone].y -= delta.y;
                 mPrevValues[ibone].z -= delta.z;
+#endif
             }
             binDelta -= frameSize;
         }
@@ -145,23 +157,37 @@ bool FnDeltaF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
 
     if (lerpReqd && floorKey < deltaF->mNumFrames - 1) {
         int ceilBinIdx = ceilKey >> binLenPower;
-        UMath::Vector3 ceil;
+        COORD3 ceil;
         binData = deltaF->GetBin(ceilBinIdx);
         binPhys = deltaF->GetPhysical(binData);
         if (ceilKey == mNextKey) {
             for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+                COORD3 temp;
+
+                VU0_v3sub(*reinterpret_cast<COORD3 *>(&mNextValues[ibone]), *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), temp);
+                VU0_v3scaleadd(temp, scale, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), *reinterpret_cast<COORD3 *>(&sqt[*dofIndices]));
+#else
                 sqt[*dofIndices + 0] = mPrevValues[ibone].x + (mNextValues[ibone].x - mPrevValues[ibone].x) * scale;
                 sqt[*dofIndices + 1] = mPrevValues[ibone].y + (mNextValues[ibone].y - mPrevValues[ibone].y) * scale;
                 sqt[*dofIndices + 2] = mPrevValues[ibone].z + (mNextValues[ibone].z - mPrevValues[ibone].z) * scale;
+#endif
                 dofIndices++;
             }
         } else {
             if (ceilBinIdx != floorBinIdx) {
-                for (int ibone = 0; ibone < deltaF->GetNumBones(); binPhys += 3, ibone++, dofIndices++) {
-                    deltaF->UnQuantizePhysical(mMinRangesf[ibone], binPhys, *reinterpret_cast<UMath::Vector3 *>(&mNextValues[ibone]));
+                for (int ibone = 0; ibone < deltaF->GetNumBones(); dofIndices++, binPhys += 3, ibone++) {
+                    deltaF->UnQuantizePhysical(mMinRangesf[ibone], binPhys, *reinterpret_cast<COORD3 *>(&mNextValues[ibone]));
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    COORD3 temp;
+
+                    VU0_v3sub(*reinterpret_cast<COORD3 *>(&mNextValues[ibone]), *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), temp);
+                    VU0_v3scaleadd(temp, scale, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), *reinterpret_cast<COORD3 *>(&sqt[*dofIndices]));
+#else
                     sqt[*dofIndices + 0] = mPrevValues[ibone].x + (mNextValues[ibone].x - mPrevValues[ibone].x) * scale;
                     sqt[*dofIndices + 1] = mPrevValues[ibone].y + (mNextValues[ibone].y - mPrevValues[ibone].y) * scale;
                     sqt[*dofIndices + 2] = mPrevValues[ibone].z + (mNextValues[ibone].z - mPrevValues[ibone].z) * scale;
+#endif
                 }
             } else {
                 int ceilDeltaIdx = floorDeltaIdx;
@@ -172,17 +198,24 @@ bool FnDeltaF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
                     mNextValues[ibone].y = mPrevValues[ibone].y + ceil.y;
                     mNextValues[ibone].z = mPrevValues[ibone].z + ceil.z;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    COORD3 temp;
+
+                    VU0_v3sub(*reinterpret_cast<COORD3 *>(&mNextValues[ibone]), *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), temp);
+                    VU0_v3scaleadd(temp, scale, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), *reinterpret_cast<COORD3 *>(&sqt[*dofIndices]));
+#else
                     sqt[*dofIndices + 0] = mPrevValues[ibone].x + (mNextValues[ibone].x - mPrevValues[ibone].x) * scale;
                     sqt[*dofIndices + 1] = mPrevValues[ibone].y + (mNextValues[ibone].y - mPrevValues[ibone].y) * scale;
                     sqt[*dofIndices + 2] = mPrevValues[ibone].z + (mNextValues[ibone].z - mPrevValues[ibone].z) * scale;
+#endif
                     dofIndices++;
                 }
             }
             mNextKey = ceilKey;
         }
     } else {
-        for (int idof = 0; idof < deltaF->GetNumBones(); idof++) {
-            *reinterpret_cast<UMath::Vector3 *>(&sqt[dofIndices[idof]]) = *reinterpret_cast<UMath::Vector3 *>(&mPrevValues[idof]);
+        for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
+            *reinterpret_cast<COORD3 *>(&sqt[dofIndices[ibone]]) = *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]);
         }
     }
     if (deltaF->mNumConstBones != 0) {
@@ -253,7 +286,7 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
     unsigned short *binPhys = deltaF->GetPhysical(binData);
     unsigned char *binDelta;
     int frameSize = deltaF->GetFrameDeltaSize();
-    UMath::Vector3 delta;
+    COORD3 delta;
 
     unsigned short *dofIdxs = deltaF->GetDofIndices();
     unsigned char boneIdxs[80];
@@ -264,7 +297,7 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
 
     bool preventReverse = floorKey < mPrevKey && !IsReverseDeltaSumEnabled();
     if (floorKey == mNextKey) {
-        UMath::Vector4 *tempBuf = mPrevValues;
+        COORD4 *tempBuf = mPrevValues;
         mPrevValues = mNextValues;
         mNextValues = tempBuf;
         prevDeltaIdx = floorDeltaIdx;
@@ -273,7 +306,7 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
     } else if (mPrevKey == -1 || floorBinIdx != prevBinIdx || preventReverse) {
         for (idof = 0; idof < deltaF->GetNumBones(); idof++) {
             if (boneMask->GetBone(boneIdxs[idof])) {
-                deltaF->UnQuantizePhysical(mMinRangesf[idof], &binPhys[idof * 3], *reinterpret_cast<UMath::Vector3 *>(&mPrevValues[idof]));
+                deltaF->UnQuantizePhysical(mMinRangesf[idof], &binPhys[idof * 3], *reinterpret_cast<COORD3 *>(&mPrevValues[idof]));
             }
         }
         prevDeltaIdx = 0;
@@ -287,9 +320,13 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
             for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
                 if (boneMask->GetBone(boneIdxs[ibone])) {
                     deltaF->UnQuantizeDelta(mMinRangesf[ibone], binDelta, ibone, delta);
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    VU0_v3add(*reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), delta, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]));
+#else
                     mPrevValues[ibone].x += delta.x;
                     mPrevValues[ibone].y += delta.y;
                     mPrevValues[ibone].z += delta.z;
+#endif
                 }
             }
             binDelta += frameSize;
@@ -300,9 +337,13 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
             for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
                 if (boneMask->GetBone(boneIdxs[ibone])) {
                     deltaF->UnQuantizeDelta(mMinRangesf[ibone], binDelta, ibone, delta);
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    VU0_v3sub(*reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), delta, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]));
+#else
                     mPrevValues[ibone].x -= delta.x;
                     mPrevValues[ibone].y -= delta.y;
                     mPrevValues[ibone].z -= delta.z;
+#endif
                 }
             }
             binDelta -= frameSize;
@@ -337,15 +378,23 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
 
     if (lerpReqd && floorKey < deltaF->mNumFrames - 1) {
         int ceilBinIdx = ceilKey >> binLenPower;
-        UMath::Vector3 ceil;
+        COORD3 ceil;
+#ifdef EA_PLATFORM_PLAYSTATION2
+        COORD3 temp;
+#endif
         binData = deltaF->GetBin(ceilBinIdx);
         binPhys = deltaF->GetPhysical(binData);
         if (ceilKey == mNextKey) {
             for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
                 if (boneMask->GetBone(boneIdxs[ibone])) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+                    VU0_v3sub(*reinterpret_cast<COORD3 *>(&mNextValues[ibone]), *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), temp);
+                    VU0_v3scaleadd(temp, scale, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), *reinterpret_cast<COORD3 *>(&sqt[*dofIndices]));
+#else
                     sqt[*dofIndices] = mPrevValues[ibone].x + (mNextValues[ibone].x - mPrevValues[ibone].x) * scale;
                     sqt[*dofIndices + 1] = mPrevValues[ibone].y + (mNextValues[ibone].y - mPrevValues[ibone].y) * scale;
                     sqt[*dofIndices + 2] = mPrevValues[ibone].z + (mNextValues[ibone].z - mPrevValues[ibone].z) * scale;
+#endif
                 }
                 dofIndices++;
             }
@@ -353,11 +402,16 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
             if (ceilBinIdx != floorBinIdx) {
                 for (int ibone = 0; ibone < deltaF->GetNumBones(); dofIndices++, binPhys += 3, ibone++) {
                     if (boneMask->GetBone(boneIdxs[ibone])) {
-                        deltaF->UnQuantizePhysical(mMinRangesf[ibone], binPhys, *reinterpret_cast<UMath::Vector3 *>(&mNextValues[ibone]));
+                        deltaF->UnQuantizePhysical(mMinRangesf[ibone], binPhys, *reinterpret_cast<COORD3 *>(&mNextValues[ibone]));
                         mNextKey = ceilKey;
+#ifdef EA_PLATFORM_PLAYSTATION2
+                        VU0_v3sub(*reinterpret_cast<COORD3 *>(&mNextValues[ibone]), *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), temp);
+                        VU0_v3scaleadd(temp, scale, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), *reinterpret_cast<COORD3 *>(&sqt[*dofIndices]));
+#else
                         sqt[*dofIndices] = mPrevValues[ibone].x + (mNextValues[ibone].x - mPrevValues[ibone].x) * scale;
                         sqt[*dofIndices + 1] = mPrevValues[ibone].y + (mNextValues[ibone].y - mPrevValues[ibone].y) * scale;
                         sqt[*dofIndices + 2] = mPrevValues[ibone].z + (mNextValues[ibone].z - mPrevValues[ibone].z) * scale;
+#endif
                     }
                 }
             } else {
@@ -371,9 +425,13 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
                         mNextValues[ibone].y = mPrevValues[ibone].y + ceil.y;
                         mNextValues[ibone].z = mPrevValues[ibone].z + ceil.z;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+                        VU0_v3scaleadd(ceil, scale, *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]), *reinterpret_cast<COORD3 *>(&sqt[*dofIndices]));
+#else
                         sqt[*dofIndices] = mPrevValues[ibone].x + ceil.x * scale;
                         sqt[*dofIndices + 1] = mPrevValues[ibone].y + ceil.y * scale;
                         sqt[*dofIndices + 2] = mPrevValues[ibone].z + ceil.z * scale;
+#endif
                     }
                     dofIndices++;
                 }
@@ -382,7 +440,7 @@ bool FnDeltaF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneMask
     } else {
         for (int ibone = 0; ibone < deltaF->GetNumBones(); ibone++) {
             if (boneMask->GetBone(boneIdxs[ibone])) {
-                *reinterpret_cast<UMath::Vector3 *>(&sqt[dofIndices[ibone]]) = *reinterpret_cast<UMath::Vector3 *>(&mPrevValues[ibone]);
+                *reinterpret_cast<COORD3 *>(&sqt[dofIndices[ibone]]) = *reinterpret_cast<COORD3 *>(&mPrevValues[ibone]);
             }
         }
     }
@@ -423,11 +481,21 @@ void FnDeltaF3::InitBuffersAsRequired() {
     DeltaF3 *deltaF = reinterpret_cast<DeltaF3 *>(mpAnim);
 
     if (deltaF->GetNumBones() != 0) {
-        mPrevValues = reinterpret_cast<UMath::Vector4 *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mPrevValues)));
+        // PS2: lqc2/sqc2 exigen mPrevValues y mNextValues alineados a 16. La A124 pide 15 bytes de mas
+        // y alinea el puntero (`ori 0xf' al pedir; `addiu 15; sra 4; sll 4' despues).
+#ifdef EA_PLATFORM_PLAYSTATION2
+        mPrevVBlock = MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mPrevValues) + 15);
+        mPrevValues = reinterpret_cast<COORD4 *>(AlignSize16(reinterpret_cast<intptr_t>(mPrevVBlock)));
+
+        mNextVBlock = MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mNextValues) + 15);
+        mNextValues = reinterpret_cast<COORD4 *>(AlignSize16(reinterpret_cast<intptr_t>(mNextVBlock)));
+#else
+        mPrevValues = reinterpret_cast<COORD4 *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mPrevValues)));
         mPrevVBlock = mPrevValues;
 
-        mNextValues = reinterpret_cast<UMath::Vector4 *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mNextValues)));
+        mNextValues = reinterpret_cast<COORD4 *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mNextValues)));
         mNextVBlock = mNextValues;
+#endif
 
         mMinRangesf = reinterpret_cast<DeltaF3MinRange *>(MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mMinRangesf)));
 

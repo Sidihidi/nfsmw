@@ -9,9 +9,9 @@
 
 // total size: 0x7D8
 class AIVehicleCopCar : public AIVehiclePursuit {
-  public:
+  protected:
     AIVehicleCopCar(const BehaviorParams &bp);
-
+  public:
     // Overrides: IUnknown
     ~AIVehicleCopCar() override;
 
@@ -25,11 +25,11 @@ class AIVehicleCopCar : public AIVehiclePursuit {
 
     // Overrides: IPursuitAI
     bool CanSeeTarget(AITarget *target) override;
-
+  protected:
     void WatchForPerps();
-
+  private:
     bool CheckForPursuit(IVehicle *itargetVehicle);
-
+  public:
     // Overrides: IVehicleAI
     float GetSkill() const override {
         return 1.0f;

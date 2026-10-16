@@ -112,9 +112,12 @@ class ICEMover : public CameraMover {
     int nSpaceLook;                // offset 0xC0, size 0x4
     ICEData *pICEData;             // offset 0xC4, size 0x4
     bool bViolatesTopology;        // offset 0xC8, size 0x1
-    ALIGNVEC ICE::Matrix4 mHybridToWorld;   // offset 0xCC, size 0x40
-    ICE::Vector3 vSmoothCarPos;    // offset 0x10C, size 0x10
-    ALIGNVEC ICE::Vector3 vSmoothCarFwd;    // offset 0x11C, size 0x10
+    // ALIGN_16 y no ALIGNVEC: igual en GameCube (nada), PS2 y Xbox 360 (16), y tambien alinea en PC, donde ALIGNVEC
+    // no alinea (RigidBody::Primitive::GetOffset de speed.exe lee 0x28) y ICEMover si: su ctor (0x4846C0) pone a cero
+    // 0xD0..0x12C y CDActionIce pide 0x130 bytes.
+    ALIGN_16 ICE::Matrix4 mHybridToWorld; // offset 0xCC, size 0x40
+    ICE::Vector3 vSmoothCarPos;           // offset 0x10C, size 0x10
+    ALIGN_16 ICE::Vector3 vSmoothCarFwd;  // offset 0x11C, size 0x10
 };
 
 #endif

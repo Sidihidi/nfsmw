@@ -6,7 +6,7 @@
 #include "Speed/Indep/Src/Physics/Bounds.h"
 #include "Speed/Indep/Src/Sim/SimConn.h"
 #include "Speed/Indep/Src/World/CarRender.hpp"
-#include "Speed/Indep/Src/World/CarRenderConn.h"
+// datos-gc 2026-10-13: sin CarRenderConn.h aqui (solo se usa como friend, forward-decl abajo): su cadena (VehicleRenderConn.h) parseaba WorldConn.h antes que los paquetes Render*, y en el DWARF de zPhysicsBehaviors los 18 hash Render* (_10.._27) van antes que los World* (_32.._43)
 #include "Speed/Indep/Src/World/DamageZones.h"
 #include "Speed/Indep/Src/World/Scenery.hpp"
 #include "Speed/Indep/Src/World/SmackableRender.hpp"
@@ -24,6 +24,12 @@
 class CarRenderConn;
 class HeliRenderConn;
 class VehicleFragmentConn;
+class SceneryOverrideConn;
+
+// El PartState de Pkt_Car_Service (misma definicion que en World/CarRenderConn.h, que la
+// conserva; la redefinicion de un typedef al mismo tipo es valida).
+#include "Speed/Indep/Libs/Support/Utility/UBitArray.h"
+typedef BitArray<uint32, 76> PartState;
 
 namespace RenderConn {
 
@@ -69,30 +75,32 @@ class ALIGNVEC Pkt_Car_Service : public Sim::Packet {
   public:
     typedef UTL::Std::list<UCrc32, _type_list> PartList;
 
+    // El orden del mapa de lineas de GameCube (RenderConn.h:197-223 del original); las dos PS2 lo muestran en los
+    // guardados de cero.
     Pkt_Car_Service(bool inview, float distancetoview) {
         this->mFlashing = false;
-
         bMemSet(this->mCompressions, 0, sizeof(this->mCompressions));
         bMemSet(this->mSteering, 0, sizeof(this->mSteering));
         bMemSet(this->mWheelSpeed, 0, sizeof(this->mWheelSpeed));
         bMemSet(this->mTireSkid, 0, sizeof(this->mTireSkid));
         bMemSet(this->mTireSlip, 0, sizeof(this->mTireSlip));
-
         this->mGroundState = 0;
+        this->mInView = inview;
         this->mLights = 0;
         this->mBrokenLights = 0;
-        this->mInView = inview;
         this->mDistanceToView = distancetoview;
         this->mNos = false;
         this->mEngineBlown = false;
         this->mGear = G_NEUTRAL;
-        this->mEnginePower = 0.0f;
         this->mShift = SHIFT_STATUS_NORMAL;
+        this->mEnginePower = 0.0f;
         this->mExtraBodyRoll = 0.0f;
-        this->mHealth = 1.0f;
-        this->mBlowOuts = 0;
         this->mExtraBodyPitch = 0.0f;
         this->mEngineSpeed = 0.0f;
+        this->mHealth = 1.0f;
+
+        this->mBlowOuts = 0;
+
         this->mAnimatedCarPitch = 0.0f;
         this->mAnimatedCarRoll = 0.0f;
         this->mAnimatedCarShake = 0.0f;
@@ -251,7 +259,6 @@ class ALIGNVEC Pkt_Heli_Open : public Sim::Packet {
           mWorldID(worldid),                  //
           mSpoolLoad(spool_load) {}
 
-    ~Pkt_Heli_Open() override {}
 
     uint32 mModelHash; // offset 0x4, size 0x4
     WUID mWorldID;     // offset 0x8, size 0x4
@@ -260,7 +267,6 @@ class ALIGNVEC Pkt_Heli_Open : public Sim::Packet {
 
 class ALIGNVEC Pkt_Heli_Service : public Sim::Packet {
   public:
-    ~Pkt_Heli_Service() override {}
 
     DECLARE_RENDERPACKET(Pkt_Heli_Service, HeliRenderConn);
 
@@ -301,7 +307,6 @@ class ALIGNVEC Pkt_VehicleFragment_Open : public Sim::Packet {
 
     DECLARE_RENDERPACKET(Pkt_VehicleFragment_Open, VehicleFragmentConn);
 
-    ~Pkt_VehicleFragment_Open() override {}
 
     WUID mVehicleWorldID; // offset 0x4, size 0x4
     WUID mWorldID;        // offset 0x8, size 0x4
@@ -325,11 +330,21 @@ class ALIGNVEC Pkt_VehicleFragment_Service : public Sim::Packet {
         return this->mDistanceToView;
     }
 
-    ~Pkt_VehicleFragment_Service() override {}
 
   private:
     bool mInView;          // offset 0x4, size 0x1
     float mDistanceToView; // offset 0x8, size 0x4
+};
+
+// total size: 0x8 (DWARF del original; faltaba en el arbol: sus dos hash son las guardas
+// _22/_23 de las TU que parsean RenderConn.h, p.ej. zPhysicsBehaviors)
+class ALIGNVEC Pkt_SceneryOverride_Open : public Sim::Packet {
+  public:
+    Pkt_SceneryOverride_Open(unsigned int worldid) : mWorldID(worldid) {}
+
+    DECLARE_RENDERPACKET(Pkt_SceneryOverride_Open, SceneryOverrideConn);
+
+    unsigned int mWorldID; // offset 0x4, size 0x4
 };
 
 // total size: 0x18

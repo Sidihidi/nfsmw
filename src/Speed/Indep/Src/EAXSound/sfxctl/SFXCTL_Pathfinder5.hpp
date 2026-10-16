@@ -31,8 +31,9 @@ struct stPFParms {
 };
 
 struct SFXCTL_Pathfinder : public SFXCTL {
-  public:
+  protected:
     static TypeInfo s_TypeInfo;
+  public:
     static TypeInfo *GetStaticTypeInfo() { return &s_TypeInfo; }
 
   public:
@@ -59,7 +60,9 @@ struct SFXCTL_Pathfinder : public SFXCTL {
     void UpdateMixerOutputs() override;
     void SetupSFX(CSTATE_Base *_StateBase) override;
     int InitPFParms(stPFParms *pstparms, int pathid, int trackid);
+  private:
     void CreateTrack(int index);
+  public:
     int GetHandle(int index);
     void DetachStreamInstance(stPFParms *pstPFParms);
     void AttachStreamInstance(stPFParms *pstPFParms);

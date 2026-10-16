@@ -81,10 +81,7 @@ AIVehiclePid::AIVehiclePid(const BehaviorParams &bp, float update_rate, float st
     this->pSteeringController->SetTuningThreshold(eD_TERM, 0.01f);
 
     IVehicle *vehicle = GetVehicle();
-    bool drag_racing = false;
-    if (vehicle && vehicle->GetDriverStyle() == STYLE_DRAG) {
-        drag_racing = vehicle->GetDriverClass() == DRIVER_HUMAN;
-    }
+    bool drag_racing = vehicle && vehicle->GetDriverStyle() == STYLE_DRAG && vehicle->GetDriverClass() == DRIVER_HUMAN;
 
     float min_p = drag_racing ? 0.6f : 0.4f;
     float max_p = drag_racing ? 1.2f : 1.0f;
@@ -383,7 +380,11 @@ void AIVehicleRacecar::PrepareForRace(const RacePreparationInfo &rpi) {
     vehicle->SetSpeed(rpi.Speed);
     vehicle->ForceStopOff(vehicle->GetForceStop());
 
+#ifdef EA_BUILD_A124
+    SetHeat(rpi.HeatLevel);
+#else
     SetHeat(UMath::Max(rpi.HeatLevel, 1.0f));
+#endif
 
     bool valid_start_position = rpi.Flags & 1;
     if (valid_start_position) {
@@ -402,6 +403,20 @@ void AIVehicleRacecar::PrepareForRace(const RacePreparationInfo &rpi) {
     if (player) {
         player->ResetGameBreaker(true);
     }
+#ifdef EA_BUILD_A124
+
+    IInputPlayer *input;
+    if (GetOwner()->QueryInterface(&input)) {
+        input->BlockInput(false);
+    }
+
+    WRoadNav *nav = GetDriveToNav();
+    if (nav) {
+        nav->SetRaceFilter(true);
+    }
+    ResetDriveToNav(SELECT_VALID_LANE);
+    SetGoal("AIGoalRacer");
+#endif
 }
 
 Behavior *AIVehicleRacecar::Construct(const BehaviorParams &bp) {

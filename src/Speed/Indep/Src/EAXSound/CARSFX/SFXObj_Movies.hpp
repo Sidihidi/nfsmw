@@ -13,7 +13,9 @@ class SFXObj_Movies : public CARSFX {
     ~SFXObj_Movies() override;
 
     // Overrides: SndBase
-    int GetController(int Index) override {}           // Decl: 12
+    int GetController(int Index) override {
+        return -1;
+    }                                                  // Decl: 12
     void AttachController(SFXCTL *psfxctl) override {} // Decl: 13
 
     void SetupSFX(CSTATE_Base *_StateBase) override {} // Decl: 15

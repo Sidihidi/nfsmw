@@ -26,6 +26,10 @@
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+#ifdef EA_BUILD_A124
+// La A124 lleva el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en sus stabs).
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -100,7 +104,7 @@ BoxInFormation::BoxInFormation(int copcount, struct IPursuit *pursuit) {
 
 void BoxInFormation::getPosition(int idx, float scale, UMath::Vector3 &pos) {
     struct vec3 {
-        UMath::Vector3 v;
+        PS2ALIGN16 UMath::Vector3 v; // 0x10 en los stabs de PS2
     };
     static const vec3 base_pos[4] = {{0.0f, 0.0f, 14.0f}, {-3.5f, 0.0f, 0.0f}, {3.5f, 0.0f, 0.0f}, {0.0f, 0.0f, -7.5f}};
 
@@ -111,7 +115,7 @@ void BoxInFormation::getPosition(int idx, float scale, UMath::Vector3 &pos) {
 void BoxInFormation::Update(float dT, IPursuit *pursuit) {
     float finisher = pursuit->TimeToFinisherAttempt() / GetTimeToFinisher();
     float ftight = (tightness * 0.2f) + 0.2f;
-    float scale = (finisher * ftight) + (1.0f - ftight);
+    float scale = (1.0f - ftight) + (finisher * ftight);
 
     for (int i = 0; i < 4; i++) {
         UMath::Vector3 pos;
@@ -155,7 +159,7 @@ RollingBlockFormation::RollingBlockFormation(int numCops, struct IPursuit *pursu
 
 void RollingBlockFormation::getPosition(int idx, float scale, UMath::Vector3 &pos) {
     struct vec3 {
-        UMath::Vector3 v;
+        PS2ALIGN16 UMath::Vector3 v; // 0x10 en los stabs de PS2
     };
     static const vec3 base_pos[5] = {{0.0f, 0.0f, 14.0f}, {-2.5f, 0.0f, 14.0f}, {2.5f, 0.0f, 10.0f}, {-5.0f, 0.0f, 14.0f}, {5.0f, 0.0f, 14.0f}};
 
@@ -166,7 +170,7 @@ void RollingBlockFormation::getPosition(int idx, float scale, UMath::Vector3 &po
 void RollingBlockFormation::Update(float dT, IPursuit *pursuit) {
     float finisher = pursuit->TimeToFinisherAttempt() / GetTimeToFinisher();
     float ftight = tightness * 0.4f;
-    float scale = (finisher * ftight) + (1.0f - ftight);
+    float scale = (1.0f - ftight) + (finisher * ftight);
 
     for (int i = 0; i < 5; i++) {
         UMath::Vector3 pos;
@@ -415,17 +419,21 @@ AIPursuit::AIPursuit(Sim::Param params)
     Sim::ProfileTask(mSimulateTask, "AIPursuit");
 
     mIVehicleList.clear();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    mIVehicleList.reserve(20);
+#else
     mIVehicleList.reserve(10);
+#endif
 
-    mNearestCopInRoadblock = nullptr;
     mRoadBlockTimer = 0.0f;
     mDistanceToNearestCopInRoadblock = 0.0f;
+    mNearestCopInRoadblock = nullptr;
     mTarget = new AITarget(nullptr);
     mTarget->Clear();
 
     mInFormationTimer = 0.0f;
-    mTotalPursuitTime = 0.0f;
     mBreakerTimer = -1.0f;
+    mTotalPursuitTime = 0.0f;
     mCollapseActive = false;
     mFormationAttemptCount = 0;
 
@@ -435,6 +443,7 @@ AIPursuit::AIPursuit(Sim::Param params)
 #ifndef EA_BUILD_A124
     mAllowStatsToAccumulate = false;
 #endif
+#ifndef EA_BUILD_A124
     if (GRaceStatus::Get().GetRaceParameters() && GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
         if (GRaceStatus::IsFinalEpicPursuit()) {
             mBaseHeat = mMaximumHeat = 6.0f;
@@ -447,6 +456,7 @@ AIPursuit::AIPursuit(Sim::Param params)
             mBaseHeat = 1.0f;
             mMaximumHeat = 5.0f;
         } else {
+#endif
             mBaseHeat = GRaceStatus::Get().GetBinBaseHeat();
             mMaximumHeat = GRaceStatus::Get().GRaceStatusGetBinMaxHeat();
             mHeatScale = GRaceStatus::Get().GetBinHeatScale();
@@ -471,8 +481,10 @@ AIPursuit::AIPursuit(Sim::Param params)
                     }
                 }
             }
+#ifndef EA_BUILD_A124
         }
     }
+#endif
 
     mCurrentPursuitLevel = 0;
     mActiveFormationTime = 0.0f;
@@ -502,6 +514,10 @@ AIPursuit::AIPursuit(Sim::Param params)
 
 AIPursuit::~AIPursuit() {
     this->DetachAll();
+#ifdef EA_BUILD_A124
+    DebugMenu::SetPursuitFormation(static_cast<FormationType>(0));
+    DebugMenu::SetPursuitState(STATE_IDLE);
+#endif
     this->RemoveTask(this->mSimulateTask);
     this->RemoveTask(this->mBustedTimerTask);
 
@@ -593,18 +609,24 @@ void AIPursuit::OnAttached(IAttachable *pOther) {
                 GManager::Get().NotifyPursuitStarted();
             }
 
+#ifndef EA_BUILD_A124
             float heat = iperp->GetHeat();
             if (heat < mBaseHeat) {
                 heat = mBaseHeat;
             }
             iperp->SetHeat(heat);
             iperp->ClearPendingRepPoints();
+#endif
         } else if (ivehicle->QueryInterface(&ipv)) {
             mIVehicleList.push_back(ivehicle);
 
             Attrib::Gen::pursuitlevels *plevels = GetPursuitLevelAttrib();
             if (plevels) {
+#ifdef EA_BUILD_A124
+                if (mTotalCopsInvolved < 3) {
+#else
                 if (mTotalCopsInvolved < 3 && mPursuitStatus != PS_COOL_DOWN) {
+#endif
                     mSpawnCopTimer = plevels->TimeBetweenFirstFourSpawn();
                 } else {
                     mSpawnCopTimer = plevels->TimeBetweenCopSpawn();
@@ -832,11 +854,20 @@ void AIPursuit::InitFormation(int numCops) {
         default:
             break;
     }
+#ifdef EA_BUILD_A124
+    DebugMenu::SetPursuitState(STATE_PURSUIT);
+    DebugMenu::SetPursuitLevel(mCurrentPursuitLevel);
+#endif
 }
 
 void AIPursuit::EndCurrentFormation() {
     mActiveFormationTime = 0.0f;
     mBreakerTimer = -1.0f;
+#ifdef EA_BUILD_A124
+    DebugMenu::SetPursuitState(STATE_IDLE);
+    DebugMenu::SetPursuitFormation(static_cast<FormationType>(0));
+    DebugMenu::SetPursuitLevel(mCurrentPursuitLevel);
+#endif
 }
 
 void AIPursuit::AssignCopOffset(int cop, Pursuers &assignCopList, const UMath::Vector3 &pursuitOffset, const UMath::Vector3 &inPositionOffset,
@@ -899,11 +930,12 @@ void AIPursuit::EvenOutOffsets(Vector3List &copRelativePositions, FormationTarge
                     combined_distance += UMath::Distance(copPosition, offsetPosition);
                 }
 
-                if (bestOffset == source_offsets.end() || combined_distance <= bestDistance) {
-                    bestOffset = i;
-                    bestDistance = combined_distance;
-                    bestPriority = (*bestOffset)->mMinTargets;
+                if (bestOffset != source_offsets.end() && combined_distance > bestDistance) {
+                    continue;
                 }
+                bestOffset = i;
+                bestDistance = combined_distance;
+                bestPriority = (*bestOffset)->mMinTargets;
             }
         }
 
@@ -919,40 +951,10 @@ void AIPursuit::EvenOutOffsets(Vector3List &copRelativePositions, FormationTarge
 DECLARE_CONTAINER_TYPE(AIPursuitAssignClosestOffsetsDistances);
 DECLARE_CONTAINER_TYPE(AIPursuitAssignClosestOffsetsMaximums);
 
-// UNSOLVED, 1.684 B al 99,66746 %: quedan OCHO filas y son DOS cosas.
-//  a) SEIS filas: permutacion limpia r28<->r29. El objetivo deja el `@ha` del
-//     literal -1.0f en r28 y el temporal `copsToAssignOffsets - 1` en r29;
-//     nosotros al reves. regmap dice IDENTICO (31 locales, mismo reparto), o sea
-//     que los dos pseudos son TEMPORALES del compilador y no hay nada que pinchar.
-//  b) DOS filas y CUATRO BYTES (1.680 contra 1.684): el objetivo emite
-//     `mr r9,r29` + `cmpwi r29,0` y nosotros `mr. r9,r28`. Es combine.c:1699 (el
-//     caso "arithmetic operation and set the condition code"): i3 es
-//     `(set cc (compare cTAO 0))`, i2 es la copia `(set cTAO t)` y como el
-//     operando del compare ES i2dest, combine mete i2src en el compare y forma el
-//     PARALLEL `or.`. Somos una instruccion MAS CORTOS.
-//     Y esto ultimo dice que la FUENTE no es `--x > 0`: `expand_increment` de
-//     expr.c (rama del final, `temp = copy_rtx (value = op0); ...; return temp;`)
-//     devuelve SIEMPRE op0 --la variable-- para un predecremento, o sea que con
-//     `--x` el compare no puede leer el temporal. El objetivo compara el
-//     temporal (`cmpwi r29,0` con `mr r9,r29` al lado y `subi r29,r9,1` en el
-//     tope del bucle, 0x2e6dc): su fuente tiene que ser otra construccion.
-//
-// r36c, banco de 28 s (mini-TU = zAI.cpp truncado tras AIPursuit.cpp):
-//   `copsToAssignOffsets--;` + `while (copsToAssignOffsets > 0)`  -> 1.684 B
-//   EXACTOS (rompe la fusion: el compare deja de leer i2dest) y ademas ACIERTA la
-//   permutacion r28/r29 de la (a). Pero 11 filas en vez de 8: al desaparecer el
-//   `mr.` el reparto cambia entero y el `subi` del contador se va del TOPE del
-//   bucle (`subi r29,r9,1` en 0x2e6dc, con la copia `mr r9,r29` abajo) al CUERPO
-//   (`subi r5,r29,1` + `mr r29,r5`), con `copsToAssignOffsets` viviendo en un
-//   solo registro. Ahi esta lo que falta: la forma que rompa la fusion SIN mover
-//   la actualizacion del biv.
-// Vedadas y medidas en el mismo banco: `(copsToAssignOffsets -= 1) > 0` y
-//   `0 < --copsToAssignOffsets` (BINARIO IDENTICO a la base); `__asm__("")`,
-//   `__asm__("" : "+r"(x))` y `__asm__("" : : "r"(x))` tras el decremento (los
-//   tres dan el MISMO objeto que `x--`, 1.684 B / 11 filas); `__asm__` antes del
-//   `--x` (99,050 %, 10); temporal explicito `int remaining` declarado fuera del
-//   do (1.692 B, 21); el decremento al PRINCIPIO del do (1.700 B, 21 -- y ademas
-//   es INCORRECTO: los `continue` del cuerpo se lo saltarian).
+// La forma natural (continue y el predecremento en la condicion) es la que dan las dos PS2: 99,32 % en la A124 y
+// SLUS, contra 92,65 % de la version con saltos que habia. En GameCube baja de 99,67 a 98,43 %, pero aquella
+// version solo acercaba el horario de GameCube con tres etiquetas y ninguna de las dos llega al 100 %. El analisis
+// de las ocho filas de GameCube (combine.c:1699 y la permutacion r28/r29) esta en la historia de git.
 void AIPursuit::AssignClosestOffsets(Vector3List &copRelativePositions, Pursuers &assignCopList, FormationTargetList &formationOffsets,
                                      bool information) {
     int numRows = copRelativePositions.size();
@@ -986,38 +988,26 @@ void AIPursuit::AssignClosestOffsets(Vector3List &copRelativePositions, Pursuers
     int copsToAssignOffsets = formationOffsets.size();
     do {
         int currentCop = -1;
-        int currentOffset;
         float furthestDistance = 0.0f;
 
         for (int i = 0; i < numRows; ++i) {
             float distance = copOffsetMaximums[i];
             if (distance != INDEX_ASSIGNED && distance > furthestDistance) {
-                furthestDistance = distance;
                 currentCop = i;
+                furthestDistance = distance;
             }
         }
-        {
-            int j;
-            if (currentCop >= 0) {
-                goto search_offsets;
-            }
+        if (currentCop < 0) {
             continue;
+        }
 
-        found_offset:
-            currentOffset = j;
-            goto searched_offsets;
-
-        search_offsets:
-            currentOffset = -1;
-            // TODO issue with this loop
-            for (j = 0; j < numCols; ++j) {
-                float distance = copOffsetDistance[currentCop * numCols + j];
-                if (distance != INDEX_ASSIGNED && distance == furthestDistance) {
-                    goto found_offset;
-                }
+        int currentOffset = -1;
+        for (int j = 0; j < numCols; ++j) {
+            float distance = copOffsetDistance[currentCop * numCols + j];
+            if (distance != INDEX_ASSIGNED && distance == furthestDistance) {
+                currentOffset = j;
+                break;
             }
-
-        searched_offsets:;
         }
         if (currentOffset < 0) {
             continue;
@@ -1028,8 +1018,8 @@ void AIPursuit::AssignClosestOffsets(Vector3List &copRelativePositions, Pursuers
         for (int i = 0; i < numRows; ++i) {
             float distance = copOffsetDistance[i * numCols + currentOffset];
             if (distance != INDEX_ASSIGNED && copOffsetMaximums[i] != INDEX_ASSIGNED && distance < closestDistance) {
-                closestDistance = distance;
                 currentCop = i;
+                closestDistance = distance;
             }
         }
         if (currentCop < 0) {
@@ -1058,19 +1048,11 @@ void AIPursuit::AssignClosestOffsets(Vector3List &copRelativePositions, Pursuers
 }
 
 static int CopAndAngleSortPredicate(const void *l, const void *r) {
-    if (reinterpret_cast<const CopAndAngle *>(l)->angle <= reinterpret_cast<const CopAndAngle *>(r)->angle) {
-        return -1;
-    } else {
-        return 1;
-    }
+    return reinterpret_cast<const CopAndAngle *>(l)->angle > reinterpret_cast<const CopAndAngle *>(r)->angle ? 1 : -1;
 }
 
 static int CopAndAngleDistanceSortPredicate(const void *l, const void *r) {
-    if (reinterpret_cast<const CopAndAngle *>(l)->distance <= reinterpret_cast<const CopAndAngle *>(r)->distance) {
-        return -1;
-    } else {
-        return 1;
-    }
+    return reinterpret_cast<const CopAndAngle *>(l)->distance > reinterpret_cast<const CopAndAngle *>(r)->distance ? 1 : -1;
 }
 
 DECLARE_CONTAINER_TYPE(AIPursuitSetupCollapseCopAngles);
@@ -1184,7 +1166,12 @@ void AIPursuit::AssignCopsInCircle(CopAndAngle *copangles, int num, float radius
         }
     }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_PLAYSTATION2)
+    // PC/PS2 emiten division double (r22: PC +1 fn/+460 B, A124/SLUS +1 fn); GC, float.
+    step = 6.2831852 / num;
+#else
     step = 6.283185f / num;
+#endif
 
     for (int i = 0; i < num; i++) {
         float angle = i * step;
@@ -1447,8 +1434,8 @@ bool AIPursuit::IsPlayerPursuit() const {
 }
 
 bool AIPursuit::ContingentHasActiveCops() const {
-    for (ContingentVector::const_iterator i = mCopContingent.begin(); i != mCopContingent.end(); ++i) {
-        if (i->mCount > 0) {
+    for (ContingentVector::const_iterator j = mCopContingent.begin(); j != mCopContingent.end(); ++j) {
+        if (j->mCount != 0) {
             return true;
         }
     }
@@ -1456,6 +1443,11 @@ bool AIPursuit::ContingentHasActiveCops() const {
 }
 
 float kBustedHUDTime = 3.0f;
+#ifdef EA_BUILD_A124
+// Banderas de depuracion de la A124 (.data de zAI tras kBustedHUDTime); el DWARF de GameCube las lista sin direccion.
+bool ForcePursuitNeverEnd = false;
+bool ForcePursuitEnd = false;
+#endif
 
 bool AIPursuit::OnTask(HSIMTASK htask, float dT) {
     if (htask == mBustedTimerTask) {
@@ -1475,7 +1467,7 @@ bool AIPursuit::OnTask(HSIMTASK htask, float dT) {
     }
 
 #ifndef EA_BUILD_A124
-    mAllowStatsToAccumulate = !GRaceStatus::Exists() || GRaceStatus::Get().GetPlayMode() != GRaceStatus::kPlayMode_Racing ||
+    mAllowStatsToAccumulate = !GRaceStatus::Exists() || !(GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing) ||
                               (GRaceStatus::Get().GetRaceParameters() && GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace());
 #endif
 
@@ -1520,6 +1512,9 @@ bool AIPursuit::OnTask(HSIMTASK htask, float dT) {
 
                 if (FEDatabase->GetCareerSettings()) {
                     int bin = GRaceStatus::IsChallengeRace() ? 14 : FEDatabase->GetCareerSettings()->GetCurrentBin();
+                    if (bin < 0) {
+                        bin = 0;
+                    }
                     if (bin > 14) {
                         bin = 14;
                     }
@@ -1789,9 +1784,9 @@ bool AIPursuit::OnTask(HSIMTASK htask, float dT) {
             }
         }
     } else if (mIsPerpBusted && is_player_perp) {
-        float bustedHUDTimeBefore = mBustedHUDTime;
+        bool was_shown = mBustedHUDTime > kBustedHUDTime;
         mBustedHUDTime += dT;
-        if (bustedHUDTimeBefore <= kBustedHUDTime && mBustedHUDTime > kBustedHUDTime) {
+        if (!was_shown && mBustedHUDTime > kBustedHUDTime) {
             MPerpBusted(mTarget->GetSimable()->GetOwnerHandle()).Send(0xfea34c0a);
         }
     }
@@ -1868,7 +1863,7 @@ bool AIPursuit::OnTask(HSIMTASK htask, float dT) {
             mPursuitMeter = 0.0f;
             if (MinDistanceToTarget3 > evadeDeadZone) {
                 mPursuitMeter =
-                    bClamp(-0.1f - ((MinDistanceToTarget3 - evadeDeadZone) / (losDistance - evadeDeadZone)) * 0.4f, -0.5f, -0.1f);
+                    bClamp(-0.1 - ((MinDistanceToTarget3 - evadeDeadZone) / (losDistance - evadeDeadZone)) * 0.4f, -0.5f, -0.1f);
             } else if (MinDistanceToTarget3 < bustedDeadZone) {
                 if (mTarget->GetSpeed() > PursuitMPH2MPS(70.0f)) {
                     mPursuitMeter = 0.0f;
@@ -1921,8 +1916,22 @@ bool AIPursuit::IsHeliInPursuit() const {
 }
 
 bool AIPursuit::ShouldEnd() const {
+#ifdef EA_BUILD_A124
+    if (!mTarget->IsValid()) {
+        return true;
+    }
+    if (ForcePursuitEnd) {
+        ForcePursuitEnd = false;
+        return true;
+    }
+    if (ForcePursuitNeverEnd) {
+        return false;
+    }
+    if (mEvadeLevel >= 1.0f ||    //
+#else
     if (!mTarget->IsValid() ||    //
         mEvadeLevel >= 1.0f ||    //
+#endif
         mPursuitStatus == PS_EVADED || ((mIsPerpBusted || mIsPursuitBailed) && !GetNumCops())) {
         return true;
     }
@@ -1933,6 +1942,38 @@ bool AIPursuit::ShouldEnd() const {
 static UCrc32 heliHash1("copheli");
 
 void AIPursuit::GetAdjustedCopCounts(CopCountRecord *counts, int &numcounts) {
+#ifdef EA_BUILD_A124
+    numcounts = 0;
+    Attrib::Gen::pursuitlevels *pursuitLevelAttrib = GetGlobalPursuitLevelAttrib();
+    if (!pursuitLevelAttrib) {
+        return;
+    }
+
+    int max_cops = 0x7ffffffd;
+    bool is_player_pursuit = IsPlayerPursuit();
+    if (!is_player_pursuit) {
+        max_cops = 3;
+        if (ICopMgr::Get()->IsPlayerPursuitActive()) {
+            max_cops = 2;
+        }
+    }
+
+    int cops_so_far = 0;
+    for (unsigned int i = 0; i < pursuitLevelAttrib->Num_cops(); i++) {
+        const CopCountRecord &copcount = pursuitLevelAttrib->cops(i);
+        int count = copcount.Count;
+        if (!is_player_pursuit && count > 0) {
+            count = bMax(1, count / 2);
+        }
+        count = bMin(max_cops - cops_so_far, count);
+        if (count > 0) {
+            cops_so_far += count;
+            counts[numcounts] = copcount;
+            counts[numcounts].Count = count;
+            numcounts++;
+        }
+    }
+#else
     numcounts = 0;
     Attrib::Gen::pursuitlevels *pursuitLevelAttrib = GetGlobalPursuitLevelAttrib();
     if (!pursuitLevelAttrib) {
@@ -1993,6 +2034,7 @@ void AIPursuit::GetAdjustedCopCounts(CopCountRecord *counts, int &numcounts) {
             }
         }
     }
+#endif
 }
 
 void AIPursuit::RemoveUnwantedVehicles() {
@@ -2025,6 +2067,8 @@ void AIPursuit::RemoveUnwantedVehicles() {
     }
 
     if (fleeType != UCrc32::kNull) {
+        // Invertir los argumentos arreglaba el `pminw' de PS2 pero rompia GameCube: lo que estaba al reves
+        // era el asm de bMin en PS2 (el original da `pminw c, b, a`), no esta llamada.
         FleeCopOfType(fleeType, bMin(fleeCount, 2));
     }
 
@@ -2159,6 +2203,64 @@ const char *AIPursuit::CopRequest() {
         int weight;
     } currentlyActive[10];
 
+#ifdef EA_BUILD_A124
+    // La A124 (AIPursuit.cpp:2959-3040) cuenta los coches que ya persiguen, no pide mas de los que faltan para escapar
+    // (en el enfriamiento, hasta las patrullas del nivel) y elige al azar sin descartar los tipos que no hacen falta.
+    int totalActive = 0;
+    int totalNeeded = 0;
+    for (int i = 0; i < numCopTypesToChooseFrom; i++) {
+        currentlyActive[i].type = adjustedCounts[i].CopType.GetHash32();
+        currentlyActive[i].needed = adjustedCounts[i].Count;
+
+        for (ContingentVector::const_iterator j = mCopContingent.begin(); j != mCopContingent.end(); ++j) {
+            if (currentlyActive[i].type == j->mType.GetValue()) {
+                totalActive += j->mCount;
+                currentlyActive[i].needed -= j->mCount;
+            }
+        }
+
+        totalNeeded += currentlyActive[i].needed;
+    }
+
+    if (totalActive >= mNumCopsRequiredToEvade - mNumFullyEngagedCopsEvaded) {
+        return nullptr;
+    }
+
+    if (mPursuitStatus == PS_COOL_DOWN) {
+        Attrib::Gen::pursuitlevels *pursuitLevelAttrib = GetPursuitLevelAttrib();
+        if (pursuitLevelAttrib) {
+            int maxPatrol = pursuitLevelAttrib->NumPatrolCars();
+            totalNeeded = maxPatrol - totalActive;
+        }
+    }
+
+    if (totalNeeded <= 0) {
+        mNumCopsNeeded = 0;
+        return nullptr;
+    }
+
+    mNumCopsNeeded = totalNeeded;
+
+    int totalWeight = 0;
+    for (int i = 0; i < numCopTypesToChooseFrom; i++) {
+        currentlyActive[i].weight = adjustedCounts[i].Chance ? adjustedCounts[i].Chance : 100;
+        if (currentlyActive[i].type == heliHash1.GetValue() && !allowHeli) {
+            currentlyActive[i].weight = 0;
+        }
+        totalWeight += currentlyActive[i].weight;
+    }
+
+    int rand = Sim::GetRandom()._SimRandom_IntRange(totalWeight);
+    for (int i = 0; i < numCopTypesToChooseFrom; i++) {
+        rand -= currentlyActive[i].weight;
+        if (rand <= 0) {
+            if (currentlyActive[i].needed > 0) {
+                request = adjustedCounts[i].CopType.GetString();
+            }
+            break;
+        }
+    }
+#else
     int totalNeeded = 0;
     for (int i = 0; i < numCopTypesToChooseFrom; i++) {
         const CopCountRecord &copcount = adjustedCounts[i];
@@ -2183,7 +2285,7 @@ const char *AIPursuit::CopRequest() {
     int totalWeight = 0;
     for (int i = 0; i < numCopTypesToChooseFrom; i++) {
         const CopCountRecord &copcount = adjustedCounts[i];
-        currentlyActive[i].weight = copcount.Chance != 0 ? copcount.Chance : 100;
+        currentlyActive[i].weight = copcount.Chance > 0 ? copcount.Chance : 100;
 
         if (currentlyActive[i].type == heliHash1.GetValue() && !allowHeli) {
             currentlyActive[i].weight = 0;
@@ -2204,6 +2306,7 @@ const char *AIPursuit::CopRequest() {
         }
     }
 
+#endif
     return request;
 }
 
@@ -2216,9 +2319,11 @@ int AIPursuit::RequestRoadBlock() {
     }
 
     Attrib::Gen::pursuitsupport *ps = GetPursuitSupportAttrib();
+#ifndef EA_BUILD_A124
     if (!ps) {
         return 0;
     }
+#endif
     if (ps->MinimumSupportDelay() > mTotalPursuitTime) {
         return 0;
     }
@@ -2292,73 +2397,75 @@ GroundSupportRequest *AIPursuit::RequestGroundSupport() {
         return &mGroundSupportRequest;
     }
 
-    if (mSupportCheckTimer < 0.0f) {
-        mSupportCheckTimer = 10.0f;
+    if (mSupportCheckTimer >= 0.0f) {
+        return nullptr;
+    }
 
-        Attrib::Gen::pursuitsupport *ps = GetPursuitSupportAttrib();
-        if (ps->MinimumSupportDelay() > mTotalPursuitTime) {
-            return nullptr;
-        }
+    mSupportCheckTimer = 10.0f;
 
-        int rand = Sim::GetRandom()._SimRandom_IntRange(100);
+    Attrib::Gen::pursuitsupport *ps = GetPursuitSupportAttrib();
+    if (ps->MinimumSupportDelay() > mTotalPursuitTime) {
+        return nullptr;
+    }
 
-        if (!mSupportPriorityCheckDone) {
-            for (int i = 0; i < static_cast<int>(ps->Num_LeaderSupportOptions()); i++) {
-                const LeaderSupport &leaderSupport = ps->LeaderSupportOptions(i);
-                if (leaderSupport.PriorityTime < mTotalPursuitTime) {
-                    mSupportPriorityCheckDone = true;
-                    if (leaderSupport.PriorityChance > static_cast<unsigned int>(rand)) {
-                        mGroundSupportRequest.mLeaderSupport = &leaderSupport;
-                        mGroundSupportRequest.mSupportTimer = leaderSupport.Duration;
-                        mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::PENDING;
-                        break;
-                    }
+    int rand = Sim::GetRandom()._SimRandom_IntRange(100);
+
+    if (!mSupportPriorityCheckDone) {
+        for (int i = 0; i < static_cast<int>(ps->Num_LeaderSupportOptions()); i++) {
+            const LeaderSupport &leaderSupport = ps->LeaderSupportOptions(i);
+            if (leaderSupport.PriorityTime < mTotalPursuitTime) {
+                mSupportPriorityCheckDone = true;
+                if (leaderSupport.PriorityChance > static_cast<unsigned int>(rand)) {
+                    mGroundSupportRequest.mLeaderSupport = &leaderSupport;
+                    mGroundSupportRequest.mSupportTimer = leaderSupport.Duration;
+                    mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::PENDING;
+                    break;
                 }
             }
-        }
-
-        if (mGroundSupportRequest.mSupportRequestStatus != GroundSupportRequest::PENDING) {
-            rand = Sim::GetRandom()._SimRandom_IntRange(100);
-
-            if (!mRoadBlock) {
-                for (int i = 0; i < static_cast<int>(ps->Num_HeavySupportOptions()); i++) {
-                    const HeavySupport &heavySupport = ps->HeavySupportOptions(i);
-                    rand -= heavySupport.Chance;
-                    if (rand < 0) {
-                        mGroundSupportRequest.mHeavySupport = &heavySupport;
-                        mGroundSupportRequest.mSupportTimer = heavySupport.Duration;
-                        mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::PENDING;
-                        mRoadBlockTimer = 15.0f;
-                        break;
-                    }
-                }
-            }
-
-            if (rand >= 0) {
-                for (int i = 0; i < static_cast<int>(ps->Num_LeaderSupportOptions()); i++) {
-                    const LeaderSupport &leaderSupport = ps->LeaderSupportOptions(i);
-                    rand -= leaderSupport.Chance;
-                    if (rand < 0) {
-                        mGroundSupportRequest.mLeaderSupport = &leaderSupport;
-                        mGroundSupportRequest.mSupportTimer = leaderSupport.Duration;
-                        mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::PENDING;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (mGroundSupportRequest.mLeaderSupport && mGroundSupportRequest.mSupportRequestStatus == GroundSupportRequest::PENDING &&
-            mCrossState != CROSS_AVAILABLE) {
-            mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::NOT_ACTIVE;
-            mGroundSupportRequest.mLeaderSupport = nullptr;
-        }
-
-        if (rand < 0) {
-            return &mGroundSupportRequest;
         }
     }
-    return nullptr;
+
+    if (mGroundSupportRequest.mSupportRequestStatus != GroundSupportRequest::PENDING) {
+        rand = Sim::GetRandom()._SimRandom_IntRange(100);
+
+        if (!mRoadBlock) {
+            for (int i = 0; i < static_cast<int>(ps->Num_HeavySupportOptions()); i++) {
+                const HeavySupport &heavySupport = ps->HeavySupportOptions(i);
+                rand -= heavySupport.Chance;
+                if (rand < 0) {
+                    mGroundSupportRequest.mHeavySupport = &heavySupport;
+                    mGroundSupportRequest.mSupportTimer = heavySupport.Duration;
+                    mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::PENDING;
+                    mRoadBlockTimer = 15.0f;
+                    break;
+                }
+            }
+        }
+
+        if (rand >= 0) {
+            for (int i = 0; i < static_cast<int>(ps->Num_LeaderSupportOptions()); i++) {
+                const LeaderSupport &leaderSupport = ps->LeaderSupportOptions(i);
+                rand -= leaderSupport.Chance;
+                if (rand < 0) {
+                    mGroundSupportRequest.mLeaderSupport = &leaderSupport;
+                    mGroundSupportRequest.mSupportTimer = leaderSupport.Duration;
+                    mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::PENDING;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (mGroundSupportRequest.mLeaderSupport && mGroundSupportRequest.mSupportRequestStatus == GroundSupportRequest::PENDING &&
+        mCrossState != CROSS_AVAILABLE) {
+        mGroundSupportRequest.mSupportRequestStatus = GroundSupportRequest::NOT_ACTIVE;
+        mGroundSupportRequest.mLeaderSupport = nullptr;
+    }
+
+    if (rand >= 0) {
+        return nullptr;
+    }
+    return &mGroundSupportRequest;
 }
 
 bool AIPursuit::IsSupportVehicle(IVehicle *iv) {
@@ -2564,11 +2671,13 @@ void AIPursuit::UpdateJerk(float dt) {
         return;
     }
 
+    const UMath::Vector3 &target_position = mTarget->GetPosition();
+
     float t = dt * 0.1f;
 
-    UMath::Lerp(mJerkLagPosition, mTarget->GetPosition(), t, mJerkLagPosition);
+    UMath::Lerp(mJerkLagPosition, target_position, t, mJerkLagPosition);
 
-    float dist = UMath::Distance(mTarget->GetPosition(), mJerkLagPosition);
+    float dist = UMath::Distance(target_position, mJerkLagPosition);
     mJerkLagDistance = UMath::Lerp(mJerkLagDistance, dist, t);
 
     float speed = mTarget->GetSpeed();

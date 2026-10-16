@@ -42,19 +42,21 @@ void MilestoneDatum::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u3
     if (msg != 0xc407210) {
         return;
     }
+#ifdef EA_BUILD_A124 // la A124 no mira si ya esta marcado
+    theMilestone = this;
+#else
     if (!IsChecked()) {
         theMilestone = this;
     } else {
         theMilestone = nullptr;
     }
+#endif
 }
 
 uiRepSheetMilestones::uiRepSheetMilestones(ScreenConstructorData *sd) : ArrayScrollerMenu(sd, 3, 3, true), bIsInGame(sd->Arg != 0) {
 #ifndef EA_BUILD_A124
     TrackMapStreamer = nullptr;
-#endif
     theMilestone = nullptr;
-#ifndef EA_BUILD_A124
     TrackMapStreamer = new ("UITrackMapStreamer", 0) UITrackMapStreamer();
 #endif
     for (int i = 0; i < GetWidth() * GetHeight(); i++) {
@@ -64,11 +66,15 @@ uiRepSheetMilestones::uiRepSheetMilestones(ScreenConstructorData *sd) : ArrayScr
         }
     }
     TrackMap = reinterpret_cast<FEMultiImage *>(FEngFindObject(GetPackageName(), FEngHashString("TRACK_MAP")));
+#ifdef EA_BUILD_A124 // la A124 tiene un solo titulo, dentro y fuera de la partida
+    FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x216f1b81);
+#else
     if (bIsInGame) {
         FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x578b767b);
     } else {
         FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x216f1b81);
     }
+#endif
     Setup();
 }
 
@@ -168,7 +174,7 @@ handleTutorial: {
 
 handleWarp: {
     if (bIsInGame) {
-        FEngSetVisible(FEngFindObject("InGameBackground.fng", 0x2716cdbf));
+        FEngSetVisible("InGameBackground.fng", 0x2716cdbf);
     }
     FEngSetScript(GetPackageName(), 0x99344537, 0x1744b3, true);
     if (theMilestone == nullptr) {
@@ -236,7 +242,7 @@ handleTutorialAccept: {
                                                  GetPackageName()
 #endif
             );
-            FEngSetInvisible(FEngFindObject("InGameBackground.fng", 0x2716cdbf));
+            FEngSetInvisible("InGameBackground.fng", 0x2716cdbf);
         } else {
             FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
 #ifndef EA_BUILD_A124
@@ -246,7 +252,7 @@ handleTutorialAccept: {
             );
         }
         FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
-        FEngSetInvisible(FEngFindObject(GetPackageName(), FEngHashString("TRACK_MAP")));
+        FEngSetInvisible(GetPackageName(), FEngHashString("TRACK_MAP"));
         career->SpecialFlags |= 0x200;
         return;
     }
@@ -357,11 +363,20 @@ void uiRepSheetMilestones::AddSpeedtrap(GSpeedTrap *trap) {
 
 void uiRepSheetMilestones::RefreshHeader() {
     ArrayScrollerMenu::RefreshHeader();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum() + 1);
+#else
     FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum());
+#endif
     FEPrintf(GetPackageName(), __NUMBER_OF_GROUP__, "%d", GetNumDatum());
+#ifdef EA_BUILD_A124 // la A124 pone el nombre del perfil y el dinero sin rotulos
+    FEPrintf(GetPackageName(), 0xb514e2d8, "%s", FEDatabase->GetMultiplayerProfile(0)->GetProfileName());
+    FEPrintf(GetPackageName(), 0xf91a59f6, "%$d", FEDatabase->GetCareerSettings()->GetCash());
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FEPrintf(GetPackageName(), 0xb514e2d8, "%s %$d", GetLocalizedString(0xce6b99b1), stable->GetTotalBounty());
     FEPrintf(GetPackageName(), 0xf91a59f6, "%s %$d", GetLocalizedString(0x73b79e0), FEDatabase->GetCareerSettings()->GetCash());
+#endif
     ArrayDatum *currentDatum = GetCurrentDatum();
     if (currentDatum != nullptr) {
         MilestoneDatum *d = static_cast<MilestoneDatum *>(currentDatum);
@@ -385,10 +400,10 @@ void uiRepSheetMilestones::RefreshHeader() {
             float value;
             const char *distUnits;
             if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 1) {
-                value = static_cast<float>(static_cast<int>(MPS2KPH(pSpeedTrap->GetTriggerSpeed())));
+                value = static_cast<float>(bFloatToInt(MPS2KPH(pSpeedTrap->GetTriggerSpeed())));
                 distUnits = GetLocalizedString(0x8569a25f);
             } else {
-                value = static_cast<float>(static_cast<int>(MPS2MPH(pSpeedTrap->GetTriggerSpeed())));
+                value = static_cast<float>(bFloatToInt(MPS2MPH(pSpeedTrap->GetTriggerSpeed())));
                 distUnits = GetLocalizedString(0x8569ab44);
             }
             char buf[32];

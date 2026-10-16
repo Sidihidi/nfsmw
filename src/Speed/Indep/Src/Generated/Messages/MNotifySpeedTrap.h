@@ -28,8 +28,6 @@ class MNotifySpeedTrap : public Hermes::Message {
     MNotifySpeedTrap(GCollectionKey _TrapActivity, HSIMABLE _Racer, float _SpeedKmh)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fTrapActivity(_TrapActivity), fRacer(_Racer), fSpeedKmh(_SpeedKmh) {}
 
-    ~MNotifySpeedTrap() {}
-
     GCollectionKey GetTrapActivity() const {
         return fTrapActivity;
     }
@@ -65,9 +63,9 @@ class MNotifySpeedTrap : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifySpeedTrap::HandleMessage_LuaBinding(const MNotifySpeedTrap &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifySpeedTrap::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

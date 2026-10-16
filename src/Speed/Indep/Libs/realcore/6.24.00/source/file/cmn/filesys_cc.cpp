@@ -28,8 +28,8 @@ int _FILESYS_open(const char *name, unsigned int modeflags, int priority, void *
     return FILESYS_open(name, modeflags, priority, userdata);
 }
 
-int _FILESYS_close(int filehandle, int timeout, void *userdata) {
-    return FILESYS_close(filehandle, timeout, userdata);
+int _FILESYS_close(int filehandle, int priority, void *userdata) {
+    return FILESYS_close(filehandle, priority, userdata);
 }
 
 int _FILESYS_read(int filehandle, int offset, void *buffer, int bytes, int priority,

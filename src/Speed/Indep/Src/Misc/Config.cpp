@@ -69,9 +69,17 @@ bool ShowAllCarsInFE = false;
 bool ShowAllPresetsInFE = false;
 int MikeMannBuild = 0;
 bool IsCollectorsEdition = false;
+int DebugCamerasEnabled = 0;
 bool CarGuysCamera = false;
+// Las que lee el eDisplayFrame de PS2. Valores del .data de GOWE69 (0x8041EED0..) y de la A124 (0x618CF0..).
+int HotChunksEnabled = 1;
+int DisplayFrameRate = 2;
+int DisplayCoordinatesInSimSpace = 0;
+int DisplayParticleSystemStats = 0;
 int DoScreenPrintf = 0;
 int SkipMovies = 0;
+int EnableProfilingInGame = 1;
+int ProfilingCategories = 1;
 
 void InitConfig() {
     if (SkipFETrackNumber != -1) {

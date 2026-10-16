@@ -5,39 +5,41 @@ extern const unsigned char gAzimuthFoldDownLut[4][6][6];
 extern const unsigned char gAzimuthSpacingsLut[6][6];
 } // namespace Snd
 
-int SNDSTRM_setazimuth(int sndstreamhandle, int sourcechannel, float azimuth) {
-    SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
+int SNDSTRM_setazimuth(int sndStrmHandle, int sourcechannel, float azimuth) {
+    SNDI_CHECKINSTALLED();
+    SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndStrmHandle);
     if (pssc == NULL) {
         return -8;
     }
 
     int uaz = (unsigned short)SNDI_ftoifast(azimuth * (65536.0f / 360.0f));
 
-    register int isdirect = 0;
     pssc->useOldAzimuthBehaviour = 0;
 
     if (sourcechannel == -1) {
-        register float newAzimuth = azimuth;
-        if (azimuth == -1000000.0f) {
-            newAzimuth = -1000000.0f;
-        }
+        float tempAzimuth;
 
+        if (azimuth == -1000000.0f) {
+            tempAzimuth = -1000000.0f;
+        } else {
+            tempAzimuth = azimuth;
+        }
 
         for (int i = 0; i < 6; i++) {
-            Snd::StreamSourceChannelState *pState = &pssc->sourceChannelState[i];
-            pState->isDirect = 0;
-            pState->azimuth = newAzimuth;
+            Snd::StreamSourceChannelState *pSourceChannelState = &pssc->sourceChannelState[i];
+            pSourceChannelState->isDirect = 0;
+            pSourceChannelState->azimuth = tempAzimuth;
         }
     } else {
-        Snd::StreamSourceChannelState *pState = &pssc->sourceChannelState[sourcechannel];
+        Snd::StreamSourceChannelState *pSourceChannelState = &pssc->sourceChannelState[sourcechannel];
 
         if (azimuth == -1000000.0f) {
-            pState->azimuth = -1000000.0f;
+            pSourceChannelState->azimuth = -1000000.0f;
+            pSourceChannelState->isDirect = 0;
         } else {
-            pState->azimuth = azimuth;
-            isdirect = 1;
+            pSourceChannelState->azimuth = azimuth;
+            pSourceChannelState->isDirect = 1;
         }
-        pState->isDirect = isdirect;
     }
 
     int voice = SNDVOICEI_get(pssc->shandle);

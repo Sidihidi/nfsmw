@@ -3,11 +3,6 @@
 // smixi.h (shared with the other mix/ units) only carries a partial view of
 // sndmix, so the fields this unit needs are declared locally.
 
-#if defined(__ANDROID__)
-// `char pad0[0x1E4]` es una cuenta de bytes medida con punteros de 4
-// bytes: en 64 bits decode16 cae en otro sitio que en smixer.c.
-#include "smixport.h"
-#else
 // total size: 0x1E8
 typedef struct SNDMIXSTATE {
     char pad0[0x1E4];
@@ -15,6 +10,18 @@ typedef struct SNDMIXSTATE {
 } SNDMIXSTATE;
 
 extern SNDMIXSTATE sndmix;
+
+// r75 (PS2): ver supf.c -- el paquete PS2 (snd 9.06.00-ps2) llama directo a
+// `jal decode16x87`; GC despacha por el puntero sndmix+0x1E4.
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" {
+void decode16x87(int frames, short *psrc, float *pdst);
+}
+#endif
+
+#ifdef EA_PLATFORM_WIN32
+// PC: las muestras de 8 bits (speed.exe 0x828F10, asm de x86 con la tabla 0x9C2550); el nombre es nuestro.
+void decode8(int frames, signed char *psrc, float *pdst);
 #endif
 
 // total size: 0x2C
@@ -60,8 +67,17 @@ int SFILTER_unpacklf(void *pstate, int framestoup, void *psrcp, void *pdstp, int
             maxframes = framestoup;
         }
         if (pups->bits16) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+            decode16x87(maxframes, (short *)(pups->psample + (pups->curframe << 1)), pdst);
+#else
             sndmix.decode16(maxframes, (short *)(pups->psample + (pups->curframe << 1)), pdst);
+#endif
         }
+#ifdef EA_PLATFORM_WIN32
+        else {
+            decode8(maxframes, (signed char *)(pups->psample + pups->curframe), pdst);
+        }
+#endif
         pdst += maxframes;
         pups->curframe += maxframes;
         framestoup -= maxframes;

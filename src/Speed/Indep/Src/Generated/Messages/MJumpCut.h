@@ -26,8 +26,6 @@ class MJumpCut : public Hermes::Message {
 
     MJumpCut(unsigned int _AnchorWorldID) : Hermes::Message(_GetKind(), _GetSize(), 0), fAnchorWorldID(_AnchorWorldID) {}
 
-    ~MJumpCut() {}
-
     unsigned int GetAnchorWorldID() const {
         return fAnchorWorldID;
     }
@@ -45,9 +43,9 @@ class MJumpCut : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MJumpCut::HandleMessage_LuaBinding(const MJumpCut &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MJumpCut::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

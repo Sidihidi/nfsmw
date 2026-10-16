@@ -61,7 +61,13 @@ static void tag_error(lua_State *L, int narg, int tag) {
 
 LUALIB_API void luaL_where(lua_State *L, int level) {
     lua_Debug ar;
+#ifdef EA_PLATFORM_XENON
+    /* X360 ignora el nivel y pregunta siempre por el 1 (li r4, 1); el resto propaga level. */
+    (void)level;
+    if (lua_getstack(L, 1, &ar)) { /* check function at level */
+#else
     if (lua_getstack(L, level, &ar)) { /* check function at level */
+#endif
         lua_getinfo(L, "Snl", &ar);    /* get info about it */
         if (ar.currentline > 0) {      /* is there info? */
             lua_pushfstring(L, "%s:%d: ", ar.short_src, ar.currentline);

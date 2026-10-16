@@ -82,13 +82,27 @@ REGLAS = [
                           r'|reinterpret_cast\s*<\s*[\w:]+\s*\*\s*\*\s*>\s*\(\s*&')),
 ]
 
-CAST = re.compile(r'(?:static_cast|reinterpret_cast|const_cast)\s*<\s*([\w:]+(?:\s*\*)?)\s*>\s*\(\s*(\w+)\s*\)')
+# Sin const_cast: `_normaliza` quita const y volatile, y quitar el const es justo lo que hace un const_cast.
+CAST = re.compile(r'(?:static_cast|reinterpret_cast)\s*<\s*([\w:]+(?:\s*\*)?)\s*>\s*\(\s*(\w+)\s*\)')
+
+
+# Palabras que forman parte del tipo (`unsigned int` no es `int`) y las que no cambian el valor (almacenamiento y cv).
+_MODIF = r'(?:unsigned|signed|short|long|const|volatile|static|register)'
+_SOBRA = re.compile(r'\b(?:const|volatile|static|register)\b')
+
+
+def _normaliza(tipo):
+    return ' '.join(_SOBRA.sub(' ', tipo).split()).replace(' *', '*')
 
 
 def declarado_como(texto, var):
-    """Tipo con el que se declara `var` en este fichero, si es inequivoco."""
-    m = re.findall(r'(?<![\w>])([\w:]+(?:\s*\*)?)\s+' + re.escape(var) + r'\s*(?:[;=,)])', texto)
-    tipos = set(x.replace(' ', '') for x in m)
+    """Tipo con el que se declara `var` en este fichero, si es inequivoco. Cuenta `unsigned`, `short` y `long` como
+    parte del tipo: `static_cast<int>(x)` con `unsigned int x` cambia el signo, no es vano. El `*` puede ir pegado al
+    tipo o al nombre (`T* x` y `T *x`): antes solo se veia la primera forma, y un `ArrayDatum *datum` que no se veia
+    dejaba como unica declaracion un `SMSDatum* datum` de otra funcion (un vano falso)."""
+    m = re.findall(r'(?<![\w>])((?:' + _MODIF + r'\s+)*[\w:]+)(\s*\*\s*|\s+)' + re.escape(var) + r'\s*(?:[;=,)\[])',
+                   texto)
+    tipos = set(_normaliza(tipo + ('*' if '*' in sep else '')) for tipo, sep in m)
     return tipos.pop() if len(tipos) == 1 else None
 
 
@@ -116,7 +130,7 @@ def main():
                         hallazgos.append({'clase': nombre, 'fichero': rel, 'linea': i,
                                           'texto': l.strip()[:120]})
                 for m in CAST.finditer(l):
-                    tipo, var = m.group(1).replace(' ', ''), m.group(2)
+                    tipo, var = _normaliza(m.group(1)), m.group(2)
                     d = declarado_como(t, var)
                     if d and d == tipo:
                         hallazgos.append({'clase': 'CAST_VANO', 'fichero': rel, 'linea': i,

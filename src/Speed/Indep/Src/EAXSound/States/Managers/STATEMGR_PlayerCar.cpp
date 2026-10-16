@@ -11,8 +11,10 @@ CSTATEMGR_PlayerCar::CSTATEMGR_PlayerCar() {}
 CSTATEMGR_PlayerCar::~CSTATEMGR_PlayerCar() {}
 
 void CSTATEMGR_PlayerCar::EnterWorld(eSndGameMode esgm) {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     int SFXIDs = Sim::GetUserMode() == Sim::USER_SPLIT_SCREEN ? 0x53BFA : 0x53BFC;
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // speed.exe (mov ebp, 0x53BFC) y NFS.exe: el de una pantalla de PS2
+    int SFXIDs = 0x53BFC;
 #else
     int SFXIDs = 0x53BFA;
 #endif
@@ -73,14 +75,21 @@ void SFXCTL_3DRearPos::InitSFX() {
 void SFXCTL_3DRearPos::UpdateParams(float t) {
     this->vRearPos = *this->GetPhysCar()->GetPosition();
     bVector3 vfwrd(*this->GetPhysCar()->GetForwardVector());
+#ifdef EA_BUILD_A124
+    // La A124 retrasa siempre 2 m, y solo con la camara fuera del coche.
+    vfwrd = bScale(vfwrd, -2.0f);
+    if (this->m_pEAXCar->GetPOV() != 0 && this->m_pEAXCar->GetPOV() != 1) {
+        this->vRearPos = bAdd(this->vRearPos, vfwrd);
+    }
+#else
     float OffsetToUse = 2.0f;
 
     if (this->m_pEAXCar->GetPOV() != 0 && this->m_pEAXCar->GetPOV() != 1) {
         int id = bClamp(this->m_pStateBase->m_InstNum, 0, 1);
         bVector3 cpos = *SndCamera::GetCamPos(id);
-        bVector3 tempRearPos = this->vRearPos;
-
         cpos.z = 0.0f;
+
+        bVector3 tempRearPos = this->vRearPos;
         tempRearPos.z = 0.0f;
 
         float distbetween = bDistBetween(&tempRearPos, &cpos) - 1.0f;
@@ -89,6 +98,7 @@ void SFXCTL_3DRearPos::UpdateParams(float t) {
 
     vfwrd = bScale(vfwrd, -OffsetToUse);
     this->vRearPos = bAdd(this->vRearPos, vfwrd);
+#endif
 
     SFXCTL_3DObjPos::UpdateParams(t);
 }

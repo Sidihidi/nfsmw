@@ -14,6 +14,10 @@
 #include "Speed/Indep/Src/Frontend/Localization/WideCharHistogram.hpp"
 #include "Speed/GameCube/Src/G.hpp"
 
+#ifdef EA_BUILD_A124
+#include <map>
+#endif
+
 
 struct FontNameInfo {
     unsigned int GlobalFonts[8];   // offset 0x0
@@ -41,8 +45,9 @@ struct LanguageInfo {
     eLanguages Language;                   // offset 0x0, size 0x4
     char *Name;                            // offset 0x4, size 0x4
     char *Filename;                        // offset 0x8, size 0x4
-    // La A124 no lo tiene: sus stabs ponen pFontNameInfo en 0xC, justo detras de Filename.
-#ifndef EA_BUILD_A124
+    // Ninguna PS2 lo tiene: los stabs de la A124 ponen pFontNameInfo en 0xC, detras de Filename, y SLUS
+    // lee pbPrintfLocaleInfo en 0x10.
+#ifdef EA_PLATFORM_GAMECUBE
     char *FilenameTextOnly;                // offset 0xC, size 0x4
 #endif
     FontNameInfo *pFontNameInfo;           // offset 0x10, size 0x4
@@ -97,72 +102,87 @@ bPrintfLocaleInfo PolishLocaleInfo = {',', ' ', 3};
 bPrintfLocaleInfo FinnishLocaleInfo = {',', ' ', 3};
 bPrintfLocaleInfo DanishLocaleInfo = {',', '.', 3};
 
-// La A124 no tiene FilenameTextOnly: su tabla no trae ningun *_TEXTONLY.BIN.
+// Ninguna PS2 tiene FilenameTextOnly: ni la A124 ni SLUS traen ningun *_TEXTONLY.BIN. PC y Xbox 360 tampoco (LanguageInfo de 0x14; ni un _TEXTONLY.BIN en sus ejecutables).
 LanguageInfo LanguageInfoTable[] = {
     {eLANGUAGE_ENGLISH, "ENGLISH", "LANGUAGES\\ENGLISH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\ENGLISH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &EnglishLocaleInfo},
     {eLANGUAGE_FRENCH, "FRENCH", "LANGUAGES\\FRENCH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\FRENCH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &FrenchLocaleInfo},
     {eLANGUAGE_GERMAN, "GERMAN", "LANGUAGES\\GERMAN.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\GERMAN_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &GermanLocaleInfo},
     {eLANGUAGE_ITALIAN, "ITALIAN", "LANGUAGES\\ITALIAN.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\ITALIAN_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &ItalianLocaleInfo},
     {eLANGUAGE_SPANISH, "SPANISH", "LANGUAGES\\SPANISH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\SPANISH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &SpanishLocaleInfo},
     {eLANGUAGE_DUTCH, "DUTCH", "LANGUAGES\\DUTCH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\DUTCH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &DutchLocaleInfo},
     {eLANGUAGE_SWEDISH, "SWEDISH", "LANGUAGES\\SWEDISH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\SWEDISH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &SwedishLocaleInfo},
     {eLANGUAGE_POLISH, "POLISH", "LANGUAGES\\POLISH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\POLISH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &PolishLocaleInfo},
     {eLANGUAGE_FINNISH, "FINNISH", "LANGUAGES\\FINNISH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\FINNISH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &FinnishLocaleInfo},
     {eLANGUAGE_DANISH, "DANISH", "LANGUAGES\\DANISH.BIN",
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
      "LANGUAGES\\DANISH_TEXTONLY.BIN",
 #endif
      &EuropeanFontNameInfo, &DanishLocaleInfo},
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON) // 360: la tabla de NFS.exe (0x8294F408) tiene las 12
+    {eLANGUAGE_LARGEST, "LARGEST", "LANGUAGES\\LARGEST.BIN", &EuropeanFontNameInfo, &EnglishLocaleInfo},
+    {eLANGUAGE_LABELS, "LABELS", "LANGUAGES\\LABELS.BIN", &EuropeanFontNameInfo, &EnglishLocaleInfo},
+#endif
 };
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+int eLanguageToDemoLanguage[] = {0, 1, 2, 4, 3, 5, 11, 8, 12, -1, 7, -1, -1, 10};
+#endif
 
 struct VMFile;
 static eLanguages CurrentLanguage = eLANGUAGE_NONE;
 ResourceFile *pLanguageResourceFile = nullptr;
+#ifdef EA_PLATFORM_GAMECUBE
 VMFile *pLanguageResourceFile_VM = nullptr;
+#endif
 static unsigned int NumStringRecords = 0;
 static unsigned char *PackedStringTable = nullptr;
 static StringRecord *RecordTable = nullptr;
+#ifdef EA_BUILD_A124
+eLanguages ExcludeCycleLanguages[3] = {eLANGUAGE_KOREAN, eLANGUAGE_CHINESE, eLANGUAGE_JAPANESE};
+bool gToggleLocTracking = false;
+std::map<unsigned int, bool> lookupMap;
+#endif
 
 extern cFrontendDatabase *FEDatabase;
 
 LanguageInfo *GetLanguageInfo(eLanguages language) {
-    for (int i = 0; i <= 9; i++) {
+    for (int i = 0; i < static_cast<int>(sizeof(LanguageInfoTable) / sizeof(LanguageInfoTable[0])); i++) {
         if (LanguageInfoTable[i].Language == language) {
             return &LanguageInfoTable[i];
         }
@@ -177,6 +197,56 @@ char *GetLanguageName(eLanguages language) {
     }
     return "UNKNOWN";
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+int GetDemoLanguageID(eLanguages language) {
+    if (language == eLANGUAGE_NONE) {
+        return 0;
+    }
+    return eLanguageToDemoLanguage[language];
+}
+#endif
+
+#ifdef EA_BUILD_A124
+void LanguageChangerCallback(int dir) {
+    if (dir <= 0) {
+        dir = -1;
+    } else {
+        dir = 1;
+    }
+    eLanguages new_language = CurrentLanguage;
+    bool exclude_this_language;
+    do {
+        new_language = static_cast<eLanguages>(new_language + dir);
+        if (new_language >= eLANGUAGE_MAX) {
+            new_language = eLANGUAGE_FIRST;
+        } else if (new_language <= eLANGUAGE_FIRST) {
+            new_language = eLANGUAGE_MAX;
+        }
+        if (new_language == CurrentLanguage) {
+            return;
+        }
+        LanguageInfo *info = GetLanguageInfo(new_language);
+        exclude_this_language = false;
+        if (!info || !bFileExists(info->Filename)) {
+            exclude_this_language = true;
+        }
+        for (int i = 0; i < 3; i++) {
+            if (new_language == ExcludeCycleLanguages[i]) {
+                exclude_this_language = true;
+            }
+        }
+    } while (exclude_this_language);
+    SetCurrentLanguage(new_language);
+}
+
+void DumpMap() {
+    std::map<unsigned int, bool>::iterator it = lookupMap.begin();
+    while (it != lookupMap.end()) {
+        ++it;
+    }
+}
+#endif
 
 const char *GetLocalizedPercentSign() {
     const char *szPercentUnit = "%";
@@ -237,8 +307,8 @@ void LoadLanguageResources(bool load_global, bool load_frontend, bool load_ingam
     if (!load_global) {
         UnloadResourceFile(pLanguageResourceFile);
         pLanguageResourceFile = nullptr;
-        // La A124 no tiene el fichero de solo texto en memoria virtual: ni lo descarga ni lo carga.
-#ifndef EA_BUILD_A124
+        // En PS2 no hay fichero de solo texto en memoria virtual: ni se descarga ni se carga.
+#ifdef EA_PLATFORM_GAMECUBE
         UnloadFileFromVirtualMemory(pLanguageResourceFile_VM);
         pLanguageResourceFile_VM = nullptr;
 #endif
@@ -257,7 +327,7 @@ void LoadLanguageResources(bool load_global, bool load_frontend, bool load_ingam
     }
     if (load_global) {
         if (!pLanguageResourceFile) {
-#ifndef EA_BUILD_A124
+#ifdef EA_PLATFORM_GAMECUBE
             pLanguageResourceFile_VM = LoadFileIntoVirtualMemory(info->FilenameTextOnly, false, false);
 #endif
             {
@@ -269,25 +339,41 @@ void LoadLanguageResources(bool load_global, bool load_frontend, bool load_ingam
                 pool = LanguageMemoryPoolNumber;
             }
             pLanguageResourceFile->SetAllocationParams((pool & 0xF) | 0x2000, info->Filename);
+#ifdef EA_BUILD_A124
+            pLanguageResourceFile->BeginLoading(nullptr, 0);
+#else
             pLanguageResourceFile->BeginLoading();
+#endif
             if (blocking) {
                 WaitForResourceLoadingComplete();
             }
         }
         if (load_global && !info->pFontNameInfo->GlobalFontsLoaded) {
+#ifdef EA_BUILD_A124
+            eLoadStreamingTexture(info->pFontNameInfo->GlobalFonts, 8, nullptr, 0, LanguageMemoryPoolNumber);
+#else
             eLoadStreamingTexture(info->pFontNameInfo->GlobalFonts, 8, static_cast<void (*)(void *)>(nullptr), static_cast<void *>(nullptr),
                                   LanguageMemoryPoolNumber);
+#endif
             info->pFontNameInfo->GlobalFontsLoaded = 1;
         }
     }
     if (load_frontend && !info->pFontNameInfo->FrontendFontsLoaded) {
+#ifdef EA_BUILD_A124
+        eLoadStreamingTexture(info->pFontNameInfo->FrontendFonts, 8, nullptr, 0, LanguageMemoryPoolNumber);
+#else
         eLoadStreamingTexture(info->pFontNameInfo->FrontendFonts, 8, static_cast<void (*)(void *)>(nullptr), static_cast<void *>(nullptr),
                               LanguageMemoryPoolNumber);
+#endif
         info->pFontNameInfo->FrontendFontsLoaded = 1;
     }
     if (load_ingame && !info->pFontNameInfo->InGameFontsLoaded) {
+#ifdef EA_BUILD_A124
+        eLoadStreamingTexture(info->pFontNameInfo->InGameFonts, 8, nullptr, 0, LanguageMemoryPoolNumber);
+#else
         eLoadStreamingTexture(info->pFontNameInfo->InGameFonts, 8, static_cast<void (*)(void *)>(nullptr), static_cast<void *>(nullptr),
                               LanguageMemoryPoolNumber);
+#endif
         info->pFontNameInfo->InGameFontsLoaded = 1;
     }
     if (blocking) {
@@ -321,12 +407,11 @@ void LoadCurrentLanguage() {
 #ifdef EA_PLATFORM_GAMECUBE
     eLanguages ngc_language = GC_GetOSLanguage();
     SetCurrentLanguage(ngc_language);
-#elif EA_PLATFORM_PS2
-    if (BuildRegion::IsAmerica()) {
-        SetCurrentLanguage(eLANGUAGE_ENGLISH);
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    if (!BuildRegion::IsAmerica()) {
+        SetCurrentLanguage(PS2_GetOSLanguage());
     } else {
-        eLanguages new_language = PS2_GetOSLanguage();
-        SetCurrentLanguage(new_language);
+        SetCurrentLanguage(eLANGUAGE_ENGLISH);
     }
 #endif
 }
@@ -384,6 +469,11 @@ static const uint8 *SearchForString(uint32 string_label) {
     if (!RecordTable) {
         return nullptr;
     }
+#ifdef EA_BUILD_A124
+    if (gToggleLocTracking) {
+        lookupMap[string_label] = true;
+    }
+#endif
     unsigned int top;
     unsigned int bot;
     int step;
@@ -394,7 +484,7 @@ static const uint8 *SearchForString(uint32 string_label) {
         if (RecordTable[mid].Hash == string_label) {
             return RecordTable[mid].PackedString;
         }
-        if (top - bot < 3) {
+        if (top - bot <= 2) {
             if (RecordTable[bot].Hash == string_label) {
                 return RecordTable[bot].PackedString;
             }
@@ -412,6 +502,11 @@ static const uint8 *SearchForString(uint32 string_label) {
             bot = mid;
         }
     }
+#ifdef EA_BUILD_A124
+    if (gToggleLocTracking) {
+        lookupMap[string_label] = false;
+    }
+#endif
     return nullptr;
 }
 
@@ -435,8 +530,8 @@ void GetLocalizedString(char *buffer, uint32 bufsize, uint32 string_label) {
     bStrNCpy(buffer, str, static_cast<int>(bufsize));
 }
 
-char *GetTranslatedString(int id) {
-    return const_cast<char *>(GetLocalizedString(static_cast<unsigned int>(id)));
+char *GetTranslatedString(int label_hash) {
+    return const_cast<char *>(GetLocalizedString(static_cast<unsigned int>(label_hash)));
 }
 
 const bool GetLocalizedWideString(int16 *wide_string, int wide_string_buffer_size, uint32 string_label) {
@@ -477,4 +572,49 @@ int UnloaderLanguage(bChunk *chunk) {
         return 1;
     }
     return 0;
+}
+
+// La de la A124. La de GameCube traia ademas un caso de cuatro bytes (su DWARF declara data3 y un wdata
+// unsigned int) que la A124 no tiene: sus lineas entre el caso de tres bytes y el error no dejan codigo.
+bool ConvertUTF8ToUCS2(unsigned short *ucs2_data, int ucs2_data_len, const unsigned char *utf8_data) {
+    int ucs2_data_pos = 0;
+    int utf8_data_pos = 0;
+    bool error = false;
+    int utf8_data_len = bStrLen(reinterpret_cast<const char *>(utf8_data));
+
+    while (utf8_data_pos < utf8_data_len && ucs2_data_pos < ucs2_data_len) {
+        unsigned char data0 = utf8_data[utf8_data_pos++];
+        if ((data0 & 0x80) == 0) {
+            ucs2_data[ucs2_data_pos++] = data0;
+        } else if ((data0 & 0xE0) == 0xC0) {
+            unsigned char data1 = utf8_data[utf8_data_pos++];
+            if ((data1 & 0xC0) != 0x80) {
+                error = true;
+                utf8_data_pos--;
+                ucs2_data[ucs2_data_pos++] = data0;
+            } else {
+                unsigned short wdata = ((data0 & 0x1F) << 6) | (data1 & 0x3F);
+                ucs2_data[ucs2_data_pos++] = wdata;
+            }
+        } else if ((data0 & 0xF0) == 0xE0) {
+            unsigned char data1 = utf8_data[utf8_data_pos++];
+            unsigned char data2 = utf8_data[utf8_data_pos++];
+            if ((data1 & 0xC0) != 0x80 || (data2 & 0xC0) != 0x80) {
+                error = true;
+                utf8_data_pos -= 2;
+                ucs2_data[ucs2_data_pos++] = data0;
+            } else {
+                unsigned short wdata = (data2 & 0x3F) | ((data1 & 0x3F) << 6) | ((data0 & 0x0F) << 12);
+                if (wdata > 0xFF7F) {
+                    wdata &= 0xFF;
+                }
+                ucs2_data[ucs2_data_pos++] = wdata;
+            }
+        } else {
+            error = true;
+            ucs2_data[ucs2_data_pos++] = data0;
+        }
+    }
+    ucs2_data[ucs2_data_pos] = 0;
+    return !error;
 }

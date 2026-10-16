@@ -33,7 +33,9 @@ void eLightMaterialPlatInterface::UpdatePlatInfo() {
     eLightMaterial *light_material = static_cast<eLightMaterial *>(this);
     eLightMaterialPlatInfo *plat_info = light_material->PlatInfo;
     eLightMaterialData *material_data = &light_material->feData;
-    const float OneAsFloat = 1.0f;
+    // GC39: el mapa de lineas pone en esta linea (136 del original) el `lis` de 1065353216.0f, y el de 1.0f en
+    // FloatAsInteger: OneAsFloat son los bits de 1.0f leidos como float (como el `p * 1065353216.0f` de PS2).
+    const float OneAsFloat = 1065353216.0f;
 
     float diffuse_min_scale = material_data->DiffuseMinScale;
     float diffuse_min_r = diffuse_min_scale * material_data->DiffuseMinR;
@@ -47,7 +49,7 @@ void eLightMaterialPlatInterface::UpdatePlatInfo() {
     float diffuse_rng_a = material_data->DiffuseMaxA - diffuse_min_a;
 
     float specular_power = material_data->SpecularPower;
-    float specular_magic = FloatAsInteger(OneAsFloat) - specular_power * 1065353200.0f;
+    float specular_magic = FloatAsInteger(1.0f) - specular_power * OneAsFloat;
     float specular_min_scale = material_data->SpecularMinScale;
     float specular_min_r = specular_min_scale * material_data->SpecularMinR;
     float specular_min_g = specular_min_scale * material_data->SpecularMinG;
@@ -58,7 +60,7 @@ void eLightMaterialPlatInterface::UpdatePlatInfo() {
     float specular_rng_b = specular_max_scale * material_data->SpecularMaxB - specular_min_b;
 
     float envmap_power = material_data->EnvmapPower;
-    float envmap_magic = FloatAsInteger(OneAsFloat) - envmap_power * 1065353200.0f;
+    float envmap_magic = FloatAsInteger(1.0f) - envmap_power * OneAsFloat;
     float envmap_min_scale = material_data->EnvmapMinScale;
     float envmap_min_r = envmap_min_scale * material_data->EnvmapMinR;
     float envmap_min_g = envmap_min_scale * material_data->EnvmapMinG;
@@ -135,6 +137,14 @@ void eLightMaterialPlatInterface::UpdatePlatInfo() {
     case 0xDD90E320:
         envmap_power = 6.0f;
 
+        // GC39: copia muerta del caso de abajo (lineas 267-278 del original: diez lineas de envmap_power a
+        // diffuse_min_a, como en el 298-308). El `if` vacio llega vivo a sched1 y separa las dos cargas.
+        diffuse_rng_a = 0.0f;
+
+        diffuse_max_scale = 0.3f;
+        if (light_material->NameHash == 0x2388DD82) {
+            diffuse_max_scale = 0.0f;
+        }
         diffuse_min_a = 0.22f;
         diffuse_rng_a = 0.86f;
 

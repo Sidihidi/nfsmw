@@ -10,13 +10,8 @@
 #include "Speed/Indep/Libs/snd/9/source/library/cmn/sndenum.h"
 #include "snd/sndo.h"
 
-struct CSISCoreAllocator : public EA::Allocator::ICoreAllocator {
-    void *Alloc(unsigned int size, const char *name, unsigned int flags) override;
-    void *Alloc(unsigned int size, const char *name, unsigned int flags, unsigned int alignment, unsigned int offset) override;
-    void Free(void *pBlock, unsigned int size) override;
-};
+#include "Speed/Indep/Src/EAXSound/CSISAllocator.h"
 
-extern SlotPool *pCsisSlotPools[];
 extern int nCsisSlotPoolSizes[];
 // .bss:0x8045DDB4 y 0x8045DDB8, 4 B cada una: un solo elemento, y el codigo
 // de este fichero solo usa el indice 0.
@@ -24,8 +19,7 @@ SlotPool *pCsisSlotPools[1];
 int nCsisSlotPoolSizes[1];
 extern int AudioMemoryPool;
 int MAIN_SAMPLERATE = 0x7D00;
-extern CSISCoreAllocator g_CSISCoreAllocator;
-extern void SNDSYS_service();
+// r75: fuera extern SNDSYS_service duplicado; snd/sndo.h ya lo declara (include propio).
 
 CSISCoreAllocator g_CSISCoreAllocator;
 
@@ -41,11 +35,14 @@ EAXSND8Wrapper::~EAXSND8Wrapper() {
     pCsisSlotPools[0] = nullptr;
 }
 
+// Como EAXSound::RestoreDriver: en el fuente de todas las versiones y solo enlazada en la A124 (EAXSND8Wrapper.cpp:113).
+void EAXSND8Wrapper::RestoreSoundDriver() {
+    Snd::System::Restore();
+}
+
 bool EAXSND8Wrapper::Initialize() {
     if (IsSoundEnabled == 0) {
-        IsAudioStreamingEnabled = IsSoundEnabled;
-        IsSpeechEnabled = IsSoundEnabled;
-        IsNISAudioEnabled = IsSoundEnabled;
+        IsAudioStreamingEnabled = IsSpeechEnabled = IsNISAudioEnabled = IsSoundEnabled;
         return false;
     }
 
@@ -75,9 +72,9 @@ bool EAXSND8Wrapper::Initialize() {
 
 void EAXSND8Wrapper::ReInit() {
     if (IsSoundEnabled == 0) {
-        IsAudioStreamingEnabled = IsSoundEnabled;
-        IsSpeechEnabled = IsSoundEnabled;
-        IsNISAudioEnabled = IsSoundEnabled;
+#ifndef EA_BUILD_A124
+        IsAudioStreamingEnabled = IsSpeechEnabled = IsNISAudioEnabled = IsSoundEnabled;
+#endif
     } else {
         AudioSettings *settings = g_pEAXSound->GetCurAudioSettings();
         eSndAudioMode mode = static_cast<eSndAudioMode>(settings->AudioMode);
@@ -95,12 +92,13 @@ void EAXSND8Wrapper::Update() {
 
 eSndAudioMode EAXSND8Wrapper::SetAudioModeFromMemoryCard(eSndAudioMode mode) {
     if (IsSoundEnabled == 0) {
-        IsAudioStreamingEnabled = IsSoundEnabled;
-        IsSpeechEnabled = IsSoundEnabled;
-        IsNISAudioEnabled = IsSoundEnabled;
+#ifndef EA_BUILD_A124
+        IsAudioStreamingEnabled = IsSpeechEnabled = IsNISAudioEnabled = IsSoundEnabled;
+#endif
         return mode;
     }
 
+#ifdef EA_PLATFORM_GAMECUBE
     this->m_eCurrentAudioMode = this->GetDefaultPlatformAudioMode();
     switch (this->m_eCurrentAudioMode) {
     case AUDIO_MODE_MIN:
@@ -116,7 +114,6 @@ eSndAudioMode EAXSND8Wrapper::SetAudioModeFromMemoryCard(eSndAudioMode mode) {
         break;
     }
 
-#ifdef EA_PLATFORM_GAMECUBE
     switch (mode) {
     case AUDIO_MODE_MIN:
         OSSetSoundMode(0);
@@ -130,17 +127,23 @@ eSndAudioMode EAXSND8Wrapper::SetAudioModeFromMemoryCard(eSndAudioMode mode) {
     default:
         break;
     }
-#endif
 
     this->m_eCurrentAudioMode = mode;
     return mode;
+#else
+    // Las dos PS2 descartan el resultado y guardan el modo pedido (medido en
+    // A124 y SLUS: llamada sin usar v0 y `sw mode,0x14(this)`).
+    this->GetDefaultPlatformAudioMode();
+    this->m_eCurrentAudioMode = mode;
+    return mode;
+#endif
 }
 
 eSndAudioMode EAXSND8Wrapper::SetAudioRenderMode(eSndAudioMode mode) {
     if (IsSoundEnabled == 0) {
-        IsAudioStreamingEnabled = IsSoundEnabled;
-        IsSpeechEnabled = IsSoundEnabled;
-        IsNISAudioEnabled = IsSoundEnabled;
+#ifndef EA_BUILD_A124
+        IsAudioStreamingEnabled = IsSpeechEnabled = IsNISAudioEnabled = IsSoundEnabled;
+#endif
         return mode;
     }
 
@@ -167,16 +170,18 @@ eSndAudioMode EAXSND8Wrapper::SetAudioRenderMode(eSndAudioMode mode) {
 
 eSndAudioMode EAXSND8Wrapper::SetSnd8RenderMode(eSndAudioMode mode) {
     if (IsSoundEnabled == 0) {
-        IsAudioStreamingEnabled = IsSoundEnabled;
-        IsSpeechEnabled = IsSoundEnabled;
-        IsNISAudioEnabled = IsSoundEnabled;
+#ifndef EA_BUILD_A124
+        IsAudioStreamingEnabled = IsSpeechEnabled = IsNISAudioEnabled = IsSoundEnabled;
+#endif
         return mode;
     }
 
     switch (mode) {
     case AUDIO_MODE_MIN:
+#ifndef EA_BUILD_A124 // la A124 pasa a mono sin pasar por estereo
         Snd::System::SetOutputMode(Snd::OUTPUTMODE_STEREO);
         SNDSYS_service();
+#endif
         Snd::System::SetOutputMode(Snd::OUTPUTMODE_MONO);
         break;
     case AUDIO_MODE_STEREO:
@@ -201,27 +206,12 @@ eSndAudioMode EAXSND8Wrapper::GetDefaultPlatformAudioMode() {
     if (OSGetSoundMode() == 0) {
         mode = AUDIO_MODE_MIN;
     }
+#elif defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+    eSndAudioMode mode = AUDIO_MODE_STEREO; // NFS.exe 0x822E9B48: AudioSettings::Default guarda 1; speed.exe 0x4B9240: mov eax, 1
 #else
     eSndAudioMode mode = AUDIO_MODE_MAX;
 #endif
     return mode;
-}
-
-inline void *CSISCoreAllocator::Alloc(unsigned int size, const char *name, unsigned int flags) {
-    (void)flags;
-    return bOMalloc(pCsisSlotPools[0]);
-}
-
-
-inline void *CSISCoreAllocator::Alloc(unsigned int size, const char *name, unsigned int flags, unsigned int alignment, unsigned int offset) {
-    (void)alignment;
-    (void)offset;
-    return this->Alloc(size, g_pcsCSISAllocString, 0);
-}
-
-inline void CSISCoreAllocator::Free(void *pBlock, unsigned int size) {
-    (void)size;
-    bFree(pCsisSlotPools[0], pBlock);
 }
 
 inline void *PF_Allocator::Alloc(unsigned int size, const EA::TagValuePair &flags) {

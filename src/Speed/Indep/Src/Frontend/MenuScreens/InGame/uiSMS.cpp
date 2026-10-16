@@ -78,10 +78,16 @@ uiSMS::uiSMS(ScreenConstructorData* sd)
     bAutoPlay = false;
     bWaitingForMemcard = true;
     bInitCompleted = false;
-#endif
     SetClickToSelectMode(true);
+#endif
     for (int i = 0; i < 2; i++) {
-        last_msg[i] = 0xFF;
+        last_msg[i] =
+#ifdef EA_BUILD_A124
+            0xFFFF
+#else
+            0xFF
+#endif
+            ;
     }
     for (int i = 0; i < GetWidth() * GetHeight(); i++) {
         AddSMSSlot(i + 1);
@@ -94,7 +100,9 @@ uiSMS::uiSMS(ScreenConstructorData* sd)
         } else {
             the_msg = nullptr;
         }
+#ifndef EA_BUILD_A124
         FEngSetScript(GetPackageName(), 0x2CF801C2, FEHASH_APPEAR, true);
+#endif
     } else {
 #ifndef EA_BUILD_A124
         bAutoPlay = true;
@@ -108,10 +116,15 @@ uiSMS::uiSMS(ScreenConstructorData* sd)
             last_msg[1] = the_msg->GetHandle();
         }
     }
+#ifndef EA_BUILD_A124
     if (MemoryCard::GetInstance()->IsAutoSaving() || MemoryCard::GetInstance()->AutoSaveRequested()) {
         cFEng::Get()->QueuePackageMessage(FEHashUpper("HIDE_INCOMING"), GetPackageName(), nullptr);
         cFEng::Get()->QueuePackageMessage(FEHashUpper("SMS_MAILBOX"), nullptr, nullptr);
     }
+#endif
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124) // el texto del boton de borrar de SLUS
+    FEngSetLanguageHash(GetPackageName(), FEHashUpper("DELETE_TEXT"), 0x9F014666);
+#endif
 }
 
 
@@ -123,27 +136,36 @@ int SortSMS(SMSSortNode* before, SMSSortNode* after) {
 #endif
 
 void uiSMS::Setup() {
+#ifdef EA_BUILD_A124
+    // La A124 recorre los 125 mensajes del mas nuevo al mas viejo, sin ordenarlos ni marcar los no leidos.
+    ClearData();
+    for (int i = 0x7C; i >= 0; i--) {
+        SMSMessage* msg = FEDatabase->GetCareerSettings()->GetSMSMessage(i);
+        if (msg->IsValid() && (msg->IsRead() || msg->IsUnRead())) {
+            if (bVoiceMsg) {
+                if (msg->IsVoice()) {
+                    AddSMSDatum(msg);
+                }
+            } else {
+                if (!msg->IsVoice()) {
+                    AddSMSDatum(msg);
+                }
+            }
+        }
+    }
+#else
     bool new_voice = false;
     bool new_text = false;
     ClearData();
     bTList<SMSSortNode> msgs;
-    for (int i =
-#ifdef EA_BUILD_A124
-             0x7C
-#else
-             0x95
-#endif
-         ;
-         i >= 0; i--) {
+    for (int i = 0x95; i >= 0; i--) {
         SMSMessage* msg = FEDatabase->GetCareerSettings()->GetSMSMessage(i);
         if (msg->IsValid() && (msg->IsRead() || msg->IsUnRead())) {
             SMSSortNode* node = new ("SMSSortNode", 0) SMSSortNode(msg);
             msgs.AddTail(node);
         }
     }
-#ifndef EA_BUILD_A124
     msgs.Sort(SortSMS);
-#endif
     for (int i = 0; i < msgs.CountElements(); i++) {
         SMSMessage* msg = msgs.GetNode(i)->the_msg;
         if (msg->IsUnRead()) {
@@ -186,6 +208,7 @@ void uiSMS::Setup() {
             FEngSetScript(GetPackageName(), 0x0D6FD6F9, 0x16A259, true);
         }
     }
+#endif
     int index = 0;
     for (int i = 0; i < GetNumDatum(); i++) {
         SMSDatum* datum = static_cast<SMSDatum*>(GetDatumAt(i));
@@ -210,11 +233,23 @@ void uiSMS::Setup() {
 
 void uiSMS::AddSMSDatum(SMSMessage* msg) {
     if (bVoiceMsg) {
-        if (last_msg[0] == 0xFF) {
+        if (last_msg[0] ==
+#ifdef EA_BUILD_A124
+            0xFFFF
+#else
+            0xFF
+#endif
+        ) {
             last_msg[0] = msg->GetHandle();
         }
     } else {
-        if (last_msg[1] == 0xFF) {
+        if (last_msg[1] ==
+#ifdef EA_BUILD_A124
+            0xFFFF
+#else
+            0xFF
+#endif
+        ) {
             last_msg[1] = msg->GetHandle();
         }
     }
@@ -247,7 +282,7 @@ void uiSMS::RefreshHeader() {
         FEngSetScript(GetPackageName(), 0x8A6AD1C1, FEHASH_UNHIGHLIGHT, true);
         FEngSetScript(GetPackageName(), 0x8F2FAD70, FEHASH_HIGHLIGHT, true);
     }
-    if (GetNumDatum() < 1) {
+    if (GetNumDatum() <= 0) {
         FEngSetScript(GetPackageName(), 0x07890734, 0x16A259, true);
     }
 }
@@ -283,17 +318,24 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
     case 0x775ce5df:
         if (!the_msg->IsValid()) {
             for (int i = 0; i < 2; i++) {
-                last_msg[i] = 0xFF;
+                last_msg[i] =
+#ifdef EA_BUILD_A124
+                    0xFFFF
+#else
+                    0xFF
+#endif
+                    ;
             }
         }
         Setup();
         break;
     case 0x0c407210:
-        if (GetCurrentDatum() == nullptr) {
-            goto fallthrough_msg;
+        if (GetCurrentDatum() != nullptr) {
+            button_pressed = 0x0c407210;
+            FEngSetScript(GetPackageName(), 0x47ff4e7c, bStringHash("READ"), true);
+            break;
         }
-        button_pressed = 0x0c407210;
-        FEngSetScript(GetPackageName(), 0x47ff4e7c, bStringHash("READ"), true);
+        cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
         break;
     case 0x72619778:
     case 0x911c0a4b: {
@@ -315,11 +357,9 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
         ScrollBoxes(static_cast<eScrollDir>(1));
         break;
     case 0xc519bfc4:
-        if (the_msg == nullptr) {
-            goto fallthrough_msg;
-        }
-        if (!the_msg->IsValid()) {
-            goto fallthrough_msg;
+        if (the_msg == nullptr || !the_msg->IsValid()) {
+            cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
+            break;
         }
         DialogInterface::ShowTwoButtons(GetPackageName(), "InGameDialog.fng",
             static_cast<eDialogTitle>(1), LANGUAGE_COMMON_YES, LANGUAGE_COMMON_NO,
@@ -338,7 +378,6 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
     }
     case 0x34dc1bcf:
     case 0x1fab5998:
-    fallthrough_msg:
         cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
         break;
     case 0xe1fde1d1:
@@ -351,7 +390,7 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
         cFEng::Get()->QueuePackagePush("SMS_Message.fng", reinterpret_cast<int>(the_msg), 0, false);
         break;
     case 0x911ab364:
-        button_pressed = 0x911ab364;
+        button_pressed = msg;
         cFEng::Get()->QueuePackagePop(0);
         break;
     }

@@ -108,8 +108,10 @@ class CollisionEvent : public AudioEvent {
     static AudioEvent *PlayScrape(const AudioEventParams &params);
     static AudioEvent *Play(const AudioEventParams &params);
     void Update(const bVector3 &position, const bVector3 &normal, const bVector3 &velocity, float dt) override;
+  private:
     void InitAsScrape(const Attrib::Gen::audioscrape &audioFx);
     void InitAsImpact(const Attrib::Gen::audioimpact &audioFx);
+  public:
     void Release() override;
 
     const char *GetCSISEffect() const { return this->mCSISEffect; }

@@ -32,9 +32,9 @@ float GMilestone::GetBounty() const {
 }
 
 int GMilestone::GetLocalizationTag() const {
-    Attrib::Gen::milestonetypes type(mTypeKey, 0, NULL);
-    if (type.IsValid()) {
-        return type.LocalizationTag();
+    Attrib::Gen::milestonetypes milestone(mTypeKey, 0, NULL);
+    if (milestone.IsValid()) {
+        return milestone.LocalizationTag();
     }
     return 0;
 }
@@ -43,6 +43,18 @@ unsigned int GMilestone::GetJumpMarkerKey() const {
     Attrib::Gen::gameplay challenge(mChallengeKey, 0, NULL);
     const GCollectionKey &marker = challenge.SpawnPoint();
     return marker.GetCollectionKey();
+}
+
+// STRIPPED en GameCube (Range 0xFFFFFFFF en el DWARF); la A124 la tiene y SLUS no
+void GMilestone::DebugForceComplete() {
+    if (GetIsLocked()) {
+        Unlock();
+    }
+    if (GetIsAvailable()) {
+        mFlags |= kFlag_CompletionFaked;
+        NotifyProgress(GetRequiredValue());
+        NotifyPursuitOver(true);
+    }
 }
 
 void GMilestone::Init(unsigned int challengeKey) {
@@ -70,11 +82,11 @@ void GMilestone::Unlock() {
 }
 
 bool GMilestone::ValueMeetsGoal(float value) {
-    float diff = mRequiredValue - value;
+    float remaining = mRequiredValue - value;
     if (!(mFlags & kFlag_BiggerIsBetter)) {
-        diff = -diff;
+        remaining = -remaining;
     }
-    return diff <= 0.0f;
+    return remaining <= 0.0f;
 }
 
 void GMilestone::NotifyProgress(float value) {

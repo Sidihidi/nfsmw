@@ -61,19 +61,25 @@ uiRepSheetBounty::uiRepSheetBounty(ScreenConstructorData *sd) : ArrayScrollerMen
         }
     }
     TrackMap = reinterpret_cast<FEMultiImage *>(FEngFindObject(GetPackageName(), FEngHashString("TRACK_MAP")));
+#ifdef EA_BUILD_A124 // la A124 tiene un solo titulo, dentro y fuera de la partida
+    FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0xe451941e);
+#else
     if (bIsInGame) {
         FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0x6ddfa694);
     } else {
         FEngSetLanguageHash(GetPackageName(), 0xbde82fcc, 0xe451941e);
     }
+#endif
     Setup();
 }
 
 eMenuSoundTriggers uiRepSheetBounty::NotifySoundMessage(u32 msg, eMenuSoundTriggers maybe) {
     if (msg == 0x7b6b89d7 && bIsInGame)
         return static_cast<eMenuSoundTriggers>(-1);
+#ifndef EA_BUILD_A124 // la A124 no mira si la recompensa esta bloqueada
     if (currentDatum->IsLocked())
         return static_cast<eMenuSoundTriggers>(7);
+#endif
     return maybe;
 }
 
@@ -206,6 +212,23 @@ void uiRepSheetBounty::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u
     }
 }
 
+#ifdef EA_BUILD_A124 // la A124 no limita las recompensas por bin ni marca las conseguidas al empezar
+void uiRepSheetBounty::Setup() {
+    ClearData();
+    for (unsigned int i = 0; i < GManager::Get().GetNumBountySpawnMarkers(); i++) {
+        int index = GManager::Get().GetBountySpawnMarkerTag(i);
+        orderedList[index - 1] = static_cast<char>(index);
+    }
+    for (unsigned int i = 0; i < GManager::Get().GetNumBountySpawnMarkers(); i++) {
+        AddDatum(new ("BountyDatum", 0) BountyDatum(FEDatabase->GetBountyIconHash(orderedList[i]),
+                                                    FEDatabase->GetBountyHeaderHash(orderedList[i]), i));
+    }
+    SetDescLabel(0xb5117fde);
+    SetInitialPosition(0);
+    RefreshTrack();
+    RefreshHeader();
+}
+#else
 void uiRepSheetBounty::Setup() {
     ClearData();
     unsigned int bin = FEDatabase->GetCareerSettings()->GetCurrentBin();
@@ -218,7 +241,7 @@ void uiRepSheetBounty::Setup() {
         orderedList[index - 1] = static_cast<char>(i);
     }
     for (unsigned int i = 0; i < GManager::Get().GetNumBountySpawnMarkers(); i++) {
-        if (i < 4 || (i < 8 && bin < 13) || bin < 9) {
+        if (i < 4 || (i < 8 && bin <= 12) || bin <= 8) {
             AddDatum(new ("BountyDatum", 0) BountyDatum(FEDatabase->GetBountyIconHash(i + 1),
                                                         FEDatabase->GetBountyHeaderHash(i + 1),
                                                         static_cast<int>(static_cast<signed char>(orderedList[i]))));
@@ -229,6 +252,7 @@ void uiRepSheetBounty::Setup() {
     RefreshTrack();
     RefreshHeader();
 }
+#endif
 
 void uiRepSheetBounty::RefreshTrack() {
     if (GetCurrentDatum() != nullptr) {
@@ -274,21 +298,58 @@ void uiRepSheetBounty::RefreshTrack() {
 
 void uiRepSheetBounty::RefreshHeader() {
     ArrayScrollerMenu::RefreshHeader();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum() + 1);
+#else
     FEPrintf(GetPackageName(), __NUMBER_GROUP__, "%d", GetCurrentDatumNum());
+#endif
     FEPrintf(GetPackageName(), __NUMBER_OF_GROUP__, "%d", GetNumDatum());
+#ifdef EA_BUILD_A124 // la A124 pone el nombre del perfil y el dinero sin rotulos
+    FEPrintf(GetPackageName(), 0xb514e2d8, "%s", FEDatabase->GetMultiplayerProfile(0)->GetProfileName());
+    FEPrintf(GetPackageName(), 0xf91a59f6, "%$d", FEDatabase->GetCareerSettings()->GetCash());
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     FEPrintf(GetPackageName(), 0xb514e2d8, "%s %$d", GetLocalizedString(0xce6b99b1), stable->GetTotalBounty());
     FEPrintf(GetPackageName(), 0xf91a59f6, "%s %$d", GetLocalizedString(0x73b79e0), FEDatabase->GetCareerSettings()->GetCash());
+#endif
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    int loc_tag = GManager::Get().GetBountySpawnMarkerTag(GetCurrentDatumNum());
+#else
     int loc_tag = GManager::Get().GetBountySpawnMarkerTag(GetCurrentDatumNum() - 1);
+#endif
     FEngSetTextureHash(GetPackageName(), 0xf97ec5d5, FEDatabase->GetBountyIconHash(loc_tag));
     BountyDatum *d = static_cast<BountyDatum *>(GetCurrentDatum());
+#ifdef EA_BUILD_A124 // la A124 marca con medallas las recompensas bloqueadas y conseguidas
+    if (d != nullptr) {
+        FEngSetLanguageHash(GetPackageName(), 0x28049d6, FEDatabase->GetBountyDescHash(orderedList[d->index]));
+        for (int i = 0; i < GetNumSlots(); i++) {
+            ArrayDatum *datum = GetDatumAt(i + GetStartDatumNum());
+            unsigned int check_hash = FEngHashString("MEDAL_THUMB_%d", i + 1);
+            if (datum != nullptr) {
+                if (datum->IsLocked()) {
+                    FEngSetVisible(GetPackageName(), check_hash);
+                    FEngSetTextureHash(GetPackageName(), check_hash, 0x18ed48);
+                } else if (datum->IsChecked()) {
+                    FEngSetVisible(GetPackageName(), check_hash);
+                    FEngSetTextureHash(GetPackageName(), check_hash, 0x28feadd);
+                } else {
+                    FEngSetInvisible(GetPackageName(), check_hash);
+                }
+            }
+        }
+    }
+#else
     if (d != nullptr) {
         if (d->IsLocked()) {
             cFEng::Get()->QueuePackageMessage(0xc5dd9d68, GetPackageName(), nullptr);
         } else {
             cFEng::Get()->QueuePackageMessage(0x38091fa1, GetPackageName(), nullptr);
         }
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        FEngSetLanguageHash(GetPackageName(), 0x28049d6, FEDatabase->GetBountyDescHash(GetCurrentDatumNum() + 1));
+#else
         FEngSetLanguageHash(GetPackageName(), 0x28049d6, FEDatabase->GetBountyDescHash(GetCurrentDatumNum()));
+#endif
         for (int i = 0; i < GetNumSlots(); i++) {
             ArrayDatum *datum = GetDatumAt(i + GetStartDatumNum());
             unsigned int check_hash = FEngHashString("CHECK_%d", i + 1);
@@ -298,4 +359,5 @@ void uiRepSheetBounty::RefreshHeader() {
             }
         }
     }
+#endif
 }

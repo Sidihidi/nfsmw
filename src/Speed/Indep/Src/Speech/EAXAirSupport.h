@@ -9,7 +9,9 @@
 
 // total size: 0x84
 struct EAXAirSupport : public EAXCop {
+  private:
     Csis::Type_heli_bailout_type GetCauseOfBailout();
+  public:
     EAXAirSupport(); // TODO remove ig
     EAXAirSupport(int speakerID, HSIMABLE handle) : EAXCop(speakerID, handle, 64, 1) {}
 

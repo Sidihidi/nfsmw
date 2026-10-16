@@ -8,6 +8,7 @@
 #define __EASTEREGGS_HPP
 
 #include "Speed/Indep/Src/Input/ActionQueue.h"
+#include "Speed/Indep/Src/Misc/Joystick.hpp"
 
 enum EasterEggsSpecial {
     EASTER_EGG_UNLOCK_ALL_THINGS = 0,
@@ -105,7 +106,7 @@ class EasterEggs {
     bool IsEasterEggUnlocked(uint32 type, uint32 item);
     bool IsEasterEggUnlocked(EasterEggsSpecial egg);
 
-    ActionQueue *EasterEggActionQ[2]; // offset 0x0, size 0x8
+    ActionQueue *EasterEggActionQ[NUM_JOYSTICK_PORTS]; // offset 0x0, size 0x8
 
   private:
     void ClearGroup(uint32 group);

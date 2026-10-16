@@ -49,23 +49,14 @@ class FnCycle : public FnAnim {
         return mpAnim;
     }
 
-    float GetStartTime() const {}
+    float GetStartTime() const {
+        return mStartTime;
+    }
 
-    float GetEndTime() const {}
+    float GetEndTime() const {
+        return mEndTime;
+    }
 
-    // Overrides: FnAnim
-    void Eval(float previousTime, float currentTime, float *dofs) override;
-
-    // Overrides: FnAnim
-    bool EvalEvent(float previousTime, float currentTime, EventHandler **eventHandlers, void *extraData) override;
-
-    // Overrides: FnAnim
-    bool EvalSQT(float currentTime, float *sqt, const BoneMask *boneMask) override;
-
-    // Overrides: FnAnim
-    bool EvalPhase(float currentTime, PhaseValue &phase) override;
-
-  private:
     float GetInRangeTime(float t) const {
         int n;
         float tmp;
@@ -82,6 +73,27 @@ class FnCycle : public FnAnim {
         return t;
     }
 
+    // Overrides: FnAnim
+    void Eval(float previousTime, float currentTime, float *dofs) override {
+        mpAnim->Eval(GetInRangeTime(previousTime), GetInRangeTime(currentTime), dofs);
+    }
+
+    // Overrides: FnAnim
+    bool EvalEvent(float previousTime, float currentTime, EventHandler **eventHandlers, void *extraData) override {
+        return mpAnim->EvalEvent(GetInRangeTime(previousTime), GetInRangeTime(currentTime), eventHandlers, extraData);
+    }
+
+    // Overrides: FnAnim
+    bool EvalSQT(float currentTime, float *sqt, const BoneMask *boneMask) override {
+        return mpAnim->EvalSQT(GetInRangeTime(currentTime), sqt, boneMask);
+    }
+
+    // Overrides: FnAnim
+    bool EvalPhase(float currentTime, PhaseValue &phase) override {
+        return mpAnim->EvalPhase(GetInRangeTime(currentTime), phase);
+    }
+
+  private:
     float mStartTime; // offset 0xC, size 0x4
     float mEndTime;   // offset 0x10, size 0x4
     float mLength;    // offset 0x14, size 0x4

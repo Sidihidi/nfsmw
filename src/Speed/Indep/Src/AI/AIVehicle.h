@@ -98,7 +98,7 @@ class AIVehicle : public VehicleBehavior, public IVehicleAI, public AIAvoidable,
 
     void ResetDriveToNav(eLaneSelection lane_selection) override;
 #ifdef EA_BUILD_A124
-    void ResetDriveToNav(UMath::Vector3 &target) override;
+    void ResetDriveToNav(const UMath::Vector3 &target) override;
 #endif
     bool ResetVehicleToRoadNav(short segInd, char laneInd, float timeStep) override;
     bool ResetVehicleToRoadNav(WRoadNav *other_nav) override;
@@ -223,9 +223,9 @@ class AIVehicle : public VehicleBehavior, public IVehicleAI, public AIAvoidable,
     UCrc32 &GetGoalName() override {
         return mGoalName;
     }
-
+  protected:
     void SetGoal(const UCrc32 &name);
-
+  public:
     AIGoal *GetGoal() const {
         return mCurrentGoal;
     }
@@ -319,8 +319,9 @@ class AIVehicle : public VehicleBehavior, public IVehicleAI, public AIAvoidable,
     // IVehicleAI
     void EnableSimplePhysics() override;
     void DisableSimplePhysics() override;
+  public:
     void DoNOS() override;
-
+  protected:
     // Behavior
     void OnBehaviorChange(const UCrc32 &mechanic) override;
 
@@ -329,10 +330,10 @@ class AIVehicle : public VehicleBehavior, public IVehicleAI, public AIAvoidable,
     }
 
     WRoadNav *mDriveToNav;             // offset 0x70, size 0x4
-    ALIGN_16 UMath::Vector3 mDirToNav; // offset 0x74, size 0xC
+    ALIGNVEC UMath::Vector3 mDirToNav; // offset 0x74, size 0xC
     bool mDrivableToNav;               // offset 0x80, size 0x1
     float mDriveSpeed;                 // offset 0x84, size 0x4
-    ALIGN_16 UMath::Vector3 mDest;     // offset 0x88, size 0xC
+    ALIGNVEC UMath::Vector3 mDest;     // offset 0x88, size 0xC
     float mReverseOverrideTimer;       // offset 0x94, size 0x4
     float mReverseOverrideSteer;       // offset 0x98, size 0x4
     bool mReverseOverrideDirection;    // offset 0x9C, size 0x1
@@ -366,9 +367,9 @@ class AIVehicle : public VehicleBehavior, public IVehicleAI, public AIAvoidable,
     float mRoadUpdateTimer;                      // offset 0x114, size 0x4
     float mRoadIncrementTimer;                   // offset 0x118, size 0x4
     float mSeekAheadTimer;                       // offset 0x11C, size 0x4
-    ALIGN_16 UMath::Vector3 mSeekAheadPosition;  // offset 0x120, size 0xC
-    ALIGN_16 UMath::Vector3 mFarFutureDirection; // offset 0x12C, size 0xC
-    ALIGN_16 UMath::Vector3 mFarFuturePosition;  // offset 0x138, size 0xC
+    ALIGNVEC UMath::Vector3 mSeekAheadPosition;  // offset 0x120, size 0xC
+    ALIGNVEC UMath::Vector3 mFarFutureDirection; // offset 0x12C, size 0xC
+    ALIGNVEC UMath::Vector3 mFarFuturePosition;  // offset 0x138, size 0xC
     short mLastFutureSegment;                    // offset 0x144, size 0x2
     short mLastFutureNodeInd;                    // offset 0x146, size 0x2
     WRoadNav mCurrentRoad;                       // offset 0x148, size 0x2F0
@@ -395,7 +396,7 @@ class AIVehicleEmpty : public AIVehicle {
 class AIVehiclePid : public AIVehicle {
   public:
     typedef AIVehicle Base;
-
+  protected:
     AIVehiclePid(const BehaviorParams &bp, float update_rate, float stagger, Sim::TaskMode taskmode);
 
     // Virtual overrides
@@ -422,10 +423,10 @@ class AIVehiclePid : public AIVehicle {
 class AIPerpVehicle : public AIVehiclePid, public IPerpetrator, public ICause, public ICheater {
   public:
     typedef AIVehiclePid Base;
-
+  protected:
     AIPerpVehicle(const BehaviorParams &bp);
     void ComputeSkill();
-
+  public:
     // Virtual overrides
     // IUnknown
     ~AIPerpVehicle() override;
@@ -483,10 +484,10 @@ class AIPerpVehicle : public AIVehiclePid, public IPerpetrator, public ICause, p
 
     // Overrides: ICause
     void OnCausedExplosion(IExplosion *explosion, ISimable *to) override;
-
+  protected:
     // Overrides: AIVehicle
     bool OnClearCausality(float start_time) override;
-
+  public:
     // Overrides: ICause
     void OnCausedCollision(const COLLISION_INFO &cinfo, ISimable *from, ISimable *to) override;
 
@@ -582,12 +583,12 @@ class AIPerpVehicle : public AIVehiclePid, public IPerpetrator, public ICause, p
 
 // total size: 0x7EC
 class AIVehicleRacecar : public AIPerpVehicle, public IRacer {
-  public:
+  protected:
     AIVehicleRacecar(const BehaviorParams &bp);
 
     // Overrides: IUnknown
     ~AIVehicleRacecar() override;
-
+  public:
     // Overrides: IRacer
     void StartRace(DriverStyle style) override;
 
@@ -598,9 +599,9 @@ class AIVehicleRacecar : public AIPerpVehicle, public IRacer {
     void PrepareForRace(const RacePreparationInfo &rpi) override;
 
     static Behavior *Construct(const BehaviorParams &bp);
-
+  private:
     bool ShouldDoSimplePhysics() const;
-
+  protected:
     // Overrides: AIVehicle
     void Update(float dT) override;
 };

@@ -11,6 +11,9 @@
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include <cstddef>
+#ifdef EA_PLATFORM_WIN32
+#include <stdlib.h>
+#endif
 
 // El original NO tiene un `operator new` global: en el ELF no hay ni un
 // __nw__FUi, y todos los __nw__ son de clase. Lo que si tiene son los cuatro
@@ -21,22 +24,31 @@
 // nombres equivocados.
 
 void *operator new(size_t size) {
-#ifdef MILESTONE_BUILD
-    // TODO
-    return bWareMalloc(size, nullptr, 0, 0);
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+    return bMalloc(size, nullptr, 0, 0);
+#elif defined(EA_PLATFORM_WIN32)
+    return malloc(size);
 #else
     return bMalloc(size, 0);
 #endif
 }
 
 void *operator new[](size_t size) {
-#ifdef MILESTONE_BUILD
-    // TODO
-    return bWareMalloc(size, nullptr, 0, 0);
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+    return bMalloc(size, nullptr, 0, 0);
+#elif defined(EA_PLATFORM_WIN32)
+    return malloc(size);
 #else
     return bMalloc(size, 0);
 #endif
 }
+
+#if defined(MILESTONE_BUILD) && !defined(EA_BUILD_A124)
+// X360: el bMalloc de dos argumentos esta en esta unidad, tras new y new[] (NFS.exe 0x823F87F0).
+void *bMalloc(int size, int allocation_params) {
+    return bMalloc(size, nullptr, 0, allocation_params);
+}
+#endif
 
 #ifdef MILESTONE_BUILD
 void *operator new(size_t size, const char *file, int line) {
@@ -46,12 +58,39 @@ void *operator new(size_t size, const char *file, int line) {
 void *operator new[](size_t size, const char *file, int line) {
     return bMalloc(size, file, line, 0);
 }
+
+void *operator new(size_t size, const char *file, int line, int allocation_params) {
+    return bMalloc(size, file, line, allocation_params);
+}
+
+void *operator new[](size_t size, const char *file, int line, int allocation_params) {
+    return bMalloc(size, file, line, allocation_params);
+}
 #endif
 
 void operator delete(void *ptr) {
+#ifdef EA_PLATFORM_WIN32
+    free(ptr);
+#else
     bFree(ptr);
+#endif
 }
 
 void operator delete[](void *ptr) {
+#ifdef EA_PLATFORM_WIN32
+    free(ptr);
+#else
     bFree(ptr);
+#endif
 }
+
+#ifdef EA_PLATFORM_WIN32
+// Los de colocacion que declara bWare.hpp en PC (speed.exe 0x652B40 y 0x652B50): free del CRT.
+void operator delete(void *ptr, const char *file, int line) {
+    free(ptr);
+}
+
+void operator delete[](void *ptr, const char *file, int line) {
+    free(ptr);
+}
+#endif

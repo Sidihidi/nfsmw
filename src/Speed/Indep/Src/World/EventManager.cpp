@@ -69,7 +69,7 @@ int LoaderEventManager(bChunk *bchunk) {
             case BCHUNK_SPEED_EMTRIGGER_PACK_TREE:
                 if (trigger_pack != nullptr) {
                     trigger_pack->EventTree = reinterpret_cast<vAABBTree *>(chunk->GetAlignedData(16));
-                    trigger_pack->EventTree->NodeArray = reinterpret_cast<vAABB *>(reinterpret_cast<int *>(trigger_pack->EventTree) + 4);
+                    trigger_pack->EventTree->NodeArray = reinterpret_cast<vAABB *>(trigger_pack->EventTree + 1);
                     if (!trigger_pack->EndianSwapped) {
                         trigger_pack->EventTree->SwapEndian();
                     }

@@ -11,20 +11,20 @@
 
 // total size: 0x8C0
 class AIVehicleHelicopter : public AIVehiclePursuit, public IAIHelicopter {
-  public:
+  protected:
     AIVehicleHelicopter(const BehaviorParams &bp);
 
     // Overrides: IUnknown
     ~AIVehicleHelicopter() override;
-
+  public:
     static Behavior *Construct(const BehaviorParams &bp);
-
+  protected:
     // Overrides: IAIHelicopter
     void SetFuelFull() override;
 
     // Overrides: IAIHelicopter
     void SetDestinationVelocity(const UMath::Vector3 &v) override;
-
+  public:
     // Overrides: AIVehicle
     void Update(float dT) override;
 
@@ -32,7 +32,7 @@ class AIVehicleHelicopter : public AIVehiclePursuit, public IAIHelicopter {
 
     // Overrides: IPursuitAI
     bool CanSeeTarget(AITarget *target) override;
-
+  protected:
     // Overrides: IAIHelicopter
     bool StartPathToPoint(UMath::Vector3 &point) override;
 
@@ -41,18 +41,18 @@ class AIVehicleHelicopter : public AIVehiclePursuit, public IAIHelicopter {
 
     // Overrides: IAIHelicopter
     bool FilterHeliAltitude(UMath::Vector3 &point) override;
-
+  private:
     bool CheckHeliSheet(const UMath::Vector3 &myPosition, const UMath::Vector3 &LookAheadDest, const UMath::Vector3 &myWorkingPosition,
                         UMath::Vector3 &dest, UMath::Vector3 &smoothingVel);
-
+  protected:
     // Overrides: IAIHelicopter
     void RestrictPointToRoadNet(UMath::Vector3 &seekPosition) override;
-
+  private:
     void AvoidCamera(UMath::Vector3 &dest);
 
     // Overrides: AIVehicle
     void OnDriving(float dT) override;
-
+  protected:
     // Overrides: IAIHelicopter
     float GetDesiredHeightOverDest() const override {
         return mHeight;

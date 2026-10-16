@@ -1,10 +1,8 @@
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/file/driver.h"
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/std/list.h"
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/system.h"
+#include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/std.h"
 #include <string.h>
-#define ALIGN8(x) ((char *)(((unsigned int)(x) + 7) & ~7))
-void MEM_clear(void *ptr, int size);
-void MEM_copy(void *dst, const void *src, int size);
 struct SIGNAL { // opaco y de plataforma, como MUTEX (system.h): 0xC en PS2 (stabs de la A124)
 #ifdef EA_PLATFORM_PLAYSTATION2
     int reserved[3]; // offset 0x0, size 0xC
@@ -89,7 +87,18 @@ struct FILESYSOPTS {
     unsigned int LargeReadSliceSize;         // +0x28
     unsigned int AllocAlignBoundary;         // +0x2C
     int DiscType;                            // +0x30
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // En PS2 la estructura mide 0x50 (stabs de la A124): los datos del disco van entre DiscType y mErrorRetryCount.
+    bool IsDiscBootable;                     // +0x34
+    const char *DemoCdRoot;                  // +0x38
+    unsigned int MaxNumDiscFiles;            // +0x3C
+    unsigned int hashseed;                   // +0x40
+    struct DISCFILE *dfTable;                // +0x44
+    bool bUseTMFSRootDirAsAppRootDir;        // +0x48
+    int mErrorRetryCount;                    // +0x4C
+#else
     int mErrorRetryCount;                    // +0x34
+#endif
 };
 
 extern FILESYSOPTS gFileSysOpts;
@@ -109,7 +118,7 @@ struct FILEOPERATION : public ListNodeS {
     }
 
     virtual void Exec(FILEDEVICE *device) = 0;
-    virtual long long Complete() = 0;
+    virtual int64_t Complete() = 0;
     virtual void Cancel(FILEDEVICE *device);
 
     //
@@ -164,10 +173,10 @@ struct FILEOPERATION : public ListNodeS {
     FILESYSHANDLE *filehandle;           // offset 0x10, size 0x4
     void *userdata;                      // offset 0x14, size 0x4
     void (*callback)(int, int, void *);  // offset 0x18, size 0x4
-    long long value;                     // offset 0x20, size 0x8
-    long long amount;                    // offset 0x28, size 0x8
+    int64_t value;                       // offset 0x20, size 0x8
+    int64_t amount;                      // offset 0x28, size 0x8
     void *data;                          // offset 0x30, size 0x4
-    unsigned long long totalbytes;       // offset 0x38, size 0x8
+    uint64_t totalbytes;                 // offset 0x38, size 0x8
 };
 
 // total size: 0xC
@@ -183,8 +192,8 @@ struct FILESYSHANDLE : public ListNodeS {
     FILESYSHANDLE *pParentFile; // offset 0x4, size 0x4
     int hFile;                  // offset 0x8, size 0x4
     FILEDEVICE *dev;            // offset 0xC, size 0x4
-    long long length;           // offset 0x10, size 0x8
-    long long offset;           // offset 0x18, size 0x8
+    int64_t length;             // offset 0x10, size 0x8
+    int64_t offset;             // offset 0x18, size 0x8
 };
 
 // total size: 0x3D4
@@ -206,8 +215,6 @@ struct FILEDEVICE : public ListNodeS {
 
 // total size: 0x9C
 struct FILESYSINFO {
-    FILESYSINFO() {
-    }
     ~FILESYSINFO();
 
     ListSingle<FILEOPERATION> FreeOps;             // offset 0x0, size 0xC
@@ -244,8 +251,8 @@ void FILE_restore();
 extern RealFile::DeviceDriver *libdevice[2];
 void SYSTEM_addexit(void (*func)());
 
-inline void *operator new(unsigned int, void *p, unsigned int) throw() {
-    return p;
+inline void *operator new(unsigned int, void *place, unsigned int) throw() {
+    return place;
 }
 int THREAD_iscurrent(THREAD *t);
 void THREAD_yield(int ms);
@@ -647,219 +654,61 @@ static void iCloseFileSysHandle(FILESYSHANDLE *h) {
 }
 
 static FILEOPERATION *iGetOpFromHandle(FILEDEVICE *device, int ophandle, int *ispending) {
-    FILEOPERATION *op = 0;
+    FILEOPERATION *result = 0;
 
     *ispending = 0;
 
     if (device->running != 0) {
 
-        op = device->current;
+        result = device->current;
 
-        if (op != 0 && op->GetId() == ophandle) {
+        if (result != 0 && result->GetId() == ophandle) {
 
             *ispending = -1;
 
         } else {
 
-            op = device->pending.Find(ophandle, false);
+            result = device->pending.Find(ophandle, false);
 
-            if (op != 0) {
+            if (result != 0) {
 
                 *ispending = 1;
 
             } else {
 
-                op = device->completed.Find(ophandle, false);
+                result = device->completed.Find(ophandle, false);
             }
         }
     }
 
-    return op;
+    return result;
 }
 
 void FILEOPERATION::AddToQueue() {
     FILEDEVICE *device = GetDevice(id);
-    FILEOPERATION *current;
+    ListSingleIterator<FILEOPERATION> Itr;
     FILEOPERATION *prev;
     unsigned int newoppriority;
 
     device->mutex.Lock();
 
-    //
     prev = 0;
 
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    // r65 IRREDUCIBLE, con DIAGNOSTICO. `regmap filesys "FILEOPERATION::AddToQueue"`
-    // dice ESTRUCTURA: el original NO tiene la local `newid`, y su `curpriority`
-    // (r9) vive en un BLOQUE ANONIMO que aqui no existe --es la prioridad del nodo
-    // que recorre el bucle, no la del nuestro--. Locales del original: device r30,
-    // Itr/current r11, prev r10, newoppriority r8, y b0{curpriority r9}.
-    // MEDIDO r65: escrita la forma NATURAL --sin `newpriority`, sin `newid` y sin
-    // ninguna de las tres barreras, `newoppriority = (GetPriority() << 24) |
-    // (GetId() & 0x00FFFF00);`-- salen 252 B EXACTOS y 96,83 %, y queda UNA sola
-    // fila: el `slwi r9,r9,24` dos ranuras antes que en el objetivo, que mete en
-    // medio el `lwz` del Head(). Poner el Head() antes o despues de esa sentencia
-    // da EL MISMO objeto (sello 0xe1474c34): el orden de sentencias no manda aqui.
-    // NEGATIVO r65, sello ALLOC de cada intento (base 0x4a26cc84):
-    //   las tres barreras, una a una      -> 0x549c4511 / 0xe1474c34 / 0xaede5c88
-    //   forma natural (0 locales, 0 barreras) -> 0xe1474c34
-    //   1 barrera sobre newpriority entre Head() y el desplazamiento -> 0xc0de70ba
-    //   1 barrera "+m"(pending) con "r"(GetId()) sin local newid     -> 0x8c95d43d
-    //   quitar SOLO la local newid (barreras intactas)               -> 0xaede5c88
-    // O sea: las cinco construcciones son load-bearing y no se pueden reducir a
-    // menos sin perder el objeto. Las dos del bucle (`current`) tambien: quitarlas
-    // da 0xd8fa5d47 y 0x82c93e14 (esta ultima mueve hasta la tabla de simbolos).
-    // r37: orden del objetivo, sin instrucciones adicionales ni registros fijos:
-    // id -> Head() -> desplazar prioridad -> enmascarar id. Las dependencias
-    // vacias conservan los valores reales y limitan solo esa planificacion.
-    // r67 IRREDUCIBLE, PALANCA (a) MEDIDA Y NEGATIVA. El bloque anonimo con
-    // `curpriority` que describe el DWARF (en la prueba del bucle, abajo) es
-    // NEUTRO: con las cinco barreras da el objeto identico, y sobre la forma
-    // natural de la r65 da exactamente el mismo objeto que sin el. Formas r67
-    // (sello ALLOC, base de59e5dfaf2a9107):
-    //   natural (0 locales, 0 barreras aqui)                            -> f1a1744d
-    //   natural + bloque `if (current) { unsigned int curpriority = ...;
-    //     if (newoppriority >= curpriority) goto ...; }`, con el bloque
-    //     como `{ unsigned int curpriority; if (... = ...)}` o con la
-    //     salida invertida (`< curpriority` -> goto done)                 -> f1a1744d
-    //   el bloque sin la barrera del incremento / sin la del if          -> 6a34393e / 0c41f8cf
-    //   operandos del `|` al reves `(GetId() & m) | (GetPriority() << 24)` -> 0ae531bf
-    //   en dos sentencias `= prio << 24; |= id & m;` y al reves           -> 6b48d223 / 8b0bfa10
-    //   con casts `(unsigned int)` en los dos operandos                   -> f1a1744d
-    //   cada una con el Head() detras o con `prev = 0` detras del Head()  -> el mismo de su forma
-    // El orden de las sentencias y el ambito de la prioridad no llegan al empate de
-    // sched1 del `slwi`; lo unico que lo mueve siguen siendo las dependencias.
-    // scaf-r1 VEDA, MECANISMO PROBADO DESDE EL COMPILADOR. Leido el scheduler
-    // (orig/prodg/NGC_GNU_SRC/NGC/gcc/haifa-sched.c) y volcada la traza
-    // (`rtldump filesys AddToQueue -dR`): priority() SALTA los dependientes de
-    // otro bloque ("critical path is meaningful in block boundaries only"), y
-    // el UNICO consumidor de la carga del Head() vive en el bloque siguiente
-    // (la prueba del bucle). Con eso su INSN_PRIORITY es solo el coste del lwz
-    // (2) y pierde SIEMPRE contra el `slwi` (3: slwi->or->b, rama anadida por
-    // add_branch_dependences). Traza de la forma natural, bloque 0: el lwz del
-    // Head esta listo en t=8 y aun asi pierde la lsu contra el lbz (t=8) y el
-    // lwz del id (t=9); emite en t=10 por la lsu MIENTRAS el slwi toma la iu
-    // DEL MISMO ciclo y se appenda PRIMERO en el flujo. El objetivo los tiene
-    // al reves: solo una dependencia artificial (la cadena r37: id -> "+m"
-    // pending -> Head) sube su prioridad por encima del slwi. Ninguna fuente
-    // puede darle un consumidor DENTRO del bloque: la prueba vive en otro
-    // bloque y cualquier uso de `current` aqui, o sobra (lo borran) o anade
-    // instruccion. Es estructura del CFG, no forma de sentencia.
-    // Negativos scaf-r1 (sello .text/.rodata del .o; objetivo 5fd57c16/74762f2b):
-    //   natural r65 reproducida (sin locales, sin barreras de cabecera)   -> 31bb3e15, 96,83 %, 1 fila (el swap)
-    //   con locales newpriority/newid, sin barreras                       -> 31bb3e15 (las locales no pesan)
-    //   miembros directos `priority`/`id` (el DWARF original NO tiene los
-    //     inlines GetPriority/GetId en la cabecera: accedia directo)      -> 31bb3e15
-    //   `*(volatile unsigned char *)&priority << 24`                      -> 31bb3e15 (volatil de CARGA: efecto CERO,
-    //                                                                        este scheduler solo obedece almacenes volatiles -- ver pathbank)
-    //   `*(volatile int *)&id & 0x00FFFF00`                               -> 31bb3e15
-    //   `*(FILEOPERATION * volatile *)&device->pending.head`              -> 31bb3e15
-    //   `Itr = device->pending.Begin(); current = *Itr;` (la forma del
-    //     DWARF: Itr/Begin/operator* en el arbol)                        -> 31bb3e15
-    //   `(id & 0x00FFFF00) | (priority << 24)` (r67 midio 0ae531bf:
-    //     ademas cambia el reparto, 91,67 %)                             -> a0ee3afa, 91,67 %
-    // Con r65+r66+r67+scaf-r1 son ~23 formas, 24 flags y el mecanismo cerrado.
-    unsigned int newpriority = GetPriority();
-    int newid = GetId();
-    current = device->pending.Head();
-    newpriority <<= 24;
-    newoppriority = newpriority | (newid & 0x00FFFF00);
+    newoppriority = (priority << 24) | (id & 0x00FFFF00);
 
-    // El volcado DWARF del original dice `ListSingleIterator<FILEOPERATION> Itr; // r11`
-    // con un bloque anonimo `{ unsigned int curpriority; // r9 }` y el `operator++`
-    // FUERA de ese bloque, o sea un `for (Itr = Begin(); *Itr != 0; Itr++)`. Ese `for`
-    // no cierra: g++ 2.9 no hace aqui el "roll" de la condicion de entrada al final
-    // (83,65 %) y con `goto` el iterador se va a la pila (90,14 %). La forma de goto
-    // con puntero pelado da la disposicion exacta del objetivo (95,16 %) y solo falta
-    // el `mr.`+`beq` del `if (node != 0)` de `operator++`, que aqui GCC pliega porque
-    // sabe que `current != 0` al entrar por `goto nextOperation`.
-    // r32: leido el flujo del objetivo entero. Es un `for` sin rotacion:
-    //   0x44  b TEST            <- entrada
-    //   0x48  INCR: mr. r10,r11 <- prev = current, Y PRUEBA current
-    //   0x4C        beq TEST
-    //   0x50        lwz r11,0(r10)
-    //   0x54  TEST: cmpwi r11,0 / beq SALIDA ... / bge INCR
-    // O sea que el objetivo conserva una prueba de nulo REDUNDANTE: el TEST
-    // del bucle repite exactamente lo que acaba de mirar el `beq` del
-    // incremento. Es el `if (node != 0)` del `operator++` que el DWARF nombra.
-    // Nosotros la plegamos porque al llegar a INCR por la arista de retorno
-    // GCC sabe que current != 0. Son los 4 B (una instruccion) que faltan.
-    //
-    // OCHO formas barridas, ninguna la trae: barrera total detras y delante de
-    // la copia (identicas), barrera selectiva sobre prev (256 B), expresion
-    // condicional, probar current en vez de prev, while con la prueba abajo,
-    // goto interno en vez de if (todas 95,1587 % / 248 B) y puntero volatil
-    // (88,79 % / 268 B).
-    //
-    // Y EL EJE DEL ITERADOR, cerrado con cinco formas propias (r32). El arbol
-    // ya trae `ListSingleIterator<T>` con justo la prueba que falta:
-    //     void operator++(int) { if (node != 0) node = (T *)node->next; }
-    // Escrita la forma que describe el DWARF --Itr en la funcion, curpriority
-    // en un bloque anonimo, el ++ fuera-- y cuatro vecinas (prev fuera del
-    // cuerpo, prioridad en la condicion, while con Itr++ al final, temporal
-    // del nodo): las CINCO dan 83,65 % / 248 B, salvo la de prev fuera, 83,57
-    // y 240 B. Reproduce la cifra que ya midio la ronda anterior. El iterador
-    // trae la prueba pero pierde mucho mas por otro lado; la forma de goto con
-    // puntero pelado sigue siendo la mejor con diferencia.
-    //
-    // Y la bandera VETADA CON CIFRA: `-fno-cse-follow-jumps` da 252 B --el
-    // tamano exacto-- y 96,83 %, pero barrida en las 42 unidades de realcore
-    // PIERDE 14 funciones y no gana ninguna, incluida esta unidad (73/74 ->
-    // 69/74). El tamano exacto era un senuelo.
-    //
-    // r36e: TRAIDA. 248 -> 252 B, el tamano exacto, y de 4 filas a 2. Hacian
-    // falta TRES cosas a la vez, y ninguna sirve sola --por eso las ocho
-    // formas anteriores se quedaron cortas--:
-    //   1. probar `current` y no `prev`, para que el objetivo pueda fundir la
-    //      copia y la comparacion en el `mr.` con forma de registro;
-    //   2. la barrera selectiva sobre `current` al FINAL del cuerpo, antes
-    //      del `goto`, que es lo que impide plegar la prueba de nulo. Puesta
-    //      detras de la copia trae la prueba pero rompe la fusion, y salen
-    //      `mr` + `cmpwi` + `beq`: 256 B. Esa era la medida de la veda;
-    //   3. una segunda barrera detras del `if`, que cierra la ultima arista:
-    //      cuando `current == 0` el objetivo vuelve a la prueba del bucle y
-    //      nosotros saltabamos directo a la salida (jump threading).
-    //
-    // En r36e quedaban DOS filas de planificacion: el `slwi r9,r9,24` salia
-    // una ranura antes que en el objetivo, que mete en medio el `lwz` del
-    // Head(). Barrido sin exito: mover la sentencia del Head arriba, barrera
-    // sobre newoppriority, prioridad partida en dos sentencias, barrera de
-    // ranura tras el Head (con y sin clobber de r0), el operando de entrada
-    // de la r36d-ai, y sacar la prioridad y/o el id a temporales para cambiar
-    // el orden inicial que ve rank_for_schedule. `-fno-thread-jumps` tampoco
-    // mueve nada. r37 cierra esas dos filas con la cadena de dependencias de
-    // arriba: 252 B exactos y las 74 funciones de filesys al 100 %. Ninguna
-    // de las tres dependencias aislada bastaba; no cambia la logica de la cola.
-    goto checkPriority;
-nextOperation:
-    prev = current;
-    if (current != 0) {
-        current = (FILEOPERATION *)current->next;
-    }
-checkPriority:
-    if (current != 0 &&
-        newoppriority >=
-            (unsigned int)((current->GetPriority() << 24) | (current->GetId() & 0x00FFFF00))) {
-        goto nextOperation;
+    // La forma de los stabs de la A124 y del DWARF de GameCube: Itr, prev y newoppriority en la funcion,
+    // curpriority en el bloque del cuerpo y el ++ del iterador fuera de el; priority e id se leen directos
+    // (el DWARF no tiene GetPriority/GetId aqui). Los dos originales tienen el bucle enrollado (la prueba
+    // y el break al final; en PS2 ademas duplicados delante) y expand_end_loop solo lo enrolla con -O2:
+    // a -O1 no cruza las notas de bloque (GameCube con los cflags de realcore de hoy: 83,65 %).
+    for (Itr = device->pending.Begin(); *Itr != 0; Itr++) {
+        unsigned int curpriority = ((*Itr)->priority << 24) | ((*Itr)->id & 0x00FFFF00);
+
+        if (newoppriority < curpriority) {
+            break;
+        }
+
+        prev = *Itr;
     }
 
     device->pending.InsertAfter(prev, this);
@@ -869,60 +718,60 @@ checkPriority:
 }
 
 static int iDeviceCommandProcessorThreadFunc(void *param) {
-    FILEDEVICE *dev = (FILEDEVICE *)param;
+    FILEDEVICE *device = (FILEDEVICE *)param;
     FILEOPERATION *op;
 
-    dev->running = 1;
+    device->running = 1;
 
-    SIGNAL_set(&dev->attention);
+    SIGNAL_set(&device->attention);
 
-    while (dev->terminate == 0) {
+    while (device->terminate == 0) {
 
-        dev->mutex.Lock();
+        device->mutex.Lock();
 
-        dev->current = 0;
+        device->current = 0;
 
-        op = dev->pending.Head();
-        if (op != 0 && op->GetPriority() <= dev->minpriority) {
+        op = device->pending.Head();
+        if (op != 0 && op->GetPriority() <= device->minpriority) {
 
-            dev->pending.Pop();
+            device->pending.Pop();
 
-            dev->current = op;
+            device->current = op;
         }
 
-        dev->mutex.Unlock();
+        device->mutex.Unlock();
 
-        if (dev->current == 0) {
+        if (device->current == 0) {
 
-            SIGNAL_wait(&dev->signal);
+            SIGNAL_wait(&device->signal);
 
         } else {
 
             if (op->IsCancelled() != true) {
 
-                op->Exec(dev);
+                op->Exec(device);
             }
 
             if (op->GetStatus() != 0) {
 
-                dev->mutex.Lock();
+                device->mutex.Lock();
 
-                dev->completed.Push(op);
+                device->completed.Push(op);
 
-                dev->current = 0;
+                device->current = 0;
 
-                dev->mutex.Unlock();
+                device->mutex.Unlock();
 
                 op->GetCallback()(op->GetId(),
                                   op->IsCancelled() ? -1 : op->GetStatus(),
                                   op->GetUserData());
 
-                SIGNAL_set(&dev->attention);
+                SIGNAL_set(&device->attention);
             }
         }
     }
 
-    dev->running = 0;
+    device->running = 0;
 
     return 0;
 }
@@ -931,7 +780,7 @@ bool FILE_init(void *buf, int bufsize) {
     int i;
     int nDevices;
     FILEOPERATION *op;
-    FILESYSHANDLE *h;
+    FILESYSHANDLE *fs_h;
     FILEDEVICE *dev;
     FILEDEVICE *device;
 
@@ -965,12 +814,14 @@ bool FILE_init(void *buf, int bufsize) {
     gpFileSysInfo->searchpath =
         (char *)gpFileSysInfo->psearchpaths + gFileSysOpts.nSearchLocs * 4;
 
-    gpFileSysInfo->OpMemory =
-        (FILEOPERATION *)ALIGN8(gpFileSysInfo->searchpath + gFileSysOpts.nSearchPathLength);
+    // AlignAddrUp dos veces (dos `void *p` en los stabs y dos expansiones en el DWARF de GameCube).
+    // En GameCube el segundo no deja codigo: combine sabe que OpMemory + n * 0x48 ya es multiplo de 8;
+    // en PS2 la mascara -8 va en registro y el alineado se queda.
+    gpFileSysInfo->OpMemory = (FILEOPERATION *)AlignAddrUp(
+        gpFileSysInfo->searchpath + gFileSysOpts.nSearchPathLength, 8);
 
-    gpFileSysInfo->FileSysHandleMemory =
-        (FILESYSHANDLE *)(gFileSysOpts.MaxFileOps * sizeof(FILEOPERATION) +
-                          (unsigned int)gpFileSysInfo->OpMemory);
+    gpFileSysInfo->FileSysHandleMemory = (FILESYSHANDLE *)AlignAddrUp(
+        gpFileSysInfo->OpMemory + gFileSysOpts.MaxFileOps, 8);
 
     gpFileSysInfo->DeviceMemory =
         (FILEDEVICE *)(gpFileSysInfo->FileSysHandleMemory + gFileSysOpts.MaxOpenFiles);
@@ -991,11 +842,11 @@ bool FILE_init(void *buf, int bufsize) {
     }
     //
     //
-    h = gpFileSysInfo->FileSysHandleMemory;
+    fs_h = gpFileSysInfo->FileSysHandleMemory;
     for (i = 0; i < gFileSysOpts.MaxOpenFiles; i++) {
 
-        gpFileSysInfo->FreeFileSysHandles.PushTail(h);
-        h++;
+        gpFileSysInfo->FreeFileSysHandles.PushTail(fs_h);
+        fs_h++;
     }
     //
     //
@@ -1049,7 +900,12 @@ bool FILE_init(void *buf, int bufsize) {
     //
     //
     //
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // SLES y SLUS: "host0:" con DiscType 0 y "cdrom0:" con el resto, en ese orden en .rodata.
+    RealFile::SetSearchPath(gFileSysOpts.DiscType == 0 ? "host0:" : "cdrom0:");
+#else
     RealFile::SetSearchPath(gFileSysOpts.DiscType == 1 ? "dvd:" : "hd:");
+#endif
 
     //
     //
@@ -1132,7 +988,7 @@ struct ExistOperation : public FILEOPERATION {
         status = 1;
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         gFileSysOpts.allocator->Free(data, 0);
         return value;
     }
@@ -1157,7 +1013,7 @@ struct OpenOperation : public FILEOPERATION {
         }
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         gFileSysOpts.allocator->Free(data, 0);
         if (IsCancelled() == true && filehandle != (FILESYSHANDLE *)-1) {
 
@@ -1183,7 +1039,7 @@ struct CloseOperation : public FILEOPERATION {
         status = 1;
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         iCloseFileSysHandle(filehandle);
         return 1;
     }
@@ -1269,15 +1125,15 @@ struct ReadOperation : public FILEOPERATION {
         }
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         return totalbytes;
     }
 };
 
 // total size: 0x48
 struct ReadLargeOperation : public FILEOPERATION {
-    ReadLargeOperation(FILESYSHANDLE *_filehandle, unsigned long long bytes,
-                       unsigned long long offset, void *buffer, int priority, void *userdata,
+    ReadLargeOperation(FILESYSHANDLE *_filehandle, uint64_t bytes,
+                       uint64_t offset, void *buffer, int priority, void *userdata,
                        FILEDEVICE *dev)
         : FILEOPERATION(priority, userdata, dev) {
         filehandle = _filehandle;
@@ -1319,9 +1175,7 @@ struct ReadLargeOperation : public FILEOPERATION {
                               filehandle->pParentFile->hFile);
 
         readsize = gFileSysOpts.LargeReadSliceSize;
-        if (readsize > (unsigned int)amount) {
-            readsize = (unsigned int)amount;
-        }
+        readsize = ((unsigned int)amount < readsize) ? (unsigned int)amount : readsize;
 
         optimal = device->drv->GetOptimalReadSize();
 
@@ -1357,7 +1211,7 @@ struct ReadLargeOperation : public FILEOPERATION {
         }
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         return totalbytes;
     }
 };
@@ -1408,7 +1262,7 @@ struct WriteOperation : public FILEOPERATION {
         status = 1;
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         return amount;
     }
 };
@@ -1425,7 +1279,7 @@ struct SizeOperation : public FILEOPERATION {
         status = 1;
     }
 
-    virtual long long Complete() {
+    virtual int64_t Complete() {
         return value;
     }
 };
@@ -1521,10 +1375,10 @@ int FILESYS_waitop(int ophandle) {
     return FILESYS_opstatus(ophandle);
 }
 
-long long FILESYS_completeop64(int ophandle) {
+int64_t FILESYS_completeop64(int ophandle) {
     FILEDEVICE *dev;
     FILEOPERATION *op;
-    long long ret;
+    int64_t ret;
 
     dev = FILEOPERATION::GetDevice(ophandle);
 
@@ -1591,19 +1445,19 @@ void FILESYS_callbackop(int ophandle, void (*func)(int, int, void *)) {
 }
 
 void FILESYS_priorityop(int ophandle, int priority) {
-    FILEDEVICE *dev;
+    FILEDEVICE *device;
     FILEOPERATION *op;
 
     //
     //
     //
-    dev = FILEOPERATION::GetDevice(ophandle);
+    device = FILEOPERATION::GetDevice(ophandle);
 
-    if (dev != 0) {
+    if (device != 0) {
 
-        dev->mutex.Lock();
-        op = dev->pending.Find(ophandle, true);
-        dev->mutex.Unlock();
+        device->mutex.Lock();
+        op = device->pending.Find(ophandle, true);
+        device->mutex.Unlock();
         if (op != 0) {
 
             op->SetPriority(priority);
@@ -1649,8 +1503,8 @@ int FILESYS_read(int filehandle, int offset, void *buffer, int bytes, int priori
     return op->GetId();
 }
 
-int FILESYS_readlarge(int filehandle, unsigned long long offset, void *buffer,
-                      unsigned long long bytes, int priority, void *userdata) {
+int FILESYS_readlarge(int filehandle, uint64_t offset, void *buffer,
+                      uint64_t bytes, int priority, void *userdata) {
     FILEOPERATION *op =
         new ReadLargeOperation((FILESYSHANDLE *)filehandle, bytes, offset, buffer, priority,
                                userdata, ((FILESYSHANDLE *)filehandle)->dev);
@@ -1681,7 +1535,7 @@ int FILESYS_size(int filehandle, int priority, void *userdata) {
 
 int FILESYS_atomic(int (*func)(int, void *), FILEDEVICE *device, int priority, void *userdata) {
     int result;
-    int oldpriority;
+    int oldminpriority;
 
     //
     //
@@ -1697,14 +1551,14 @@ int FILESYS_atomic(int (*func)(int, void *), FILEDEVICE *device, int priority, v
     //
     //
     //
-    oldpriority = device->minpriority;
+    oldminpriority = device->minpriority;
     device->minpriority = priority;
 
     //
     result = func(priority, userdata);
 
     //
-    device->minpriority = oldpriority;
+    device->minpriority = oldminpriority;
     SIGNAL_set(&device->signal);
 
     //
@@ -1718,17 +1572,17 @@ namespace RealFile {
 
 bool GetInfoFastByName(const char *name, const unsigned int modeflags, uint64_t &location,
                        uint64_t &size) {
-    FILESYSHANDLE *h;
+    FILESYSHANDLE *fs_h;
 
-    h = iOpenFileSysHandle(name, modeflags | 0x20001, FILE_nametodevice(name));
+    fs_h = iOpenFileSysHandle(name, modeflags | 0x20001, FILE_nametodevice(name));
 
     //
     //
     //
-    if (h != (FILESYSHANDLE *)-1) {
+    if (fs_h != (FILESYSHANDLE *)-1) {
 
-        GetInfoFastByHandle((int)h, location, size);
-        iCloseFileSysHandle(h);
+        GetInfoFastByHandle((int)fs_h, location, size);
+        iCloseFileSysHandle(fs_h);
         return true;
     }
 
@@ -1741,11 +1595,11 @@ bool GetInfoFastByName(const char *name, const unsigned int modeflags, uint64_t 
 }
 
 void GetInfoFastByHandle(int filehandle, uint64_t &location, uint64_t &size) {
-    FILESYSHANDLE *h = (FILESYSHANDLE *)filehandle;
+    FILESYSHANDLE *fs_h = (FILESYSHANDLE *)filehandle;
 
     //
-    location = h->dev->drv->QueryLocation(h->hFile);
-    size = h->length;
+    location = fs_h->dev->drv->QueryLocation(fs_h->hFile);
+    size = fs_h->length;
 }
 
 } // namespace RealFile
@@ -1868,35 +1722,35 @@ void SetSearchPath(const char *path) {
 }
 
 void AddSearchLocation(const char *pszLoc, bool head) {
-    char *p;
+    char *c;
     char *newpath;
 
-    p = gpFileSysInfo->searchpath;
+    c = gpFileSysInfo->searchpath;
 
     //
-    while (p[1] != 0) {
+    while (c[1] != 0) {
 
-        if (*p != 0) {
+        if (*c != 0) {
 
             //
-            while (*++p != 0) {
+            while (*++c != 0) {
             }
         }
 
         //
         //
-        if (p[1] == 0 && p[2] != 0) {
+        if (c[1] == 0 && c[2] != 0) {
 
             //
-            *++p = '/';
+            *++c = '/';
         }
 
         //
-        *p = ';';
+        *c = ';';
     }
 
     //
-    *p = 0;
+    *c = 0;
 
     newpath = (char *)__builtin_alloca(gFileSysOpts.nSearchPathLength);
     MEM_clear(newpath, gFileSysOpts.nSearchPathLength);

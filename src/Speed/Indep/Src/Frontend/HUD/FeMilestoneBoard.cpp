@@ -46,7 +46,7 @@ void MilestoneBoard::Update(IPlayer *player) {
     int numIncompleteMilestones;
 
     if (mInPursuit) {
-        if (mNumMilestones >= 1) {
+        if (mNumMilestones > 0) {
             numIncompleteMilestones = GetNumIncompleteMilestones();
             if (numIncompleteMilestones > 0) {
                 if (FEngIsScriptSet(mpDataDetailsBacking, 0x16a259)) {
@@ -156,13 +156,13 @@ void MilestoneBoard::Update(IPlayer *player) {
 }
 
 int MilestoneBoard::GetNumIncompleteMilestones() const {
-    int count = 0;
+    int numIncompleteMilestones = 0;
     for (int i = 0; i < mNumMilestones; i++) {
         if (!mMilestones[i].mComplete) {
-            count++;
+            numIncompleteMilestones++;
         }
     }
-    return count;
+    return numIncompleteMilestones;
 }
 
 int MilestoneBoard::GetNumCompleteMilestones() const {
@@ -213,11 +213,19 @@ void MilestoneBoard::SetMilestoneCurrValue(int milestoneNum, float currVal) {
         mMilestones[milestoneNum].mCurrVal = currVal;
         if (!mMilestones[milestoneNum].mComplete) {
             if (!FEDatabase->IsMilestoneTimeFormat(mMilestones[milestoneNum].mType)) {
+#ifdef EA_BUILD_A124
+                mScrollTimer = WorldTimer;
+                mMilestoneSetVisible = milestoneNum;
+                if (!FEngIsScriptSet(mpDataIconBackings[milestoneNum], 0x3826a28)) {
+                    FEngSetScript(mpDataIconBackings[milestoneNum], 0x3826a28, true);
+                }
+#else
                 mMilestoneSetVisible = milestoneNum;
                 FEngSetScript(mpDataIconBackings[milestoneNum], 0x3826a28, true);
                 FEngSetScript(mpDataDetailsBacking, 0x3826a28, true);
                 FEngSetScript(mpDataDetailsGroup, FEHASH_FLIP_IN, true);
                 mScrollTimer = WorldTimer;
+#endif
             }
         }
     }

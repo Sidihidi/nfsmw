@@ -12,12 +12,8 @@
 namespace Dynamics {
 namespace Articulation {
 
-struct Quaternion {
-    float x; // offset 0x0, size 0x4
-    float y; // offset 0x4, size 0x4
-    float z; // offset 0x8, size 0x4
-    float w; // offset 0xC, size 0x4
-
+// total size: 0x10
+struct Quaternion : public UMath::Vector4 {
     Quaternion() {}
 
     Quaternion(const UVector3 &vec, float angle) {
@@ -25,7 +21,7 @@ struct Quaternion {
         const float a = angle * 0.5f;
         s = UMath::Sina(a);
         w = UMath::Cosa(a);
-        UMath::Scale(vec, s, *reinterpret_cast<UMath::Vector3 *>(this));
+        UMath::Scale(vec, s, UMath::Vector4To3(*this));
     }
 
     Quaternion(const UMath::Vector3 &normal1, const UMath::Vector3 &normal2) {
@@ -43,7 +39,7 @@ struct Quaternion {
                 y = axis.y;
                 z = axis.z;
                 w = 0.0f;
-                UMath::Normalize(*reinterpret_cast<UMath::Vector4 *>(this));
+                UMath::Normalize(*this);
             } else {
                 const float s = UMath::Sqrt((angle + 1.0f) + (angle + 1.0f));
                 const float invs = 1.0f / s;

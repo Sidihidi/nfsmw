@@ -15,7 +15,82 @@
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
+#endif
 
+#ifdef EA_BUILD_A124
+MenuZoneTrigger::MenuZoneTrigger(UTL::COM::Object *pOuter, const char *pkg_name, int player_number)
+    : HudElement(pkg_name, 0x400000), IMenuZoneTrigger(pOuter), mZoneType(nullptr), mpRaceActivity(nullptr), mbShowingForAutoSave(false),
+      mbInsideTrigger(false) {
+    RegisterGroup(FEHashUpper("Engage_Mechanic"));
+    mEventIcon = RegisterImage(FEHashUpper("EventIcon"));
+}
+
+void MenuZoneTrigger::Update(IPlayer *player) {}
+
+bool MenuZoneTrigger::ShouldSeeMenuZoneCluster() {
+    return GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming || MemoryCard::GetInstance()->IsAutoSaving();
+}
+
+bool MenuZoneTrigger::IsPlayerInsideTrigger() {
+    return FEngIsScriptSet(reinterpret_cast<FEObject *>(mEventIcon), FEHASH_BLINK);
+}
+
+void MenuZoneTrigger::EnterTriggerForAutoSave() {
+    mbShowingForAutoSave = true;
+    if (mbInsideTrigger) {
+        PulseDPadButton(ENGAGE_DPAD_ELEMENT_UP, false);
+    } else {
+        FEngSetScript(reinterpret_cast<FEObject *>(mEventIcon), FEHASH_BLINK, true);
+    }
+}
+
+void MenuZoneTrigger::ExitTriggerForAutoSave() {
+    mbShowingForAutoSave = false;
+    if (mbInsideTrigger) {
+        PulseDPadButton(ENGAGE_DPAD_ELEMENT_UP, true);
+    } else {
+        FEngSetScript(reinterpret_cast<FEObject *>(mEventIcon), FEHASH_LEAVE, true);
+    }
+}
+
+void MenuZoneTrigger::EnterTrigger(GRuntimeInstance *pRaceActivity) {
+    mbInsideTrigger = true;
+    mpRaceActivity = pRaceActivity;
+
+    if (!mbShowingForAutoSave) {
+        PulseDPadButton(ENGAGE_DPAD_ELEMENT_UP, true);
+        FEngSetScript(reinterpret_cast<FEObject *>(mEventIcon), FEHASH_BLINK, true);
+    }
+
+    GRaceParameters *race = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(mpRaceActivity));
+    FEngSetTextureHash(mEventIcon, FEDatabase->GetRaceIconHash(race->GetRaceType()));
+}
+
+void MenuZoneTrigger::EnterTrigger(const char *zoneType) {
+    mbInsideTrigger = true;
+    mZoneType = zoneType;
+
+    if (!mbShowingForAutoSave) {
+        PulseDPadButton(ENGAGE_DPAD_ELEMENT_UP, true);
+        FEngSetScript(reinterpret_cast<FEObject *>(mEventIcon), FEHASH_BLINK, true);
+    }
+
+    FEngSetTextureHash(mEventIcon, FEDatabase->GetSafehouseIconHash(zoneType));
+}
+
+void MenuZoneTrigger::ExitTrigger() {
+    mbInsideTrigger = false;
+    mZoneType = 0;
+    mpRaceActivity = 0;
+
+    if (!mbShowingForAutoSave) {
+        PulseDPadButton(ENGAGE_DPAD_ELEMENT_UP, false);
+        FEngSetScript(reinterpret_cast<FEObject *>(mEventIcon), FEHASH_LEAVE, true);
+    }
+}
+#else
 MenuZoneTrigger::MenuZoneTrigger(UTL::COM::Object *pOuter, const char *pkg_name, int player_number)
     : HudElement(pkg_name, 0x400000), IMenuZoneTrigger(pOuter) {
     mZoneType = nullptr;
@@ -79,12 +154,13 @@ void MenuZoneTrigger::ExitTrigger() {
 
     HideDPadButton();
 }
+#endif
 
 void MenuZoneTrigger::RequestEventInfoDialog(int port) {
     if (mpRaceActivity != nullptr) {
-        GRaceParameters *race = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(mpRaceActivity));
+        GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(reinterpret_cast<GActivity *>(mpRaceActivity));
 
-        if (race != nullptr && race->GetIsBossRace()) {
+        if (parms != nullptr && parms->GetIsBossRace()) {
             new ERaceSheetOn(3);
         } else {
             new ERequestEventInfoDialog(port, mpRaceActivity);
@@ -108,14 +184,62 @@ void MenuZoneTrigger::RequestDoAction() {
     } else if (bStrCmp(mZoneType, "carlot") == 0) {
         new EQuitToFE(GARAGETYPE_CAR_LOT, "Car_Select.fng");
     } else if (bStrCmp(mZoneType, "customshop") == 0) {
+#ifdef EA_BUILD_A124
+        // La A124 le busca un bloque de personalizacion libre al coche que aun no tiene.
+        FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+        FECarRecord *record = stable->GetCarRecordByHandle(FEDatabase->GetCareerSettings()->GetCurrentCar());
+        if (record->IsCustomized()) {
+            BeginCarCustomize(CEP_GAMEPLAY, record);
+            new EQuitToFE(GARAGETYPE_CUSTOMIZATION_SHOP, "CustomizeMain.fng");
+        } else {
+            FECustomizationRecord *custom = nullptr;
+            for (int i = 0; i < MAX_CUSTOMIZE_BLOCKS; i++) {
+                custom = stable->GetCustomizationRecordByHandle(i);
+                if (custom->Handle == 0xFF) {
+                    custom->Handle = i;
+                    break;
+                }
+            }
+            record->Customization = custom->Handle;
+            BeginCarCustomize(CEP_GAMEPLAY, record);
+            new EQuitToFE(GARAGETYPE_CUSTOMIZATION_SHOP, "CustomizeMain.fng");
+        }
+#else
         FECarRecord *record = FEDatabase->GetPlayerCarStable(0)->GetCarRecordByHandle(FEDatabase->GetCareerSettings()->GetCurrentCar());
         if (record->IsCustomized()) {
             BeginCarCustomize(CEP_GAMEPLAY, record);
             new EQuitToFE(GARAGETYPE_CUSTOMIZATION_SHOP, "CustomizeMain.fng");
         }
+#endif
     }
 }
 
+#ifdef EA_BUILD_A124
+void MenuZoneTrigger::PulseDPadButton(ENGAGE_DPAD_ELEMENT_DIRECTION direction, bool enable) {
+    unsigned int objectHash = 0;
+    switch (direction) {
+    case ENGAGE_DPAD_ELEMENT_UP:
+        objectHash = 0x0A729B1B;
+        break;
+    case ENGAGE_DPAD_ELEMENT_DOWN:
+        objectHash = 0x717C82AE;
+        break;
+    case ENGAGE_DPAD_ELEMENT_RIGHT:
+        objectHash = 0xA206A0B4;
+        break;
+    case ENGAGE_DPAD_ELEMENT_LEFT:
+        objectHash = 0x7180B901;
+        break;
+    }
+
+    if (enable) {
+        FEngSetScript(GetPackageName(), objectHash, FEHASH_APPEAR, true);
+        g_pEAXSound->PlayUISoundFX(UISND_ENTER_TRIGGER);
+    } else {
+        FEngSetScript(GetPackageName(), objectHash, FEHASH_LEAVE, true);
+    }
+}
+#else
 void MenuZoneTrigger::HideDPadButton() {
     FEObject *objectPtr;
 
@@ -190,3 +314,4 @@ void MenuZoneTrigger::PulseDPadButton(ENGAGE_DPAD_ELEMENT_DIRECTION direction, F
         g_pEAXSound->PlayUISoundFX(UISND_ENTER_TRIGGER);
     }
 }
+#endif

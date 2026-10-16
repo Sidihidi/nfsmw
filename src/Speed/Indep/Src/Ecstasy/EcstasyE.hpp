@@ -20,6 +20,7 @@ void SetParticleSystemStats(int num_particles, int max_num_particles, int num_pa
                             int max_num_emitters, int num_groups, int max_num_groups);
 void eWaitUntilRenderingDone();
 void eDisplayFrame();
+void eForceBackgroundColour(unsigned char r, unsigned char g, unsigned char b, float time, const char *reason);
 void eSetScissor(int xOrig, int yOrig, int wd, int ht);
 int eClampTopLeft(bool bOnOff, int nUnused);
 

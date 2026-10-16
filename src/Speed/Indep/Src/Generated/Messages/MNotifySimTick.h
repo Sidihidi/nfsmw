@@ -26,8 +26,6 @@ class MNotifySimTick : public Hermes::Message {
 
     MNotifySimTick(float _SimTime, float _TimeStep) : Hermes::Message(_GetKind(), _GetSize(), 0), fSimTime(_SimTime), fTimeStep(_TimeStep) {}
 
-    ~MNotifySimTick() {}
-
     float GetSimTime() const {
         return fSimTime;
     }
@@ -54,9 +52,9 @@ class MNotifySimTick : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifySimTick::HandleMessage_LuaBinding(const MNotifySimTick &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifySimTick::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

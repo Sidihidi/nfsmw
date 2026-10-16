@@ -3,6 +3,8 @@
 
 extern int OnlineIsServer;
 
+IntQuantizer Online::m_driverNumberQuantizer;
+
 void Online::Init() {
     m_driverNumberQuantizer.Init("m_driverNumberQuantizer", 0, 3);
     if (OnlineIsServer) {

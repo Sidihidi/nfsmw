@@ -61,9 +61,9 @@ class FnDeltaSingleQ : public FnAnimMemoryMap {
     int mBinSize;                     // offset 0x18, size 0x4
     int mPrevKey;                     // offset 0x1C, size 0x4
     void *mPrevQBlock;                // offset 0x20, size 0x4
-    UMath::Vector4 *mPrevQs;          // offset 0x24, size 0x4
-    UMath::Vector4 *mPreMultQs;       // offset 0x28, size 0x4
-    UMath::Vector4 *mPostMultQs;      // offset 0x2C, size 0x4
+    COORD4 *mPrevQs;                  // offset 0x24, size 0x4
+    COORD4 *mPreMultQs;               // offset 0x28, size 0x4
+    COORD4 *mPostMultQs;              // offset 0x2C, size 0x4
 };
 }; // namespace EAGL4Anim
 

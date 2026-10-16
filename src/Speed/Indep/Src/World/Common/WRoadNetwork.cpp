@@ -55,72 +55,71 @@ static const int selectable_lanes[8] = {
 BIND_SIM_SUBSYSTEM(WRoadNetwork, WRoadNetwork::Init, WRoadNetwork::Shutdown);
 
 void WRoadNetwork::Init() {
-    if (fgRoadNetwork != nullptr) {
-        return;
-    }
-    fgRoadNetwork = new WRoadNetwork();
-    fgRoadNetwork->MakeDebugable(DBG_WROADNETWORK);
-    fValid = false;
-    fValidRaceFilter = false;
-    fValidTrafficRoads = true;
+    if (fgRoadNetwork == nullptr) {
+        fgRoadNetwork = new WRoadNetwork();
+        fgRoadNetwork->MakeDebugable(DBG_WROADNETWORK);
+        fValid = false;
+        fValidRaceFilter = false;
+        fValidTrafficRoads = true;
 
-    fNumNodes = fNumSegments = fNumIntersections = fNumRoads = 0;
-    nRoadMemoryUsage = nNodeMemoryUsage = nProfileMemoryUsage = nSegmentMemoryUsage = nIntersectionMemoryUsage =
-        nTotalMemoryUsage = 0;
+        fNumNodes = fNumSegments = fNumIntersections = fNumRoads = 0;
+        nRoadMemoryUsage = nNodeMemoryUsage = nProfileMemoryUsage = nSegmentMemoryUsage = nIntersectionMemoryUsage =
+            nTotalMemoryUsage = 0;
 
-    if (WWorld::Get().GetMapGroup()) {
-        const UGroup *networkGroup = WWorld::Get().GetMapGroup()->GroupLocate(MAKE_UDATA_TYPE('RN'), 'gp');
-        if (networkGroup != WWorld::Get().GetMapGroup()->GroupEnd()) {
-            const UData *headerData = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'hd');
-            const WRoadNetworkInfo *roadInfo = static_cast<const WRoadNetworkInfo *>(headerData->GetDataConst());
+        if (WWorld::Get().GetMapGroup()) {
+            const UGroup *networkGroup = WWorld::Get().GetMapGroup()->GroupLocate(MAKE_UDATA_TYPE('RN'), 'gp');
+            if (networkGroup != WWorld::Get().GetMapGroup()->GroupEnd()) {
+                const UData *headerData = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'hd');
+                const WRoadNetworkInfo *roadInfo = static_cast<const WRoadNetworkInfo *>(headerData->GetDataConst());
 
-            fNumProfiles = roadInfo->fNumProfiles;
-            fNumNodes = roadInfo->fNumNodes;
-            fNumSegments = roadInfo->fNumSegments;
-            fNumIntersections = roadInfo->fNumIntersections;
-            fNumRoads = roadInfo->fNumRoads;
-            nRoadMemoryUsage = fNumRoads * sizeof(WRoad);
-            nNodeMemoryUsage = fNumNodes * sizeof(WRoadNode);
-            nProfileMemoryUsage = fNumProfiles * sizeof(WRoadProfile);
-            nSegmentMemoryUsage = fNumSegments * sizeof(WRoadSegment);
-            nIntersectionMemoryUsage = fNumIntersections * sizeof(WRoadIntersection);
-            nTotalMemoryUsage = nRoadMemoryUsage + nNodeMemoryUsage + nProfileMemoryUsage + nSegmentMemoryUsage + nIntersectionMemoryUsage;
+                fNumProfiles = roadInfo->fNumProfiles;
+                fNumNodes = roadInfo->fNumNodes;
+                fNumSegments = roadInfo->fNumSegments;
+                fNumIntersections = roadInfo->fNumIntersections;
+                fNumRoads = roadInfo->fNumRoads;
+                nRoadMemoryUsage = fNumRoads * sizeof(WRoad);
+                nNodeMemoryUsage = fNumNodes * sizeof(WRoadNode);
+                nProfileMemoryUsage = fNumProfiles * sizeof(WRoadProfile);
+                nSegmentMemoryUsage = fNumSegments * sizeof(WRoadSegment);
+                nIntersectionMemoryUsage = fNumIntersections * sizeof(WRoadIntersection);
+                nTotalMemoryUsage = nRoadMemoryUsage + nNodeMemoryUsage + nProfileMemoryUsage + nSegmentMemoryUsage + nIntersectionMemoryUsage;
 
-            if (fNumNodes == 0) {
-                fValid = false;
-                return;
+                if (fNumNodes <= 0) {
+                    fValid = false;
+                    return;
+                }
+
+                const UData *data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'pf');
+                void *nonConstData = const_cast<void *>(data->GetDataConst());
+                if (data != networkGroup->DataEnd()) {
+                    fProfiles = static_cast<WRoadProfile *>(nonConstData);
+                }
+
+                data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'nd');
+                nonConstData = const_cast<void *>(data->GetDataConst());
+                if (data != networkGroup->DataEnd()) {
+                    fNodes = static_cast<WRoadNode *>(nonConstData);
+                }
+
+                data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'sg');
+                nonConstData = const_cast<void *>(data->GetDataConst());
+                if (data != networkGroup->DataEnd()) {
+                    fSegments = static_cast<WRoadSegment *>(nonConstData);
+                }
+
+                data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'rd');
+                nonConstData = const_cast<void *>(data->GetDataConst());
+                if (data != networkGroup->DataEnd()) {
+                    fRoads = static_cast<WRoad *>(nonConstData);
+                }
+
+                fValid = true;
             }
-
-            const UData *data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'pf');
-            void *nonConstData = const_cast<void *>(data->GetDataConst());
-            if (data != networkGroup->DataEnd()) {
-                fProfiles = static_cast<WRoadProfile *>(nonConstData);
-            }
-
-            data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'nd');
-            nonConstData = const_cast<void *>(data->GetDataConst());
-            if (data != networkGroup->DataEnd()) {
-                fNodes = static_cast<WRoadNode *>(nonConstData);
-            }
-
-            data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'sg');
-            nonConstData = const_cast<void *>(data->GetDataConst());
-            if (data != networkGroup->DataEnd()) {
-                fSegments = static_cast<WRoadSegment *>(nonConstData);
-            }
-
-            data = networkGroup->DataLocate(MAKE_UDATA_TYPE('RN'), 'rd');
-            nonConstData = const_cast<void *>(data->GetDataConst());
-            if (data != networkGroup->DataEnd()) {
-                fRoads = static_cast<WRoad *>(nonConstData);
-            }
-
-            fValid = true;
         }
+        fgRoadNetwork->ResolveBarriers();
+        fgRoadNetwork->ResolveShortcuts();
+        fgRoadNetwork->ResetRaceSegments();
     }
-    fgRoadNetwork->ResolveBarriers();
-    fgRoadNetwork->ResolveShortcuts();
-    fgRoadNetwork->ResetRaceSegments();
 }
 
 void WRoadNetwork::Shutdown() {
@@ -141,7 +140,7 @@ bool WRoadNetwork::SegmentCrossesBarrier(WRoadSegment *segment, TrackPathBarrier
     bVector2 points[2];
 
     BuildSegmentSpline(*segment, spline);
-    int num_pieces = bMax(static_cast<int>(bCeil(segment->GetLength() * 0.1f)), 4);
+    int num_pieces = bMax(bFloatToInt(bCeil(segment->GetLength() * 0.1f)), 4);
     float inc = 1.0f / static_cast<float>(num_pieces);
 
     for (int i = 0; i <= num_pieces; i++) {
@@ -236,7 +235,11 @@ void WRoadNetwork::ResolveShortcuts() {
             int num_shortcuts = race_parameters->GetNumShortcuts();
             for (int i = 0; i < num_shortcuts; i++) {
                 GMarker *shortcut = race_parameters->GetShortcut(i);
-                if (shortcut) {
+                // La A124 no comprueba el marcador (SLUS y GameCube si).
+#ifndef EA_BUILD_A124
+                if (shortcut)
+#endif
+                {
                     nav.InitAtPoint(shortcut->GetPosition(), shortcut->GetDirection(), true, dir_weight);
                     if (nav.IsValid()) {
                         WRoad *road = Get().GetRoadNonConst(nav.GetRoadInd());
@@ -275,6 +278,28 @@ void WRoadNetwork::ResolveBarriers() {
         exempted_roads[i] = -1;
     }
 
+#ifdef EA_BUILD_A124
+    // La A124 solo mira las exenciones de la carrera (sin el parche de posicion fija) y crea el WRoadNav si hay alguna
+    // (WRoadNetwork.cpp:689-711 de la A124).
+    if (GRaceStatus::Exists()) {
+        GRaceParameters *race_parameters = GRaceStatus::Get().GetRaceParameters();
+        if (race_parameters) {
+            num_exemptions = race_parameters->GetNumBarrierExemptions();
+            if (num_exemptions > 0) {
+                WRoadNav nav;
+                nav.SetDecisionFilter(true);
+                nav.SetNavType(WRoadNav::kTypeDirection);
+                for (int i = 0; i < num_exemptions; i++) {
+                    GMarker *exemption = race_parameters->GetBarrierExemption(i);
+                    nav.InitAtPoint(exemption->GetPosition(), exemption->GetDirection(), true, 1.0f);
+                    if (nav.IsValid()) {
+                        exempted_roads[i] = nav.GetRoadInd();
+                    }
+                }
+            }
+        }
+    }
+#else
     if (GRaceStatus::Exists()) {
         WRoadNav nav;
         const float dir_weight = 1.0f;
@@ -304,6 +329,7 @@ void WRoadNetwork::ResolveBarriers() {
             }
         }
     }
+#endif
 
     WGrid &grid = WGrid::Get();
     WRoadNetwork &roadNetwork = WRoadNetwork::Get();
@@ -414,9 +440,9 @@ int WRoadNetwork::GetSegmentTrafficLaneInd(const WRoadSegment &segment, int lane
 int WRoadNetwork::GetSegmentNumTrafficLanes(const WRoadSegment &segment) {
     WRoadNetwork &roadNetwork = Get();
     const WRoadProfile *profilePtr[2];
-    int numTrafficLanes[2] = {0};
-
     roadNetwork.GetSegmentProfiles(segment, profilePtr);
+
+    int numTrafficLanes[2] = {0};
     for (int i = 0; i < profilePtr[0]->fNumZones; i++) {
         if (profilePtr[0]->GetLaneType(i, false) == WRoadNav::kLaneTraffic) {
             numTrafficLanes[0]++;
@@ -427,7 +453,13 @@ int WRoadNetwork::GetSegmentNumTrafficLanes(const WRoadSegment &segment) {
             numTrafficLanes[1]++;
         }
     }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    // La A124 y SLUS evaluan [0] primero (cargas en ese orden).
+    return UMath::Max(numTrafficLanes[0], numTrafficLanes[1]);
+#else
     return UMath::Max(numTrafficLanes[1], numTrafficLanes[0]);
+#endif
+
 }
 
 void WRoadNetwork::GetSegmentForwardVector(int segInd, UMath::Vector3 &forwardVector) {
@@ -579,7 +611,6 @@ void WRoadNetwork::GetSegmentCurveStep(const UMath::Vector3 &start, const UMath:
 }
 
 WRoadNav::WRoadNav() {
-    fOccludingTrailSpeed = 0.0f;
     pAIVehicle = nullptr;
     bRaceFilter = false;
     bTrafficFilter = false;
@@ -591,6 +622,7 @@ WRoadNav::WRoadNav() {
     nRoadOcclusion = 0;
     nAvoidableOcclusion = 0;
     bOccludedFromBehind = false;
+    fOccludingTrailSpeed = 0.0f;
     Reset();
 }
 
@@ -614,7 +646,13 @@ void WRoadNav::SetCookieTrail(CookieTrail<NavCookie, 32> *p_cookies) {
 
 void WRoadNav::SetCookieTrail(bool b) {
     if (b && !pCookieTrail) {
-        pCookieTrail = new ("WRoadNav CookieTrail", 0) CookieTrail<NavCookie, 32>();
+#ifdef EA_PLATFORM_XENON
+        // X360 reserva con bMalloc (4 args) dentro del placement; el resto usa ::new con texto (operator new de 3 args).
+        pCookieTrail = ::new (static_cast<CookieTrail<NavCookie, 32> *>(bMalloc(sizeof(CookieTrail<NavCookie, 32>), "WRoadNav CookieTrail", 0, 0)))
+#else
+        pCookieTrail = new ("WRoadNav CookieTrail", 0)
+#endif
+            CookieTrail<NavCookie, 32>();
     }
     bCookieTrail = b;
 }
@@ -1001,9 +1039,12 @@ float WRoadNav::SnapToSelectableLane(float input_offset, int segment_no, char no
 }
 
 void WRoadNav::Reverse() {
+    // La A124 da la vuelta siempre; las de tienda no se la dan a los corredores que van en su sentido.
+#ifndef EA_BUILD_A124
     if (GetRaceFilter() && !IsWrongWay() && (fPathType == kPathRacer || fPathType == kPathPlayer)) {
         return;
     }
+#endif
     fNodeInd = fNodeInd ^ 1;
     fSegTime = 1.0f - fSegTime;
 
@@ -1517,7 +1558,7 @@ void WRoadNav::PrivateIncNavPosition(float dist, const UMath::Vector3 &to) {
                 }
             }
 
-            fSegmentInd = static_cast<short>(newSegInd);
+            fSegmentInd = newSegInd;
             newSegment = roadNetwork.GetSegment(GetSegmentInd());
 
             if (useOldStartPos) {
@@ -2388,7 +2429,7 @@ float WRoadNav::FindClosestOnSpline(const UMath::Vector3 &point, UMath::Vector3 
     {
         float newTimeStep = timeStep + timeStepInc;
         if (newTimeStep > 0.0f && newTimeStep < 1.0f) {
-            while (true) {
+            do {
                 roadNetwork.GetPointOnSegment(*segment, newTimeStep, newIntersectPoint);
 
                 float distToNewIntersect = UMath::Distance(newIntersectPoint, point);
@@ -2400,10 +2441,7 @@ float WRoadNav::FindClosestOnSpline(const UMath::Vector3 &point, UMath::Vector3 
                 timeStep = newTimeStep;
                 newTimeStep += timeStepInc;
                 currDistance = distToNewIntersect;
-
-                if (newTimeStep <= 0.0f || newTimeStep >= 1.0f)
-                    break;
-            }
+            } while (newTimeStep > 0.0f && newTimeStep < 1.0f);
         }
     }
 
@@ -2521,11 +2559,11 @@ int WRoadNav::FindClosestSegmentInd(const UMath::Vector3 &point, const UMath::Ve
         }
 
         if (!found || currScore < foundScore) {
-            found = true;
+            segInd = index;
+            foundScore = currScore;
             closestPoint = intersectPoint;
             time = timeStep;
-            foundScore = currScore;
-            segInd = index;
+            found = true;
         }
     }
 
@@ -2828,7 +2866,7 @@ bool WRoadNav::FindClosestOnPath(const UMath::Vector3 &position, UMath::Vector3 
 
             unsigned short next_segment =
                 found_segment_index < nPathSegments - 1 ? pPathSegments[found_segment_index + 1] : static_cast<unsigned short>(-1);
-            unsigned short prev_segment = found_segment_index >= 1 ? pPathSegments[found_segment_index - 1] : static_cast<unsigned short>(-1);
+            unsigned short prev_segment = found_segment_index > 0 ? pPathSegments[found_segment_index - 1] : static_cast<unsigned short>(-1);
 
             USpline roadSpline;
             roadNetwork.BuildSegmentSpline(*this_segment, roadSpline);
@@ -3051,6 +3089,11 @@ void WRoadNav::ChangeLanes(float new_lane_offset, float dist) {
             SetLaneOffset(new_lane_offset);
             fLaneChangeDist = 0.0f;
             const WRoadSegment *segment = WRoadNetwork::Get().GetSegment(fSegmentInd);
+#ifdef EA_BUILD_A124
+            // La A124 no trata aparte los segmentos de decision
+            SetStartEndPos(*segment, new_lane_offset, new_lane_offset);
+            SetStartEndControls(*segment);
+#else
             if (segment->IsDecision() && fLaneType != kLaneStartingGrid) {
                 SetBoundPos(*segment, new_lane_offset, false);
                 SetControlPos(*segment, false);
@@ -3058,6 +3101,7 @@ void WRoadNav::ChangeLanes(float new_lane_offset, float dist) {
                 SetStartEndPos(*segment, new_lane_offset, new_lane_offset);
                 SetStartEndControls(*segment);
             }
+#endif
             RebuildSplines(segment);
             EvaluateSplines(segment);
         }
@@ -3415,7 +3459,12 @@ bool WRoadNav::FindPathNow(const UMath::Vector3 *goal_position, const UMath::Vec
     if (ret) {
         PathFinder::Get()->ServiceAll();
     }
+    // La A124 no mira si el camino tiene segmentos.
+#ifdef EA_BUILD_A124
+    return ret;
+#else
     return ret && nPathSegments > 0;
+#endif
 }
 
 bool WRoadNav::FindingPath() {
@@ -3498,7 +3547,8 @@ bool WRoadNav::CanTrafficSpawn() {
     return IsValid();
 }
 
-// UNSOLVED
+// El bloque de nAvoidableOcclusion no existe en la A124 (su mapa de lineas salta de la 5716 a la 5718); el ratio es
+// un Ramp sobre la velocidad de seguimiento (el rango del inline Ramp del DWARF cubre la comparacion con Epsilon).
 float WRoadNav::CookieTrailCurvature(const UMath::Vector3 &car_position, const UMath::Vector3 &car_velocity) {
     if (pCookieTrail != nullptr) {
         float road_curvature = 0.0f;
@@ -3519,7 +3569,8 @@ float WRoadNav::CookieTrailCurvature(const UMath::Vector3 &car_position, const U
                 int apex_cookie_index = ClosestCookieAhead(apex_position, nullptr);
                 if (dist_to_apex > 1.0f && apex_cookie_index >= 0) {
                     const NavCookie &apex_cookie = pCookieTrail->NthOldest(apex_cookie_index);
-                    float apex_width = UMath::Max(dist_to_apex, bAbs(apex_cookie.RightOffset - apex_cookie.LeftOffset));
+                    float apex_width = bAbs(apex_cookie.RightOffset - apex_cookie.LeftOffset);
+                    dist_to_apex = UMath::Max(dist_to_apex, apex_width);
 
                     UMath::Vector3 apex_to_nav;
                     UMath::Sub(nav_position, apex_position, apex_to_nav);
@@ -3533,20 +3584,17 @@ float WRoadNav::CookieTrailCurvature(const UMath::Vector3 &car_position, const U
                         apex = static_cast<float>(M_PI) - apex;
                     }
 
-                    dist_to_apex = UMath::Max(apex_width, 1.0f);
+                    dist_to_apex = UMath::Max(dist_to_apex, 1.0f);
                     apex = apex * UMath::Sinr(UMath::Min(apex, static_cast<float>(M_PI_2)));
 
+#ifndef EA_BUILD_A124
                     if (nAvoidableOcclusion != 0) {
                         float my_trailingspeed = UMath::Dot(car_velocity, current_to_apex);
                         float closing_speed = (my_trailingspeed - fOccludingTrailSpeed);
-                        float ratio;
-                        if (my_trailingspeed > 1e-6f) {
-                            ratio = UMath::Ramp(closing_speed / my_trailingspeed, 0.0f, 1.0f);
-                        } else {
-                            ratio = 0.0f;
-                        }
+                        float ratio = UMath::Ramp(closing_speed, 0.0f, my_trailingspeed);
                         apex *= ratio * ratio;
                     }
+#endif
 
                     apex = UMath::Clamp(apex, 0.0f, static_cast<float>(M_PI)) / dist_to_apex;
                 }

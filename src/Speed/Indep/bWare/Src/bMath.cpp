@@ -25,10 +25,16 @@ void bEndianSwap32(void *value) {
 
 void bEndianSwap16(void *value) {
     uint16 temp = *reinterpret_cast<uint16 *>(value);
+#ifdef NATIVE_ENDIAN_BIG
     *reinterpret_cast<uint8 *>(value) = temp;
     *(reinterpret_cast<uint8 *>(value) + 1) = temp >> 8;
+#else
+    *(reinterpret_cast<uint8 *>(value) + 1) = temp;
+    *reinterpret_cast<uint8 *>(value) = temp >> 8;
+#endif
 }
 
+#ifdef NATIVE_ENDIAN_BIG
 void bPlatEndianSwap(bVector2 *value) {
     bPlatEndianSwap(&value->x);
     bPlatEndianSwap(&value->y);
@@ -53,6 +59,7 @@ void bPlatEndianSwap(bMatrix4 *value) {
     bPlatEndianSwap(&value->v2);
     bPlatEndianSwap(&value->v3);
 }
+#endif
 
 // STRIPPED
 bFix bInverse(bFix a) {}
@@ -84,11 +91,11 @@ unsigned int bRandom(int range, unsigned int *seed) {
     if (range == 0) {
         return 0;
     }
-    unsigned int result = *seed;
-    unsigned int next = result ^ 0x1d872b41;
+    unsigned int result = *seed % range;
+    unsigned int next = *seed ^ 0x1d872b41;
     unsigned int temp = next ^ (next >> 5);
     *seed = temp ^ (next ^ (temp << 0x1b));
-    return result - (result / range) * range;
+    return result;
 }
 
 float bRandom(float range, unsigned int *seed) {
@@ -296,7 +303,7 @@ bAngle bASin(float x) {
     bFix table_spacing = table_number * 16 + table_index;                        // r8
     bAngle table_a = bASinTable[table_spacing].Angle;
     float slope = bASinTable[table_spacing].Slope; // f11
-    bAngle a = table_a + static_cast<int>(remainder_x * slope * 65536.0f);
+    bAngle a = table_a + bFloatToInt(remainder_x * slope * 65536.0f);
 
     if (negative) {
         return 0x10000 - a;
@@ -326,14 +333,14 @@ bAngle bATan(float x, float y) {
     bAngle a;
     if (x > y) {
         float r = y;
-        int i = static_cast<int>((r / x) * 65536.0f);
+        int i = bFloatToInt((r / x) * 65536.0f);
         const bAngle *table = &bFastATanTable[i >> 8];
         a = table[0];
         a = a + (((table[1] - table[0]) * (i & 0xFF)) >> 8);
     } else {
         if (y > x) {
             float r = y;
-            int i = static_cast<int>((x / r) * 65536.0f);
+            int i = bFloatToInt((x / r) * 65536.0f);
             const bAngle *table = &bFastATanTable[i >> 8];
             a = table[0];
             a = a + (((table[1] - table[0]) * (i & 0xFF)) >> 8);

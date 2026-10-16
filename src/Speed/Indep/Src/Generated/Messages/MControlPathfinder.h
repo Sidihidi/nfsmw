@@ -27,8 +27,6 @@ class MControlPathfinder : public Hermes::Message {
     MControlPathfinder(bool _Licenced, unsigned int _PathEvent, unsigned int _PathControl, unsigned int _PartID)
         : Hermes::Message(_GetKind(), _GetSize(), 0), fLicenced(_Licenced), fPathEvent(_PathEvent), fPathControl(_PathControl), fPartID(_PartID) {}
 
-    ~MControlPathfinder() {}
-
     bool GetLicenced() const {
         return fLicenced;
     }
@@ -73,9 +71,9 @@ class MControlPathfinder : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MControlPathfinder::HandleMessage_LuaBinding(const MControlPathfinder &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MControlPathfinder::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

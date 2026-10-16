@@ -45,6 +45,28 @@ void SNDSYSI_variabletimerservice() {
     }
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// El reloj del driver de PS2 (sdriver.c lo llama con 94): pone audiotick al dia llamando al servidor de 100 Hz. En
+// GameCube no existe (su DWARF salta de SNDSYSI_variabletimerservice a SNDSYSI_100hzserver con las mismas lineas).
+void SNDSYSI_timerservice(int timerhertz) {
+    if (sndgs.installed) {
+        if (timerhertz != sndgs.currenttimerhz) {
+            sndgs.currenttimerhz = timerhertz;
+            sndgs.audiotick = 0;
+            sndgs.servertick = 0;
+        }
+        sndgs.servertick++;
+        {
+            unsigned int target = sndgs.servertick * 100 / timerhertz;
+
+            while (sndgs.audiotick <= target) {
+                SNDSYSI_100hzserver();
+            }
+        }
+    }
+}
+#endif
+
 void iSNDserve();
 
 void SNDSYSI_100hzserver() {

@@ -64,7 +64,7 @@ class AICopManager : public Sim::Activity, public AISpawnManager, public ICopMgr
     IVehicle *GetAvailableCopVehicleByName(const char *name);
     IVehicle *GetActiveCopVehicleFromOutOfView(UCrc32 vehicleClass);
 
-  public:
+  private:
     IPursuit *GetPursuitActivity(ISimable *itargetSimable);
     bool TrySpawnCop(const SpawnCopRequest &request);
     void UpdateSpawnRequests();
@@ -79,7 +79,7 @@ class AICopManager : public Sim::Activity, public AISpawnManager, public ICopMgr
     bool GetSpawnPositionAheadOfTarget(IPursuit *ip, UMath::Vector3 &pos, UMath::Vector3 &forward, float distAhead);
     bool SpawnPursuitCar(IPursuit *ipursuit);
 
-  public:
+  private:
     bool SpawnPursuitIVehicle(IPursuit *ipursuit, IVehicle *availableCopCar);
     bool SpawnPursuitCarByName(IPursuit *ipursuit, const char *name);
 
@@ -87,14 +87,14 @@ class AICopManager : public Sim::Activity, public AISpawnManager, public ICopMgr
     void SpawnVehicleBehindTarget(IPursuit *ipursuit, IVehicle *availableCopCar);
     bool SpawnCopCarNow(IPursuit *ipursuit);
 
-  public:
+  private:
     bool SpawnPursuitHelicopter(IPursuit *ipursuit);
     bool CreateRoadBlock(IPursuit *ipursuit, int cop_count, IVehicle *ivehicle_chopper, IVehicle::List *suvList);
 
   private:
     void RemoveActiveCopVehicle(IVehicle *ivehicle);
 
-  public:
+  private:
     void UpdatePatrols();
     bool GetHeavySupportVehicles(GroundSupportRequest *gsr);
     bool StartHeavySupport(IPursuit *ipursuit, GroundSupportRequest *gsr);
@@ -106,7 +106,7 @@ class AICopManager : public Sim::Activity, public AISpawnManager, public ICopMgr
     void UpdateRoadBlocks();
     void UpdateDebug();
     void UpdateCopPriorities(int numActiveCopCars);
-
+  public:
     // Virtual functions
     virtual void OnDebugDraw();
 
@@ -135,21 +135,26 @@ class AICopManager : public Sim::Activity, public AISpawnManager, public ICopMgr
 #endif
     void SpawnCop(UMath::Vector3 &InitialPos, UMath::Vector3 &InitialVec, const char *VehicleName, bool InPursuit, bool RoadBlock) override;
     bool IsCopSpawnPending() const override;
+#ifndef EA_BUILD_A124
     void SetAllBustedTimersToZero() override;
+#endif
     void PursuitIsEvaded(IPursuit *ipursuit) override;
     bool IsCopRequestPending() override;
     bool CanPursueRacers() override;
     bool IsPlayerPursuitActive() override;
     bool PlayerPursuitHasCop() const override;
     void PursueAtHeatLevel(int minHeatLevel) override;
+  private:
     void ResetCopsForRestart(bool release) override;
+  public:
     void LockoutCops(bool lockout) override;
     void NoNewPursuitsOrCops() override;
 
     // IAttachable
     void OnAttached(IAttachable *pOther) override;
+  protected:
     void OnDetached(IAttachable *pOther) override;
-
+  public:
     // ITaskable
     bool OnTask(HSIMTASK htask, float dT) override;
 

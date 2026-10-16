@@ -624,10 +624,10 @@ class FX_SHIFTING_01 {
     }
 
     void SetType(FXSHIFTING01TypeType x) {
-        if (x < FXSHIFTING01TYPETYPE_SHIFT) {
+        if (x < 0) {
             x = FXSHIFTING01TYPETYPE_SHIFT;
-        } else if (x > FXSHIFTING01TYPETYPE_ATTACK_) {
-            x = FXSHIFTING01TYPETYPE_ATTACK_;
+        } else if (x > 2) {
+            x = static_cast<FXSHIFTING01TypeType>(2);
         }
         this->mData.type = x;
     }
@@ -988,8 +988,8 @@ class FX_SKID {
     void SetHOP(int x) {
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > 0x3FF) {
+            x = 0x3FF;
         }
 
         this->mData.hOP = x;
@@ -1005,10 +1005,10 @@ class FX_SKID {
     }
 
     void SetOPPOS_Side(int x) {
-        if (x < -0x3FF) {
-            x = -0x3FF;
-        } else if (x > 0x3FF) {
-            x = 0x3FF;
+        if (x < 0) {
+            x = 0;
+        } else if (x > 0x400) {
+            x = 0x400;
         }
 
         this->mData.oPPOS_Side = x;
@@ -1357,6 +1357,11 @@ class FX_Weather {
     }
 
     void SetWidth(int x) {
+        if (x < -12000) {
+            x = -12000;
+        } else if (x > 19000) {
+            x = 19000;
+        }
         this->mData.width = x;
     }
 
@@ -1365,6 +1370,11 @@ class FX_Weather {
     }
 
     void SetPitch_Offset(int x) {
+        if (x < -0x3FFF) {
+            x = -0x3FFF;
+        } else if (x > 0x3FFF) {
+            x = 0x3FFF;
+        }
         this->mData.pitch_Offset = x;
     }
 
@@ -1373,6 +1383,11 @@ class FX_Weather {
     }
 
     void SetRain_on_off(int x) {
+        if (x < 0) {
+            x = 0;
+        } else if (x > 1) {
+            x = 1;
+        }
         this->mData.rain_on_off = x;
     }
 
@@ -1512,10 +1527,10 @@ class FX_Camera {
     }
 
     void SetWidth(int x) {
-        if (x < 0) {
-            x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        if (x < -11999) {
+            x = -11999;
+        } else if (x > 0x4000) {
+            x = 0x4000;
         }
         this->mData.width = x;
     }
@@ -1789,10 +1804,11 @@ class FX_Radar {
     }
 
     void SetVolume(int x) {
+        int max = 0x7FFF;
         if (x < 0) {
             x = 0;
-        } else if (x > 0x7FFF) {
-            x = 0x7FFF;
+        } else if (x > max) {
+            x = max;
         }
         this->mData.volume = x;
     }

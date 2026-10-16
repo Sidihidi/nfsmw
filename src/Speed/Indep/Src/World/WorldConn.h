@@ -2,17 +2,17 @@
 #define WORLDCONN_H
 
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "Speed/Indep/bWare/Inc/bList.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Libs/Support/Utility/UCrc.h"
-#include "Speed/Indep/Src/Ecstasy/EmitterSystem.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 #include "Speed/Indep/Src/Ecstasy/Ecstasy.hpp"
 #include "Speed/Indep/Src/Generated/AttribSys/Classes/effects.h"
 #include "Speed/Indep/Src/Sim/SimConn.h"
 #include "Speed/Indep/Src/Sim/SimServer.h"
-#include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
+#include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 #include "WorldTypes.h"
 
 #include <types.h>
@@ -115,9 +115,7 @@ class ALIGNVEC Pkt_Body_Open : public Sim::Packet {
 
     DECLARE_WORLDPACKET(Pkt_Body_Open, WorldBodyConn);
 
-    ~Pkt_Body_Open() override {}
-
-    PS2ALIGN16 UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
+    ALIGNVEC UMath::Matrix4 mMatrix;   // offset 0x4, size 0x40 (0x10 en X360: WorldBodyConn::WorldBodyConn)
     WUID mID;               // offset 0x44, size 0x4
 };
 
@@ -125,8 +123,6 @@ class ALIGNVEC Pkt_Body_Open : public Sim::Packet {
 class ALIGNVEC Pkt_Body_Service : public Sim::Packet {
   public:
     DECLARE_WORLDPACKET(Pkt_Body_Service, WorldBodyConn);
-
-    ~Pkt_Body_Service() override {}
 
     void SetMatrix(const UMath::Matrix4 &matrix) {
         mMatrix = matrix;
@@ -136,7 +132,7 @@ class ALIGNVEC Pkt_Body_Service : public Sim::Packet {
         mVelocity = velocity;
     }
 
-    PS2ALIGN16 UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
+    ALIGNVEC UMath::Matrix4 mMatrix;   // offset 0x4, size 0x40 (0x10 en X360: WorldBodyConn::WorldBodyConn)
     UMath::Vector3 mVelocity; // offset 0x44, size 0xC
 };
 
@@ -149,9 +145,7 @@ class ALIGNVEC Pkt_Body_Send : public Sim::Packet {
         : mMatrix(matrix), //
           mID(id) {}
 
-    ~Pkt_Body_Send() override {}
-
-    PS2ALIGN16 UMath::Matrix4 mMatrix; // offset 0x4, size 0x40
+    ALIGNVEC UMath::Matrix4 mMatrix;   // offset 0x4, size 0x40 (0x10 en X360: WorldBodyConn::WorldBodyConn)
     WUID mID;               // offset 0x44, size 0x4
 };
 
@@ -170,11 +164,9 @@ class ALIGNVEC Pkt_Effect_Send : public Sim::Packet {
           mContext(context),              //
           mActee(actee) {}
 
-    ~Pkt_Effect_Send() override {}
-
-    ALIGN_16 UMath::Vector3 mPosition;          // offset 0x4, size 0xC
+    ALIGNVEC UMath::Vector3 mPosition;          // offset 0x4, size 0xC
     WUID mOwner;                                // offset 0x10, size 0x4
-    ALIGN_16 UMath::Vector3 mMagnitude;         // offset 0x14, size 0xC
+    ALIGNVEC UMath::Vector3 mMagnitude;         // offset 0x14, size 0xC
     const Attrib::Collection *mEffectGroup;     // offset 0x20, size 0x4
     const Attrib::Collection *mOwnerAttributes; // offset 0x24, size 0x4
     const Attrib::Collection *mContext;         // offset 0x28, size 0x4
@@ -195,8 +187,6 @@ class ALIGNVEC Pkt_Effect_Open : public Sim::Packet {
           mContext(context),              //
           mActee(actee) {}
 
-    ~Pkt_Effect_Open() override {}
-
     const Attrib::Collection *mEffectGroup;     // offset 0x4, size 0x4
     WUID mOwner;                                // offset 0x8, size 0x4
     const Attrib::Collection *mOwnerAttributes; // offset 0xC, size 0x4
@@ -208,8 +198,6 @@ class ALIGNVEC Pkt_Effect_Open : public Sim::Packet {
 class ALIGNVEC Pkt_Effect_Service : public Sim::Packet {
   public:
     DECLARE_WORLDPACKET(Pkt_Effect_Service, WorldEffectConn);
-
-    ~Pkt_Effect_Service() override {}
 
     void SetPosition(const UMath::Vector3 &pos) {
         mPosition = pos;
@@ -223,9 +211,9 @@ class ALIGNVEC Pkt_Effect_Service : public Sim::Packet {
         mTracking = b;
     }
 
-    ALIGN_16 UMath::Vector3 mPosition;  // offset 0x4, size 0xC
+    ALIGNVEC UMath::Vector3 mPosition;  // offset 0x4, size 0xC
     bool mTracking;                     // offset 0x10, size 0x1
-    ALIGN_16 UMath::Vector3 mMagnitude; // offset 0x14, size 0xC
+    ALIGNVEC UMath::Vector3 mMagnitude; // offset 0x14, size 0xC
 };
 
 void InitServices();

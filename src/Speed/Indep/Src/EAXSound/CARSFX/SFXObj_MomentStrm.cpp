@@ -126,7 +126,7 @@ void SFXObj_MomentStrm::InitSFX() {
 }
 
 int SFXObj_MomentStrm::GetController(int Index) {
-#ifdef EA_BUILD_A124
+#ifdef EA_PLATFORM_PLAYSTATION2
     return Index == 0 ? 2 : -1;
 #else
     return Index != 0 ? -1 : 2;
@@ -349,6 +349,7 @@ void SFXObj_MomentStrm::UpdateParams(float t) {
             this->mCarsID = 0;
 #endif
         }
+#ifndef EA_BUILD_A124
 
         if (!this->UseUserPos) {
             EAX_CarState *pcar = GetClosestPlayerCar(&this->fPosition);
@@ -358,6 +359,7 @@ void SFXObj_MomentStrm::UpdateParams(float t) {
                 nismgr->GetStreamChannel()->PurgeStream();
             }
         }
+#endif
     }
 
     for (int num_play = 0; num_play < SndCamera::NumPlayers; ++num_play) {
@@ -366,8 +368,11 @@ void SFXObj_MomentStrm::UpdateParams(float t) {
                 float xdist = bAbs(SndCamera::GetWorldCarPos(num_play)->x - this->mMomentPositonsList[n].vPos.z);
                 float ydist = bAbs(SndCamera::GetWorldCarPos(num_play)->y + this->mMomentPositonsList[n].vPos.x);
 
-                if (xdist <= MOMENT_QUEUE_RADIUS && ydist <= MOMENT_QUEUE_RADIUS &&
-                    this->ShouldStreamPlay(this->mMomentPositonsList[n].key, true, xdist * xdist + ydist * ydist)) {
+                if (xdist > MOMENT_QUEUE_RADIUS || ydist > MOMENT_QUEUE_RADIUS) {
+                    continue;
+                }
+
+                if (this->ShouldStreamPlay(this->mMomentPositonsList[n].key, true, xdist * xdist + ydist * ydist)) {
                     this->CommitStreamReq(this->mMomentPositonsList[n].vPos, this->mMomentPositonsList[n].key);
                     this->bHoldStream = true;
                     this->mHeldMoment = &this->mMomentPositonsList[n];
@@ -412,16 +417,29 @@ void SFXObj_MomentStrm::ReceivePursuitBreaker(const MPursuitBreaker &message) {
             }
 #ifndef EA_BUILD_A124
         }
-#endif
 
         MMiscSound(3).Send(UCrc32("Snd"));
+#endif
     } else {
         if (this->m_CurMoment == Attrib::Hash::aud_moment_strm::key_purs_break_start_fx ||
             this->m_CurMoment == Attrib::Hash::aud_moment_strm::key_purs_break_start_music) {
             Speech::Manager::GetSpeechModule(0)->GetStreamChannel()->Stop();
+#ifdef EA_BUILD_A124
+            if (etype == eMUSIC_TYPE_INTERACTIVE) {
+                MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0,
+                                Attrib::Hash::aud_moment_strm::key_purs_break_end_music)
+                    .Send(UCrc32("MomentStrm"));
+            } else {
+                MGamePlayMoment(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0,
+                                Attrib::Hash::aud_moment_strm::key_purs_break_end_fx)
+                    .Send(UCrc32("MomentStrm"));
+            }
+#endif
         }
 
+#ifndef EA_BUILD_A124
         MMiscSound(4).Send(UCrc32("Snd"));
+#endif
     }
 }
 

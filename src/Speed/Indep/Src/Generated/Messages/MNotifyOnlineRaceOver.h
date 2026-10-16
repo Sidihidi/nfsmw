@@ -36,8 +36,6 @@ class MNotifyOnlineRaceOver : public Hermes::Message {
 #endif
     {}
 
-    ~MNotifyOnlineRaceOver() {}
-
 #ifndef EA_BUILD_A124
     bool GetShowPostRace() const {
         return fShowPostRace;
@@ -59,9 +57,9 @@ class MNotifyOnlineRaceOver : public Hermes::Message {
 #include "Speed/Indep/Src/Lua/LuaPostOffice.h"
 
 inline void MNotifyOnlineRaceOver::HandleMessage_LuaBinding(const MNotifyOnlineRaceOver &message) {
-    LuaMessageDeliveryInfo info(_GetKind(), &message, BuildMessageTable);
+    LuaMessageDeliveryInfo deliveryInfo(_GetKind(), &message, BuildMessageTable);
 
-    LuaPostOffice::Get().RouteMessage(&info);
+    LuaPostOffice::Get().RouteMessage(&deliveryInfo);
 }
 
 inline void MNotifyOnlineRaceOver::BuildMessageTable(lua_State *luaState, const Hermes::Message *messageBase) {

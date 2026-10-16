@@ -1,4 +1,6 @@
 #include "BuildRegion.hpp"
+#include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
+#include "Speed/Indep/Src/Frontend/Localization/Localize.hpp"
 
 namespace BuildRegion {
 
@@ -6,17 +8,100 @@ namespace BuildRegion {
 #define EA_REGION_EUROPE
 #endif
 
-// STRIPPED
+// STRIPPED en GameCube. En PC la region se decide al arrancar: GetBuildRegion esta en Platform_PC.cpp (speed.exe
+// 0x6CBB40) y las funciones de abajo la consultan (las ramas EA_PLATFORM_WIN32, 0x649F10-0x64A3E3).
 eBuildRegion GetBuildRegion();
 
 // STRIPPED
-const char *GetName() {}
+const char *GetName() {
+#ifdef EA_PLATFORM_WIN32
+    eBuildRegion region = GetBuildRegion();
+    if (region == BUILD_REGION_AMERICA) {
+        return "America";
+    }
+    if (region == BUILD_REGION_EU) {
+        return "Europe";
+    }
+    if (region == BUILD_REGION_UK) {
+        return "EuropeEng";
+    }
+    if (region == BUILD_REGION_FRANCE) {
+        return "EuropeFr";
+    }
+    if (region == BUILD_REGION_GERMANY) {
+        return "EuropeGer";
+    }
+    if (region == BUILD_REGION_ITALY) {
+        return "EuropeItal";
+    }
+    if (region == BUILD_REGION_SPAIN) {
+        return "EuropeSpan";
+    }
+    if (region == BUILD_REGION_KOREA) {
+        return "Korea";
+    }
+    if (region == BUILD_REGION_JAPAN) {
+        return "Japan";
+    }
+    if (region == BUILD_REGION_THAILAND) {
+        return "Thailand";
+    }
+    if (region == BUILD_REGION_CHINA) {
+        return "China";
+    }
+    if (region == BUILD_REGION_TAIWAN) {
+        return "ChinaTraditional";
+    }
+    return "Unknown BUILD_REGION_xxxx";
+#endif
+}
 
-// STRIPPED
-const char *GetAbbreviation() {}
+#ifdef EA_PLATFORM_WIN32
+// Las seis regiones europeas (PC: IsEurope, IsPal y las tres ISO las comparan en este orden).
+#define BUILD_REGION_IS_EUROPE(region)                                                                                 \
+    ((region) == BUILD_REGION_EU || (region) == BUILD_REGION_UK || (region) == BUILD_REGION_FRANCE ||                  \
+     (region) == BUILD_REGION_GERMANY || (region) == BUILD_REGION_ITALY || (region) == BUILD_REGION_SPAIN)
+#endif
+
+const char *GetAbbreviation() {
+#ifdef EA_PLATFORM_WIN32
+    eBuildRegion region = GetBuildRegion();
+    if (region == BUILD_REGION_AMERICA) {
+        return "NA";
+    }
+    if (BUILD_REGION_IS_EUROPE(region)) {
+        return "EU";
+    }
+    if (region == BUILD_REGION_KOREA) {
+        return "KO";
+    }
+    if (region == BUILD_REGION_JAPAN) {
+        return "JP";
+    }
+    if (region == BUILD_REGION_THAILAND) {
+        return "TH";
+    }
+    if (region == BUILD_REGION_CHINA) {
+        return "CH";
+    }
+    if (region == BUILD_REGION_TAIWAN) {
+        return "CH";
+    }
+    return "Unknown BUILD_REGION_xxxx";
+#elif defined(EA_REGION_EUROPE)
+    return "EU";
+#else
+    return "NA";
+#endif
+}
 
 bool IsAmerica() {
-#ifdef EA_REGION_AMERICA
+#ifdef EA_PLATFORM_WIN32
+    if (GetBuildRegion() == BUILD_REGION_AMERICA) {
+        return true;
+    }
+    return false;
+#elif defined(EA_REGION_AMERICA)
     return true;
 #else
     return false;
@@ -24,15 +109,33 @@ bool IsAmerica() {
 }
 
 bool IsEurope() {
-#ifdef EA_REGION_EUROPE
+#ifdef EA_PLATFORM_WIN32
+    eBuildRegion region = GetBuildRegion();
+    if (BUILD_REGION_IS_EUROPE(region)) {
+        return true;
+    }
+    return false;
+#elif defined(EA_REGION_EUROPE)
     return true;
 #else
     return false;
 #endif
 }
 
+// Ninguna de nuestras builds es la europea en ingles ni la asiatica: esta, IsEuropeEngItalSpan, IsEuropeEngFrGer e
+// IsAsia devuelven false en las PS2 que las conservan.
+bool IsEuropeEng() {
+#ifdef EA_PLATFORM_WIN32
+    return GetBuildRegion() == BUILD_REGION_UK;
+#else
+    return false;
+#endif
+}
+
 bool IsEuropeFr() {
-#ifdef EA_REGION_FRANCE
+#ifdef EA_PLATFORM_WIN32
+    return GetBuildRegion() == BUILD_REGION_FRANCE;
+#elif defined(EA_REGION_FRANCE)
     return true;
 #else
     return false;
@@ -40,15 +143,52 @@ bool IsEuropeFr() {
 }
 
 bool IsEuropeGer() {
-#ifdef EA_REGION_GERMANY
+#ifdef EA_PLATFORM_WIN32
+    return GetBuildRegion() == BUILD_REGION_GERMANY;
+#elif defined(EA_REGION_GERMANY)
     return true;
 #else
     return false;
 #endif
 }
 
+#ifdef EA_PLATFORM_WIN32 // STRIPPED en GameCube; en PC 0x64A080 y 0x64A090
+bool IsEuropeSpan() {
+    return GetBuildRegion() == BUILD_REGION_SPAIN;
+}
+
+bool IsEuropeItal() {
+    return GetBuildRegion() == BUILD_REGION_ITALY;
+}
+#endif
+
+bool IsEuropeEngItalSpan() {
+    return false;
+}
+
+#ifndef EA_BUILD_A124
+bool IsEuropeEngFrGer() {
+    return false;
+}
+#endif
+
+bool IsAsia() {
+#ifdef EA_PLATFORM_WIN32
+    eBuildRegion region = GetBuildRegion();
+    if (region == BUILD_REGION_KOREA || region == BUILD_REGION_JAPAN || region == BUILD_REGION_TAIWAN ||
+        region == BUILD_REGION_CHINA || region == BUILD_REGION_THAILAND) {
+        return true;
+    }
+    return false;
+#else
+    return false;
+#endif
+}
+
 bool IsJapan() {
-#ifdef EA_REGION_JAPAN
+#ifdef EA_PLATFORM_WIN32
+    return GetBuildRegion() == BUILD_REGION_JAPAN;
+#elif defined(EA_REGION_JAPAN)
     return true;
 #else
     return false;
@@ -56,7 +196,9 @@ bool IsJapan() {
 }
 
 bool IsKorea() {
-#ifdef EA_REGION_KOREA
+#ifdef EA_PLATFORM_WIN32
+    return GetBuildRegion() == BUILD_REGION_KOREA;
+#elif defined(EA_REGION_KOREA)
     return true;
 #else
     return false;
@@ -68,28 +210,197 @@ bool IsPal() {
 }
 
 bool ShowLanguageSelect() {
+#ifdef EA_REGION_EUROPE
+    return true;
+#else
     return false;
+#endif
 }
 
-// STRIPPED
-const char *GetSlusCode() {}
+// SLUS_21351 es la edicion de coleccionista (Black Edition) y SLUS_21267 la normal; GameCube y PC guardan las dos
+// cadenas aunque no usen la funcion.
+#ifdef EA_PLATFORM_PLAYSTATION2
+char *GetSlusCode() {
+#else
+const char *GetSlusCode() {
+#endif
+#ifdef EA_REGION_EUROPE
+    return "SLES_53558";
+#else
+    if (GetIsCollectorsEdition()) {
+        return "SLUS_21351";
+    }
+    return "SLUS_21267";
+#endif
+}
 
-// STRIPPED
-void GetExeFilename(char *filename) {}
+// Ocho bytes sin nombre y sin NUL en .rodata, entre la cadena de GetSlusCode y las de GetPs2ElfFilename (A124
+// 0x56c6d8; SLUS guarda la suya en 0x4ed8f0 aunque quito la funcion): un literal compuesto, no una cadena.
+#ifdef EA_PLATFORM_PLAYSTATION2
+unsigned char *GetDnasPassPhrase() {
+#ifdef EA_REGION_EUROPE
+    return (unsigned char *)(const unsigned char[8]){0, 0, 0, 0, 0, 0, 0, 0};
+#else
+    return (unsigned char *)(const unsigned char[8]){0, 0, 0, 0, 0, 0, 0, 0};
+#endif
+}
+#endif
 
-// STRIPPED
-const char *GetLanguageISOCode() {}
+// STRIPPED en GameCube; en PC 0x64A170 ("NfsMWRelease.exe")
+void GetExeFilename(char *filename) {
+#ifdef EA_PLATFORM_WIN32
+    const char *title = "Nfs";
+    const char *game = "MW";
+    const char *mode = "Release";
+    const char *optim = "";
+    const char *platform = ".exe";
+    bMemSet(filename, 0, 0x20);
+    bStrCat(filename, filename, title);
+    bStrCat(filename, filename, game);
+    bStrCat(filename, filename, mode);
+    bStrCat(filename, filename, optim);
+    bStrCat(filename, filename, platform);
+#endif
+}
 
-// STRIPPED
-const char *GetCountryISOCode() {}
+// Europa sale del idioma elegido; America guarda "EN" y "US" (SLUS y GameCube, en .rodata).
+const char *GetLanguageISOCode() {
+#ifdef EA_PLATFORM_WIN32
+    eBuildRegion region = GetBuildRegion();
+    if (region == BUILD_REGION_AMERICA) {
+        return "EN";
+    }
+    if (!BUILD_REGION_IS_EUROPE(region)) {
+        if (region == BUILD_REGION_KOREA) {
+            return "ko";
+        }
+        if (region == BUILD_REGION_JAPAN) {
+            return "ja";
+        }
+        if (region == BUILD_REGION_THAILAND) {
+            return "en";
+        }
+        if (region == BUILD_REGION_CHINA) {
+            return "en";
+        }
+        return "en";
+    }
+#endif
+#if defined(EA_REGION_EUROPE) || defined(EA_PLATFORM_WIN32)
+    switch (GetCurrentLanguage()) {
+        case eLANGUAGE_ENGLISH:
+            return "en";
+        case eLANGUAGE_FRENCH:
+            return "fr";
+        case eLANGUAGE_GERMAN:
+            return "de";
+        case eLANGUAGE_ITALIAN:
+            return "it";
+        case eLANGUAGE_SPANISH:
+            return "es";
+        case eLANGUAGE_DUTCH:
+            return "nl";
+        case eLANGUAGE_SWEDISH:
+            return "sv";
+        case eLANGUAGE_DANISH:
+            return "da";
+        case eLANGUAGE_POLISH:
+            return "pl";
+        case eLANGUAGE_FINNISH:
+            return "fi";
+        default:
+            return nullptr;
+    }
+#else
+    return "EN";
+#endif
+}
 
-// STRIPPED
-const char *GetSkuCode() {}
+const char *GetCountryISOCode() {
+#ifdef EA_PLATFORM_WIN32
+    eBuildRegion region = GetBuildRegion();
+    if (region == BUILD_REGION_AMERICA) {
+        return "US";
+    }
+    if (!BUILD_REGION_IS_EUROPE(region)) {
+        if (region == BUILD_REGION_KOREA) {
+            return "KP";
+        }
+        if (region == BUILD_REGION_JAPAN) {
+            return "JP";
+        }
+        if (region == BUILD_REGION_THAILAND) {
+            return "??";
+        }
+        if (region == BUILD_REGION_CHINA) {
+            return "??";
+        }
+        return "??";
+    }
+#endif
+#if defined(EA_REGION_EUROPE) || defined(EA_PLATFORM_WIN32)
+    switch (GetCurrentLanguage()) {
+        case eLANGUAGE_ENGLISH:
+            return "GB";
+        case eLANGUAGE_FRENCH:
+            return "FR";
+        case eLANGUAGE_GERMAN:
+            return "DE";
+        case eLANGUAGE_ITALIAN:
+            return "IT";
+        case eLANGUAGE_SPANISH:
+            return "ES";
+        case eLANGUAGE_DUTCH:
+            return "NL";
+        case eLANGUAGE_SWEDISH:
+            return "SE";
+        case eLANGUAGE_DANISH:
+            return "DK";
+        case eLANGUAGE_POLISH:
+            return "PL";
+        case eLANGUAGE_FINNISH:
+            return "FI";
+        default:
+            return nullptr;
+    }
+#else
+    return "US";
+#endif
+}
 
-// STRIPPED
-bool ShowESRBNotice();
+#ifdef EA_BUILD_A124
+char *GetSkuCode() {
+#else
+const char *GetSkuCode() {
+#endif
+#ifdef EA_PLATFORM_WIN32
+    if (GetBuildRegion() == BUILD_REGION_AMERICA) {
+        return "14705";
+    }
+    return "SKU_UNKNOWN";
+#elif defined(EA_REGION_AMERICA)
+    return "14705";
+#else
+    return "SKU_UNKNOWN";
+#endif
+}
 
-// STRIPPED
-const char *GetAdvertString() {}
+bool ShowESRBNotice() {
+#ifdef EA_PLATFORM_WIN32
+    return GetBuildRegion() == BUILD_REGION_AMERICA;
+#else
+    return false;
+#endif
+}
+
+// STRIPPED en GameCube; en PC 0x64A3D0
+const char *GetAdvertString() {
+#ifdef EA_PLATFORM_WIN32
+    if (GetBuildRegion() == BUILD_REGION_AMERICA) {
+        return "NFSMWNA";
+    }
+    return "NFSMW";
+#endif
+}
 
 }; // namespace BuildRegion

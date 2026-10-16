@@ -49,8 +49,9 @@ class AIAction : public Sim::Object, public UTL::COM::Factory<AIActionParams *, 
             return gFastMem.Free(mem, bytes, nullptr);
         }
     }
-
+  protected:
     AIAction(AIActionParams *params, float score);
+  public:
     ~AIAction() override {}
 
     // Virtual functions

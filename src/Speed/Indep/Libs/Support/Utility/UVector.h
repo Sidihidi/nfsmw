@@ -1,6 +1,7 @@
 #ifndef SUPPORT_UTILITY_UVECTOR_H
 #define SUPPORT_UTILITY_UVECTOR_H
 
+#include "Speed/Indep/Libs/Support/Utility/UDefs.h"
 #include "types.h"
 #include "UMath.h"
 
@@ -10,7 +11,7 @@
 // Project/GetProjection/GetAngle/Normalize van definidos FUERA de la clase (con
 // `inline`) y detras de los operadores libres, tal y como los lista el original.
 // TODO class
-struct ALIGN_16 UVector3 : public UMath::Vector3 {
+struct ALIGNVEC UVector3 : public UMath::Vector3 {
     UVector3() {
         Clear(*this);
     }

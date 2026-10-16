@@ -54,6 +54,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #ifndef __RESTRICT
 #  define __RESTRICT
 #endif
@@ -219,6 +220,24 @@ void* __malloc_alloc_template<__inst>::_S_oom_realloc(void* __p, size_t __n)
 }
 
 typedef __malloc_alloc_template<0> malloc_alloc;
+
+// EA (PS2): el allocator de nodos del juego. Toda la memoria de los contenedores sale de gFastMem con la
+// etiqueta "STL", en las dos PS2 (A124 y SLUS): allocate se expande en _M_insert/_M_insert_aux como
+// gFastMem.Alloc(n, "STL") y deallocate es una funcion aparte (deallocate__t12chunky_alloc1b0PvUi, con los
+// parametros ptr y bytes en los stabs) a la que salta simple_alloc::deallocate.
+template <bool threads>
+class chunky_alloc {
+public:
+  static void* allocate(size_t bytes)
+    { return gFastMem.Alloc(bytes, "STL"); }
+  static void deallocate(void* ptr, size_t bytes);
+};
+
+template <bool threads>
+void chunky_alloc<threads>::deallocate(void* ptr, size_t bytes)
+{
+  gFastMem.Free(ptr, bytes, "STL");
+}
 
 template<class _Tp, class _Alloc>
 class simple_alloc {
@@ -448,8 +467,9 @@ public:
 
 } ;
 
-typedef __default_alloc_template<__NODE_ALLOCATOR_THREADS, 0> alloc;
-typedef __default_alloc_template<false, 0> single_client_alloc;
+// EA (PS2): los contenedores usan chunky_alloc (mas arriba); el allocator de nodos de SGI queda sin usar.
+typedef chunky_alloc<false> alloc;
+typedef chunky_alloc<false> single_client_alloc;
 
 
 

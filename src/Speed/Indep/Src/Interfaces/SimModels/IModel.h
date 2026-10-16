@@ -10,9 +10,17 @@
 #include "Speed/Indep/Src/World/WorldTypes.h"
 
 // total size: 0x4
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+class IModel : public UTL::COM::IUnknown, public UTL::Collections::Instanceable<HMODEL, IModel, 2296>, public UTL::Collections::Listable<IModel, 2296> {
+#else
 class IModel : public UTL::COM::IUnknown, public UTL::Collections::Instanceable<HMODEL, IModel, 434>, public UTL::Collections::Listable<IModel, 434> {
+#endif
   public:
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    enum { InstanceLimit = 2296 };
+#else
     enum { InstanceLimit = 434 };
+#endif
 
     DECL_INTERFACE(IModel);
     struct Enumerator {

@@ -105,23 +105,31 @@ SFXCTL_Physics::SFXCTL_Physics()
 
     this->m_OldThrottle = 0.0f;
     this->m_fThrottle = 0.0f;
+
     this->IsAccelerating = false;
+
     this->PhysicsRPM = 1000.0f;
+    this->fMaxPhysRPM = 10000.0f;
+
     this->PhysicsTRQ = 0.0f;
     this->fMaxPhysTRQ = 0.0f;
+
     this->m_CurGear = static_cast<Gear>(NEUTRAL);
     this->m_LastGear = static_cast<Gear>(NEUTRAL);
+
     this->bPlayerEngEnable = false;
     this->NISRevingEnabled = false;
-    this->RevFramesRemaining = 0;
-    this->NISTRQ = 0.0f;
-    this->mRPMCurve = nullptr;
-    this->PattternPlay = false;
     this->eCurNisRevingState = NIS_OFF;
-    this->fMaxPhysRPM = 10000.0f;
+    this->RevFramesRemaining = 0;
     this->NISRPM = 1000.0f;
+    this->NISTRQ = 0.0f;
+
+    this->mRPMCurve = nullptr;
+
+    this->PattternPlay = false;
     this->PatternNumber = 0;
     this->TimeIntoRev = 0.0f;
+
     this->CarID = -1;
 }
 
@@ -180,6 +188,7 @@ void SFXCTL_Physics::UpdateParams(float t) {
             reinterpret_cast<const bMatrix4 *>(&this->m_pEAXCar->GetAttributes().PhysicsRPM_Map()));
         if (this->mRPMCurve) {
             remapped_rpm = GetValueFromSpline(physrpm, this->mRPMCurve);
+            UMath::Clamp(remapped_rpm, 0.0f, 1.0f); // el resultado se descarta tambien en el original (min.s/max.s de PS2)
         }
     }
 
@@ -223,15 +232,19 @@ void SFXCTL_Physics::InitSFX() {
 void SFXCTL_Physics::UpdateMixerOutputs() {
     int TargeVal;
 
-    TargeVal = bClamp(static_cast<int>(bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) * 1092.2334f), 0, 0x7FFF);
+    TargeVal = bClamp(static_cast<int>((bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) / 30.0f) * 32767.0f), 0, 0x7FFF);
     this->SetDMIX_Input(0, TargeVal);
-    TargeVal = bClamp(static_cast<int>(bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) * 546.1167f), 0, 0x7FFF);
+    TargeVal = bClamp(static_cast<int>((bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) / 60.0f) * 32767.0f), 0, 0x7FFF);
     this->SetDMIX_Input(1, TargeVal);
-    TargeVal = bClamp(static_cast<int>(bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) * 327.66998f), 0, 0x7FFF);
+    TargeVal = bClamp(static_cast<int>((bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) / 100.0f) * 32767.0f), 0, 0x7FFF);
     this->SetDMIX_Input(2, TargeVal);
-    TargeVal = bClamp(static_cast<int>(bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) * 234.05f), 0, 0x7FFF);
+#ifdef EA_PLATFORM_WIN32 // speed.exe divide entre 1,4 (fmul 0.71428573 y 32767); las dos PS2, entre 140 (234.05)
+    TargeVal = bClamp(static_cast<int>((bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) / 1.4f) * 32767.0f), 0, 0x7FFF);
+#else
+    TargeVal = bClamp(static_cast<int>((bAbs(this->GetPhysCar()->GetVelocityMagnitudeMPH()) / 140.0f) * 32767.0f), 0, 0x7FFF);
+#endif
     this->SetDMIX_Input(3, TargeVal);
-    TargeVal = bClamp(static_cast<int>((10000.0f - this->m_pEAXCar->GetPhysRPM()) * 3.6407778f), 0, 0x7FFF);
+    TargeVal = bClamp(static_cast<int>(((10000.0f - this->m_pEAXCar->GetPhysRPM()) / 9000.0f) * 32767.0f), 0, 0x7FFF);
     this->SetDMIX_Input(4, TargeVal);
 
     this->SetDMIX_Input(10, this->IsAccelerating ? 0x7FFF : 0);
@@ -287,9 +300,9 @@ SFXCTL_AIPhysics::SFXCTL_AIPhysics() {
     this->m_DeltaRPM_LFO_Offset = 0.0f;
     this->m_LastGear = FIRST_GEAR;
     this->m_AngleDeltaRPM_LFO = 0;
-    this->SteadyVelocityFactor = 0.0f;
     this->DownShiftSameGearCount = 0;
     this->UpShiftSameGearCount = 0;
+    this->SteadyVelocityFactor = 0.0f;
     this->IsDrifting = false;
     this->IsCornering = false;
 }
@@ -475,13 +488,7 @@ void SFXCTL_AIPhysics::UpdateGear() {
             this->TargetRPMOffset = g_pEAXSound->Random(TwkTargeRPMOffset);
             SuggestedGear = static_cast<Gear>(this->m_CurGear + AUTOMATIC);
             this->UpShiftSameGearCount = 0;
-        } else {
-            if (this->GetPhysRPM() >= SND_AI_DOWNSHIFT_RPMS[this->m_CurGear]) {
-                return;
-            }
-            if (this->m_CurGear < SECOND_GEAR) {
-                return;
-            }
+        } else if (this->GetPhysRPM() < SND_AI_DOWNSHIFT_RPMS[this->m_CurGear] && this->m_CurGear > FIRST_GEAR) {
             this->m_CurGear = this->SuggestGear();
             if (this->m_CurGear == this->m_LastGear) {
                 this->DownShiftSameGearCount++;
@@ -492,6 +499,8 @@ void SFXCTL_AIPhysics::UpdateGear() {
                 this->m_CurGear = SECOND_GEAR;
             }
             SuggestedGear = static_cast<Gear>(this->m_CurGear + NEUTRAL);
+        } else {
+            return;
         }
         this->m_LastGear = SuggestedGear;
     }

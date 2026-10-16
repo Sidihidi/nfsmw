@@ -100,7 +100,7 @@ void cSlider::Draw() {
     FEngSetTopLeft(reinterpret_cast<FEObject *>(pRightCap), base_x + cur_pcnt - 7.0f, vert_offset);
 
     if (pValue) {
-        FEPrintf(pValue, "%d", static_cast<int>(fCurValue));
+        FEPrintf(pValue, "%d", bFloatToInt(fCurValue));
     }
 }
 
@@ -192,10 +192,10 @@ void TwoStageSlider::Draw() {
 
     scale = (fPreviewValue - fMinValue) / d;
 
-    FEngSetTopLeft(reinterpret_cast<FEObject *>(pHandle), fRange * scale + base_x, base_y);
+    FEngSetTopLeft(reinterpret_cast<FEObject *>(pHandle), base_x + fRange * scale, base_y);
 
     if (pValue) {
-        FEPrintf(pValue, "%d", static_cast<int>(fCurValue));
+        FEPrintf(pValue, "%d", bFloatToInt(fCurValue));
     }
 
     if (pPreviewBar != nullptr) {

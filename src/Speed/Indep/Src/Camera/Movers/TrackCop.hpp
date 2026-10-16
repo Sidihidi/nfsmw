@@ -44,11 +44,11 @@ class TrackCopCameraMover : public CameraMover {
         return CarToFollow;
     }
 
-    int RenderCarPOV() override {
+    bool RenderCarPOV() override {
         return bRenderCarPOV;
     }
 
-    void SetRenderCarPOV(int render) {
+    void SetRenderCarPOV(bool render) {
         bRenderCarPOV = render;
     }
 
@@ -65,7 +65,7 @@ class TrackCopCameraMover : public CameraMover {
     CameraAnchor *CarToFollow; // offset 0x218, size: 0x4
     tCubic1D FocalDistCubic;   // offset 0x21C, size: 0x2C
     int FocusEffects;          // offset 0x248, size: 0x4
-    int bRenderCarPOV;         // offset 0x24C, size: 0x4
+    bool bRenderCarPOV;        // offset 0x24C, size: 0x4
 };
 
 #endif
