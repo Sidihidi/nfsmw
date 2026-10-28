@@ -447,27 +447,29 @@ void FEPackage::UpdateObject(FEObject *pObject, i32 tDeltaTicks) {
         eFrameCounterOLD = eFrameCounter;
     }
 
-    u32 Flags = pObject->Flags;
-    if (Flags & (FF_DirtyCode | FF_DirtyColor | FF_DirtyTransform)) {
-        pObject->Flags = Flags | FF_Dirty;
+    if (pObject->Flags & (FF_DirtyCode | FF_DirtyColor | FF_DirtyTransform)) {
+        pObject->Flags |= FF_Dirty;
     } else {
-        pObject->Flags = Flags & (FEPackage::uHoldDirtyFlags | ~FF_Dirty);
+        pObject->Flags &= FEPackage::uHoldDirtyFlags | ~FF_Dirty;
     }
 
-    FEScript *pScript = pObject->pCurrentScript;
-    int tPrevTime = pScript->CurTime;
-    int ScrLength = pScript->Length;
+    FEScript *pScript;
+    int tPrevTime;
+    int tOverTime;
+    int ScrLength;
+    pScript = pObject->pCurrentScript;
+    ScrLength = pScript->Length;
+    tPrevTime = pScript->CurTime;
     pScript->CurTime = tPrevTime + iTickIncrement;
     if (pScript->CurTime < 0) {
         pScript->CurTime = 0;
     }
 
-    u32 PlayAction;
     if (pScript->CurTime >= ScrLength) {
         if (bExecuting) {
             if (pScript->pChainTo) {
                 UpdateObjectTracks(pObject, pScript);
-                int tOverTime = pScript->CurTime - ScrLength;
+                tOverTime = pScript->CurTime - ScrLength;
                 pScript->CurTime = 0;
                 if (pScript->Events.GetCount()) {
                     IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
@@ -479,8 +481,7 @@ void FEPackage::UpdateObject(FEObject *pObject, i32 tDeltaTicks) {
                     IssueScriptMessages(pEnginePtr, pObject, pScript, 0, pScript->CurTime);
                 }
             } else {
-                PlayAction = pScript->Flags & 3;
-                switch (PlayAction) {
+                switch (pScript->Flags & 3) {
                     case 0:
                         if (pScript->Events.GetCount()) {
                             IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
@@ -492,7 +493,7 @@ void FEPackage::UpdateObject(FEObject *pObject, i32 tDeltaTicks) {
                             if (pScript->Events.GetCount()) {
                                 IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, ScrLength);
                             }
-                            pScript->CurTime = pScript->CurTime - (pScript->CurTime / pScript->Length) * pScript->Length;
+                            pScript->CurTime = pScript->CurTime % pScript->Length;
                             if (pScript->Events.GetCount()) {
                                 IssueScriptMessages(pEnginePtr, pObject, pScript, 0, pScript->CurTime);
                             }
@@ -503,23 +504,18 @@ void FEPackage::UpdateObject(FEObject *pObject, i32 tDeltaTicks) {
                         break;
                     case 2:
                         if (pScript->Length > 0) {
-                            int doubleLen = pScript->Length * 2;
-                            pScript->CurTime = pScript->CurTime % doubleLen;
+                            pScript->CurTime = pScript->CurTime % (pScript->Length * 2);
                         } else {
                             pScript->CurTime = 0;
                         }
                         break;
                 }
             }
-            if (bExecuting && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObject->Flags & FF_DirtyCode)) {
-                goto finalize;
-            }
         }
     } else {
         if (bExecuting) {
             if (pScript->Events.GetCount() != 0) {
-                PlayAction = pScript->Flags & 3;
-                switch (PlayAction) {
+                switch (pScript->Flags & 3) {
                     case 0:
                         IssueScriptMessages(pEnginePtr, pObject, pScript, tPrevTime, pScript->CurTime);
                         break;
@@ -541,15 +537,13 @@ void FEPackage::UpdateObject(FEObject *pObject, i32 tDeltaTicks) {
                         break;
                 }
             }
-            if (bExecuting && tPrevTime == pScript->CurTime && tPrevTime == pScript->Length + 1 && !(pObject->Flags & FF_DirtyCode)) {
-                goto finalize;
-            }
         }
     }
 
-    UpdateObjectTracks(pObject, pScript);
+    if (!bExecuting || tPrevTime != pScript->CurTime || tPrevTime != pScript->Length + 1 || (pObject->Flags & FF_DirtyCode)) {
+        UpdateObjectTracks(pObject, pScript);
+    }
 
-finalize:
     switch (pObject->Type) {
         case FE_Group:
             UpdateGroup(static_cast<FEGroup *>(pObject), tDeltaTicks);
@@ -576,6 +570,12 @@ finalize:
         pObject->Flags |= FF_Dirty;
     }
 }
+
+
+
+
+
+
 
 
 

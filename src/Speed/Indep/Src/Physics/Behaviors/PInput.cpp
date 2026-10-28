@@ -16,6 +16,10 @@
 #include "Speed/Indep/Src/Physics/PhysicsObject.h"
 #include "Speed/Indep/Src/World/RaceParameters.hpp"
 #include "Speed/Indep/Src/Physics/PhysicsTypes.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Frontend/NFSDebugMenu.h"
+#include "Speed/Indep/Src/Interfaces/SimActivities/INIS.h"
+#endif
 
 BIND_BEHAVIOR_FACTORY(PInput);
 
@@ -83,7 +87,10 @@ void InputPlayer::ClearInput() {
     this->mBanking = 0.0f;
     this->mSteerLeft = 0.0f;
     this->mSteerRight = 0.0f;
+    // PS2 (A124 y SLUS, 64 B) no vacia la cola aqui; GC/X360/PC si (88 B en GC)
+#ifndef EA_PLATFORM_PLAYSTATION2
     this->mActionQ.Flush();
+#endif
 }
 
 void InputPlayer::FlushInput() {
@@ -124,13 +131,14 @@ void InputPlayer::OnTaskSimulate(float dT) {
 }
 
 void InputPlayer::BlockInput(bool block) {
-    if (this->mBlocked != block) {
-        this->mBlocked = block;
-        if (block) {
-            this->mActionQ.Enable(false);
-        } else {
-            this->mActionQ.Enable(true);
-        }
+    if (this->mBlocked == block) {
+        return;
+    }
+    this->mBlocked = block;
+    if (block) {
+        this->mActionQ.Enable(false);
+    } else {
+        this->mActionQ.Enable(true);
     }
 }
 
@@ -141,12 +149,39 @@ void InputPlayer::FetchInput() {
     }
     bool neutralRev = false;
     if ((this->mVehicle != nullptr) && this->mVehicle->GetForceStop()) {
+#ifdef EA_BUILD_A124 // la A124 suelta los mandos uno a uno y deja acelerar en punto muerto (bit 8)
+        this->SetControlBanking(0.0f);
+        this->SetControlSteering(0.0f);
+        this->SetControlSteeringVertical(0.0f);
+        this->SetControlHandBrake(0.0f);
+        this->SetControlActionButton(false);
+        this->SetControlNOS(false);
+
+        this->mSteerRight = 0.0f;
+        this->mSteerLeft = 0.0f;
+        this->mBanking = 0.0f;
+
+        this->mBrakeButton = this->GetControls().fBrake;
+
+        if (this->mVehicle->GetForceStop() & 8) {
+            neutralRev = true;
+        } else {
+            this->SetControlGas(0.0f);
+            this->mGasButton = 0.0f;
+            return;
+        }
+#else
         this->ClearInput();
         this->SetControlBrake(1.0f);
         return;
+#endif
     }
     IPlayer *player = this->GetOwner()->GetPlayer();
+#ifdef EA_BUILD_A124 // ni durante una NIS
+    if ((player == nullptr) || (player->GetSettings() == nullptr) || (UTL::Collections::Singleton<INIS>::Get() != nullptr)) {
+#else
     if ((player == nullptr) || (player->GetSettings() == nullptr)) {
+#endif
         this->mActionQ.SetPort(-1);
         this->mActionQ.SetConfig(0, "InputPlayer");
         return;
@@ -218,6 +253,11 @@ void InputPlayer::FetchInput() {
                         this->mSteerRight = a.Data();
                         break;
                     case CAMERAACTION_CHANGE:
+#ifdef EA_BUILD_A124 // con la tecla de depuracion la camara no cambia
+                        if (gDebugMenuIOHandler != nullptr && gDebugMenuIOHandler->IsDebugKeyPressed()) {
+                            break;
+                        }
+#endif
                         if (settings != nullptr) {
                             settings->ScrollDriveCam(1);
                         }
@@ -284,9 +324,17 @@ void InputPlayer::FetchInput() {
         float brake_input = this->mBrakeButton;
         this->SetControlGas(gas_input);
         this->SetControlBrake(brake_input);
+#ifdef EA_BUILD_A124 // parado a la fuerza no cambia de marcha
+        if ((this->mVehicle != nullptr) && !this->mVehicle->GetForceStop()) {
+            this->DoShifting(shift_dir);
+            this->DoAutoReverse(gas_input, brake_input);
+            this->DoAutoBraking(gas_input, brake_input);
+        }
+#else
         this->DoShifting(shift_dir);
         this->DoAutoReverse(gas_input, brake_input);
         this->DoAutoBraking(gas_input, brake_input);
+#endif
         if ((this->mVehicle != nullptr) && this->GetControls().fHandBrake != 0.0f) {
             this->SetControlBrake(0.0f);
         }

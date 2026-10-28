@@ -38,7 +38,13 @@ class BitStream {
     static int MAX_BITS;
 
   public:
+#ifdef EA_PLATFORM_WIN32
+    // PC: const, con el valor solo en SmartBitstream.cpp: zOnline (que lo ve) divide por 8 con fmul 0.125
+    // (Server::SendMessageToAllClients, 0x79FF50; Client::SendMessage) y zWorld lo lee de memoria (GetByteLength)
+    static const int BIT_DEPTH;
+#else
     static int BIT_DEPTH;
+#endif
 
   private:
 

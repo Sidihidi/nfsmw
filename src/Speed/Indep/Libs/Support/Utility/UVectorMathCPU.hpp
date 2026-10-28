@@ -95,9 +95,14 @@ inline void VU0_v3scale(const UMath::Vector3 &a, const UMath::Vector3 &b, UMath:
 // Decl: 269
 inline void VU0_v3scaleadd(const UMath::Vector3 &a, const float scaleby, const UMath::Vector3 &b, UMath::Vector3 &result) {
     // a * scaleby + b, como en GameCube (ps_muls0 sobre a y ps_add con b) y en PS2 (vmulx sobre a y vadd con b)
-    result.x = a.x * scaleby + b.x;
-    result.y = a.y * scaleby + b.y;
-    result.z = a.z * scaleby + b.z;
+    // El producto en una local: con `a.x * scaleby + b.x` y un scaleby constante negativo MSVC 7.1 reescribe la suma
+    // como `b.x - a.x * k`; speed.exe conserva `fmul -k; fadd` (AIActionHeliPursuit::SkidHitPursuit con -0.5f).
+    float scaled = a.x * scaleby;
+    result.x = scaled + b.x;
+    scaled = a.y * scaleby;
+    result.y = scaled + b.y;
+    scaled = a.z * scaleby;
+    result.z = scaled + b.z;
 }
 
 // Decl: Carbon: UVectorMathCPU.hpp: 293, GC MW: UVectorMathGC.hpp: 62, PS2 MW: UVectorMath.hpp: 1223

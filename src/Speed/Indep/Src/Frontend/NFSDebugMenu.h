@@ -39,7 +39,13 @@ class DebugMenuInputHandler {
     ~DebugMenuInputHandler();
     void PollInput();
     void Exit();
+#ifdef EA_BUILD_A124 // en linea en la cabecera de la A124 (la lee InputPlayer::FetchInput)
+    bool IsDebugKeyPressed() {
+        return mActiveShift;
+    }
+#else
     bool IsDebugKeyPressed();
+#endif
 
   private:
     void Activate();

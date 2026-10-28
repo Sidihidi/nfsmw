@@ -3,6 +3,25 @@
 #include "Speed/Indep/Src/EAXSound/EAXSndUtil.h"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 
+// gcdatos16/17: orden de las DOS PS2 (bytes de su .data objetivo: A124 zEAXSound
+// +0x2038, SLUS +0x1fe8): PRINT_SKID_FX_DEBUG, s_TypeInfo, gfTireOffsetDist,
+// gfTireFwdOffsetDist, gWheelSlipSensitivity, gWheelLoadThreshold, g_WheelLoadSlope.
+// gcdatos19: el .data objetivo de GC lleva el MISMO orden (zEAXSound +0x2f8
+// PRINT_SKID_FX_DEBUG, +0x2fc s_TypeInfo, +0x30c gfTireOffsetDist 5.0f, +0x310
+// gfTireFwdOffsetDist 3.0f, +0x314 gWheelSlipSensitivity {200,81}, +0x31c
+// gWheelLoadThreshold {4000,10000}), asi que GC entra en esta rama; PC/X360
+// conservan el orden del #else token a token.
+// g_WheelLoadSlope es el unico objeto con ctor de este fichero, asi que el orden de
+// inicializacion de la unidad no cambia; solo cambia el orden de .data.
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+int PRINT_SKID_FX_DEBUG = 0;
+SndBase::TypeInfo SFXCTL_Wheel::s_TypeInfo = {(int)0x00020010, "SFXCTL_Wheel", &SFXCTL::s_TypeInfo, SFXCTL_Wheel::CreateObject};
+float gfTireOffsetDist = 5.0f;
+float gfTireFwdOffsetDist = 3.0f;
+float gWheelSlipSensitivity[2] = {200.0f, 81.0f};
+float gWheelLoadThreshold[] = {4000.0f, 10000.0f};
+Slope g_WheelLoadSlope(0.0f, 1023.0f, gWheelLoadThreshold[0], gWheelLoadThreshold[1]);
+#else
 float gWheelLoadThreshold[] = {4000.0f, 10000.0f};
 Slope g_WheelLoadSlope(0.0f, 1023.0f, gWheelLoadThreshold[0], gWheelLoadThreshold[1]);
 
@@ -10,9 +29,9 @@ float gWheelSlipSensitivity[2] = {200.0f, 81.0f};
 float gfTireOffsetDist = 5.0f;
 float gfTireFwdOffsetDist = 3.0f;
 int PRINT_SKID_FX_DEBUG = 0;
-void DebugPrintSkidBar(int Horz, int Vert, char *Str, int Value);
-
 SndBase::TypeInfo SFXCTL_Wheel::s_TypeInfo = {(int)0x00020010, "SFXCTL_Wheel", &SFXCTL::s_TypeInfo, SFXCTL_Wheel::CreateObject};
+#endif
+void DebugPrintSkidBar(int Horz, int Vert, char *Str, int Value);
 
 SndBase::TypeInfo *SFXCTL_Wheel::GetTypeInfo() const { return &s_TypeInfo; }
 

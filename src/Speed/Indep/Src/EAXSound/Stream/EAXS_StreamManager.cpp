@@ -25,9 +25,26 @@ int INCREASE_NISSFXSTRM_BLOCKS = 2;
 int INCREASE_MUSICSTREAM_BLOCKS = 0;
 int INCREASE_NISSFXSTRM_BLOCKS = 0;
 #endif
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos18: en las DOS PS2 el orden es [Songs][gpEAXS_StrmMgr][GN_HACK_STREAM_TYPE]
+// (A124: PS2_globals.hpp 0x5e3448/0x5e3454/0x5e3458 = zEAXSound .data
+// +0x2008/+0x2014/+0x2018, delante de utickreadcallback; SLUS cierra igual por
+// bloques, gcdatos17 §3). Songs es el unico objeto con ctor del fichero, asi que el
+// init de la unidad no cambia; solo se mueve .data.
+// gcdatos14/17: GN_HACK_STREAM_TYPE, -1 en su .data objetivo (SLUS: el ff ff ff ff
+// de +0x1fc8 = 0x53fd10).
+// gcdatos19: GC igual (zEAXSound .data: gpEAXS_StrmMgr +0x2d8, el ff ff ff ff de
+// +0x2dc y utickreadcallback +0x2e0; el DWARF de GC lo declara int). La nota de
+// gcdatos14 que lo daba por ausente en GC era de antes de mirar este hueco.
+// PC/X360 conservan la rama #else token a token.
+Sound::SongInfoList Songs;
+EAXS_StreamManager *gpEAXS_StrmMgr = nullptr;
+int GN_HACK_STREAM_TYPE = -1;
+#else
 EAXS_StreamManager *gpEAXS_StrmMgr = nullptr;
 
 Sound::SongInfoList Songs;
+#endif
 
 bool IsWorldDataStreaming(unsigned int strmhandle);
 void AssignAudioStreamHandle(unsigned int strmhandle);

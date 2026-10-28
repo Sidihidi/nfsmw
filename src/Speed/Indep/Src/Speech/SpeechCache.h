@@ -78,9 +78,16 @@ struct SpeechSampleData {
     static SpeechSampleData *Construct(SPCHType_SampleRequestData *data, unsigned int key, bool is_cached);
 };
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: a worst collision of 400 (NFS.exe compares mWorstCollision with 0x190 in VecHashMap::Add, 0x824DFF40).
+struct SpchSampleMap : public VecHashMap64<SpeechSampleData, TablePolicy_FixedAudio, false, 400>, public AudioMemBase {
+  public:
+    SpchSampleMap(unsigned int reserve) : VecHashMap64<SpeechSampleData, TablePolicy_FixedAudio, false, 400>(reserve) {}
+#else
 struct SpchSampleMap : public VecHashMap64<SpeechSampleData, TablePolicy_FixedAudio, false, 100>, public AudioMemBase {
   public:
     SpchSampleMap(unsigned int reserve) : VecHashMap64<SpeechSampleData, TablePolicy_FixedAudio, false, 100>(reserve) {}
+#endif
     virtual ~SpchSampleMap() {}
 };
 

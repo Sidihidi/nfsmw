@@ -312,13 +312,14 @@ void FERenderObject::AddPoly(float x0, float y0, float x1, float y1, float z, fl
         // desplazamientos son constantes sobre la MISMA base, asi que CSE devuelve
         // el valor recien guardado y no vuelve a leer de la pila. Leyendo de v[] /
         // uv[] las escrituras por puntero invalidan la entrada y salen 6 cargas de
-        // mas. El tercer destino cae en UVsMask[0][0] (ePoly+0x60), justo detras de
-        // UVs[3][1]: el original escribe ahi.
+        // mas. El tercer destino es UVs[4][0] (ePoly+0x60, justo detras de
+        // UVs[3][1]): el original escribe ahi un float incluso en PS2, donde
+        // UVsMask es short (con UVsMask[0][0] saldria una conversion a entero).
         pPoly->Vertices[3] = pPoly->Vertices[2];
 
         pPoly->UVs[3][0] = pPoly->UVs[2][0];
         pPoly->UVs[3][1] = pPoly->UVs[2][1];
-        pPoly->UVsMask[0][0] = pPoly->UVs[2][0];
+        pPoly->UVs[4][0] = pPoly->UVs[2][0];
         reinterpret_cast<unsigned int *>(pPoly->Colours)[3] = new_colors[i + 2];
 
         pPoly->SetFlailer(1);
@@ -448,7 +449,7 @@ uint32 FERenderObject::ClipGeneral(FEClipInfo *pClipInfo, bVector3 *v, bVector2 
 
 uint32 ClipLeft(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                 float value) {
-#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // speed.exe y el EGM (ClipLeft: li r3,0 en 0x822F8D28) ponen el 0 en la rama else; el mapa de lineas de GC, en la declaracion
     unsigned int new_num_verts;
 #else
     unsigned int new_num_verts = 0;
@@ -465,7 +466,7 @@ uint32 ClipLeft(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector
         new_num_verts = 1;
         bFlag = true;
     } else {
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
         new_num_verts = 0;
 #endif
         bFlag = false;
@@ -509,7 +510,7 @@ uint32 ClipLeft(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector
 
 uint32 ClipTop(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                float value) {
-#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // speed.exe y el EGM (ClipLeft: li r3,0 en 0x822F8D28) ponen el 0 en la rama else; el mapa de lineas de GC, en la declaracion
     unsigned int new_num_verts;
 #else
     unsigned int new_num_verts = 0;
@@ -526,7 +527,7 @@ uint32 ClipTop(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3
         new_num_verts = 1;
         bFlag = true;
     } else {
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
         new_num_verts = 0;
 #endif
         bFlag = false;
@@ -570,7 +571,7 @@ uint32 ClipTop(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3
 
 uint32 ClipRight(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                  float value) {
-#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // speed.exe y el EGM (ClipLeft: li r3,0 en 0x822F8D28) ponen el 0 en la rama else; el mapa de lineas de GC, en la declaracion
     unsigned int new_num_verts;
 #else
     unsigned int new_num_verts = 0;
@@ -587,7 +588,7 @@ uint32 ClipRight(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVecto
         new_num_verts = 1;
         bFlag = true;
     } else {
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
         new_num_verts = 0;
 #endif
         bFlag = false;
@@ -631,7 +632,7 @@ uint32 ClipRight(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVecto
 
 uint32 ClipBottom(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVector3 *pSrc, bVector2 *pSrcUVs, bVector4 *pSrcColors, uint32 num_verts,
                   float value) {
-#ifdef EA_PLATFORM_WIN32 // speed.exe pone el 0 en la rama else; el mapa de lineas de GC, en la declaracion
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // speed.exe y el EGM (ClipLeft: li r3,0 en 0x822F8D28) ponen el 0 en la rama else; el mapa de lineas de GC, en la declaracion
     unsigned int new_num_verts;
 #else
     unsigned int new_num_verts = 0;
@@ -648,7 +649,7 @@ uint32 ClipBottom(bVector3 *pDst, bVector2 *pDstUVs, bVector4 *pDstColors, bVect
         new_num_verts = 1;
         bFlag = true;
     } else {
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
         new_num_verts = 0;
 #endif
         bFlag = false;

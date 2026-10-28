@@ -8,7 +8,7 @@ from and **how** that data was obtained. It is written for the other people
 working on the decompilation, so that anything useful here can be reused,
 checked or upstreamed.
 
-State of this document: **2026-09-30** (first written 2026-09-18). The fork branched from upstream at
+State of this document: **2026-10-16** (first written 2026-09-18). The fork branched from upstream at
 `59f184a0` ("5% linked! (#123)") and carries about 1,890 commits on top of it. Upstream's later work is not merged
 as history: it is integrated hunk by hunk, each hunk measured, the latest being `9ca26bc1` ("zTrack work (#144)").
 Compare against `59f184a0` when a diff looks surprising.
@@ -19,13 +19,13 @@ Compare against `59f184a0` when a diff looks surprising.
 
 Five builds are compiled and measured, each against its own original binary:
 
-| build | platform / compiler | upstream `fd0c355` (2026-09-16) | this fork (2026-10-16) |
+| build | platform / compiler | upstream `fd0c355` (2026-09-16) | this fork (2026-10-28) |
 |---|---|---|---|
 | `GOWE69` | GameCube, SN ProDG GCC 2.95.3 | 55.55 % code, 11,074 functions | **98.70 %** code, 18,391 / 18,432 functions (data 50.83 %) |
-| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **78.58 %**, 21,452 / 25,358 |
-| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **80.97 %**, 18,795 / 22,003 |
-| `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **21.89 %**, 21,236 / 57,575 (LTCG link) |
-| `SPEED_EXE_1_3` | PC 1.3, MSVC 7.1 | 6.54 % | **41.80 %**, 31,352 / 54,172 |
+| `SLES-53558-A124` | PS2 prototype "A124", EE-GCC 2.9-ee-991111 | 17.31 % | **81.84 %**, 21,712 / 25,358 |
+| `SLUS-21351` | PS2 retail (Black Edition), EE-GCC 2.9 | 18.09 % | **84.06 %**, 19,026 / 22,004 |
+| `EUROPEGERMILESTONE` | Xbox 360 milestone, MSVC (PPC) | 0.68 % | **27.58 %**, 25,111 / 57,575 (LTCG link) |
+| `SPEED_EXE_1_3` | PC 1.3, MSVC 7.1 | 6.54 % | **46.91 %**, 33,548 / 54,200 |
 
 Of the 41 GameCube entries still open, one is not a function: `pad_00_8000348C_init` is 20 bytes of alignment added
 when the ELF was converted to a DOL, outside every ELF section; it stays in the count rather than being dropped or
@@ -1502,16 +1502,23 @@ the zip) and is not copied into the repository.
 2. `bash tools/sn-gcc/build.sh` on Linux, or `wsl bash tools/sn-gcc/build.sh` from the repository root on Windows
    (packages: `make patch python3 gcc-multilib gcc-mingw-w64-i686`; about 3 minutes on 4 cores). It builds the
    generator programs with `gcc -m32`, then `cc1.exe`/`cc1plus.exe` with mingw-w64 and SN's own host configuration,
-   and installs two toolchains, each a copy of `ProDG/3.9.3` in which only those two files are replaced:
-   `build/compilers/ProDG/3.9.3-src` (v1.79 + `dollar-lc`, in place of `ProDG/3.9.3`) and
-   `build/compilers/ProDG/3.9.3-v183src` (v1.79 + `keating-alias` + `dollar-lc`, in place of `ProDG/3.9.3-v183r`
-   for `path`). The build is reproducible: the script prints the SHA-1s and says whether they are those of the
-   reference build (Ubuntu 24.04, mingw-w64 GCC 13-win32).
-3. `python configure.py --gc-toolchain-source` (alias `--gc-toolchain-fuente`), then `ninja`. The environment
-   variable `NFSMW_GC_TOOLCHAIN_SOURCE=1` does the same, and is how the option survives `scripts/pctall.py` and
+   and installs toolchains, each a copy of `ProDG/3.9.3` in which only those two files are replaced. The two
+   **faithful replicas** are `build/compilers/ProDG/3.9.3-src` (v1.79 + `dollar-lc`, in place of `ProDG/3.9.3`)
+   and `build/compilers/ProDG/3.9.3-v183src` (v1.79 + `keating-alias` + `dollar-lc`, in place of
+   `ProDG/3.9.3-v183r` for `path`). Since round 78 the script also builds, apart and with names of their own,
+   `3.9.3-src-exp` and `3.9.3-v183src-exp`: the same replicas plus the project's three `bSqrt` experiments
+   (`frsqrte-fres`, `fnmsubs-minus`, `bsqrt-order`), which are not part of any SN compiler (`--faithful` builds
+   only the replicas). The build is reproducible: the script prints the SHA-1s and says whether they are those of
+   the reference build (Ubuntu 24.04, mingw-w64 GCC 13-win32).
+3. `python configure.py --gc-toolchain-source` (aliases `--gc-toolchain-fuente` and `--gc-toolchain-faithful`),
+   then `ninja`: GameCube is compiled with the faithful replicas. The environment variable
+   `NFSMW_GC_TOOLCHAIN_SOURCE=1` does the same, and is how the option survives `scripts/pctall.py` and
    `scripts/medir.py`, which run `configure.py` without arguments. Without either, nothing changes. If a `-src`
    toolchain is missing, `configure.py` stops and says how to build it. Switching recompiles every ProDG unit of
-   GameCube (their command line changes).
+   GameCube (their command line changes). The experiments have an option of their own,
+   `--gc-toolchain-experiments` (or `NFSMW_GC_TOOLCHAIN_SOURCE=experiments`): the `-exp` toolchains with
+   `-DSN_SOURCE_TOOLCHAIN`, under which `bMath.hpp` writes `bSqrt` with the builtins. They are for studying
+   `bSqrt`, not for building the game: they lose functions (see below).
 
 Measured on GOWE69 (2026-09-30), the two builds one after the other under a single lock of `scripts/medir.py`, so
 that the tree could not change in between:
@@ -1529,7 +1536,25 @@ that the tree could not change in between:
   16.0, and the same for small units (0.3 to 0.6 s): 41 s against 62 s in all (66 %), with identical objects;
 - with the option, `configure.py` prints "Missing scratch compiler mapping" once per unit (441 lines), because
   `tools/project.py` maps only `ProDG/3.9.3` to a decomp.me compiler; the units then lack their decomp.me scratch
-  settings in `objdiff.json`, which the report does not use.
+  settings in `objdiff.json`, which the report does not use. (Since round 78 the table maps `ProDG/3.9.3-src` and
+  `ProDG/3.9.3-src-exp` too.)
+
+Between 2026-10-02 and round 78 the option compiled with the experiments by mistake (the `bSqrt` patches had
+gone into the same two toolchains), so it no longer gave the official report; the normal build was never affected.
+Round 78 separated the replicas from the experiments, and round 79 (user's decision) made
+`--gc-toolchain-source` the faithful replicas again and gave the experiments `--gc-toolchain-experiments`.
+
+Measured again in round 79 (2026-10-22), GOWE69, the three builds one after the other under a single lock of
+`scripts/medir.py` (`scripts/pctall.py GOWE69` and the DOL each time):
+
+| build | functions | code matched | DOL |
+|---|---|---|---|
+| official compilers (no option) | 18,391 of 18,432 | 3,894,608 B | `9619ba57...` |
+| `--gc-toolchain-source` (faithful replicas) | 18,391, the same report function by function (0 differences) | 3,894,608 B | `9619ba57...` |
+| `--gc-toolchain-experiments` (`-exp`, `-DSN_SOURCE_TOOLCHAIN`) | 18,235: 156 functions (155,728 B) lost, none gained | 3,738,880 B | `9b2dbd8c...` |
+
+With the experiments the only "object that does not compile" in the `pctall` line is `build/GOWE69/ok`, the SHA-1
+check of the DOL, which is expected to fail.
 
 ### How EA's inline asm is proven: the compiler as judge
 

@@ -111,7 +111,7 @@ void Client::SendCarSpam() {
 }
 
 void Client::StartClientProcessing() {
-    hostConnection = ConnectionCore::Instance().GetPlayer(0);
+    hostConnection = ConnectionCore::Instance().GetHost();
     SetState(CLIENTSTATE_CONNECTED);
 }
 
@@ -190,8 +190,12 @@ void Client::ProcessPartialCarMessage(float player_timestamp, SmartBitStream &bi
         ePosDataPriorityMask priority_mask =
             static_cast<ePosDataPriorityMask>(bitstream_data.GetByte());
         if (TheOnlineManager.GetOnlineRacer(driver_number)) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            TheOnlineManager.ImportPositionData(driver_number, bitstream_data, priority_mask);
+#else
             TheOnlineManager.ImportPositionData(driver_number, bitstream_data, player_timestamp,
                                                 priority_mask);
+#endif
         }
     }
 }
@@ -211,7 +215,7 @@ void Client::ProcessScoreMessage(SmartBitStream &bitstream_data) {
 void Client::ProcessSyncAnimationMessage(SmartBitStream &bitstream_data) {
     uint32 temp = 0;
     bitstream_data.GetBits(temp, 32);
-    if (m_syncAnimationRecvId < temp) {
+    if (temp > m_syncAnimationRecvId) {
         m_syncAnimationRecvId = temp;
         TheOnlineManager.SignalSyncAnimationMessage(bitstream_data);
     }
@@ -337,6 +341,24 @@ void Client::ProcessServerStateChangeMessage(SmartBitStream &bitstream_data) {
     uint32 temp = 0;
     bitstream_data.GetBits(temp, 32);
     m_serverState = temp;
+#ifdef EA_BUILD_A124
+    switch (m_serverState) {
+        case SERVERSTATE_LOADING:
+            if (TheOnlineManager.GetRestartingRace() || m_state >= CLIENTSTATE_LOADING) {
+                TheOnlineManager.RequestRestart();
+            } else {
+                TheOnlineManager.SignalLoad();
+                SetState(CLIENTSTATE_LOADING);
+            }
+            break;
+        case SERVERSTATE_READY:
+            TheOnlineManager.SetStartRaceTime(bGetTicker(), 2.0f, 2.0f);
+            break;
+        case SERVERSTATE_RACING:
+            SetState(CLIENTSTATE_RACING);
+            break;
+    }
+#else
     if (temp == 6) {
         uint32 ret = bGetTicker();
         TheOnlineManager.SetStartRaceTime(ret, 2.0f, 2.0f);
@@ -352,6 +374,7 @@ void Client::ProcessServerStateChangeMessage(SmartBitStream &bitstream_data) {
     } else if (temp == 7) {
         SetState(CLIENTSTATE_RACING);
     }
+#endif
 }
 
 void Client::SimpleSendMessage(uint8 msg_type) {

@@ -274,7 +274,14 @@ void VehiclePartDamageBehaviour::ManageGlassDamage() {
     for (int windowIx = 0; windowIx <= 4; windowIx++) {
         const BreakableWindowInfoDataType &windowInfo = this->mBreakableWindowInfoList[windowIx];
         VehicleDamagePart *damagePart = this->mDamagePartList[windowInfo.mPartSlotId];
+#ifdef EA_PLATFORM_XENON
+        // El nivel se carga ya en el registro del resultado (lhz r9, 0(r8) +
+        // cmpwi r9, 1 en 0x8253B2A0-0x8253B2A4): primero el local, luego el Min.
+        int damageLevel = damagePart->GetDamageLevel();
+        damageLevel = UMath::Min(MaximumDamageLevel, damageLevel);
+#else
         int damageLevel = UMath::Min(MaximumDamageLevel, static_cast<int>(damagePart->GetDamageLevel()));
+#endif
         const BreakableWindowHashDataType &windowDamageHashInfo = VehiclePartDamageBehaviour::mDamageWindowHashList[damageLevel];
 
         if (this->mCarRenderInfo != nullptr) {

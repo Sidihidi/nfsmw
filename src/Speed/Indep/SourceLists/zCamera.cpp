@@ -8,6 +8,8 @@
 // ITrafficCenter.h es `#pragma interface`: el original define su vtable y su
 // destructor, globales, en esta unidad.
 #pragma implementation "ITrafficCenter.h"
+// Igual con IListener.h: su vtable, global, en esta unidad.
+#pragma implementation "IListener.h"
 
 #include "Speed/Indep/Src/Camera/Camera.cpp"
 
@@ -64,3 +66,9 @@
 #include "Speed/Indep/Src/Camera/ICE/ICEOverlays.cpp"
 
 #include "Speed/Indep/Src/Camera/ICE/ICEReplay.cpp"
+
+// El EGM trae los primitivos de DebugDraw tras el codigo de Camera (AllocLists en 0x821965C8,
+// DeAllocLists en 0x82196780, hasta Box en 0x82199418), pero compilar DebugDraw.cpp en Xenon
+// hoy desplaza el enlace y baja ?InitTimers@Internal@Sim (100 -> 99,93) y los anclas de
+// ?Init@Sim/?initnet (medido en x36099, en zCamera y en zDebug): queda fuera hasta que el
+// coordinador lo entre con su remapeo de unidad y la lib UMath.

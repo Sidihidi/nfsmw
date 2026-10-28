@@ -580,9 +580,16 @@ SceneryModel *SceneryModel::Construct(SmokeableSpawner *data, const Attrib::Coll
                                       bool hidden
 #endif
 ) {
+#ifdef EA_PLATFORM_XENON
+    // EGM 0x82417DE0: cmplwi mSceneryCount, 0x800 + bge al retorno NULL.
+    if (mSceneryCount >= 2048u) {
+        return NULL;
+    }
+#else
     if (mSceneryCount > 255u) {
         return NULL;
     }
+#endif
 
     const CollisionGeometry::Collection *collection = CollisionGeometry::Lookup(data->GetCollisionName());
     if (collection == NULL || collection->GetRoot() == NULL) {

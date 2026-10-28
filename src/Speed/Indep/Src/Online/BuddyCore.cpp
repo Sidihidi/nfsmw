@@ -79,16 +79,24 @@ BuddyCore::BuddyCore()
     , m_myVoiceChatChannel(0) //
     , m_buddyVoiceChatChannel(0) //
     , m_networkCableUnplugged(false) //
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 (EGM 0x82585528): sin el borrado de savedNames ni el store de m_paused (no hay HLB que pausar).
+{
+}
+#else
     , m_paused(false) {
     bMemSet(savedNames, 0, sizeof(savedNames));
 }
+#endif
 
 void BuddyCore::pause() {
+#ifndef EA_PLATFORM_XENON // Xbox 360: sin HLB (LobbyCore::Suspend solo llama a instance())
     if (!m_paused) {
         int buddycount;
-        int k = 0;
+        int k;
         clearEAMStatusIcons();
         buddycount = getBuddyCount();
+        k = 0;
         for (int i = 0; i < buddycount; i++) {
             HLBBudT *pBud = getBuddyByIndex(i);
             if (pBud && HLBBudIsTemporary(pBud) && k < 10) {
@@ -101,8 +109,14 @@ void BuddyCore::pause() {
         HLBApiRegisterConnectCallback(HLBud, nullptr, nullptr);
         HLBApiRegisterGameInviteCallback(HLBud, nullptr, nullptr);
         HLBApiRegisterNewMsgCallback(HLBud, nullptr, nullptr);
+#ifdef EA_PLATFORM_WIN32
+        // PC (speed.exe 0x790D8E): the flag before the global
+        m_InVoiceChat = false;
+        gVOIP_InviteState = 0;
+#else
         gVOIP_InviteState = 0;
         m_InVoiceChat = false;
+#endif
         if (m_lobbyChalRefT) {
             LobbyChalDeclineChallenge(m_lobbyChalRefT, 0);
             LobbyChalDestroy(m_lobbyChalRefT);
@@ -111,9 +125,13 @@ void BuddyCore::pause() {
         HLBApiSuspend(HLBud);
         m_paused = true;
     }
+#endif
 }
 
 int BuddyCore::resume() {
+#ifdef EA_PLATFORM_XENON // Xbox 360: sin HLB (LobbyCore::Resume solo llama a instance())
+    return 0;
+#else
     int rc;
     HLBApiResume(HLBud);
     if ((rc = HLBApiRegisterBuddyChangeCallback(
@@ -140,6 +158,7 @@ int BuddyCore::resume() {
     initVoiceAndPresence();
     m_paused = false;
     return 0;
+#endif
 }
 
 int BuddyCore::startconnect(const char *name, const char *passwd, BuddyConnectCallback callback, void *context) {
@@ -209,12 +228,17 @@ void BuddyCore::disconnect() {
         HLBApiRegisterGameInviteCallback(HLBud, nullptr, nullptr);
         HLBApiDisconnect(HLBud);
         HLBApiDestroy(HLBud);
+#ifndef EA_PLATFORM_WIN32
         gVOIP_InviteState = 0;
+#endif
         state = disconnected;
         connectcallback = nullptr;
         connectcontext = nullptr;
         HLBud = nullptr;
         m_InVoiceChat = false;
+#ifdef EA_PLATFORM_WIN32
+        gVOIP_InviteState = 0; // PC (speed.exe 0x790F43): after the flag
+#endif
         if (m_lobbyChalRefT) {
             LobbyChalDeclineChallenge(m_lobbyChalRefT, 0);
             LobbyChalDestroy(m_lobbyChalRefT);
@@ -226,6 +250,14 @@ void BuddyCore::disconnect() {
 }
 
 void BuddyCore::doprocessing() {
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x78C640, 51 B): solo la actualizacion de HLB bajo el mutex; ni el cable, ni la VOIP.
+    if (HLBud) {
+        buddyMutex.Lock();
+        HLBApiUpdate(HLBud);
+        buddyMutex.Unlock();
+    }
+#else
     if (HLBud) {
         if (m_networkCableUnplugged && NetConnStatus('plug', 0, nullptr) != 0) {
             m_networkCableUnplugged = false;
@@ -241,7 +273,11 @@ void BuddyCore::doprocessing() {
         }
         if (m_InVoiceChat && !VoiceCore::mInstance->IsConnected(m_buddyVoiceChatChannel)) {
             m_InVoiceChat = false;
-            if (!FEDatabase->OnlineSettings.inErrorState) {
+#ifndef EA_PLATFORM_XENON
+            // Xbox 360 no tiene inErrorState (su +0x44 es win32_unknown_0x44) y el EGM no conserva doprocessing.
+            if (!FEDatabase->OnlineSettings.inErrorState)
+#endif
+            {
                 ConnectionCore::Instance().LeaveSession();
                 DisplayVOIPChatEnded();
                 gBuddyListHasChanged = 1;
@@ -251,6 +287,7 @@ void BuddyCore::doprocessing() {
         HLBApiUpdate(HLBud);
         buddyMutex.Unlock();
     }
+#endif
 }
 
 void BuddyCore::handledisconnect() {
@@ -315,18 +352,41 @@ BuddyCore *BuddyCore::instance() {
     return &the;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC (0x78C760, 0x78C790; CountBuddys y AddTempBuddy las expanden): sin HLBud o con el lobby parado, nulo
+HLBBudT *BuddyCore::getBuddyByIndex(int index) {
+    if (HLBud && FEDatabase->GetOnlineSettings()->GetState() >= cOnlineSettings::OLS_LOBBY_IDLE) {
+        return HLBListGetBuddyByIndex(HLBud, index);
+    }
+    return nullptr;
+}
+
+HLBBudT *BuddyCore::getBuddyByName(const char *name) {
+    if (HLBud && FEDatabase->GetOnlineSettings()->GetState() >= cOnlineSettings::OLS_LOBBY_IDLE) {
+        return HLBListGetBuddyByName(HLBud, name);
+    }
+    return nullptr;
+}
+#elif defined(EA_PLATFORM_XENON)
+// Xbox 360: sin HLB no hay amigos (UIOnlineChatDialog del EGM, 0x822923F0, no llama a nada y pasa por la rama del nulo).
+HLBBudT *BuddyCore::getBuddyByIndex(int index) { return nullptr; }
+
+HLBBudT *BuddyCore::getBuddyByName(const char *name) { return nullptr; }
+#else
 HLBBudT *BuddyCore::getBuddyByIndex(int index) { return HLBListGetBuddyByIndex(HLBud, index); }
 
 HLBBudT *BuddyCore::getBuddyByName(const char *name) { return HLBListGetBuddyByName(HLBud, name); }
+#endif
 
 void BuddyCore::buddyListChangedCallback(int op, int opStatus) {
     int i;
     int buddycount;
-    bool budRequestRec = false;
+    bool budRequestRec;
     Invite *thisInvite;
     HLBBudT *thisBuddy;
 
     buddycount = getBuddyCount();
+    budRequestRec = false;
     for (i = 0; i < buddycount; i++) {
         HLBBudT *pBud = getBuddyByIndex(i);
         if (pBud && !HLBBudIsRealBuddy(pBud) && HLBBudIsWannaBeMyBuddy(pBud) && !HLBBudIsBlocked(pBud)) {
@@ -555,7 +615,8 @@ void BuddyCore::AddTempBuddy(char *name, int tempType) {
     }
 
     GetNumberTempBuddys();
-    HLBListFlagTempBuddy(instance()->HLBud, name, tempType);
+    BuddyCore *pBuddyCore = instance();
+    HLBListFlagTempBuddy(pBuddyCore->HLBud, name, tempType);
 }
 
 void BuddyCore::InviteCB(const char *fromPlayer, int gameIdent, LobbyChatN::CBReason reason, void *context) {
@@ -631,32 +692,52 @@ void BuddyCore::DisplayDeclinedInviteInGame(const char *name) {
 void BuddyCore::DisplayDeclinedInvite(const char *name) {
     char sztemp[128] = "";
     FEngSNPrintf(sztemp, sizeof(sztemp), GetLocalizedString(0xd0ba5d76), name);
+#ifdef EA_PLATFORM_WIN32 // PC (0x78CBF0, 0x78CC70, 0x78CCD0): desde OL_GameRoom.fng, titulo 4 y los botones 0x99c73215
+    DialogInterface::ShowOneButton("OL_GameRoom.fng", "", dialog_fatalerror, 0x417b2601, 0x99c73215, 0x99c73215, sztemp);
+#else
     DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, sztemp);
+#endif
 }
 
 void BuddyCore::DisplayBlockedInvite(const char *name) {
     char sztemp[128];
     FEngSNPrintf(sztemp, sizeof(sztemp), GetLocalizedString(0xd0ba5d76), name);
+#ifdef EA_PLATFORM_WIN32 // PC (0x78CBF0, 0x78CC70, 0x78CCD0): desde OL_GameRoom.fng, titulo 4 y los botones 0x99c73215
+    DialogInterface::ShowOneButton("OL_GameRoom.fng", "", dialog_fatalerror, 0x417b2601, 0x99c73215, 0x99c73215, sztemp);
+#else
     DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, sztemp);
+#endif
 }
 
 void BuddyCore::DisplayTimedOutInvite(const char *name) {
     char sztemp[128];
     FEngSNPrintf(sztemp, sizeof(sztemp), GetLocalizedString(0x924cf95e), name);
+#ifdef EA_PLATFORM_WIN32 // PC (0x78CBF0, 0x78CC70, 0x78CCD0): desde OL_GameRoom.fng, titulo 4 y los botones 0x99c73215
+    DialogInterface::ShowOneButton("OL_GameRoom.fng", "", dialog_fatalerror, 0x417b2601, 0x99c73215, 0x99c73215, sztemp);
+#else
     DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, sztemp);
+#endif
 }
 
 void BuddyCore::DisplayRevokedInvite(const char *name) {
     char sztemp[128];
     FEngSNPrintf(sztemp, sizeof(sztemp), GetLocalizedString(0x88a7cf05));
+#ifdef EA_PLATFORM_WIN32 // PC (0x78CD30): titulo 4
+    DialogInterface::ShowOneButton("", "", dialog_fatalerror, 0x417b2601, 0x1cad26e2, 0x1cad26e2, sztemp);
+#else
     DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0x1cad26e2, 0x1cad26e2, sztemp);
+#endif
 }
 
 void BuddyCore::DisplayVOIPChatEnded() {
     char sztemp[128];
     if (!FEngFindScreen(g_GameRoomName)) {
         FEngSNPrintf(sztemp, sizeof(sztemp), GetLocalizedString(0x0266ba2c));
+#ifdef EA_PLATFORM_WIN32 // PC (0x78CDE0): titulo 4
+        DialogInterface::ShowOneButton("", "", dialog_fatalerror, 0x417b2601, 0xffffffff, 0xffffffff, sztemp);
+#else
         DialogInterface::ShowOneButton("", "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff, sztemp);
+#endif
     }
 }
 
@@ -677,6 +758,7 @@ int BuddyCore::getBuddyCount() {
 void BuddyCore::setNetworkCableUnpluggedFlag() { m_networkCableUnplugged = true; }
 
 void BuddyCore::SetPresence(RichPresenceMsg richPresenceMsg, HLBStatE buddyState) {
+#ifndef EA_PLATFORM_XENON // Xbox 360: sin HLB (los setters de RichPresence del EGM solo llaman a instance())
     char parms[80] = "";
     TagFieldSetNumber(parms, sizeof(parms), "E", richPresenceMsg.eventHash);
     TagFieldSetString(parms, sizeof(parms), "S", richPresenceMsg.session);
@@ -685,6 +767,7 @@ void BuddyCore::SetPresence(RichPresenceMsg richPresenceMsg, HLBStatE buddyState
     TagFieldSetNumber(parms, sizeof(parms), "V", richPresenceMsg.isSessionPrivate);
     TagFieldSetNumber(parms, sizeof(parms), "R", richPresenceMsg.isRacing);
     HLBApiPresenceSend(HLBud, buddyState, VoiceCore::mInstance->IsHeadsetConnected() ? 1 : 0, parms, 0);
+#endif
 }
 
 RichPresenceMsg BuddyCore::GetRichPresence(BuddySettings *buddySettings) {

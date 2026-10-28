@@ -35,8 +35,8 @@ float GTimer::GetTime() const {
 }
 
 void GTimer::SetTime(float time) {
-    mTotalTime = time;
     mRunning = false;
+    mTotalTime = time;
 }
 
 GEventTimer::GEventTimer() {
@@ -55,8 +55,8 @@ void GEventTimer::Reset() {
 }
 
 void GEventTimer::Start() {
-    mRunning = true;
     mElapsed = 0.0f;
+    mRunning = true;
 }
 
 void GEventTimer::Stop() {

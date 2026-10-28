@@ -64,7 +64,7 @@ void RoadblockFlow::NailedSomethingInRB(unsigned int what) {
 }
 
 void RoadblockFlow::MessageRoadBlockDodged(const MReqRoadBlock &message) {
-    if ((mFlags & (OUTCOMETIMERSET | AVERTED | ENGAGED)) == 0) {
+    if (!(mFlags & OUTCOMETIMERSET) && !(mFlags & AVERTED) && !(mFlags & ENGAGED)) {
         mT_averted = WorldTimer;
         mFlags |= OUTCOMETIMERSET;
     }
@@ -118,7 +118,7 @@ void RoadblockFlow::SyncRoadblock() {
 
         bool visual = false;
         const IRoadBlock::Vehicles &rb_cars = rb->GetVehicles();
-        if (rb_cars.size() != 0) {
+        if (rb_cars.size() > 0) {
             for (IRoadBlock::Vehicles::const_iterator i = rb_cars.begin(); i != rb_cars.end(); ++i) {
                 IVehicle *car = *i;
                 IPursuitAI *car_ai;

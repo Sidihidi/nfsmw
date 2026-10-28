@@ -38,6 +38,15 @@ StringToNumber::StringToNumber(StringToNumberEntry *null_terminated_table) {
     }
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Solo PS2 emite el destructor (libera las dos tablas ordenadas de una vez: viven en un solo bloque).
+StringToNumber::~StringToNumber() {
+    if (string_sorted_table) {
+        gFastMem.Free(string_sorted_table, numItems * 2 * sizeof(StringToNumberEntry), "StringToNumber");
+    }
+}
+#endif
+
 char *StringToNumber::ConvertNumberToString(int number) {
     if (number_sorted_table != NULL) {
         int index = BinarySearch(number);

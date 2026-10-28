@@ -109,6 +109,9 @@ class PhysicsObject : public Sim::Object,
     virtual void OnDetached(IAttachable *pOther);
 
   protected:
+#ifdef EA_PLATFORM_XENON
+    char x360_unknown_0x58[8]; // solo Xenon, tamano y posicion del binario; relleno: el PDB de ProStreet X360 tampoco pone miembro aqui
+#endif
     WWorldPos *mWPos;               // offset 0x58, size 0x4
     SimableType mObjType;           // offset 0x5C, size 0x4
     HSIMABLE mOwner;                // offset 0x60, size 0x4
@@ -122,6 +125,9 @@ class PhysicsObject : public Sim::Object,
     Mechanics mMechanics;           // offset 0x90, size 0x10
     Behaviors mBehaviors;           // offset 0xA0, size 0x8
     Sim::Attachments *mAttachments; // offset 0xA8, size 0x4
+#ifdef EA_PLATFORM_XENON
+    char x360_unknown_0xB4[0xC]; // solo Xenon, tamano del binario; relleno hasta 16 (el PDB de ProStreet X360 redondea igual)
+#endif
 };
 
 inline void PhysicsObject::Reset() {

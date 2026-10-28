@@ -218,7 +218,7 @@ bool QueuedFileBundle::TestAddQueuedFile(QueuedFile *q) {
         return false;
     }
 #endif
-    if (NumQueuedFiles >= 1) {
+    if (NumQueuedFiles > 0) {
         if (bStrCmp(q->GetFilename(), QueuedFiles[0]->GetFilename()) != 0) {
             return false;
         }
@@ -469,3 +469,11 @@ void AddQueuedFile2(void *buf, const char *filename, int file_pos, int num_bytes
     q->SetCallbackParam2(callback_param2);
     WaitingQueuedFileList.AddTail(q);
 }
+
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+// EGM 0x823EDF48 (ProStreet: QueuedFileSetJoylogEnabled, 12 B). Es la unica escritura de QueuedFileJoylogEnabled: sin
+// ella LTCG pliega la lectura de CheckQueuedFileCallbacks.
+void QueuedFileSetJoylogEnabled(bool enabled) {
+    QueuedFileJoylogEnabled = enabled;
+}
+#endif

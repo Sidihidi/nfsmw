@@ -240,6 +240,63 @@ void UIMain::Setup() {
         FEngSetInvisible(GetPackageName(), FEHashUpper("GAME STATS GROUP"));
     }
 }
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+// La PS2 de venta: las opciones de venta, pero la cola del prototipo con la unidad de porcentaje por idioma.
+void UIMain::Setup() {
+    const u32 FEObj_TITLEGROUP = 0xb71b576d;
+    const u32 FEObj_PLAYERNAMEGROUP = 0xb514e2d8;
+
+    FEDatabase->ResetGameMode();
+    FEDatabase->SetPlayersJoystickPort(0, -1);
+
+    if (GetMikeMannBuild()) {
+        Challenge *challenge = new ("Challenge", 0) Challenge(0x9a962438, LANGUAGE_CHALLENGE_MODE, 0);
+        challenge->SetReactImmediately(true);
+        AddOption(challenge);
+        AddOption(new ("MainQuickRace", 0) MainQuickRace(0x4e6fbb02, 0x54020a7a, 0));
+        AddOption(new ("MainCustomize", 0) MainCustomize(0xb0c46023, 0x1afd5be6, 0));
+        AddOption(new ("MainOptions", 0) MainOptions(0x3058fe37, 0x19a8c0af, 0));
+        UnlockAllThings = 1;
+    } else {
+        AddOption(new ("MainCareer", 0) MainCareer(0x3704f3d, 0x5815a2b5, 0));
+        Challenge *challenge = new ("Challenge", 0) Challenge(0x9a962438, LANGUAGE_CHALLENGE_MODE, 0);
+        challenge->SetReactImmediately(true);
+        AddOption(challenge);
+        AddOption(new ("MainQuickRace", 0) MainQuickRace(0x4e6fbb02, 0x54020a7a, 0));
+        AddOption(new ("MainCustomize", 0) MainCustomize(0xb0c46023, 0x1afd5be6, 0));
+        if (IsMemcardEnabled) {
+            AddOption(new ("MainProfileManager", 0) MainProfileManager(0x6b303856, 0xbcb18f38, 0));
+        }
+        AddOption(new ("MainOptions", 0) MainOptions(0x3058fe37, 0x19a8c0af, 0));
+    }
+
+    FEngSetLanguageHash(GetPackageName(), FEObj_TITLEGROUP, LANGUAGE_MAIN_MENU);
+    SetInitialOption(FEngGetLastButton(GetPackageName()));
+    RefreshHeader();
+
+    FEPrintf(GetPackageName(), FEObj_PLAYERNAMEGROUP, "%s", FEDatabase->GetMultiplayerProfile(0)->GetProfileName());
+    if (FEDatabase->bProfileLoaded) {
+        GameCompletionStats stats = FEDatabase->GetGameCompletionStats();
+
+        const char *szPercentUnit = "%";
+        eLanguages currLang = static_cast<eLanguages>(GetCurrentLanguage());
+        if (currLang == eLANGUAGE_DANISH || currLang == eLANGUAGE_FINNISH || currLang == eLANGUAGE_FRENCH || currLang == eLANGUAGE_GERMAN ||
+            currLang == eLANGUAGE_SWEDISH) {
+            szPercentUnit = " %";
+        }
+
+        FEPrintf(GetPackageName(), FEHashUpper("GAME_COMPLETED_DATA"), "%d%s", stats.m_nOverall, szPercentUnit);
+        FEPrintf(GetPackageName(), FEHashUpper("CAREER_COMPLETED_DATA"), "%d%s", stats.m_nCareer, szPercentUnit);
+        FEngSetInvisible(GetPackageName(), FEHashUpper("RAP_SHEET_ITEMS_DATA_1"));
+        FEPrintf(GetPackageName(), FEHashUpper("RAP_SHEET_ITEMS_DATA_2"), "%d%s", stats.m_nRapSheetRankings, szPercentUnit);
+        FEPrintf(GetPackageName(), FEHashUpper("CHALLENGE_SERIES_DATA_1"), "%d/%d", stats.m_nCompletedChallengeRaces,
+                 stats.m_nTotalChallengeRaces);
+        FEPrintf(GetPackageName(), FEHashUpper("CHALLENGE_SERIES_DATA_2"), "%d%s", stats.m_nChallenge, szPercentUnit);
+    } else {
+        FEngSetInvisible(GetPackageName(), FEHashUpper("NAME_GROUP"));
+        FEngSetInvisible(GetPackageName(), FEHashUpper("GAME STATS GROUP"));
+    }
+}
 #else
 void UIMain::Setup() {
     const u32 FEObj_TITLEGROUP = 0xb71b576d;

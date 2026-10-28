@@ -47,18 +47,17 @@ extern const char *_WebOfferFind(WebOfferRefT *pOffer, const char *pStart, const
 extern void _WebOfferUrl(char *pUrl, int iSize, const char *pBase);
 extern void _WebOfferGoto(WebOfferRefT *pOffer, const char *pName, const char *pBase, const char *pX);
 extern int WebOfferDestroy(WebOfferRefT *pOffer);
+extern void WebOfferUpdate(WebOfferRefT *pOffer);
 
 struct WebOfferRefT
 {
     char *pBuffer;                  // +0x0000 (el buffer de descarga)
     int iBufSize;                   // +0x0004
     char Result[0x100];             // +0x0008 (el TagField de resultado)
-    unsigned char Pad108[0x108 - 0x108];
     void *pAlloc;                   // +0x0108 (el NetAlloc del Create)
     char Parm[0x100];               // +0x010C (los $param de la pagina)
     int iCmd;                       // +0x020C (el comando en curso, 4 letras)
     char Page[0x1000];              // +0x0210 (la pagina de ofertas)
-    unsigned char Pad1210[0x1210 - 0x1210];
     char *iCursor;                  // +0x1210 (posicion de la oferta actual)
     char *iHead;                    // +0x1214 (el $head del comando en curso)
     char *iTail;                    // +0x1218 (el $tail del comando en curso)
@@ -71,7 +70,6 @@ struct WebOfferRefT
     int i1234;                      // +0x1234 (vencimiento del TIME)
     int i1238;                      // +0x1238 (vencimiento del poll de 1 s)
     int i123C;                      // +0x123C (el estado de la descarga)
-    unsigned char Pad1240[0x1240 - 0x1240];
 };
 
 // saca un color 0xBBGGRR del tag pName (alpha 0xFF si falta)
@@ -251,8 +249,8 @@ void _WebOfferActionClear(WebOfferRefT *pOffer, const char *pName)
         if (pOffer->i1228 == 0)
             return;
         memmove(pOffer->pBuffer, pOffer->i1228, pOffer->i122C + 1);
-        pOffer->iCursor = pOffer->pBuffer;
         pOffer->i1228 = 0;
+        pOffer->iCursor = pOffer->pBuffer;
     }
     else
     {
@@ -263,7 +261,7 @@ void _WebOfferActionClear(WebOfferRefT *pOffer, const char *pName)
             return;
         memmove(iPos, iLast, iNext - iLast + 1);
         pOffer->i1228 = 0;
-        if (iPos < pOffer->iCursor)
+        if (pOffer->iCursor > iPos)
         {
             if (pOffer->iCursor < iLast)
                 pOffer->iCursor = iPos;
@@ -364,16 +362,17 @@ void _WebOfferUrl(char *pUrl, int iSize, const char *pBase)
 // crea la referencia con buffer propio
 WebOfferRefT *WebOfferCreate2(WebOfferRefT *pOffer, int iSize)
 {
-    int iUse = (0x989680 < iSize) ? 0x989680 : iSize;
     WebOfferRefT *pResult = NULL;
 
-    if (iUse >= 0x1341)
+    if (iSize > 0x989680)
+        iSize = 0x989680;
+    if (iSize > 0x1340)
     {
         pResult = pOffer;
         memset(pResult, 0, 0x1240);
-        pResult->i123C = 0;
-        pResult->iBufSize = iUse - 0x1240;
         pResult->pBuffer = (char *)pResult + 0x1240;
+        pResult->iBufSize = iSize - 0x1240;
+        pResult->i123C = 0;
         pResult->pHttp = ProtoHttpCreate(0x1000);
         if (pResult->pHttp == NULL)
         {
@@ -418,20 +417,20 @@ void WebOfferClear(WebOfferRefT *pOffer)
 // configura la sesion
 void WebOfferSetup(WebOfferRefT *pOffer, char *pSetup)
 {
-    pOffer->Result[0] = 0;
-    TagFieldSetString(&pOffer->Result[0], 0x100, "PERS", pSetup);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "FAVT", &pSetup[0x14]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "PROD", &pSetup[0x34]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "PLAT", &pSetup[0x54]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "LANG", &pSetup[0x74]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "FROM", &pSetup[0x78]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "SLUS", &pSetup[0x7C]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "LKEY", &pSetup[0x9C]);
-    TagFieldSetString(&pOffer->Result[0], 0x100, "", &pSetup[0xC4]);
+    pOffer->Parm[0] = 0;
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "PERS", pSetup);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "FAVT", &pSetup[0x14]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "PROD", &pSetup[0x34]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "PLAT", &pSetup[0x54]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "LANG", &pSetup[0x74]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "FROM", &pSetup[0x78]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "SLUS", &pSetup[0x7C]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "LKEY", &pSetup[0x9C]);
+    TagFieldSetString(&pOffer->Parm[0], 0x100, "", &pSetup[0xC4]);
 }
 
 // lanza la descarga: URL, tagfield literal o texto plano
-int WebOfferExecute(WebOfferRefT *pOffer, const char *pCmd)
+void WebOfferExecute(WebOfferRefT *pOffer, const char *pCmd)
 {
     char *pCursor;
     int iLen;
@@ -455,7 +454,6 @@ int WebOfferExecute(WebOfferRefT *pOffer, const char *pCmd)
         pOffer->iCursor = pCursor;
     }
     pOffer->Result[0] = 0;
-    return (int)pCursor;
 }
 
 // copia el resultado al buffer del que llama y devuelve su atoi
@@ -501,15 +499,12 @@ int *WebOfferCommand(WebOfferRefT *pOffer)
             p++;
         pOffer->i121C = p;
         pOffer->i1220 = pOffer->iCursor;
-        if (p == pOffer->iCursor)
-            goto setnull;
-        if (pOffer->iCursor != NULL)
+        if (p != pOffer->iCursor && pOffer->iCursor != NULL)
         {
             *pOffer->iCursor = 0;
         }
         else
         {
-setnull:
             pOffer->i1220 = NULL;
             pOffer->i121C = NULL;
         }
@@ -675,10 +670,9 @@ void WebOfferHttp(WebOfferRefT *pOffer)
 // completion del http: exitos/fallos/timeout y el poll del cursor
 int WebOfferHttpComplete(WebOfferRefT *pOffer)
 {
-    int iResult;
+    int iResult = 0;
 
     WebOfferUpdate(pOffer);
-    iResult = 0;
     if (pOffer->i123C == 4)
     {
         pOffer->i1228 = (char *)_WebOfferFind(pOffer, pOffer->pBuffer, "$last");
@@ -694,13 +688,13 @@ int WebOfferHttpComplete(WebOfferRefT *pOffer)
     }
     if (pOffer->i123C != 0)
     {
-        if (pOffer->i1234 < (unsigned int)NetTick())
+        if ((unsigned int)NetTick() > pOffer->i1234)
         {
             _WebOfferGoto(pOffer, "TIMEOUT-GOTO", "FAILURE-GOTO", "DEFAULT-GOTO");
             pOffer->i123C = 0;
         }
     }
-    if (pOffer->i123C == 0 && pOffer->i1238 < (unsigned int)NetTick())
+    if (pOffer->i123C == 0 && (unsigned int)NetTick() > pOffer->i1238)
     {
         iResult = 1;
         if (pOffer->iCursor == NULL || *pOffer->iCursor == 0)
@@ -839,13 +833,7 @@ void WebOfferGetAlert(WebOfferRefT *pOffer, char *pAlert)
     _WebOfferGetButton(pOffer, &pAlert[0x4EB], 4);
     if (pAlert[0x465] == 0)
     {
-        char c0 = DefaultButton[0];
-        char c1 = DefaultButton[1];
-        char c2 = DefaultButton[2];
-
-        pAlert[0x465] = c0;
-        pAlert[0x466] = c1;
-        pAlert[0x467] = c2;
+        memcpy(&pAlert[0x465], DefaultButton, sizeof(DefaultButton));
         pAlert[0x464] = 0x20;
     }
 }

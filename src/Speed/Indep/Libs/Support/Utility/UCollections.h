@@ -96,7 +96,7 @@ template <typename Handle, typename T, int Size> class Instanceable {
     }
 
   private:
-    class _List : public FixedVector<_KeyedNode, Size, 16> {
+    class _List : public _Storage<_KeyedNode, Size> {
       public:
         _List() {
             this->reserve(Size);
@@ -139,12 +139,8 @@ template <typename T, int Size> class GarbageNode {
             _mClean.reserve(Size);
         }
 
-        // TODO match dwarf
         void Collect() {
-            typename _NodeList::iterator iter = std::remove_if(_mClean.begin(), _mClean.end(), _Node::is_dead);
-            if (iter != _mClean.end()) {
-                _mClean.erase(iter, _mClean.end());
-            }
+            _mClean.erase(std::remove_if(_mClean.begin(), _mClean.end(), _Node::is_dead), _mClean.end());
             volatile std::size_t size = _mDirty.size();
             while (size != 0) {
                 _Node *iter = _mDirty.begin();
@@ -154,10 +150,7 @@ template <typename T, int Size> class GarbageNode {
 
                 size = _mDirty.size();
             }
-            iter = std::remove_if(_mClean.begin(), _mClean.end(), _Node::is_dead);
-            if (iter != _mClean.end()) {
-                _mClean.erase(iter, _mClean.end());
-            }
+            _mClean.erase(std::remove_if(_mClean.begin(), _mClean.end(), _Node::is_dead), _mClean.end());
         }
 
         void Shutdown() {

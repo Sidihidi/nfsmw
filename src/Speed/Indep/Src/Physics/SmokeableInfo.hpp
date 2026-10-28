@@ -30,7 +30,13 @@ class SmokeableSection {
 
     float LastLoadTime;                  // offset 0x0, size 0x4
     int SectionID;                       // offset 0x4, size 0x4
+#ifdef EA_PLATFORM_XENON
+    // X360: 2048 bits (el constructor de UCircularQueue<SmokeableSection, 96> del EGM limpia 0x40 palabras por
+    // elemento con un paso de 0x108, NFS.exe 0x82423D4C).
+    BitArray<unsigned int, 2048> Rebuilds;
+#else
     BitArray<unsigned int, 256> Rebuilds; // offset 0x8, size 0x20
+#endif
 };
 
 // total size: 0xF10

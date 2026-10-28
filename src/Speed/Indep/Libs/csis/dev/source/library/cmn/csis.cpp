@@ -8,6 +8,10 @@
 #endif
 #ifdef EA_PLATFORM_WIN32
 #include "Speed/PC/Src/Win32Min.hpp"
+#elif defined(EA_PLATFORM_XENON)
+// X360: el cerrojo de Win32 del XDK (NFS.exe 0x821FDD68 expande Class::SetMemberData con WaitForSingleObject
+// 0x8266D048 y ReleaseMutex 0x8289A170).
+#include <xtl.h>
 #endif
 
 #include <csis/csis.h>
@@ -35,7 +39,7 @@ CListDStack gSystems;
 int gMutexLocks;
 int gMutexHandle;
 int gMutexOwner;
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
 // PC: un mutex de Win32 (speed.exe 0x8319CB, 0x831029, 0x83103A: CreateMutexA, WaitForSingleObject, ReleaseMutex).
 HANDLE gMutexHandle;
 #else
@@ -390,7 +394,7 @@ Result System::Init() {
     semaParam.initCount = 1;
     gMutexOwner = -1;
     gMutexHandle = CreateSema(&semaParam);
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
     gMutexHandle = CreateMutexA(NULL, FALSE, NULL);
 #else
     OSInitMutex(&gMutexHandle);
@@ -409,7 +413,7 @@ Result System::Lock() {
         gMutexOwner = threadID;
     }
     gMutexLocks++;
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
     WaitForSingleObject(gMutexHandle, INFINITE);
 #else
     OSLockMutex(&gMutexHandle);
@@ -430,7 +434,7 @@ Result System::Unlock() {
     if (gMutexLocks <= 0) {
         SignalSema(gMutexHandle);
     }
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
     ReleaseMutex(gMutexHandle);
 #else
     OSUnlockMutex(&gMutexHandle);

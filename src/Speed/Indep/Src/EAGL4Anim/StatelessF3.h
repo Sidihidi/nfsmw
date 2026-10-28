@@ -44,7 +44,11 @@ struct StatelessF3 : public AnimMemoryMap {
     }
 
     short *GetData() {
-        return reinterpret_cast<short *>(GetDofInfo() + mNumBones);
+        // El DWARF de GameCube: GetData no expande GetDofInfo, lleva sus propias locales memBytes y dofInfo.
+        unsigned char *memBytes = reinterpret_cast<unsigned char *>(this);
+        DofInfo *dofInfo = reinterpret_cast<DofInfo *>(memBytes + sizeof(StatelessF3));
+
+        return reinterpret_cast<short *>(dofInfo + mNumBones);
     }
 
     short *GetFrameData(short *dataBuf, int frameIdx) {

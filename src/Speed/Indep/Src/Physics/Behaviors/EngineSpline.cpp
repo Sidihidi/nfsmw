@@ -35,7 +35,7 @@ class EngineSpline : protected VehicleBehavior, protected ITransmission, protect
         return mMaxHP;
     }
     Hp GetMinHorsePower() const override {
-        return FTLB2HP(Physics::Info::Torque(mEngineInfo, mEngineInfo.IDLE()) * mEngineInfo.IDLE(), 1.0f);
+        return FTLB2HP(Physics::Info::Torque(mEngineInfo, mEngineInfo.IDLE()), mEngineInfo.IDLE());
     }
     float GetHorsePower() const override;
     float GetRPM() const override {
@@ -140,28 +140,28 @@ class EngineSpline : protected VehicleBehavior, protected ITransmission, protect
     void AutoShift();
 
     unsigned int GetNumGearRatios() const {
-        return mTranyInfo.Num_GEAR_RATIO();
+        return mTranyInfo->Num_GEAR_RATIO();
     }
     float GetGearRatio(unsigned int idx) const {
-        return mTranyInfo.GEAR_RATIO(idx);
+        return mTranyInfo->GEAR_RATIO(idx);
     }
     float GetGearEfficiency(unsigned int idx) const {
-        return mTranyInfo.GEAR_EFFICIENCY(idx);
+        return mTranyInfo->GEAR_EFFICIENCY(idx);
     }
     float GetFinalGear() const {
-        return mTranyInfo.FINAL_GEAR();
+        return mTranyInfo->FINAL_GEAR();
     }
     float GetShiftDelay(unsigned int gear) const {
-        return mTranyInfo.SHIFT_SPEED() * GetGearRatio(gear);
+        return mTranyInfo->SHIFT_SPEED() * GetGearRatio(gear);
     }
 
     float GetDifferentialAngularVelocity() const;
 
     bool RearWheelDrive() const {
-        return mTranyInfo.TORQUE_SPLIT() < 1.0f;
+        return mTranyInfo->TORQUE_SPLIT() < 1.0f;
     }
     bool FrontWheelDrive() const {
-        return mTranyInfo.TORQUE_SPLIT() > 0.0f;
+        return mTranyInfo->TORQUE_SPLIT() > 0.0f;
     }
 
     float CalcSpeedometer(float rpm, unsigned int gear) const;
@@ -315,19 +315,19 @@ void EngineSpline::MatchSpeed(float speed) {
     }
 
     float differential_w = speed / avg_wheel_radius;
-    float max_w = RPM2RPS(this->mEngineInfo.RED_LINE());
-    float min_w = RPM2RPS(this->mEngineInfo.IDLE());
+    float max_w = RPM2RPS(this->mEngineInfo->RED_LINE());
+    float min_w = RPM2RPS(this->mEngineInfo->IDLE());
 
     if (speed == 0.0f) {
         this->mGearShiftTimer = 0.0f;
         this->mGear = G_FIRST;
-        this->mAngularVelocity = RPM2RPS(this->mEngineInfo.IDLE());
+        this->mAngularVelocity = RPM2RPS(this->mEngineInfo->IDLE());
         return;
     }
 
     if (speed < 0.0f) {
-        this->mGearShiftTimer = 0.0f;
         this->mGear = G_REVERSE;
+        this->mGearShiftTimer = 0.0f;
     } else {
         this->mGear = G_FIRST;
         for (unsigned int gear = G_FIRST; gear < this->GetNumGearRatios(); ++gear) {
@@ -343,7 +343,14 @@ void EngineSpline::MatchSpeed(float speed) {
 
     float total_gear_ratio = this->GetGearRatio(mGear) * this->GetFinalGear();
     float power_range = (max_w - min_w) / max_w;
+#ifdef EA_PLATFORM_XENON
+    // El EGM agrupa diferencial por relacion total y despues por power_range
+    // (fmuls f13, f0, f10 y fmadds f12, f13, f1, f11 al final de 0x8245C810).
+    float diff_times_ratio = differential_w * total_gear_ratio;
+    mAngularVelocity = min_w + diff_times_ratio * power_range;
+#else
     mAngularVelocity = min_w + differential_w * total_gear_ratio * power_range;
+#endif
 }
 
 void EngineSpline::CalcShiftPoints() {

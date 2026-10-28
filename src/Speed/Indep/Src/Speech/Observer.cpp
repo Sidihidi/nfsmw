@@ -3,6 +3,7 @@
 #include "MiscSpeech.h"
 #include "RoadblockFlow.h"
 #include "SoundAI.h"
+#include "Speed/Indep/Src/World/Rain.hpp"
 #include "Speed/Indep/Src/Generated/Messages/MGamePlayMoment.h"
 #include "Speed/Indep/Src/Generated/Messages/MMiscSound.h"
 #include "Speed/Indep/Src/Generated/Messages/MNotifySpeechStatus.h"
@@ -266,6 +267,39 @@ void Observer::GasStationAftermath() {
                 cop->CallforEV(2);
             }
             ++iter;
+        }
+    }
+}
+
+// gcdatos4: AssessWeather estaba ausente del arbol. En el DWARF-1 de la CU
+// zSpeech su DIE de definicion (.debug+0x3E0B4CD, low_pc=-1, sin AT_inline, sin
+// copia en el ELF final y sin expansiones inline en ningun llamante) va entre
+// GasStationAftermath y AssessArrest, con locales ai (SoundAI* en r31), view
+// (eView*), intensity (float en f13) y randcop (EAXCop* en r11) en un bloque
+// interior, e inlines Singleton::Get, eGetView, Rain::GetRainIntensity y
+// SoundAI::GetHeli x3; la clase Rain se completa en la fase de cabeceras de
+// este segmento (.debug+0x3E04591). Sus unicas constantes son el par huerfano
+// 0.0f/0.25f de obj+0x1874/0x1878, en posicion de fichero entre los pools de
+// GasStationAftermath y AssessArrest: la definicion original no era inline
+// (con `inline`, SN emite la copia al final de la TU y el pool cae en
+// src+0x2FD8, medido) sino una definicion normal sin llamantes, cuyo codigo
+// elimino el enlazador MW dejando el pool. El cuerpo sigue el esqueleto del
+// DIE: mWeather es el miembro que WeatherExists() expone y que ninguna otra
+// funcion pone a true, y EAXCop::WeatherReport no tiene otro llamante.
+void Observer::AssessWeather() {
+    SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
+    eView *view = eGetView(EVIEW_PLAYER1, false);
+    if (view->Precipitation) {
+        float intensity = view->Precipitation->GetRainIntensity();
+        mWeather = intensity > 0.0f;
+        if (intensity > 0.25f && ai->GetHeli() && ai->GetHeli()->IsActive()) {
+            ai->GetHeli()->WeatherReport();
+        }
+        {
+            EAXCop *randcop = ai->GetRandomActiveCop(0, false);
+            if (randcop) {
+                randcop->WeatherReport();
+            }
         }
     }
 }

@@ -11,8 +11,19 @@
 extern char *g_DataPaths[];
 extern EAXS_StreamManager *gpEAXS_StrmMgr;
 
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, entre POSMIXTYPE y gPF_MemoryAllocator (0x5e44e0,
+// PS2_globals.hpp:1096), a 0 en su .data objetivo.
+int DEBUG_PATHFINDER = 0;
+#endif
 SFXCTL_Pathfinder *g_pSFXCTL_Pathfinder;
 stPFParms *SFXCTL_Pathfinder::m_pPFParms[4] = {nullptr, nullptr, nullptr, nullptr};
+// gcdatos19: en los tres .data objetivo el orden es [m_pPFParms][s_TypeInfo]
+// [m_curinteractive][PFXMAP] (A124 zEAXSound +0x30b0/+0x30c0/+0x30d0/+0x30d8;
+// GC +0x490/+0x4a0/+0x4b0/+0x4b4; SLUS: el hueco de 16 B con el 01 01 de
+// +0x3070 entre m_pPFParms +0x3060 y m_curinteractive +0x3080). La definicion
+// del s_TypeInfo va aqui, no detras de PFXMAP.
+SndBase::TypeInfo SFXCTL_Pathfinder::s_TypeInfo = {(int)0x01010000, "SFXCTL_Pathfinder", &SFXCTL::s_TypeInfo, SFXCTL_Pathfinder::CreateObject};
 int SFXCTL_Pathfinder::m_curinteractive = 0;
 
 #ifdef EA_BUILD_A124
@@ -32,6 +43,22 @@ int PFXMAP[4][17][2] = {
      {332, 7}, {345, 8}, {46398097, 9}, {46193775, 10}, {48833071, 11}, {38898709, 12}, {45323833, 13},
      {48398670, 14}, {38561910, 15}, {29704135, 16}},
 };
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// speed.exe 0x8EE7E8 and the X360 xex carry the same table: other event ids for projects 1-3 and for events 9-20.
+int PFXMAP[4][21][2] = {
+    {{409, 0}, {106, 1}, {306, 2}, {213, 3}, {0, 4}, {393, 5}, {383, 6},
+     {399, 7}, {412, 8}, {29620881, 9}, {29416559, 10}, {32055855, 11}, {22121493, 12}, {28546617, 13},
+     {31621454, 14}, {21784694, 15}, {29704135, 16}, {24015490, 17}, {26261212, 18}, {19064921, 19}, {19642952, 20}},
+    {{737, 0}, {535, 1}, {663, 2}, {613, 3}, {427, 4}, {717, 5}, {705, 6},
+     {727, 7}, {740, 8}, {29620881, 9}, {29416559, 10}, {32055855, 11}, {22121493, 12}, {28546617, 13},
+     {31621454, 14}, {21784694, 15}, {29704135, 16}, {24015490, 17}, {26261212, 18}, {19064921, 19}, {19642952, 20}},
+    {{1110, 0}, {828, 1}, {991, 2}, {889, 3}, {755, 4}, {1090, 5}, {1078, 6},
+     {1100, 7}, {1113, 8}, {29620881, 9}, {29416559, 10}, {32055855, 11}, {22121493, 12}, {28546617, 13},
+     {31621454, 14}, {21784694, 15}, {29704135, 16}, {24015490, 17}, {26261212, 18}, {19064921, 19}, {19642952, 20}},
+    {{1469, 0}, {1193, 1}, {1399, 2}, {1293, 3}, {1127, 4}, {1449, 5}, {1439, 6},
+     {1459, 7}, {1472, 8}, {29620881, 9}, {29416559, 10}, {32055855, 11}, {22121493, 12}, {28546617, 13},
+     {31621454, 14}, {21784694, 15}, {29704135, 16}, {24015490, 17}, {26261212, 18}, {19064921, 19}, {19642952, 20}},
+};
 #else
 int PFXMAP[4][21][2] = {
     {{409, 0}, {106, 1}, {306, 2}, {213, 3}, {0, 4},   {393, 5},      {383, 6},
@@ -48,8 +75,6 @@ int PFXMAP[4][21][2] = {
      {48398670, 14}, {38561910, 15}, {29704135, 16}, {40792706, 17}, {43038428, 18}, {32566195, 19}, {33020764, 20}},
 };
 #endif
-
-SndBase::TypeInfo SFXCTL_Pathfinder::s_TypeInfo = {(int)0x01010000, "SFXCTL_Pathfinder", &SFXCTL::s_TypeInfo, SFXCTL_Pathfinder::CreateObject};
 
 SndBase::TypeInfo *SFXCTL_Pathfinder::GetTypeInfo() const { return &s_TypeInfo; }
 

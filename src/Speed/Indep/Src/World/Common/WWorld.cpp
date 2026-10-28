@@ -48,10 +48,21 @@ int UnloaderCarpWGrid(bChunk *chunk) {
     return WWorld::Get().Unloader(chunk);
 }
 
+#ifdef EA_BUILD_A124
+// gcdatos21: en la A124 el orden es [mStartPosition][fgWorld]
+// [bChunkLoaderWGrid] (PS2_globals:6230-6232) y mStartPosition va inicializada
+// a cero en posicion, no tentativa al final. bChunkLoaderWGrid sigue siendo el
+// unico objeto con ctor del trio: el orden de ctors no cambia.
+UMath::Vector4 WWorld::mStartPosition = {0.0f, 0.0f, 0.0f, 0.0f};
+WWorld *WWorld::fgWorld = nullptr;
+
+bChunkLoader bChunkLoaderWGrid(BCHUNK_UPPLE_UWORLD, LoaderCarpWGrid, UnloaderCarpWGrid);
+#else
 bChunkLoader bChunkLoaderWGrid(BCHUNK_UPPLE_UWORLD, LoaderCarpWGrid, UnloaderCarpWGrid);
 
 WWorld *WWorld::fgWorld = nullptr;     // size: 0x4, address: 0x80439024
 UMath::Vector4 WWorld::mStartPosition; // size: 0x10, address: 0xFFFFFFFF
+#endif
 
 bool WWorld::Open() {
     const void *sources[3];

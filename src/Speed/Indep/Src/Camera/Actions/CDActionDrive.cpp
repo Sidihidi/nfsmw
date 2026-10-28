@@ -38,13 +38,13 @@
 #include <dolphin/mtx.h>
 #endif
 
-extern int gCamCloseToRoadBlock;
+extern bool gCamCloseToRoadBlock;
 
 static float kCinematicMomementSeconds = 2.0f;
 bool gCinematicMomementCamera = 0;
 bool gGameBreakerCamera = 0;
 
-int gCamCloseToRoadBlock = 0; // .data: 0x80416568
+bool gCamCloseToRoadBlock = 0; // .data: 0x80416568
 
 static int old_pov = -1;
 
@@ -120,7 +120,7 @@ class CDActionDrive :                       public CameraAI::Action,
     Hermes::HHANDLER mJumpCutHandler;
 };
 
-UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32>::Prototype _CDActionDrive("CDActionDrive", CDActionDrive::Construct);
+UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32>::Prototype _CDActionDrive(UCrc32("CDActionDrive"), CDActionDrive::Construct);
 
 CameraAI::Action *CDActionDrive::Construct(CameraAI::Director *director) {
     IPlayer *found = 0;
@@ -193,7 +193,7 @@ CDActionDrive::CDActionDrive(CameraAI::Director *director, IPlayer *player)
             UVector3 cg = cbody->GetCenterOfGravity();
             body->ConvertLocalToWorld(cg, false);
             VU0_v3add(cg, body->GetPosition(), cg);
-            bSetPosition(mat.v3, cg);
+            eSwizzleWorldVector(*reinterpret_cast<const bVector3 *>(&cg), *reinterpret_cast<bVector3 *>(&mat.v3));
         }
         mAnchor->Update(0.0f, mat, *mTarget.GetVelocity(), *mTarget.GetAcceleration());
     }

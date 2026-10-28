@@ -102,7 +102,9 @@ void OnlineLoginScreenManager::Start(const char *from_pkg, const char *first_scr
     CurrentScreen = FindScreen(first_screen);
     cFEng::Get()->QueuePackageSwitch(CurrentScreen->Package, 0, 0, false);
 
+#ifdef EA_BUILD_A124
     MemoryCard::GetInstance()->ShowTRCCheckCardMessage();
+#endif
     gMemCardScreenShowing = true;
 }
 
@@ -336,6 +338,7 @@ const char *OnlineLoginScreenManager::CalcPrevScreenFromUseExisting() {
 
 static int sIndexOfCurrentConfig = 0;
 
+#ifndef EA_PLATFORM_XENON // el EGM no tiene estas pantallas de cuenta EA (ni sus cadenas)
 // total size: 0x7C
 class NCSelector : public FEToggleWidget {
   public:
@@ -583,7 +586,9 @@ void UISelectNetConfig::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                 OnlineLoginScreenManager::Instance()->Start(GetPackageName(), gOL_LOGIN);
             } else {
                 OnlineLoginScreenManager::Instance()->ChangeToNextScreen();
+#ifdef EA_BUILD_A124
                 MemoryCard::GetInstance()->ShowTRCCheckCardMessage();
+#endif
                 gMemCardScreenShowing = true;
             }
             break;
@@ -618,6 +623,8 @@ void UISelectNetConfig::GetNetworkConfigs(bool bMemoryCardExists) {
 }
 
 void UISelectNetConfig::Setup() {}
+
+#endif // EA_PLATFORM_XENON
 
 UIOnlineLogin::UIOnlineLogin(ScreenConstructorData *sd)
     : MenuScreen(sd) //
@@ -666,7 +673,9 @@ void UIOnlineLogin::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32
                 m_UpdateMemcardCountdown--;
             }
             if (m_UpdateMemcardCountdown == 10) {
+#ifdef EA_BUILD_A124
                 MemoryCard::GetInstance()->ShowTRCLoadWarning();
+#endif
             }
             if (m_UpdateMemcardCountdown == 0) {
                 m_Initialized = true;
@@ -826,7 +835,11 @@ void UIOnlineLogin::DoISPProcessing() {
 
     PS2Isp &ps2isp = PS2Isp::Instance();
     if (!ps2isp.IsStarted()) {
+#ifdef EA_PLATFORM_PLAYSTATION2
         DoWithMainMemoryStack((void *)NetworkCore::StaticInit, 0, 0);
+#else
+        NetworkCore::StaticInit();
+#endif
 
         PS2Isp::Instance().Start(alertTable, PS2ISP_CONTEXT_MEMCARD, false, nullptr);
     }
@@ -882,7 +895,9 @@ void UIOnlineLogin::DoISPProcessing() {
         } else if (context == PS2ISP_CONTEXT_SELECT) {
             if (olsm->NeedToChooseNetworkConfig == true) {
                 if (gMemCardScreenShowing) {
+#ifdef EA_BUILD_A124
                     MemoryCard::GetInstance()->HideTRCMessage();
+#endif
                 } else {
                     OnlineLoginScreenManager::Instance()->ChangeToNextScreen();
                 }
@@ -894,7 +909,9 @@ void UIOnlineLogin::DoISPProcessing() {
         } else if (context == PS2ISP_CONTEXT_DNAS) {
             if (olsm->NeedToDNASAuthenticate == true) {
                 if (gMemCardScreenShowing) {
+#ifdef EA_BUILD_A124
                     MemoryCard::GetInstance()->HideTRCMessage();
+#endif
                 } else {
                     OnlineLoginScreenManager::Instance()->ChangeToNextScreen();
                 }
@@ -1031,6 +1048,7 @@ enum DnasMode {
     MODE_SUCCESS = 4,
 };
 
+#ifndef EA_PLATFORM_XENON // el EGM no tiene estas pantallas de cuenta EA (ni sus cadenas)
 // total size: 0x34
 class UIAuthDNAS : public MenuScreen {
   public:
@@ -1262,6 +1280,8 @@ void uiGetUserEmailAddress::NotificationMessage(u32 msg, FEObject *pobj, u32 par
         }
     }
 }
+
+#endif // EA_PLATFORM_XENON
 
 // total size: 0x100
 class UIEALogin : public MenuScreen {
@@ -1519,6 +1539,7 @@ void UIEATerms::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
     }
 }
 
+#ifndef EA_PLATFORM_XENON // el EGM no tiene estas pantallas de cuenta EA (ni sus cadenas)
 // total size: 0x14C
 class UISelectPersona : public UIWidgetMenu {
   public:
@@ -2535,12 +2556,17 @@ void UIUseExisting::Setup() {
     SetInitialOption(1);
 }
 
+#endif // EA_PLATFORM_XENON
+
 void UIOnlineLogin::BuddyConnectCB(int status, void *context) {
     UIOnlineLogin *onlineLogin = static_cast<UIOnlineLogin *>(context);
 
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+    // PC (speed.exe 0x512C20) empieza por `status != 2`: sin inErrorState (PC y Xbox 360 no lo tienen).
     if (FEDatabase->GetOnlineSettings()->IsInErrorState()) {
         return;
     }
+#endif
 
     if (status != 2) {
         if (!FEDatabase->GetOnlineSettings()->IsLoggedInToBuddyServer()) {
@@ -2555,6 +2581,7 @@ void UIOnlineLogin::BuddyConnectCB(int status, void *context) {
     }
 }
 
+#ifndef EA_PLATFORM_XENON // el EGM no tiene estas pantallas de cuenta EA (ni sus cadenas)
 // total size: 0x194
 class OL_CU_AccountName : public FEInputWidget {
   public:
@@ -2866,3 +2893,4 @@ MenuScreen *CreateUIOLCreateUserScreenPart2(ScreenConstructorData *sd) {
 MenuScreen *CreateUIOLCreateUserCountry(ScreenConstructorData *sd) {
     return new ("UICreateUserCountry", 0) UICreateUserCountry(sd);
 }
+#endif // EA_PLATFORM_XENON

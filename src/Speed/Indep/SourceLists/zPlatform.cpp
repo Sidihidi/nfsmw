@@ -124,3 +124,11 @@
 
 #include "Speed/PC/Src/MemoryCard/MemoryCardImp.cpp"
 #endif
+
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: la capa de plataforma (Platform_P.cpp, nombre del PDB de ProStreet para Xbox 360) y la demo disc
+// (su Init es el que el EGM expande en InitializeEverything).
+#include "Speed/Xenon/Src/Platform_P.cpp"
+
+#include "Speed/Xenon/Src/DemoDisc_Xenon.cpp"
+#endif

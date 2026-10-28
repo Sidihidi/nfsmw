@@ -37,7 +37,11 @@ IPathToSnd *IPathToSnd::sndimp = 0;
 
 }; // namespace Path
 
+#ifdef EA_PLATFORM_XENON
+PathMutex *pathsemaphore = 0;
+#else
 PathSemaphore *pathsemaphore = 0;
+#endif
 
 int PATHI_lock() {
     unsigned int timeoutImmediate;
@@ -46,19 +50,31 @@ int PATHI_lock() {
         return 0;
     }
     timeoutImmediate = 0;
+#ifdef EA_PLATFORM_XENON
+    return pathsemaphore->Lock(timeoutImmediate) == 1;
+#else
     return pathsemaphore->Wait(timeoutImmediate) == 0;
+#endif
 }
 
 void PATHI_unlock() {
     Path::pfstate = 0;
+#ifdef EA_PLATFORM_XENON
+    pathsemaphore->Unlock();
+#else
     pathsemaphore->Post(1);
+#endif
 }
 
 int PATHI_init() {
     unsigned char wasinited;
 
     if (pathsemaphore == 0) {
+#ifdef EA_PLATFORM_XENON
+        pathsemaphore = new PathMutex;
+#else
         pathsemaphore = new PathSemaphore(1);
+#endif
     }
     wasinited = Path::inited;
     Path::inited = 1;
@@ -331,10 +347,19 @@ int PATHI_bytesperms(int trackID) {
                 reinterpret_cast<char *>(Path::pfstate->pmap) + Path::pfstate->pmap->mapfilelen);
         }
     }
+#ifdef EA_PLATFORM_XENON
+    {
+        // Sin el if exterior: el EGM va directo al conteo de vueltas del bucle
+        // desenrollado (subf/addi/srawi en 0x825FB1D4-0x825FB1DC, sin cmplw previo).
+        int length;
+
+        for (; sample < endsample - 1; sample++) {
+#else
     if (sample < endsample - 1) {
         int length;
 
         for (; sample < endsample - 1; sample++) {
+#endif
             length = (sample[1].offset - sample->offset) * 128;
             bytesperms = static_cast<float>(length) / static_cast<float>(sample->duration);
             if (byterate < bytesperms) {

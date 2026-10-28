@@ -113,6 +113,9 @@ class GameDevice : public InputDevice, public IFeedback {
     bool HasJoystick();                        // 0x628C50: hay mando
     const char *GetDeviceName(int device_type); // 0x628C60: el nombre del teclado (1) o del mando (3)
     void RestoreJoystickDefaults();            // 0x63CD80: las de fabrica segun el modelo de mando
+    // 0x634DA0: con 3 (el mando) o 1 (el teclado), el bStringHashUpper del nombre del dispositivo; el perfil lo guarda
+    // con los mapeos (pc_fedb_56E180). Nombre neutro: ningun binario lo da.
+    unsigned int GetWin32Unknown634DA0(int device_type);
 
     static int mCount; // 0x9203C0: el primero crea las tablas de controles (el constructor)
 };

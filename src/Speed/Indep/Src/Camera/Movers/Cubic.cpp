@@ -8,7 +8,7 @@
 #include "Speed/Indep/Src/World/ScreenEffects.hpp"
 #include "Speed/Indep/Src/World/Rain.hpp"
 #include "Speed/Indep/Src/Misc/Rumble.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 
@@ -620,7 +620,7 @@ void CubicCameraMover::SetPovType(int pov_type) {
 
     bSnapNext |= !(new_outside && old_outside);
     nPovType = pov_type;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // La A124 informa a Juice de la camara elegida (Cubic.cpp:215-217 de sus stabs).
     if (pov_type >= 0 && pov_type < 7) {
         JuiceStatsDB::Instance()->SetCamera(pov_type);

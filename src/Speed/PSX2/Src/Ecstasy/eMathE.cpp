@@ -5,7 +5,7 @@
 
 bMatrix4 eMathIdentityMatrix;
 bMatrix4 eMathZeroMatrix;
-bVector4 eUnitVector4;
+bVector4 eUnitVector4(0.0f, 0.0f, 0.0f, 1.0f);
 
 void eMathInit(void) {
     bMatrix4 *identity = eGetIdentityMatrix();

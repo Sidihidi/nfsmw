@@ -10,6 +10,46 @@
 #include "Speed/Indep/Libs/Support/Utility/UEALibs.hpp"
 #include "Speed/Indep/Libs/Support/Utility/UTLFastVector.h"
 
+#ifdef EA_BUILD_A124
+// gcdatos16: en la A124 Tweak_drawRange va inicializada a 100.0f en posicion de
+// fuente (bytes de su .data objetivo en zWorld2 +0x268: 00 00 c8 42), no
+// tentativa sin valor.
+// gcdatos21: y lo mismo el bloque entero (PS2_globals:6184-6199 y el .data
+// objetivo: [Tweak_faceDraw][Tweak_drawRange][Tweak_objectDraw]
+// [Tweak_barrierDraw][mascaras][Tweak_triggerDraw][gVehicleEffectsDraw]
+// [gResetCar][gSingleStep][gDebugDrawFlags][gDisableWWorldPos]
+// [gDisableWWorldPos2][gDisableCheckHitWorld][gDisableWCollider]
+// [DebugDrawQuads], tras WCollisionAssets::mCollisionPackList y delante de
+// fgDbgCollisionDraw). Sin inicializador nuestro toolchain PS2 manda los
+// tentativos al bloque del final del .data. gDisableWCollider va aqui en el
+// objetivo (0x649c28), no en WCollider.cpp, que le precede en el unity; en
+// WCollider.cpp queda la declaracion extern en la A124. DebugDrawQuads: tipo
+// de los stabs (`static Vector3 DebugDrawQuads[1][4]`, 0x649c30) y valores de
+// su .data objetivo.
+bool Tweak_faceDraw = false;
+float Tweak_drawRange = 100.0f;
+bool Tweak_objectDraw = false;
+bool Tweak_barrierDraw = false;
+unsigned char Tweak_typeMaskInclude = 0;
+unsigned char Tweak_typeMaskExclude = 0;
+bool Tweak_triggerDraw = false;
+bool gVehicleEffectsDraw = false;
+static bool gResetCar = false;
+static bool gSingleStep = false;
+unsigned int gDebugDrawFlags = 0;
+bool gDisableWWorldPos = false;
+bool gDisableWWorldPos2 = false;
+bool gDisableCheckHitWorld = false;
+bool gDisableWCollider = false;
+static UMath::Vector3 DebugDrawQuads[1][4] = {
+    {
+        {4.93f, -10.65f, 0.353f},
+        {4.93f, -13.474f, 0.353f},
+        {6.202f, -13.474f, 0.884f},
+        {6.202f, -10.65f, 0.884f},
+    },
+};
+#else
 bool Tweak_faceDraw;
 float Tweak_drawRange;
 bool Tweak_objectDraw;
@@ -24,8 +64,11 @@ unsigned int gDebugDrawFlags;
 bool gDisableWWorldPos;
 bool gDisableWWorldPos2;
 bool gDisableCheckHitWorld;
+#endif
 
-WDbgCollisionDraw *WDbgCollisionDraw::fgDbgCollisionDraw;
+// gcdatos21: inicializado para que en la A124 caiga tras DebugDrawQuads
+// (0x649c60), no en el bloque tentativo del final.
+WDbgCollisionDraw *WDbgCollisionDraw::fgDbgCollisionDraw = nullptr;
 
 WDbgCollisionDraw::WDbgCollisionDraw() {
     fVoidSet = new ("WVoidSet", 0) WVoidSet;

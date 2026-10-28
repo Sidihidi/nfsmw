@@ -134,8 +134,8 @@ void Average::Record(float fValue) {
     this->fTotal += fValue;
     this->fTotal -= this->pData[this->nCurrentSlot];
     this->pData[this->nCurrentSlot] = fValue;
-    this->nCurrentSlot++;
     this->fAverage = this->fTotal / static_cast<int>(this->nSamples);
+    this->nCurrentSlot++;
     if (this->nCurrentSlot >= this->nSlots) {
         this->nCurrentSlot = 0;
     }
@@ -216,8 +216,8 @@ void AverageWindow::Record(const float fValue, const float fTimeNow) {
             this->iOldestValue = 0;
         }
     }
-    this->nCurrentSlot++;
     this->fAverage = this->fTotal / static_cast<int>(this->nSamples);
+    this->nCurrentSlot++;
     if (this->nCurrentSlot >= this->nSlots) {
         this->nCurrentSlot = 0;
     }

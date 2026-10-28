@@ -18,16 +18,39 @@ extern Slope g_WooshVol_vs_Vel;
 
 extern ParameterAccessor ReverbAccessor;
 extern eREVERBFX ReverbZoneCrossMap[];
+extern stREVERB_PARAMS g_REVERBFXMODULES[];
+
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos19: orden de declaracion de los stabs (PS2_globals.hpp:1065-1074) en
+// las dos PS2 y en GC: [ToggleReflection][DEBUG_PRINT_TUNNEL]
+// [DEBUG_REVERB_CHANGES][m_PlayerZoneType][DebugOcclusionProfile]
+// [TickerTimeStart][TickerTimeAccum][s_TypeInfo][TimeBetweenOcclusionTests]
+// [MaxDistanceToOccludeTest]. En GC son el hueco de 12 B tras
+// SFXCTL_TruckPhysics::s_TypeInfo (+0x3c8), m_PlayerZoneType (+0x3d4), el
+// hueco de 4 B (+0x3d8) y TimeBetween/MaxDistance tras el s_TypeInfo
+// (+0x3f4/+0x3f8); la SLUS cierra igual por bloques (m_PlayerZoneType en
+// +0x2eec y el par 0.5f/100.0f tras el s_TypeInfo). El trio de depuracion
+// (gcdatos14) no es solo-A124. PC/X360 conservan el orden del #else.
+int ToggleReflection = 0;
+int DEBUG_PRINT_TUNNEL = 0;
+int DEBUG_REVERB_CHANGES = 0;
+eTrackPathZoneType SFXCTL_Tunnel::m_PlayerZoneType = TRACK_PATH_ZONE_RESET;
+bool DebugOcclusionProfile = false;
+unsigned int TickerTimeStart = 0;
+unsigned int TickerTimeAccum = 0;
+SndBase::TypeInfo SFXCTL_Tunnel::s_TypeInfo = {(int)0x00020060, "SFXCTL_Tunnel", &SFXCTL::s_TypeInfo, SFXCTL_Tunnel::CreateObject};
+float TimeBetweenOcclusionTests = 0.5f;
+float MaxDistanceToOccludeTest = 100.0f;
+#else
 float TimeBetweenOcclusionTests = 0.5f;
 float MaxDistanceToOccludeTest = 100.0f;
 unsigned int TickerTimeStart = 0;
 unsigned int TickerTimeAccum = 0;
 
-extern stREVERB_PARAMS g_REVERBFXMODULES[];
-
 eTrackPathZoneType SFXCTL_Tunnel::m_PlayerZoneType = TRACK_PATH_ZONE_RESET;
 
 SndBase::TypeInfo SFXCTL_Tunnel::s_TypeInfo = {(int)0x00020060, "SFXCTL_Tunnel", &SFXCTL::s_TypeInfo, SFXCTL_Tunnel::CreateObject};
+#endif
 
 #ifdef EA_BUILD_A124
 eREVERBFX SFXCTL_Tunnel::m_ReverbType;
@@ -452,11 +475,11 @@ void SFXCTL_Tunnel::UpdateMixerOutputs() {
 void SFXCTL_Tunnel::UpdateCityVerb(float t) {
     (void)t;
 
+    this->m_PrevReverbZone = this->m_CurReverbZone;
     int ncurrentoffset = 0;
 #ifndef EA_BUILD_A124
     int isValid = 1;
 #endif
-    this->m_PrevReverbZone = this->m_CurReverbZone;
 
     // La reverberacion de la A124 es una sola: solo la mueve el coche de cabeza (0x1C11E4: `lw $v0, 0xB0($s0)`).
 #ifdef EA_BUILD_A124
@@ -484,7 +507,7 @@ void SFXCTL_Tunnel::UpdateCityVerb(float t) {
         }
     }
 
-    if (static_cast<unsigned int>(this->m_CurReverbZone) > 0xB) {
+    if (this->m_CurReverbZone >= 12 || this->m_CurReverbZone < 0) {
         if (g_pEAXSound->GetSndGameMode() == SND_FRONTEND) {
             this->m_CurReverbZone = 0;
         } else {
@@ -537,9 +560,10 @@ void SFXCTL_Tunnel::SetCurrentReverbType(eREVERBFX ereverbtype, int reverboffset
         return;
     }
 #endif
-    this->bFadingOut = true;
-    this->m_ReverbOffset = static_cast<float>(reverboffset);
+    // Orden del mapa de lineas de GameCube (718, 719, 721): las dos PS2 lo siguen (94,59 y 85,78 -> 100).
     this->m_TargetType = ereverbtype;
+    this->m_ReverbOffset = static_cast<float>(reverboffset);
+    this->bFadingOut = true;
     this->ReflRamp.Initialize(0.0f, 1.0f, g_REVERBFXMODULES[this->m_ReverbType].FadeOut, LINEAR);
     this->m_CurWetGinsuTarget = 0.0f;
     this->m_CurWetAemsTarget = 0.0f;

@@ -21,8 +21,8 @@ LobbyGames &LobbyGames::Instance() {
 
 void LobbyGames::SetResultUpdateCB(ResultUpdateCBFunc func, void *context) {
     lobbyMutex.Lock("LobbyGames::SetResultUpdateCB");
-    resultContext = context;
     resultUpdateCB = func;
+    resultContext = context;
     lobbyMutex.Unlock("LobbyGames::SetResultUpdateCB");
 }
 

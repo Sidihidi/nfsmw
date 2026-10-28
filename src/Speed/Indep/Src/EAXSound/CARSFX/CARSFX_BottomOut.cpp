@@ -1,13 +1,30 @@
 #include "Speed/Indep/Src/EAXSound/CARSFX/CARSFX_BottomOut.hpp"
 #include "Speed/Indep/Src/EAXSound/EAXTunerCar.hpp"
 
+#ifdef EA_BUILD_A124
+// gcdatos16: 0.9f en la A124 (bytes de su .data objetivo en zEAXSound2 +0xb54:
+// 66 66 66 3f); 0.8f en las demas (SLUS y GC casan con 0.8f).
+float DOT_PROD_FOR_HEAVY_LEAN = 0.9f;                         // size: 0x4, address: 0x804181D4, Decl: 4
+#else
 float DOT_PROD_FOR_HEAVY_LEAN = 0.8f;                         // size: 0x4, address: 0x804181D4, Decl: 4
+#endif
 static const float MIN_HANGTIME_FOR_LANDJUMP_SND = 0.12f;     // size: 0x4, Decl: 5
 static const float MIN_HANGTIME_FOR_HARD_LANDJUMP_SND = 0.7f; // size: 0x4, Decl: 6
 
+#ifdef EA_BUILD_A124
+Slope JumpLandingIntensity(0.0f, 1.0f, 0.0f, 1.0f); // la A124 sube hasta 1 (fa3 = fa1 en su inicializador)
+#else
 Slope JumpLandingIntensity(0.0f, 1.0f, 0.0f, 0.65f); // size: 0x1C, address: 0x8045E548, Decl: 10
+#endif
 
+#ifndef EA_BUILD_A124
+// gcdatos20: la A124 no lo tiene: ni en los stabs (PS2_globals.hpp solo trae
+// JumpLandingIntensity en 5e5408) ni en su .data (entre JumpLandingIntensity
+// +0xb58 y el s_TypeInfo de BottomOut +0xb78 solo hay 4 B a 0), y su rama de
+// Update no lo usa (la de tienda si, linea 367). En GC 0x804181D8 y en SLUS
+// los valores estan en +0xb88.
 int JumpLandingVolumes[4] = {13000, 15000, 24000, 0x7FFF}; // size: 0x10, address: 0x804181D8, Decl: 16
+#endif
 
 DEFINE_CREATABLE(0x200d0, CARSFX_BottomOut, SndBase);
 
@@ -354,8 +371,8 @@ void CARSFX_BottomOut::ProcessUpdate() {
 
             int VolToUse = bClamp(static_cast<int>(this->m_Intesity[n]) >> 5, 0, 3);
 
-            TmpParams.Pitch = 0x1000;
             TmpParams.Vol = (JumpLandingVolumes[VolToUse] * TmpParams.Vol) >> 15;
+            TmpParams.Pitch = 0x1000;
             this->m_pStichLandJump[n]->Update(&TmpParams);
 
             if (!this->m_pStichLandJump[n]->IsPlaying() || g_EAXIsPaused()) {

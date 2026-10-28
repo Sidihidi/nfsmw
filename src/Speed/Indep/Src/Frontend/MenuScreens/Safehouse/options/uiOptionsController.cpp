@@ -273,6 +273,36 @@ void MyFinishLoadingControllerTextureCallbackBridge(unsigned int p) {
 
 unsigned int UIOptionsController::CalcControllerTextureToLoad() {
     unsigned int texture_hash;
+#ifdef EA_BUILD_A124
+    FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions());
+    if (IsJoystickTypeWheel(static_cast<JoystickPort>(PortToConfigure))) {
+        texture_hash = 0x25932522;
+    } else if (GetCurrentLanguage() == eLANGUAGE_KOREAN) {
+        texture_hash = 0x07FBF7A5;
+    } else if (FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog) {
+        texture_hash = 0xDF7B27A7;
+    } else {
+        texture_hash = 0xDF7B27A8;
+    }
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    isWheelConfig = 0;
+
+    GetPlayerToEditForOptions();
+    int joyport = FEDatabase->GetPlayersJoystickPort(GetPlayerToEditForOptions());
+    if (joyport == -1) {
+        joyport = GetPlayerToEditForOptions();
+    }
+    if (IsJoystickTypeWheel(static_cast<JoystickPort>(joyport))) {
+        texture_hash = 0x25932522;
+        isWheelConfig = 1;
+    } else if (GetCurrentLanguage() == eLANGUAGE_KOREAN) {
+        texture_hash = 0x07FBF7A5;
+    } else if (FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->DriveWithAnalog) {
+        texture_hash = 0xDF7B27A7;
+    } else {
+        texture_hash = 0xDF7B27A8;
+    }
+#else
     isWheelConfig = 0;
 
     GetPlayerToEditForOptions();
@@ -286,6 +316,7 @@ unsigned int UIOptionsController::CalcControllerTextureToLoad() {
             texture_hash = 0xED543BAC;
         }
     }
+#endif
     return texture_hash;
 }
 

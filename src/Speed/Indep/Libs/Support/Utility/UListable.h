@@ -82,6 +82,11 @@ template <typename T, int U> class Listable {
         return _mTable;
     }
 
+    static T *First();
+
+    // El original declara tambien Last/Next/Prev/NextCircular/PrevCircular aqui
+    // (DWARF-1 de GC y stabs de la A124); ninguna version emite sus cuerpos.
+
     template <typename Compare> static void Sort(Compare pred) {
         std::sort(_mTable.begin(), _mTable.end(), pred);
     }
@@ -177,6 +182,8 @@ template <typename T, int ListSize, typename Enum, std::size_t EnumMax> class Li
         UnList();
     }
 
+    // El original declara tambien Prev/NextCircular/PrevCircular junto a Next;
+    // ninguna version emite sus cuerpos.
     iterator Next(Enum idx) const {
         const List &list = GetList(idx);
         typename List::const_iterator iter = std::find(list.begin(), list.end(), static_cast<const_iterator>(this));
@@ -239,6 +246,13 @@ template <typename T, int ListSize, typename Enum, std::size_t EnumMax> T *Lista
     const List &list = GetList(idx);
     if (list.size() != 0) {
         return list[list.size() - 1];
+    }
+    return nullptr;
+}
+
+template <typename T, int U> T *Listable<T, U>::First() {
+    if (_mTable.size() != 0) {
+        return *_mTable.begin();
     }
     return nullptr;
 }

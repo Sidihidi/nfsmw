@@ -379,6 +379,7 @@ void VU0_MATRIX4_vect4mult(const UMath::Vector4 &v, const UMath::Matrix4 &m, UMa
 void VU0_MATRIX4_vect4mult(const UMath::Vector4 *v, const UMath::Matrix4 &m, UMath::Vector4 *result, int count);
 void VU0_MATRIX4setyrot(UMath::Matrix4 &dest, const float yangle);
 void VU0_MATRIX4setzrot(UMath::Matrix4 &dest, const float zangle);
+void VU0_QuatToEuler(const UMath::Vector4 &q, UMath::Vector3 &e);
 void VU0_Matrix4ToEuler(const UMath::Matrix4 &m, UMath::Vector3 &e);
 
 void VU0_ExtractXAxis3FromQuat(const RQUAT &quat, UMath::Vector3 &result);

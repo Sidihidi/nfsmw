@@ -91,3 +91,38 @@ scratchpad/
 # Herramientas de terceros descargadas (no son codigo del proyecto)
 DS/
 DS.rar
+
+# Datos del juego: NUNCA en git (siguen en disco; el port los necesita para correr). 2026-10-21, decision del usuario.
+port/android/app/src/main/assets/*
+!port/android/app/src/main/assets/disk-verify.txt
+port/android/tests/race_f22/datos/
+port/**/*.[Bb][Uu][Nn]
+port/**/*.[Ll][Zz][Cc]
+port/**/*.[Aa][Bb][Kk]
+port/**/*.[Ff][Nn][Gg]
+port/**/*.[Tt][Pp][Kk]
+port/**/*.[Vv][Pp]6
+port/**/*.[Bb][Ii][Gg]
+# Demos y material del juego en la raiz
+/NFSmwdemoxbox/
+/Need for Speed Most Wanted*/
+# Logs de evidencia enormes sacados del control de versiones (2026-10-21; siguen en disco)
+/docs/analisis/traza9999.log
+/port/android/tests/evidencias_p30/log_sesion_base.txt
+/port/android/tests/evidencias_p37/base_sesion.log
+/port/android/tests/evidencias_p39/s_s5.log
+/port/android/tests/evidencias_p67i/log_final_arranque.txt
+/port/android/tests/evidencias_p74/s_humoIA.log
+/port/android/tests/evidencias_p74/s_humoIA2.log
+/port/android/tests/evidencias_p74/s_humoIA3.log
+/port/android/tests/evidencias_p75/s_envRace.log
+/port/android/tests/race_f20/carrera1_full.logcat
+/port/android/tests/race_f20/carrera2_full.logcat
+/port/android/tests/rap_20705.log
+/port/vita/evidencias/hito21/hito21_gp6.log
+/port/vita/evidencias/hito22/hito22_gp12ai.log
+/port/vita/evidencias/hito22/hito22_gp14larga.log
+/port/vita/evidencias/hito22/hito22_gp9larga.log
+/Need for Speed - ProStreet*/
+/Need for Speed - Carbon*/
+/NFSC-Alpha56*/

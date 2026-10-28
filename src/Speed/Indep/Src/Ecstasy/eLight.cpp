@@ -135,11 +135,14 @@ bChunkLoader bChunkLoaderLights(0x80135000, LoaderLights, UnloaderLights);
 
 bTList<eDynamicLightPack> DynamicLightPackList;
 
+#ifndef EA_PLATFORM_PLAYSTATION2 // fuera solo en PS2: en la A124 hay 11 rigs, no 12; en PC la construccion si
+// esta (quitarla renumero las iniciales _$E de zEcstasy y dejo de casar 18) y el simbolo solo esta en GOWE69
 eShaperLightRig ShaperLightsGCSpecial(
     LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
     LIGHT_SUN_DIRECTION, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.2f,
     LIGHT_OPPOSITE_SUN_DIRECTION, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.2f,
     LIGHT_CAMERA_SPACE, 240.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.2f);
+#endif
 
 eShaperLightRig ShaperLightsDefault(
     LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -153,11 +156,19 @@ eShaperLightRig ShaperLightsBackRoom(
     LIGHT_WORLD_SPACE, 134.0f, 185.0f, 0.83f, 0.83f, 1.0f, 0.5f,
     LIGHT_WORLD_SPACE, 27.0f, 175.0f, 0.83f, 0.83f, 1.0f, 0.35f);
 
+#ifdef EA_BUILD_A124 // la alpha aun no negaba los theta de CarLot (su _GLOBAL_$I$ guarda 90/134/27, como BackRoom)
+eShaperLightRig ShaperLightsCarLot(
+    LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    LIGHT_WORLD_SPACE, 90.0f, 48.0f, 1.0f, 1.0f, 0.95f, 0.98f,
+    LIGHT_WORLD_SPACE, 134.0f, 185.0f, 0.83f, 0.83f, 1.0f, 0.5f,
+    LIGHT_WORLD_SPACE, 27.0f, 175.0f, 0.83f, 0.83f, 1.0f, 0.35f);
+#else
 eShaperLightRig ShaperLightsCarLot(
     LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
     LIGHT_WORLD_SPACE, -90.0f, 48.0f, 1.0f, 1.0f, 0.95f, 0.98f,
     LIGHT_WORLD_SPACE, -134.0f, 185.0f, 0.83f, 0.83f, 1.0f, 0.5f,
     LIGHT_WORLD_SPACE, -27.0f, 175.0f, 0.83f, 0.83f, 1.0f, 0.35f);
+#endif
 
 eShaperLightRig ShaperLightsCShop(
     LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -177,11 +188,19 @@ eShaperLightRig ShaperLightsSafehouse(
     LIGHT_WORLD_SPACE, 134.0f, 185.0f, 0.83f, 0.83f, 1.0f, 0.5f,
     LIGHT_WORLD_SPACE, 27.0f, 175.0f, 0.83f, 0.83f, 1.0f, 0.35f);
 
+#ifdef EA_PLATFORM_PLAYSTATION2 // las escalas de PS2 son 0.83/0.4/0.45 en la A124 y en SLUS (leidas de su _GLOBAL_$I$)
+eShaperLightRig ShaperLightsCarsInGame(
+    LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    LIGHT_SUN_DIRECTION, 0.0f, 350.0f, 0.85f, 0.9f, 1.0f, 0.83f,
+    LIGHT_SUN_DIRECTION, 50.0f, 220.0f, 0.55f, 0.6f, 1.0f, 0.4f,
+    LIGHT_SUN_DIRECTION, 310.0f, 220.0f, 0.65f, 0.7f, 1.0f, 0.45f);
+#else
 eShaperLightRig ShaperLightsCarsInGame(
     LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
     LIGHT_SUN_DIRECTION, 0.0f, 350.0f, 0.85f, 0.9f, 1.0f, 1.5f,
     LIGHT_SUN_DIRECTION, 50.0f, 220.0f, 0.55f, 0.6f, 1.0f, 0.7f,
     LIGHT_SUN_DIRECTION, 310.0f, 220.0f, 0.65f, 0.7f, 1.0f, 0.9f);
+#endif
 
 eShaperLightRig ShaperLightsCharacters(
     LIGHT_WORLD_SPACE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,

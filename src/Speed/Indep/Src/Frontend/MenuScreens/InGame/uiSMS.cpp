@@ -255,7 +255,11 @@ void uiSMS::AddSMSDatum(SMSMessage* msg) {
     }
     SMSDatum* datum = new ("SMSDatum", 0) SMSDatum(msg);
     AddDatum(datum);
+#ifdef EA_BUILD_A124
     if (msg->IsUnRead()) {
+#else // la de venta prueba el bit sin pasar por el bool de IsUnRead
+    if (msg->GetFlags() & 2) {
+#endif
         ArrayDatum* d = GetDatumAt(GetNumDatum() - 1);
         d->SetChecked(true);
     }
@@ -311,7 +315,12 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
         break;
 #endif
     case 0x35f8620b:
-#ifndef EA_BUILD_A124
+#ifdef EA_BUILD_A124 // la A124 abre aqui el mensaje (no espera a la tarjeta)
+        if (the_msg != nullptr) {
+            FEngSetScript(GetPackageName(), 0x47ff4e7c, bStringHash("READ"), true);
+            cFEng::Get()->QueuePackagePush("SMS_Message.fng", reinterpret_cast<int>(the_msg), 0, false);
+        }
+#else
         bInitCompleted = true;
 #endif
         break;
@@ -330,12 +339,18 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
         Setup();
         break;
     case 0x0c407210:
+#ifdef EA_PLATFORM_XENON // X360: cmpwi con signo en 0x8226E9E8 (los datum locales van cmplwi)
+        if (reinterpret_cast<int>(GetCurrentDatum()) != 0) {
+#else
         if (GetCurrentDatum() != nullptr) {
+#endif
             button_pressed = 0x0c407210;
             FEngSetScript(GetPackageName(), 0x47ff4e7c, bStringHash("READ"), true);
             break;
         }
+#ifndef EA_BUILD_A124
         cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
+#endif
         break;
     case 0x72619778:
     case 0x911c0a4b: {
@@ -358,7 +373,9 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
         break;
     case 0xc519bfc4:
         if (the_msg == nullptr || !the_msg->IsValid()) {
+#ifndef EA_BUILD_A124
             cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
+#endif
             break;
         }
         DialogInterface::ShowTwoButtons(GetPackageName(), "InGameDialog.fng",
@@ -367,7 +384,9 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
             static_cast<eDialogFirstButtons>(1), 0x8c3c2171);
         break;
     case 0xd05fc3a3: {
+#ifndef EA_BUILD_A124
         cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
+#endif
         SMSDatum* datum = static_cast<SMSDatum*>(GetCurrentDatum());
         if (datum == nullptr) {
             break;
@@ -378,15 +397,26 @@ void uiSMS::NotificationMessage(u32 msg, FEObject* obj, u32 param1, u32 param2) 
     }
     case 0x34dc1bcf:
     case 0x1fab5998:
+#ifndef EA_BUILD_A124
         cFEng::Get()->QueuePackageMessage(__ENABLE_INPUTS__, GetPackageName(), nullptr);
+#endif
         break;
     case 0xe1fde1d1:
+#ifdef EA_PLATFORM_XENON // X360: cmplw sin signo en 0x8226ED40 y cmpwi con signo en 0x8226ED4C
+        if ((u32)button_pressed != 0x0c407210) {
+            break;
+        }
+        if (reinterpret_cast<int>(GetCurrentDatum()) == 0) {
+            break;
+        }
+#else
         if (button_pressed != 0x0c407210) {
             break;
         }
         if (GetCurrentDatum() == nullptr) {
             break;
         }
+#endif
         cFEng::Get()->QueuePackagePush("SMS_Message.fng", reinterpret_cast<int>(the_msg), 0, false);
         break;
     case 0x911ab364:

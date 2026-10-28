@@ -759,7 +759,7 @@ static int iSPCH_TestMatchParms(SentencePickInfo *sentenceInfo, VoxSentence *sen
             sampleParms = iSPCH_GetSampleParmAddr(bank, sampleIndex);
             if (sampleParms == 0) {
                 result = 0;
-                goto abort;
+                goto exit;
             }
 
             for (j = 0; j < numFilters; j++) {
@@ -780,7 +780,7 @@ static int iSPCH_TestMatchParms(SentencePickInfo *sentenceInfo, VoxSentence *sen
 
                         if ((matchParmIO[matchParmIndex] >> sampleParms[j] & 1) == 0) {
                             result = 0;
-                            goto abort;
+                            goto exit;
                         }
                     } else if (iSPCH_GetPhraseParmInfo(phrase, j)->eventParmIndex == 0xFE) {
                         matchParmIO[matchParmIndex] = 1 << sampleParms[j];
@@ -790,7 +790,7 @@ static int iSPCH_TestMatchParms(SentencePickInfo *sentenceInfo, VoxSentence *sen
         }
     }
 
-abort:
+exit:
     return result;
 }
 
@@ -1060,19 +1060,19 @@ static int iSPCH_SentenceMakeChoice(EventSpec *eventSpec, SentencePickInfo *sent
 
             if (phraseInfo->numPicks == 0) {
                 foundSentence = 0;
-                goto done;
+                goto abort;
             }
 
             if (!iSPCH_PickPhraseSample(phraseInfo)) {
                 foundSentence = 0;
-                goto done;
+                goto abort;
             }
         }
     }
 
     iSPCH_PostGlobalMatchParms(eventSpec, sentenceInfo, sentence);
 
-done:
+abort:
     return foundSentence;
 }
 
@@ -1616,25 +1616,18 @@ int iSPCH_ChooseSingleSentence(int choice) {
     }
 
     validSentence = iSPCH_ChooseSentence(parms);
-    if (validSentence != 0) {
-        goto done;
+    if (validSentence == 0 && gCallbacks.reparm != 0) {
+        count = 0;
+        do {
+            retry = gCallbacks.reparm(count, parms);
+            if (retry >= 0) {
+                validSentence = iSPCH_ChooseSentence(parms);
+            }
+
+            count++;
+        } while (validSentence == 0 && retry > 0);
     }
 
-    if (gCallbacks.reparm == 0) {
-        goto done;
-    }
-
-    count = 0;
-    do {
-        retry = gCallbacks.reparm(count, parms);
-        if (retry >= 0) {
-            validSentence = iSPCH_ChooseSentence(parms);
-        }
-
-        count++;
-    } while (validSentence == 0 && retry > 0);
-
-done:
     if (validSentence < 0) {
         validSentence = 0;
     }

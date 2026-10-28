@@ -1,6 +1,6 @@
 #include "Speed/Indep/Src/Frontend/FEPackageData.hpp"
 #include "Speed/Indep/Src/Frontend/FEPackageManager.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEIconScrollerMenu.hpp"
@@ -788,7 +788,7 @@ FEPackageData::~FEPackageData() {
 }
 
 void FEPackageData::Activate(FEPackage *pkg, int arg) {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     if (pScreen) {
         char oldPackageName[1000] = "(unknown)";
         if (pScreen->GetPackageName()) {
@@ -806,7 +806,7 @@ void FEPackageData::Activate(FEPackage *pkg, int arg) {
     pScreen = ScreenFactory(GetNameHash(), pkg, arg);
     LastKnownControlMask = pkg->GetControlMask();
     mInScreenConstructor = mInScreenConstructor - 1;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     Juice::MWCommands::LoadingNewFEngPackage(pkg->GetNameHash());
 #endif
 }

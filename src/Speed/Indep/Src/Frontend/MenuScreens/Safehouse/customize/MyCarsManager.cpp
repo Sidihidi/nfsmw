@@ -136,11 +136,11 @@ void MyCarsManager::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
             break;
         case 0xe1fde1d1:
             if (bGoToShowcase) {
+                Showcase::FromArgs = 0;
+                Showcase::FromPackage = GetPackageName();
 #ifdef EA_BUILD_A124
                 Showcase::FromCarHandle = 0xFFFFFFFF;
 #endif
-                Showcase::FromArgs = 0;
-                Showcase::FromPackage = GetPackageName();
                 cFEng::Get()->QueuePackageSwitch("Showcase.fng", reinterpret_cast<int>(pSelectedCar), 0, false);
             }
             break;
@@ -225,8 +225,9 @@ void MyCarsManager::RefreshHeader() {
             cFEng::Get()->QueuePackageMessage(FEObj_editdeletecar, GetPackageName(), nullptr);
 #ifndef EA_BUILD_A124
             for (int i = 0; i < 0xb; i++) {
-                RaceSettings *rs = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(i));
-                rs->SelectedCar[0] = static_cast<CarDatum *>(GetCurrentDatum())->Handle;
+                // DWARF de GC: RaceSettings::SetSelectedCar en linea; speed.exe lee Handle antes de la llamada
+                FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(i))
+                    ->SetSelectedCar(static_cast<CarDatum *>(GetCurrentDatum())->Handle, 0);
             }
 #endif
         }

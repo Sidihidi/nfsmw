@@ -28,7 +28,7 @@ void RestoreServices() {
     // En PC no existe ClearXenonEmitters (sin simbolo ni definicion en el exe;
     // solo la define el xSparks de GameCube): el original es el tail-call unico
     // a SmackableRender_Shutdown (jmp de 5 B en 0x6E79E0, banco zRender 4/4).
-#ifndef EA_PLATFORM_WIN32
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_BUILD_A124)
     ClearXenonEmitters();
 #endif
 }

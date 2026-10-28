@@ -249,11 +249,20 @@ WorldEffectConn::WorldEffectConn(const Sim::ConnectionData &data, const WorldCon
     }
 
     Attrib::Instance context_attribs(oc->mContext, 0, nullptr);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // MSVC ordena el bloque != como fallthrough (speed.exe: je al bloque 0x01000000 tras el or 0x02000000).
+    if (context_attribs.GetClass() != 0xfb111fef) {
+        effect_creation_flags |= 0x02000000;
+    } else {
+        effect_creation_flags |= 0x01000000;
+    }
+#else
     if (context_attribs.GetClass() == 0xfb111fef) {
         effect_creation_flags |= 0x01000000;
     } else {
         effect_creation_flags |= 0x02000000;
     }
+#endif
 
     mList.AddTail(this);
 
@@ -492,8 +501,8 @@ int *World_OneShotEffect(Sim::Packet *pkt) {
     return nullptr;
 }
 
-UTL::COM::Factory<Sim::Packet *, int, UCrc32>::Prototype _World_OneShotEffect("World_OneShotEffect", World_OneShotEffect);
-UTL::COM::Factory<Sim::Packet *, int, UCrc32>::Prototype _World_UpdateBody("World_UpdateBody", World_UpdateBody);
+UTL::COM::Factory<Sim::Packet *, int, UCrc32>::Prototype _World_OneShotEffect(UCrc32("World_OneShotEffect"), World_OneShotEffect);
+UTL::COM::Factory<Sim::Packet *, int, UCrc32>::Prototype _World_UpdateBody(UCrc32("World_UpdateBody"), World_UpdateBody);
 
 void WorldConn::UpdateServices(float dT) {
     WorldBodyConn::FetchData(dT);

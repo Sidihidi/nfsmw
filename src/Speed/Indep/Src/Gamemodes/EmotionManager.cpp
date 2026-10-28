@@ -89,6 +89,7 @@ float EmotionalResponse::GetIntensity() const {
     return mIntensity;
 }
 
+#ifndef EA_PLATFORM_PLAYSTATION2
 EmotionManager::EmotionManager() {
     mSummary.mEmotion = EmotionalSummary::Embarrassed;
     mSummary.mEmotionTarget = EmotionalSummary::Embarrassed;
@@ -98,14 +99,159 @@ EmotionManager::EmotionManager() {
 
 EmotionManager::~EmotionManager() {}
 
-void EmotionManager::Update(Car *car) {}
-
 const EmotionalSummary &EmotionManager::GetSummary() {
     return mSummary;
 }
+#endif
+
+void EmotionManager::Update(Car *car) {}
 
 float EmotionManager::GetEmotionalEvaluation(eEmotionalContext context) {
     return 0.0f;
 }
 
 void EmotionManager::SendResponseEvent(EmotionalResponse::eTrigger trigger, float intensity) {}
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+#include "Speed/Indep/bWare/Inc/bList.hpp"
+
+// La implementacion a la que apunta el EmotionManager de PS2 (48 B en los stabs de la alpha). De
+// todo el subsistema, en el objeto de PS2 solo quedan estas siete funciones y los destructores;
+// aqui van las siete que no dependen de la vtable de la alpha.
+struct EmotionLog {
+    virtual ~EmotionLog();
+};
+
+EmotionLog::~EmotionLog() {}
+
+#ifdef EA_BUILD_A124
+struct EmotionSequence {
+    virtual ~EmotionSequence();
+};
+
+EmotionSequence::~EmotionSequence() {}
+#endif
+
+struct EmotionManagerImpl {
+    float mContextEvaluations[EmotionManager::MaxContexts]; // 0x00
+    EmotionalSummary mEmotionalSummary;                      // 0x14
+    bPList<EmotionalResponse> mEmotionalResponses;           // 0x24
+
+    virtual ~EmotionManagerImpl();
+
+    float GetNegativeIntensity(EmotionalSummary::eType type);
+    float GetPositiveIntensity(EmotionalSummary::eType type);
+    void IncreaseEmotion();
+    void DecreaseEmotion();
+    bPNode *GetFirstResponse();
+    EmotionalResponse *GetNextResponse(bPNode **node);
+    void ClearResponseList();
+};
+
+EmotionManagerImpl::~EmotionManagerImpl() {
+    ClearResponseList();
+}
+
+float EmotionManagerImpl::GetNegativeIntensity(EmotionalSummary::eType type) {
+    float intensity = 1.0f;
+    if (mEmotionalSummary.mEmotion == EmotionalSummary::Smug || mEmotionalSummary.mEmotion == EmotionalSummary::Ecstatic) {
+        intensity = 0.0f;
+    }
+    return intensity;
+}
+
+float EmotionManagerImpl::GetPositiveIntensity(EmotionalSummary::eType type) {
+    float intensity = 0.0f;
+    if (mEmotionalSummary.mEmotion == EmotionalSummary::Smug || mEmotionalSummary.mEmotion == EmotionalSummary::Ecstatic) {
+        intensity = 1.0f;
+    }
+    return intensity;
+}
+
+void EmotionManagerImpl::IncreaseEmotion() {
+    bool bIncreased = true;
+    switch (mEmotionalSummary.mEmotion) {
+        case EmotionalSummary::Embarrassed:
+            mEmotionalSummary.mEmotion = EmotionalSummary::Anxious;
+            break;
+        case EmotionalSummary::Anxious:
+            mEmotionalSummary.mEmotion = EmotionalSummary::Smug;
+            break;
+        case EmotionalSummary::Smug:
+            mEmotionalSummary.mEmotion = EmotionalSummary::Ecstatic;
+            break;
+        case EmotionalSummary::Ecstatic:
+            bIncreased = false;
+            break;
+        case EmotionalSummary::MaxTypes:
+            break;
+    }
+    if (bIncreased) {
+        mEmotionalSummary.mEmotionIntensity = GetNegativeIntensity(mEmotionalSummary.mEmotion);
+    }
+}
+
+void EmotionManagerImpl::DecreaseEmotion() {
+    bool bDecreased = true;
+    switch (mEmotionalSummary.mEmotion) {
+        case EmotionalSummary::Embarrassed:
+            bDecreased = false;
+            break;
+        case EmotionalSummary::Anxious:
+            mEmotionalSummary.mEmotion = EmotionalSummary::Embarrassed;
+            break;
+        case EmotionalSummary::Smug:
+            mEmotionalSummary.mEmotion = EmotionalSummary::Anxious;
+            break;
+        case EmotionalSummary::Ecstatic:
+            mEmotionalSummary.mEmotion = EmotionalSummary::Smug;
+            break;
+        case EmotionalSummary::MaxTypes:
+            break;
+    }
+    if (bDecreased) {
+        mEmotionalSummary.mEmotionIntensity = GetPositiveIntensity(mEmotionalSummary.mEmotion);
+    }
+}
+
+bPNode *EmotionManagerImpl::GetFirstResponse() {
+    bPNode *node = static_cast<bPNode *>(mEmotionalResponses.GetHead());
+    if (node == static_cast<bPNode *>(mEmotionalResponses.EndOfList())) {
+        return 0;
+    }
+    return node;
+}
+
+EmotionalResponse *EmotionManagerImpl::GetNextResponse(bPNode **ppNode) {
+    bPNode *current = *ppNode;
+    if (current == static_cast<bPNode *>(mEmotionalResponses.GetTail())) {
+        *ppNode = 0;
+        return static_cast<EmotionalResponse *>(current->GetObj());
+    }
+    *ppNode = current->GetNext();
+    return static_cast<EmotionalResponse *>(current->GetObj());
+}
+
+void EmotionManagerImpl::ClearResponseList() {
+    bPNode *pNode = GetFirstResponse();
+    while (pNode) {
+        bPNode *node = pNode;
+        EmotionalResponse *pResponse = GetNextResponse(&pNode);
+        if (pResponse) {
+            delete pResponse;
+        }
+        node->Remove();
+        delete node;
+    }
+}
+
+EmotionManager::EmotionManager() : mpImpl(0) {}
+
+EmotionManager::~EmotionManager() {
+    delete mpImpl;
+}
+
+const EmotionalSummary &EmotionManager::GetSummary() {
+    return mpImpl->mEmotionalSummary;
+}
+#endif

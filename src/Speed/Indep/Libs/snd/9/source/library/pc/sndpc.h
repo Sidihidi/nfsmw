@@ -14,10 +14,20 @@ enum StartMode {
     WARM = 1,
 };
 
-// La voz del driver de PC: SNDPLATFORM_init reserva sndgs.voicestotal de 0x88 B (0x820CCF). Los campos no se conocen
-// todavia (los usan las funciones de 0x81EF3E-0x81F314, sin escribir).
+// La voz del driver de PC: SNDPLATFORM_init reserva sndgs.voicestotal de 0x88 B (0x820CCF). Lo que se sabe sale de
+// pc/snddrv.c (0x81EF3E-0x81F314): los balances como en GameCube (Snd::Hal::SetPan) y las funciones del filtro de la
+// voz, que reciben un estado (state o uno de pstate). Los nombres de los campos son nuestros.
 typedef struct SNDDRVVOICE {
-    unsigned char unknown[0x88];
+    float balances[6];                            // offset 0x0, size 0x18
+    unsigned char state[0x38];                    // offset 0x18, size 0x38
+    void *pstate[7];                              // offset 0x50, size 0x1C
+    int (*pfnstop)(void *pstate);                 // offset 0x6C, size 0x4 (SNDPLATFORM_stop)
+    void (*pfntimemult)(void *pstate, int value); // offset 0x70, size 0x4 (SNDPLATFORM_timemult)
+    void (*pfn74)(void *pstate, int value);       // offset 0x74, size 0x4
+    void (*pfnlowpass)(void *pstate, int value);  // offset 0x78, size 0x4 (SNDPLATFORM_lowpass)
+    void (*pfnhighpass)(void *pstate, int value); // offset 0x7C, size 0x4 (SNDPLATFORM_highpass)
+    void (*pfn80)(void *pstate, int value);       // offset 0x80, size 0x4
+    int unknown84;                                // offset 0x84, size 0x4
 } SNDDRVVOICE;
 
 // El estado del driver de PC (0x9C2000 en speed.exe). chanmodes lo rellena DSOUND_getcaps y se copia entero (9 B) en

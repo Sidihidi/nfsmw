@@ -178,7 +178,7 @@ bool GCharacter::IsNoLongerUseful() const {
                     return false;
                 }
                 rigidBody->GetForwardVector(humanForward);
-                if (!(UMath::Dot(dirToChar, humanForward) < 0.0f)) {
+                if (UMath::Dot(dirToChar, humanForward) >= 0.0f) {
                     return false;
                 }
             }

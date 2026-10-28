@@ -3,10 +3,16 @@
 // smixi.h (shared with the other mix/ units) only carries a partial view of
 // sndmix, so the fields this unit needs are declared locally.
 
-// total size: 0x1E8
+// total size: 0x1E8 (Xenon: 0x110)
 typedef struct SNDMIXSTATE {
+#ifdef EA_PLATFORM_XENON
+    // Xenon: decode16 va en 0x10C, detras de mix (ver smixer.c).
+    char pad0[0x10C];
+    void (*decode16)(int frames, short *psrc, float *pdst); // offset 0x10C
+#else
     char pad0[0x1E4];
     void (*decode16)(int frames, short *psrc, float *pdst); // offset 0x1E4
+#endif
 } SNDMIXSTATE;
 
 extern SNDMIXSTATE sndmix;
@@ -24,7 +30,7 @@ void decode16x87(int frames, short *psrc, float *pdst);
 void decode8(int frames, signed char *psrc, float *pdst);
 #endif
 
-// total size: 0x2C
+// total size: 0x2C (Xenon: 0x28)
 typedef struct UNPACKINITPARAMS {
     void *psample;                 // offset 0x0
     void *ploopstart;              // offset 0x4
@@ -32,11 +38,15 @@ typedef struct UNPACKINITPARAMS {
     int totalframes;               // offset 0xC
     int sustainstart;              // offset 0x10
     int sustainend;                // offset 0x14
+#ifndef EA_PLATFORM_XENON
+    // Xenon no tiene bits16 (EGM, MIX_playinit 0x82617AC0: escribe voice/cpu/platformver
+    // en 0x18/0x1C/0x20 y unpackgetframe en 0x24, y el struct mide 0x28).
     int bits16;                    // offset 0x18
-    int voice;                     // offset 0x1C
-    int cpu;                       // offset 0x20
-    int platformver;               // offset 0x24
-    int (*unpackgetframe)(void *); // offset 0x28
+#endif
+    int voice;                     // offset 0x1C (Xenon: 0x18)
+    int cpu;                       // offset 0x20 (Xenon: 0x1C)
+    int platformver;               // offset 0x24 (Xenon: 0x20)
+    int (*unpackgetframe)(void *); // offset 0x28 (Xenon: 0x24)
 } UNPACKINITPARAMS;
 
 // total size: 0x30
@@ -96,6 +106,8 @@ void SFILTER_unpacklfinit(void *pstate, UNPACKINITPARAMS *pupip) {
     pups->curframe = 0;
     pups->sustainstart = pupip->sustainstart;
     pups->sustainend = pupip->sustainend;
+#ifndef EA_PLATFORM_XENON
     pups->bits16 = pupip->bits16;
+#endif
     pupip->unpackgetframe = SFILTER_unpacklfgetframe;
 }

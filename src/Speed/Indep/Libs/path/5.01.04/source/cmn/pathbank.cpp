@@ -216,7 +216,7 @@ int PATHI_unloadbank(PATHTRACK *track, int subbanknum)
     if (track->node >= 0)
     {
         int sampleoffset = PATHI_sampleoffset(track->node);
-        int playingsubbanknum = (unsigned int)sampleoffset >> 16;
+        int playingsubbanknum = (sampleoffset >> 16) & 0xFFFF;
 
         if (playingsubbanknum == subbanknum)
             PATHI_stop(track);

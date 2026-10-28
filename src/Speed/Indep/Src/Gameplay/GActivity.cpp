@@ -305,7 +305,7 @@ void GActivity::SerializeVars(bool abandonLuaTable) {
         }
     }
     SerializedHeader header;
-    header.mStateNameHash = (stateNameLen != 0) ? stringhash32(stateName) : 0;
+    header.mStateNameHash = (stateNameLen > 0) ? stringhash32(stateName) : 0;
     header.mFlags = 0;
     header.mTableBytes = 0;
     if (mRunning != 0) {
@@ -328,7 +328,7 @@ void GActivity::SerializeVars(bool abandonLuaTable) {
     if (buffer != NULL) {
         bMemCpy(buffer, &header, 8);
         buffer += 8;
-        if (header.mTableBytes != 0) {
+        if (header.mTableBytes > 0) {
             unsigned int writtenBytes = LuaRuntime::SerializeTable(luaState, buffer, !Persistent());
         }
     }
@@ -362,10 +362,10 @@ void GActivity::DeserializeVars() {
             }
         }
     }
-    if (header.mTableBytes != 0) {
+    if (header.mTableBytes > 0) {
         lua_State *luaState = LuaRuntime::Get().GetState();
         unsigned int bytesLoaded = LuaRuntime::DeserializeTable(luaState, buffer, !Persistent());
-        if (bytesLoaded != 0) {
+        if (bytesLoaded > 0) {
             lua_pushstring(luaState, CollectionName());
             lua_pushvalue(luaState, -2);
             lua_settable(luaState, LUA_REGISTRYINDEX);

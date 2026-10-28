@@ -48,7 +48,7 @@ struct CEAXABLKDecf {
 
 extern void *(*CODANew)(unsigned int size);
 extern void (*CODADelete)(void *pmem);
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 // PC: lo que la CPU sabe hacer (coda.cpp); el bit 2 es SSE
 extern int CODACPUFlags;
 #endif
@@ -109,7 +109,7 @@ void process_raw_block(MXAPACKETF *pxap) {
 }
 #endif
 
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 // PC: asm SSE de EA (speed.exe 0x828CE9, 245 B; docs/asm-de-ea.md). Guarda todos los registros (tambien alrededor de
 // process_raw_block, con pushad/pushfd), lleva sample1/sample2 en xmm2/xmm3 y cuenta los 14 pares de -14 a 0 en ecx.
 // MSVC 7.1 no genera SSE escalar; el C de abajo (el de GameCube) es el que compilan las demas versiones y los ports.
@@ -350,7 +350,7 @@ CEAXABLKDecf::CEAXABLKDecf() {
     xav.residual = 0;
     xap.sample1 = 0.0f;
     xap.sample2 = 0.0f;
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
     // PC (0x828ED3): SSE si la CPU lo tiene (CODACPUFlags, coda.cpp); si no, x87
     if (CODACPUFlags & 2) {
         decodexa = decodexac;
@@ -407,7 +407,7 @@ int CEAXABLKDecf::Decode(float **pDstBuf, int numSamples) {
     xap.numframes = i;
     framesleft = maxsamples - i;
     if (i > 0) {
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
         decodexa(&xap);
 #else
         decodexac(&xap);
@@ -419,7 +419,7 @@ int CEAXABLKDecf::Decode(float **pDstBuf, int numSamples) {
         ptmpDst = xap.pdst;
         xap.pdst = &xav.xablock[2];
         xap.numframes = framesleft;
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
         decodexa(&xap);
 #else
         decodexac(&xap);

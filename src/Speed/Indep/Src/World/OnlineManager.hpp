@@ -11,7 +11,7 @@
 
 #include <types.h>
 
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT
 // On PS2 the online subsystem is in (zOnline) and this is the real manager: 0x1704 B in the A124, with its methods
 // out of line (zWorld) and called from the other units. GameCube only has the empty stub further down.
 #include "Speed/Indep/Libs/Support/Utility/UDefs.h"
@@ -46,7 +46,7 @@ enum eOnlineState {
     NUM_OLS_STATES = 7,
 };
 
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT
 enum eOnlineRacerState {
     OPS_DISCONNECTED = 0,
     OPS_CONNECTED = 1,
@@ -130,7 +130,9 @@ struct ExtrapolatedCar : Debugable {
     float GetLastTime() const {
         return mSaved.GetTime();
     }
-    float GetLatency() const;
+    float GetLatency() const {
+        return mUpdateTime * 0.001f - GetLastTime();
+    }
     float GetPercentReceived() const;
     void IncreaseRepositionCount() {
         mRepositionCount = (mRepositionCount + 1) & 3;
@@ -202,6 +204,13 @@ struct ExtrapolatedCar : Debugable {
     CopMap *mCops;                    // offset 0x1114
     ALIGNVEC UMath::Vector3 mLastPosition; // offset 0x1120
     State *mLast;                     // offset 0x112C
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC (speed.exe): dos palabras mas antes de mHead (el ctor 0x74D510 pone 0 en +0xF80 y 1 en +0xF84; mHead en
+    // +0xF88, mMutex en +0xF90, mActive en +0xF9C). Nombres y tipos de Carbon PS3 (DWARF de la Alpha 56), que las
+    // tiene en ese mismo sitio, detras de mLast.
+    float mLastPDPAesthetic;
+    PhysicsMode mCurrentMode;
+#endif
     int mHead;                        // offset 0x1130
     int mTail;                        // offset 0x1134
     NetworkMutex *mMutex;             // offset 0x1138
@@ -214,7 +223,11 @@ struct ExtrapolatedCar : Debugable {
     bool mUseDriverAI;                // offset 0x1154
 
     static int Next(int c) {
+#ifdef EA_PLATFORM_WIN32
+        int n = c + 1 >= 32 ? 0 : c + 1; // PC (speed.exe 0x75E2DA): cmp 0x20 + setge
+#else
         int n = c + 1 > 31 ? 0 : c + 1;
+#endif
         return n;
     }
 };
@@ -291,6 +304,10 @@ struct OnlineRacer : ExtrapolatedCar {
     void Finish(int nRank, bool bBlinkBlinkPoof, int raceFinishReason);
     void SignalFinish(SmartBitStream &data);
     void UpdateEndRaceStats();
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x754C30), sin nombre en ningun binario: el GRacerInfo de este corredor (y su simable).
+    struct GRacerInfo *Win32Unknown754C30(ISimable **simable);
+#endif
     void DriverDisconnect(eOnlineRacerState new_state, int finish_reason);
     void SetDisconnectTime(float time) {
         DisconnectTime.SetTime(time);
@@ -329,6 +346,11 @@ class OnlineManager {
     friend struct OnlineRacer;
     friend struct Client;
     friend struct Server;
+#ifdef EA_BUILD_A124
+    // DisplayDebugScreenPrints (Main.cpp) leia mMasterTime/mStartTime en la alpha a traves de los
+    // accesores inline de su OnlineManager.hpp (linea 72 en su mapa de lineas); aqui basta el acceso.
+    friend void DisplayDebugScreenPrints();
+#endif
 
     OnlineManager();
     ~OnlineManager();
@@ -414,8 +436,13 @@ class OnlineManager {
     void ExportRaceParams(int driver_number, SmartBitStream &bitstream_data);
     void ImportDriverInfo(int driver_number, SmartBitStream &bitstream_data);
     void ExportDriverInfo(int driver_number, SmartBitStream &bitstream_data);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC (speed.exe 0x75F4F0, `ret 0xC`): sin timestamp (la A124 tampoco lo usa).
+    void ImportPositionData(int driver_number, SmartBitStream &bitstream_data, ePosDataPriorityMask priority_mask);
+#else
     void ImportPositionData(int driver_number, SmartBitStream &bitstream_data, float timestamp,
                             ePosDataPriorityMask priority_mask);
+#endif
     void ExportPositionData(int driver_number, SmartBitStream &bitstream_data, ePosDataPriorityMask priority_mask);
     void SignalLoad();
     void SetStartRaceTime(uint32 tick, float time, float ping);
@@ -483,6 +510,12 @@ class OnlineManager {
     uint32 mStartRaceTick;                // offset 0x38
     float mStartRaceTime;                 // offset 0x3C
     float mPostCountdownStartRaceTime;    // offset 0x40
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC (speed.exe): una palabra mas aqui (pAnimWorldObjects en +0x48, CountdownSyncAnims en +0x6C, RaceEndReason
+    // en +0xC4; el ctor 0x740FF0 pone 0 en +0x3C). Nombre y tipo de Carbon PS3 (DWARF de la Alpha 56), que la tiene
+    // en ese mismo sitio, detras de mPostCountdownStartRaceTime.
+    float mAnimFinishAndLoadHudTime;
+#endif
     float mStartRacePing;                 // offset 0x44
     float mPosUpdatePing;                 // offset 0x48
     WorldObject *pAnimWorldObjects[8];    // offset 0x4C
@@ -512,6 +545,12 @@ class OnlineManager {
     bool RestartingRace;                  // offset 0x11C
     bool RestartRequested;                // offset 0x120
     int32 m_ticker;                       // offset 0x124
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC (speed.exe): dos bytes mas antes de los cuantizadores (QuantCarSlotID en +0x11C): el ctor 0x740FF0 y el caso
+    // OLS_LOBBY_IN_LOBBY de Update (0x761B30) los ponen a false. Sin nombre en ninguna fuente (Carbon no los tiene).
+    bool win32_unknown_0x118;
+    bool win32_unknown_0x119;
+#endif
 
   public:
     IntQuantizer QuantCarSlotID;          // offset 0x128
@@ -689,6 +728,10 @@ class OnlineManager {
         InitQuantizers();
     }
 
+#ifdef EA_PLATFORM_PLAYSTATION2 // SLUS tiene _$_13OnlineManager (0x411400) y lo llama el _GLOBAL_$D$ de zWorld; en GC no existe
+    ~OnlineManager();
+#endif
+
     void EndSimFrame() {}
 
     void Initialize(int argc, char **argv) {}
@@ -719,7 +762,7 @@ class OnlineManager {
 
 extern OnlineManager TheOnlineManager;
 
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT
 // Del frontend del prototipo (zFe): avisa de que un corredor se ha desconectado.
 void FEOnlineDisconnectMsg(OnlineRacer *racer);
 #endif

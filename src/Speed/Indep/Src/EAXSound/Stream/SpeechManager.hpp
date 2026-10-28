@@ -47,6 +47,17 @@ static inline Result CacheHandlesEventsNIS() {
 
 namespace Speech {
 
+// gcdatos13: los enums que rodean a SpeechValRtnType en el DWARF de GC
+// (mw_dwarfdump.nothpp:125895-125944) y en los stabs de la A124
+// (PS2_types.nothpp:9693-9745, 10018), mismos valores en ambos volcados.
+enum SpeechObsFlags {
+    kObserve_None = 0,
+    kObserve_Player = 4,
+    kObserve_Cops = 8,
+    kObserve_All = 12,
+    kObserve_FORCE_INT = 2147483647,
+};
+
 enum SpeechValRtnType {
     kKeepEvt = 0,
     kIntEvt = 1,
@@ -54,6 +65,21 @@ enum SpeechValRtnType {
     kEvtNotFound = 3,
     kDeferEvt = 4,
     MAX_RETURN_TYPES = 5,
+};
+
+enum InterruptType {
+    Static = 0,
+    Expletive = 1,
+    Composed = 2,
+    MAX_INTERRUPT_TYPES = 3,
+};
+
+enum SchedSpeechEventTypes {
+    kRequests = 0,
+    kFiltered = 1,
+    kPlayback = 2,
+    kInterrupts = 3,
+    MAX_SPCHEVT_TYPES = 4,
 };
 
 struct ScheduledSpeechEvent;
@@ -150,6 +176,20 @@ struct SPCHEventList : public UTL::Std::list<SPCHType_1_EventID, _type_list>, pu
   public:
 };
 
+// gcdatos13: tras los iteradores de SPCHEventList en los stabs (PS2_types.nothpp:122280)
+// y delante de ScheduledSpeechEvent en el DWARF (mw_dwarfdump.nothpp:125941).
+enum eSpeechIOMode {
+    NOMINAL = 0,
+    CACHE_ONLY = 1,
+    DISK_ONLY = 2,
+    MAX_SPEECHIOMODES = 3,
+};
+
+enum SpeechEventFlags {
+    BW_DEFERRED = 1,
+    DELAYED = 2,
+};
+
 struct ScheduledSpeechEvent {
     Csis::InterfaceId *iid;             // offset 0x0, size 0x4
     Csis::FunctionHandle *fh;           // offset 0x4, size 0x4
@@ -171,6 +211,7 @@ struct ScheduledSpeechEvent {
 
     static void *operator new(unsigned int base_size, unsigned int xtra);
     static void operator delete(void *ptr);
+    static void operator delete(void *ptr, unsigned int xtra);
 
     static bool sort_nested_priority(const ScheduledSpeechEvent *lhs, const ScheduledSpeechEvent *rhs);
     void AddSample(SpeechSampleData *sample, unsigned char specific_index);
@@ -180,6 +221,22 @@ struct ScheduledSpeechEvent {
     void *GetData(unsigned int *datasize = nullptr);
 #endif
     unsigned char ReserveSample();
+};
+
+// gcdatos13: delante de Manager en los stabs de la A124 (PS2_types.nothpp:43172) y el
+// DWARF de GC (mw_dwarfdump.nothpp:125968): la mascara de PostValidate.
+enum FilterMask {
+    EXPIRY = 1,
+    MAXPLAY = 2,
+    DEADAIR = 4,
+    INTERVAL = 8,
+    RANGE = 16,
+    DEPENDANCY = 32,
+    RENDERED = 64,
+    LOS = 128,
+    HEAT = 256,
+    SPEED = 512,
+    ALL = -1,
 };
 
 class Manager {
@@ -255,9 +312,9 @@ class Manager {
     static Module *m_SpeechModule[NUM_SPEECH_MODULES];
     static SPEECH_MODE m_speechMode;
     static int m_numberSpeechBanks;
-    static int m_SPEECH_initted;
+    static bool m_SPEECH_initted;
     static char *m_SPEECH_bankPtrMem;
-    static int m_speechDisable;
+    static bool m_speechDisable;
     static int m_gameSpeechInitted;
     static int m_NISAudioInitted;
     static float m_clock_in_ms;

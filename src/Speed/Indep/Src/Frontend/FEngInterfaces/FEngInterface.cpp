@@ -11,7 +11,7 @@
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 
@@ -30,18 +30,25 @@ cFEng::cFEng() {
     bWasPaused = false;
     mFEng = new ("FEngine", 0) FEngine();
     mFEng->SetInterface(cFEngGameInterface::pInstance);
+#ifdef EA_PLATFORM_XENON
+    mFEng->SetNumJoyPads(4); // X360: cuatro mandos (NFS.exe 0x8229CD78)
+#else
     mFEng->SetNumJoyPads(2);
+#endif
     mFEng->SetInitialState();
     mFEng->SetExecution(true);
 }
 
 void cFEng::PushErrorPackage(const char *pPackageName, int pArg, u32 ControlMask) {
-#ifndef EA_BUILD_A124
+// PC (0x542530) solo tiene la rama de abajo: ni la prueba de FEDatabase ni la de IsPackagePushed.
+#if !defined(EA_BUILD_A124) && !defined(EA_PLATFORM_WIN32)
     if (FEDatabase == nullptr) {
 #endif
+#ifndef EA_PLATFORM_WIN32
         if (cFEng::Get()->IsPackagePushed(pPackageName)) {
             return;
         }
+#endif
         FEPackageManager::Get()->SetPackageDataArg(pPackageName, pArg);
         FEPackage *pPackage = mFEng->PushPackage(pPackageName, FE_PACKAGE_PRIORITY_ERROR, ControlMask);
         pPackage->SetErrorScreen(true);
@@ -53,7 +60,7 @@ void cFEng::PushErrorPackage(const char *pPackageName, int pArg, u32 ControlMask
             FEManager::RequestPauseSimulation(pPackageName);
             PauseAllSystems();
         }
-#ifndef EA_BUILD_A124
+#if !defined(EA_BUILD_A124) && !defined(EA_PLATFORM_WIN32)
     } else {
         FEPackageManager::Get()->SetPackageDataArg(pPackageName, pArg);
         FEPackage *pPackage = mFEng->PushPackage(pPackageName, FE_PACKAGE_PRIORITY_ERROR, ControlMask);
@@ -71,6 +78,20 @@ void cFEng::PushErrorPackage(const char *pPackageName, int pArg, u32 ControlMask
 }
 
 void cFEng::PopErrorPackage() {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    mFEng->QueuePackagePop();
+    mFEng->ToggleErrorScreenMode(false);
+    if (bWasPaused) {
+        ResumeAllSystems(true);
+#ifdef EA_BUILD_A124
+        FEManager::RequestUnPauseSimulation(nullptr);
+#else
+        if (FEManager::IsPaused()) {
+            FEManager::RequestUnPauseSimulation(nullptr);
+        }
+#endif
+    }
+#else
     if (FEDatabase == nullptr) {
         mFEng->QueuePackagePop();
         mFEng->ToggleErrorScreenMode(false);
@@ -90,6 +111,7 @@ void cFEng::PopErrorPackage() {
             }
         }
     }
+#endif
 }
 
 void cFEng::PopErrorPackage(int port) {
@@ -145,21 +167,21 @@ void cFEng::QueuePackagePush(const char *pPackageName, int pArg, u32 ControlMask
     if (!cFEngJoyInput::Get()->IsJoyEnabled(JOYSTICK_PORT_ALL)) {
         cFEngJoyInput::Get()->JoyEnable(JOYSTICK_PORT_ALL, true);
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     Juice::GameHook::Instance()->AssetHit("MENU_POP-UP", pPackageName);
 #endif
 }
 
 void cFEng::QueuePackagePop(int numPackagesToPop) {
     const int numPackagesPushed = mFEng->GetNumPackagesBelowPriority(FE_PACKAGE_PRIORITY_FIFTH_CLOSEST);
-    if (numPackagesToPop < 1 || numPackagesToPop > numPackagesPushed) {
+    if (numPackagesToPop <= 0 || numPackagesToPop > numPackagesPushed) {
         numPackagesToPop = numPackagesPushed;
     }
     PrintLoadedPackages();
     for (int i = 0; i < numPackagesToPop; i++) {
         mFEng->QueuePackagePop();
     }
-    if (mFEng->GetNumPackagesBelowPriority(FE_PACKAGE_PRIORITY_FIFTH_CLOSEST) < 1) {
+    if (mFEng->GetNumPackagesBelowPriority(FE_PACKAGE_PRIORITY_FIFTH_CLOSEST) <= 0) {
         if (TheGameFlowManager.IsInGame() && FEManager::IsPaused()) {
             FEManager::RequestUnPauseSimulation(nullptr);
         }
@@ -184,7 +206,7 @@ void cFEng::QueuePackageSwitch(const char *pPackageName, int pArg, u32 ControlMa
     if (cFEngJoyInput::Get() && !cFEngJoyInput::Get()->IsJoyEnabled(JOYSTICK_PORT_ALL)) {
         cFEngJoyInput::Get()->JoyEnable(JOYSTICK_PORT_ALL, true);
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     Juice::GameHook::Instance()->AssetHit("MENU_SCREENS", pPackageName);
 #endif
 }
@@ -324,6 +346,19 @@ void cFEng::QueueSoundMessage(uint32 pMessage, const char *pPackageName) {
 void cFEng::EnablePackageControl(FEPackage *pkg, bool bProcess) {
     mFEng->SetProcessInput(pkg, bProcess);
 }
+#ifdef EA_BUILD_A124
+void FEngKillAllChildren(FEPackage *pParent) {
+    FEPackage *pPackage = cFEng::Get()->GetEngine()->GetPackageList()->GetFirstPackage();
+    while (pPackage) {
+        FEPackage *pNextPackage = pPackage->GetNext();
+        if (pPackage->GetParentPackage() == pParent) {
+            FEngKillAllChildren(pPackage);
+            cFEng::Get()->QueuePackagePop(1);
+        }
+        pPackage = pNextPackage;
+    }
+}
+#endif
 
 void cFEng::MakeLoadedPackagesDirty() {
     FEPackageList *pkg_list = mFEng->GetPackageList();

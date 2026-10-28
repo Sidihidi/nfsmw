@@ -56,6 +56,24 @@ void v3sub(int num, const UMath::Vector3 *src, const UMath::Vector3 *vtosub, UMa
     }
 }
 
+#ifdef EA_BUILD_A124
+// Lineas 113-117 del original de la A124, entre v3sub y v3add. Solo la alpha la emite en zFoundation
+// (la llama el dibujo de depuracion de colisiones); en las demas no existe ni el simbolo.
+void MATRIX4_vect3mult3(const UMath::Vector3 *v, const UMath::Matrix4 *m4, UMath::Vector3 *result) {
+    if (v == result) {
+        UMath::Vector3 tmp;
+        tmp.x = v->x * m4->v0.x + v->y * m4->v1.x + v->z * m4->v2.x + m4->v3.x;
+        tmp.y = v->x * m4->v0.y + v->y * m4->v1.y + v->z * m4->v2.y + m4->v3.y;
+        tmp.z = v->x * m4->v0.z + v->y * m4->v1.z + v->z * m4->v2.z + m4->v3.z;
+        *result = tmp;
+    } else {
+        result->x = v->x * m4->v0.x + v->y * m4->v1.x + v->z * m4->v2.x + m4->v3.x;
+        result->y = v->x * m4->v0.y + v->y * m4->v1.y + v->z * m4->v2.y + m4->v3.y;
+        result->z = v->x * m4->v0.z + v->y * m4->v1.z + v->z * m4->v2.z + m4->v3.z;
+    }
+}
+#endif
+
 void v3add(int num, const UMath::Vector3 *src, const UMath::Vector3 *vtoadd, UMath::Vector3 *results) {
     if (num <= 0) return;
 

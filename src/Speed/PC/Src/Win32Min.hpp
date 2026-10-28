@@ -177,6 +177,8 @@ WINBASEAPI HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, WIN32_FIND_DATAA *lpF
 WINBASEAPI BOOL WINAPI FindNextFileA(HANDLE hFindFile, WIN32_FIND_DATAA *lpFindFileData);
 WINBASEAPI BOOL WINAPI FindClose(HANDLE hFindFile);
 WINBASEAPI BOOL WINAPI GetVersionExA(OSVERSIONINFOA *lpVersionInformation);
+WINBASEAPI long WINAPI InterlockedIncrement(long volatile *lpAddend);
+WINBASEAPI long WINAPI InterlockedDecrement(long volatile *lpAddend);
 // shfolder (SHFOLDER.dll)
 SHFOLDERAPI SHGetFolderPathA(HWND hwnd, int csidl, HANDLE hToken, DWORD dwFlags, LPSTR pszPath);
 // user32

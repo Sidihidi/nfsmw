@@ -147,7 +147,7 @@ uint32 GetBlendColour(uint32 *colours, float *weights, int num_colours, bool max
             b += static_cast<int>(weights[i] * static_cast<float>(comp_colours[i].b));
 
             if (max_alpha_blend) {
-                int tempa = static_cast<int>(weights[i] * static_cast<float>(comp_colours[i].a)) & 0xFF;
+                int tempa = static_cast<unsigned char>(static_cast<int>(weights[i] * static_cast<float>(comp_colours[i].a)));
 
                 if (tempa > a) {
                     a = tempa;
@@ -692,6 +692,34 @@ unsigned int GetSpinnerTextureMaskHash(RideInfo *ride_info) {
     return bStringHash("_MASK", spinner_hash);
 }
 
+#ifdef EA_BUILD_A124 // la A124 no tiene la sobrecarga por CarPart: el cuerpo va entero aqui
+uint32 GetVinylLayerHash(RideInfo *ride_info, int layer) {
+    CarPart *car_part = ride_info->GetPart(CARSLOTID_VINYL_LAYER0 + layer);
+
+    if (car_part == nullptr) {
+        return 0;
+    }
+
+    CarType car_type = ride_info->Type;
+    CarTypeInfo *car_type_info = GetCarTypeInfo(car_type);
+    const char *texture_name = car_part->GetAppliedAttributeString(bStringHash("TEXTURE"), nullptr);
+
+    if (texture_name == nullptr) {
+        return 0;
+    }
+
+    char layer_name[64];
+
+    bStrCpy(layer_name, car_type_info->GetBaseModelName());
+    if (UsePrecompositeVinyls || ride_info->SkinType == 2) {
+        bStrCat(layer_name, layer_name, "_PRECOM_");
+    } else {
+        bStrCat(layer_name, layer_name, "_");
+    }
+    bStrCat(layer_name, layer_name, texture_name);
+    return bStringHash(layer_name);
+}
+#else
 uint32 GetVinylLayerHash(CarPart *car_part, CarType car_type, int skin_type);
 
 uint32 GetVinylLayerHash(RideInfo *ride_info, int layer) {
@@ -715,14 +743,27 @@ uint32 GetVinylLayerHash(CarPart *car_part, CarType car_type, int skin_type) {
     char layer_name[64];
 
     bStrCpy(layer_name, car_type_info->GetBaseModelName());
+#ifdef EA_PLATFORM_XENON
+    // Dos if anidados, como el PREVINYL de AllocateRideInfo: el "_PRECOM_"
+    // se carga en la caida de cada prueba y el "_" queda al final.
+    if (UsePrecompositeVinyls) {
+        bStrCat(layer_name, layer_name, "_PRECOM_");
+    } else if (skin_type == 2) {
+        bStrCat(layer_name, layer_name, "_PRECOM_");
+    } else {
+        bStrCat(layer_name, layer_name, "_");
+    }
+#else
     if (UsePrecompositeVinyls || skin_type == 2) {
         bStrCat(layer_name, layer_name, "_PRECOM_");
     } else {
         bStrCat(layer_name, layer_name, "_");
     }
+#endif
     bStrCat(layer_name, layer_name, texture_name);
     return bStringHash(layer_name);
 }
+#endif
 
 uint32 GetVinylLayerMaskHash(RideInfo *ride_info, int layer) {
     CarPart *car_part = ride_info->GetPart(CARSLOTID_VINYL_LAYER0 + layer);

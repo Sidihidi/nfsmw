@@ -188,9 +188,15 @@ void OnlineCfg::ProcessSetting(const char *attribute, const char *value) {
 void *OnlineMemoryPool = nullptr;
 
 void AllocOnlineMemoryPool() {
+#ifdef EA_PLATFORM_XENON // EGM 0x82573DC0: 0x34800 B en Xbox 360
+    TheTrackStreamer.MakeSpaceInPool(0x34800, true);
+    OnlineMemoryPool = TheTrackStreamer.AllocateUserMemory(0x34800, "Online Buffer", 0);
+    bInitMemoryPool(8, OnlineMemoryPool, 0x34800, "Online");
+#else
     TheTrackStreamer.MakeSpaceInPool(0x14000, true);
     OnlineMemoryPool = TheTrackStreamer.AllocateUserMemory(0x14000, "Online Buffer", 0);
     bInitMemoryPool(8, OnlineMemoryPool, 0x14000, "Online");
+#endif
 }
 
 void FreeOnlineMemoryPool() {

@@ -6,10 +6,9 @@
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
-bTList<GenericRegion> RegionLists[NUM_REGION_TYPES];
 int RegionCount[NUM_REGION_TYPES] = {};
+bTList<GenericRegion> RegionLists[NUM_REGION_TYPES];
 int WeatherUseCoolFogValues = 0;
-bVector3 cPos;
 float BaseFogFalloff = 0.62f;
 float BaseFogFalloffX = 0.31f;
 float BaseFogFalloffY = 1.3f;
@@ -18,14 +17,25 @@ float BaseWeatherFogStart = 212.0f;
 int BaseWeatherFogColourR = 0x4B;
 int BaseWeatherFogColourG = 0x69;
 int BaseWeatherFogColourB = 0x6E;
+bVector3 cPos;
+// gcdatos8 (receta r68): la pareja muerta de los Base*, en la .data objetivo de
+// zTrack tras BaseWeatherFogColourB (lbl_804370EC) con estos valores; en el
+// DWARF de GC no tienen direccion (eliminadas del ELF) pero la A124 las trae
+// en 0x638510-0x638524 y PC las nombra en su PDB.
+float HorizFogFalloff = 0.62f;
+float HorizFogFalloffX = 0.0f;
+float HorizFogFalloffY = 1.0f;
+float HorizWeatherFog = 0.58f;
+float HorizWeatherFogStart = 229.0f;
 
 // TODO move
 extern int FogControlOverRide;
 
-#ifndef EA_PLATFORM_GAMECUBE
-float distColAff = 1.8f;
-float distfall = 0.45f;
-#endif
+// gcdatos7: vacias en el original (DIEs .debug+0x40D7236/0x40D726F low_pc=-1 antes
+// de LoaderWeatherMan; la A124 las trae igual, 8 B y una linea cada una).
+void WeatherManInit() {}
+
+void WeatherManClose() {}
 
 int LoaderWeatherMan(bChunk *bchunk) {
     if (bchunk->GetID() != BCHUNK_GENERIC_REGIONS) {
@@ -98,8 +108,71 @@ void AddRegion(GenericRegion *region) {
     }
 }
 
+// gcdatos7: sin llamantes (DIE .debug+0x40D9014 low_pc=-1, entre AddRegion y
+// RemoveRegion; A124 260 B). Unico local region e inlines ctor+SetType: crea la
+// region, le pasa los 11 parametros a sus campos homonimos y la registra. El
+// orden de las asignaciones no esta en la evidencia.
+GenericRegion *BuildWeatherRegion(RegionType type, bVector3 *position, float Intensity, unsigned int colour, float radius, float falloffstart,
+                                  float FogFalloff, float FogFalloffX, float FogFalloffY, float fogstart, float modifier) {
+    GenericRegion *region = new GenericRegion();
+    region->SetType(type);
+    region->PositionX = position->x;
+    region->PositionY = position->y;
+    region->PositionZ = position->z;
+    region->Intensity = Intensity;
+    region->FogColour = colour;
+    region->Radius = radius;
+    region->FarFalloffStart = falloffstart;
+    region->FogFalloff = FogFalloff;
+    region->FogFalloffX = FogFalloffX;
+    region->FogFalloffY = FogFalloffY;
+    region->FogStart = fogstart;
+    region->modifier = modifier;
+    AddRegion(region);
+    return region;
+}
+
 void RemoveRegion(GenericRegion *region) {
     region->Remove();
+}
+
+// gcdatos7: sin llamantes (DIE .debug+0x40D9639 low_pc=-1, tras RemoveRegion;
+// A124 136 B). Locales region_list/px/py/pz y bloque {region {radius2, dx, dy,
+// dz, distance2 + bAbs x3}}: primera region del tipo cuyo radio alcanza el
+// punto, como la prueba de emTriggerEventsInSection. El operador exacto de la
+// comparacion no esta en la evidencia.
+GenericRegion *GenericRegionQuery(bVector3 *position, RegionType Rtype) {
+    bTList<GenericRegion> *region_list = &RegionLists[Rtype];
+    float px = position->x;
+    float py = position->y;
+    float pz = position->z;
+
+    for (GenericRegion *region = region_list->GetHead(); region != region_list->EndOfList(); region = region->GetNext()) {
+        float radius2 = region->Radius * region->Radius;
+        float dx = bAbs(px - region->PositionX);
+        float dy = bAbs(py - region->PositionY);
+        float dz = bAbs(pz - region->PositionZ);
+        float distance2 = dx * dx + dy * dy + dz * dz;
+        if (distance2 < radius2) {
+            return region;
+        }
+    }
+
+    return nullptr;
+}
+
+// gcdatos8: sin llamantes (DIE .debug+0x40D9ADD low_pc=-1, entre
+// GenericRegionQuery y CalculateHorizonInfo; A124 104 B en 4 lineas 93-96).
+// Locales radius2/dx/dy/dz/distance2 con bAbs x3: la misma prueba de alcance
+// que el bloque de GenericRegionQuery. El operador exacto de la comparacion
+// no esta en la evidencia.
+unsigned int InRegion(bVector3 *position, GenericRegion *region) {
+    float radius2 = region->Radius * region->Radius;
+    float dx = bAbs(position->x - region->PositionX);
+    float dy = bAbs(position->y - region->PositionY);
+    float dz = bAbs(position->z - region->PositionZ);
+    float distance2 = dx * dx + dy * dy + dz * dz;
+    return distance2 < radius2;
 }
 
 int DepthRegion(GenericRegion *before, GenericRegion *after) {
@@ -232,9 +305,17 @@ int RegionQuery::CalculateRegionInfo(eView *view, RegionType regionKind, int InF
     return 1;
 }
 
-#ifndef EA_PLATFORM_GAMECUBE
+// gcdatos7: tambien en GameCube. La .data objetivo de zTrack GC trae los dos
+// floats (3FE66666/3EE66666 en obj+0x11C4) y el DIE de getHorizonColour existe
+// en la CU de GC (low_pc=-1): la guarda #ifndef EA_PLATFORM_GAMECUBE que los
+// rodeaba a los tres no es del original. gcdatos8: vivian junto a
+// getHorizonColour, no con los Base*: en la .data objetivo van tras los
+// oldDistFog* de CalculateRegionInfo (0x8043710C/10).
+float distColAff = 1.8f;
+float distfall = 0.45f;
+
 // La distancia aproximada en pantalla (la mayor de las dos mas un cuarto de la menor), en las lineas 742-751 del
-// WeatherMan.cpp de la A124.
+// WeatherMan.cpp de la A124. En el DWARF (GC y PS2) se llama qHdis.
 static inline int ApproxScreenDistance(int x0, int y0, int x1, int y1) {
     int dx = bAbs(x0 - x1);
     int dy = bAbs(y0 - y1);
@@ -245,8 +326,9 @@ static inline int ApproxScreenDistance(int x0, int y0, int x1, int y1) {
     return dy + (dx >> 2);
 }
 
-// El color del horizonte en un punto de la pantalla, sumando las regiones de color de horizonte cercanas; GameCube no la
-// tiene.
+// El color del horizonte en un punto de la pantalla, sumando las regiones de color de horizonte cercanas. Sin llamantes
+// en ninguna version; en GC su DIE (.debug+0x40DCF3C) trae low_pc=-1 y su pool (128.0f, 1/128, 0.5f, 255.0f, 1/384)
+// esta en la .rodata objetivo de zTrack (obj+0xCA0..0xCE4): GameCube si la parseaba.
 void getHorizonColour(eView *view, int x, int y, uint32 *r, uint32 *g, uint32 *b, uint32 *a) {
     bVector3 cPos = *view->GetCamera()->GetPosition();
     float rf = 0.0f;
@@ -308,7 +390,6 @@ void getHorizonColour(eView *view, int x, int y, uint32 *r, uint32 *g, uint32 *b
     }
     *a = static_cast<uint32>(static_cast<float>(*a) * atten);
 }
-#endif
 
 GenericRegion *GetClosestRegionInView(eView *view, bVector3 *endVector, float *angleCos) {
     cPos = *view->GetCamera()->GetPosition();

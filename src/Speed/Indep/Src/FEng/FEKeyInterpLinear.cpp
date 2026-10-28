@@ -26,7 +26,7 @@ void FEInterpLinear(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
                 // Standard (clamp)
                 pKey = pTrack->GetDeltaKeyAt(tTime);
                 if (!pKey)
-                    goto write_base;
+                    break;
                 pPrevKey = pKey->GetPrev();
                 // c36feng: la rama del 1.0f va PRIMERO. GCC 2.9 mete las constantes
                 // en el pool en el orden en que expande el RTL, y el objetivo tiene
@@ -46,7 +46,7 @@ void FEInterpLinear(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
                 // Loop
                 pKey = pTrack->GetDeltaKeyAt(tTime);
                 if (!pKey)
-                    goto write_base;
+                    break;
                 if (pKey->tTime < tTime) {
                     pPrevKey = pKey;
                     pKey = pTrack->GetFirstDeltaKey();
@@ -87,7 +87,6 @@ void FEInterpLinear(FEKeyTrack *pTrack, i32 tTime, void *pOutDataPtr) {
         }
     }
 
-write_base:
     if (!pKey) {
         i32 *pValPtr = pBaseKey->GetKeyData()->Val;
         switch (pTrack->ParamType) {

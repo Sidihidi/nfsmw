@@ -55,11 +55,19 @@ static SDisqRatingHighlights *gGetDisqRatingHighlightsFor(int NumDisqs) {
     return pRet;
 }
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: 32 invitaciones (el ctor de UIOLGameRoom del EGM, 0x8227A6A4, y SendChallengeInvite, 0x8227C810: cmpwi 0x20;
+// isXGameInvite en +0x84 e isInRoom en +0xA4). Nombre nuestro: ningun binario da la constante.
+#define INVITATION_LIST_SIZE 32
+#else
+#define INVITATION_LIST_SIZE 4
+#endif
+
 struct InvitationList {
     int numberOfInvitedPlayers;
-    char *pInvitedPlayerNames[4];
-    bool isXGameInvite[4];
-    bool isInRoom[4];
+    char *pInvitedPlayerNames[INVITATION_LIST_SIZE];
+    bool isXGameInvite[INVITATION_LIST_SIZE];
+    bool isInRoom[INVITATION_LIST_SIZE];
 };
 
 InvitationList g_inviteList;
@@ -81,9 +89,15 @@ PlayerScrollerDatum *UIOLGameRoom::mSelectedPlayerDatum = nullptr;
 
 UIOLGameRoom::UIOLGameRoom(ScreenConstructorData *sd)
     : MenuScreen(sd) //
+#ifdef EA_PLATFORM_XENON
+    , xenon_unknown_0x30(0) //
+#endif
     , playerScroller(GetPackageName(), "scroll_area", "scrollbar", true, true, false, true) //
     , mChat(GetPackageName()) //
     , msgHandle(0) //
+#ifdef EA_PLATFORM_XENON
+    , xenon_unknown_0x1168(0) //
+#endif
     , m_viewingModalDisplay(false) //
     , m_setDimState(false) //
     , m_startGameTimer(RealTimer.GetSeconds()) //
@@ -102,8 +116,16 @@ UIOLGameRoom::UIOLGameRoom(ScreenConstructorData *sd)
     , doDismissDialog(false) //
     , doSwitchToLobby(false) //
     , m_bChangingSettings(false) //
+#ifdef EA_PLATFORM_XENON
+    , m_isRaceStarted(false) //
+    , xenon_unknown_0x11a2(false) //
+    , xenon_unknown_0x11a3(false) //
+    , xenon_unknown_0x11a4(false) //
+#else
     , m_hostStartUpdateTimer(RealTimer.GetSeconds()) //
-    , m_isRaceStarted(false) {
+    , m_isRaceStarted(false) //
+#endif
+{
     bMemSet(&delayedDialogDetails, 0, sizeof(delayedDialogDetails));
 
     if (TheOnlineManager.GetState() != OLS_LOBBY_IN_LOBBY) {
@@ -115,7 +137,7 @@ UIOLGameRoom::UIOLGameRoom(ScreenConstructorData *sd)
 
     m_isPrivateRoom = FEDatabase->GetOnlineSettings()->IsPrivateRoom;
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < INVITATION_LIST_SIZE; i++) {
         g_inviteList.pInvitedPlayerNames[i] = new ("invited player names", 0) char[32];
         bMemSet(g_inviteList.pInvitedPlayerNames[i], 0, 32);
         g_inviteList.isXGameInvite[i] = false;
@@ -222,7 +244,7 @@ void UIOLGameRoom::VerifyMyCar() {
 }
 
 UIOLGameRoom::~UIOLGameRoom() {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < INVITATION_LIST_SIZE; i++) {
         delete g_inviteList.pInvitedPlayerNames[i];
     }
 
@@ -625,7 +647,7 @@ void UIOLGameRoom::SendChallengeInvite(char *name) {
     }
 
     bool bAlreadyInvited = false;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < INVITATION_LIST_SIZE; i++) {
         if (!bStrCmp(g_inviteList.pInvitedPlayerNames[i], name)) {
             if (newChallenge) {
                 if (gBuddySettings.IsSameProduct) {
@@ -639,7 +661,11 @@ void UIOLGameRoom::SendChallengeInvite(char *name) {
         }
     }
 
+#ifdef EA_PLATFORM_XENON
+    if (g_inviteList.numberOfInvitedPlayers < INVITATION_LIST_SIZE && !bAlreadyInvited) {
+#else
     if (g_inviteList.numberOfInvitedPlayers < cOnlineSettings::MaxOnlinePlayers && !bAlreadyInvited) {
+#endif
         bStrCpy(g_inviteList.pInvitedPlayerNames[g_inviteList.numberOfInvitedPlayers++], name);
         if (gBuddySettings.IsSameProduct) {
             g_inviteList.isXGameInvite[g_inviteList.numberOfInvitedPlayers - 1] = false;
@@ -723,7 +749,7 @@ void UIOLGameRoom::StartGame() {
         rc = lobbyGames.StartGame(StartGameCB, this, false);
         if (rc > 0) {
             if (!FEDatabase->IsLANMode()) {
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < INVITATION_LIST_SIZE; i++) {
                     if (g_inviteList.pInvitedPlayerNames[i]) {
                         HLBListAnswerGameInvite(BuddyCore::instance()->getApiRef(), g_inviteList.pInvitedPlayerNames[i], 2, 0, 0);
                     }
@@ -1047,7 +1073,7 @@ static int GameRoomConnectionUnknownHash[4] = {0x61726c50, 0x61726c51, 0x61726c5
 void UIOLGameRoom::SetConnectionQualityGood(uint32 index) {
     char temp[32] = "";
 
-    for (int32 col = 1; col < 4; col++) {
+    for (int32 col = 1; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", index, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, FEHASH_GOODCONNECTION)) {
@@ -1062,7 +1088,7 @@ void UIOLGameRoom::SetConnectionQualityGood(uint32 index) {
 void UIOLGameRoom::SetConnectionQualityAverage(uint32 index) {
     char temp[32] = "";
 
-    for (int32 col = 1; col < 3; col++) {
+    for (int32 col = 1; col <= 2; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", index, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, FEHASH_REGCONNECTION)) {
@@ -1089,7 +1115,7 @@ void UIOLGameRoom::SetConnectionQualityBad(uint32 index) {
         FEngSetScript(GetPackageName(), obj->NameHash, FEHASH_BADCONNECTION, true);
     }
 
-    for (int32 col = 2; col < 4; col++) {
+    for (int32 col = 2; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", index, col);
         obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, FEHASH_OFF)) {
@@ -1104,7 +1130,7 @@ void UIOLGameRoom::SetConnectionQualityBad(uint32 index) {
 void UIOLGameRoom::SetConnectionQualityUnknown(uint32 index) {
     char temp[32] = "";
 
-    for (int32 col = 1; col < 4; col++) {
+    for (int32 col = 1; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", index, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, FEHASH_UNKNOWN)) {
@@ -1119,7 +1145,7 @@ void UIOLGameRoom::SetConnectionQualityUnknown(uint32 index) {
 void UIOLGameRoom::TurnOffPingCircles(uint32 index) {
     char temp[32] = "";
 
-    for (int32 col = 1; col < 4; col++) {
+    for (int32 col = 1; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", index, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, FEHASH_OFF)) {
@@ -1333,8 +1359,12 @@ void UIOLGameRoom::DisplayGameDetails(MenuScreen *pGameRoom) {
 int UIOLGameRoom::mGameCountdown = -1;
 
 void UIOLGameRoom::CheckDisplayOfHostStartCountdown() {
+#ifdef EA_PLATFORM_XENON // EGM 0x82280170: sin temporizador
+    if (!m_isRaceStarted) {
+#else
     if (m_hostStartUpdateTimer.GetSeconds() < RealTimer.GetSeconds() && !m_isRaceStarted) {
         m_hostStartUpdateTimer.SetTime(RealTimer.GetSeconds() + 0.1f);
+#endif
 
         if (LobbyGameSessions::Instance().GetMySession()) {
             mGameCountdown = LobbyGameSessions::Instance().GetSecsBeforeHostCanStart();

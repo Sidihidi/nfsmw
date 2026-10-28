@@ -45,7 +45,7 @@ class FEImage : public FEObject {
   public:
     u32 ImageFlags; // offset 0x5C, size 0x4, Decl: speed/indep/src/feng/feimage.h:46
 
-    FEImage() : FEObject(), ImageFlags(0) { Type = FE_Image; } // Decl: speed/indep/src/feng/feimage.h:48
+    FEImage() : FEObject() { Type = FE_Image; ImageFlags = 0; } // Decl: speed/indep/src/feng/feimage.h:48
     FEImage(const FEImage &Object, bool bReference) : FEObject(Object, bReference), ImageFlags(Object.ImageFlags) {}
     ~FEImage() override {} // Decl: speed/indep/src/feng/feimage.h:50
 

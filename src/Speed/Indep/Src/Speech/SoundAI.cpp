@@ -48,11 +48,34 @@
 #include "Speed/Indep/Src/Speech/MiscSpeech.h"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 
+// gcdatos4 (receta gcdatos1-F): en el objetivo, SPEECHFLOW_DISPLAY
+// (obj+0x1C6C) y heat_cutoffs (obj+0x1C70) van justo tras las cadenas de la
+// fase de includes de este fichero (la ultima es Attrib::Gen::smackable) y
+// delante del "Speech" del constructor. Estaban tras IsHeadingValid y
+// caian desplazados en src+0x1DE0. Todas las lecturas de SPEECHFLOW_DISPLAY
+// estan en ficheros anteriores de la TU (PursuitFlow, StrategyFlow,
+// RoadblockFlow, Observer), asi que la definicion sigue detras de todos sus
+// usos y GCC no puede plegar la lectura a un inmediato (la regla de la r31
+// que motivaba la posicion vieja).
+extern const int SPEECHFLOW_DISPLAY = 0;
+
+const SoundAI::HeatCutoffs SoundAI::heat_cutoffs[4] = {
+    {2.0f, Csis::Type_heat_level_2},
+    {3.0f, Csis::Type_heat_level_3},
+    {4.0f, Csis::Type_heat_level_4},
+    {5.0f, Csis::Type_heat_level_5},
+};
+
 // .data:0x80435E9C y 0x80435EA0 del original, en este orden y justo detras de
 // MUSICFLOW_DISPLAY. Los 276 UND de zSpeech son estos dos.
 int SoundAI::mRefCount = 0;
 template <> SoundAI *UTL::Collections::Singleton<SoundAI>::mInstance = NULL;
 
+#ifdef EA_BUILD_A124
+// gcdatos13: solo en la A124, entre SPEECHFLOW_DISPLAY y DESTROY_COPS_ON_INACTIVITY
+// (0x62f758, PS2_globals.hpp:5511), a 0 en su .data objetivo. Sin simbolo en las demas.
+int SPEECHFLOW_DISPLAY_DITCHED = 0;
+#endif
 static int DESTROY_COPS_ON_INACTIVITY = 0;
 
 int FORCE_VOICE_RANDOMIZATION = 0;
@@ -75,7 +98,7 @@ extern CarTypeInfo *CarTypeInfoArray;
 
 
 
-UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _SoundAI("SoundAI", SoundAI::Construct);
+UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _SoundAI(UCrc32("SoundAI"), SoundAI::Construct);
 static float CopMinClosingVelSq = MPH2MPS(25.0f);
 
 SoundAI::SoundAI()
@@ -1225,7 +1248,7 @@ void SoundAI::AttemptReattachPursuit() {
     short aifound = mAIPursuit && !mAIPursuit->IsPlayerPursuit();
 
     const UTL::Collections::Listable<IPursuit, 8>::List &pursuits = UTL::Collections::Listable<IPursuit, 8>::GetList();
-    if (pursuits.size() != 0) {
+    if (pursuits.size() > 0) {
         UTL::Collections::Listable<IPursuit, 8>::List::const_iterator start = pursuits.begin();
         if (!playerfound) {
             UTL::Collections::Listable<IPursuit, 8>::List::const_iterator i = start;
@@ -1760,19 +1783,6 @@ bool SoundAI::IsHeadingValid() {
     }
     return false;
 }
-
-// .rodata:0x80407A7C del original (const, global), pegado DELANTE de
-// _7SoundAI.heat_cutoffs. Va aqui, detras de todos sus usos (PursuitFlow,
-// StrategyFlow y RoadblockFlow son ficheros anteriores del TU), para que GCC no
-// pliegue la lectura a un inmediato -- la regla de la r31.
-extern const int SPEECHFLOW_DISPLAY = 0;
-
-const SoundAI::HeatCutoffs SoundAI::heat_cutoffs[4] = {
-    {2.0f, Csis::Type_heat_level_2},
-    {3.0f, Csis::Type_heat_level_3},
-    {4.0f, Csis::Type_heat_level_4},
-    {5.0f, Csis::Type_heat_level_5},
-};
 
 #ifdef EA_BUILD_A124
 // La A124 es otra version: el salto de calor recorre heat_cutoffs hacia arriba y el aviso al 911 sale de sus
@@ -2337,7 +2347,7 @@ void SoundAI::SyncCarsToActors() {
         mFlags &= ~COPS_ARE_AHEAD;
     }
 
-    if (new_cop_cars.size() != 0) {
+    if (new_cop_cars.size() > 0) {
         IVehicles::iterator i = new_cop_cars.begin();
         while (i != new_cop_cars.end()) {
             AddNewCop(*i);
@@ -2397,7 +2407,7 @@ void SoundAI::SyncFormations() {
     if (mCopsInFormation.size() == 1) {
         mLastCopInFormation = mCopsInFormation.front();
     }
-    if (mCopsInFormation.size() != 0) {
+    if (mCopsInFormation.size() > 0) {
         mT_outofFormation = WorldTimer;
     }
 }

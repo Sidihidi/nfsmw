@@ -43,8 +43,8 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
     StatelessF3 *statelessF3 = reinterpret_cast<StatelessF3 *>(mpAnim);
     int floorTime = FloatToInt(currTime);
     int floorKey;
-    float scale = 0.0f;
     bool slerpReqd;
+    float scale = 0.0f;
 
     if (!statelessF3->mTimes) {
 
@@ -73,12 +73,12 @@ bool FnStatelessF3::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask
 
             int timeIndex = 0;
 
-            if (mPrevKey) {
-
-                timeIndex = mPrevKey - 1;
-            } else {
+            if (mPrevKey < 1) {
 
                 timeIndex = 0;
+            } else {
+
+                timeIndex = mPrevKey - 1;
             }
 
             if (statelessF3->mTimes[timeIndex] <= floorTime) {
@@ -341,6 +341,13 @@ bool FnStatelessF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *bone
     int idof;
     int index;
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // Xbox 360 (MSVC): el EGM prueba la cuenta en la cabecera del bucle (cmplw contra mNumBones) y divide SIN signo
+    // (mulhwu/srwi); GameCube prueba `mNumBones != 0` con beq antes del do-while y es lo que su codigo casa.
+    for (idof = 0; idof < statelessF3->mNumBones; idof++) {
+        boneIdxs[idof] = dofIdxs[idof] / 12u;
+    }
+#else
     idof = 0;
     if (statelessF3->mNumBones != 0) {
         do {
@@ -348,6 +355,7 @@ bool FnStatelessF3::EvalSQTMask(float currTime, float *sqt, const BoneMask *bone
             idof++;
         } while (idof < statelessF3->mNumBones);
     }
+#endif
 
     if (slerpReqd) {
 
@@ -548,10 +556,11 @@ bool FnStatelessF3::EvalSQTfast(float currTime, float *sqt, const BoneMask *bone
             for (ibone = 0; ibone < nBones; ibone++) {
 
                 index = dofIdxs[ibone];
-                const StatelessF3::DofInfo &dofInfo = dofInfos[ibone];
-                sqt[index] = dofInfo.mRange[0] * frameData[0];
-                sqt[index + 1] = dofInfo.mRange[1] * frameData[1];
-                sqt[index + 2] = dofInfo.mRange[2] * frameData[2];
+                // La local rangePtr del DWARF de GameCube, como en EvalSQT y EvalSQTMask.
+                float *rangePtr = dofInfos[ibone].mRange;
+                sqt[index] = rangePtr[0] * frameData[0];
+                sqt[index + 1] = rangePtr[1] * frameData[1];
+                sqt[index + 2] = rangePtr[2] * frameData[2];
                 frameData += 3;
             }
 #endif

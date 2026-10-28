@@ -106,7 +106,6 @@ void CARSFX_Skids::UpdateMixerOutputs() {
     this->SetDMIX_Input(3, smooth(this->GetDMIX_InputValue(3), loadval, 3000));
 }
 
-// UNSOLVED regswap
 void CARSFX_Skids::ProcessUpdate() {
     if (!this->IsEnabled() || (this->m_pSkidControl == nullptr)) {
         return;
@@ -119,8 +118,15 @@ void CARSFX_Skids::ProcessUpdate() {
     this->m_pSkidControl->SetPITCH_OFFSET(this->GetDMixOutput(8, DMX_PITCH));
     this->m_pSkidControl->SetAzimuth(this->GetDMixOutput(1, DMX_AZIM));
 
+#ifdef EA_PLATFORM_WIN32
+    // La revision de PC evalua el terreno derecho antes que el izquierdo (en speed.exe la llamada a
+    // Aud_Skid_Type de RightSideTerrain va primero); en consola el orden es el contrario.
+    const EA::Reflection::UInt32 &right_skid = this->m_pWheelCtl->RightSideTerrain.Aud_Skid_Type();
+    const EA::Reflection::UInt32 &left_skid = this->m_pWheelCtl->LeftSideTerrain.Aud_Skid_Type();
+#else
     const EA::Reflection::UInt32 &left_skid = this->m_pWheelCtl->LeftSideTerrain.Aud_Skid_Type();
     const EA::Reflection::UInt32 &right_skid = this->m_pWheelCtl->RightSideTerrain.Aud_Skid_Type();
+#endif
     int skid_type = UMath::Max(right_skid, left_skid);
     this->m_pSkidControl->SetSurface(skid_type);
 

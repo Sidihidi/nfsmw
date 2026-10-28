@@ -11,6 +11,9 @@
 
 // Los globales que define Config.cpp, con los tipos del DWARF.
 extern char *BuildVersionChangelistName;
+extern char *FullBuildVersionName;
+extern int DisplayFrameRate;
+extern int DisplayCoordinatesInSimSpace;
 
 extern int EmergencySaveMemory;
 extern int SkipFE;

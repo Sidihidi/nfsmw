@@ -474,7 +474,12 @@ TextureIndexEntry *TexturePack::GetTextureIndexEntry(uint32 name_hash) {
 
     if (this->pPackHeader && this->pPackHeader->TextureIndexEntryTable) {
         return reinterpret_cast<TextureIndexEntry *>(
+#if E_PLAT_LP64
+            ScanHashTableKey32(name_hash, this->pPackHeader->TextureIndexEntryTable, this->NumTextures, 0,
+                               (int)sizeof(TextureIndexEntry)));
+#else
             ScanHashTableKey32(name_hash, this->pPackHeader->TextureIndexEntryTable, this->NumTextures, 0, 8));
+#endif
     }
     return nullptr;
 }
@@ -849,9 +854,13 @@ void TextureLoadingStreamingPackPhase2(eStreamingPackHeaderLoadingInfoPhase2 *lo
 int eUnloadStreamingTexturePack(const char *filename, void (*callback_function)(uint32), uint32 callback_param) {
     return StreamingTexturePackLoader.DeleteStreamingPack(filename, callback_function, callback_param);
 }
-#else
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
 void eUnloadStreamingTexturePack(const char *filename) {
     StreamingTexturePackLoader.DeleteStreamingPack(filename);
+}
+#else
+int eUnloadStreamingTexturePack(const char *filename) {
+    return StreamingTexturePackLoader.DeleteStreamingPack(filename);
 }
 #endif
 

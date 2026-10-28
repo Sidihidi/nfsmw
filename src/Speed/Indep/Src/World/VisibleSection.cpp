@@ -303,6 +303,14 @@ float VisibleSectionBoundary::GetDistanceOutside(const bVector2 *point, float ma
     return closest_distance;
 }
 
+// gcdatos7: sin llamantes en ninguna version (DIE de GC .debug+0x40CAD84 con low_pc=-1,
+// tras GetDistanceOutside; la A124 la trae igual, 20 B, una linea de cuerpo en su
+// VisibleSection.cpp:161). Su DIE solo trae el inline bVector2::operator= (bCopy):
+// copia el campo Centre al destino.
+void VisibleSectionBoundary::GetCentre(bVector2 *centre) {
+    *centre = Centre;
+}
+
 void DrivableScenerySection::AddVisibleSection(int section_number) {
     if (NumVisibleSections < MaxVisibleSections && !IsSectionVisible(section_number)) {
         VisibleSections[NumVisibleSections++] = static_cast<short>(section_number);
@@ -350,10 +358,122 @@ void DrivableScenerySection::SortVisibleSections() {
     } while (did_something);
 }
 
+// gcdatos7: las ocho siguientes, sin llamantes en ninguna version (DIEs de GC
+// .debug+0x40CB757..0x40CC4E2 con low_pc=-1, en este orden tras SortVisibleSections;
+// la A124 las trae igual en sus lineas 196-227). Add*: DIE con el unico inline
+// HasSection y 2 lineas en la A124 (guarda + alta, sin tope: no hay campo Max).
+// Remove*: DIE {n {i}}, gemelas de DrivableScenerySection::RemoveVisibleSection.
+void VisibleTextureSection::AddVisibleTextureSection(int16 section_number) {
+    if (!HasSection(VisibleFromSections, NumVisibleFromSections, section_number)) {
+        VisibleFromSections[NumVisibleFromSections++] = section_number;
+    }
+}
+
+void VisibleTextureSection::AddSuperTextureSection(int16 section_number) {
+    if (!HasSection(SuperSections, NumSuperSections, section_number)) {
+        SuperSections[NumSuperSections++] = section_number;
+    }
+}
+
+void VisibleTextureSection::RemoveVisibleTextureSection(int16 section_number) {
+    for (int n = 0; n < NumVisibleFromSections; n++) {
+        if (VisibleFromSections[n] == section_number) {
+            for (int i = n; i < NumVisibleFromSections - 1; i++) {
+                VisibleFromSections[i] = VisibleFromSections[i + 1];
+            }
+
+            NumVisibleFromSections--;
+            VisibleFromSections[NumVisibleFromSections] = 0;
+            return;
+        }
+    }
+}
+
+void VisibleTextureSection::RemoveSuperTextureSection(int16 section_number) {
+    for (int n = 0; n < NumSuperSections; n++) {
+        if (SuperSections[n] == section_number) {
+            for (int i = n; i < NumSuperSections - 1; i++) {
+                SuperSections[i] = SuperSections[i + 1];
+            }
+
+            NumSuperSections--;
+            SuperSections[NumSuperSections] = 0;
+            return;
+        }
+    }
+}
+
+// DIE .debug+0x40CBE80: unico local texture_section e inlines GetHead/EndOfList/
+// GetNext de la lista; compara el campo SectionNumber (sin accesor en el DIE),
+// como FindBoundary(int).
+VisibleTextureSection *VisibleSectionManager::FindVisibleTextureSection(int section_number) {
+    for (VisibleTextureSection *texture_section = VisibleTextureSectionList.GetHead(); texture_section != VisibleTextureSectionList.EndOfList();
+         texture_section = texture_section->GetNext()) {
+        if (texture_section->SectionNumber == section_number) {
+            return texture_section;
+        }
+    }
+
+    return nullptr;
+}
+
+void LoadingSection::RemoveDrivableSection(int section_number) {
+    for (int n = 0; n < NumDrivableSections; n++) {
+        if (DrivableSections[n] == section_number) {
+            for (int i = n; i < NumDrivableSections - 1; i++) {
+                DrivableSections[i] = DrivableSections[i + 1];
+            }
+
+            NumDrivableSections--;
+            DrivableSections[NumDrivableSections] = 0;
+            return;
+        }
+    }
+}
+
+void LoadingSection::RemoveExtraSection(int section_number) {
+    for (int n = 0; n < NumExtraSections; n++) {
+        if (ExtraSections[n] == section_number) {
+            for (int i = n; i < NumExtraSections - 1; i++) {
+                ExtraSections[i] = ExtraSections[i + 1];
+            }
+
+            NumExtraSections--;
+            ExtraSections[NumExtraSections] = 0;
+            return;
+        }
+    }
+}
+
+// DIE .debug+0x40CC30E: locales len/n sin bloques ni inlines; la A124 la trae en
+// 3 lineas (225-227). max_len queda en registro de argumento (no se usa). El
+// "%s " es el literal que falta en obj+0xBD7 de la .rodata de zTrack.
+char *LoadingSection::GetDrivableSectionNames(char *text, int max_len) {
+    int len = 0;
+    for (int n = 0; n < NumDrivableSections; n++) {
+        len += bSPrintf(&text[len], "%s ", GetScenerySectionName(DrivableSections[n]));
+    }
+    return text;
+}
+
 LoadingSection *VisibleSectionManager::FindLoadingSection(int drivable_section_number) {
     for (LoadingSection *loading_section = LoadingSectionList.GetHead(); loading_section != LoadingSectionList.EndOfList();
          loading_section = loading_section->GetNext()) {
         if (loading_section->HasDrivableSection(drivable_section_number)) {
+            return loading_section;
+        }
+    }
+
+    return nullptr;
+}
+
+// gcdatos7: sin llamantes (DIE .debug+0x40CC92F low_pc=-1, tras la version por
+// numero; A124 100 B, lineas 231-233). Mismo bucle; compara el campo Name (el DIE
+// no trae el inline GetName) con bStrICmp, como ActivateOverlay(const char *).
+LoadingSection *VisibleSectionManager::FindLoadingSection(const char *name) {
+    for (LoadingSection *loading_section = LoadingSectionList.GetHead(); loading_section != LoadingSectionList.EndOfList();
+         loading_section = loading_section->GetNext()) {
+        if (bStrICmp(loading_section->Name, name) == 0) {
             return loading_section;
         }
     }
@@ -401,6 +521,26 @@ int VisibleSectionManager::GetSectionsToLoad(LoadingSection *loading_section, sh
     return num_sections;
 }
 
+// gcdatos7: sin llamantes (DIE .debug+0x40CD7AF low_pc=-1, tras GetSectionsToLoad).
+// Local start_object con GetHead+GetNext fuera del bloque del bucle (arranca tras
+// prev_object o en la cabeza) y object dentro. La comparacion exacta (parcial con
+// bStrNICmp/longitud de name, como GetGroupInfo) no esta en la evidencia.
+OverrideSectionObject *VisibleSectionManager::FindOverrideSectionObject(const char *name, OverrideSectionObject *prev_object, bool partial_compare) {
+    OverrideSectionObject *start_object = prev_object != nullptr ? prev_object->GetNext() : OverrideSectionObjectList.GetHead();
+
+    for (OverrideSectionObject *object = start_object; object != OverrideSectionObjectList.EndOfList(); object = object->GetNext()) {
+        if (partial_compare) {
+            if (bStrNICmp(object->ObjectName, name, bStrLen(name)) == 0) {
+                return object;
+            }
+        } else if (bStrICmp(object->ObjectName, name) == 0) {
+            return object;
+        }
+    }
+
+    return nullptr;
+}
+
 class UnallocatedVisibleSectionUserInfo : public bTNode<UnallocatedVisibleSectionUserInfo> {};
 
 VisibleSectionManager::VisibleSectionManager() {
@@ -421,13 +561,14 @@ VisibleSectionManager::VisibleSectionManager() {
     bMemSet(EnabledGroups, 0, sizeof(EnabledGroups));
 }
 
-#ifdef EA_PLATFORM_PLAYSTATION2
 // Solo las PS2 destruyen TheVisibleSectionManager al salir (su _GLOBAL_$D lo llama); la lista de libres apunta a
 // UserInfoStorageTable, asi que se vacia sin borrar sus nodos antes de que lo intente el destructor de la lista.
+// gcdatos8: el DIE de GC (.debug+0x40CF732, low_pc=-1) trae el mismo cuerpo
+// (bList::InitList + los dtores de las listas miembro): la guarda
+// EA_PLATFORM_PLAYSTATION2 que lo rodeaba no es del original.
 VisibleSectionManager::~VisibleSectionManager() {
     UnallocatedUserInfoList.InitList();
 }
-#endif
 
 VisibleSectionUserInfo *VisibleSectionManager::AllocateUserInfo(int section_number) {
     VisibleSectionUserInfo *info = GetUserInfo(section_number);
@@ -668,6 +809,24 @@ VisibleSectionBoundary *VisibleSectionManager::FindBoundary(const bVector2 *poin
     }
 }
 
+// gcdatos7: sin llamantes (DIE .debug+0x40D5D05 low_pc=-1, tras FindBoundary(point);
+// A124 176 B, 5 lineas). Locales num_found y section_boundary con un bloque
+// {distance}: una sola lista (la de FindClosestBoundary, mismo nombre de local).
+// La guarda exacta no esta en la evidencia.
+int VisibleSectionManager::FindCloseBoundaries(VisibleSectionBoundary **boundaries, int max_boundaries, const bVector2 *point, float distance_outside) {
+    int num_found = 0;
+
+    for (VisibleSectionBoundary *section_boundary = DrivableBoundaryList.GetHead(); section_boundary != DrivableBoundaryList.EndOfList();
+         section_boundary = section_boundary->GetNext()) {
+        float distance = section_boundary->GetDistanceOutside(point, distance_outside);
+        if (distance < distance_outside && num_found < max_boundaries) {
+            boundaries[num_found++] = section_boundary;
+        }
+    }
+
+    return num_found;
+}
+
 DrivableScenerySection *VisibleSectionManager::FindDrivableSection(const bVector2 *point) {
     for (DrivableScenerySection *section = DrivableSectionList.GetHead(); section != DrivableSectionList.EndOfList(); section = section->GetNext()) {
         if (section->pBoundary->IsPointInside(point)) {
@@ -711,10 +870,31 @@ VisibleGroupInfo *VisibleSectionManager::GetGroupInfo(const char *selection_set_
     return nullptr;
 }
 
+// gcdatos7: IsGroupEnabled (DIE .debug+0x40D6FDC) y DisableGroup (.debug+0x40D716F),
+// low_pc=-1 ambas, flanquean a la viva EnableGroup: mismo bloque {int n} sobre
+// EnabledGroups[256] con 0 como hueco (A124: 48 y 40 B).
+bool VisibleSectionManager::IsGroupEnabled(uint32 group_name_hash) {
+    for (int n = 0; n < 256; n++) {
+        if (EnabledGroups[n] == group_name_hash) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void VisibleSectionManager::EnableGroup(uint32 group_name_hash) {
     for (int n = 0; n < 256; n++) {
         if (EnabledGroups[n] == 0) {
             EnabledGroups[n] = group_name_hash;
+            return;
+        }
+    }
+}
+
+void VisibleSectionManager::DisableGroup(uint32 group_name_hash) {
+    for (int n = 0; n < 256; n++) {
+        if (EnabledGroups[n] == group_name_hash) {
+            EnabledGroups[n] = 0;
             return;
         }
     }

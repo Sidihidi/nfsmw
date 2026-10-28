@@ -198,40 +198,33 @@ void DebugCarCustomizeScreen::Redraw() {
     FECarRecord *car = FEDatabase->GetPlayerCarStable(0)->GetCarRecordByHandle(pDebugCar->mHandle);
     FEPrintf(GetPackageName(), 0x3e40712, car ? car->GetDebugName() : "NULL");
     FEPrintf(GetPackageName(), 0x3e40713, CurrentLookupSlotID->GetString());
-    if (CurrentInstallablePart == reinterpret_cast<bPNode *>(&InstallableParts) || !car) {
-        goto dash_section;
-    }
-    {
+    if (CurrentInstallablePart != reinterpret_cast<bPNode *>(&InstallableParts) && car) {
         bool hasCustom = car->Customization != 0xFF;
-        if (!hasCustom)
-            goto dash_section;
+        if (hasCustom) {
+            CarPart *part = static_cast<CarPart *>(CurrentInstallablePart->GetpObject());
+            unsigned int typeHash = part->GetCarTypeNameHash();
+            CarTypeInfo *typeInfo = GetCarTypeInfoFromHash(typeHash);
+            FEPrintf(GetPackageName(), __CARNAME__, "%s", reinterpret_cast<const char *>(typeInfo));
+            const char *pkg1 = GetPackageName();
+            const char *partName = GetCarPartNameFromID(part->GetPartID());
+            FEPrintf(pkg1, __PARTIDNAME__, "%s", partName);
+            const char *pkg2 = GetPackageName();
+            const char *name = part->GetName();
+            FEPrintf(pkg2, __PARTNAME__, "%s", name);
+            FEPrintf(GetPackageName(), 0x6a81554, "0x%x", part->GetPartNameHash());
+            const char *fmt = "Part Info (%d/%d)";
+            const char *pkg3 = GetPackageName();
+            int idx = InstallableParts.GetNodeNumber(CurrentInstallablePart);
+            int total = InstallableParts.CountElements();
+            FEPrintf(pkg3, 0x36db746, fmt, idx, total);
+            return;
+        }
     }
-    {
-        CarPart *part = static_cast<CarPart *>(CurrentInstallablePart->GetpObject());
-        unsigned int typeHash = part->GetCarTypeNameHash();
-        CarTypeInfo *typeInfo = GetCarTypeInfoFromHash(typeHash);
-        FEPrintf(GetPackageName(), __CARNAME__, "%s", reinterpret_cast<const char *>(typeInfo));
-        const char *pkg1 = GetPackageName();
-        const char *partName = GetCarPartNameFromID(part->GetPartID());
-        FEPrintf(pkg1, __PARTIDNAME__, "%s", partName);
-        const char *pkg2 = GetPackageName();
-        const char *name = part->GetName();
-        FEPrintf(pkg2, __PARTNAME__, "%s", name);
-        FEPrintf(GetPackageName(), 0x6a81554, "0x%x", part->GetPartNameHash());
-        const char *fmt = "Part Info (%d/%d)";
-        const char *pkg3 = GetPackageName();
-        int idx = InstallableParts.GetNodeNumber(CurrentInstallablePart);
-        int total = InstallableParts.CountElements();
-        FEPrintf(pkg3, 0x36db746, fmt, idx, total);
-        goto end;
-    }
-dash_section:
     FEPrintf(GetPackageName(), __CARNAME__, "----");
     FEPrintf(GetPackageName(), __PARTIDNAME__, "----");
     FEPrintf(GetPackageName(), __PARTNAME__, "----");
     FEPrintf(GetPackageName(), 0x6a81554, "----");
     FEPrintf(GetPackageName(), 0x36db746, "Part Info (NONE)");
-end:;
 }
 
 void DebugCarCustomizeScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 param2) {

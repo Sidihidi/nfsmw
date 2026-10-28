@@ -5,14 +5,36 @@
 
 class StringKey;
 class StringStore;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// total size: 0x1000
+class StringStoreBlock {
+  public:
+    ~StringStoreBlock();
+
+    bool RmvRef() {
+        return --mRefCount == 0;
+    }
+
+    unsigned int mRefCount;     // offset 0x0, size 0x4
+    unsigned int mNextFreeByte; // offset 0x4, size 0x4
+    char mData[4088];           // offset 0x8, size 0xFF8
+};
+#else
 class StringStoreBlock;
+#endif
 
 // total size: 0x4
 class StringStoreBlockPtr {
   public:
     StringStoreBlockPtr() {}
     StringStoreBlockPtr(const StringStoreBlockPtr &src) : mData(src.mData) {}
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ~StringStoreBlockPtr();
+
+    static void operator delete(void *mem, unsigned int size);
+#else
     ~StringStoreBlockPtr() {}
+#endif
 
     bool operator<(const StringStoreBlockPtr &rhs) const {
         return mData < rhs.mData;
@@ -35,6 +57,9 @@ class StringPool {
 
   public:
     StringPool();
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ~StringPool();
+#endif
     void Startup();
     void Shutdown();
     void RegisterStaticStrings();
@@ -59,6 +84,9 @@ class StringRegistry : public StringPool {
 
   public:
     StringRegistry();
+#ifdef EA_PLATFORM_PLAYSTATION2
+    ~StringRegistry();
+#endif
 };
 
 #endif

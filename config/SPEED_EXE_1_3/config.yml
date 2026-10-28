@@ -35,6 +35,7 @@ splits:
   - Speed/Indep/SourceLists/zTrack.cpp
   - Speed/Indep/SourceLists/zWorld.cpp
   - Speed/Indep/SourceLists/zWorld2.cpp
+  - Speed/Indep/SourceLists/zOnline.cpp
   - Speed/Indep/SourceLists/zFeOverlay.cpp
   - Packages/eathread/1.1.0/source/eathread_semaphore.cpp
   - Speed/Indep/Libs/path/5.01.04/source/cmn/pathcontrol.cpp
@@ -74,6 +75,7 @@ splits:
   - Speed/Indep/Libs/snd/9/source/library/cmn/saemstimupdt.c
   - Speed/Indep/Libs/snd/9/source/library/cmn/satospkr.c
   - Speed/Indep/Libs/snd/9/source/library/pc/sdsound.c
+  - Speed/Indep/Libs/snd/9/source/library/pc/snddrv.c
   - Speed/Indep/Libs/snd/9/source/library/mix/sfxrevc.c
   - Speed/Indep/Libs/snd/9/source/library/cmn/sprofvoc.c
   - Speed/Indep/Libs/snd/9/source/library/cmn/slinklst.c
@@ -155,6 +157,25 @@ splits:
   - Speed/Indep/Libs/snd/9/source/library/cmn/sstpmult.c
   - Speed/Indep/Libs/snd/9/source/library/cmn/sstlowp.c
   - Speed/Indep/Libs/snd/9/source/library/cmn/saemsmbm.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/saemsmbf.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sattrdef.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sbvalid.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/srandom.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sstfxlev.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/slib.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/splysdef.c
+  - Speed/Indep/Libs/snd/9/source/library/mix/smixptch.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sstsetgl.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sstrstat.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sststat.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/ssthold.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sst3dpos.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sbplay.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sbremove.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sctlfilt.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/spat2hdr.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/stpparse.c
+  - Speed/Indep/Libs/snd/9/source/library/cmn/sgparse.cpp
   - Speed/Indep/Libs/snd/9/source/library/cmn/sfxlevel.c
   - Speed/Indep/Libs/snd/9/source/library/cmn/sctrldry.cpp
   - Speed/Indep/Libs/snd/9/source/library/cmn/slowpass.c
@@ -200,9 +221,17 @@ splits:
   - egami/rcmp/dev/source/av/cmn/avplayer.cpp
   - egami/rcmp/dev/source/decoder/cmn/rcmp_mad_codec.cpp
   - egami/rcmp/dev/source/decoder/cmn/rcmp_vp6_codec.cpp
-  - unassigned_00.s
-  - unassigned_01.s
-  - unassigned_02.s
+  - Packages/realmemcard/3.04.01-layer2/source/lib/cmn/locale.cpp
+  - Packages/vp6/1.0.6/source/decode/cmn/vfwpbdll_if.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiasync.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapilist.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiutil.c
+  - Speed/Indep/Libs/realcore/6.24.00/source/input/cmn/effectimp.cpp
+  - Speed/Indep/Libs/spch/dev/source/library/cmn/sptick.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapi.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/buddyapi.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/hlbudapi.c
+  - Speed/Indep/Libs/dirtysock/source/library/ps2/final/weboffer.c
   - unassigned_03.s
   - unassigned_04.s
   - unassigned_05.s

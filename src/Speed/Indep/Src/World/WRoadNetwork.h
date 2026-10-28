@@ -53,7 +53,12 @@ class WRoadNetwork : public Debugable {
     bool GetSegmentProfiles(const WRoadSegment &segment, const WRoadProfile **profile);
     int GetSegmentNumTrafficLanes(const WRoadSegment &segment);
     int GetSegmentTrafficLaneInd(const WRoadSegment &segment, int laneCount);
+    void GetSegmentEndVecs(int segInd, UMath::Vector3 &start, UMath::Vector3 &end);
+    void GetSegmentEndVecs(const WRoadSegment &segment, UMath::Vector3 &startVec, UMath::Vector3 &endVec);
+    void GetSegmentEndPoints(int segInd, UMath::Vector3 &start, UMath::Vector3 &end);
     void GetSegmentEndPoints(const WRoadSegment &segment, UMath::Vector3 &start, UMath::Vector3 &end);
+    float GetSegmentLength(int segInd);
+    float GetSegmentLength(const WRoadSegment &segment);
     void GetPointOnSegment(const WRoadSegment &segment, float d, UMath::Vector3 &point);
     void GetPointOnSegment(const UMath::Vector3 &start, const UMath::Vector3 &end, const WRoadSegment &segment, float d, UMath::Vector3 &point);
     void GetSegmentCurveStep(const UMath::Vector3 &start, const UMath::Vector3 &end, const WRoadSegment &segment, float d, UMath::Vector3 &point);

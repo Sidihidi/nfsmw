@@ -281,12 +281,23 @@ int ICEManager::ChooseGoodSceneCameraTrackIndex(uint32 scene_hash, const ICE::Ma
 }
 
 #ifndef EA_BUILD_A124
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC and X360 only: the NIS motion blur switch that the platform renderer reads (speed.exe 0x8F9B28, a bool of the
+// .data of zPlatform with initial value 1, read by the motion blur pass at 0x6DBB3F; X360 0x82945446). Set by
+// ICEManager::SetGenericCameraToPlay (off while a generic ICE track plays), by ENISMotionBlur and by
+// NISActivity::Release. No dump names it: the name is ours.
+extern bool NISMotionBlurEnabled;
+#endif
+
 void ICEManager::SetGenericCameraToPlay(const char *group_name, const char *track_name) {
 
     nPlayGenericGroupHash = bStringHash(group_name);
     ICE::StrNCpy(nPlayGenericTrackName, track_name, 13);
 
     nPlayGenericTrackName[13] = 0;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    NISMotionBlurEnabled = *track_name == '\0';
+#endif
 }
 #endif
 
@@ -413,7 +424,7 @@ void ICEManager::Resolve() {
             if (GetNisCameraGroup(scene_hash) != 0) {
                 continue;
             }
-            if (nNisCameras > 255) {
+            if (nNisCameras >= 256) {
                 continue;
             }
             pNisCameras[nNisCameras].SetContext(ICE_CONTEXT_NIS);
@@ -436,7 +447,7 @@ void ICEManager::Resolve() {
             if (GetFmvCameraGroup(scene_hash) != 0) {
                 continue;
             }
-            if (nFmvCameras > 9) {
+            if (nFmvCameras >= 10) {
                 continue;
             }
             pFmvCameras[nFmvCameras].SetContext(ICE_CONTEXT_FMV);
@@ -457,7 +468,7 @@ void ICEManager::Resolve() {
             if (GetReplayCameraGroup(category_hash) != 0) {
                 continue;
             }
-            if (nReplayCameras > 49) {
+            if (nReplayCameras >= 50) {
                 continue;
             }
             pReplayCameras[nReplayCameras].SetContext(ICE_CONTEXT_REPLAY);
@@ -474,7 +485,7 @@ void ICEManager::Resolve() {
             if (GetGenericCameraGroup(name_hash) != 0) {
                 continue;
             }
-            if (nGenericCameras > 49) {
+            if (nGenericCameras >= 50) {
                 continue;
             }
             pGenericCameras[nGenericCameras].SetContext(ICE_CONTEXT_GENERIC);
@@ -609,7 +620,7 @@ void ICEManager::ChooseReplayCamera() {
     }
 }
 
-int ICEManager::ChooseCameraPlaybackTrack() {
+bool ICEManager::ChooseCameraPlaybackTrack() {
 
     pPlaybackTrack = 0;
 
@@ -662,7 +673,11 @@ ICEData *ICEManager::GetCameraData(uint32 scene_hash, int camTrack) {
 
     if (group != 0) {
 
+#ifdef EA_PLATFORM_WIN32
+        char name[16];
+#else
         char name[12];
+#endif
 
         bSPrintf(name, "Track %d", camTrack);
         pPlaybackTrack = group->GetTrack(name);
@@ -834,7 +849,7 @@ ICEGroup *ICEManager::AddCameraGroup(ICEContext context, unsigned int handle) {
 
         switch (context) {
         case ICE_CONTEXT_NIS:
-            if (nNisCameras <= 255) {
+            if (nNisCameras < 256) {
 
                 group = &pNisCameras[nNisCameras++];
                 group->SetContext(context);
@@ -843,7 +858,7 @@ ICEGroup *ICEManager::AddCameraGroup(ICEContext context, unsigned int handle) {
             break;
 
         case ICE_CONTEXT_FMV:
-            if (nFmvCameras <= 9) {
+            if (nFmvCameras < 10) {
 
                 group = &pFmvCameras[nFmvCameras++];
                 group->SetContext(context);
@@ -852,7 +867,7 @@ ICEGroup *ICEManager::AddCameraGroup(ICEContext context, unsigned int handle) {
             break;
 
         case ICE_CONTEXT_REPLAY:
-            if (nReplayCameras <= 49) {
+            if (nReplayCameras < 50) {
 
                 group = &pReplayCameras[nReplayCameras++];
                 group->SetContext(context);
@@ -861,7 +876,7 @@ ICEGroup *ICEManager::AddCameraGroup(ICEContext context, unsigned int handle) {
             break;
 
         case ICE_CONTEXT_GENERIC:
-            if (nGenericCameras <= 49) {
+            if (nGenericCameras < 50) {
 
                 group = &pGenericCameras[nGenericCameras++];
                 group->SetContext(context);

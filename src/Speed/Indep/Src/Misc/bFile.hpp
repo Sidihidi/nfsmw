@@ -93,6 +93,10 @@ struct bFileDirectoryEntry {
 
 extern SlotPool *OpenDisculatorFileSlotPool;
 
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+// En el EGM de X360 las estadisticas son de verdad y la clase vive en bFile.cpp (como en bfile.cpp del PDB de ProStreet).
+class FileStats;
+#else
 class FileStats {
   public:
     void AddStatEntry(const char *filename, int seek_sector, int read_size, void *read_buf) {
@@ -101,6 +105,7 @@ class FileStats {
 
     void CaptureTimings() {}
 };
+#endif
 
 bool bInitDisculatorDriver(const char *dir_filename, const char *data_filename);
 

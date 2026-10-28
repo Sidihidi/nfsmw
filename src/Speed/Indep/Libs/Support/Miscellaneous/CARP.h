@@ -28,7 +28,10 @@ struct EventStaticData {
 
     // EventStaticData *NextEvent() {}
 
-    // const EventStaticData *NextEvent() const {}
+    // Decl: 256 (mapa de lineas de GC; speed.exe suma 0x10 antes que el contador en FireEventList y ListHasEvent)
+    const EventStaticData *NextEvent() const {
+        return &this[1];
+    }
 
     unsigned int fEventID;    // offset 0x0, size 0x4
     unsigned int fEventSize;  // offset 0x4, size 0x4

@@ -174,6 +174,9 @@ void LoadingTips::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 p
             if (CurrentTip != nullptr && (CurrentTip->Flags & GFT_WAIT_FOR_BUTTON_PRESS)) {
                 mDoneShowingLoadingTips = true;
                 FEManager::Get()->AllowControllerError(false);
+#ifdef EA_PLATFORM_WIN32
+                FEManager::Get()->SuppressControllerError(win32_unknown_0x39);
+#endif
             }
             break;
 
@@ -229,9 +232,8 @@ eGameTips LoadingTips::GetARandomTipScreen(LoadingScreen::LoadingScreenTypes loa
     int valid_tips[28];
     int num_tips;
 
-    CareerSettings *career = FEDatabase->GetCareerSettings();
-    if (career->HasCareerStarted()) {
-        bin = 1u << career->GetCurrentBin();
+    if (FEDatabase->GetCareerSettings()->HasCareerStarted()) {
+        bin = 1u << FEDatabase->GetCareerSettings()->GetCurrentBin();
     } else if (loading_direction == LoadingScreen::LS_LOADING_GAME_FROM_FE) {
         bin = 0x1E000;
     }
@@ -247,7 +249,7 @@ eGameTips LoadingTips::GetARandomTipScreen(LoadingScreen::LoadingScreenTypes loa
     }
 
     num_tips = 0;
-    for (int i = 0; i <= GAME_TIP_USE_CONTROLLER_CONFIG; i++) {
+    for (int i = 0; i < GAME_TIP_NONE; i++) {
         GameTipInfo *tip = &GameTipInfoTable[i];
         if ((tip->Bin & bin) && (tip->Category & type) && (tip->Flags & flags)) {
             valid_tips[num_tips] = i;
@@ -342,6 +344,10 @@ void LoadingTips::AllowInput() {
 #endif
     cFEng::Get()->QueuePackageMessage(0x9938A38F, nullptr, nullptr);
     FEManager::Get()->AllowControllerError(true);
+#ifdef EA_PLATFORM_WIN32
+    win32_unknown_0x39 = FEManager::Get()->GetWin32Unknown0x0();
+    FEManager::Get()->SuppressControllerError(false);
+#endif
 }
 
 GameTipInfo *LoadingTips::GetGameTip(eGameTips tip) {

@@ -32,7 +32,20 @@ extern "C" void SNDSYS_service();
 extern int QueuedFileDefaultPriority;
 extern stSndDataLoadParams g_SndAssetList[];
 extern Timer WorldTimer;
+// gcdatos23: no existe en la A124 (sin stab en PS2_globals.hpp, sin hueco entre
+// DISABLE_SLOT_LOADING/g_DataPaths y Debug_Common_FE_OFF en su .data objetivo, y sus
+// dos usos ya van guardados fuera de la A124 en CompleteAsyncLoad/DataLoadCB).
+#ifndef EA_BUILD_A124
 int StartBankLoadTicks = 0;
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14: declarada en EAXAemsManager.h:246 y sin definir en el arbol. Definida en las dos
+// PS2 (A124 .data 0x5e4798, PS2_globals.hpp:1122; SLUS en el mismo sitio, a 0) y en GC en .bss
+// 0x804FE700 (config/GOWE69/symbols.txt): sin inicializador, como dicen esos tres sitios.
+// La forma sin guarda esta medida junto a la de EAXSound::m_pStateMgr (gcdatos14): no entra
+// porque en X360 el LTCG voltea InitTimers (56 B).
+int EAXAemsManager::m_RequiredSlots[eBANK_SLOT_MAX_NUM];
+#endif
 
 // .rodata, 0x20 B: GameCube 0x803D6B78; la ranura 0 de PS2 es menor (la RAM del SPU): SLUS 0x4CE308, A124 0x545390.
 // PC (speed.exe 0x896364, la lee InitializeSlots 0x4D0CD0): sin ARAM, todo el banco va a MAIN.
@@ -48,6 +61,12 @@ const int EAXAemsManager::m_SlotSizes[4][2] = {
     {157000, 15360},
 #endif
     {0, 0}, {0, 0}, {0, 20480}};
+#endif
+#ifdef EA_BUILD_A124
+// gcdatos23: declarado extern en Stream/SpeechManager.cpp (solo A124) y usado por la
+// rama A124 de Speech/SpeechCache.cpp, sin definir en el arbol. En la A124 esta en
+// la .rodata de zEAXSound pegado a m_SlotSizes (0x5453b0, PS2_globals.hpp:972), a 0.
+extern const int PRINT_SND_IO_DEBUG = 0;
 #endif
 namespace Csis {
 extern ClassHandle gFX_NITROUSHandle;
@@ -568,7 +587,7 @@ void EAXAemsManager::CompleteAsyncLoad() {
 void EAXAemsManager::ResolvePendingAsyncLoads() {}
 
 void EAXAemsManager::Update() {
-ReprocessQueue:
+RestartLoop:
     SndAssetQueue::iterator i = this->mWaitForResolve.begin();
     while (i != this->mWaitForResolve.end()) {
         stSndAssetQueue currequst = *i;
@@ -595,7 +614,7 @@ ReprocessQueue:
             }
 
             this->mWaitForResolve.remove(currequst);
-            goto ReprocessQueue;
+            goto RestartLoop;
         }
         i++;
     }

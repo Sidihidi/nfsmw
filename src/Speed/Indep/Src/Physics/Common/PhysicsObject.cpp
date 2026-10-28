@@ -308,9 +308,8 @@ bool PhysicsObject::IsBehaviorActive(const UCrc32 &mechanic) const {
 
 void PhysicsObject::PauseBehavior(const UCrc32 &mechanic, bool pause) {
     unsigned int key = mechanic.GetValue();
-    Mechanics::iterator i = mMechanics.find(key);
 
-    if (i == mMechanics.end()) {
+    if (mMechanics.find(key) == mMechanics.end()) {
         return;
     }
 

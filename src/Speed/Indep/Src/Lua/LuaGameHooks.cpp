@@ -1,5 +1,5 @@
 #include "Speed/Indep/Src/Lua/LuaGameHooks.h"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
@@ -378,7 +378,11 @@ int Math_RandomInt(int range) {
 }
 
 bool Platform_IsNextGen() {
+#ifdef EA_PLATFORM_WIN32
+    return true; // speed.exe 0x604CC0
+#else
     return false;
+#endif
 }
 
 float Game_GetSimTime() {
@@ -1577,7 +1581,7 @@ void Game_AbandonRace() {
 void Game_EnterPostRaceFlow() {
     GRaceStatus::Get().FinalizeRaceStats();
     Game_AbandonRace();
-#ifdef EA_BUILD_A124 // el prototipo manda a Juice el resultado y las estadisticas de la carrera
+#ifdef MILESTONE_BUILD // el prototipo manda a Juice el resultado y las estadisticas de la carrera
     ISimable *simable = IPlayer::First(PLAYER_LOCAL)->GetSimable();
     GRacerInfo *racer_info = GRaceStatus::Get().GetRacerInfo(simable);
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
@@ -1606,8 +1610,8 @@ void Game_EnterPostRaceFlow() {
             break;
     }
 
-    Juice::GameHook::Instance()->LogText("[STAT LOGGED] - FINISH_STATS
-");
+    Juice::GameHook::Instance()->LogText("[STAT LOGGED] - FINISH_STATS\n"
+);
     Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_POSITION", racer_info->GetRanking());
     Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_TIME", racer_info->GetRanking());
     Juice::GameHook::Instance()->LogStat(4, race_type, "FINISH_SPREAD", racer_info->GetRanking());
@@ -1979,9 +1983,11 @@ int Game_GetPlayerBounty() {
         UserProfile *prof = FEDatabase->GetUserProfile(plrIndex);
         CareerSettings *career = prof->GetCareer();
 
-        FEPlayerCarDB *stable = NULL;
-        if (plrIndex >= 0 && plrIndex <= 1) {
+        FEPlayerCarDB *stable;
+        if (plrIndex >= 0 && plrIndex < 2) {
             stable = &prof->PlayersCarStable;
+        } else {
+            stable = NULL;
         }
 
         if (stable == NULL) {
@@ -2021,8 +2027,8 @@ void Game_NotifyCountdownDone() {
             }
         }
     }
-#ifdef EA_BUILD_A124
-    // La A124 apunta en el gestor online el momento en que acaba la cuenta atras.
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32))
+    // La A124 y PC (0x60E1D0) apuntan en el gestor online el momento en que acaba la cuenta atras.
     if (TheOnlineManager.IsOnlineRace()) {
         TheOnlineManager.SetPostCountdownStartRaceTime(WorldTimer.GetSeconds());
     }
@@ -2081,7 +2087,11 @@ void Game_ChallengeComplete(ISimable *simable) {
 
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(racerIndex);
 
+#ifdef EA_PLATFORM_WIN32 // PC (0x611510): salta a TotalVehicle (0x6002C0); en PC nada pone mChallengeComplete
+    racerInfo.TotalVehicle();
+#else
     racerInfo.ChallengeComplete();
+#endif
 }
 
 void Game_SabotageEngine(ISimable *who, float time) {

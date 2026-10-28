@@ -16,6 +16,11 @@ class cFEng {
     static cFEng *Get() { // Decl: speed/indep/src/frontend/fenginterfaces/FEngInterface.hpp:26
         return mInstance;
     }
+#ifdef EA_BUILD_A124
+    FEngine *GetEngine() {
+        return mFEng;
+    }
+#endif
 
     void QueuePackagePush(const char *pPackageName, int pArg, u32 ControlMask,
                           bool pSuppressSimPause); // Decl: speed/indep/src/frontend/fenginterfaces/FEngInterface.hpp:31
@@ -124,7 +129,7 @@ char *GetLocalizedString(unsigned int string_label);
 class Timer;
 extern Timer MessengerCreationTimer;
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON) // Xenon: UIOLGameRoom::NotificationMessage
 // FEngKillAllChildren__FP9FEPackage (FEngInterface.cpp de la A124, 0x78 B); UIOLGameRoom::NotificationMessage lo llama.
 void FEngKillAllChildren(FEPackage *pParent);
 #endif

@@ -26,6 +26,9 @@ enum polyCountEnum {
 };
 
 int GetPolyCount(polyCountEnum type);
+int GetModelCount(polyCountEnum type);
+char *GetPCType(polyCountEnum type);
+void ClearPolyCounts();
 
 // total size: 0x18
 class eModel : public bTNode<eModel> {

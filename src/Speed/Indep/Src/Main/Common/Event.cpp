@@ -15,7 +15,12 @@ Event *EventManager::fgCurrentEvent = nullptr;
 bool EventManager::fgHaltCurrentList = false;
 
 void EventManager::Init() {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC y X360 piden 256 KB (exe 0x633EC2 `push 0x40000`, xex 0x823CA9FC `lis r3,4`); GC/PS2 16 KB.
+    gMemoryBuffer = (char *)bMalloc(0x40000, "EventBuffer", 0, GetVirtualMemoryAllocParams());
+#else
     gMemoryBuffer = (char *)bMalloc(0x4000, "EventBuffer", 0, GetVirtualMemoryAllocParams());
+#endif
     EventManager::Reset();
 }
 
@@ -47,11 +52,12 @@ void EventManager::FireEventList(const CARP::EventList *eventList, bool verbose)
 
     EventManager::fgHaltCurrentList = false;
 
-    for (int i = 0; i < eventList->fNumEvents && !EventManager::fgHaltCurrentList; i++, event++) {
+    for (unsigned int i = 0; i < eventList->fNumEvents && !EventManager::fgHaltCurrentList; i++) {
         void (*callback)(const void *) = RegisterEvent::LookupEvent(event->fEventID);
-        if (callback == nullptr) continue;
-
-        callback(event->StaticData());
+        if (callback != nullptr) {
+            callback(event->StaticData());
+        }
+        event = event->NextEvent();
     }
 
     EventManager::fgHaltCurrentList = haltPrevList;
@@ -74,13 +80,14 @@ void EventManager::FireOneEvent(const CARP::EventList *eventList, unsigned int e
 bool EventManager::ListHasEvent(const CARP::EventList *eventList, unsigned int eventID, const CARP::EventStaticData **foundEvent) {
     const CARP::EventStaticData *event = eventList->Event();
 
-    for (int i = 0; i < eventList->fNumEvents; i++, event++) {
+    for (unsigned int i = 0; i < eventList->fNumEvents; i++) {
         if (eventID == event->fEventID) {
             if (foundEvent != nullptr) {
                 *foundEvent = event;
             }
             return true;
         }
+        event = event->NextEvent();
     }
 
     return false;

@@ -50,7 +50,9 @@ struct WRoad {
         return static_cast<float>(s) * (1.0f / 65536.0f);
     }
 
-    // float GetLength() const {}
+    float GetLength() const {
+        return static_cast<float>(nLength) * (4000.0f / 65535.0f);
+    }
 
     // float GetMinimumWidth() const {}
 

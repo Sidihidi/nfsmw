@@ -59,10 +59,163 @@ void DestroySoundDriver();
 
 #include "Speed/Indep/Src/EAXSound/EAXCommon.hpp"
 #include "Speed/Indep/Src/EAXSound/EAXFrontEnd.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Frontend/DebugMenu.h" // ScreenPrintf
 #endif
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos18: en las DOS PS2 el orden de declaracion de los datos de EAXSound.cpp es
+// el de los stabs de la A124 (PS2_globals.hpp:896-969, FILE ccaoaaaa.ii), y el .data
+// objetivo de la SLUS cierra con el mismo orden entrada a entrada (g_CtlStateActions
+// de 68 B en +0x1e8, gAEMSMgr en +0x2b0 tras PRINT_ASSET_WAITLIST). Los objetos CON
+// CTOR (crc*, gAEMSMgr, g_SndAssetList, TablePitch/BreakingPitchVsSpeed) quedan en
+// el mismo orden relativo que en la rama #else, asi que el _GLOBAL_$I$ de la unidad
+// (100 % en la SLUS) no cambia; solo se mueven los POD alrededor de ellos. gLastFE/
+// IGTRAXmask son los dos estaticos de PS2_globals.hpp:919-920 (0x5e165c/0x5e1660, a 0
+// en el .data objetivo), sin definir en el arbol. Las tentativas quedan en el mismo
+// orden de declaracion que en la rama #else (su bloque del final no se toca aqui).
+// gcdatos19: el .data objetivo de GC (zEAXSound, 1908 B) lleva el MISMO orden de
+// declaracion: gbHasStart.. en +0x5c, el hueco de 36 B tras g_iMasterSFXVolume con
+// los bits 3f7fffef de g_fPS2DemoVolume en su tercera palabra (el DWARF de GC da
+// gLastFETRAXmask en 0x804176B8 = +0x84, la primera palabra de ese hueco), el hueco
+// de 28 B de DEBUG_GAME_STATE..rs_cur tras bIsMapInQueuedFileLoad, el de 8 B de
+// nTestNFSMixShape/nIncrement tras DisableSoundUpdate y RUN_SOUND_STATE=1 en
+// +0x18c; y el DWARF de GC (symbols/Dwarf/globals.nothpp) declara todos estos
+// datos. GC entra en esta rama; PC/X360 conservan la rama #else token a token.
+bool gbHasStartNewGamePlayBeenProcessed = false;
+int gnHasStartLoadFEBeenProcessed = 0;
+Attrib::StringKey crcEngineAudio("EngineAudio");
+Attrib::StringKey crcAudioSystem("AudioSystem");
+Attrib::StringKey crcMostWanted("MostWanted");
+Attrib::StringKey crcDrivetrain("Drivetrain");
+Attrib::StringKey crcSkidParams("SkidParams");
+Attrib::StringKey crcTurboSFX("TurboSFX");
+Attrib::StringKey crcAccelTrans("AccelTrans");
+Attrib::StringKey crcShiftPattern("ShiftPattern");
+Attrib::StringKey crcSweetener("Sweetener");
+Attrib::StringKey crcEnglish("English");
+Attrib::StringKey crcCarHitWall("CarHitWall");
+Attrib::StringKey crcLicensedMusic("LicensedMusic");
+Attrib::StringKey crcMusic("Music");
+int gIsPauseForPause = 0;
+EAXSound *g_pEAXSound = nullptr;
+int g_PlayerID[2] = {0, 0};
+#ifdef EA_PLATFORM_GAMECUBE
+// gcdatos19: en GC no va en .data: el hueco tras g_pEAXSound en el .data
+// objetivo de zEAXSound mide 8 B exactos (+0x6c..+0x74, solo g_PlayerID) y
+// con el "= false" nuestro .data pasaba a 1912 B contra 1908 del objetivo.
+// El DWARF de GC lo da bool de 1 B: sin inicializador cae en .bss como en el
+// objetivo. En las PS2 si va inicializado en posicion (A124 +0x208).
+bool debug_memory_holes;
+#else
+bool debug_memory_holes = false;
+#endif
+extern int g_DMIX_DummyInputBlock[];
+char *g_pcsCSISAllocString = "CSISSOUND";
+extern char csCSISdebug[];
+char csCSISdebug[32];
+// gcdatos18: tentativa (sin inicializador) en las PS2: en los objetivos va en el
+// bloque tentativo del final de la .data, tras csCSISdebug (A124 0x5e4890 =
+// +0x3450; SLUS: los 16 B finales del bloque de 48 B de +0x3420), no en posicion de
+// fuente junto a g_pcsCSISAllocString.
+int AI_CARS_BANKS[4];
+void *NullPointer = nullptr;
+float g_fMasterSFXVolume = 1.0f;
+int g_iMasterSFXVolume = 0x7FFF;
+static int gLastFETRAXmask = 0;
+static int gLastIGTRAXmask = 0;
+float g_fPS2DemoVolume = 0.999999f;
+int UsedSPURam = 0;
+int UsedMainRam = 0;
+ASYNCFILE_CALLBACK *SoundRegionsLoadedCallback = nullptr;
+int SoundRegionsLoadedCallbackParam = 0;
+bool bSoundRegionLoadingInProgress = false;
+int StartLoadingSoundRegionsTicks = 0;
+unsigned int SoundRandomSeed = 0;
+int gb_DORESTART_RACE = 0;
+int gb_Is321 = 0;
+unsigned int g_ActiveCtlStates = 0;
+unsigned int g_PrevActiveCtlStates = 0;
+unsigned int g_ActiveSFXStates = 0;
+unsigned int g_PrevActiveSFXStates = 0;
+unsigned int g_CtlStateActions[MAX_SNDCTL_STATES] = {
+    0xFFFFFFFF, 63, 0, 28,
+#ifdef EA_BUILD_A124
+    184, 61,
+#else
+    190, 188,
+#endif
+    1145, 289, 512, 51, 2104, 127,
+#ifndef EA_BUILD_A124
+    1, 127,
+#endif
+    56,
+#ifdef EA_BUILD_A124
+    0,
+#else
+    0x1000,
+#endif
+    0xFFFFFFFF,
+#ifndef EA_PLATFORM_PLAYSTATION2
+    0xFFFFFFFF,
+#endif
+};
+float g_SliderValue = -1.0f;
+bool bIsAnFEToIngameTransition = false;
+bool bHasStartNewGameOccured = false;
+bool bIsMapInQueuedFileLoad = false;
+int DEBUG_GAME_STATE = 0;
+int MaxVoiceCnt = 0;
+int nDebug3DMix = 0;
+int nt1 = 0;
+int nt2 = 0;
+int gnStopMusic = 0;
+eRaceStage rs_cur = RACE_STAGE_NONE;
+extern int SkipFE;
+extern eLanguages SkipFELanguage;
+int DisableSoundUpdate = 0;
+int nTestNFSMixShape = 0;
+int nIncrement = 0;
+extern bool gbAudioInterruptsWorldDataRead;
+extern bool gbWorldDataBlocksAudioRead;
+extern bool bReadCallbackToggle;
+bool gbAudioInterruptsWorldDataRead;
+bool gbWorldDataBlocksAudioRead;
+bool bReadCallbackToggle;
+#ifdef MILESTONE_BUILD
+char prevSoundFile[50];
+#endif
+bool bStreamBlockState = false;
+bool bAudioInterrupt = false;
+bool bStreamReadTiming = false;
+unsigned int uStreamBlockTicks = 0;
+unsigned int uStreamReadTicks = 0;
+unsigned int uAudioInterruptTicks = 0;
+unsigned int uDynMixUpdateTicks = 0;
+float fdmixpeaktime = 0.0f;
+int bTestSpeech = 0;
+int testspeech = 0;
+int PRINT_AUDIO_MEM_POOL = 0;
+int nengineupgradelevel = 0;
+int ExhManufacterer = 0;
+bool bHasDataLoadOccured = false;
+int DEBUG_SNDPAUSE = 0;
+int DEBUG_SNDCTRLSTATES = 0;
+extern unsigned int g_laststartanimid;
+extern bool g_bWasLastNISaStart;
+bool RUN_SOUND_STATE = true;
+int PRINT_ASSET_WAITLIST = 0;
+EAXAemsManager gAEMSMgr;
+#ifdef EA_PLATFORM_PLAYSTATION2
+CSTATEMGR_Base *EAXSound::m_pStateMgr[13];
+#endif
+stSndDataLoadParams g_SndAssetList[48];
+Slope TablePitch(0.0f, 1.0f, 3500.0f, 4500.0f);
+Slope BreakingPitchVsSpeed(3000.0f, 5000.0f, 30.0f, 100.0f);
+extern char *csfxedit[];
+extern int GameFlowSndState[];
+int GameFlowSndState[15];
+#else
 Attrib::StringKey crcEngineAudio("EngineAudio");
 Attrib::StringKey crcAudioSystem("AudioSystem");
 Attrib::StringKey crcMostWanted("MostWanted");
@@ -77,6 +230,14 @@ Attrib::StringKey crcCarHitWall("CarHitWall");
 Attrib::StringKey crcLicensedMusic("LicensedMusic");
 Attrib::StringKey crcMusic("Music");
 EAXAemsManager gAEMSMgr;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14: declarada en EAXSOund.hpp:299 y sin definir en el arbol. Definida en las dos PS2
+// (A124 .data 0x5e47a8, PS2_globals.hpp:1123; SLUS en el mismo sitio, a 0) y en GC en .bss
+// 0x804F4288 (config/GOWE69/symbols.txt): sin inicializador, como dicen esos tres sitios.
+// La forma sin guarda esta medida (gcdatos14): el DOL sigue casando byte a byte y en PC la
+// .bss de zEAXSound sube, pero en X360 el LTCG voltea InitTimers (56 B), asi que no entra.
+CSTATEMGR_Base *EAXSound::m_pStateMgr[13];
+#endif
 stSndDataLoadParams g_SndAssetList[48];
 Slope TablePitch(0.0f, 1.0f, 3500.0f, 4500.0f);
 Slope BreakingPitchVsSpeed(3000.0f, 5000.0f, 30.0f, 100.0f);
@@ -85,16 +246,57 @@ unsigned int SoundRandomSeed = 0;
 float g_SliderValue = -1.0f;
 float g_fMasterSFXVolume = 1.0f;
 int g_iMasterSFXVolume = 0x7FFF;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14: en las dos PS2 tras los dos estaticos gLast*TRAXmask (A124 0x5e1664,
+// PS2_globals.hpp:921; SLUS en el mismo hueco tras NullPointer), con estos bits
+// (0x3f7fffef) leidos de su .data objetivo.
+float g_fPS2DemoVolume = 0.999999f;
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, entre g_fPS2DemoVolume y SoundRandomSeed (A124
+// 0x5e1668-0x5e167c, PS2_globals.hpp:922-927; SLUS: los 24 B de ceros de +0x1b4
+// = 0x53defc), a 0 en su .data objetivo.
+int UsedSPURam = 0;
+int UsedMainRam = 0;
+ASYNCFILE_CALLBACK *SoundRegionsLoadedCallback = nullptr;
+int SoundRegionsLoadedCallbackParam = 0;
+bool bSoundRegionLoadingInProgress = false;
+int StartLoadingSoundRegionsTicks = 0;
+#endif
 extern int g_DMIX_DummyInputBlock[];
 char *g_pcsCSISAllocString = "CSISSOUND";
 extern char csCSISdebug[];
 // .bss:0x8045DDCC, 0x20 B. Estaba declarada `extern` y sin definir.
 char csCSISdebug[32];
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, tras csCSISdebug y delante de
+// g_pSFXCTL_Pathfinder (A124 0x5e4890, PS2_globals.hpp:1196; SLUS: los 48 B de
+// +0x3420 = 0x541168, [csCSISdebug 32 B][esta 16 B]), a 0 en su .data objetivo.
+int AI_CARS_BANKS[4] = {0, 0, 0, 0};
+#endif
 bool bIsMapInQueuedFileLoad = false;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, entre bIsMapInQueuedFileLoad y DisableSoundUpdate
+// (A124 0x5e16ec-0x5e1704, PS2_globals.hpp:940-946; SLUS: dentro de los 128 B de
+// +0x230 = 0x53df78, entre g_SliderValue y gAEMSMgr), a 0 en su .data objetivo.
+int DEBUG_GAME_STATE = 0;
+int MaxVoiceCnt = 0;
+int nDebug3DMix = 0;
+int nt1 = 0;
+int nt2 = 0;
+int gnStopMusic = 0;
+eRaceStage rs_cur = RACE_STAGE_NONE;
+#endif
 unsigned int g_ActiveCtlStates = 0;
 extern unsigned int g_laststartanimid;
 extern bool g_bWasLastNISaStart;
 bool RUN_SOUND_STATE = true;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, entre RUN_SOUND_STATE y gAEMSMgr (A124 0x5e1768,
+// PS2_globals.hpp:967; SLUS: los 12 B finales de +0x2a4 = 0x53dfec, con el 1 de
+// RUN_SOUND_STATE), a 0 en su .data objetivo.
+int PRINT_ASSET_WAITLIST = 0;
+#endif
 unsigned int g_ActiveSFXStates = 0;
 unsigned int g_PrevActiveCtlStates = 0;
 unsigned int g_PrevActiveSFXStates = 0;
@@ -127,8 +329,22 @@ bool bHasStartNewGameOccured = false;
 bool gbHasStartNewGamePlayBeenProcessed = false;
 bool bIsAnFEToIngameTransition = false;
 bool bHasDataLoadOccured = false;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, entre bHasDataLoadOccured y RUN_SOUND_STATE (A124
+// 0x5e175c-0x5e1760, PS2_globals.hpp:964-965; SLUS: dentro de los 128 B entre
+// g_SliderValue y gAEMSMgr), a 0 en su .data objetivo.
+int DEBUG_SNDPAUSE = 0;
+int DEBUG_SNDCTRLSTATES = 0;
+#endif
 int gIsPauseForPause = 0;
 EAXSound *g_pEAXSound = nullptr;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, tras g_pEAXSound y delante de
+// g_pcsCSISAllocString (A124 0x5e1640/0x5e1648, PS2_globals.hpp:913-914; SLUS:
+// los 16 B de +0x188 = 0x53ded0), a 0 en su .data objetivo.
+int g_PlayerID[2] = {0, 0};
+bool debug_memory_holes = false;
+#endif
 void *NullPointer = nullptr;
 int gnHasStartLoadFEBeenProcessed = 0;
 int gb_DORESTART_RACE = 0;
@@ -136,6 +352,13 @@ int gb_Is321 = 0;
 extern int SkipFE;
 extern eLanguages SkipFELanguage;
 int DisableSoundUpdate = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, entre DisableSoundUpdate y bStreamBlockState (A124
+// 0x5e170c-0x5e1710, PS2_globals.hpp:948-949; SLUS: dentro de los 128 B entre
+// g_SliderValue y gAEMSMgr), a 0 en su .data objetivo.
+int nTestNFSMixShape = 0;
+int nIncrement = 0;
+#endif
 extern bool gbAudioInterruptsWorldDataRead;
 extern bool gbWorldDataBlocksAudioRead;
 extern bool bReadCallbackToggle;
@@ -144,7 +367,7 @@ extern bool bReadCallbackToggle;
 bool gbAudioInterruptsWorldDataRead;
 bool gbWorldDataBlocksAudioRead;
 bool bReadCallbackToggle;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 char prevSoundFile[50];
 #endif
 bool bStreamBlockState = false;
@@ -153,9 +376,22 @@ bool bStreamReadTiming = false;
 unsigned int uStreamBlockTicks = 0;
 unsigned int uStreamReadTicks = 0;
 unsigned int uAudioInterruptTicks = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14/17: en las DOS PS2, entre uAudioInterruptTicks y bHasDataLoadOccured
+// (A124 0x5e172c-0x5e1754, PS2_globals.hpp:956-962; SLUS: dentro de los 128 B entre
+// g_SliderValue y gAEMSMgr), a 0 en su .data objetivo.
+unsigned int uDynMixUpdateTicks = 0;
+float fdmixpeaktime = 0.0f;
+int bTestSpeech = 0;
+int testspeech = 0;
+int PRINT_AUDIO_MEM_POOL = 0;
+int nengineupgradelevel = 0;
+int ExhManufacterer = 0;
+#endif
 extern int GameFlowSndState[];
 // .bss:0x8045DD78, 0x3C B = 15 enteros (EAXSound.cpp:1002 hace bMemSet de 0x3C).
 int GameFlowSndState[15];
+#endif
 // r75: fuera extern SNDSYS_service duplicado; snd/sndo.h ya lo declara (via EAXS_StreamChannel.h).
 void RegisterStates();
 void RegisterSFX();
@@ -340,12 +576,12 @@ void EAXSound::PlayNIS() {
 
 void EAXSound::PlayUISoundFX(eMenuSoundTriggers etriggertype) {
     if (IsSoundEnabled) {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
         if (DEBUG_PRINT_FE_SND) {
-            ScreenPrintf(-300, -80, 15.0f, "Prev FE Sound Played: %s
-", prevSoundFile);
-            ScreenPrintf(-300, -65, 15.0f, "FE Sound Played: %s
-", GetFESoundName(etriggertype));
+            ScreenPrintf(-300, -80, 15.0f, "Prev FE Sound Played: %s\n"
+, prevSoundFile);
+            ScreenPrintf(-300, -65, 15.0f, "FE Sound Played: %s\n"
+, GetFESoundName(etriggertype));
             bSafeStrCpy(prevSoundFile, GetFESoundName(etriggertype), 50);
         }
 #endif
@@ -2011,113 +2247,99 @@ void FESoundControl(bool bOn, const char *name) {
         "InGameRaceSheet.fng",
     };
 
-    bStringHash(name);
+    // Las locales del DWARF de GameCube: namehash sin registro (su valor no se usa) y la n del bucle en su bloque.
+    int namehash = bStringHash(name);
     int index = -1;
-    int namehash = 0;
-    do {
-        if (key == FengList[namehash].GetHash32()) {
-            index = namehash;
+    for (int n = 0; n < 37; n++) {
+        if (key == FengList[n].GetHash32()) {
+            index = n;
             break;
         }
-        int n = namehash + 1;
-        namehash = n;
-    } while (namehash < 37);
-
-    if (g_pEAXSound->GetSndGameMode() == SND_FRONTEND) {
-        goto FRONTEND_FMV_STATE;
     }
 
-    switch (index) {
-        case 0:
-        case 1:
-        case 2:
-        case 11:
+    // El `!=` con el switch dentro y el FRONTEND en el else da la prueba de SLUS (xori/beqz); sin goto, cada
+    // case con su cuerpo (el 16/20 repite la llamada de STOP_MUSIC): GC 100, SLUS 100, PC 50,93 -> 71,61.
+    if (g_pEAXSound->GetSndGameMode() != SND_FRONTEND) {
+        switch (index) {
+            case 0:
+            case 1:
+            case 2:
+            case 11:
 #ifndef EA_BUILD_A124 // la alpha 124 no tiene m_bPause_MainFNG
-            g_pEAXSound->m_bPause_MainFNG = bOn;
+                g_pEAXSound->m_bPause_MainFNG = bOn;
 #endif
-            SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
-            return;
-        case 3:
-            SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
-            return;
-        case 4:
-        case 5:
-        case 6:
-        case 7:
-            return;
-        case 8:
-            SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
-            SetSoundControlState(bOn, SNDSTATE_OFF, name);
-            return;
-        case 9:
-        case 12:
-#ifndef EA_BUILD_A124
-            if (g_pEAXSound->m_bPause_MainFNG) {
+                SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
                 return;
-            }
+            case 3:
+                SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
+                return;
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+                return;
+            case 8:
+                SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
+                SetSoundControlState(bOn, SNDSTATE_OFF, name);
+                return;
+            case 9:
+            case 12:
+#ifndef EA_BUILD_A124
+                if (g_pEAXSound->m_bPause_MainFNG) {
+                    return;
+                }
 #endif
-            SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
-            return;
-        case 10:
-            goto FMV_STATE;
-        case 13:
-            return;
-        case 16:
-        case 20:
-            SetSoundControlState(bOn, SNDSTATE_FMV, name);
-            goto STOP_MUSIC;
-        case 31:
-        case 32:
-            goto FE_SMS_MESSAGE;
-        case 33:
-            goto STOP_MUSIC;
-        case 34:
-        case 35:
-        case 36:
-            goto PURGE_SPEECH;
-        case 14:
-        case 15:
-        case 17:
-        case 18:
-        case 19:
-        case 21:
-        case 22:
-        case 23:
-        case 24:
-        case 25:
-        case 26:
-        case 27:
-        case 28:
-        case 29:
-        case 30:
-            break;
-        default:
-            goto FE_UPSCREEN;
-    }
-
-FMV_STATE: if (bOn) {
-        SetSoundControlState(bOn, SNDSTATE_FMV, name);
-        return;
-    }
-    SetSoundControlState(false, SNDSTATE_FMV, name);
-    SetSoundControlState(true, SNDSTATE_STOP_MUSIC, name);
-    return;
-
-FE_SMS_MESSAGE: SetSoundControlState(bOn, SNDSTATE_FE_SMS_MESSAGE, name);
-    return;
-
-STOP_MUSIC: SetSoundControlState(bOn, SNDSTATE_STOP_MUSIC, name);
-    return;
-
-PURGE_SPEECH: if (Speech::Manager::GetSpeechModule(1) != nullptr) {
-        Speech::Manager::GetSpeechModule(1)->PurgeSpeech();
-    }
-    goto FE_UPSCREEN;
-
-FE_UPSCREEN: SetSoundControlState(bOn, SNDSTATE_FE_UPSCREEN, name);
-    return;
-
-FRONTEND_FMV_STATE: if (index == 10 || index >= 14) {
+                SetSoundControlState(bOn, SNDSTATE_PAUSE, name);
+                return;
+            case 13:
+                return;
+            case 16:
+            case 20:
+                SetSoundControlState(bOn, SNDSTATE_FMV, name);
+                SetSoundControlState(bOn, SNDSTATE_STOP_MUSIC, name);
+                return;
+            case 10:
+            case 14:
+            case 15:
+            case 17:
+            case 18:
+            case 19:
+            case 21:
+            case 22:
+            case 23:
+            case 24:
+            case 25:
+            case 26:
+            case 27:
+            case 28:
+            case 29:
+            case 30:
+                if (bOn) {
+                    SetSoundControlState(bOn, SNDSTATE_FMV, name);
+                    return;
+                }
+                SetSoundControlState(false, SNDSTATE_FMV, name);
+                SetSoundControlState(true, SNDSTATE_STOP_MUSIC, name);
+                return;
+            case 31:
+            case 32:
+                SetSoundControlState(bOn, SNDSTATE_FE_SMS_MESSAGE, name);
+                return;
+            case 33:
+                SetSoundControlState(bOn, SNDSTATE_STOP_MUSIC, name);
+                return;
+            case 34:
+            case 35:
+            case 36:
+                if (Speech::Manager::GetSpeechModule(1) != nullptr) {
+                    Speech::Manager::GetSpeechModule(1)->PurgeSpeech();
+                }
+                // y sigue en el default
+            default:
+                SetSoundControlState(bOn, SNDSTATE_FE_UPSCREEN, name);
+                return;
+        }
+    } else if (index == 10 || index >= 14) {
         SetSoundControlState(bOn, SNDSTATE_FMV, "name");
     }
 }

@@ -268,9 +268,7 @@ int FEMarkerSelection::GetNumSelected() {
     int count = 0;
     for (int i = 0; i < NumVisibleMarkers; i++) {
         if (TheMarkers[i].Marker != static_cast<FEMarkerManager::ePossibleMarker>(0)) {
-            if (TheMarkers[i].Selected) {
-                count++;
-            }
+            count += TheMarkers[i].Selected ? 1 : 0;
         }
     }
     return count;

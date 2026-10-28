@@ -51,8 +51,8 @@ Camera::Camera() : LastDisparateTime(RealTimeFrames), LastUpdateTime(-0x80000000
     m.v2.w = 100.0f;
     m.v3.w = 1.0f;
 
-    CurrentKey.FocalDistance = 0.0f;
     CurrentKey.TargetDistance = 10.0f;
+    CurrentKey.FocalDistance = 0.0f;
     CurrentKey.DepthOfField = 0.0f;
 
     SetNearZ(0.5f);
@@ -74,8 +74,9 @@ Camera::Camera() : LastDisparateTime(RealTimeFrames), LastUpdateTime(-0x80000000
     SetCameraMatrix(m, 1.0f);
 }
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
 // Only the PS2 prototype has it: the up vector of the camera, the second row of the inverse of its matrix.
+// En Xenon va expandido dentro de DebugDraw::CacheCameraInfo (EGM 0x82196828: D3DXMatrixTranspose+bNormalize).
 bVector3 *Camera::GetUpVec() {
     bMatrix4 m;
     eTransposeMatrix(&m, &CurrentKey.Matrix);

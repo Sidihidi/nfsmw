@@ -693,81 +693,81 @@ void MemcardCallbacks::CardRemoved() {
 
 void MemcardCallbacks::SetAutosaveDone(RealmcIface::TaskResult res, RealmcIface::CardStatus status, RealmcIface::AutosaveState flag) {
     unsigned int msg;
-
-    JLog(MJ_SetAutosaveDone);
-    JLog(res);
-    JLog(status);
-    JLog(reinterpret_cast<unsigned int &>(flag));
-
+    JLog(MJ_SetAutosaveDone); JLog(res);
+    JLog(status); JLog(reinterpret_cast<unsigned int &>(flag));
     GetMemcard()->m_MemOp = 0;
-
     GetMemcard()->m_bAutoSave = flag == RealmcIface::AUTOSAVE_ENABLE;
-    GetMemcard()->m_bAutoSaveCardPulled = false;
-    GetMemcard()->m_bAutoSaveCardPulledDuringSave = false;
-
+    GetMemcard()->m_bAutoSaveCardPulled = false; GetMemcard()->m_bAutoSaveCardPulledDuringSave = false;
     if (GetMemcard()->m_bDisablingAutoSaveForSave) {
-        GetMemcard()->m_bDisablingAutoSaveForSave = false;
-        GetMemcard()->ShowMessages(true);
-
+        GetMemcard()->m_bDisablingAutoSaveForSave = false; GetMemcard()->ShowMessages(true);
+#ifdef EA_BUILD_A124
+        cFEng::Get()->QueueGameMessage(0xC6C6B68F, GetMemcard()->IsMemcardScreenShowing() ? "MC_Main.fng" : nullptr, 0xFF);
+#else
         cFEng::Get()->QueueGameMessage(0xC6C6B68F, GetMemcard()->IsMemcardScreenShowing() ? gMemcardSetup.mMemScreen : nullptr, 0xFF);
+#endif
         return;
     }
-
     msg = 0x461A18EE;
-
     if (status != RealmcIface::STATUS_OK && flag != RealmcIface::AUTOSAVE_ENABLE) {
+#ifdef EA_PLATFORM_PLAYSTATION2
         switch (status) {
-            case RealmcIface::STATUS_NO_CARD:
-            case RealmcIface::STATUS_CARD_REMOVED:
+            case RealmcIface::STATUS_NO_CARD: case RealmcIface::STATUS_CARD_REMOVED:
+                FEDatabase->GetGameplaySettings()->AutoSaveOn = false; msg = 0xB57FDB17; break;
+            case RealmcIface::STATUS_CARD_CHANGED: case RealmcIface::STATUS_CARD_UNFORMATTED: case RealmcIface::STATUS_CARD_DAMAGED: case RealmcIface::STATUS_WRONG_DEVICE: case RealmcIface::STATUS_CARD_ERROR: case RealmcIface::STATUS_ENTRY_CORRUPTED:
+#ifndef EA_BUILD_A124
                 FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
-                msg = 0xB57FDB17;
+#endif
                 break;
-
-            case RealmcIface::STATUS_CARD_CHANGED:
-            case RealmcIface::STATUS_CARD_UNFORMATTED:
-            case RealmcIface::STATUS_CARD_DAMAGED:
-            case RealmcIface::STATUS_WRONG_DEVICE:
-            case RealmcIface::STATUS_CARD_ERROR:
-            case RealmcIface::STATUS_ENTRY_CORRUPTED:
+            case RealmcIface::STATUS_ENTRY_NOT_FOUND ... RealmcIface::STATUS_UNKNOWN: default:
+#ifdef EA_BUILD_A124
+                FEDatabase->GetGameplaySettings();
+#else
                 FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
-                break;
-
-            case RealmcIface::STATUS_ENTRY_NOT_FOUND:
-            case RealmcIface::STATUS_ENTRY_DELETED:
-            case RealmcIface::STATUS_INSUFFICIENT_SPACE:
-            case RealmcIface::STATUS_CANNOTMOUNT:
-            case RealmcIface::STATUS_RETRY_BOOT_FLOW:
-            case RealmcIface::STATUS_EXIT_TO_CARD_MANAGER:
-            default:
-                FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
+#endif
                 break;
         }
+#else
+        switch (status) {
+            case RealmcIface::STATUS_NO_CARD: case RealmcIface::STATUS_CARD_REMOVED:
+                FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
+                msg = 0xB57FDB17; break;
+            case RealmcIface::STATUS_CARD_CHANGED: case RealmcIface::STATUS_CARD_UNFORMATTED: case RealmcIface::STATUS_CARD_DAMAGED: case RealmcIface::STATUS_WRONG_DEVICE: case RealmcIface::STATUS_CARD_ERROR: case RealmcIface::STATUS_ENTRY_CORRUPTED:
+                FEDatabase->GetGameplaySettings()->AutoSaveOn = false; break;
+            case RealmcIface::STATUS_ENTRY_NOT_FOUND: case RealmcIface::STATUS_ENTRY_DELETED: case RealmcIface::STATUS_INSUFFICIENT_SPACE: case RealmcIface::STATUS_CANNOTMOUNT: case RealmcIface::STATUS_RETRY_BOOT_FLOW: case RealmcIface::STATUS_EXIT_TO_CARD_MANAGER: default:
+                FEDatabase->GetGameplaySettings()->AutoSaveOn = false; break;
+        }
+#endif
     }
-
     if (gMemcardSetup.mPreviousCommand == MCO_BootList) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+        msg = 0x461A18EE;
+#else
         msg = 0xA4BB7AE1;
+#endif
     }
-
     if (GetMemcard()->IsAutoSaving()) {
         if (flag != RealmcIface::AUTOSAVE_ENABLE && FEDatabase->GetGameplaySettings()->AutoSaveOn) {
-            FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
-            GetMemcard()->m_bCardRemoved = true;
+            FEDatabase->GetGameplaySettings()->AutoSaveOn = false; GetMemcard()->m_bCardRemoved = true;
         }
-
         GetMemcard()->EndAutoSave();
     } else {
         cFEng::Get()->QueueGameMessage(msg, nullptr, 0xFF);
     }
-
     if (flag == RealmcIface::AUTOSAVE_ENABLE) {
+#ifdef EA_BUILD_A124
+        if (FEDatabase->IsOptionsMode()) {
+            FEDatabase->GetGameplaySettings()->AutoSaveOn = true; GetMemcard()->m_bCardRemoved = false;
+        }
+#else
+#ifndef EA_PLATFORM_PLAYSTATION2
         if (gMemcardSetup.GetCommand() == MCO_EnableAutoSave && FEDatabase->IsOptionsMode()) {
-#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
+#ifndef EA_PLATFORM_WIN32
             FEDatabase->bAutoSaveOverwriteConfirmed = false;
 #endif
         }
-
-        FEDatabase->GetGameplaySettings()->AutoSaveOn = true;
-        GetMemcard()->m_bCardRemoved = false;
+#endif
+        FEDatabase->GetGameplaySettings()->AutoSaveOn = true; GetMemcard()->m_bCardRemoved = false;
+#endif
     }
 }
 

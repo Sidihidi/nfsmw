@@ -43,10 +43,8 @@ int bStrLen(const char *s) {
 
 char *bStrCpy(char *to, const char *from) {
     int n = 0;
-    to[0] = from[0];
-    while (to[n] != '\0') {
+    while ((to[n] = from[n]) != '\0') {
         n++;
-        to[n] = from[n];
     }
     return to;
 }
@@ -330,10 +328,8 @@ int bStrLen(const uint16 *s) {
 uint16 *bStrCpy(uint16 *to, const uint16 *from) {
     int n = 0;
 
-    to[0] = from[0];
-    while (to[n] != 0) {
+    while ((to[n] = from[n]) != 0) {
         n++;
-        to[n] = from[n];
     }
     return to;
 }
@@ -341,10 +337,8 @@ uint16 *bStrCpy(uint16 *to, const uint16 *from) {
 uint16 *bStrCpy(uint16 *to, const char *from) {
     int n = 0;
 
-    to[0] = from[0];
-    while (to[n] != 0) {
+    while ((to[n] = from[n]) != 0) {
         n++;
-        to[n] = from[n];
     }
     return to;
 }

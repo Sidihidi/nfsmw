@@ -9,8 +9,15 @@ static const float AccelAttack_PEAK_RPM = 1000.0f;         // size: 0x4, Decl: 1
 static const int AccelAttack_PEAK_RPM_T = 500;             // size: 0x4, Decl: 20
 static const float AccelAttackThrottleSensitivity = 30.0f; // size: 0x4, Decl: 21
 static const int DisableAccelTransition = 0;               // size: 0x4, Decl: 22
-
 DEFINE_CREATABLE(0x20030, SFXCTL_AccelTrans, SFXCTL);
+
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, entre SFXCTL_AccelTrans::s_TypeInfo y SFXCTL_HybridMotor::s_TypeInfo
+// (0x5e4318-0x5e4320, PS2_globals.hpp:1057-1059), a 0 en su .data objetivo.
+int SPEW_HYBRID_MIX = 0;
+int DISPLAY_HYBRID_MIX = 0;
+int HARDCODE_RPM = 0;
+#endif
 
 SFXCTL_AccelTrans::SFXCTL_AccelTrans()
     : m_pEngineCtl(nullptr), //

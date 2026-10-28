@@ -7,7 +7,12 @@
 #include "path/IPathToSnd.h"
 #include "path/IPathTrack.h"
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: el cerrojo de path es un EA::Thread::Mutex (ver PathMutex, abajo).
+#include "eathread/eathread_mutex.h"
+#else
 #include "eathread/eathread_semaphore.h"
+#endif
 
 /*----------------------------------------------------------------------------
     Node / map file structures
@@ -526,6 +531,7 @@ void *PATHI_memalloc(int size);
 void PATHI_memfree(void *pmem);
 int PATHI_bytesperms(int trackID);
 
+#ifndef EA_PLATFORM_XENON
 // The semaphore wrapper only exists to route allocation through the library's
 // own allocator; the (int) constructor of EA::Thread::Semaphore is private and
 // PathSemaphore is its only friend.
@@ -539,9 +545,27 @@ struct PathSemaphore : public EA::Thread::Semaphore
     PathSemaphore &operator=(const PathSemaphore &) { return *this; }
     ~PathSemaphore() {}
 };
+#endif
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: el EGM guarda el cerrojo en un EA::Thread::Mutex de 0x2C. PathMutex (nombre del PDB del prototipo de
+// ProStreet para Xbox 360) pide 0x2C a PATHI_memalloc (0x825FA538), su constructor solo llama a Mutex(NULL, true)
+// (0x825FA580), PATHI_lock llama a Mutex::Lock y PATHI_unlock expande Mutex::Unlock (--mnLockCount y
+// RtlLeaveCriticalSection).
+struct PathMutex : public EA::Thread::Mutex
+{
+    static void *operator new(unsigned int size) { return PATHI_memalloc(size); }
+    static void operator delete(void *ptr) { PATHI_memfree(ptr); }
+
+    PathMutex() {}
+    ~PathMutex() {}
+};
+
+extern PathMutex *pathsemaphore;
+#else
 // Defined in the small-data blob, like every other Path global.
 extern PathSemaphore *pathsemaphore;
+#endif
 
 int PATHI_addevent(unsigned int projectflags, PATHEVENT *event);
 PATHEVENT *PATHI_copyevent(PATHEVENT *event);

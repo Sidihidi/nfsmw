@@ -230,6 +230,55 @@ TagReference::TagReference(const UGroup *context) {
     }
 }
 
+#ifdef EA_BUILD_A124
+// Linea 86 del Carp.cpp de la alpha: monta la matriz sin traslacion y la valida. Solo vive la alpha
+// (la llama el dibujo de depuracion de colisiones de zWorld2).
+bool Trigger::ValidateMatrix() const {
+    UMath::Matrix4 m;
+    MakeMatrix(m, false);
+    return ::ValidateMatrix(m);
+}
+#endif
+
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
+// Lineas 88-98 del original: la fila 1 es el producto cruzado de las filas 2 y 0 (o el eje Y si el
+// trigger no tiene bit 0x1000), calculado en la local n antes de volcar las filas en m. El simbolo
+// tambien existe en el milestone de Xbox 360; en GC/SLUS/PC no queda copia.
+void Trigger::MakeMatrix(UMath::Matrix4 &m, bool addXLate) const {
+    UMath::Vector3 n;
+    if ((fFlags & 0x1000) != 0) {
+        UMath::Cross(Coord4To3(fMatRow2Length), Coord4To3(fMatRow0Width), n);
+    } else {
+        n.x = 0.0f;
+        n.y = 1.0f;
+        n.z = 0.0f;
+    }
+    m.v0.x = fMatRow0Width.x;
+    m.v0.y = fMatRow0Width.y;
+    m.v0.z = fMatRow0Width.z;
+    m.v0.w = 0.0f;
+    m[1][0] = n.x;
+    m[1][1] = n.y;
+    m[1][2] = n.z;
+    m[1][3] = 0.0f;
+    m[2][0] = fMatRow2Length.x;
+    m[2][1] = fMatRow2Length.y;
+    m[2][2] = fMatRow2Length.z;
+    m[2][3] = 0.0f;
+    if (addXLate) {
+        m[3][0] = fPosRadius.x;
+        m[3][1] = fPosRadius.y;
+        m[3][2] = fPosRadius.z;
+        m[3][3] = 1.0f;
+    } else {
+        m[3][0] = 0.0f;
+        m[3][1] = 0.0f;
+        m[3][2] = 0.0f;
+        m[3][3] = 1.0f;
+    }
+}
+#endif
+
 // Decl: Carp.cpp GC
 // `inline` NO es una optimizacion: es la POSICION. En GCC 2.9 una funcion
 // inline se emite en `finish_file`, o sea al final de la unidad de traduccion.

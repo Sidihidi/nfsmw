@@ -83,7 +83,6 @@ class GIcon {
     void HideOnMap() { ClearFlag(0x2); }
     void SetGPSing() { SetFlag(0x80); }
     void ClearGPSing() { ClearFlag(0x80); }
-    bool IsGPSing() const { return IsFlagSet(0x80); }
     Type GetType() const {
         return (Type)mType;
     }
@@ -103,7 +102,7 @@ class GIcon {
         return IsFlagSet(0x10);
     }
     inline bool GetIsSnapped() const;
-    inline bool GetIsGPSing() const;
+    bool GetIsGPSing() const { return IsFlagSet(0x80); }
     const UMath::Vector3 &GetPosition() const {
         return mPosition;
     }

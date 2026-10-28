@@ -47,9 +47,15 @@ struct ICEAnchor {
 
     void SetSlipAngle(float a) { mSlipAngle = a; }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    bool IsNosEngaged() const { return mIsNosEngaged; }
+
+    void SetNosEngaged(bool engaged) { mIsNosEngaged = engaged; }
+#else
     int IsNosEngaged() const { return mIsNosEngaged; }
 
     void SetNosEngaged(int engaged) { mIsNosEngaged = engaged; }
+#endif
 
     float GetNosPercentageLeft() const { return mNosPercentageLeft; }
 
@@ -66,12 +72,23 @@ struct ICEAnchor {
     float mVelMag;            // offset 0x70, size 0x4
     float mTopSpeed;          // offset 0x74, size 0x4
     float mRPM;               // offset 0x78, size 0x4
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC y X360 empaquetan los bytes (0x90 en total): exe 0x46A980 `mov [ecx+0x7C],al`, 0x46A9E0/0x46A9F0 byte en
+    // +0x89, 0x46AA00/0x46AA10 float en +0x8C; xex 0x821800B8 `stb 0x7C`, 0x821800E8/F0 `lbz/stb 0x89`, F8/100 0x8C.
+    unsigned char mNumWheels; // offset 0x7C, size 0x1
+    float mForwardSlip;       // offset 0x80, size 0x4
+    float mSlipAngle;         // offset 0x84, size 0x4
+    bool mIsTouchingGround;   // offset 0x88, size 0x1
+    bool mIsNosEngaged;       // offset 0x89, size 0x1
+    float mNosPercentageLeft; // offset 0x8C, size 0x4
+#else
     int mNumWheels;           // offset 0x7C, size 0x4
     float mForwardSlip;       // offset 0x80, size 0x4
     float mSlipAngle;         // offset 0x84, size 0x4
     bool mIsTouchingGround;   // offset 0x88, size 0x1
     int mIsNosEngaged;        // offset 0x8C, size 0x4
     float mNosPercentageLeft; // offset 0x90, size 0x4
+#endif
 };
 
 #endif

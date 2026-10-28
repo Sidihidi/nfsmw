@@ -25,6 +25,8 @@ struct lgDevPosition {
     unsigned int Buttons;       // offset 0x14, size 0x4
 };
 
+typedef lgDevPosition lgDevPosition2[2] __attribute__((aligned(8)));
+
 // total size: 0x18
 struct lgDevDeviceDesc {
     unsigned int DevClass;           // offset 0x0, size 0x4

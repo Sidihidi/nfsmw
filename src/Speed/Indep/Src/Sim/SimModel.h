@@ -6,6 +6,7 @@
 #include "SimObject.h"
 #include "Speed/Indep/Src/Interfaces/IAttachable.h"
 #include "Speed/Indep/Src/Interfaces/SimModels/IModel.h"
+#include "Speed/Indep/Src/Main/EventSequencer.h"
 #include "Speed/Indep/Src/Sim/SimEffect.h"
 
 DECLARE_CONTAINER_TYPE(SimModelChildren);
@@ -79,11 +80,7 @@ class Model : public Sim::Object,
     IModel *GetChildModel(UCrc32 name) const override;
 
     IModel *GetRootModel() const override {
-        if (mRoot) {
-            return mRoot;
-        } else {
-            return const_cast<Model *>(this);
-        }
+        return mRoot ? mRoot : const_cast<Model *>(this);
     }
 
     IModel *GetParentModel() const override {

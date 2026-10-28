@@ -1,8 +1,9 @@
 #include "OnlineManager.hpp"
 
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32))
 // El coche extrapolado de la carrera online: solo existe en el prototipo (A124). Las funciones salen del asm de la
-// A124 con las locales de sus stabs; GameCube y SLUS no tienen nada de este fichero.
+// A124 con las locales de sus stabs; GameCube y SLUS no tienen nada de este fichero. PC (speed.exe) lo tiene con
+// otro layout (OnlineManager.hpp) y lo que cambia va bajo EA_PLATFORM_WIN32.
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Libs/Support/Utility/UVectorMath.h"
 #include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
@@ -23,6 +24,15 @@
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
+
+#ifdef EA_PLATFORM_WIN32
+// PC: State::Blend llama a una funcion de UMath que la cabecera comun solo declara en PS2 (speed.exe 0x5D2B90,
+// en zFoundation, que interpola y normaliza el cuaternion; sus argumentos van en otro orden: a, b, r, t).
+// Declarada aqui y no en UMath.h: alli voltea un registro de VehicleFragmentConn::UpdateModel (100 -> 99,947 %).
+namespace UMath {
+void Slerp(const Vector4 &a, const Vector4 &b, float t, Vector4 &r);
+}
+#endif
 
 float kMaxLatency = 0.6f;
 float kBlendMult = 3.0f;
@@ -463,7 +473,12 @@ ExtrapolatedCar::ExtrapolatedCar(Attrib::Key cartype) {
     mCarType = cartype;
     mCops = nullptr;
     mMutex = new NetworkMutex;
+    mMutex->Create();
     mLast = mStateArray;
+#ifdef EA_PLATFORM_WIN32
+    mLastPDPAesthetic = 0.0f;
+    mCurrentMode = PHYSICS_MODE_SIMULATED;
+#endif
     mActive = true;
     mUpdateTime = 0;
     mTail = 0;
@@ -476,6 +491,7 @@ ExtrapolatedCar::ExtrapolatedCar(Attrib::Key cartype) {
 }
 
 ExtrapolatedCar::~ExtrapolatedCar() {
+    mMutex->Destroy();
     delete mMutex;
     if (mCops) {
         CopMap::iterator iter = mCops->begin();
@@ -644,6 +660,152 @@ void ExtrapolatedCar::ImportStream(SmartBitStream &data,
     }
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x75E210): el choque se guarda 0,2 s despues, todo va bajo mMutex, la latencia se mide con simtime
+// (contra mLastPDPAesthetic y contra la ultima muestra) y el modo de fisica que queda se guarda en mCurrentMode; sin
+// kUseDriverAI ni kSpamPhysics.
+void ExtrapolatedCar::ImportSimable(ISimable *simable, float t, float simtime) {
+    if (!simable) {
+        return;
+    }
+
+    if (mCollisionTime == 0.0f) {
+        ICollisionBody *collision_body;
+
+        if (simable->QueryInterface(&collision_body) && collision_body->HasHadCollision()) {
+            mCollisionTime = simtime + 0.2f;
+        }
+    }
+
+    mMutex->Lock();
+    int n = mTail;
+    State &state = mStateArray[n];
+    bool colliding = false;
+
+    if (!mPaused && mCollisionTime > 0.0f) {
+        if (!state.HasPriority(PDP_MASK_LOW) || state.GetTime() <= mCollisionTime) {
+            colliding = true;
+        }
+    }
+
+    if (colliding) {
+        state.Import(simable, mCollisionTime);
+    } else {
+        state.Extrapolate(simtime);
+        mCollisionTime = 0.0f;
+    }
+
+    mBlended = state;
+    n = Next(n);
+    while (n != mHead) {
+        State &next_state = mStateArray[n];
+        if (next_state.GetTime() <= mCollisionTime) {
+            mTail = n;
+        } else {
+            next_state.Extrapolate(simtime);
+            if (next_state.Blend(mBlended, t)) {
+                mTail = n;
+            }
+        }
+        n = Next(n);
+    }
+
+    IVehicle *vehicle;
+
+    if (simable->QueryInterface(&vehicle)) {
+        bool recent = simtime - mLastPDPAesthetic < kMaxLatency;
+
+        if (UMath::Abs(simtime - mSaved.GetTime()) * 2.0f < kMaxLatency) {
+            if (vehicle->GetPhysicsMode() == PHYSICS_MODE_SIMULATED) {
+                if (vehicle->IsOffWorld() || !recent) {
+                    mActive = false;
+                }
+            } else {
+                mActive = true;
+            }
+        } else {
+            if (vehicle->GetPhysicsMode() != PHYSICS_MODE_INACTIVE) {
+                vehicle->SetPhysicsMode(PHYSICS_MODE_INACTIVE);
+            }
+            mHasHeadset = false;
+            mActive = false;
+        }
+
+        bool needReset = false;
+
+        if (mUseDriverAI) {
+            IHumanAI *human_ai;
+
+            if (simable->QueryInterface(&human_ai)) {
+                human_ai->SetAiControl(false);
+            }
+            mUseDriverAI = false;
+            needReset = true;
+        }
+
+        if (mActive) {
+            bool can_simulate;
+
+            if (vehicle->GetPhysicsMode() == PHYSICS_MODE_INACTIVE) {
+                can_simulate = mBlended.IsValidPosition();
+            } else {
+                can_simulate = !vehicle->IsOffWorld();
+            }
+            if (vehicle->GetPhysicsMode() != PHYSICS_MODE_SIMULATED && can_simulate && recent) {
+                vehicle->SetPhysicsMode(PHYSICS_MODE_SIMULATED);
+                needReset = true;
+            } else if (mPaused) {
+                needReset = true;
+            }
+        } else if (vehicle->GetPhysicsMode() == PHYSICS_MODE_SIMULATED) {
+            vehicle->SetPhysicsMode(PHYSICS_MODE_EMULATED);
+            needReset = false;
+        }
+
+        mCurrentMode = vehicle->GetPhysicsMode();
+        if (needReset) {
+            mBlended.SetOnGround(vehicle);
+        }
+        if (vehicle->IsActive() && !mUseDriverAI) {
+            mBlended.Export(simable);
+        }
+    }
+
+    if (mCops) {
+        CopMap::iterator copiter;
+        CopMap::iterator nextiter = mCops->begin();
+
+        while (nextiter != mCops->end()) {
+            copiter = nextiter++;
+
+            int i = static_cast<int>(reinterpret_cast<uintptr_t>(copiter->first));
+
+            if (!ExtrapolatedCar_kHandles[i]) {
+                simable = copiter->second->SpawnVehicle();
+                if (!simable) {
+                    continue;
+                }
+                ExtrapolatedCar_kHandles[i] = simable->GetInstanceHandle();
+            } else {
+                simable = ISimable::FindInstance(ExtrapolatedCar_kHandles[i]);
+            }
+            if (!simable) {
+                simable = copiter->second->SpawnVehicle();
+                ExtrapolatedCar_kHandles[i] = simable->GetInstanceHandle();
+            }
+
+            copiter->second->ImportSimable(simable, t, simtime);
+            if (GetLastTime() > copiter->second->GetLastTime()) {
+                simable->Kill();
+                ExtrapolatedCar_kHandles[i] = nullptr;
+                delete copiter->second;
+                mCops->erase(copiter);
+            }
+        }
+    }
+    mMutex->Unlock();
+}
+#else
 void ExtrapolatedCar::ImportSimable(ISimable *simable, float t, float simtime) {
     if (!simable) {
         return;
@@ -786,12 +948,16 @@ void ExtrapolatedCar::ImportSimable(ISimable *simable, float t, float simtime) {
     }
 }
 
+#endif
+
 void ExtrapolatedCar::ExtractExtrapolatedPosition(UMath::Vector3 &position) const {
     position = mBlended.mPosition;
 }
 
 void ExtrapolatedCar::ExtractExtrapolatedDirection(UMath::Vector3 &direction) const {
-    return mBlended.ExtractDirection(direction);
+    mMutex->Lock();
+    mBlended.ExtractDirection(direction);
+    mMutex->Unlock();
 }
 
 bool ExtrapolatedCar::IsAbleToSee(ExtrapolatedCar &target) {

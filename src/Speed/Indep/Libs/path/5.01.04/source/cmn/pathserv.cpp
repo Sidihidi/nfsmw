@@ -108,6 +108,18 @@ void PATHI_serviceproject()
 
         trackplaying = (track->node >= 0 && track->entryinfo != 0);
 
+#ifdef EA_PLATFORM_XENON
+        if (trackplaying && track->volumefade.fadenum >= 0)
+            PATHI_setfadevolume(track);
+        if (trackplaying && track->sfxsendfade.fadenum >= 0)
+            PATHI_setsfxfadevolume(track);
+        if (trackplaying && track->drylevelfade.fadenum >= 0)
+            PATHI_setdrylevelfadevolume(track);
+        if (trackplaying && track->pitchfade.fadenum >= 0)
+            PATHI_setpitchfadevolume(track);
+        if (trackplaying && track->stretchfade.fadenum >= 0)
+            PATHI_setstretchfadevolume(track);
+#else
         if (trackplaying)
         {
             if (track->volumefade.fadenum >= 0)
@@ -121,6 +133,7 @@ void PATHI_serviceproject()
             if (track->stretchfade.fadenum >= 0)
                 PATHI_setstretchfadevolume(track);
         }
+#endif
 
         if (track->pauseat && track->pauseat <= milliseconds + interval / 2)
         {

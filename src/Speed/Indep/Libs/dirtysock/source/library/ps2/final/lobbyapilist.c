@@ -26,7 +26,7 @@ extern void *HasherFlush(void *pHasher);
 extern void HasherDestroy(void *pHasher);
 extern int HashStrFind(void *pHasher, const void *pKey);
 extern int HashNumFind(void *pHasher, int iNum);
-extern int HasherEnumInit(void *pHasher, int iX);
+extern int HasherEnumInit(void *pHasher);
 extern int HasherEnum(void *pHasher, int iX);
 extern DispListT *DispListCreate(int iSortMode, int iSortDir, int iSortKeySize);
 extern void *DispListGet(DispListT *pList, int iIndex);
@@ -81,11 +81,11 @@ struct LobbyApiObjT
 // 0x1D entradas por lista
 #define LOBBYAPI_LIST_COUNT 0x1D
 
-void _LobbyApiListFlush(LobbyApiListT *pList, int iIndex);
+static void _LobbyApiListFlush(LobbyApiListT *pList, int iIndex);
 void LobbyApiListObjectUpdate(LobbyApiRefT *pApi, int iIndex, void *pObj, int iArg);
 
 // vacia el contenido (hasher + displist) de una entrada
-void _LobbyApiListFlush(LobbyApiListT *pList, int iIndex)
+static void _LobbyApiListFlush(LobbyApiListT *pList, int iIndex)
 {
     void **ppHash = &pList[iIndex].pHash;
     void **ppDisp = &pList[iIndex].pDisp;
@@ -225,30 +225,27 @@ void LobbyApiListFree(LobbyApiRefT *pApi, int iIndex, void *pObj)
 int LobbyApiListFindByName(LobbyApiRefT *pApi, int iIndex, const char *pName)
 {
     LobbyApiListT *pList = pApi->pList;
-    LobbyApiListT *pEntry;
     void *pHash;
 
-    if ((unsigned)iIndex >= LOBBYAPI_LIST_COUNT)
+    if ((iIndex < 0) || (iIndex >= LOBBYAPI_LIST_COUNT))
         return 0;
-    if (!pList)
-        return 0;
-    pEntry = pList + iIndex;
-    pHash = pEntry->pHash;
-    if (!pHash)
-        return 0;
-    if (iIndex == 0)
+    if ((pList != NULL) && ((pHash = pList[iIndex].pHash) != NULL))
     {
-        int iEnum;
-        HasherEnumInit(pHash, 0);
-        while ((iEnum = HasherEnum(pHash, 0)) != 0)
+        if (iIndex == 0)
         {
-            LobbyApiObjT *pObj = (LobbyApiObjT *)DispListGet(pEntry->pDisp, iEnum);
-            if (ds_stricmp(pObj->szName, pName) == 0)
-                return iEnum;
+            int iEnum;
+            HasherEnumInit(pHash);
+            while ((iEnum = HasherEnum(pHash, 0)) != 0)
+            {
+                LobbyApiObjT *pObj = (LobbyApiObjT *)DispListGet(pList[iIndex].pDisp, iEnum);
+                if (ds_stricmp(pObj->szName, pName) == 0)
+                    return iEnum;
+            }
+            return 0;
         }
-        return 0;
+        return HashStrFind(pHash, pName);
     }
-    return HashStrFind(pHash, pName);
+    return 0;
 }
 
 void LobbyApiPopul(LobbyApiRefT *pApi, int iKey, int iNum, int iVal)
@@ -297,9 +294,9 @@ void LobbyApiListObjectUpdate(LobbyApiRefT *pApi, int iIndex, void *pObj, int iA
 
     if (!pList)
         return;
+    pEntry = pList + iIndex;
     if (!pApi->iData)
         return;
-    pEntry = pList + iIndex;
     if (!pEntry->pCallback)
         return;
 
@@ -323,8 +320,7 @@ void LobbyApiListUpdate(LobbyApiRefT *pApi)
     if (pApi->iData == 1)
         return;
 
-    pEntry = pList;
-    for (i = 0; i < LOBBYAPI_LIST_COUNT; i++)
+    for (i = 0, pEntry = pList; i < LOBBYAPI_LIST_COUNT; i++, pEntry++)
     {
         if (pEntry->pHash && pEntry->pCallback)
         {
@@ -340,6 +336,5 @@ void LobbyApiListUpdate(LobbyApiRefT *pApi)
                 pEntry->pCallback(pApi, &Msg, pEntry->pRef);
             }
         }
-        pEntry++;
     }
 }

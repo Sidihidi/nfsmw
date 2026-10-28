@@ -17,12 +17,10 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
     void *pstc[43];
     int stp[46];
     void *pstp[46];
-    int azoffsets[6];
+    int azoffsets[6] = { 0 };
     SNDTAGINFO sti;
     int moretags;
     int i;
-
-    memset(azoffsets, 0, sizeof(azoffsets));
 
     sti.p = (unsigned char *)*pptp;
     pph->ptimbre = sti.p;
@@ -40,7 +38,7 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
         pph->timestretchsize[i] = 0;
     }
 
-#ifndef EA_PLATFORM_PLAYSTATION2
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
     for (i = 0; i < 6; i++) {
         pph->pcodebookdata[i] = 0;
         pph->ploopstatedata[i] = 0;
@@ -124,7 +122,7 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
     moretags = 0;
 
     while (SNDI_gettag(&sti) != 0) {
-        if (sti.tag <= 42) {
+        if (sti.tag < 43) {
             stc[sti.tag] = sti.size;
             pstc[sti.tag] = sti.pdata;
 
@@ -133,7 +131,7 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
                 pph->userdatasize[pph->numuserdata] = sti.datasize;
                 pph->numuserdata++;
             }
-        } else if (sti.tag >= 128 && sti.tag <= 173) {
+        } else if (sti.tag >= 128 && sti.tag < 174) {
             stp[sti.tag - 128] = sti.size;
             pstp[sti.tag - 128] = sti.pdata;
 
@@ -220,7 +218,7 @@ int SNDI_parsetimbre(void **pptp, SNDIPATCHHEADER *pph) {
     pph->sampleoffset[5] = stp[35];
     azoffsets[5] = stp[39];
 
-#ifndef EA_PLATFORM_PLAYSTATION2
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
     pph->pcodebookdata[0] = pstp[15];
     pph->pcodebookdata[1] = pstp[16];
     pph->ploopstatedata[0] = pstp[13];

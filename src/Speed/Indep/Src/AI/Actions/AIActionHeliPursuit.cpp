@@ -154,7 +154,7 @@ void AIActionHeliPursuit::OnCollision(const COLLISION_INFO &cinfo) {
 float RoadNetSpeed = 85.0f;
 #endif
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeliPursuit("AIActionHeliPursuit", AIActionHeliPursuit::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeliPursuit(UCrc32("AIActionHeliPursuit"), AIActionHeliPursuit::Construct);
 
 AIAction *AIActionHeliPursuit::Construct(AIActionParams *params) {
     return new AIActionHeliPursuit(params, 0.0f);

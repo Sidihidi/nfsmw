@@ -95,10 +95,16 @@ static const float PRECIPFogFalloffY = 1.0f;
 
 static const int ShowPreciData = 0;
 
+#ifdef EA_BUILD_A124
+float twkRainRateOfChange = 1.0f;
+float twkCloudsRateOfChange = 1.0f;
+float twkCloudsMinAmount = 0.0f;
+#else
 float twkCloudsMinAmount = 0.0f;
 float twkRainRateOfChange = 1.0f;
 
 float twkCloudsRateOfChange = 1.0f;
+#endif
 
 float driveFactor = -0.03f;
 

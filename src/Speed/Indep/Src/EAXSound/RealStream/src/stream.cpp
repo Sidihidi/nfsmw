@@ -1070,21 +1070,16 @@ void STREAM_kill(int handle) {
             }
 
             decbufferusage(const_cast<STREAMHEADERtag *>(strm), strm->bufferusage);
-            volatile STREAMHEADERtag *stream = strm;
-            chunk = reinterpret_cast<STREAMCHUNKHDR *>(stream->datastart);
-            if (chunk != reinterpret_cast<STREAMCHUNKHDR *>(stream->datatail)) {
-                do {
-                    if (static_cast<int>(little_get(&chunk->type, 4)) == -1) {
-                        chunk = reinterpret_cast<STREAMCHUNKHDR *>(stream->bufferstart);
-                    } else {
-                        chunksize = little_get(&chunk->size, 4) & 0x00FFFFFF;
-                        little_put(&chunk->type, -2, 4);
-                        little_put(&chunk->size, chunksize, 4);
-                        chunk = reinterpret_cast<STREAMCHUNKHDR *>(
-                            reinterpret_cast<char *>(chunk) + chunksize);
-                    }
-                    stream = strm;
-                } while (chunk != reinterpret_cast<STREAMCHUNKHDR *>(stream->datatail));
+            chunk = reinterpret_cast<STREAMCHUNKHDR *>(strm->datastart);
+            while (chunk != reinterpret_cast<STREAMCHUNKHDR *>(strm->datatail)) {
+                if (static_cast<int>(little_get(&chunk->type, 4)) == -1) {
+                    chunk = reinterpret_cast<STREAMCHUNKHDR *>(strm->bufferstart);
+                } else {
+                    chunksize = little_get(&chunk->size, 4) & 0x00FFFFFF;
+                    little_put(&chunk->type, -2, 4);
+                    little_put(&chunk->size, chunksize, 4);
+                    chunk = reinterpret_cast<STREAMCHUNKHDR *>(reinterpret_cast<char *>(chunk) + chunksize);
+                }
             }
 
             if (strm->state == STREAM_STOPPED_STATE) {

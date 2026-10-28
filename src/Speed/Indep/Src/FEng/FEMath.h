@@ -209,11 +209,9 @@ class FEVector2 {
     }
     f32 Normalize() { // Decl: speed/indep/src/feng/FEMath.h:114
         f32 ret = Length();
-        if (ret >= 0.1f) {
-            f32 oof = 1.0f / ret;
-            x *= oof;
-            y *= oof;
-        }
+        f32 oof = 1.0f / ret;
+        x *= oof;
+        y *= oof;
         return ret;
     }
 };

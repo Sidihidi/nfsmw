@@ -13,9 +13,19 @@
 
 extern float g_SliderValue;
 int Debug_Common_FE_OFF = 0;
-#ifdef EA_BUILD_A124
-bool DEBUG_PRINT_FE_SND = false;
+#if defined(MILESTONE_BUILD) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos19: en GC va en el mismo hueco que en la A124 (zEAXSound .data: la
+// palabra a 0 de +0x1ec, entre Debug_Common_FE_OFF +0x1e8 y el 1.0f de
+// g_fTableTurnSpeed +0x1f0; el DWARF de GC lo declara bool).
+bool DEBUG_PRINT_FE_SND = false; // X360 0x82A80F95
+#endif
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos19: el 1.0f tras Debug_Common_FE_OFF/DEBUG_PRINT_FE_SND esta en los
+// tres .data objetivo (A124 en posicion de stabs; GC +0x1f0; SLUS: el 00 00
+// 80 3f del bloque que falta en +0x17ba). No es solo-A124.
 float g_fTableTurnSpeed = 1.0f;
+#endif
+#ifdef EA_BUILD_A124
 extern Slope TablePitch;
 #endif
 

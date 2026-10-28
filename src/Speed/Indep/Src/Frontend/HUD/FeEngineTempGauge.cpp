@@ -43,18 +43,19 @@ void EngineTempGauge::Update(IPlayer *player) {
             if (!FEngIsScriptSet(mpWarningLight, FEHashUpper("OVERHEAT_PULSE"))) {
                 FEngSetScript(mpWarningLight, FEHashUpper("OVERHEAT_PULSE"), true);
             }
-        } else if (mEngineTemp > 0.1f) {
+            return;
+        }
+        if (mEngineTemp > 0.1f) {
             if (!FEngIsScriptSet(mpWarningLight, FEHashUpper("ACTIVATE"))) {
                 FEngSetScript(mpWarningLight, FEHashUpper("ACTIVATE"), true);
             }
-        } else {
-            if (FEngIsScriptSet(mpWarningLight, FEHashUpper("INIT"))) {
-                return;
-            }
-            FEngSetScript(mpWarningLight, FEHashUpper("INIT"), true);
             return;
         }
+        if (!FEngIsScriptSet(mpWarningLight, FEHashUpper("INIT"))) {
+            FEngSetScript(mpWarningLight, FEHashUpper("INIT"), true);
+        }
     }
+    return;
 }
 
 void EngineTempGauge::SetEngineTemp(float temp) {

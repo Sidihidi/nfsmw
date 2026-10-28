@@ -25,6 +25,7 @@ int SNDMEMI_restore() {
     return SNDMEM_gethighwater();
 }
 
+#ifndef EA_PLATFORM_XENON // en Xenon son inline de sndcmn.h (la llamada por interfaz del asignador)
 void *SNDMEMI_allocz(int size) {
     SNDMEMREC *pcurrec;
     SNDMEMREC *pprevrec;
@@ -136,3 +137,4 @@ void SNDMEMI_free(void *paddr) {
         return;
     }
 }
+#endif // EA_PLATFORM_XENON

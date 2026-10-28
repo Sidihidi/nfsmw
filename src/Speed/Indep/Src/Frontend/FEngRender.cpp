@@ -138,7 +138,62 @@ FEClipInfo *cFEngRender::MakeRenderMatrix(FEObjData *pData, bMatrix4 *trans, FEC
 void cFEngRender::RenderMovie(FEMovie *movie, FERenderObject *cached, FEPackageRenderInfo *pkg_render_info) {
     if (gMoviePlayer) {
         if (gMoviePlayer->GetStatus() == 5) {
+#ifdef EA_PLATFORM_GAMECUBE
             GCDrawMovie();
+#else
+            TextureInfo *texture_info = gMoviePlayer->GetTexture();
+            FEObjData *movie_data = reinterpret_cast<FEObjData *>(movie->pData);
+
+            bMatrix4 screen;
+            bIdentity(&screen);
+            screen.v3.x = 320.0f;
+            screen.v3.y = 240.0f;
+            screen.v3.z = 0.0f;
+
+            bMatrix4 trans;
+            FEColor fe_color;
+
+            FEClipInfo *clip_info = MakeRenderMatrix(movie_data, &trans, fe_color, movie->RenderContext, 1.0f);
+
+            bMulMatrix(&trans, &screen, &trans);
+
+            if (!cached) {
+                cached = CreateCachedRender(reinterpret_cast<FEObject *>(movie), texture_info);
+            } else {
+                cached->Clear(pkg_render_info);
+            }
+
+            unsigned int color = FEngColorToEpolyColor(fe_color);
+            unsigned int Colours[4] = {color, color, color, color};
+
+            unsigned int tw = texture_info->Width;
+            unsigned int th = texture_info->Height;
+            float ftw = static_cast<float>(tw);
+            float fth = static_cast<float>(th);
+
+            unsigned int t2w = next_power_of_2(tw);
+            unsigned int t2h = next_power_of_2(th);
+            float ft2w = static_cast<float>(t2w);
+            float ft2h = static_cast<float>(t2h);
+
+            float convertu = ftw / ft2w;
+            float convertv = fth / ft2h;
+
+            float t0;
+            float t1;
+            if (gMoviePlayer->GetSettings().type == 0) {
+                t0 = convertv;
+                t1 = 0.0f;
+            } else {
+                t0 = 0.0f;
+                t1 = convertv;
+            }
+
+            cached->SetTransform(&trans);
+            cached->AddPoly(-0.5f, -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, t0, convertu, t1, Colours, clip_info, pkg_render_info);
+            cached->SetTexture(texture_info);
+            cached->Render();
+#endif
         }
     }
 }
@@ -215,19 +270,20 @@ void cFEngRender::RenderMultiImage(FEMultiImage *image, FERenderObject *cached, 
     float convertv = fth / ft2h;
 
     unsigned int color = FEngColorToEpolyColor(fe_color);
-    unsigned int Colours[4];
-    Colours[0] = color;
-    Colours[1] = color;
-    Colours[2] = color;
-    Colours[3] = color;
+    unsigned int Colours[4] = {color, color, color, color};
 
     float s0 = image_data->UpperLeft.x * convertu;
     float s1 = image_data->LowerRight.x * convertu;
     float t0 = image_data->UpperLeft.y * convertv;
     float t1 = image_data->LowerRight.y * convertv;
 
+#ifdef EA_BUILD_A124
+    unsigned int tw_m = texture_info_mask->Width;
+    unsigned int th_m = texture_info_mask->Height;
+#else
     unsigned int tw_m = texture_info->Width;
     unsigned int th_m = texture_info->Height;
+#endif
     float ftw_m = static_cast<float>(tw_m);
     float fth_m = static_cast<float>(th_m);
 
@@ -246,6 +302,42 @@ void cFEngRender::RenderMultiImage(FEMultiImage *image, FERenderObject *cached, 
 
     bVector2 uvs[4];
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    uvs[0].x = ss2;
+    uvs[0].y = sst2;
+    uvs[1].x = ss3;
+    uvs[1].y = sst2;
+    uvs[2].x = ss3;
+    uvs[2].y = sst3;
+    uvs[3].x = ss2;
+    uvs[3].y = sst3;
+
+    uvs[0].x *= static_cast<float>(tw_m);
+    uvs[0].y *= static_cast<float>(th_m);
+    uvs[1].x *= static_cast<float>(tw_m);
+    uvs[1].y *= static_cast<float>(th_m);
+    uvs[2].x *= static_cast<float>(tw_m);
+    uvs[2].y *= static_cast<float>(th_m);
+    uvs[3].x *= static_cast<float>(tw_m);
+    uvs[3].y *= static_cast<float>(th_m);
+
+#ifdef EA_BUILD_A124
+    rotate_uvs(uvs, bDegToRad(image_data->PivotRot.z), image_data->PivotRot.x - static_cast<float>(tw_m / 2),
+               image_data->PivotRot.y - static_cast<float>(th_m / 2));
+#else
+    rotate_uvs(uvs, bDegToRad(image_data->PivotRot.z), image_data->PivotRot.x * static_cast<float>(tw_m) - static_cast<float>(tw_m) * 0.5f,
+               image_data->PivotRot.y * static_cast<float>(th_m) - static_cast<float>(th_m) * 0.5f);
+#endif
+
+    uvs[0].x /= static_cast<float>(tw_m);
+    uvs[0].y /= static_cast<float>(th_m);
+    uvs[1].x /= static_cast<float>(tw_m);
+    uvs[1].y /= static_cast<float>(th_m);
+    uvs[2].x /= static_cast<float>(tw_m);
+    uvs[2].y /= static_cast<float>(th_m);
+    uvs[3].x /= static_cast<float>(tw_m);
+    uvs[3].y /= static_cast<float>(th_m);
+#else
     // El objetivo REPITE aqui la conversion entero->float (magic 0x4330...): la
     // primera ya murio al calcular convertu_m/convertv_m y la ranura de pila del
     // round-trip (0xf8) quedo pisada por las conversiones de t2w_m/t2h_m, asi que
@@ -272,6 +364,7 @@ void cFEngRender::RenderMultiImage(FEMultiImage *image, FERenderObject *cached, 
     uvs[2].y /= fth2_m;
     uvs[3].x /= ftw2_m;
     uvs[3].y /= fth2_m;
+#endif
 
     cached->SetTransform(&trans);
     cached->AddPolyWithRotatedMask(-0.5f, -0.5f, 0.5f, 0.5f, 1.0f, s0, t0, s1, t1, uvs[0].x, uvs[0].y, uvs[1].x, uvs[1].y, uvs[2].x, uvs[2].y,
@@ -318,11 +411,7 @@ void cFEngRender::RenderImage(FEImage *image, FERenderObject *cached, FEPackageR
     float convertv = fth / ft2h;
 
     unsigned int color = FEngColorToEpolyColor(fe_color);
-    unsigned int Colours[4];
-    Colours[0] = color;
-    Colours[1] = color;
-    Colours[2] = color;
-    Colours[3] = color;
+    unsigned int Colours[4] = {color, color, color, color};
 
     float s0 = image_data->UpperLeft.x * convertu;
     float s1 = image_data->LowerRight.x * convertu;

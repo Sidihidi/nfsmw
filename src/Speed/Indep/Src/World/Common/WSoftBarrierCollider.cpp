@@ -4,7 +4,9 @@
 
 #include "Speed/Indep/Libs/Support/Utility/UGroup.hpp"
 
-WSoftBarrierCollider *WSoftBarrierCollider::fgSoftBarrierCollider;
+// gcdatos21: inicializado para que en la A124 caiga entre bAiRandomTurns y
+// fgTriggerManager (0x649d20), no en el bloque tentativo del final.
+WSoftBarrierCollider *WSoftBarrierCollider::fgSoftBarrierCollider = nullptr;
 
 // In3dQuad, PosInSoftZone y ApplyForce estan en los stabs de la A124 pero no en su binario (estripadas); quedan sin
 // escribir.

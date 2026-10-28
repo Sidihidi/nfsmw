@@ -4,6 +4,18 @@
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/Src/World/ParameterMaps.hpp"
 
+// gcdatos17: en las DOS PS2 ReverbAccessor va delante del TypeInfo de SFXObj_Reverb,
+// no detras de csfxedit como en las demas versiones. A124: 0x5e5448 = zEAXSound2
+// .data +0xb98, delante de _13SFXObj_Reverb$s_TypeInfo (+0xbb8 = 0x5e5468); SLUS: los
+// 28 B del bloque de ceros de +0xbb8 = 0x541d58, tambien delante del TypeInfo de
+// +0xbd8. Los stabs lo confirman por el orden de declaracion: ReverbAccessor es
+// Decl: 25 y ReverbZoneCrossMap/csfxedit Decl: 45/61. En el fichero hay dos objetos
+// con ctor (este y m_EchoAllocs) y siguen en el mismo orden entre si, asi que el
+// init de la unidad no cambia; solo se mueve .data.
+#ifdef EA_PLATFORM_PLAYSTATION2
+ParameterAccessor ReverbAccessor("Reverb"); // size: 0x1C, address: 0x8045E564, Decl: 25
+#endif
+
 DEFINE_CREATABLE(0x20100, SFXObj_Reverb, SndBase);
 
 // size: 0x30, address: 0x80418214, Decl: 45
@@ -18,7 +30,9 @@ char *csfxedit[12] = {
     "Simple_Tunnel_Sml.fx", "Hills_Close.fx", "Hills.fx",     "City_Open.fx", "City_Dense.fx", "Alley.fx",
 };
 
+#ifndef EA_PLATFORM_PLAYSTATION2
 ParameterAccessor ReverbAccessor("Reverb"); // size: 0x1C, address: 0x8045E564, Decl: 25
+#endif
 
 Snd::GlobalFxProcessor *SFXObj_Reverb::m_pFXEditModule[2]; // Decl: 79
 
@@ -97,14 +111,22 @@ void SFXObj_Reverb::InitSFX() {
             this->m_pFXEditModule[0]->Release();
             this->m_pFXEditModule[0] = nullptr;
         }
+#ifdef EA_PLATFORM_XENON
+        Snd::GlobalFxProcessor::CreateInstance(Snd::DEVICE_MAIN, &m_pFXEditModule[0]);
+#else
         Snd::GlobalFxProcessor::CreateInstance(Snd::DEVICE_MAIN, 0, &m_pFXEditModule[0]);
+#endif
         m_pFXEditModule[0]->SetCustom(m_pFXEditPatch[3]);
     } else {
         if (this->m_pFXEditModule[0] != nullptr) {
             m_pFXEditModule[0]->Release();
             m_pFXEditModule[0] = nullptr;
         }
+#ifdef EA_PLATFORM_XENON
+        Snd::GlobalFxProcessor::CreateInstance(Snd::DEVICE_MAIN, &m_pFXEditModule[0]);
+#else
         Snd::GlobalFxProcessor::CreateInstance(Snd::DEVICE_MAIN, 0, &m_pFXEditModule[0]);
+#endif
         this->m_pFXEditModule[0]->SetCustom(m_pFXEditPatch[8]);
         m_pTunnelCtl->SetCurrentReverbType(RVRB_HILLS, 0);
     }

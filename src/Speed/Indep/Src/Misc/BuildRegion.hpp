@@ -74,6 +74,10 @@ bool ShowLanguageSelect();
 #ifdef EA_PLATFORM_PLAYSTATION2
 // PS2 only (the online code and SLUS's MemoryCardImp::GetTitleId use them); there they return non-const strings.
 char *GetSlusCode();
+#else
+// En PC existe igual (speed.exe 0x64A150, ?GetSlusCode@BuildRegion@@YAPBDXZ): el codigo online la llama
+// (LobbyCore) y la definicion de BuildRegion.cpp ya es const fuera de PS2.
+const char *GetSlusCode();
 #endif
 #ifdef EA_PLATFORM_PLAYSTATION2
 // La frase de paso de DNAS: SLUS guarda la suya en .rodata aunque el enlazador quito la funcion.
@@ -81,6 +85,10 @@ unsigned char *GetDnasPassPhrase();
 #endif
 #ifdef EA_BUILD_A124
 char *GetSkuCode();
+#else
+// En PC existe igual (speed.exe 0x64A3A0, ?GetSkuCode@BuildRegion@@YAPBDXZ): LobbyCore la llama y la
+// definicion de BuildRegion.cpp ya es const fuera de la A124.
+const char *GetSkuCode();
 #endif
 // ShowESRBNotice__11BuildRegionv (A124 0x346868; el DWARF de GC la lista tras GetSkuCode; el 0x312a48 de SLUS es
 // ShowLanguageSelect): UIEALogin::UIEALogin la llama.

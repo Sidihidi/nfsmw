@@ -32,7 +32,15 @@ int NetworkCore::msecPerThreadInterval = 33;
 static OnlineMutex networkMutex("networkMutex");
 
 NetworkCore::NetworkCore()
-    : networkIsInitialized(false) {}
+    : networkIsInitialized(false)
+#ifdef EA_PLATFORM_XENON
+      ,
+      xenon_unknown_0x10(false), //
+      xenon_unknown_0x11(false), //
+      xenon_unknown_0x12(false)
+#endif
+{
+}
 
 NetworkCore::~NetworkCore() {}
 
@@ -142,7 +150,33 @@ DirtyAddrT &NetworkCore::MyDirtyAddr() {
     return dirtyAddr;
 }
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 (EGM 0x825748B0): 0; LobbyCore::Init ("NETV") y LobbyUsers::SendAuxiData ("V") pasan 0.
+uint8 NetworkCore::GetNetworkVersionNumber() { return 0; }
+
+// EGM 0x825748B8, sin nombre en ningun binario. 1: el cable se ha desenchufado alguna vez ('plug' == 0, se recuerda en
+// xenon_unknown_0x10); con 'onln', 0 (o 1 si xenon_unknown_0x12); sin 'onln', 3 si la conexion dice '-dup' (sesion
+// duplicada, se recuerda en xenon_unknown_0x11) y 2 si no.
+int NetworkCore::XenonUnknown825748B8() {
+    if (!xenon_unknown_0x10 && NetConnStatus('plug', 0, nullptr) != 0) {
+        if (NetConnStatus('onln', 0, nullptr) == 0) {
+            if (!xenon_unknown_0x11 && NetConnStatus('conn', 0, nullptr) != '-dup') {
+                return 2;
+            }
+            xenon_unknown_0x11 = true;
+            return 3;
+        }
+        if (!xenon_unknown_0x12) {
+            return 0;
+        }
+    } else {
+        xenon_unknown_0x10 = true;
+    }
+    return 1;
+}
+#else
 uint8 NetworkCore::GetNetworkVersionNumber() { return 20; }
+#endif
 
 int NetworkCore::RegisterProcessingFunc(ProcFunc func, void *context) {
     if (!func) {
@@ -158,7 +192,11 @@ int NetworkCore::RegisterProcessingFunc(ProcFunc func, void *context) {
         }
     }
 
+#ifdef EA_PLATFORM_XENON // EGM 0x82574A60: bMalloc(0x10, ruta, 557, 8)
+    pfn = new ("e:\\mw\\speed\\indep\\src\\online/NetworkCore.cpp", 557, 8) ProcFuncNode(func, context);
+#else
     pfn = new ("d:/p4_apex1666_d1001856/mw/speed/indep/src/online/NetworkCore.cpp", 0x1cc, 8) ProcFuncNode(func, context);
+#endif
     if (!pfn) {
         networkMutex.Unlock(nullptr);
         return -1;
@@ -209,13 +247,26 @@ void NetworkCore::DoNetworkProcessing() {
             ProcFuncNode *previous = pfn->GetPrev();
             networkCore.procFuncList.Remove(pfn);
             delete pfn;
-            pfn = previous->GetNext();
-        } else {
-            pfn = pfn->GetNext();
+            pfn = previous;
         }
+        pfn = pfn->GetNext(); // EGM 0x82574CD0: un solo avance para las dos ramas
     }
     networkMutex.Unlock(functionName);
 
+#ifdef EA_PLATFORM_XENON // EGM 0x82574D18: el gestor y el lobby siempre; la IP y la voz solo en linea
+    TheOnlineManager.Update(true);
+    if (NetworkUseLobbies) {
+        LobbyCore::Instance().DoProcessing();
+    }
+    if (networkCore.IsOnline() == true) {
+        static bool firstTime = true;
+        if (firstTime == true) {
+            firstTime = false;
+            myIPAddress = NetConnStatus('addr', 0, 0);
+        }
+        VoiceCore::mInstance->Update();
+    }
+#else
     if (networkCore.IsOnline()) {
         static bool firstTime = true;
         if (firstTime) {
@@ -228,4 +279,5 @@ void NetworkCore::DoNetworkProcessing() {
         }
         VoiceCore::mInstance->Update();
     }
+#endif
 }

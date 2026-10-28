@@ -98,11 +98,11 @@ void PATHI_custompitchfade(PATHTRACK *track, int fadeto, int fadetime, int faden
     track->pitchfade.fadenum = fadenum;
     track->pitchfade.fadefrom = track->trackimp->GetPitchMult();
     track->pitchfade.fadeto = fadeto;
-    if (fadeto < 0 || fadeto > 0x3FFF)
+    if (fadeto < 0 || fadeto >= 0x4000)
     {
         if (fadeto < 0)
             track->pitchfade.fadeto = 0;
-        if (fadeto > 0x3FFF)
+        if (fadeto >= 0x4000)
             track->pitchfade.fadeto = 0x4000;
     }
 }
@@ -114,11 +114,11 @@ void PATHI_customstretchfade(PATHTRACK *track, int fadeto, int fadetime, int fad
     track->stretchfade.fadenum = fadenum;
     track->stretchfade.fadefrom = track->trackimp->GetStretchMult();
     track->stretchfade.fadeto = fadeto;
-    if (fadeto < 0x800 || fadeto > 0x1FFF)
+    if (fadeto < 0x800 || fadeto >= 0x2000)
     {
         if (fadeto < 0x800)
             track->stretchfade.fadeto = 0x800;
-        if (fadeto > 0x1FFF)
+        if (fadeto >= 0x2000)
             track->stretchfade.fadeto = 0x2000;
     }
 }
@@ -136,7 +136,9 @@ void PATHI_setfadevolume(PATHTRACK *track)
 
     fadeinfo.ms = track->volumefade.fadetime;
     fadeinfo.id = track->volumefade.fadenum;
-    fadeinfo.flip = (range >= 0.0f);
+    // PC (speed.exe, PATHI_setfadevolume 0x82D820 y sus cuatro gemelas): `test ah, 5` / `jp` con el 0 delante, la
+    // forma del ternario; GameCube y PS2 (-ffast-math) dan el mismo codigo que con `range >= 0.0f`.
+    fadeinfo.flip = (range < 0.0f) ? 0 : 1;
 
     pct = (float)(milliseconds - track->volumefade.fadestart) / (float)fadeinfo.ms;
 
@@ -194,7 +196,7 @@ void PATHI_setsfxfadevolume(PATHTRACK *track)
 
     fadeinfo.ms = track->sfxsendfade.fadetime;
     fadeinfo.id = track->sfxsendfade.fadenum;
-    fadeinfo.flip = (range >= 0.0f);
+    fadeinfo.flip = (range < 0.0f) ? 0 : 1;
 
     pct = (float)(milliseconds - track->sfxsendfade.fadestart) / (float)fadeinfo.ms;
 
@@ -251,7 +253,7 @@ void PATHI_setdrylevelfadevolume(PATHTRACK *track)
 
     fadeinfo.ms = track->drylevelfade.fadetime;
     fadeinfo.id = track->drylevelfade.fadenum;
-    fadeinfo.flip = (range >= 0.0f);
+    fadeinfo.flip = (range < 0.0f) ? 0 : 1;
 
     pct = (float)(milliseconds - track->drylevelfade.fadestart) / (float)fadeinfo.ms;
 
@@ -308,7 +310,7 @@ void PATHI_setpitchfadevolume(PATHTRACK *track)
 
     fadeinfo.ms = track->pitchfade.fadetime;
     fadeinfo.id = track->pitchfade.fadenum;
-    fadeinfo.flip = (range >= 0.0f);
+    fadeinfo.flip = (range < 0.0f) ? 0 : 1;
 
     pct = (float)(milliseconds - track->pitchfade.fadestart) / (float)fadeinfo.ms;
 
@@ -365,7 +367,7 @@ void PATHI_setstretchfadevolume(PATHTRACK *track)
 
     fadeinfo.ms = track->stretchfade.fadetime;
     fadeinfo.id = track->stretchfade.fadenum;
-    fadeinfo.flip = (range >= 0.0f);
+    fadeinfo.flip = (range < 0.0f) ? 0 : 1;
 
     pct = (float)(milliseconds - track->stretchfade.fadestart) / (float)fadeinfo.ms;
 

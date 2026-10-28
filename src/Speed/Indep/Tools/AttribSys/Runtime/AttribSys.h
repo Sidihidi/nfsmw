@@ -55,12 +55,7 @@ inline unsigned int RotateNTo32(unsigned long long v, unsigned int amount) {
 #define ATTRIB_CLASS_ASSERT(KEY1, KEY2, CKEY)
 
 // TODO why no inline?
-#ifdef EA_PLATFORM_XENON
-inline __declspec(noinline)
-#else
-inline
-#endif
-void *Alloc(std::size_t bytes, const char *name) {
+inline void *Alloc(std::size_t bytes, const char *name) {
     AllocationAccounting(bytes, true);
     if (bytes > 0) {
         return AttribAlloc::Allocate(bytes, name);
@@ -832,6 +827,18 @@ typedef void *Reference;
 #define ATTRIB_CODEGEN_CHECKEDGETLAYOUT(FIELD, RESULT)                                                                                               \
     RESULT = static_cast<_LayoutStruct *>(this->GetLayoutPointer())->FIELD;                                                                          \
     return (true)
+
+/* Ronda 60 (medido en las 5 versiones): el accesor de layout generado cambia de FORMA por plataforma.
+ * En PS2 sale el checked `bool FIELD(RefSpec &RESULT)` —el de arriba— (A124 y SLUS: es lo que cierra
+ * GetDefaultCar); en X360 y PC sale el de RETORNO `const RefSpec &FIELD()` (X360 lo emite como funcion
+ * de 12 B casada al 100 %, PC como la suya de 7 B). Como la llamada no puede escribirse igual en todas
+ * y FEDatabase.cpp no admite cambiar su numero de lineas (sus bMalloc pasan __LINE__ al original), la
+ * eleccion vive aqui y la llamada ocupa siempre UNA linea. */
+#ifdef EA_PLATFORM_PLAYSTATION2
+#define ATTRIB_GETLAYOUTFIELD(COLL, FIELD, OUT) COLL.FIELD(OUT)
+#else
+#define ATTRIB_GETLAYOUTFIELD(COLL, FIELD, OUT) OUT = COLL.FIELD()
+#endif
 
 #define ATTRIB_CODEGEN_GETLAYOUT(FIELD) return (static_cast<_LayoutStruct *>(this->GetLayoutPointer())->FIELD)
 #define ATTRIB_CODEGEN_GETSTATIC(FIELD) return (gStatics.FIELD)

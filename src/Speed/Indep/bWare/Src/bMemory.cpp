@@ -810,11 +810,53 @@ void MemoryPool::TraceRemoveMemory(void *p, int size) {}
 // STRIPPED
 void TrapMissingMemoryTraces(int size) {}
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void MemoryPool::TraceAllocateMemory(void *p, int size) {
+    bMemoryTraceAllocatePacket packet = {reinterpret_cast<intptr_t>(this), reinterpret_cast<intptr_t>(p), size, TraceDebugLine,
+                                         bMemoryAllocationNumber};
+
+    bMemSet(packet.DebugText, 0, sizeof(packet.DebugText));
+    if (pTraceDebugText) {
+        bStrNCpy(packet.DebugText, pTraceDebugText, sizeof(packet.DebugText) - 1);
+    }
+    int unused_text_size = sizeof(packet.DebugText) - 1 - bStrLen(packet.DebugText);
+    bFunkCallASync("CODEINE", 28, &packet, sizeof(packet) - unused_text_size);
+    if (pTraceDebugText) {
+        if (!pTraceDebugText[0]) {
+            TrapMissingMemoryTraces(size);
+        }
+    }
+    pTraceDebugText = nullptr;
+    TraceDebugLine = 0;
+}
+
+void MemoryPool::UpdateTraceInformation() {
+    if (DebugTracingEnabled && bIsCodeineConnected()) {
+        TraceNewPool();
+        for (FreeBlock *free_block = static_cast<FreeBlock *>(FreeBlockList.GetHead()); free_block != FreeBlockList.EndOfList();
+             free_block = free_block->GetNext()) {
+            TraceFreeMemory(free_block, free_block->Size);
+        }
+        int saved_allocation_number = bMemoryAllocationNumber;
+        for (AllocationHeader *header = static_cast<AllocationHeader *>(AllocationHeaderList.GetHead());
+             header != AllocationHeaderList.EndOfList(); header = header->GetNext()) {
+#ifdef MILESTONE_BUILD
+            pTraceDebugText = header->GetDebugText();
+            TraceDebugLine = 0;
+            bMemoryAllocationNumber = header->GetAllocationNumber();
+#endif
+            TraceAllocateMemory(header->GetBottomAddress(), header->Size);
+        }
+        bMemoryAllocationNumber = saved_allocation_number;
+    }
+}
+#else
 // STRIPPED
 void MemoryPool::TraceAllocateMemory(void *p, int size) {}
 
 // STRIPPED
 void MemoryPool::UpdateTraceInformation() {}
+#endif
 
 int bGetFreeMemoryPoolNum() {
     for (int pool_num = 0; pool_num < 16; pool_num++) {
@@ -1021,8 +1063,21 @@ void bMemoryInit() {
 #endif
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void bMemoryUpdateTraceInformation() {
+    if (bMemoryTracing) {
+        bFunkCallASync("CODEINE", 0x18, nullptr, 0);
+        for (int pool_num = 0; pool_num < 16; pool_num++) {
+            if (MemoryPools[pool_num]) {
+                MemoryPools[pool_num]->UpdateTraceInformation();
+            }
+        }
+    }
+}
+#else
 // STRIPPED
 void bMemoryUpdateTraceInformation() {}
+#endif
 
 // La alpha 124 es milestone y aun asi define las dos, primero la de dos argumentos.
 #if !defined(MILESTONE_BUILD) || defined(EA_BUILD_A124)

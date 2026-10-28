@@ -87,7 +87,8 @@ def flags_ninja(rel):
     """Los cflags de GameCube de un objeto tal cual los escribe configure.py en build.ninja (para el middleware y
     las unidades con flags propios). REL es la ruta del fuente relativa a src/."""
     clave = 'build build\\GOWE69\\src\\' + os.path.splitext(rel)[0].replace('/', '\\') + '.o:'
-    lineas = open(os.path.join(ROOT, 'build.ninja'), encoding='utf-8').read().split('\n')
+    # configure.py parte las lineas largas ('build $', salto y la salida con 4 espacios): se juntan antes de buscar
+    lineas = open(os.path.join(ROOT, 'build.ninja'), encoding='utf-8').read().replace('build $\n    ', 'build ').split('\n')
     for i, ln in enumerate(lineas):
         if ln.startswith(clave):
             for j in range(i, i + 12):

@@ -555,6 +555,12 @@ BIND_ACTIVITY_FACTORY(PathFinder);
 
 PathFinder *PathFinder::pInstance = nullptr;
 
+// gcdatos20: bAiRandomTurns va tras pInstance en los tres objetivos (stabs
+// PS2_globals.hpp:6226-6227; GC 0x8043901C = zWorld2 .data +0xc4, tras
+// pInstance; A124 +0x38c), no en WRoadNetwork.cpp, donde estaba definido y
+// salia delante de bPathFinderPrints.
+bool bAiRandomTurns = false;
+
 PathFinder::PathFinder() : Activity(0) {
     AStarNodeSlotPool = bNewSlotPool(sizeof(AStarNode), MAX_ASTAR_NODES, "AStarNodeSlotPool", 0);
     AStarSearchSlotPool = bNewSlotPool(sizeof(AStarSearch), MAX_ASTAR_SEARCHES, "AStarSearchSlotPool", 0);

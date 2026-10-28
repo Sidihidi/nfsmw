@@ -6,6 +6,7 @@ int SNDSTRM_modifyhold(int sndrequesthandle, int holdtime) {
     Snd::SNDSTREAMREQUEST *psr;
     int rc = -8;
 
+    SNDI_CHECKINSTALLED();
     SNDSYS_entercritical();
     psr = SNDSTRMI_getrequestptr(sndrequesthandle);
 

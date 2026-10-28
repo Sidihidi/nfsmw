@@ -1,4 +1,5 @@
 #include "FnDeltaF3.h"
+#include "DeltaQFast.h"
 
 #ifdef EA_PLATFORM_PLAYSTATION2
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
@@ -480,7 +481,7 @@ bool FnDeltaF3::EvalVel2D(float currTime, float *vel) {
 void FnDeltaF3::InitBuffersAsRequired() {
     DeltaF3 *deltaF = reinterpret_cast<DeltaF3 *>(mpAnim);
 
-    if (deltaF->GetNumBones() != 0) {
+    if (deltaF->GetNumBones() > 0) {
         // PS2: lqc2/sqc2 exigen mPrevValues y mNextValues alineados a 16. La A124 pide 15 bytes de mas
         // y alinea el puntero (`ori 0xf' al pedir; `addiu 15; sra 4; sll 4' despues).
 #ifdef EA_PLATFORM_PLAYSTATION2
@@ -506,6 +507,13 @@ void FnDeltaF3::InitBuffersAsRequired() {
                 mMinRangesf[b].mPhysMin[c] = dofInfo->mPhysMin[c];
 
                 mMinRangesf[b].mPhysRange[c] = dofInfo->mPhysRange[c];
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+                // Como en FnDeltaF1.cpp (las constantes del DWARF, asociacion de MSVC).
+                mMinRangesf[b].mPhysRange[c] *= OneOverTwoPower16Minus1;
+                mMinRangesf[b].mDeltaMin[c] = dofInfo->mQuantMin[c] * dofInfo->mPhysRange[c] * TwoOverTwoPower16Minus1 - dofInfo->mPhysRange[c];
+                mMinRangesf[b].mDeltaRange[c] = dofInfo->mQuantRange[c] * dofInfo->mPhysRange[c] * TwoOverTwoPower16Minus1;
+                mMinRangesf[b].mDeltaRange[c] *= OneOverTwoPower8Minus1;
+#else
                 // TODO magic
                 mMinRangesf[b].mPhysRange[c] *= 1.5259022e-5f;
 
@@ -514,6 +522,7 @@ void FnDeltaF3::InitBuffersAsRequired() {
 
                 mMinRangesf[b].mDeltaRange[c] = 2 * (dofInfo->mQuantRange[c] * 1.5259022e-5f) * dofInfo->mPhysRange[c];
                 mMinRangesf[b].mDeltaRange[c] *= 0.003921569f;
+#endif
             }
             dofInfo++;
         }

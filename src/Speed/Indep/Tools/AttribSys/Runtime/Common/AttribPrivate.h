@@ -102,10 +102,14 @@ class Collection {
     }
 
     Key GetParent() const {
+#ifdef EA_PLATFORM_XENON
+        return mParent ? mParent->GetKey() : 0;
+#else
         if (mParent) {
             return mParent->GetKey();
         }
         return 0;
+#endif
     }
 
     bool IsReferenced() const {
@@ -121,10 +125,14 @@ class Collection {
     }
 
     Key GetClass() const {
+#ifdef EA_PLATFORM_XENON
+        return mClass ? mClass->GetKey() : 0;
+#else
         if (mClass) {
             return mClass->GetKey();
         }
         return 0;
+#endif
     }
 
     void *GetLayout() const {

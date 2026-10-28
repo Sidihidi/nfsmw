@@ -17,10 +17,14 @@ void MultMatrix(const UMath::Matrix4 *a, const UMath::Matrix4 *b, UMath::Matrix4
 // total size: 0x40
 // GameCube la alinea a 32. En PS2 el tipo no va alineado (PostMult copia la temporal con ldl/sdl, sin lq/sq): la
 // alineacion a 16 es del miembro FnPoseBlender::mAlignMatrix (0x30 en la A124, con 4 bytes vacios delante).
-#ifdef EA_PLATFORM_PLAYSTATION2
+// En PC y en Xbox 360 va a 16: speed.exe y el EGM leen mStartTransTime de FnPoseBlender en 0x70 (mAlignMatrix en
+// 0x30, no en 0x40) y FnPoseBlender::Eval de PC alinea la pila a 16 (and esp, -16) para su Transform local.
+#if defined(EA_PLATFORM_PLAYSTATION2)
 struct Transform {
-#else
+#elif defined(EA_PLATFORM_GAMECUBE)
 struct ATTRIBUTE_ALIGN(32) Transform {
+#else
+struct ATTRIBUTE_ALIGN(16) Transform {
 #endif
     enum Axis {
         X_AXIS = 0,

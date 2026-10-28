@@ -2230,8 +2230,7 @@ eRenderTarget *eGetRenderTarget(int32 render_target) {
 }
 
 float ofsetdata[2][3] = {{1824.0f, 1936.0f, 2228.0f}, {1792.0f, 1936.0f, 2176.0f}};
-bMatrix4 VU1textureModMatrix[2][4];
-bMatrix4 VU1clipToTexMatrix[2][2];
+
 
 // Los tres paquetes de matrices del render target para el microcodigo de la VU1: clip a pantalla de cada uno, mundo
 // a clip, vista a mundo, pantalla a mundo, la distancia de la niebla, la nubosidad, la camara y la direccion del sol.
@@ -5062,19 +5061,6 @@ void eTextureDownloader::FillVramWithStaticTextures(eDmaChain *dma_chain) {
 
 int least_down = 999999999;
 int dmaheight = 255;
-
-struct PS2VramInfo {
-    // total size: 0x98
-    int PixelsPerPageX;    // offset 0x0, size 0x4
-    int PixelsPerPageY;    // offset 0x4, size 0x4
-    int PixelsPerBlockX;   // offset 0x8, size 0x4
-    int PixelsPerBlockY;   // offset 0xC, size 0x4
-    int BlocksPerPageX;    // offset 0x10, size 0x4
-    int BlocksPerPageY;    // offset 0x14, size 0x4
-    int BlockNumbers[32];  // offset 0x18, size 0x80
-};
-
-extern PS2VramInfo PS2VramInfoPSMCT32;
 
 PS2VramInfo PS2VramInfoPSMCT16 = {64, 64, 16, 8, 4, 8, {0,  2,  8,  10, 1,  3,  9,  11, 4,  6,  12, 14, 5,  7,  13, 15,
                                                         16, 28, 24, 26, 17, 19, 25, 27, 20, 22, 28, 30, 21, 23, 29, 31}};
@@ -8428,8 +8414,14 @@ struct ParticleSystemStats {
     int MaxNumEmitterGroups;       // offset 0x1C, size 0x4
 
     ParticleSystemStats() {
-        NumParticles = MaxNumParticles = NumActiveParticleTextures = MaxNumParticleTextures = NumEmitters = MaxNumEmitters =
-            NumEmitterGroups = MaxNumEmitterGroups = 0;
+        NumParticles = 0;
+        MaxNumParticles = 0;
+        NumActiveParticleTextures = 0;
+        MaxNumParticleTextures = 0;
+        NumEmitters = 0;
+        MaxNumEmitters = 0;
+        NumEmitterGroups = 0;
+        MaxNumEmitterGroups = 0;
     }
 };
 
@@ -9459,19 +9451,14 @@ struct PaletteIndexMap {
 
     PaletteIndexMap() {
         for (int i = 0; i < 256; i++) {
-            switch (i & 0x18) {
-            case 0:
+            if ((i & 0x18) == 0) {
                 map[i] = i;
-                break;
-            case 8:
+            } else if ((i & 0x18) == 8) {
                 map[i] = i + 8;
-                break;
-            case 16:
+            } else if ((i & 0x18) == 16) {
                 map[i] = i - 8;
-                break;
-            case 24:
+            } else if ((i & 0x18) == 24) {
                 map[i] = i;
-                break;
             }
         }
     }

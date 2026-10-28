@@ -23,7 +23,7 @@ void GHandler::Attach(lua_State *luaState) {
         return;
     }
 
-    if (blob.GetSize() != 0) {
+    if (blob.GetSize() > 0) {
         unsigned char *compressedBlock = (unsigned char *) blob.GetData();
         int dobuffer_status;
         LZHeader *lzHeader = (LZHeader *) compressedBlock;

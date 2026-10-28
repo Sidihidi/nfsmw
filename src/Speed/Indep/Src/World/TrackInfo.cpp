@@ -6,6 +6,7 @@
 
 TrackInfo *TrackInfo::TrackInfoTable = nullptr;
 int TrackInfo::NumTrackInfo = 0;
+int TrackInfo::MaxTrackInfo = 0;
 TrackInfo *TrackInfo::LoadedTrackInfo = nullptr;
 bChunkLoader bChunkLoaderTrackInfo(BCHUNK_TRACK_INFOS, TrackInfo::LoaderTrackInfo, TrackInfo::UnloaderTrackInfo);
 

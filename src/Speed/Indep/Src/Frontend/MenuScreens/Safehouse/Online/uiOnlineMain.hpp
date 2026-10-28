@@ -81,12 +81,20 @@ class UIOLGameRoom : public MenuScreen {
 
   private:
     Timer m_InfoBoxTimer;            // offset 0x2C, size 0x4
+#ifdef EA_PLATFORM_XENON
+    // EGM: el ctor (0x8227A4B0) lo pone a cero y playerScroller va en +0x34; 0x8227DB7C lo escribe. Sin nombre.
+    int xenon_unknown_0x30;
+#endif
     Scrollerina playerScroller;      // offset 0x30, size 0xC8
     ChatBuffer mChat;                // offset 0xF8, size 0x1084
     bool startButtonEnabled;         // offset 0x117C, size 0x4
     static const int countdownSeconds;
     FEObject *the_type_area;         // offset 0x1180, size 0x4
     dialog_handle msgHandle;         // offset 0x1184, size 0x4
+#ifdef EA_PLATFORM_XENON
+    // EGM: otro dialogo en +0x1168 (el ctor lo pone a cero; 0x8227B6CC/0x8227C014 lo escriben). Sin nombre.
+    dialog_handle xenon_unknown_0x1168;
+#endif
     RideInfo *m_rideInfo;            // offset 0x1188, size 0x4
     uint32 m_carHandle;              // offset 0x118C, size 0x4
     FECarRecord *m_carRecord;        // offset 0x1190, size 0x4
@@ -109,8 +117,17 @@ class UIOLGameRoom : public MenuScreen {
     bool doDismissDialog;            // offset 0x11D4, size 0x4
     bool doSwitchToLobby;            // offset 0x11D8, size 0x4
     bool m_bChangingSettings;        // offset 0x11DC, size 0x4
+#ifdef EA_PLATFORM_XENON
+    // EGM: sin m_hostStartUpdateTimer; m_isRaceStarted en +0x11A1 (la cuenta atras del host, 0x82280170, lo mira
+    // sin temporizador) y tres bytes mas que el ctor pone a cero (0x8227B738, 0x8227BA18, 0x8227BE20 los escriben).
+    bool m_isRaceStarted;
+    bool xenon_unknown_0x11a2;
+    bool xenon_unknown_0x11a3;
+    bool xenon_unknown_0x11a4;
+#else
     Timer m_hostStartUpdateTimer;    // offset 0x11E0, size 0x4
     bool m_isRaceStarted;            // offset 0x11E4, size 0x4
+#endif
     struct {
         bool showDialog;             // offset 0x0, size 0x4
         uint32 dialogTitle;          // offset 0x4, size 0x4

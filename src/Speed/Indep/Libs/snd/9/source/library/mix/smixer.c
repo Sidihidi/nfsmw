@@ -20,11 +20,15 @@ typedef struct UNPACKINITPARAMS {
     int totalframes;               // offset 0xC
     int sustainstart;              // offset 0x10
     int sustainend;                // offset 0x14
+#ifndef EA_PLATFORM_XENON
+    // Xenon no tiene bits16 (EGM, MIX_playinit 0x82617AC0: escribe voice/cpu/platformver
+    // en 0x18/0x1C/0x20 y unpackgetframe en 0x24, y el struct mide 0x28).
     int bits16;                    // offset 0x18
-    int voice;                     // offset 0x1C
-    int cpu;                       // offset 0x20
-    int platformver;               // offset 0x24
-    int (*unpackgetframe)(void *); // offset 0x28
+#endif
+    int voice;                     // offset 0x1C (Xenon: 0x18)
+    int cpu;                       // offset 0x20 (Xenon: 0x1C)
+    int platformver;               // offset 0x24 (Xenon: 0x20)
+    int (*unpackgetframe)(void *); // offset 0x28 (Xenon: 0x24)
 } UNPACKINITPARAMS;
 
 typedef void UNPACKINITFN(void *pstate, UNPACKINITPARAMS *pparams);
@@ -93,7 +97,7 @@ typedef struct SNDMIXFXSTATE {
     int timeout;   // offset 0x4 (PS2: 0x8)
 } SNDMIXFXSTATE;
 
-// total size: 0x1E8
+// total size: 0x1E8 (Xenon: 0x110)
 // En PS2 (snd 9.06.00-ps2, stabs de la A124) mide 0x1EC: pfxwetmix y fxaddiop detras de fxadd, el filtro de
 // salida es el de 16 bits (ft16s) y no hay decode16 (supf/suplf/suppf llaman directo a decode16x87).
 typedef struct SNDMIXSTATE {
@@ -115,6 +119,19 @@ typedef struct SNDMIXSTATE {
     float *pmixbuf[6];                       // offset 0xD0 (PS2: 0xD8)
     float stoppedvoiceaccdry[6];             // offset 0xE8 (PS2: 0xF0)
     float *stoppedvoiceaccwet;               // offset 0x100 (PS2: 0x108)
+#ifdef EA_PLATFORM_XENON
+    // Xenon: smv va detras de stoppedvoiceaccwet — MIX_destroy 0x82617938 lo libera en
+    // 0x104, MIX_settimemult 0x82639D60 lo lee en 0x104 y MIX_playinit 0x82617AC0 indexa
+    // sus voces con el 0x5c — y a continuacion mix y decode16: MIX_reset 0x82617A88 los
+    // escribe en 0x10c y 0x108 (y MIX_audioslice 0x826180B8 llama al puntero de 0x108).
+    // La variante Xenon NO tiene cadena de filtro de salida: ni outputfilterhead ni plps
+    // ni ft24s. MIX_create 0x82617580 termina con el memset de pmixbuf (0x82617908) y
+    // MIX_audioslice copia pmixbuf a la salida (memcpy en 0x8261837C) sin pasar por
+    // filtros: el total del struct es 0x110 y no 0x1E8.
+    SNDMIXVOICE *smv;                        // offset 0x104
+    void (*mix)(int, float, void *, void *); // offset 0x108
+    void (*decode16)(int, short *, float *); // offset 0x10C
+#else
     SFILTERNODE *outputfilterhead[6];        // offset 0x104 (PS2: 0x10C)
     LPFRCSTATE *plps[6];                     // offset 0x11C (PS2: 0x124)
 #ifdef EA_PLATFORM_PLAYSTATION2
@@ -127,12 +144,30 @@ typedef struct SNDMIXSTATE {
 #ifndef EA_PLATFORM_PLAYSTATION2
     void (*decode16)(int, short *, float *); // offset 0x1E4
 #endif
+#endif
 } SNDMIXSTATE;
 
 namespace Snd {
 
-void CODASetNew(void *(*pfn)(unsigned int size));
-void CODASetDelete(void (*pfn)(void *pmem));
+#ifdef EA_PLATFORM_XENON
+    // coda.cpp no se compila en el enlace de Xenon (no tiene unidad) y el EGM los lleva
+    // fundidos en MIX_create: las dos tiendas a Snd::CODANew/CODADelete en 0x826175BC y
+    // 0x826175DC. Esta copia es literalmente la de coda.cpp, en linea para que MIX_create
+    // la funda igual (el cuerpo es `CODANew = pNew` / `CODADelete = pfn`).
+    extern void *(*CODANew)(unsigned int size);
+    extern void (*CODADelete)(void *pmem);
+
+    static inline void CODASetNew(void *(*pfn)(unsigned int size)) {
+        CODANew = pfn;
+    }
+
+    static inline void CODASetDelete(void (*pfn)(void *pmem)) {
+        CODADelete = pfn;
+    }
+#else
+    void CODASetNew(void *(*pfn)(unsigned int size));
+    void CODASetDelete(void (*pfn)(void *pmem));
+#endif
 
 namespace Coda {
 
@@ -155,7 +190,12 @@ extern "C" {
 
 void MIXI_interpolatemix(float gain, float gaintarget, float *psrc, float *pdst);
 void SNDMIX_setmasterlowpass(float leakage);
+#ifdef EA_PLATFORM_XENON
+// Xenon: el `__restrict` es lo que el EGM prueba (ver la definicion).
+void MIX_create(MIXCONFIG *__restrict pmc);
+#else
 void MIX_create(MIXCONFIG *pmc);
+#endif
 void MIX_destroy();
 void MIX_reset();
 void MIX_playinit(int voice, int samplerep, int playtype, void *psample, void *ploopstart, void *ptsdata, int numchan, int totalframes, int sustainstart, int sustainend, void *pcoeftable, void *ploopstate, int platformver, int requester);
@@ -174,6 +214,7 @@ void SFILTER_add(SFILTERNODE **pphead, SFILTERNODE *pnew);
 void mixc(int count, float vol, void *psrc, void *pdst);
 void decode16x87(int n, short *psrc, float *pdst);
 void *memset(void *p, int c, unsigned int n);
+void *memcpy(void *pdst, const void *psrc, unsigned int n);
 
 extern SNDMIXFXSTATE sndfx;
 }
@@ -194,6 +235,16 @@ void (*sndmixwritelog)(short **, int);
 #ifdef EA_PLATFORM_PLAYSTATION2
 void (*sndmixcloselog)();
 #endif
+
+// MIXI_initunpack16 vive en sinit16.c (que S1 se compila en el enlace de Xenon: su
+// objeto tiene la copia suelta de 0x826381D8, 72 B) y MIX_create lo llama — GC lo
+// prueba: `bl MIXI_initunpack16` en 0x8036B1CC, delante de initunpackxa/mt y
+// MIX_reset —; el /LTCG lo funde en el cuerpo (las seis tiendas de
+// 0x82617810-0x8261785C, con los tamanos Xenon de los estados: sin `bits16`,
+// 0x28/0x2C/0x34). La copia `static inline` que habia aqui era una reconstruccion
+// de esa fusion: sobra, y en enlaces reducidos su sola presencia llega a desordenar
+// la expansion de `sndmix.mc = *pmc` de MIX_create (cargas en pares en vez de
+// agrupadas); con la llamada, el prologo de MIX_create no cambia (94,13 %).
 
 void MIXI_interpolateto0(float *acc, float *pdst) {
     pdst[0] += *acc * 0.941176474f;
@@ -290,13 +341,33 @@ void SNDI_Delete(void *p) {
     SNDMEMI_free(p);
 }
 
+#ifdef EA_PLATFORM_XENON
+// Xenon: `pmc` va con `__restrict` porque es lo que el EGM prueba de su
+// compilador. La copia `sndmix.mc = *pmc` sale con las tres cargas AGRUPADAS
+// antes de cualquier tienda (0x82617590 `lwz r6, 0(r3)`, 0x82617598
+// `lwz r5, 4(r3)`, 0x826175A0 `lwz r4, 8(r3)`; tiendas en
+// 0x826175D0-0x826175D8), entre las tiendas de los setters de CODA
+// (0x826175BC y 0x826175DC): sin la promesa de no-solape el cl de X360 emite
+// la copia en pares carga/tienda, que es la forma segura ante solape. La
+// promesa es cierta en el programa: los dos llamantes del EGM pasan un
+// MIXCONFIG de su pila — `addi r3, r1, 0x58` en 0x826287D4 (llamada en
+// 0x826287E4) y `addi r3, r1, 0x50` en 0x8262E578 (llamada en 0x8262E588) —,
+// nunca `&sndmix`. El reparto r6/r5/r4 con `mr r3, r31` (0x826175B8) sale de
+// esta firma mas la forma con local de SNDSYS_entercritical (sserver.c).
+void MIX_create(MIXCONFIG *__restrict pmc) {
+#else
 void MIX_create(MIXCONFIG *pmc) {
+#endif
 #ifdef EA_PLATFORM_PLAYSTATION2
     unsigned int fastramaddr;
 #endif
     int i = 0;
 #ifdef EA_PLATFORM_PLAYSTATION2
     int pingPongBufSize = 0x1058;
+#elif defined(EA_PLATFORM_XENON)
+    // Xenon: los dos temporales se piden de 0x20bc bytes (EGM 0x8261765C: `li r4, 0x20bc`
+    // en el Alloc del bucle de 0x82617648, dos iteraciones).
+    int pingPongBufSize = 0x20BC;
 #else
     int pingPongBufSize = 0xABC;
 #endif
@@ -332,14 +403,24 @@ void MIX_create(MIXCONFIG *pmc) {
             sndmix.punalignedtempbuf[i] = (float *)SNDMEMI_allocz(pingPongBufSize);
             sndmix.ptempbuf[i] = sndmix.punalignedtempbuf[i];
         }
+#elif defined(EA_PLATFORM_XENON)
+        // Xenon: la alineacion a 64 del temporal sale en una sola expresion sobre el puntero
+        // crudo — el EGM (0x82617674-0x82617684) hace `addi r8, r3, 0x47` y un `rlwinm`
+        // 0..0x19, es decir (crudo + 2 floats + 0x3F) & ~0x3F — en vez del bucle de los
+        // otros plataformas.
+        sndmix.punalignedtempbuf[i] = (float *)SNDMEMI_allocz(pingPongBufSize);
+        sndmix.ptempbuf[i] = (float *)((((sndptruint)sndmix.punalignedtempbuf[i] + 2 * sizeof(float)) + 0x3F) &
+                                       ~(sndptruint)0x3F);
 #else
         sndmix.punalignedtempbuf[i] = (float *)SNDMEMI_allocz(pingPongBufSize);
         sndmix.ptempbuf[i] = sndmix.punalignedtempbuf[i] + 2;
 #endif
 
+#ifndef EA_PLATFORM_XENON
         while (((sndptrint)sndmix.ptempbuf[i] & 0x3F) != 0) {
             sndmix.ptempbuf[i] += 1;
         }
+#endif
     }
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
@@ -355,6 +436,14 @@ void MIX_create(MIXCONFIG *pmc) {
             sndmix.punalignedmixbuf[i] = (float *)SNDMEMI_allocz(bufsize);
             sndmix.pmixbuf[i] = sndmix.punalignedmixbuf[i];
         }
+#elif defined(EA_PLATFORM_XENON)
+        // Xenon: los buferes de mezcla son de 0x840 bytes (EGM 0x826176BC: `li r4, 0x840`)
+        // y la alineacion a 64 del puntero de mezcla tambien sale en una sola expresion
+        // (EGM 0x826176D4-0x826176E4: `addi r9, r3, 0x3f` + `rlwinm` 0..0x19).
+        int bufsize = 0x840;
+
+        sndmix.punalignedmixbuf[i] = (float *)SNDMEMI_allocz(bufsize);
+        sndmix.pmixbuf[i] = (float *)(((sndptruint)sndmix.punalignedmixbuf[i] + 0x3F) & ~(sndptruint)0x3F);
 #else
         int bufsize = 0x2C0;
 
@@ -362,9 +451,11 @@ void MIX_create(MIXCONFIG *pmc) {
         sndmix.pmixbuf[i] = sndmix.punalignedmixbuf[i];
 #endif
 
+#ifndef EA_PLATFORM_XENON
         while (((sndptrint)sndmix.pmixbuf[i] & 0x3F) != 0) {
             sndmix.pmixbuf[i] += 1;
         }
+#endif
     }
 
     if (sndmix.mc.inputchannels != 0) {
@@ -392,6 +483,12 @@ void MIX_create(MIXCONFIG *pmc) {
     MIX_reset();
 
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
+#ifdef EA_PLATFORM_XENON
+        // Xenon: la variante no tiene cadena de filtro de salida (ver SNDMIXSTATE); el
+        // bucle final del EGM (0x82617908-0x8261792C) solo pone pmixbuf[i] a cero, de
+        // 0x800 bytes (`li r5, 0x800` en 0x8261790C).
+        memset(sndmix.pmixbuf[i], 0, 0x800);
+#else
         sndmix.outputfilterhead[i] = 0;
 #ifdef EA_PLATFORM_PLAYSTATION2
         SFILTER_ft16init(&sndmix.ft16s[i]);
@@ -405,6 +502,7 @@ void MIX_create(MIXCONFIG *pmc) {
         sndmix.ft24s[i].sfn.requester = 0;
         SFILTER_add(&sndmix.outputfilterhead[i], &sndmix.ft24s[i].sfn);
         memset(sndmix.pmixbuf[i], 0, 0x280);
+#endif
 #endif
     }
 }
@@ -452,12 +550,19 @@ void MIX_destroy() {
 }
 
 void MIX_reset() {
+#ifdef EA_PLATFORM_XENON
+    // El MIX_reset del EGM (fn_82617A88, 36 B: las dos tiendas y `blr`) escribe decode16
+    // en 0x10c y mix en 0x108, en ese orden, y no llega a tocar outputframeincr.
+    sndmix.decode16 = decode16x87;
+    sndmix.mix = mixc;
+#else
     sndmix.mix = mixc;
 #ifdef EA_PLATFORM_PLAYSTATION2
     sndmix.outputframeincr = 1024;
 #else
     sndmix.decode16 = decode16x87;
     sndmix.outputframeincr = 320;
+#endif
 #endif
 }
 
@@ -481,7 +586,9 @@ void MIX_playinit(int voice, int samplerep, int playtype, void *psample, void *p
     psmv->phps = 0;
     psmv->ptss = 0;
 
+#ifndef EA_PLATFORM_XENON
     upip.bits16 = 1;
+#endif
     upip.unpackgetframe = 0;
 
 #ifdef EA_PLATFORM_PLAYSTATION2
@@ -688,6 +795,30 @@ void MIX_audioslice(void **poutput, int frames) {
     }
 #endif
 
+#ifdef EA_PLATFORM_XENON
+    // Xenon: la salida es copia de pmixbuf y escalado de cada muestra por 3.05e-5 —el
+    // EGM (0x82618350-0x82618458) hace el memcpy de 0x8261837C y luego un bucle de
+    // `fmuls` con la constante de 0x820B86B0 (0x37FFDA40 = 3.05e-5f)—; sin cadena de
+    // filtro de salida y sin sndmixwritelog (no hay ni `plps` ni `outputfilterhead`).
+    for (i = 0; i < sndmix.mc.outputchannels; i++) {
+        memcpy(poutput[i], sndmix.pmixbuf[i], frames * sizeof(float));
+    }
+
+    for (i = 0; i < sndmix.mc.outputchannels; i++) {
+        float *pout = (float *)poutput[i];
+        int j;
+
+        // El escalado del EGM (0x826183B0-0x82618440) camina por un puntero que
+        // sigue vivo en la cola escalar (0x82618428: `lfs f3, 0(r11)`): el bucle
+        // desenrollado 4x de 0x826183D0 avanza r11 0x10 por grupo y la cola sigue
+        // en el mismo r11. `*pout++` es lo que da esa forma; con `pout[j]` el
+        // compilador ancla el puntero en pout[j+2] y RECALCULA la direccion en la
+        // cola (`slwi r11, r6, 2` + `add r11, r11, r5`), 4 B de mas.
+        for (j = 0; j < frames; j++) {
+            *pout++ *= 3.05e-5f;
+        }
+    }
+#else
     for (i = 0; i < sndmix.mc.outputchannels; i++) {
         if (sndmix.plps[i] != 0) {
             sndmix.plps[i]->sfn.filterfn(sndmix.plps[i], frames, sndmix.pmixbuf[i], sndmix.ptempbuf[0], 0);
@@ -704,6 +835,7 @@ void MIX_audioslice(void **poutput, int frames) {
 #endif
         sndmixwritelog((short **)poutput, frames);
     }
+#endif
 }
 
 #ifdef EA_PLATFORM_PLAYSTATION2

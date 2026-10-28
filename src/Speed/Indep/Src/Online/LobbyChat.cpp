@@ -202,10 +202,7 @@ Invite *LobbyChat::GetSentInvite(uint32 index) {
         node = node->GetNext();
         i++;
     }
-    Invite *rc = node;
-    if (node == sentInvites.EndOfList()) {
-        rc = nullptr;
-    }
+    Invite *rc = node != sentInvites.EndOfList() ? node : nullptr;
     lobbyMutex.Unlock("LobbyChat::GetSentInvite");
     return rc;
 }
@@ -461,7 +458,7 @@ int32 LobbyChat::CancelAllInvites_HaveMutex() {
 }
 
 int32 LobbyChat::RespondToInvite_HaveMutex(const char *fromPlayer, int gameIdent, LobbyChatN::InviteResponse response) {
-    if (!fromPlayer || !*fromPlayer || response < 0 || response >= 6) {
+    if (!fromPlayer || !*fromPlayer || response < 0 || response > 5) {
         return LobbyChatN::IERR_INVALID_PARAM;
     }
 

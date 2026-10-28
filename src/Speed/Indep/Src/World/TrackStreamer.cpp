@@ -21,7 +21,7 @@
 // CameraMover, pvehicle, engine, engineaudio y EAX_CarState: la cadena "Attrib::Gen::engine" de zTrack.
 #include "Speed/Indep/Src/Camera/CameraMover.hpp"
 #include "Speed/Indep/Src/EAXSound/EAXCarState.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 
@@ -42,21 +42,73 @@ extern int ScenerySectionToBlink;
 extern bool PostLoadFixupDisabled;
 extern int ShowSectionBoarder;
 void NotifySkyLoader();
-
-int TrackStreamerRemoteCaffeinating = 0;
-int ForceHoleFillerMethod = (int)0xFFFFFFFF;
+#ifdef EA_PLATFORM_XENON
+extern int SkipFE;
+void LoadChunks(bChunk *chunks, int sizeof_chunks, const char *debug_name);
+#endif
 
 int LoaderTrackStreamer(bChunk *chunk);
 int UnloaderTrackStreamer(bChunk *chunk);
 
 unsigned char CurrentVisibleSectionTableMem[350];
 TrackStreamer TheTrackStreamer;
+int TrackStreamerRemoteCaffeinating = 0;
+int TrackStreamerEmptyCaffeineLayers = 0;
 bChunkLoader bChunkLoaderTrackStreamingSection(BCHUNK_TRACK_STRAMING_SECTIONS, LoaderTrackStreamer, UnloaderTrackStreamer);
 bChunkLoader bChunkLoaderTrackStreamingDiscBundle(BCHUNK_TRACK_STRAMING_DISC_BUNDLE, LoaderTrackStreamer, UnloaderTrackStreamer);
 bChunkLoader bChunkLoaderTrackStreamingInfo(BCHUNK_TRACK_STRAMING_INFOS, LoaderTrackStreamer, UnloaderTrackStreamer);
 bChunkLoader bChunkLoaderTrackStreamingBarriers(BCHUNK_TRACK_STRAMING_BARRIERS, LoaderTrackStreamer, UnloaderTrackStreamer);
+#ifdef EA_BUILD_A124
+// gcdatos13: entera solo en la A124, tras bChunkLoaderTrackStreamingBarriers (0x6306d0,
+// 28 B, PS2_globals.hpp:5587), cadenas leidas de su .data/.rodata objetivo en el orden
+// del enum de fases; el switch de GetLoadingPhaseName devuelve las mismas. En GC queda
+// el elemento [6] cadaver (gcdatos9) y en SLUS/X360 no hay simbolo. En PC si existe,
+// tras TrackPathZoneTypeNames (symbols.json, addr 9445668).
+static char *LoadingPhaseNames[7] = {"LOADING_IDLE", "ALLOCATING_TEXTURE_SECTIONS",
+                                     "LOADING_TEXTURE_SECTIONS", "ALLOCATING_GEOMETRY_SECTIONS",
+                                     "LOADING_GEOMETRY_SECTIONS", "ALLOCATING_REGULAR_SECTIONS",
+                                     "LOADING_REGULAR_SECTIONS"};
+#endif
+int ForceHoleFillerMethod = (int)0xFFFFFFFF;
 
-unsigned int PlotLoadingMarker(const char *layer_name, const bVector2 *begin_position, const bVector2 *end_position, float load_time) {}
+// gcdatos4: la PlotLoadingMarker libre estaba vacia en el arbol. En el DWARF-1
+// de la CU zTrack su DIE de definicion (.debug+0x4098A65, low_pc=-1, sin
+// AT_inline, subarbol de 1808 B) va en este punto, antes de TSMemoryNode, con
+// locales dir/end (bVector2), pos (FloatVector) y face (FloatVector[4]), e
+// inlines bVector2::operator-, bVector2(float,float), espCreateObjectAsync,
+// espCreateUserMesh, espSetUserMeshFace, TrackStreamer::GetCurrentZoneName,
+// espSetAttributeString y espSetAttributeFloat x2. Sus literales son el bloque
+// obj+0x688..0x6C8 ("TrackStreamingLoadedZonePoint", "Zone", "LoadTime",
+// "Time" y un unico flotante 0.5f), justo antes del "CODEINE" de TSMemoryPool.
+// Como AssessWeather (gcdatos4): definicion normal sin llamantes vivos (su
+// unico llamante es la rama muerta de TrackStreamer::PlotLoadingMarker y los
+// esp* son inlines vacios en retail), cuyo codigo elimino el enlazador MW
+// dejando el pool. La aritmetica de vertices no esta en la evidencia; el
+// cuerpo sigue el esqueleto del DIE (locales, inlines en orden, cadenas y el
+// 0.5f) y la convencion de handle 1 de los demas esp* de este fichero.
+unsigned int PlotLoadingMarker(const char *layer_name, const bVector2 *begin_position, const bVector2 *end_position, float load_time) {
+    bVector2 dir = *end_position - *begin_position;
+    bVector2 end = bVector2(dir.x * 0.5f, dir.y * 0.5f);
+    FloatVector pos;
+    pos.x = begin_position->x + end.x;
+    pos.y = begin_position->y + end.y;
+    FloatVector face[4];
+    face[0].x = -end.x;
+    face[0].y = -end.y;
+    face[1].x = -end.x;
+    face[1].y = -end.y;
+    face[2].x = end.x;
+    face[2].y = end.y;
+    face[3].x = end.x;
+    face[3].y = end.y;
+    espCreateObjectAsync(layer_name, "TrackStreamingLoadedZonePoint", &pos);
+    espCreateUserMesh(1, 1);
+    espSetUserMeshFace(1, 0, face);
+    espSetAttributeString(1, "Zone", TheTrackStreamer.GetCurrentZoneName());
+    espSetAttributeFloat(1, "LoadTime", load_time);
+    espSetAttributeFloat(1, "Time", GetDebugRealTime());
+    return 1;
+}
 
 // total size: 0x34
 class TSMemoryNode : public bTNode<TSMemoryNode> {
@@ -240,7 +292,11 @@ void TSMemoryPool::RemoveNode(TSMemoryNode *node) {
 void *TSMemoryPool::Malloc(int size, const char *debug_name, bool best_fit, bool allocate_from_top, intptr_t address) {
     TSMemoryNode *found_node = nullptr;
 
+#ifdef EA_PLATFORM_XENON // X360: addi 0xfff en 0x824F21CC y mascara ~0xfff en 0x824F21E0
+    size = (size + 0xfff) & ~0xfff;
+#else
     size = (size + 0x7f) & ~0x7f;
+#endif
 
     if (address != 0) {
         for (TSMemoryNode *node = NodeList.GetHead(); node != NodeList.EndOfList(); node = node->GetNext()) {
@@ -291,10 +347,16 @@ void *TSMemoryPool::Malloc(int size, const char *debug_name, bool best_fit, bool
     TSMemoryNode *new_node = GetNewNode(address, size, true, debug_name);
     new_node->AddAfter(found_node);
 
+#ifdef EA_PLATFORM_XENON // X360: subf. con record en 0x824F23F0 (guarda en Size y prueba el campo)
+    int new_top_size = found_node->Address + found_node->Size - (address + size);
+    found_node->Size = address - found_node->Address;
+    if (found_node->Size == 0) {
+#else
     int new_bottom_size = address - found_node->Address;
     int new_top_size = found_node->Address + found_node->Size - (address + size);
     found_node->Size = new_bottom_size;
     if (new_bottom_size == 0) {
+#endif
         NodeList.Remove(found_node);
         RemoveNode(found_node);
     }
@@ -383,8 +445,8 @@ int TSMemoryPool::GetLargestFreeBlock() {
                 largest_free = node->Size;
             }
         }
-        LargestFree = largest_free;
         NeedToRecalcLargestFree = false;
+        LargestFree = largest_free;
     }
 
     int largest_free = 0;
@@ -442,8 +504,11 @@ unsigned int TSMemoryPool::GetPoolChecksum() {
 
 void TSMemoryPool::DebugPrint() {
     for (TSMemoryNode *node = NodeList.GetHead(); node != NodeList.EndOfList(); node = node->GetNext()) {
-        const char *name = node->DebugName;
-        node->IsAllocated();
+        // gcdatos4: el DIE original (.debug+0x409EC14) trae `name` con la
+        // ubicacion vacia y el inline IsAllocated dentro del bloque: el nombre
+        // de los nodos libres es el literal "**** FREE *****" de obj+0x6D0,
+        // entre el "CODEINE" del constructor y "Track Streaming Buffer".
+        const char *name = node->IsAllocated() ? node->DebugName : "**** FREE *****";
     }
 }
 
@@ -507,7 +572,13 @@ TrackStreamer::TrackStreamer() {
 // Definida detras del constructor: el constructor todavia no ha visto el cuerpo
 // y la llama fuera de linea; las funciones de despues la inlinean.
 inline void bBitTable::ClearTable() {
+#ifdef EA_PLATFORM_WIN32
+    // PC: el memset intrinseco (rep stosd, speed.exe 0x723996); bMemZero (bMath.hpp) se lee antes que la macro
+    // bMemSet de bWare.hpp y llamaria a la funcion
+    bMemSet(Bits, 0, NumBits >> 3);
+#else
     bMemZero(Bits, NumBits >> 3);
+#endif
 }
 
 int TrackStreamer::Loader(bChunk *chunk) {
@@ -646,6 +717,18 @@ void TrackStreamer::InitMemoryPool(int size) {
 #endif
 }
 
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40A01A8 con low_pc=-1,
+// entre InitMemoryPool y GetMemoryPoolSize; la A124 la trae igual, 84 B de codigo PS2
+// eliminado por el enlazador, lineas 258-260 de su TrackStreamer.cpp: dos lineas de
+// cuerpo tras la cabecera). Existen la declaracion (TrackStreamer.hpp:180) y su DIE
+// (sin locales ni inlines; this en registro callee-saved: hay llamadas). El cuerpo es
+// el espejo de InitMemoryPool (bFree + delete); el orden exacto no esta en la
+// evidencia y la funcion no emite en ningun retail.
+void TrackStreamer::CloseMemoryPool() {
+    bFree(pMemoryPoolMem);
+    delete pMemoryPool;
+}
+
 int TrackStreamer::GetMemoryPoolSize() {
     if (pMemoryPool->IsUpdated()) {
         UserMemoryAllocationSize = CountUserAllocations(nullptr);
@@ -677,6 +760,32 @@ int TrackStreamer::CountUserAllocations(const char **pfragmented_user_allocation
     }
 
     return user_allocation_size;
+}
+
+// gcdatos6: sin llamantes en ninguna version (DIEs de GC .debug+0x40A04C4/0x40A058C
+// con low_pc=-1, entre CountUserAllocations y FindSection; la A124 las trae igual,
+// 48 B de codigo PS2 eliminado cada una, lineas 272-275/276-278 de su
+// TrackStreamer.cpp). Existen las declaraciones (TrackStreamer.hpp:190/192) y sus
+// DIEs (unico local `n` en un bloque, this/section_number en registros de argumento:
+// sin llamadas). La tabla es KeepSectionTable[4] con 0 como hueco libre (ctor l.539 y
+// el bucle gemelo de DetermineStreamingSections); break frente a seguir el bucle no
+// esta en la evidencia y ninguna de las dos emite en ningun retail.
+void TrackStreamer::AddKeepSection(int section_number) {
+    for (int n = 0; n < 4; n++) {
+        if (KeepSectionTable[n] == 0) {
+            KeepSectionTable[n] = static_cast<short>(section_number);
+            break;
+        }
+    }
+}
+
+void TrackStreamer::RemoveKeepSection(int section_number) {
+    for (int n = 0; n < 4; n++) {
+        if (KeepSectionTable[n] == section_number) {
+            KeepSectionTable[n] = 0;
+            return;
+        }
+    }
 }
 
 TrackStreamingSection *TrackStreamer::FindSection(int section_number) {
@@ -725,8 +834,8 @@ void TrackStreamer::InitRegion(const char *region_stream_filename, bool split_sc
     bool flush_hibernating_sections = false;
 
     if (SplitScreen != split_screen) {
-        SplitScreen = split_screen;
         flush_hibernating_sections = true;
+        SplitScreen = split_screen;
     }
     if (!bStrEqual(StreamFilenames[1], region_stream_filename)) {
         flush_hibernating_sections = true;
@@ -735,6 +844,11 @@ void TrackStreamer::InitRegion(const char *region_stream_filename, bool split_sc
     if (flush_hibernating_sections) {
         FlushHibernatingSections();
     }
+#ifdef EA_PLATFORM_XENON
+    if (SkipFE) {
+        StartPermFileLoading("Tracks\\StreamL2RA_Perm.bun");
+    }
+#endif
 #ifndef EA_BUILD_A124
     if (PermFileLoading) {
         BlockWhileQueuedFileBusy();
@@ -770,6 +884,28 @@ void TrackStreamer::InitRegion(const char *region_stream_filename, bool split_sc
 
     EmptyCaffeineLayers();
 }
+
+#ifdef EA_PLATFORM_XENON
+void TrackStreamer::StartPermFileLoading(const char *filename) {
+    if (!PermFilename) {
+        PermFileLoading = true;
+        PermFilename = filename;
+        PermFileSize = bFileSize(filename);
+        PermFileChunks = static_cast<bChunk *>(
+            bMalloc(PermFileSize, PermFilename, 0, BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) + BMEMORY_ALLOCATE_FROM_TOP + BMEMORY_POOL(7)));
+        QueuedFileParams params;
+        params.Priority = 0;
+        params.BlockSize = 0x400000;
+        AddQueuedFile(PermFileChunks, PermFilename, 0, PermFileSize, PermFileLoadedCallback, reinterpret_cast<intptr_t>(this), &params);
+    }
+}
+
+void TrackStreamer::PermFileLoadedCallback() {
+    EndianSwapChunkHeadersRecursive(PermFileChunks, GetLastChunk(PermFileChunks, PermFileSize));
+    LoadChunks(PermFileChunks, PermFileSize, PermFilename);
+    PermFileLoading = false;
+}
+#endif
 
 // UNSOLVED because it's empty and the stack is too small
 void TrackStreamer::HibernateStreamingSections() {
@@ -845,7 +981,7 @@ void TrackStreamer::LoadSection(TrackStreamingSection *section) {
                   reinterpret_cast<intptr_t>(section), nullptr);
 #else
     if (section->CompressedSize == section->Size) {
-        AddQueuedFile(section->pMemory, StreamFilenames[section->FileType], section->FileOffset, section->CompressedSize, SectionLoadedCallback,
+        AddQueuedFile(section->pMemory, StreamFilenames[section->FileType], section->FileOffset, section->Size, SectionLoadedCallback,
                       reinterpret_cast<intptr_t>(section), nullptr);
     }
 #ifndef EA_PLATFORM_PLAYSTATION2 // SLUS no carga secciones comprimidas
@@ -888,6 +1024,10 @@ void TrackStreamer::UnactivateSection(TrackStreamingSection *section) {
     EnableWaitUntilRenderingDone();
     NumSectionsActivated--;
     section->Status = TrackStreamingSection::LOADED;
+#ifdef EA_PLATFORM_WIN32
+    // PC no guarda las secciones cargadas que dejan de estar activas: las suelta en el acto (speed.exe 0x72C347)
+    UnloadSection(section);
+#endif
 }
 
 bool TrackStreamer::WillUnloadBlock(TrackStreamingSection *section) {
@@ -991,6 +1131,36 @@ void TrackStreamer::EmptyCaffeineLayers() {
     }
 }
 
+// gcdatos3: GetLoadingPhaseName/GetPrintHeader estaban declarados en
+// TrackStreamer.hpp:213/217 y no definidos en el arbol. En el DWARF-1 de la CU zTrack
+// sus DIE de definicion (low_pc=-1, sin copia fuera de linea en ninguna version) van
+// entre EmptyCaffeineLayers y SetLoadingPhase y tras SetLoadingPhase, y sus literales
+// son el bloque de 204 B en obj+0x7B8..0x884. Forma Z1: inline en el .cpp, sin uso.
+// Medido x5 (doble, asentado): zTrack .rodata GC 79,3575->83,0973 %, falta -204 B,
+// codigo/fn identicos en las 5 versiones. El hunk entro como prueba de receta para el
+// carril World y lo commiteo el coordinador en 1cb062684; la prueba quedo validada
+// despues (docs/analisis/2026-10-18_gcdatos3.md).
+inline char *TrackStreamer::GetLoadingPhaseName(eLoadingPhase phase) {
+    switch (phase) {
+        case LOADING_IDLE:
+            return "LOADING_IDLE";
+        case ALLOCATING_TEXTURE_SECTIONS:
+            return "ALLOCATING_TEXTURE_SECTIONS";
+        case LOADING_TEXTURE_SECTIONS:
+            return "LOADING_TEXTURE_SECTIONS";
+        case ALLOCATING_GEOMETRY_SECTIONS:
+            return "ALLOCATING_GEOMETRY_SECTIONS";
+        case LOADING_GEOMETRY_SECTIONS:
+            return "LOADING_GEOMETRY_SECTIONS";
+        case ALLOCATING_REGULAR_SECTIONS:
+            return "ALLOCATING_REGULAR_SECTIONS";
+        case LOADING_REGULAR_SECTIONS:
+            return "LOADING_REGULAR_SECTIONS";
+        default:
+            return "LOADING_IDLE";
+    }
+}
+
 void TrackStreamer::SetLoadingPhase(eLoadingPhase phase) {
     LoadingPhase = phase;
     if (phase == LOADING_IDLE || phase == LOADING_REGULAR_SECTIONS) {
@@ -998,6 +1168,10 @@ void TrackStreamer::SetLoadingPhase(eLoadingPhase phase) {
     } else {
         SetQueuedFileMinPriority(QueuedFileDefaultPriority);
     }
+}
+
+inline const char *TrackStreamer::GetPrintHeader() {
+    return "TRACKSTREAMER: ";
 }
 
 int TrackStreamer::UnloadLeastRecentlyUsedSection() {
@@ -1225,7 +1399,7 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
             bool start_from_top = true;
             bool done;
             bool found_one;
-            bool skip_flag;
+            bool skip_flag = false; // muerta, pero cuenta en el umbral de loop.c con vf31 (diario ps2a12475)
             bool first_pass;
             bool largest_flag;
             bool found_big_enough = false;
@@ -1396,6 +1570,12 @@ int TrackStreamer::BuildHoleMovements(HoleMovement *hole_movements, int max_move
 }
 
 int TrackStreamer::DoHoleFilling(int largest_free) {
+#ifdef EA_PLATFORM_WIN32
+    // PC no rellena huecos: DoHoleFilling es `xor eax, eax; ret 4` (0x72FB90), BuildHoleMovements (0x72F400) no la
+    // llama nadie, HandleMemoryAllocation (0x72FBA0) no tiene el relleno y MakeSpaceInPool (0x730BF0) solo deja
+    // ForceHoleFillerMethod a -1.
+    return 0;
+#endif
     ProfileNode profile_node;
     const char *fragmented_user_allocation;
     HoleMovement hole_movement_table[128];
@@ -1506,6 +1686,17 @@ void TrackStreamer::SetStreamingPosition(int position_number, const bVector3 *po
     position_entry->PredictedZoneValidTime = -1;
     position_entry->PredictedZone = 0;
     CurrentZoneNeedsRefreshing = true;
+}
+
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40A4DFB con low_pc=-1,
+// entre la version bVector3 y PredictStreamingPosition; la A124 la trae igual, 48 B de
+// codigo PS2 eliminado, su linea 554). Existen la declaracion (TrackStreamer.hpp:249)
+// y su DIE (unico local position3d en pila e inline bVector3(float,float,float) ->
+// bFill): convierte a bVector3 (x, y, 0.0f, el mismo reparto que la version bVector3
+// hace sobre Position/Elevation) y delega. Su 0.0f es el del pool en obj+0x8AC.
+void TrackStreamer::SetStreamingPosition(int position_number, const bVector2 *position) {
+    bVector3 position3d(position->x, position->y, 0.0f);
+    SetStreamingPosition(position_number, &position3d);
 }
 
 void TrackStreamer::PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction
@@ -1650,9 +1841,9 @@ void TrackStreamer::AddCurrentStreamingSections(short *sections_to_load, int num
         }
 
         // can this be simplified?
-        if (((section->CurrentlyVisible >> position_number) ^ 1U) & 1) {
+        if (!(section->CurrentlyVisible & (1 << position_number))) {
             section->CurrentlyVisible |= static_cast<unsigned char>(1 << position_number);
-            if (section->Status < TrackStreamingSection::LOADED) {
+            if (section->Status <= TrackStreamingSection::LOADING) {
                 StreamingPositionEntry *position_entry = &StreamingPositionEntries[position_number];
                 position_entry->NumSectionsToLoad++;
                 position_entry->AmountToLoad += section->Size;
@@ -1733,13 +1924,11 @@ int TrackStreamer::AllocateSectionMemory(int *ptotal_needing_allocation) {
                         DiscBundleSectionMember *member = &disc_bundle->Members[i];
                         TrackStreamingSection *section = member->pSection;
 
-                        num_sections_allocated++;
                         section->pDiscBundle = disc_bundle;
-
-                        void *realloc_mem = pmemory + member->FileOffset * 0x80;
+                        section->pMemory = pmemory + member->FileOffset * 0x80;
                         section->Status = TrackStreamingSection::ALLOCATED;
-                        section->pMemory = realloc_mem;
-                        pMemoryPool->Malloc(section->Size, disc_bundle->SectionName, false, false, reinterpret_cast<intptr_t>(realloc_mem));
+                        pMemoryPool->Malloc(section->Size, disc_bundle->SectionName, false, false, reinterpret_cast<intptr_t>(section->pMemory));
+                        num_sections_allocated++;
                     }
 
                     total_needing_allocation += disc_bundle->FileSize;
@@ -1773,17 +1962,24 @@ int TrackStreamer::AllocateSectionMemory(int *ptotal_needing_allocation) {
         }
 
         total_needing_allocation += section->Size;
-        if (section->Size > bLargestMalloc(7)) {
-            out_of_memory_size += section->Size;
-            NumSectionsOutOfMemory++;
-        } else {
-            num_sections_allocated++;
+        if (section->Size <= bLargestMalloc(7)) {
             section->pMemory = AllocateMemory(section, 0x80);
             section->Status = TrackStreamingSection::ALLOCATED;
+            num_sections_allocated++;
+            // PC asigna las secciones de dos en dos (speed.exe 0x728351, `cmp eax, 1`): cada una se activa y suelta su
+            // parte temporal (LoadTempPermChunks) antes de pedir las siguientes, asi que la zona cabe aunque la suma de
+            // los Size no quepa en el pool.
+#ifdef EA_PLATFORM_WIN32
+            if (num_sections_allocated > 1) {
+#else
             if (num_sections_allocated > 99999) {
+#endif
                 CurrentZoneAllocatedButIncomplete = true;
                 return out_of_memory_size;
             }
+        } else {
+            out_of_memory_size += section->Size;
+            NumSectionsOutOfMemory++;
         }
     }
 
@@ -1829,7 +2025,7 @@ bool TrackStreamer::HandleMemoryAllocation() {
             if (total_amount_unloaded > 0x7FFFFFFF || total_amount_hole_filled > 0x200000) {
                 return false;
             }
-            if (NumSectionsMoved > 15) {
+            if (NumSectionsMoved >= 16) {
                 return false;
             }
 
@@ -1926,11 +2122,20 @@ bool TrackStreamer::MakeSpaceInPool(int size, bool force_unloading) {
     ForceHoleFillerMethod = 0;
     DoHoleFilling(0x7FFFFFFF);
     ForceHoleFillerMethod = -1;
-    return size <= bLargestMalloc(7);
+    bool fits = size <= bLargestMalloc(7);
+    return fits;
 }
 
 void TrackStreamer::MakeSpaceInPool(int size, void (*callback)(intptr_t), intptr_t param) {
-#ifndef EA_BUILD_A124
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 milestone (EGM 0x824F5C20-0x824F5C48): en reposo no deberia haber carga en curso; la cadena esta
+    // en 0x8209EA80. En las demas solo queda la llamada muerta a IsLoadingInProgress.
+    if (LoadingPhase == LOADING_IDLE) {
+        if (IsLoadingInProgress()) {
+            bReleasePrintf("WARNING:  Unexpected state in TrackStreamer::MakeSpaceInPool()\n");
+        }
+    }
+#elif !defined(EA_BUILD_A124)
     if (LoadingPhase == LOADING_IDLE) {
         IsLoadingInProgress();
     }
@@ -1996,7 +2201,8 @@ bool TrackStreamer::DetermineCurrentZones(short *current_zones) {
         current_zones[position_number] = zone_number;
     }
 
-    return current_zones_different | CurrentZoneNeedsRefreshing;
+    current_zones_different |= CurrentZoneNeedsRefreshing;
+    return current_zones_different;
 }
 
 void TrackStreamer::ServiceGameState() {
@@ -2014,6 +2220,17 @@ void TrackStreamer::ServiceGameState() {
         section->WasRendered = 0;
     }
 }
+
+#ifndef EA_BUILD_A124
+// gcdatos6: sin llamantes (DIE de GC .debug+0x40A7CE3 con low_pc=-1, entre
+// ServiceGameState y ServiceNonGameState; la A124 ni la declara, verificado en sus
+// stabs de clase). Existen la declaracion (TrackStreamer.hpp:288) y su DIE (sin
+// locales ni inlines, this en r3: una sola llamada en cola). El cuerpo delega en
+// TSMemoryPool::DebugPrint, como el llamante vivo del mismo fichero.
+void TrackStreamer::PrintMemoryPool() {
+    pMemoryPool->DebugPrint();
+}
+#endif
 
 void TrackStreamer::ServiceNonGameState() {
     ProfileNode profile_node;
@@ -2066,6 +2283,16 @@ void TrackStreamer::RefreshLoading() {
         position_entry->PredictedZoneValidTime = -1;
     }
     HandleZoneSwitching();
+}
+
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40A81B6 con low_pc=-1,
+// entre RefreshLoading y HandleZoneSwitching; la A124 la trae igual, 12 B de codigo
+// PS2 eliminado: dos almacenes y retorno). Existen la declaracion
+// (TrackStreamer.hpp:302) y su DIE (sin locales; this/callback/param en r3/r4/r5):
+// guarda en pCallback/CallbackParam, los miembros que FinishedLoading consume.
+void TrackStreamer::SetLoadingCallback(void (*callback)(intptr_t), intptr_t param) {
+    pCallback = callback;
+    CallbackParam = param;
 }
 
 void TrackStreamer::HandleZoneSwitching() {
@@ -2121,7 +2348,7 @@ void TrackStreamer::SwitchZones(short *current_zones) {
             bSPrintf(CurrentZoneName, "%s - %s", CurrentZoneName, GetScenerySectionName(zone_number));
         }
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     Juice::GameHook::Instance()->AssetHit("DRIVEN_SECTIONS", CurrentZoneName);
 #endif
 
@@ -2269,7 +2496,7 @@ int TrackStreamer::GetLoadingPriority(TrackStreamingSection *section, StreamingP
     angle_factor *= speed_factor;
     angle_factor = 1.0f - angle_factor * 0.66999996f;
     float adjusted_distance = distance * angle_factor;
-    int priority = bClamp(static_cast<int>(adjusted_distance * 0.013333334f), 0, 2);
+    int priority = bClamp(bFloatToInt(adjusted_distance * 0.013333334f), 0, 2);
 
     // TODO
     if (RemoteCaffeinating && TrackStreamerRemoteCaffeinating) {
@@ -2350,7 +2577,7 @@ void TrackStreamer::AssignLoadingPriority() {
         int best_priority = 99;
         for (int position_number = 0; position_number < 2; position_number++) {
             StreamingPositionEntry *position_entry = &StreamingPositionEntries[position_number];
-            if ((section->CurrentlyVisible >> position_number) & 1) {
+            if (section->CurrentlyVisible & (1 << position_number)) {
                 {
                     int priority = GetLoadingPriority(section, position_entry, false);
                     if (priority < best_priority) {
@@ -2372,6 +2599,8 @@ void TrackStreamer::CalculateLoadingBacklog() {
             if (section->Status != TrackStreamingSection::LOADED && section->Status != TrackStreamingSection::ACTIVATED) {
 #ifdef EA_PLATFORM_PLAYSTATION2
                 float time = static_cast<float>(section->Size / 1024) * 0.0004f + 0.2f;
+#elif defined(EA_PLATFORM_WIN32)
+                float time = static_cast<float>(section->Size / 1024) * 0.0004f; // speed.exe 0x723AD0: sin termino fijo
 #else
                 float time = static_cast<float>(section->Size / 1024) * 0.0004f + 0.15f;
 #endif
@@ -2584,12 +2813,25 @@ void TrackStreamer::UnloadEverything() {
 
     for (int n = 0; n < NumTrackStreamingSections; n++) {
         TrackStreamingSection *section = &pTrackStreamingSections[n];
-        // TODO
-        if (section->Status >= TrackStreamingSection::LOADED && section->Status <= TrackStreamingSection::ACTIVATED) {
+        if (section->Status == TrackStreamingSection::LOADED || section->Status == TrackStreamingSection::ACTIVATED) {
             UnloadSection(section);
         }
     }
 
     FreeSectionMemory();
     ClearCurrentZones();
+}
+
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40ABB6C con low_pc=-1,
+// la ultima funcion del fichero tras UnloadEverything; la A124 la trae igual, 104 B de
+// codigo PS2 eliminado, lineas 1041-1045 de su TrackStreamer.cpp). Existen la
+// declaracion (TrackStreamer.hpp:332) y su DIE (unico local `section`, this y
+// section_number en registros callee-saved: hay llamadas). El esqueleto es
+// FindSection + UnloadSection sobre el local; la guarda exacta no esta en la evidencia
+// y la funcion no emite en ningun retail.
+void TrackStreamer::ForceSectionToUnload(int section_number) {
+    TrackStreamingSection *section = FindSection(section_number);
+    if (section) {
+        UnloadSection(section);
+    }
 }

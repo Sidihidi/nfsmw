@@ -129,7 +129,7 @@ PUJunkNode::PUJunkNode(const Attrib::RefSpec &part, const Attrib::Gen::junkman &
             if (attrib.Get(i, mod)) {
                 Attrib::Attribute junk_attribute = Get(mod.DefinitionKey);
                 unsigned int junk_length = junk_attribute.GetLength();
-                if (junk_length != 0) {
+                if (junk_length > 0) {
                     Add(mod.DefinitionKey, junk_length);
                     Attrib::Attribute scaled_attribute = Get(mod.DefinitionKey);
                     unsigned int type = scaled_attribute.GetType();
@@ -187,7 +187,7 @@ PUPartNode::PUPartNode(const Attrib::RefSpec &collection0, const Attrib::RefSpec
                     continue;
                 }
 
-                if (count != 0) {
+                if (count > 0) {
                     Add(key, count);
                     Attrib::Attribute new_attrib = Get(key);
                     unsigned int type = start_attribute.GetType();
@@ -506,7 +506,7 @@ int GetMaxLevel(const Attrib::Gen::pvehicle &vehicle, Type type) {
 
 bool SetMaximum(Attrib::Gen::pvehicle &vehicle) {
     Package package;
-    for (int i = 0; i <= 6; i++) {
+    for (int i = 0; i < 7; i++) {
         package.Part[i] = GetMaxLevel(vehicle, (Type)i);
     }
     return SetPackage(vehicle, package);
@@ -657,7 +657,7 @@ bool MatchPerformance(Attrib::Gen::pvehicle &vehicle, const Physics::Info::Perfo
     match_line.TopSpeed = Ramp(matched_performance.TopSpeed, stock_performance.TopSpeed, upgraded_performance.TopSpeed);
     match_line.Handling = Ramp(matched_performance.Handling, stock_performance.Handling, upgraded_performance.Handling);
 
-    for (int i = 0; i <= 6; i++) {
+    for (int i = 0; i < 7; i++) {
         Type type = (Type)i;
         float weight;
         switch (type) {

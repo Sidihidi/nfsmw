@@ -57,6 +57,13 @@ ScheduledSpeechEvent::~ScheduledSpeechEvent() {
     this->curndx = 0;
     SampleReqList &requests = Manager::GetSampleRequests();
     if (requests.size() != 0) {
+#ifdef EA_BUILD_A124 // la A124 deja la peticion y solo le quita el dueno
+        for (SampleReqList::iterator i = requests.begin(); i != requests.end(); ++i) {
+            if (i->owner == this) {
+                i->owner = nullptr;
+            }
+        }
+#else
         for (SampleReqList::iterator i = requests.begin(); i != requests.end();) {
             if (i->owner == this) {
                 requests.erase(i);
@@ -64,6 +71,7 @@ ScheduledSpeechEvent::~ScheduledSpeechEvent() {
                 ++i;
             }
         }
+#endif
     }
 }
 
@@ -81,6 +89,13 @@ void *ScheduledSpeechEvent::operator new(unsigned int base_size, unsigned int xt
 }
 
 void ScheduledSpeechEvent::operator delete(void *ptr) {
+    gSpeechCache.GetEventPool()->Free(ptr);
+}
+
+// La pareja del operator new de dos argumentos (DWARF de GC: declarada tras la de uno y definida aqui, sin rango
+// porque el enlace la estripa). En PC la llama el desenrollado de `new (size) ScheduledSpeechEvent()` si el
+// constructor lanza (speed.exe 0x4B1D00, desde el funclet de ScheduleSpeechPartII).
+void ScheduledSpeechEvent::operator delete(void *ptr, unsigned int xtra) {
     gSpeechCache.GetEventPool()->Free(ptr);
 }
 

@@ -49,20 +49,18 @@ int UpgradeIntervals(int phys_cur_upgrade, int phys_num_upgrades, int aud_num_up
     int aud_engine_upgrade = 0;
     int NumEngine;
 
-    if (base_upgrade < 3) {
-        if (base_upgrade > 0) {
-            if (base_upgrade + curupgade_offset >= 3) {
-                aud_engine_upgrade = 1;
-            } else {
-                aud_engine_upgrade = 0;
-            }
-        } else {
-            NumEngine = base_upgrade + curupgade_offset;
-            if (NumEngine >= 3) {
-                aud_engine_upgrade = 2;
-            } else if (NumEngine > 0) {
-                aud_engine_upgrade = 1;
-            }
+    if (base_upgrade >= 3) {
+        aud_engine_upgrade = 0;
+    } else if (base_upgrade >= 1) {
+        if (base_upgrade + curupgade_offset >= 3) {
+            aud_engine_upgrade = 1;
+        }
+    } else {
+        NumEngine = base_upgrade + curupgade_offset;
+        if (NumEngine >= 3) {
+            aud_engine_upgrade = 2;
+        } else if (NumEngine >= 1) {
+            aud_engine_upgrade = 1;
         }
     }
 
@@ -170,7 +168,16 @@ void EAXCar::ProcessUpdate() {
     }
 }
 
+// gcdatos16/17: a 0 en posicion de fuente en las DOS PS2, no en el bloque tentativo
+// del final donde las manda el PS2 sin inicializar. A124: zEAXSound2 .data +0xd8 =
+// 0x5e4988, PS2_globals.hpp:1220. SLUS: +0xd8 = 0x541278 (el bloque D_00541278 de 16 B
+// justo tras _6EAXCar$s_StateInfo, que es su hueco en el objetivo). En las demas
+// versiones sigue igual: GC la retiene en .bss y el DOL no se mueve.
+#ifdef EA_PLATFORM_PLAYSTATION2
+int PRINT_PERFORMANCE_LVL = 0; // size: 0x4, address: 0xFFFFFFFF, Decl: 337
+#else
 int PRINT_PERFORMANCE_LVL; // size: 0x4, address: 0xFFFFFFFF, Decl: 337
+#endif
 
 void EAXCar::UpdateParams(float t) {
     if (this->GetPhysCar() != nullptr) {

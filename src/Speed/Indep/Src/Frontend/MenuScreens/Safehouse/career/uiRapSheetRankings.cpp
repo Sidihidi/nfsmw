@@ -12,7 +12,13 @@
 
 bool uiRapSheetRankings::career_view = false;
 
-uiRapSheetRankings::uiRapSheetRankings(ScreenConstructorData *sd) : MenuScreen(sd), button_pressed(0), init_button(0) {
+uiRapSheetRankings::uiRapSheetRankings(ScreenConstructorData *sd)
+    : MenuScreen(sd), button_pressed(0), init_button(0)
+#ifdef EA_PLATFORM_WIN32
+      ,
+      highlighted_button(0)
+#endif
+{
     Setup();
 }
 
@@ -21,6 +27,22 @@ void uiRapSheetRankings::NotificationMessage(u32 msg, FEObject *pobj, u32 param1
         case __BUTTON_PRESSED__:
             button_pressed = pobj->NameHash;
             break;
+#ifdef EA_PLATFORM_WIN32
+        // speed.exe 0x550E50: the mouse
+        case 0x08B84A5C:
+            button_pressed = FEngGetCurrentButton(GetPackageName())->NameHash;
+            break;
+        case 0x7EABCA56:
+            if (highlighted_button != pobj->NameHash) {
+                FEngSetCurrentButton(GetPackageName(), pobj->NameHash);
+            } else {
+                cFEng::Get()->QueuePackageMessage(__BUTTON_PRESSED__, GetPackageName(), pobj);
+            }
+            break;
+        case 0xABC08912:
+            highlighted_button = pobj->NameHash;
+            break;
+#endif
         case __PAD_BUTTON5__:
             career_view = !career_view;
             Setup();

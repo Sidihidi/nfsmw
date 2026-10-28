@@ -17,6 +17,7 @@ GameCube, la A124 y SLUS sin tocar el arbol. Lo que sale bien se aplica despues 
     --sombra   un directorio con la forma de src/ cuyas cabeceras tapan a las del arbol (va antes que todo -I)
     --extra    flags propios de la unidad, entre comillas (p. ej. --extra="-mps-float" para zEcstasy en GC)
     --conservar  no borra al terminar la SourceList de prueba, su preprocesado, el objeto ni los JSON
+    --asm=RUTA   compila tambien con -save-temps y deja el .s (con los stabs) en RUTA (scripts/estructura.py)
 
 Los #include "x.h" relativos de las copias se resuelven en el directorio del fichero original. Los flags son los de
 las unidades de juego de configure.py (cflags_game de GC y de PS2); las unidades con flags propios (middleware,
@@ -94,7 +95,9 @@ else:
     cflags += ['-DEA_REGION_EUROPE'] if A124 else ['-DEA_REGION_AMERICA']
     cflags += ['-I', absi('build/%s/include' % V), '-DBUILD_VERSION=%d' % (2 if A124 else 3)]
     cflags += ['-G0', '-ffast-math', '-fno-exceptions', '-fno-rtti', '-DLUA_NUMBER=float']
-    cflags += ['-mvu0-use-vf0-vf15']  # vu0_ps2 de configure.py: las unidades de juego de PS2 lo llevan
+    # vu0_ps2 de configure.py: desde la ronda 76 todas las unidades de juego de PS2 llevan los 32 registros VU0
+    # (decision del usuario); con vf15, que es lo que habia aqui, el banco media otra linea de ordenes que la medida.
+    cflags += ['-mvu0-use-vf0-vf31']
     cflags += (['-DMILESTONE_BUILD'] if A124 else []) + ['-DDEFAULT_ALLOCATOR=0', '-DUSEREALCORE']
     cflags += incs(COMUNES) + ['-x', 'c++']
 
@@ -117,10 +120,20 @@ for rel, copia in zip(RELS, COPIAS):
 etiqueta = '+'.join(os.path.splitext(os.path.basename(c))[0] for c in COPIAS)[:80]
 # La version va en el nombre: dos banco a la vez con la misma SourceList y la misma copia en dos versiones
 # escribian la misma SourceList de prueba y daban errores de compilacion falsos.
-fuente = '%s__%s_%s.cpp' % (SL, etiqueta, V)
+# Y el PID: dos banco a la vez con una copia del MISMO nombre en la misma version y unidad se pisaban el objeto y
+# daban el mismo resultado para dos variantes distintas (diario ps2a12475). El nombre de la SourceList de prueba no
+# cambia el codigo: los _GLOBAL_ de las unidades de juego llevan el nombre del primer simbolo global, no el fichero.
+fuente = '%s__%s_%s_%d.cpp' % (SL, etiqueta, V, os.getpid())
 open(os.path.join(B, fuente), 'w', encoding='utf-8').write(texto)
 obj = os.path.join(B, fuente[:-4] + '.o')
 JSONS = []
+ASM = None
+for a in sys.argv[1:]:
+    if a.startswith('--asm='):
+        ASM = os.path.abspath(a.split('=', 1)[1])
+        cflags[-2:-2] = ['-save-temps']
+# -save-temps deja el .s en el directorio del preprocesado (ee_gcc_pp.py compila alli)
+S_TEMP = os.path.join(B, 'pp', fuente[:-4] + '.s')
 
 
 def limpiar():
@@ -128,7 +141,7 @@ def limpiar():
     varios agentes llenaron el disco (19,5 GB en build/banco el 2026-09-23 y todas las compilaciones fallando)."""
     if '--conservar' in sys.argv:
         return
-    for q in [os.path.join(B, fuente), obj, os.path.join(B, 'pp', fuente)] + JSONS:
+    for q in [os.path.join(B, fuente), obj, os.path.join(B, 'pp', fuente), S_TEMP] + JSONS:
         try:
             os.remove(q)
         except OSError:
@@ -149,6 +162,11 @@ if r.returncode or not os.path.exists(obj):
     print(r.stdout[-3000:], r.stderr[-3000:])
     limpiar()
     sys.exit(1)
+if ASM:
+    if os.path.exists(S_TEMP):
+        os.replace(S_TEMP, ASM)
+    else:
+        print('--asm: no se genero %s' % S_TEMP)
 # zOnline y zFeOverlay: el original tiene su codigo en .over en las tres versiones (configure.py les pone
 # section_rename), y objdiff empareja por seccion: sin el cambio de nombre todas sus funciones salian None%.
 if SL in ('zOnline', 'zFeOverlay'):
@@ -160,7 +178,7 @@ orig = os.path.join(RAIZ, 'build', V, 'obj', 'Speed', 'Indep', 'SourceLists', SL
 # su porcentaje y sus instrucciones (0,3 s para zDynamics). Antes era una llamada por simbolo, y una unidad entera
 # (538 funciones de zWorld2) tardaba mas de diez minutos por corrida. Con la etiqueta de la copia en el nombre: dos
 # banco a la vez con copias distintas escribian el mismo JSON.
-out = os.path.join(B, 'd_%s_%s.json' % (V, etiqueta[:40]))
+out = os.path.join(B, 'd_%s_%s_%d.json' % (V, etiqueta[:40], os.getpid()))
 JSONS.append(out)
 r = subprocess.run([os.path.join(RAIZ, 'objdiff-cli-windows-x86_64.exe'), 'diff', '-1', orig, '-2', obj,
                     '-c', 'function_reloc_diffs=none', '-c', 'ppc.calculatePoolRelocations=false',

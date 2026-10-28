@@ -1,6 +1,14 @@
 #include "Speed/Indep/Src/EAXSound/EAXTunerCar.hpp"
 #include "Speed/Indep/Src/Camera/CameraMover.hpp"
 
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, entre EAXTunerCar::s_StateInfo y __audioscrape (0x5e2cf8-0x5e2d00,
+// PS2_globals.hpp:988-990), a 0 en su .data objetivo.
+int ntesthackbullshit = 0;
+int gnTestSoundSphereCrap = 0;
+bool gbTunerCarUpdate = false;
+#endif
+
 STATETYPE_IMPLEMENT(0x00020000, EAXTunerCar, EAXCar)
 
 EAXTunerCar::EAXTunerCar() {

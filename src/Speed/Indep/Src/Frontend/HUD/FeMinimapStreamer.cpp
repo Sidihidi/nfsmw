@@ -93,7 +93,7 @@ void ChoppedMiniMapManager::UncompressMaps(short *chop_nums, int num_chops) {
                 free_map->ChopNum = chop_num;
                 int size = *reinterpret_cast<int *>(reinterpret_cast<char *>(lz_header) + 8);
                 free_map->SizeofChunks = size;
-                free_map->Chunks = static_cast<bChunk *>(bMalloc(size, "MiniMap Chop", 0, 0x2000));
+                free_map->Chunks = static_cast<bChunk *>(bMalloc(size, "MiniMap Chop", 0, BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT)));
                 LZDecompress(reinterpret_cast<unsigned char *>(lz_header), reinterpret_cast<unsigned char *>(free_map->Chunks));
                 LoadEmbeddedChunks(free_map->Chunks, free_map->SizeofChunks, "MiniMap Chop embedded");
             }

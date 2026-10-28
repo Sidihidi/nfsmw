@@ -716,8 +716,9 @@ int *NFSMixMap::AddScaleIDs(stMixCtlParams *pmixctl, int instance) {
 
     for (int n = 0; n < numscale; n++) {
         int ID = *pIDs++;
-        int state = (ID >> 16) & 0xFF;
-        int selfstate = (pmixctl->nINPUTID >> 16) & 0xFF;
+        // Mascara y despues desplazamiento: las PS2 comparan las dos palabras enmascaradas (sin el lbu del byte).
+        int state = (ID & 0xFF0000) >> 16;
+        int selfstate = (pmixctl->nINPUTID & 0xFF0000) >> 16;
 
         if (state != selfstate) {
             for (int m = 0; m < this->m_StateRefCount[state]; m++) {
@@ -754,8 +755,8 @@ int *NFSMixMap::AddScaleIDs(stMixEvtParams *pevtmixctl, int instance) {
 
     for (int n = 0; n < numscale; n++) {
         int ID = *pIDs++;
-        int state = (ID >> 16) & 0xFF;
-        int selfstate = (pevtmixctl->nEVTCTLID >> 16) & 0xFF;
+        int state = (ID & 0xFF0000) >> 16;
+        int selfstate = (pevtmixctl->nEVTCTLID & 0xFF0000) >> 16;
 
         if (state != selfstate) {
             for (int m = 0; m < this->m_StateRefCount[state]; m++) {

@@ -45,10 +45,45 @@
 
 int SuperEasyAIMode = 0;
 int CarControllerDisableCatchup = 0;
+// gcdatos17: extendido a las DOS PS2. En la SLUS el hueco de la zona cero delante de
+// ZeroVector (+0x0..+0x1ac del .data de zWorld) solo cierra si el cluster entero
+// (bBeltMover + PerfectShiftMaxRPMDiff + los seis) esta: 244 B de ranuras + 184 B de
+// cluster = 428 B, el mismo reparto que la A124 (216 + 184 = 400 B); sin el cluster
+// harian falta 412 B de ranuras, el doble que la A124. Ademas la fuente es compartida:
+// el DWARF de GC los declara a todos (mw_dwarfdump) y los stabs de la A124 los tienen
+// en .data (PS2_globals.hpp:5698-5706).
+#ifdef EA_PLATFORM_PLAYSTATION2
+int bBeltMover = 0;
+#endif
 int UseHP2SteeringCode = 0;
+// gcdatos17: idem (PS2_globals.hpp:5700-5705; el DWARF de GC da [9][4], los stabs
+// [4][9]: 0x90 B en los dos).
+#ifdef EA_PLATFORM_PLAYSTATION2
+float PerfectShiftMaxRPMDiff[4][9] = {};
+float fHighDriftAngle = 0.0f;
+float DriftModeYawMinimum = 0.0f;
+char *PersonalityTypeNames[1] = {nullptr};
+struct DifficultyInfo;
+DifficultyInfo *pTheDifficultyInfo = nullptr;
+float ImpactDamageIntensityScale = 0.0f;
+float MinLookaheadDistance = 0.0f;
+#endif
 bVector3 ZeroVector(0.0f, 0.0f, 0.0f);
+// gcdatos17: extendido a las DOS PS2. En la SLUS los 32 B de ceros de +0x1ac
+// (0x59f620) son [ZeroVector 16 B][los cuatro PrintBoost 16 B] y el hueco de 4 B de
+// +0x1d0 (delante de pCurrentWorld, 0x59f648) es TrafficTeleporter: el mismo reparto
+// de la A124 (PS2_globals.hpp:5707-5712).
+#ifdef EA_PLATFORM_PLAYSTATION2
+int PrintBoostCalculationForAllCars = 0;
+int PrintBoostCalculationForThisCar = 0;
+int DoPerformanceSim = 0;
+int PerformanceSimState = 0;
+#endif
 
 float UglyTimestepHack = 1.0f / 60.0f;
+#ifdef EA_PLATFORM_PLAYSTATION2
+float TrafficTeleporterDistanceAroundBubble = 0.0f;
+#endif
 World *pCurrentWorld = nullptr;
 
 int TweakerPauseWorld = 0;
@@ -135,6 +170,13 @@ ControlMode OverridePlayerCarControlMode = NO_CONTROL;
 int PrintWorldObjectDebugInfo = 0;
 int WhichCollisionPredictionIterationToRender = -1;
 int WhichCarsRegisteredDriveTargetToRender = -1;
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, tras WhichCarsRegisteredDriveTargetToRender (0x643ca8-0x643cb0,
+// PS2_globals.hpp:5721-5723), a 0 en su .data objetivo.
+int RenderChosenPotentialDriveTarget = 0;
+int RenderMyCarDriveTarget = 0;
+int RenderOtherCarDriveTarget = 0;
+#endif
 
 // STRIPPED
 void World::DoTimestep(float timestep) {}
@@ -364,11 +406,3 @@ BIND_SIM_SUBSYSTEM(World, World_Init, World_Shutdown);
 
 // STRIPPED
 void RenderTrackRoutes(eView *view) {}
-
-int g_tweakIsBurnout = 0;
-int g_tweakIsDriftRace = 0;
-int g_tweakIsDragRace = 0;
-int g_tweakIsShortTrackRace = 0;
-int g_tweakBurnoutPhysics = 0;
-int g_tweakDriftPhysics = 0;
-int g_tweakAIDriftOpponents = 1;

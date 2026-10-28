@@ -11,12 +11,19 @@ void InitPlatform();
 #endif
 #ifdef EA_PLATFORM_WIN32
 bool IsTheGameAlreadyRunning(const char *exe_name, int max_instances); // Platform_PC.cpp (speed.exe 0x6CBC00)
+void CheckedLeakDetector();                                            // Platform_PC.cpp (speed.exe 0x6DE1F0, vacia)
 #endif
 void InitDisplaySystem();
 void ServicePlatform();
 extern "C" int bDoWithStack(void *function, void *stack_pointer, int arg1, int arg2);
 void EnableInterrupts();
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+// Sin lector DVD que vigilar: en X360 y PC la tarea no existe (sin simbolo en
+// NFS.exe ni en speed.exe) y las llamadas desaparecen al compilar.
+inline void DVDErrorTask(void *, int) {}
+#else
 void DVDErrorTask(void *, int); // TODO remove and put where needed
+#endif
 void FlushCaches();
 void FinishedRenderingFEngLayer();
 int DVDValidErrorState(int state);

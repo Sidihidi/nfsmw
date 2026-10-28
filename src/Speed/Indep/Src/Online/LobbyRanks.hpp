@@ -100,22 +100,41 @@ enum _RankListSubcategoryE {
 };
 typedef _RankListSubcategoryE RankListSubcategoryE;
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: el objeto al que apunta LobbyRanks + 0 (ver xenon_unknown_0x0). Solo se ve su primera funcion virtual
+// (SnapsDispListCB del EGM, 0x82579840, la llama sin argumentos): nombres neutros, ningun binario los da.
+struct LobbyRanksXenonUnknown {
+    virtual void XenonUnknown0() = 0;
+};
+#endif
+
 struct LobbyRanks {
   public:
     enum RankListMapping {
-        RLM_INVALID = 255
+        RLM_INVALID = -1 // RankList2SnapIndex: -1 en el EGM (0x825799C0) y en la A124; ningun binario da 255
     };
 
     LobbyRanks();
     ~LobbyRanks() { Reset(); }
     static LobbyRanks &Instance();
     int32 GetRanks(RankListE rankList, CommandCBFunc func, void *context);
+#ifdef EA_PLATFORM_XENON // fuera de linea en Xbox 360 (LobbyRanks.cpp)
+    int32 GetAllMonthRanks(CommandCBFunc func, void *context);
+    int32 GetMonthRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context);
+    int32 GetAllWeeksRanks(CommandCBFunc func, void *context);
+    int32 GetWeekRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context);
+#else
     inline int32 GetAllMonthRanks(CommandCBFunc func, void *context);
     inline int32 GetMonthRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context);
     inline int32 GetAllWeeksRanks(CommandCBFunc func, void *context);
     inline int32 GetWeekRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context);
+#endif
     LobbyApiRankT *GetRankData(RankListE rankList, RankListTypeE type, int index);
+#ifdef EA_PLATFORM_XENON
+    void AbortCommand(int32 commandID);
+#else
     inline void AbortCommand(int32 commandID);
+#endif
     void ClearCache();
     int GetRankListSize(RankListE rankList, RankListTypeE type);
     static RankListE GetRankListFromMode(OnlineRaceModeE raceMode, RankListSubcategoryE category, int weekOffset);
@@ -130,12 +149,23 @@ struct LobbyRanks {
     static RankListMapping RankList2SnapIndex(RankListE rankList, RankListTypeE type);
     static int RankList2DispListIndex(RankListE rankList, RankListTypeE type);
     static int RankListMapping2DispListIndex(RankListMapping mapping);
+#ifdef EA_PLATFORM_XENON // fuera de linea en Xbox 360 (EGM 0x82579BC8 y 0x82579C48, sin llamantes)
+    static RankListTypeE RankListMapping2RankListType(RankListMapping mapping);
+    static int InitTierArray();
+#else
     static inline RankListTypeE RankListMapping2RankListType(RankListMapping mapping);
     static inline int InitTierArray();
+#endif
     friend int32 LobbyInit();
     friend void LobbyDisconnect();
     friend class LobbyCore;
 
+#ifdef EA_PLATFORM_XENON
+    // EGM: el ctor y Reset ponen a cero rankDispLists desde +4 y GetDisplayListReference lee this + 4 + 4 * indice.
+    // Los 4 B de +0 son un puntero a un objeto con vtable: SnapsDispListCB (0x82579840) llama a su primera funcion
+    // virtual cuando no termina la orden 'snap'. Sin nombre en ningun binario.
+    LobbyRanksXenonUnknown *xenon_unknown_0x0;
+#endif
     DispListRef *rankDispLists[33];
     bool gotRankList[33];
     unsigned int snapsTotal[33];

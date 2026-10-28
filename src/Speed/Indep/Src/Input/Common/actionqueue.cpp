@@ -12,7 +12,7 @@
 #include "Speed/Indep/Src/Misc/Joylog.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 
@@ -135,7 +135,7 @@ void ActionQueue::SetConfig(unsigned int config, const char *queue_name) {
 }
 
 bool ActionQueue::IsEnabled() const {
-    return (this->mState < AQS_ENABLED) ? false : true;
+    return this->mState > AQS_DISABLED;
 }
 
 void ActionQueue::Enable(bool b) {
@@ -352,7 +352,7 @@ bool ActionQueue::ReceiveAction(ActionData &action) {
     if (action.ID() != ACTION_UNPLUGGED) {
         this->mLastAnyActionTime = RealTimer;
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // La A124 graba la accion en la repeticion de Juice cuando Juice esta activo (locales de sus stabs).
     if (gJuiceEnabled) {
         if (Juice::GameHook::Instance()->Replay_IsCapturing() && !Juice::GameHook::Instance()->Replay_IsReplaying()) {
@@ -421,7 +421,7 @@ const ActionRef ActionQueue::GetAction() {
 
 void ActionQueue::BeginJoylogFrame() {
     sInJoylogFrame = true;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // La A124 lee las acciones de la repeticion de Juice cuando Juice esta activo (locales de sus stabs).
     if (gJuiceEnabled) {
         if (Juice::GameHook::Instance()->Replay_IsReplaying()) {
@@ -463,7 +463,7 @@ void ActionQueue::BeginJoylogFrame() {
 }
 
 void ActionQueue::EndJoylogFrame() {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // La A124 cierra el cuadro de la repeticion de Juice con un -1 (local `i` de sus stabs).
     if (gJuiceEnabled) {
         if (Juice::GameHook::Instance()->Replay_IsCapturing() && !Juice::GameHook::Instance()->Replay_IsReplaying() &&

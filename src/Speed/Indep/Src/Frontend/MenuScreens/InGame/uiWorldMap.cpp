@@ -482,11 +482,11 @@ void WorldMap::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 para
                 float zoom = MapStreamer->GetZoomFactor();
                 float max_zoom = GetZoomFactor(WMZ_LEVEL_4);
 
+                bVector2 map_center;
+                bVector2 map_br;
                 bVector2 pan(0.0f, 0.0f);
                 MapStreamer->GetPan(pan);
-                bVector2 map_center;
                 FEngGetCenter(TrackMap, map_center.x, map_center.y);
-                bVector2 map_br;
                 FEngGetBottomRight(TrackMap, map_br.x, map_br.y);
 
                 for (MapItem *item = TheMapItems.GetHead(); item != TheMapItems.EndOfList(); item = item->GetNext()) {
@@ -568,6 +568,13 @@ void WorldMap::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 para
                 UMath::Vector3 pos;
                 eUnSwizzleWorldVector(SelectedItem->GetIcon()->GetPosition(), reinterpret_cast<bVector3 &>(pos));
 
+#ifdef EA_BUILD_A124
+                if (GPS_Engage(pos, 0.0f)) {
+                    SetGPSing(SelectedItem->GetIcon());
+                }
+                FEngSetLastButton(GetPackageName(), 0);
+                cFEng::Get()->QueuePackageMessage(0x911AB364, GetPackageName(), nullptr);
+#else
                 if (!GPS_Engage(pos, 0.0f)) {
                     DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x34DC1BEC,
                                                    0x7AFDF4CC);
@@ -577,6 +584,7 @@ void WorldMap::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 para
                     FEngSetLastButton(GetPackageName(), 0);
                     cFEng::Get()->QueuePackageMessage(0x911AB364, GetPackageName(), nullptr);
                 }
+#endif
             }
 
             RefreshHeader();
@@ -792,6 +800,7 @@ bool WorldMap::ClampToMapBounds(float &x, float &y) {
     return clamped;
 }
 
+#ifndef EA_BUILD_A124
 void WorldMap::UpdateAnalogInput() {
 #ifndef EA_PLATFORM_WIN32
     if (mActionQ) {
@@ -817,18 +826,44 @@ void WorldMap::UpdateAnalogInput() {
     }
 #endif
 }
+#endif
 
 void WorldMap::UpdateCursor(bool zoom_thing) {
+#ifdef EA_BUILD_A124
+    if (!mActionQ) {
+        return;
+    }
+    while (!mActionQ->IsEmpty() && !bInToggleMode) {
+        ActionRef action = mActionQ->GetAction();
+        float scale = 14.0f;
+        switch (action.ID()) {
+            case FRONTENDACTION_RUP:
+                CurrentVelocity.y = -action.Data() * scale;
+                break;
+            case FRONTENDACTION_RDOWN:
+                CurrentVelocity.y = action.Data() * scale;
+                break;
+            case FRONTENDACTION_RLEFT:
+                CurrentVelocity.x = -action.Data() * scale;
+                break;
+            case FRONTENDACTION_RRIGHT:
+                CurrentVelocity.x = action.Data() * scale;
+                break;
+        }
+        mActionQ->PopAction();
+    }
+#else
     UpdateAnalogInput();
+#endif
 
-    if (!MapStreamer->IsZooming()) {
+    bool isNotZooming = !MapStreamer->IsZooming();
+    if (isNotZooming) {
         float zoom = MapStreamer->GetZoomFactor();
-
-        bVector2 pan(0.0f, 0.0f);
-        MapStreamer->GetPan(pan);
 
         bVector2 map_center;
         bVector2 map_br;
+        bVector2 pan(0.0f, 0.0f);
+        MapStreamer->GetPan(pan);
         FEngGetCenter(TrackMap, map_center.x, map_center.y);
         FEngGetTopLeft(TrackMap, MapTopLeft.x, MapTopLeft.y);
 
@@ -1003,8 +1038,8 @@ void WorldMap::PanToCursor(float to_zoom) {
 
     zoom = 1.0f / zoom;
     bVector2 pan_to = pan + offset * zoom;
-    CursorMoveFrom.x = pan_to.x * MapSize.x + MapTopLeft.x;
-    CursorMoveFrom.y = pan_to.y * MapSize.y + MapTopLeft.y;
+    CursorMoveFrom.x = MapTopLeft.x + pan_to.x * MapSize.x;
+    CursorMoveFrom.y = MapTopLeft.y + pan_to.y * MapSize.y;
 
     float max_pan = 1.0f / to_zoom * 0.5f;
     pan_to.x = bClamp(pan_to.x, max_pan, 1.0f - max_pan);
@@ -1336,8 +1371,8 @@ void WorldMap::DrawItemStats() {
     ISimable *isimable = player->GetSimable();
     UMath::Vector3 player_pos = isimable->GetPosition();
 
-    bVector2 real_player;
     bVector2 real_trigger;
+    bVector2 real_player;
 
     real_player.y = -player_pos.x;
     real_player.x = player_pos.z;
@@ -1356,8 +1391,8 @@ void WorldMap::DrawItemStats() {
     }
 
     if (SelectedItem->GetType() != WMIT_PLAYER_CAR) {
-#ifdef EA_PLATFORM_WIN32
-        float length = distance / (kph ? 1000.0f : 1600.0f); // PC divide (fdiv en el exe); GC y PS2 multiplican
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        float length = distance / (kph ? 1000.0f : 1600.0f); // PC y X360 dividen (fdiv en el exe); GC y PS2 multiplican
 #else
         float length = distance * (kph ? 0.001f : 0.000625f);
 #endif

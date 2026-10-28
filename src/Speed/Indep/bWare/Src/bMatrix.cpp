@@ -8,7 +8,40 @@
 #endif
 
 void bInvertMatrix(bMatrix4 *dest, const bMatrix4 *src) {
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
+    float m11 = src->v0.x;
+    float m12 = src->v0.y;
+    float m13 = src->v0.z;
+    float m21 = src->v1.x;
+    float m22 = src->v1.y;
+    float m23 = src->v1.z;
+    float m31 = src->v2.x;
+    float m32 = src->v2.y;
+    float m33 = src->v2.z;
+    float m41 = src->v3.x;
+    float m42 = src->v3.y;
+    float m43 = src->v3.z;
+    float det_inv = 1.0f / (m11 * (m22 * m33 - m23 * m32) - m12 * (m21 * m33 - m23 * m31) + m13 * (m21 * m32 - m22 * m31));
+
+    dest->v0.x = det_inv * (m22 * m33 - m23 * m32);
+    dest->v0.y = -det_inv * (m12 * m33 - m13 * m32);
+    dest->v0.z = det_inv * (m12 * m23 - m13 * m22);
+    dest->v0.w = 0.0f;
+    dest->v1.x = -det_inv * (m21 * m33 - m23 * m31);
+    dest->v1.y = det_inv * (m11 * m33 - m13 * m31);
+    dest->v1.z = -det_inv * (m11 * m23 - m13 * m21);
+    dest->v1.w = 0.0f;
+    dest->v2.x = det_inv * (m21 * m32 - m22 * m31);
+    dest->v2.y = -det_inv * (m11 * m32 - m12 * m31);
+    dest->v2.z = det_inv * (m11 * m22 - m12 * m21);
+    dest->v2.w = 0.0f;
+    dest->v3.x = -(m41 * dest->v0.x + m42 * dest->v1.x + m43 * dest->v2.x);
+    dest->v3.y = -(m41 * dest->v0.y + m42 * dest->v1.y + m43 * dest->v2.y);
+    dest->v3.z = -(m41 * dest->v0.z + m42 * dest->v1.z + m43 * dest->v2.z);
+    dest->v3.w = 1.0f;
+#else
     eInvertMatrix(dest, const_cast<bMatrix4 *>(src));
+#endif
 }
 
 // UNSOLVED

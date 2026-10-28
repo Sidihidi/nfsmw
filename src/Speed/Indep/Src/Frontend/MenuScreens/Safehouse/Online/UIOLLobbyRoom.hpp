@@ -48,6 +48,11 @@ class UIOLLobbyRoom : public MenuScreen {
     bool haveRunFindSessions;                           // offset 0x1C0, size 0x4
     int numFailedJoinAttempts;                          // offset 0x1C4, size 0x4
     dialog_handle msgHandle;                            // offset 0x1C8, size 0x4
+#ifdef EA_PLATFORM_XENON
+    // EGM: un segundo dialogo en +0x198 (FindSessions guarda aqui el suyo, 0x82279150; NotificationMessage lo
+    // cierra, 0x82277688). El ctor no lo toca. Ningun binario da el nombre.
+    dialog_handle xenon_unknown_0x198;
+#endif
     eLobbyButtons curOption;                            // offset 0x1CC, size 0x4
     bool doBadConnectionTest;                           // offset 0x1D0, size 0x4
     static const char *m_password;
@@ -72,6 +77,9 @@ class UIOLLobbyRoom : public MenuScreen {
     bool m_bPerformJoinSession;                         // offset 0x214, size 0x4
     int m_currentSortColumn;                            // offset 0x218, size 0x4
     eOnlineDisconnectPerc m_PlayerDisconnectMinThreshold; // offset 0x21C, size 0x4
+#ifdef EA_PLATFORM_XENON
+    int xenon_unknown_0x1d4; // EGM: el ctor lo pone a cero el ultimo (0x822771A0); 0x822785F4 lo escribe
+#endif
 
   public:
     UIOLLobbyRoom(ScreenConstructorData *sd);

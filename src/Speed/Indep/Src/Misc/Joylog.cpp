@@ -11,6 +11,9 @@
 #ifdef EA_BUILD_A124
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #endif
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#endif
 
 int EnableJoylog = ENABLE_IN_MILESTONE; // Decl: 110
 
@@ -166,8 +169,8 @@ void JoylogBuffer::SaveBuffer() {
         } else {
             bAppendToFile(this->Filename, this->Buffer, flush_size);
         }
-        this->NumBytesInBuffer = 0;
         this->BufferStartPosition = this->CurrentPosition;
+        this->NumBytesInBuffer = 0;
     }
 }
 
@@ -369,6 +372,19 @@ uint32 Joylog::GetData(int data_size, JoylogChannel channel_number) {
     if (!IsReplaying()) {
         return 0;
     }
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 (0x823EA9B0, 232 B): con Juice activo el dato sale de la repeticion de Juice.
+    if (gJuiceEnabled) {
+        uint32 data = 0;
+        if (IsReplaying() && Juice::ReplayManager::Instance()->CheckPlaybackMask(static_cast<Juice::ReplayChannel>(channel_number))) {
+            uint32 replay_data = Juice::ReplayManager::Instance()->GetData(data_size, static_cast<Juice::ReplayChannel>(channel_number));
+            if (Juice::ReplayManager::Instance()->CheckOverWriteMask(static_cast<Juice::ReplayChannel>(channel_number))) {
+                data = replay_data;
+            }
+        }
+        return data;
+    }
+#endif
     uint32 data = pReplayingBuffer->GetData(data_size, channel_number);
     if (pReplayingBuffer->IsMoreData() == 0) {
         StopReplaying();
@@ -387,6 +403,16 @@ void Joylog::GetData(void *data, int data_size_bytes, JoylogChannel channel_numb
 }
 
 void Joylog::AddData(int32 data, int data_size_bits, JoylogChannel channel_number) {
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 (0x823EAB18, 176 B): con Juice activo el dato va a la repeticion de Juice.
+    if (gJuiceEnabled) {
+        if (IsCapturing() && Juice::ReplayManager::Instance()->CheckRecordMask(static_cast<Juice::ReplayChannel>(channel_number))) {
+            Juice::ReplayManager::Instance()->AddData(data, Juice::GameHook::Instance()->CalculateUsedBytes(data) * 8,
+                                                      static_cast<Juice::ReplayChannel>(channel_number));
+        }
+        return;
+    }
+#endif
     if (CapturingFlag) {
         pCapturingBuffer->AddData(data, data_size_bits, channel_number);
     }
@@ -508,10 +534,25 @@ void Joylog::Save() {
 // STRIPPED: void Joylog::Resume()
 
 uint32 Joylog::IsCapturing() {
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 (0x823EB2C0, 88 B): con Juice activo la captura la lleva la repeticion de Juice.
+    if (gJuiceEnabled) {
+        return Juice::GameHook::Instance()->Replay_IsCapturing();
+    }
+#endif
     return CapturingFlag;
 }
 
 int Joylog::IsReplaying() {
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 (0x823EB318, 148 B): con Juice activo pregunta a la repeticion de Juice.
+    if (gJuiceEnabled) {
+        if (Juice::ReplayManager::Instance()->IsReplaying() && !Juice::ReplayManager::Instance()->IsReplayEnabled()) {
+            return 0;
+        }
+        return Juice::GameHook::Instance()->Replay_IsReplaying();
+    }
+#endif
     return ReplayingFlag;
 }
 

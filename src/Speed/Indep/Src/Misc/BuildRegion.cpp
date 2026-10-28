@@ -65,29 +65,22 @@ const char *GetName() {
 
 const char *GetAbbreviation() {
 #ifdef EA_PLATFORM_WIN32
+    // Cadena ternaria: es la forma que deja el bloque "EU" tras el primer cmp en speed.exe
+    // (0x649FA0), con el resto de regiones europeas saltando atras a el.
     eBuildRegion region = GetBuildRegion();
-    if (region == BUILD_REGION_AMERICA) {
-        return "NA";
-    }
-    if (BUILD_REGION_IS_EUROPE(region)) {
-        return "EU";
-    }
-    if (region == BUILD_REGION_KOREA) {
-        return "KO";
-    }
-    if (region == BUILD_REGION_JAPAN) {
-        return "JP";
-    }
-    if (region == BUILD_REGION_THAILAND) {
-        return "TH";
-    }
-    if (region == BUILD_REGION_CHINA) {
-        return "CH";
-    }
-    if (region == BUILD_REGION_TAIWAN) {
-        return "CH";
-    }
-    return "Unknown BUILD_REGION_xxxx";
+    return region == BUILD_REGION_AMERICA ? "NA"
+         : region == BUILD_REGION_EU ? "EU"
+         : region == BUILD_REGION_UK ? "EU"
+         : region == BUILD_REGION_FRANCE ? "EU"
+         : region == BUILD_REGION_GERMANY ? "EU"
+         : region == BUILD_REGION_ITALY ? "EU"
+         : region == BUILD_REGION_SPAIN ? "EU"
+         : region == BUILD_REGION_KOREA ? "KO"
+         : region == BUILD_REGION_JAPAN ? "JP"
+         : region == BUILD_REGION_THAILAND ? "TH"
+         : region == BUILD_REGION_CHINA ? "CH"
+         : region == BUILD_REGION_TAIWAN ? "CH"
+         : "Unknown BUILD_REGION_xxxx";
 #elif defined(EA_REGION_EUROPE)
     return "EU";
 #else
@@ -219,6 +212,12 @@ bool ShowLanguageSelect() {
 
 // SLUS_21351 es la edicion de coleccionista (Black Edition) y SLUS_21267 la normal; GameCube y PC guardan las dos
 // cadenas aunque no usen la funcion.
+// La rama europea es la de la A124 (20-sep, la unica PAL que se mide): solo "SLES_53558". Las PAL de venta la
+// cambian (decision del usuario, ronda 79: queda como comentario, sin codigo): la GameCube inglesa (GOWP69) y la
+// Beta 1.1 de PS2 (12-oct) guardan "SLES_53857" y "SLES_53558", en ese orden (la de coleccionista se anadio entre
+// las dos fechas), y las GameCube francesa y alemana (GOWF69, GOWD69) solo "SCED_00000"; o sea, fuera de la A124,
+//     if (GetIsCollectorsEdition()) return "SLES_53857";   antes de   return "SLES_53558";
+// y "SCED_00000" con EA_REGION_FRANCE o EA_REGION_GERMANY (docs/analisis/2026-10-21_protosmw.md, secciones 5 y 6).
 #ifdef EA_PLATFORM_PLAYSTATION2
 char *GetSlusCode() {
 #else

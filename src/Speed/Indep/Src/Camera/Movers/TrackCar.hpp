@@ -30,7 +30,7 @@ class TrackCarCameraMover : public CameraMover {
     bVector3 Look;             // offset 0x90, size: 0x10
     CameraAnchor *CarToFollow; // offset 0xA0, size: 0x4
     tCubic1D FocalDistCubic;   // offset 0xA4, size: 0x2C
-    int FocusEffects;          // offset 0xD0, size: 0x4
+    bool FocusEffects;         // offset 0xD0, size: 0x1
     int CameraType;            // offset 0xD4, size: 0x4
 };
 

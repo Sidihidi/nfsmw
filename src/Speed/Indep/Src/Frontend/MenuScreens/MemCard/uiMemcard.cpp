@@ -187,6 +187,84 @@ void UIMemcardMain::ListDone() {
 void UIMemcardMain::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
     UIMemcardBase::NotificationMessage(msg, obj, param1, param2);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    switch (msg) {
+        case 0x5A051729:
+            ListDone();
+            break;
+
+        case 0xA4BB7AE1:
+            SetupPromptBootloadOK();
+            break;
+
+        case 0xA2000A44:
+            SetMessage(reinterpret_cast<short *>(const_cast<wchar_t *>(Realmc::Locale::GetString(15, "s", MemoryCard::GetInstance()->GetPortString()))));
+            MemoryCard::GetInstance()->LoadYNCF(0);
+            for (int i = 0; i < 6; i++) {
+                ShowButton(i, false, nullptr);
+            }
+            m_ExpectingInput = false;
+            break;
+
+        case 0x31225D2B:
+            if (MemoryCard::GetLastError() == 2) {
+                ShowYesNo(0xC1ED97CF, 0x03000000);
+            } else {
+                cFEng::Get()->QueueGameMessage(0x461A18EE, GetPackageName(), 0xff);
+            }
+            break;
+
+        case 0xFE202E3B:
+            DoSaveFlow(MCSF_PromptForSave);
+            break;
+
+        case 0x461A18EE:
+            FEDatabase->DeallocBackupDB();
+            MemcardExit(0x461A18EE);
+            break;
+
+        case 0x15457DE1:
+            PopChild();
+            break;
+
+        case 0xC6C6B68F:
+            DoSaveFlow(MCSF_DoSave);
+            break;
+
+        case 0x3AA9323A:
+            ShowOK(LANGUAGE_COMMON_OK, 0x03000000);
+            FESetString(m_pDisplayMsg, reinterpret_cast<const short *>(Realmc::Locale::GetString(39, "s", MemoryCard::GetInstance()->GetPortString())));
+            PopChild();
+            break;
+
+        case 0x8867412D:
+        case 0xDC12AF2E:
+            PopChild();
+            if ((gMemcardSetup.mOp & MCE_ProfileOnly) != 0 && FEDatabase->GetUserProfile(0)->IsProfileNamed()) {
+                cFEng::Get()->QueueGameMessage(0x461A18EE, GetPackageName(), 0xff);
+            } else {
+                if (FEDatabase->IsCareerManagerMode() && FEDatabase->bProfileLoaded && FEDatabase->GetGameplaySettings()->AutoSaveOn &&
+                    gMemcardSetup.GetCommand() != MCO_LoadList && msg != 0xDC12AF2E) {
+                    MemoryCard::GetInstance()->SetAutoSaveEnabled(true);
+                } else if (gMemcardSetup.GetCommand() == MCO_CreateNew && msg == 0xDC12AF2E) {
+                    FEDatabase->GetGameplaySettings()->AutoSaveOn = false;
+                    ShowOK(LANGUAGE_MC_AUTOSAVE_DISABLED, 0x07000000);
+                } else {
+                    MemcardExit(msg);
+                }
+                if (MemoryCard::GetInstance()->IsCheckingCardForAutoSave() || MemoryCard::GetInstance()->IsAutoSaving()) {
+                    MemoryCard::GetInstance()->EndAutoSave();
+                }
+                FEDatabase->DeallocBackupDB();
+            }
+            break;
+
+        case 0xB57FDB17:
+            SetupPromptAutoSaveEnableFailedNoCard();
+            break;
+    }
+}
+#else
     switch (msg) {
 
         case 0x5A051729:
@@ -294,3 +372,4 @@ void UIMemcardMain::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
             break;
     }
 }
+#endif

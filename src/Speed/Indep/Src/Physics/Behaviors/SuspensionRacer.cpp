@@ -572,7 +572,7 @@ Newtons SuspensionRacer::Tire::ComputeLateralForce(float load, float slip_angle)
 #ifdef TARGET_WIN32
         // PC version uses a DRM protected variable in the calculation here
 #else
-        return (this->mSpecs->GRIP_SCALE().At(mAxleIndex) * NewCorneringScale) * this->mGripBoost * GripFactor * (extra * (high - low) + low);
+        return (this->mSpecs->GRIP_SCALE().At(mAxleIndex) * NewCorneringScale) * this->mGripBoost * GripFactor * (low + extra * (high - low));
 #endif
     }
 }
@@ -1041,8 +1041,8 @@ void SuspensionRacer::Reset() {
     UMath::Vector3 vUp;
     rigidBody.GetUpVector(vUp);
 
-    unsigned int numonground = 0;
     this->mGameBreaker = 0.0f;
+    unsigned int numonground = 0;
     for (int i = 0; i < GetNumWheels(); ++i) {
         SuspensionRacer::Tire &wheel = this->GetWheel(i);
         wheel.Reset();

@@ -71,7 +71,7 @@ bool Wheel::UpdatePosition(const UMath::Vector3 &body_av, const UMath::Vector3 &
     this->mWorldPos.SetTolerance(UMath::Min(tolerance, prev));
 
     bool result = this->mWorldPos.Update(this->mPosition, this->mNormal, IsOnGround() && usecache, collider, true);
-    UpdateSurface(SimSurface(this->mWorldPos.GetSurface()));
+    UpdateSurface(this->mWorldPos.GetSurface());
     return result;
 }
 

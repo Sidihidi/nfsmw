@@ -17,7 +17,9 @@ void DispListOrder(DispListRef *list);
 bool LobbyGameSessions::mHurryTimerStarted = false;
 bool LobbyGameSessions::mHurryTimerStopped = false;
 LobbyGameSessions *TheLobbyGameSessions;
+#ifndef EA_BUILD_A124
 static int uniqueID;
+#endif
 
 FilterGameSessionParamsT::FilterGameSessionParamsT(uint32 count, GRace::Type gameMode, YesNoAny rankedGames,
                                                    YesNoAny collisionDetection, YesNoAny performanceMatching,
@@ -41,6 +43,22 @@ FilterGameSessionParamsT::FilterGameSessionParamsT(uint32 count, const char *ses
     bStrNCpy(sessionNameSubstr, sessionNameSubstring, 16);
 }
 
+#ifdef EA_PLATFORM_XENON
+// EGM 0x8257DFA0: el byte de +0x154 antes del mapa, los tres tiempos a -1 y los dos bytes del final a cero.
+LobbyGameSessions::LobbyGameSessions()
+    : xenon_unknown_0x154(false),           //
+      sessionList(nullptr),                 //
+      sessionMembers(nullptr),              //
+      sessionUpdateCB(nullptr),             //
+      updateContext(nullptr),               //
+      currentSortParams(0x80000000),        //
+      lastSearchCount(0),                   //
+      hostStartSessionTimer(-1),            //
+      hostHurryTimer(-1),                   //
+      hostInactiveTimer(-1),                //
+      xenon_unknown_0x264(false),           //
+      xenon_unknown_0x265(false) {
+#else
 LobbyGameSessions::LobbyGameSessions()
     : sessionList(nullptr),                 //
       sessionMembers(nullptr),              //
@@ -51,6 +69,7 @@ LobbyGameSessions::LobbyGameSessions()
       hostStartSessionTimer(0.0f),          //
       hostHurryTimer(0.0f),                 //
       hostInactiveTimer(0.0f) {
+#endif
     bMemSet(&myCurrentSession, 0, sizeof(myCurrentSession));
     myCurrentSession.iIdent = -1;
     TheLobbyGameSessions = this;
@@ -61,13 +80,71 @@ LobbyGameSessions &LobbyGameSessions::Instance() {
     return theLobbyGameSessions;
 }
 
+#ifdef EA_BUILD_A124
+int32 LobbyGameSessions::CreateSession(const char *sessionName, CommandCBFunc createSessionCB, void *context) {
+    static int uniqueID;
+    lobbyMutex.Lock("LobbyGameSessions::CreateSession");
+    if (!sessionName || !sessionName[0] || myCurrentSession.iIdent != -1 ||
+        LobbyCore::Instance().FindCommandID('ujoi', nullptr, nullptr, nullptr, nullptr) != -1 ||
+        LobbyCore::Instance().FindCommandID('ucre', nullptr, nullptr, nullptr, nullptr) != -1) {
+        lobbyMutex.Unlock("LobbyGameSessions::CreateSession");
+        return -1;
+    }
+    MenuScreen::MaybeShutdownVoIPChat();
+
+    char realSessionName[68] = "";
+    bSPrintf(realSessionName, "%d%02d.%s", uniqueID++, bRandom(99), sessionName);
+    realSessionName[32] = '\0';
+
+    char buf[1024] = "";
+    TagFieldSetString(buf, sizeof(buf), "NAME", realSessionName);
+    TagFieldSetNumber(buf, sizeof(buf), "SIZE", cOnlineSettings::MaxOnlinePlayers);
+    TagFieldSetNumber(buf, sizeof(buf), "TYPE", 0);
+    TagFieldSetNumber(buf, sizeof(buf), "UPDATES", 0);
+    TagFieldSetFlags(buf, sizeof(buf), "SYSFLAGS", 0x400800);
+
+    uint32 custflags = 0;
+    UpdateSessionFlags(custflags);
+    TagFieldSetFlags(buf, sizeof(buf), "CUSTFLAGS", custflags);
+
+    char params[68] = "";
+    UpdateSessionParams(params, 64);
+    TagFieldSetString(buf, sizeof(buf), "PARAMS", params);
+
+    if (!sessionMembers) {
+        sessionMembers = LobbyApiListAlloc(LobbyCore::Instance().pLobbyRef,
+                                           static_cast<LobbyRanks::RankListMapping>(0x18),
+                                           SessionMembersDispListCB, this);
+    }
+
+    int32 rc = LobbyCore::Instance().QueueCommand('ucre', buf, CreateSessionCB, this, createSessionCB, context, false);
+    lobbyMutex.Unlock("LobbyGameSessions::CreateSession");
+    return rc;
+}
+#else
 int32 LobbyGameSessions::CreateSession(const char *sessionName, CommandCBFunc createSessionCB, void *context) {
     CommandCBFunc localCreateSessionCB = createSessionCB;
     lobbyMutex.Lock("LobbyGameSessions::CreateSession");
+#ifdef EA_PLATFORM_XENON // EGM 0x8257E138 / 0x8257E4A0: la sesion nueva empieza sin tiempos ni avisos del host
+    hostStartSessionTimer.SetPackedTime(-1);
+    hostHurryTimer.SetPackedTime(-1);
+    hostInactiveTimer.SetPackedTime(-1);
+    xenon_unknown_0x264 = false;
+    xenon_unknown_0x265 = false;
+    // EGM 0x8257E46C: el nombre nulo o vacio tiene su propia salida (Unlock y -1), detras de la de los comandos.
+    if (!sessionName || !sessionName[0]) {
+        lobbyMutex.Unlock("LobbyGameSessions::CreateSession");
+        return -1;
+    }
+    if (myCurrentSession.iIdent == -1 &&
+#else
     if (sessionName && sessionName[0] && myCurrentSession.iIdent == -1 &&
+#endif
         LobbyCore::Instance().FindCommandID('ujoi', nullptr, nullptr, nullptr, nullptr) == -1 &&
         LobbyCore::Instance().FindCommandID('ucre', nullptr, nullptr, nullptr, nullptr) == -1) {
+#ifndef EA_PLATFORM_XENON // el EGM no la llama
         MenuScreen::MaybeShutdownVoIPChat();
+#endif
 
         char realSessionName[68] = "";
         bSPrintf(realSessionName, "%d%02d.%s", uniqueID++, bRandom(99), sessionName);
@@ -78,7 +155,15 @@ int32 LobbyGameSessions::CreateSession(const char *sessionName, CommandCBFunc cr
         TagFieldSetNumber(buf, sizeof(buf), "SIZE", cOnlineSettings::MaxOnlinePlayers);
         TagFieldSetNumber(buf, sizeof(buf), "TYPE", 0);
         TagFieldSetNumber(buf, sizeof(buf), "UPDATES", 0);
+#ifdef EA_PLATFORM_XENON // EGM 0x8257E30C: la sala privada lleva tambien 0x10000
+        uint32 sysflags = 0x400800;
+        if (FEDatabase->OnlineSettings.IsPrivateRoom) {
+            sysflags = 0x410800;
+        }
+        TagFieldSetFlags(buf, sizeof(buf), "SYSFLAGS", sysflags);
+#else
         TagFieldSetFlags(buf, sizeof(buf), "SYSFLAGS", 0x400800);
+#endif
 
         uint32 custflags = 0;
         UpdateSessionFlags(custflags);
@@ -101,14 +186,24 @@ int32 LobbyGameSessions::CreateSession(const char *sessionName, CommandCBFunc cr
     lobbyMutex.Unlock("LobbyGameSessions::CreateSession");
     return -1;
 }
+#endif
 
 int32 LobbyGameSessions::JoinSession(const char *sessionName, const char *password, CommandCBFunc joinSessionCB,
                                      void *context) {
     lobbyMutex.Lock("LobbyGameSessions::JoinSession");
+#ifdef EA_PLATFORM_XENON // EGM 0x8257E138 / 0x8257E4A0: la sesion nueva empieza sin tiempos ni avisos del host
+    hostStartSessionTimer.SetPackedTime(-1);
+    hostHurryTimer.SetPackedTime(-1);
+    hostInactiveTimer.SetPackedTime(-1);
+    xenon_unknown_0x264 = false;
+    xenon_unknown_0x265 = false;
+#endif
     if (myCurrentSession.iIdent == -1 &&
         LobbyCore::Instance().FindCommandID('ujoi', nullptr, nullptr, nullptr, nullptr) == -1 &&
         LobbyCore::Instance().FindCommandID('ucre', nullptr, nullptr, nullptr, nullptr) == -1) {
+#ifndef EA_PLATFORM_XENON // el EGM no la llama
         MenuScreen::MaybeShutdownVoIPChat();
+#endif
         if (!sessionMembers) {
             sessionMembers = LobbyApiListAlloc(LobbyCore::Instance().pLobbyRef,
                                                static_cast<LobbyRanks::RankListMapping>(0x18),
@@ -184,6 +279,11 @@ void LobbyGameSessions::StartSessionChanges() {
 }
 
 void LobbyGameSessions::FinishSessionChanges() {
+#ifdef EA_PLATFORM_WIN32 // PC (0x79A0B0): como los datos auxiliares de LobbyUsers, solo con el lobby en marcha
+    if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_IDLE) {
+        return;
+    }
+#endif
     lobbyMutex.Lock("LobbyGameSessions::FinishSessionChanges");
     LobbyUsers::Instance().SetSessionChangeFlag(false);
     lobbyMutex.Unlock("LobbyGameSessions::FinishSessionChanges");
@@ -211,11 +311,34 @@ void LobbyGameSessions::SetSessionLatency(int late) {
     lobbyMutex.Unlock("LobbyGameSessions::StartSessionChanges");
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (0x79A190, in the place of SetSessionRaceStatusInfo; Xbox 360 0x8257EE88): neutral name, see LobbyUsers.hpp.
+void LobbyGameSessions::SetWin32Unknown0x23c(int value) {
+    lobbyMutex.Lock(nullptr);
+    LobbyUsers::Instance().SetWin32Unknown0x23c(value);
+    lobbyMutex.Unlock(nullptr);
+}
+
+// PC (0x79A1D0): sin nombre en ningun binario. La llaman EndOnlineRace (con false) y el callback de la sala de juego
+// 0x522B50 (con true), las dos cuando GameDetails es 0. El bool de +0x44 de cOnlineSettings solo lo escriben esta y
+// Default; lo lee UpdateSessionFlags (el bit 0x4000 de la sesion, que la busqueda de PC filtra).
+void LobbyGameSessions::Win32Unknown79A1D0(const bool &value) {
+    FEDatabase->OnlineSettings.win32_unknown_0x44 = value;
+#ifdef EA_PLATFORM_XENON // EGM 0x825806B0: el store y SettingsHaveChanged
+    SettingsHaveChanged();
+#else
+    lobbyMutex.Lock(nullptr);
+    UpdateSessionInfo(false);
+    lobbyMutex.Unlock(nullptr);
+#endif
+}
+#else
 void LobbyGameSessions::SetSessionRaceStatusInfo(int lap, int mapx, int mapy) {
     lobbyMutex.Lock("LobbyGameSessions::StartSessionChanges");
     LobbyUsers::Instance().SetSessionRaceStatusInfo(lap, mapx, mapy);
     lobbyMutex.Unlock("LobbyGameSessions::StartSessionChanges");
 }
+#endif
 
 int LobbyGameSessions::GetMemberLatency(int32 index) {
     lobbyMutex.Lock("LobbyGameSessions::IsMemberMakingChanges");
@@ -566,9 +689,17 @@ void LobbyGameSessions::Resume() {
                                        static_cast<LobbyRanks::RankListMapping>(0x18), SessionMembersDispListCB, this);
     SetSortField_HaveMutex(LobbyGameSessionsN::SORT_PING, true);
     DispListFilt(sessionList, 0, 0, FilterFunc);
+#ifdef EA_PLATFORM_XENON // EGM 0x82580108: -1 es "sin poner" en Xenon, y los dos avisos del host a false
+    hostInactiveTimer.SetPackedTime(-1);
+    hostStartSessionTimer.SetPackedTime(-1);
+    hostHurryTimer.SetPackedTime(-1);
+    xenon_unknown_0x264 = false;
+    xenon_unknown_0x265 = false;
+#else
     hostInactiveTimer.UnSet();
     hostStartSessionTimer.UnSet();
     hostHurryTimer.UnSet();
+#endif
 }
 
 void LobbyGameSessions::Reset() {
@@ -610,11 +741,21 @@ void LobbyGameSessions::RefilterAndUpdateSessionsList() {
 }
 
 void LobbyGameSessions::UpdateSessionParams(char *buf, int bufsize) {
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x798790): P es la cadena de ping del registro propio, no el entero de LobbyApiInfoInt.
+    cOnlineSettings *settings = &FEDatabase->OnlineSettings;
+    // V: PC manda la version de la sesion como el literal 192359 (0x2EF67), no BuildVersionChangelistNumber (194010).
+    TagFieldPrintf(buf, bufsize, "V=%d P=%s E=%d L=%d M=%d", 192359,
+                   LobbyUsers::Instance().GetMyUserRecord()->ping,
+                   settings->GetRaceSettings()->EventHash, settings->GetRaceSettings()->NumLaps,
+                   settings->MinOnlinePlayers);
+#else
     TagFieldPrintf(buf, bufsize, "V=%d P=%d E=%d L=%d M=%d", BuildVersionChangelistNumber,
                    LobbyApiInfoInt(LobbyCore::Instance().GetLobbyApiRef(), 'ping'),
                    FEDatabase->OnlineSettings.GetRaceSettings()->EventHash,
                    FEDatabase->OnlineSettings.GetRaceSettings()->NumLaps,
                    FEDatabase->OnlineSettings.MinOnlinePlayers);
+#endif
 }
 
 int32 LobbyGameSessions::UpdateSessionInfo(bool forceUpdate) {
@@ -728,9 +869,19 @@ void LobbyGameSessions::UpdateSessionFlags(uint32 &sessionFlags) {
     } else if (settings->RaceMode == GRace::kRaceType_Drag) {
         sessionFlags |= 0x20000000;
     }
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // Xbox 360 igual (EGM 0x82580938)
+    sessionFlags &= ~1; // PC (0x78BF10): borra el bit de sala privada antes, como los demas
+#endif
     if (settings->IsPrivateRoom == 1) {
         sessionFlags |= 1;
     }
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // Xbox 360 igual (EGM 0x82580938)
+    // PC: el bit 0x4000 sale del bool de +0x44 (lo pone Win32Unknown79A1D0); la busqueda de sesiones de PC lo filtra.
+    sessionFlags &= ~0x4000;
+    if (settings->win32_unknown_0x44 == 1) {
+        sessionFlags |= 0x4000;
+    }
+#endif
 
     sessionFlags &= 0xfc0fffff;
     if (settings->DisconnectPerc == OLS_DISCONNECT_PERC_5) {
@@ -838,11 +989,20 @@ void LobbyGameSessions::JoinSessionCB(LobbyApiRefT *pRef, LobbyApiMsgT *pMsg, vo
 
 void LobbyGameSessions::CreateGameCB(LobbyApiMsgT *pMsg, void *pData) {
     LobbyGameSessions *lgs = static_cast<LobbyGameSessions *>(pData);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // Xbox 360 igual (EGM 0x82581078)
+    // PC (speed.exe 0x79D100): la salida del error va primero.
+    if (pMsg->code != 0) {
+        lgs->LeaveSession_HaveMutex(nullptr, nullptr);
+    } else {
+        lgs->UpdateSessionInfo(false);
+    }
+#else
     if (pMsg->code == 0) {
         lgs->UpdateSessionInfo(false);
     } else {
         lgs->LeaveSession_HaveMutex(nullptr, nullptr);
     }
+#endif
     if (lgs->createSessionCB) {
         lgs->createSessionCB(pMsg, lgs->createSessionContext);
     }
@@ -959,8 +1119,13 @@ int LobbyGameSessions::SortFunc(void *sortref, int sortcon, void *recptr1, void 
 int LobbyGameSessions::FilterFunc(void *filtref, int filtcon, void *recptr) {
     LobbyApiUserSetT *userset = static_cast<LobbyApiUserSetT *>(recptr);
     LobbyGameSessions &lgs = Instance();
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x79C260): la version de la sesion es el literal 192359, como en UpdateSessionParams.
+    bool hidesession = TagFieldGetNumber(TagFieldFind(userset->strParams, "V"), -1) != 192359;
+#else
     bool hidesession = TagFieldGetNumber(TagFieldFind(userset->strParams, "V"), -1) !=
                        BuildVersionChangelistNumber;
+#endif
     ExtraSessionDataMap::iterator esd = lgs.extraSessionDataMap.find(userset->iIdent);
     if (esd == lgs.extraSessionDataMap.end()) {
         ExtraSessionData newesd;

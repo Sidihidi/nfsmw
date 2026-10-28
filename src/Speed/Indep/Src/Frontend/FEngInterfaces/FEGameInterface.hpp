@@ -52,4 +52,11 @@ class cFEngGameInterface : public FEGameInterface {
     int iGameMode;          // offset 0x8, size 0x4, Decl: speed/indep/src/frontend/fenginterfaces/FEGameInterface.hpp:91
 };
 
+#ifdef EA_PLATFORM_WIN32
+// PC: el cursor del raton con el origen en el centro de la pantalla de 640x480 (0x515960) y la rueda (0x515990),
+// en float. Nombres neutros: ningun binario los da.
+void pc_fe_515960(float *x, float *y);
+void pc_fe_515990(float *wheel);
+#endif
+
 #endif

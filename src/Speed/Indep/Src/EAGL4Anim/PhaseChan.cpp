@@ -13,7 +13,8 @@ bool FnPhaseChan::GetLength(float &timeLength) const {
 void FnPhaseChan::Eval(float, float currTime, float *phaseValue) {
 
     PhaseValue *value = reinterpret_cast<PhaseValue *>(phaseValue);
-    PhaseChan *a = reinterpret_cast<PhaseChan *>(mpAnim);
+    // `a` es const en el DWARF de GameCube. (El DWARF no tiene `t`, pero sin ella GameCube reparte otro registro.)
+    const PhaseChan *a = reinterpret_cast<const PhaseChan *>(mpAnim);
     int n;
     int l = a->mNumFrames - 1;
     int frame;
@@ -53,13 +54,13 @@ void FnPhaseChan::Eval(float, float currTime, float *phaseValue) {
 void FnPhaseChan::SetAnimMemoryMap(AnimMemoryMap *anim) {
     mpAnim = anim;
 
-    PhaseChan *phaseChan = reinterpret_cast<PhaseChan *>(anim);
+    const PhaseChan *a = reinterpret_cast<const PhaseChan *>(anim);
 
     mIdx = 0;
-    mCurrentFrame = phaseChan->mStartTime;
-    mRight = !phaseChan->StartWithRight();
+    mCurrentFrame = a->mStartTime;
+    mRight = !a->StartWithRight();
 
-    mSampleRate = phaseChan->GetAngleSampleRate();
+    mSampleRate = a->GetAngleSampleRate();
 }
 
 }; // namespace EAGL4Anim

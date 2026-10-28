@@ -70,6 +70,22 @@ int LanguageMemoryPoolNumber = (int)0xFFFFFFFF;
 void *pLanguageMemoryPoolMemory = nullptr;
 int LanguageMemoryPoolSize = 0;
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x8F4008): 11 entradas; difieren los tamanos de 0x0920075C y 0x9583AA1A
+FontSizeInfo FontSizeInfoTable[11] = {
+    {0x545570C6U, 0x0},
+    {0x0920075CU, 0x40000},
+    {0x5B9D84DBU, 0x10000},
+    {0x9583AA1AU, 0x100000},
+    {0xA87927BEU, 0x10000},
+    {0xAB6215C1U, 0x10000},
+    {0xBBBA71C2U, 0x4000},
+    {0xDCA5485AU, 0x40000},
+    {0x833A8678U, 0x80000},
+    {0xF88A75F9U, 0x40000},
+    {0x71C777D7U, 0x80000},
+};
+#else
 FontSizeInfo FontSizeInfoTable[9] = {
     {0x545570C6U, 0x0},
     {0x0920075CU, 0x10000},
@@ -81,6 +97,7 @@ FontSizeInfo FontSizeInfoTable[9] = {
     {0xDCA5485AU, 0x40000},
     {0x833A8678U, 0x80000},
 };
+#endif
 
 FontNameInfo EuropeanFontNameInfo = {
     {0x545570C6U, 0xA87927BEU, 0x5B9D84DBU, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U},
@@ -175,6 +192,8 @@ static unsigned char *PackedStringTable = nullptr;
 static StringRecord *RecordTable = nullptr;
 #ifdef EA_BUILD_A124
 eLanguages ExcludeCycleLanguages[3] = {eLANGUAGE_KOREAN, eLANGUAGE_CHINESE, eLANGUAGE_JAPANESE};
+#endif
+#ifdef MILESTONE_BUILD
 bool gToggleLocTracking = false;
 std::map<unsigned int, bool> lookupMap;
 #endif
@@ -269,7 +288,7 @@ void InitLocalization() {
     int n = 0;
     while (info->pFontNameInfo->GlobalFonts[n] != 0) {
         int font_size = -1;
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < static_cast<int>(sizeof(FontSizeInfoTable) / sizeof(FontSizeInfoTable[0])); i++) {
             if (FontSizeInfoTable[i].Hash == info->pFontNameInfo->GlobalFonts[n]) {
                 font_size = FontSizeInfoTable[i].Size;
                 break;
@@ -280,7 +299,11 @@ void InitLocalization() {
         }
         n++;
     }
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+    LanguageMemoryPoolSize = (total_font_size + 0x37FC8) & ~63;
+#else
     LanguageMemoryPoolSize = (total_font_size + 0x4080) & 0xFFFFFFC0;
+#endif
     if (LanguageMemoryPoolNumber != 0) {
         LanguageMemoryPoolNumber = bGetFreeMemoryPoolNum();
         pLanguageMemoryPoolMemory = bMalloc(LanguageMemoryPoolSize, "LanguageMemoryPool", 0, 0);
@@ -403,6 +426,10 @@ void SetCurrentLanguage(eLanguages new_language) {
     }
 }
 
+#ifdef EA_PLATFORM_WIN32
+int PC_GetOSLanguage(); // Platform_PC.cpp (speed.exe 0x6CBB00)
+#endif
+
 void LoadCurrentLanguage() {
 #ifdef EA_PLATFORM_GAMECUBE
     eLanguages ngc_language = GC_GetOSLanguage();
@@ -413,6 +440,8 @@ void LoadCurrentLanguage() {
     } else {
         SetCurrentLanguage(eLANGUAGE_ENGLISH);
     }
+#elif defined(EA_PLATFORM_WIN32)
+    SetCurrentLanguage(static_cast<eLanguages>(PC_GetOSLanguage()));
 #endif
 }
 
@@ -469,7 +498,7 @@ static const uint8 *SearchForString(uint32 string_label) {
     if (!RecordTable) {
         return nullptr;
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     if (gToggleLocTracking) {
         lookupMap[string_label] = true;
     }
@@ -488,6 +517,9 @@ static const uint8 *SearchForString(uint32 string_label) {
             if (RecordTable[bot].Hash == string_label) {
                 return RecordTable[bot].PackedString;
             }
+            if (RecordTable[mid].Hash == string_label) {
+                return RecordTable[mid].PackedString;
+            }
             if (RecordTable[top].Hash == string_label) {
                 return RecordTable[top].PackedString;
             }
@@ -502,7 +534,7 @@ static const uint8 *SearchForString(uint32 string_label) {
             bot = mid;
         }
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     if (gToggleLocTracking) {
         lookupMap[string_label] = false;
     }

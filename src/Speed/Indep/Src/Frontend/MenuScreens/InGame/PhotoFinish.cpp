@@ -240,7 +240,7 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                     GRaceBin *bin = GRaceDatabase::Get().GetBinNumber(FEDatabase->GetCareerSettings()->GetCurrentBin());
 
                     for (unsigned int i = 0; i < bin->GetBossRaceCount(); i++) {
-                        if (!GRaceDatabase::Get().CheckRaceScoreFlags(bin->GetBossRaceHash(i), GRaceDatabase::kCompleted_ContextCareer)) {
+                        if (!GRaceDatabase::Get().IsCareerRaceComplete(bin->GetBossRaceHash(i))) {
                             allFinished = false;
                         }
                     }
@@ -389,7 +389,7 @@ void PhotoFinishScreen::NotificationMessage(u32 msg, FEObject *pobj, u32 param1,
                     GRaceBin *bin = GRaceDatabase::Get().GetBinNumber(currentBin);
 
                     for (unsigned int i = 0; i < bin->GetBossRaceCount(); i++) {
-                        if (!GRaceDatabase::Get().CheckRaceScoreFlags(bin->GetBossRaceHash(i), GRaceDatabase::kCompleted_ContextCareer)) {
+                        if (!GRaceDatabase::Get().IsCareerRaceComplete(bin->GetBossRaceHash(i))) {
                             numUnfinished++;
                         }
                     }

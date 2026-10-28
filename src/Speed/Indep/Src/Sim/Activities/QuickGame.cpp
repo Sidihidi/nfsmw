@@ -17,8 +17,13 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/InGameMovieScreen.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/Loading/FELoadingTips.hpp"
 #include "Speed/Indep/Src/Gameplay/GManager.h"
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_PLAYSTATION2)
 #include "Speed/Indep/Src/Frontend/MoviePlayer/MoviePlayer.hpp"
+#endif
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
+// DebugMenuShouldPauseWorld: la primera comprobacion de la A124 (en su OnManageState) y del EGM de Xbox 360
+// (en CanSimulate, 0x824A8C58: gDebugMenuIOHandler 0x8296C46C, su mPauseWorld en +3 y DebugMenu::mActive
+// 0x82A814D8, las tres lecturas de NFSDebugMenu.cpp:1020 expandidas).
 #include "Speed/Indep/Src/Frontend/NFSDebugMenu.h"
 #endif
 #include "Speed/Indep/Src/Interfaces/IFengHud.h"
@@ -45,7 +50,7 @@
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 
-extern int TrackCopCameraMover_IdleSim;
+extern bool TrackCopCameraMover_IdleSim;
 
 bool bSawLoadingScreen = false;
 
@@ -508,13 +513,26 @@ bool QuickGame::IsStateDone() const {
 
 #ifndef EA_BUILD_A124
 bool QuickGame::CanSimulate() {
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    if (DebugMenuShouldPauseWorld()) {
+        return false;
+    }
+#endif
     if (TrackCopCameraMover_IdleSim) {
         return false;
     }
 
+    // En PS2 no hay simbolo IsPlaying en ninguna de las dos: el original expande en linea la
+    // comprobacion del reproductor (gMoviePlayer con el estado en [3,5], MoviePlayer::IsMoviePlaying).
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (gMoviePlayer && gMoviePlayer->IsMoviePlaying()) {
+        return false;
+    }
+#else
     if (InGameAnyMovieScreen::IsPlaying()) {
         return false;
     }
+#endif
 
     if (INIS::Exists() && (!INIS::Get()->IsLoaded() || INIS::Get()->InMovie())) {
         return false;

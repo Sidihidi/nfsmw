@@ -24,6 +24,33 @@ enum eTrackPathZoneType {
     TRACK_PATH_ZONE_RESET = 0,
 };
 
+// gcdatos13: entre eTrackPathZoneType y TrackPathZone en los stabs de la A124
+// (PS2_types.nothpp:24068, 24080), mismos valores en el DWARF de GC.
+enum eTrackPathZoneDataEntry {
+    eTRACK_PATH_ZONE_DATA_LOW_TRAFFIC_DENSITY = 0,
+    eTRACK_PATH_ZONE_DATA_MEDIUM_TRAFFIC_DENSITY = 1,
+    eTRACK_PATH_ZONE_DATA_HIGH_TRAFFIC_DENSITY = 2,
+    eTRACK_PATH_ZONE_DATA_TRAFFIC_TYPE = 3,
+    eTRACK_PATH_ZONE_DATA_GPS_POSITION_X = 1,
+    eTRACK_PATH_ZONE_DATA_GPS_POSITION_Y = 2,
+    eTRACK_PATH_ZONE_DATA_GPS_POSITION_Z = 3,
+    eTRACK_PATH_ZONE_DATA_HIDDEN_TYPE = 0,
+    MAX_TRACK_PATH_ZONE_DATA_ENTRIES = 4,
+};
+
+enum eTrackPathZoneSource {
+    ZONE_SOURCE_CAFFEINE = 0,
+    ZONE_SOURCE_3DSMAX = 1,
+    ZONE_SOURCE_SCRIPT = 2,
+};
+
+// gcdatos2: el DWARF-1 de GC trae `GetTrackPathZoneName` como global_subroutine inline
+// (char*, sin locales) en 13 CU y en ninguna copia fuera de linea; los literales del
+// objetivo son los nombres del enum en orden 0..14. La definicion vive en TrackPath.cpp:
+// en cabecera, SN interna las cadenas en cada TU que la parsea (zSpeech ganaba +216 B,
+// medido en gcdatos1) y su CU original no contiene el DIE.
+char *GetTrackPathZoneName(eTrackPathZoneType zone_type);
+
 bool DoLinesIntersect(const bVector2 &a, const bVector2 &b, const bVector2 &c, const bVector2 &d);
 
 // total size: 0x18
@@ -144,8 +171,9 @@ class TrackPathManager {
         Clear();
     }
 
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
     // Las PS2 lo destruyen al salir (_GLOBAL_$D de zTrack): un destructor vacio que si existe.
+    // Xenon igual: el ??__E de 0x828EFD50 registra con atexit (bl 0x828EFDA4) un dtor vacio de 4 B (0x828F42A0).
     ~TrackPathManager() {}
 #endif
 

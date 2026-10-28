@@ -240,6 +240,11 @@ class LoadingTips : public MenuScreen {
 #ifndef EA_BUILD_A124
     bool mPressAcceptHasBeenShown; // offset 0x38
 #endif
+#ifdef EA_PLATFORM_WIN32
+    // PC: guarda FEManager::bSuppressControllerError mientras la pantalla acepta entrada (AllowInput lo pone a
+    // false, 0x56AF98; NotificationMessage lo devuelve, 0x57DF8F). Nombre neutro: el binario no lo da.
+    bool win32_unknown_0x39; // offset 0x39 (PC)
+#endif
 };
 
 extern GameTipInfo GameTipInfoTable[];

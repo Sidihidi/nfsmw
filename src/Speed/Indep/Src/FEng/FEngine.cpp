@@ -140,12 +140,12 @@ FEngine::FEngine() {
 
 
 
-
-
-
-
 void FEngine::SetNumJoyPads(u8 Count) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    delete[] pJoyPad; // PC y X360 liberan sin mirar el puntero (speed.exe 0x5B743F, NFS.exe 0x82325C00)
+#else
     if (pJoyPad) { delete[] pJoyPad; }
+#endif
 
     if (Count) {
         pJoyPad = FNEW FEJoyPad[Count];
@@ -227,18 +227,18 @@ void FEngine::SetInitialState() {
 FEPackage *FEngine::LoadPackage(const void *pPackageData, bool bLoadAsLibrary) {
     FEPackageReader reader;
     FEPackage *pPack = reader.Load(pPackageData, pInterface, this, bLoadObjectNames, bLoadScriptNames, bLoadAsLibrary);
+#ifdef EA_PLATFORM_PLAYSTATION2
+    if (pPack) {
+        return pPack;
+    }
+    return nullptr;
+#else
     if (!pPack) {
         return nullptr;
     }
     return pPack;
+#endif
 }
-
-
-
-
-
-
-
 
 
 
@@ -1265,46 +1265,46 @@ void FEngine::UpdateMouseState(FEPackage *pkg, FEObjectMouseState *state, float 
     if (is_left_down) {
         if (was_mouse_left_down) {
             cFEng::Get()->QueuePackageMessage(0x1e646b2e, pkg->name, obj);
-        } else {
-            if (!is_mouse_over) {
-                goto skip_left;
-            }
+        } else if (is_mouse_over) {
             cFEng::Get()->QueuePackageMessage(0xf459b307, pkg->name, obj);
         }
-    } else {
-        if (was_mouse_left_down && is_mouse_over) {
-            cFEng::Get()->QueuePackageMessage(0x7eabca56, pkg->name, obj);
-        }
+    } else if (was_mouse_left_down && is_mouse_over) {
+        cFEng::Get()->QueuePackageMessage(0x7eabca56, pkg->name, obj);
     }
-skip_left:
 
     if (is_right_down) {
         if (was_mouse_right_down) {
             cFEng::Get()->QueuePackageMessage(0x0da2f4e1, pkg->name, obj);
         } else if (is_mouse_over) {
             cFEng::Get()->QueuePackageMessage(0xce59c3da, pkg->name, obj);
-        } else {
-            goto set_bits;
         }
-        if (!is_mouse_over) {
-            goto set_bits;
-        }
-    } else {
-        if (was_mouse_right_down) {
-            if (!is_mouse_over) {
-                goto set_bits;
-            }
-            cFEng::Get()->QueuePackageMessage(0x98adf589, pkg->name, obj);
-        }
-        if (!is_mouse_over) {
-            goto set_bits;
-        }
+    } else if (was_mouse_right_down && is_mouse_over) {
+        cFEng::Get()->QueuePackageMessage(0x98adf589, pkg->name, obj);
     }
-set_bits:
     state->SetBit(FEMouseFlag_MouseOver, is_mouse_over);
     state->SetBit(FEMouseFlag_MouseLeftPressed, is_left_down);
     state->SetBit(FEMouseFlag_MouseRightPressed, is_right_down);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1471,8 +1471,8 @@ void FEngine::RenderGroup(FEGroup *pGroup, FEMatrix4 &stParent, FEMatrix4 &stVie
             stTemp.m43 = stOffset.z + pData->Pivot.z + pData->Pos.z;
             FEMultMatrix(&stContext, &stTemp, &stParent);
             FEMultMatrix(&stContextView, &stContext, &stView);
-            uGroupContext = uGroupContext + 1;
-            ctx = uGroupContext;
+            ctx = ++uGroupContext;
+
             pGroup->RenderContext = uContext;
             pInterface->GenerateRenderContext(ctx, pGroup);
             pObj = pGroup->GetFirstChild();
@@ -1663,11 +1663,11 @@ void FEngine::QueueMessage(u32 MsgID, FEObject *pFrom, FEPackage *pFromPackage, 
 
 
 void FEngine::SendMessageToGame(u32 MsgID, FEObject *pFrom, FEPackage *pFromPackage, u32 uControlMask) {
-    int iVar1 = *reinterpret_cast<int *>(pInterface);
-    typedef void (*GameMsgFn)(void *, u32, FEObject *, u32, FEPackage *);
-    GameMsgFn fn = *reinterpret_cast<GameMsgFn *>(iVar1 + 0x3C);
-    void *adjusted = reinterpret_cast<void *>(reinterpret_cast<char *>(pInterface) + *reinterpret_cast<short *>(iVar1 + 0x38));
-    fn(adjusted, MsgID, pFrom, uControlMask, pFromPackage);
+    // The virtual call: GC and PS2 give the same code as the hand-written GCC 2.9 vtable access it replaces, and
+    // speed.exe 0x5B0BB0 calls slot 6 of the MSVC vtable. This file keeps its line count (FNEW passes __LINE__ in
+    // the milestone builds):
+    //
+    pInterface->NotificationMessage(MsgID, pFrom, uControlMask, reinterpret_cast<u32>(pFromPackage));
 }
 
 void FEngine::QueuePackageSwitch(const char *pPackageName, u32 ControlMask) {
@@ -2195,25 +2195,25 @@ FEPackageCommand *FEngine::FindQueuedNodeWithControl() {
 
 
 void FEngine::ProcessPackageCommands() {
+    FEPackageCommand *pNode;
+    int Level;
     FEPackage *pFixParentLink = nullptr;
     FEPackage *pNewParentLink = nullptr;
 
     do {
-        FEPackageCommand *pNode = static_cast<FEPackageCommand *>(PackageCommands.RemHead());
+        pNode = static_cast<FEPackageCommand *>(PackageCommands.RemHead());
         if (!pNode) {
-            return;
+            break;
         }
 
-        int Level;
         if (pNode->pPackage) {
-            Level = pNode->pPackage->Priority;
+            Level = pNode->pPackage->GetPriority();
         } else {
-            FEPackage *pPack = FindPackageWithControl();
-            pNode->pPackage = pPack;
-            if (pPack) {
-                Level = pPack->Priority;
-                pPack->OldControllers = pPack->Controllers;
-                pNode->pPackage->Controllers = 0;
+            pNode->pPackage = FindPackageWithControl();
+            if (pNode->pPackage) {
+                Level = pNode->pPackage->GetPriority();
+                pNode->pPackage->SetOldControlMask(pNode->pPackage->GetControlMask());
+                pNode->pPackage->SetControlMask(0);
             } else {
                 Level = -1;
             }
@@ -2222,14 +2222,14 @@ void FEngine::ProcessPackageCommands() {
         if (pNode->iCommand & 1) {
             if (Level >= 0) {
                 if (!(pNode->iCommand & 2)) {
-                    PackList.ReplaceParentLinks(pNode->pPackage, pNode->pPackage->pParentPackage);
+                    PackList.ReplaceParentLinks(pNode->pPackage, pNode->pPackage->GetParentPackage());
                 } else {
                     pFixParentLink = pNode->pPackage;
-                    pNewParentLink = pNode->pPackage->pParentPackage;
+                    pNewParentLink = pNode->pPackage->GetParentPackage();
                 }
-                FEPackage *pParent = pNode->pPackage->pParentPackage;
+                FEPackage *pParent = pNode->pPackage->GetParentPackage();
                 if (pParent) {
-                    pParent->Controllers = pParent->OldControllers;
+                    pParent->SetControlMask(pParent->GetOldControlMask());
                 }
                 UnloadPackage(pNode->pPackage);
                 Level--;
@@ -2239,20 +2239,19 @@ void FEngine::ProcessPackageCommands() {
         if (pNode->iCommand & 2) {
             FEPackage *pPushed = PushPackage(pNode->GetName(), static_cast<unsigned char>(Level + 1), pNode->uControlMask);
             if (pPushed && (pNode->iCommand & 1) == 0 && Level >= 0) {
-                pPushed->pParentPackage = pNode->pPackage;
+                pPushed->SetParentPackage(pNode->pPackage);
             } else if (pNode->iCommand & 1) {
-                pPushed->pParentPackage = pNewParentLink;
+                pPushed->SetParentPackage(pNewParentLink);
                 PackList.ReplaceParentLinks(pFixParentLink, pPushed);
             }
         }
 
         if (pNode->iCommand & 4) {
-            FEPackage *pPack = pNode->pPackage;
-            FEPackage *pParent = pPack->pParentPackage;
+            FEPackage *pParent = pNode->pPackage->GetParentPackage();
             if (pParent) {
-                u32 PassedMask = pPack->Controllers & pNode->uControlMask;
-                pPack->Controllers &= ~PassedMask;
-                pParent->Controllers |= PassedMask;
+                u32 PassedMask = pNode->pPackage->GetControlMask() & pNode->uControlMask;
+                pNode->pPackage->SetControlMask(pNode->pPackage->GetControlMask() & ~PassedMask);
+                pParent->SetControlMask(pParent->GetControlMask() | PassedMask);
                 QueueMessage(0x334c5493u, nullptr, pParent, reinterpret_cast<FEObject *>(0xFFFFFFFCu), pNode->uControlMask);
             }
         }
@@ -2263,14 +2262,14 @@ void FEngine::ProcessPackageCommands() {
                 if (!pChild) {
                     break;
                 }
-                if (pChild->pParentPackage == pNode->pPackage)
+                if (pChild->GetParentPackage() == pNode->pPackage)
                     break;
                 pChild = pChild->GetNext();
             }
             if (pChild) {
-                u32 PassedMask = pNode->pPackage->Controllers & pNode->uControlMask;
-                pNode->pPackage->Controllers &= ~PassedMask;
-                pChild->Controllers |= PassedMask;
+                u32 PassedMask = pNode->pPackage->GetControlMask() & pNode->uControlMask;
+                pNode->pPackage->SetControlMask(pNode->pPackage->GetControlMask() & ~PassedMask);
+                pChild->SetControlMask(pChild->GetControlMask() | PassedMask);
                 QueueMessage(0x334c5493u, nullptr, pChild, reinterpret_cast<FEObject *>(0xFFFFFFFCu), pNode->uControlMask);
             }
         }
@@ -2278,6 +2277,7 @@ void FEngine::ProcessPackageCommands() {
         delete pNode;
     } while (true);
 }
+
 
 
 

@@ -1,0 +1,4 @@
+# nombres_vetados.tsv -- direcciones de speed.exe cuyo nombre fijo el usuario: la rutina de nombres de PC
+# (scripts/nombra_elim.py, nombra_corrige.py, nombra_grafo.py) no las renombra ni les quita el nombre.
+# direccion (hex)	nombre fijo	motivo
+568F10	sub_568F10	ronda 83, decision del usuario: `mov al,[ecx]; ret` sin llamantes; elim-1:1 le ponia ?GetWin32Unknown0x0@FEManager@@QAE_NXZ sin testigos

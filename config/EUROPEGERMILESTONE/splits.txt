@@ -16,31 +16,50 @@ Sections:
 
 Speed/Indep/SourceLists/zAI.cpp:
 	.pdata      start:0x820B9600 end:0x820BB930
+	.pdata      start:0x820E6578 end:0x820E66D8
+	.pdata      start:0x820E6D48 end:0x820E6D50
 	.text       start:0x820F0000 end:0x82145208
+	.text       start:0x828E9108 end:0x828EA078
+	.text       start:0x828F2AB0 end:0x828F2B20
 
 Speed/Indep/SourceLists/zAnim.cpp:
 	.pdata      start:0x820BB930 end:0x820BC130
+	.pdata      start:0x820E66D8 end:0x820E66E8
+	.pdata      start:0x820E6D50 end:0x820E6D58
 	.text       start:0x82145208 end:0x82155B08
+	.text       start:0x828EA078 end:0x828EA450
+	.text       start:0x828F2B20 end:0x828F2BE8
 
 Speed/Indep/SourceLists/zAttribSys.cpp:
 	.pdata      start:0x820BC130 end:0x820BC7E0
+	.pdata      start:0x820E66E8 end:0x820E6700
 	.text       start:0x82155B08 end:0x82165458
+	.text       start:0x828EA450 end:0x828EA530
 
 Speed/Indep/SourceLists/zBWare.cpp:
 	.pdata      start:0x820BC7E0 end:0x820BCC20
 	.text       start:0x82165458 end:0x82171550
+	.text       start:0x828EA530 end:0x828EA590
+	.text       start:0x828F2BE8 end:0x828F2C58
 
 Speed/Indep/SourceLists/zFoundation.cpp:
 	.pdata      start:0x820BCC20 end:0x820BCC28
 	.pdata      start:0x820C7DB0 end:0x820C8778
+	.pdata      start:0x820E6700 end:0x820E6708
 	.text       start:0x82171550 end:0x82171638
 	.text       start:0x82337368 end:0x8234FFB8
+	.text       start:0x828EA590 end:0x828EA620
+	.text       start:0x828F2C58 end:0x828F2C70
 
 Speed/Indep/SourceLists/zCamera.cpp:
 	.pdata      start:0x820BCC28 end:0x820BD3C8
 	.pdata      start:0x820BD448 end:0x820BD9E8
+	.pdata      start:0x820E6708 end:0x820E6760
+	.pdata      start:0x820E6D58 end:0x820E6D68
 	.text       start:0x82171638 end:0x82188680
 	.text       start:0x8218A678 end:0x8219BFB0
+	.text       start:0x828EA640 end:0x828EA9D8
+	.text       start:0x828F2C88 end:0x828F2D38
 
 Speed/Indep/SourceLists/zDebug.cpp:
 	.pdata      start:0x820BD3C8 end:0x820BD448
@@ -49,70 +68,91 @@ Speed/Indep/SourceLists/zDebug.cpp:
 Speed/Indep/SourceLists/zDynamics.cpp:
 	.pdata      start:0x820BD9E8 end:0x820BDB40
 	.text       start:0x8219BFB0 end:0x821A2150
+	.text       start:0x828EAAF8 end:0x828EAB30
+	.text       start:0x828F2D38 end:0x828F2D48
 
 Speed/Indep/SourceLists/zEagl4Anim.cpp:
 	.pdata      start:0x820BDB40 end:0x820BE678
+	.pdata      start:0x820E6768 end:0x820E6770
+	.pdata      start:0x820E6D68 end:0x820E6D78
 	.text       start:0x821A2150 end:0x821C7528
+	.text       start:0x828EAB30 end:0x828EAC60
+	.text       start:0x828F2D48 end:0x828F2E00
 
 Speed/Indep/SourceLists/zEAXSound.cpp:
 	.pdata      start:0x820BE678 end:0x820BFC78
 	.pdata      start:0x820BFF28 end:0x820BFF30
+	.pdata      start:0x820E6770 end:0x820E67B8
+	.pdata      start:0x820E6D78 end:0x820E6DA8
 	.text       start:0x821C7528 end:0x821F8920
 	.text       start:0x821FD620 end:0x821FD628
 	.text       start:0x821FF6F0 end:0x821FF738
+	.text       start:0x828EAC60 end:0x828EB390
+	.text       start:0x828F2E00 end:0x828F30C8
 
 Speed/Indep/SourceLists/zEAXSound2.cpp:
 	.pdata      start:0x820BFC78 end:0x820BFE40
 	.pdata      start:0x820BFE40 end:0x820BFF28
 	.pdata      start:0x820BFF30 end:0x820C1258
+	.pdata      start:0x820E67B8 end:0x820E67E8
+	.pdata      start:0x820E6DA8 end:0x820E6DD0
 	.text       start:0x821F8920 end:0x821FD620
 	.text       start:0x821FD628 end:0x821FF6F0
 	.text       start:0x821FF738 end:0x8222E168
+	.text       start:0x828EB390 end:0x828EB918
+	.text       start:0x828F30C8 end:0x828F32F0
 
 Speed/Indep/SourceLists/zEcstasy.cpp:
 	.pdata      start:0x820C1258 end:0x820C1D00
-	.pdata      start:0x820D12D0 end:0x820D1478
-	.pdata      start:0x820D1610 end:0x820D1D38
+	.pdata      start:0x820E67E8 end:0x820E6800
+	.pdata      start:0x820E6DD0 end:0x820E6DD8
 	.text       start:0x8222E168 end:0x8224B708
-	.text       start:0x82470310 end:0x824755A4
-	.text       start:0x824799D8 end:0x82490860
+	.text       start:0x828EB918 end:0x828EBE10
+	.text       start:0x828F32F0 end:0x828F3460
 
 Speed/Indep/SourceLists/zFe.cpp:
 	.pdata      start:0x820C1D00 end:0x820C1E20
-	.pdata      start:0x820C1E68 end:0x820C3B48
-	.pdata      start:0x820C3DB0 end:0x820C49C8
+	.pdata      start:0x820C1E68 end:0x820C49C8
 	.text       start:0x8224B708 end:0x8224D228
-	.text       start:0x8224D748 end:0x82291B88
-	.text       start:0x82298910 end:0x822BAB80
+	.text       start:0x8224D748 end:0x822BAB80
+	.text       start:0x828EBE10 end:0x828EBE58
+	.text       start:0x828F3460 end:0x828F3488
 
 Speed/Indep/SourceLists/zFEng.cpp:
 	.pdata      start:0x820C7080 end:0x820C7120
 	.pdata      start:0x820C7120 end:0x820C7DB0
 	.text       start:0x82317658 end:0x82318F58
 	.text       start:0x82318F60 end:0x82337368
+	.text       start:0x828EBE58 end:0x828EBE80
+	.text       start:0x828F34A8 end:0x828F3508
 
 Speed/Indep/SourceLists/zFe2.cpp:
 	.pdata      start:0x820C1E20 end:0x820C1E68
-	.pdata      start:0x820C3B48 end:0x820C3DB0
 	.pdata      start:0x820C4A58 end:0x820C7080
 	.text       start:0x8224D228 end:0x8224D748
-	.text       start:0x82291B88 end:0x82298910
 	.text       start:0x822BB920 end:0x82317658
 	.text       start:0x82318F58 end:0x82318F60
+	.text       start:0x828F3508 end:0x828F3510
 
 Speed/Indep/SourceLists/zFeOverlay.cpp:
 	.pdata      start:0x820C49C8 end:0x820C4A58
 	.pdata      start:0x820D7DA8 end:0x820D8C40
+	.pdata      start:0x820E6DD8 end:0x820E6DE0
 	.text       start:0x822BAB80 end:0x822BB920
 	.text       start:0x82591B30 end:0x825C3358
+	.text       start:0x828F3510 end:0x828F3588
 
 Speed/Indep/SourceLists/zGameplay.cpp:
 	.pdata      start:0x820C8778 end:0x820CA410
 	.text       start:0x8234FFB8 end:0x82384BE8
 
 Speed/Indep/SourceLists/zOnline.cpp:
-	.pdata      start:0x820D7140 end:0x820D7148
-	.text       start:0x82578348 end:0x825783C0
+	.pdata      start:0x820D6E58 end:0x820D7DA8
+	.pdata      start:0x820E6F08 end:0x820E6F28
+	.text       start:0x825720BC end:0x82591B30
+	.text       start:0x828EBE80 end:0x828EBEB0
+	.text       start:0x828F3588 end:0x828F3598
+	.text       start:0x828F47F0 end:0x828F495C
 
 Speed/Indep/SourceLists/zLua.cpp:
 	.pdata      start:0x820CA410 end:0x820CB768
@@ -120,28 +160,40 @@ Speed/Indep/SourceLists/zLua.cpp:
 
 Speed/Indep/SourceLists/zMain.cpp:
 	.pdata      start:0x820CB768 end:0x820CD100
+	.pdata      start:0x820E6800 end:0x820E6888
+	.pdata      start:0x820E6DE0 end:0x820E6DF0
 	.text       start:0x823AB1D8 end:0x823D8578
+	.text       start:0x828EBEB0 end:0x828ECC08
+	.text       start:0x828F35E0 end:0x828F3698
 
 Speed/Indep/SourceLists/zMisc.cpp:
 	.pdata      start:0x820CD100 end:0x820CE298
+	.pdata      start:0x820E6890 end:0x820E68A0
 	.text       start:0x823D8578 end:0x82404030
+	.text       start:0x828ECC60 end:0x828ED088
+	.text       start:0x828F3698 end:0x828F3828
 
 Speed/Indep/SourceLists/zPhysics.cpp:
 	.pdata      start:0x820CE298 end:0x820CFA78
+	.pdata      start:0x820E68A0 end:0x820E6998
+	.pdata      start:0x820E6DF0 end:0x820E6E90
 	.text       start:0x82404030 end:0x82432C68
 	.text       start:0x824351F0 end:0x82435228
+	.text       start:0x828ED088 end:0x828EDC68
+	.text       start:0x828F3880 end:0x828F3F20
 
 Speed/Indep/SourceLists/zPhysicsBehaviors.cpp:
 	.pdata      start:0x820CFA78 end:0x820CFC78
 	.pdata      start:0x820CFC78 end:0x820D12D0
+	.pdata      start:0x820E6998 end:0x820E6B48
 	.text       start:0x82432C68 end:0x824351F0
 	.text       start:0x82435228 end:0x82470310
+	.text       start:0x828EDC68 end:0x828EEFB0
+	.text       start:0x828F3F20 end:0x828F3F40
 
 Speed/Indep/SourceLists/zRender.cpp:
-	.pdata      start:0x820D15F8 end:0x820D1610
-	.pdata      start:0x820D1D38 end:0x820D1E08
-	.text       start:0x82478520 end:0x824799D8
-	.text       start:0x82490860 end:0x82493490
+	.pdata      start:0x820D12D0 end:0x820D1E08
+	.text       start:0x82470310 end:0x82493490
 
 Speed/Indep/SourceLists/zPlatform.cpp:
 	.pdata      start:0x820D1E08 end:0x820D1E38
@@ -151,21 +203,363 @@ Speed/Indep/SourceLists/zPlatform.cpp:
 
 Speed/Indep/SourceLists/zSim.cpp:
 	.pdata      start:0x820D21C0 end:0x820D2F50
+	.pdata      start:0x820E6B48 end:0x820E6BE8
+	.pdata      start:0x820E6E98 end:0x820E6EB0
 	.text       start:0x8249A6C0 end:0x824BA270
+	.text       start:0x828EEFB0 end:0x828EFAE0
+	.text       start:0x828F4030 end:0x828F4170
 
 Speed/Indep/SourceLists/zSpeech.cpp:
 	.pdata      start:0x820D2F50 end:0x820D4200
+	.pdata      start:0x820E6BE8 end:0x820E6BF8
+	.pdata      start:0x820E6EB0 end:0x820E6EB8
 	.text       start:0x824BA270 end:0x824ECD50
+	.text       start:0x828EFAE0 end:0x828EFC58
+	.text       start:0x828F4170 end:0x828F4270
 
 Speed/Indep/SourceLists/zTrack.cpp:
 	.pdata      start:0x820D4200 end:0x820D49E0
+	.pdata      start:0x820E6BF8 end:0x820E6C20
+	.pdata      start:0x820E6EB8 end:0x820E6ED0
 	.text       start:0x824ECD50 end:0x825027B0
+	.text       start:0x828EFC58 end:0x828F02E0
+	.text       start:0x828F4270 end:0x828F4410
 
 Speed/Indep/SourceLists/zWorld.cpp:
 	.pdata      start:0x820D49E0 end:0x820D5D38
+	.pdata      start:0x820E6C20 end:0x820E6CA8
+	.pdata      start:0x820E6ED0 end:0x820E6EF8
 	.text       start:0x825027B0 end:0x82541990
+	.text       start:0x828F0300 end:0x828F2060
+	.text       start:0x828F4410 end:0x828F46A8
 
 Speed/Indep/SourceLists/zWorld2.cpp:
 	.pdata      start:0x820D5D38 end:0x820D5D68
 	.pdata      start:0x820D5D68 end:0x820D6E58
+	.pdata      start:0x820E6CA8 end:0x820E6CF8
+	.pdata      start:0x820E6EF8 end:0x820E6F00
 	.text       start:0x82541990 end:0x825720BC
+	.text       start:0x828F2060 end:0x828F2468
+	.text       start:0x828F46A8 end:0x828F4778
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_interface.cpp:
+	.pdata      start:0x820D9878 end:0x820D98B8
+	.text       start:0x825E89E8 end:0x825E9340
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_memvectors.cpp:
+	.pdata      start:0x820D98B8 end:0x820D98D0
+	.text       start:0x825E9340 end:0x825E9530
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/locale.cpp:
+	.pdata      start:0x820D98D0 end:0x820D98D8
+	.text       start:0x825E9530 end:0x825E99A8
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_taskmanager.cpp:
+	.pdata      start:0x820D9B70 end:0x820D9C00
+	.text       start:0x825F17A8 end:0x825F3738
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_utilities.cpp:
+	.pdata      start:0x820D9C00 end:0x820D9C18
+	.text       start:0x825F3738 end:0x825F3C18
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/interfaceimp.cpp:
+	.pdata      start:0x820D9E08 end:0x820D9E40
+	.text       start:0x825FA0C0 end:0x825FA4F8
+
+Packages/realmemcard/3.04.01-layer2/source/lib/cmn/memcard_interface_impl.cpp:
+	.pdata      start:0x820D9908 end:0x820D9A18
+	.text       start:0x825EA070 end:0x825EDC40
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathinit.cpp:
+	.pdata      start:0x820D9E40 end:0x820D9EB0
+	.text       start:0x825FA4F8 end:0x825FB580
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathserv.cpp:
+	.pdata      start:0x820D9EB0 end:0x820D9ED8
+	.text       start:0x825FB580 end:0x825FBC58
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathreal.cpp:
+	.pdata      start:0x820D9ED8 end:0x820D9F70
+	.text       start:0x825FBC58 end:0x825FC8F0
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathsnd.cpp:
+	.pdata      start:0x820D9F70 end:0x820DA0D0
+	.text       start:0x825FC8F0 end:0x825FEEA8
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathtrack.cpp:
+	.pdata      start:0x820DA0D0 end:0x820DA138
+	.text       start:0x825FEEA8 end:0x82600180
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathcontrol.cpp:
+	.pdata      start:0x820DA138 end:0x820DA178
+	.text       start:0x82600180 end:0x82600788
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathnode.cpp:
+	.pdata      start:0x820DA178 end:0x820DA1B0
+	.text       start:0x82600788 end:0x82601840
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathevent.cpp:
+	.pdata      start:0x820DA1B0 end:0x820DA200
+	.text       start:0x82601840 end:0x82602200
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathvol.cpp:
+	.pdata      start:0x820DA200 end:0x820DA290
+	.text       start:0x82602200 end:0x82603480
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathbank.cpp:
+	.pdata      start:0x820DA290 end:0x820DA2C8
+	.text       start:0x82603480 end:0x82603DD0
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathrand.cpp:
+	.pdata      start:0x820DA2C8 end:0x820DA2D8
+	.text       start:0x82603DD0 end:0x82604038
+
+Speed/Indep/Libs/path/5.01.04/source/cmn/pathaction.cpp:
+	.pdata      start:0x820DA2D8 end:0x820DA2F8
+	.text       start:0x82604038 end:0x82605788
+
+Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp:
+	.pdata      start:0x820DA2F8 end:0x820DA450
+	.text       start:0x82605788 end:0x82607650
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sst.c:
+	.pdata      start:0x820DA6F8 end:0x820DA750
+	.text       start:0x8260E170 end:0x8260F6E0
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sstsetgl.c:
+	.pdata      start:0x820DA750 end:0x820DA758
+	.text       start:0x8260F880 end:0x8260F8F0
+
+Speed/Indep/Libs/snd/9/source/library/cmn/saems.c:
+	.pdata      start:0x820DA768 end:0x820DA838
+	.text       start:0x8260FB98 end:0x82613800
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sstpmult.c:
+	.pdata      start:0x820DA8D8 end:0x820DA8E0
+	.text       start:0x82614528 end:0x826145B0
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sstop.c:
+	.pdata      start:0x820DA990 end:0x820DA998
+	.text       start:0x82615F20 end:0x82615F90
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sclnt100.c:
+	.pdata      start:0x820DA9A0 end:0x820DA9A8
+	.text       start:0x82616030 end:0x82616184
+
+Speed/Indep/Libs/snd/9/source/library/mix/smixer.c:
+	.pdata      start:0x820DA9F8 end:0x820DAA48
+	.text       start:0x82616F48 end:0x82618464
+
+Speed/Indep/Libs/snd/9/source/library/cmn/salloc.c:
+	.pdata      start:0x820DAA50 end:0x820DAA60
+	.text       start:0x82618518 end:0x82618AEC
+
+Speed/Indep/Libs/snd/9/source/library/cmn/slinklst.c:
+	.text       start:0x8262D9E8 end:0x8262DAD8
+
+Speed/Indep/Libs/snd/9/source/library/cmn/srandom.c:
+	.pdata      start:0x820DB5D0 end:0x820DB5D8
+	.text       start:0x82630130 end:0x826302A0
+
+Speed/Indep/Libs/snd/9/source/library/cmn/ssine.c:
+	.text       start:0x826302F0 end:0x82630378
+
+Speed/Indep/Libs/snd/9/source/library/cmn/scheckpo.c:
+	.text       start:0x82630428 end:0x82630458
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sserver.c:
+	.text       start:0x8260D998 end:0x8260D9F8
+
+Speed/Indep/Libs/snd/9/source/library/cmn/ssthold.c:
+	.pdata      start:0x820DA450 end:0x820DA458
+	.text       start:0x82607660 end:0x82607708
+
+Speed/Indep/Libs/snd/9/source/library/cmn/ssysveccsismutex.cpp:
+	.text       start:0x82609FB0 end:0x82609FCC
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sbremove.c:
+	.pdata      start:0x820DA9B8 end:0x820DA9C0
+	.text       start:0x826163E8 end:0x826165C4
+
+Speed/Indep/Libs/snd/9/source/library/cmn/spatkey.c:
+	.text       start:0x82630378 end:0x82630424
+
+Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_root1x.c:
+	.text       start:0x82651800 end:0x82651890
+
+Speed/Indep/Libs/snd/9/source/library/cmn/spantoaz.c:
+	.text       start:0x8264B8B8 end:0x8264B8CC
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfir.c:
+	.pdata      start:0x820DBE30 end:0x820DBE38
+	.text       start:0x82651890 end:0x82651B6C
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sattrdef.c:
+	.text       start:0x82614850 end:0x826148C4
+
+Speed/Indep/Libs/snd/9/source/library/cmn/spitch.c:
+	.pdata      start:0x820DA920 end:0x820DA928
+	.text       start:0x82615458 end:0x826154F4
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sndfxbus.cpp:
+	.pdata      start:0x820DA930 end:0x820DA938
+	.text       start:0x82615580 end:0x82615678
+
+Speed/Indep/Libs/snd/9/source/library/cmn/stpparse.c:
+	.pdata      start:0x820DB5E0 end:0x820DB5E8
+	.text       start:0x82630458 end:0x82630988
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sballoc.c:
+	.text       start:0x82630988 end:0x82630A00
+
+Speed/Indep/Libs/snd/9/source/library/mix/sinit16.c:
+	.text       start:0x826381D8 end:0x82638220
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfxrevc.c:
+	.pdata      start:0x820DB720 end:0x820DB728
+	.text       start:0x82636F40 end:0x82636FB0
+	.text       start:0x82638090 end:0x826381C0
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfilter.c:
+	.pdata      start:0x820DB728 end:0x820DB738
+	.text       start:0x82638220 end:0x82638498
+
+Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/setmemcpy.cpp:
+	.text       start:0x82638588 end:0x826385A0
+
+Speed/Indep/Libs/snd/9/source/library/mix/stretch.c:
+	.pdata      start:0x820DB738 end:0x820DB760
+	.text       start:0x826385D0 end:0x82638E18
+
+Speed/Indep/Libs/snd/9/source/library/mix/sinitut.c:
+	.text       start:0x826390C0 end:0x82639148
+
+Speed/Indep/Libs/snd/9/source/library/mix/sinitxa.c:
+	.text       start:0x82639148 end:0x82639190
+
+Speed/Indep/Libs/snd/9/source/library/cmn/satospkr.c:
+	.pdata      start:0x820DB788 end:0x820DB798
+	.text       start:0x826395B0 end:0x82639B68
+
+Speed/Indep/Libs/snd/9/source/library/mix/smixtmul.c:
+	.text       start:0x82639D60 end:0x82639DA8
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sgettag.c:
+	.pdata      start:0x820DBC48 end:0x820DBC50
+	.text       start:0x82649058 end:0x82649150
+
+Speed/Indep/Libs/snd/9/source/library/cmn/srrange.c:
+	.pdata      start:0x820DBCB0 end:0x820DBCB8
+	.text       start:0x8264B858 end:0x8264B8B8
+
+Speed/Indep/Libs/snd/9/source/library/cmn/sover.c:
+	.pdata      start:0x820DBCB8 end:0x820DBCC0
+	.text       start:0x8264B8D0 end:0x8264B900
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfsrc.c:
+	.pdata      start:0x820DBCD0 end:0x820DBCD8
+	.text       start:0x8264C7F0 end:0x8264C890
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfreson.c:
+	.pdata      start:0x820DBCD8 end:0x820DBCE8
+	.text       start:0x8264C890 end:0x8264CC28
+
+Speed/Indep/Libs/snd/9/source/library/mix/sflpffir8.c:
+	.pdata      start:0x820DBCF0 end:0x820DBCF8
+	.text       start:0x8264CD48 end:0x8264CDB8
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfamplf.c:
+	.pdata      start:0x820DBD00 end:0x820DBD08
+	.text       start:0x8264CFC0 end:0x8264D140
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfbpffir8.c:
+	.pdata      start:0x820DBD10 end:0x820DBD18
+	.text       start:0x8264D208 end:0x8264D2A0
+
+Speed/Indep/Libs/snd/9/source/library/mix/sflpf.c:
+	.text       start:0x8264D5F0 end:0x8264D678
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfhpffir8.c:
+	.pdata      start:0x820DBD38 end:0x820DBD40
+	.text       start:0x8264D978 end:0x8264D9E8
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfecho.c:
+	.pdata      start:0x820DBD40 end:0x820DBD50
+	.text       start:0x8264DA68 end:0x8264DEA8
+
+Speed/Indep/Libs/snd/9/source/library/mix/supmutf.c:
+	.pdata      start:0x820DBDA0 end:0x820DBDA8
+	.text       start:0x8264E740 end:0x8264E838
+
+Speed/Indep/Libs/snd/9/source/library/mix/supmutlf.c:
+	.pdata      start:0x820DBDA8 end:0x820DBDB0
+	.pdata      start:0x820DBDB0 end:0x820DBDB8
+	.text       start:0x8264E840 end:0x8264E8F0
+	.text       start:0x8264E910 end:0x8264E9E8
+
+Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_sin.c:
+	.text       start:0x8264F008 end:0x8264F090
+
+Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_cos.c:
+	.text       start:0x8264F090 end:0x8264F118
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfrsf.c:
+	.pdata      start:0x820DBDF0 end:0x820DBDF8
+	.text       start:0x8264F120 end:0x8264F440
+
+Speed/Indep/Libs/snd/9/source/library/mix/sfir8.c:
+	.text       start:0x82651B70 end:0x82651F20
+
+Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_mult16.c:
+	.pdata      start:0x820DBE38 end:0x820DBE40
+	.text       start:0x82651F20 end:0x82651F50
+
+Speed/Indep/Libs/snd/9/source/library/extern/coda/cmn/mtdecf.cpp:
+	.pdata      start:0x820DBE40 end:0x820DBE78
+	.text       start:0x82651F78 end:0x82653BA8
+
+Speed/Indep/Libs/snd/9/source/library/cmn/SNDI_findprime.c:
+	.text       start:0x82654C48 end:0x82654D18
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchrslv.c:
+	.pdata      start:0x820DC448 end:0x820DC460
+	.text       start:0x82661DA0 end:0x82662050
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchinit.c:
+	.pdata      start:0x820DC460 end:0x820DC498
+	.text       start:0x82662050 end:0x82662578
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchevnt.c:
+	.pdata      start:0x820DC498 end:0x820DC540
+	.text       start:0x82662578 end:0x82663B58
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchbank.c:
+	.pdata      start:0x820DC5B0 end:0x820DC628
+	.text       start:0x826645D0 end:0x82665370
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchpick.c:
+	.pdata      start:0x820DC628 end:0x820DC708
+	.text       start:0x82665370 end:0x82667CE0
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchrand.c:
+	.pdata      start:0x820DC720 end:0x820DC748
+	.text       start:0x82667FD0 end:0x82668488
+
+Speed/Indep/Libs/spch/dev/source/library/cmn/spchrule.c:
+	.pdata      start:0x820DC748 end:0x820DC770
+	.text       start:0x82668488 end:0x826688E8
+
+Packages/eathread/1.1.0/source/eathread_thread.cpp:
+	.pdata      start:0x820DBE98 end:0x820DBF58
+	.pdata      start:0x820E6D18 end:0x820E6D20
+	.text       start:0x82654D18 end:0x82656070
+	.text       start:0x828F28F8 end:0x828F293C
+	.text       start:0x828F4A30 end:0x828F4A40
+
+Packages/eathread/1.1.0/source/eathread_mutex.cpp:
+	.pdata      start:0x820DBF58 end:0x820DBF90
+	.text       start:0x82656070 end:0x82656370
+
+Packages/eathread/1.1.0/source/eathread_semaphore.cpp:
+	.pdata      start:0x820DC7D0 end:0x820DC800
+	.text       start:0x82669258 end:0x82669770

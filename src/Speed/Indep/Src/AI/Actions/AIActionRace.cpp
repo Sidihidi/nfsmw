@@ -851,10 +851,7 @@ bool AIActionRace::CheckSpeedTraps(float speed, float skill, float potential_nos
         if (UMath::DistanceSquare(trapPos, carPos) < reach * reach) {
             UMath::Vector3 toTrap;
             UMath::Sub(trapPos, carPos, toTrap);
-            float dist = UMath::Length(toTrap);
-            if (dist != 0.0f) {
-                UMath::Scale(toTrap, 1.0f / dist, toTrap);
-            }
+            float dist = UMath::Normalize(toTrap);
             float eta = dist / speed;
             if (eta < potential_nos || was_nos) {
                 if (UMath::Dot(carFwd, toTrap) > 0.5f) {
@@ -1151,7 +1148,7 @@ void AIActionRace::Update(float dT) {
 
 void AIActionRace::OnDebugDraw() {}
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionRace("AIActionRace", AIActionRace::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionRace(UCrc32("AIActionRace"), AIActionRace::Construct);
 
 float aHumanNavLookAheadData[2] = {50.0f, 60.0f};
 Table HumanNavLookAheadTable(aHumanNavLookAheadData, 2, 0.0f, 100.0f);

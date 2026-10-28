@@ -3,6 +3,7 @@
 
 int SNDBANK_play(int bhandle, int patnum, SNDPLAYOPTS *pspo) {
     BANKVER5 *pb;
+    SNDI_CHECKINSTALLED();
     SNDI_checkplayopts(pspo);
     if (SNDBANKI_valid(bhandle) < 0) {
         return -8;

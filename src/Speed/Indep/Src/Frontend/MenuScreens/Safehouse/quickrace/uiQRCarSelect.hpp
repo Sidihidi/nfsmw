@@ -61,7 +61,9 @@ class QRCarSelectBustedManager {
     bool IsImpoundInfoVisible();
 
     bool ShowImpoundedTexture();
-    bool ShowNewStrikeAnimation() {}
+    bool ShowNewStrikeAnimation() {
+        return Flags == BUSTED_ANIM_SHOW_STRIKE;
+    }
     bool ShowImpoundedAnimation() {}
 
   private:

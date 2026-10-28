@@ -12,6 +12,9 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/Src/FEng/FEPackage.h"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/PC/Src/Ecstasy/eMousePlat.hpp" // TheMouse (GetMouseInfo)
+#endif
 #ifdef EA_BUILD_A124
 #include "Speed/Indep/Src/Frontend/DebugMenu.h" // ResetScreenPrintf
 #endif
@@ -259,7 +262,25 @@ u32 cFEngGameInterface::GetJoyPadMask(u8 feng_pad_index) {
     return cFEngJoyInput::mInstance->GetJoyPadMask(feng_pad_index);
 }
 
-void cFEngGameInterface::GetMouseInfo(FEMouseInfo &Info) {}
+#ifdef EA_PLATFORM_WIN32
+void pc_fe_515960(float *x, float *y) {
+    *x = TheMouse.X - 320.0f;
+    *y = TheMouse.Y - 240.0f;
+}
+
+void pc_fe_515990(float *wheel) {
+    *wheel = TheMouse.Wheel;
+}
+#endif
+
+void cFEngGameInterface::GetMouseInfo(FEMouseInfo &Info) {
+#ifdef EA_PLATFORM_WIN32
+    // PC: el cursor del raton de la ventana, con el origen en el centro de la pantalla de 640x480, y los botones
+    Info.XPos = static_cast<i16>(TheMouse.X - 320.0f);
+    Info.YPos = static_cast<i16>(TheMouse.Y - 240.0f);
+    Info.ButtonMask = (TheMouse.RightDown << 1) | TheMouse.LeftDown;
+#endif
+}
 
 bool cFEngGameInterface::DoesPointTouchObject(float xPos, float yPos, FEObject *pButton) {
     return FEngTestForIntersection(xPos, yPos, pButton);

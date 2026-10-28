@@ -190,7 +190,11 @@ public:
 
     static Csis::Result SetMaxBuses(int buses);
 
+#ifdef EA_PLATFORM_XENON
+    static Csis::Result CreateInstance(Snd::Device device, GlobalFxProcessor **ppGlobalFxProcessor);
+#else
     static Csis::Result CreateInstance(Snd::Device device, int bus, GlobalFxProcessor **ppGlobalFxProcessor);
+#endif
 
     Csis::Result Release();
 
@@ -221,24 +225,34 @@ public:
 extern "C" {
 #endif
 
-// total size: 0x18
+// total size: 0x18 (0x10 en Xenon: su snd no tiene bend, elevation ni tempomult; SNDplaysetdef de 360 en 0x8260CC10)
 // Decl: 149
 typedef struct SNDPLAYOPTS {
-    signed char vol;               // offset 0x0, size 0x1
-    signed char bend;              // offset 0x1, size 0x1
-    signed char keynum;            // offset 0x2, size 0x1
-    signed char velocity;          // offset 0x3, size 0x1
-    signed char drylevel;          // offset 0x4, size 0x1
-    signed char fxlevel0;          // offset 0x5, size 0x1
-    char pad[2];                   // offset 0x6, size 0x2
-    unsigned short azimuth;        // offset 0x8, size 0x2
-    short elevation;               // offset 0xA, size 0x2
-    unsigned short pitchmult;      // offset 0xC, size 0x2
-    unsigned short timemult;       // offset 0xE, size 0x2
-    unsigned short tempomult;      // offset 0x10, size 0x2
-    unsigned short pad2;           // offset 0x12, size 0x2
-    unsigned short lowpasscutoff;  // offset 0x14, size 0x2
-    unsigned short highpasscutoff; // offset 0x16, size 0x2
+    signed char vol; // offset 0x0, size 0x1
+#ifndef EA_PLATFORM_XENON
+    signed char bend; // offset 0x1, size 0x1
+#endif
+    signed char keynum;   // offset 0x2, size 0x1 (Xenon 0x1)
+    signed char velocity; // offset 0x3, size 0x1 (Xenon 0x2)
+    signed char drylevel; // offset 0x4, size 0x1 (Xenon 0x3)
+    signed char fxlevel0; // offset 0x5, size 0x1 (Xenon 0x4)
+#ifndef EA_PLATFORM_XENON
+    char pad[2]; // offset 0x6, size 0x2
+#else
+    char pad; // offset 0x5, size 0x1 (Xenon: nombre y tipo del PDB de ProStreet X360, mismo SNDPLAYOPTS de 0x10)
+#endif
+    unsigned short azimuth; // offset 0x8, size 0x2 (Xenon 0x6: azimuth en el PDB de ProStreet X360; SNDplaysetdef pone 0)
+#ifndef EA_PLATFORM_XENON
+    short elevation; // offset 0xA, size 0x2
+#endif
+    unsigned short pitchmult; // offset 0xC, size 0x2 (Xenon 0x8)
+    unsigned short timemult;  // offset 0xE, size 0x2 (Xenon 0xA)
+#ifndef EA_PLATFORM_XENON
+    unsigned short tempomult; // offset 0x10, size 0x2
+    unsigned short pad2;      // offset 0x12, size 0x2
+#endif
+    unsigned short lowpasscutoff;  // offset 0x14, size 0x2 (Xenon 0xC)
+    unsigned short highpasscutoff; // offset 0x16, size 0x2 (Xenon 0xE)
 } SNDPLAYOPTS;
 
 // total size: 0x10
@@ -258,7 +272,9 @@ typedef struct SNDSTREAMSTATUS {
     int timebuffered;        // offset 0x8, size 0x4, Decl: 182
 } SNDSTREAMSTATUS;
 
-// total size: 0x68
+// total size: 0x68 (0x64 en Xenon: sin bendrange ni rendermode; SND_attrsetdef de 360 en 0x82614850
+// pone 0 en los bytes 0..6 y SNDI_patchtohdr en 0x8262DB38 escribe platformver —el tag 0x80— en 0x6,
+// azimuth —tags 0x9C..0xA7— en 0x8..0x12 y no tiene handler para el tag 0x0A de bendrange)
 // Decl: 188
 typedef struct SNDSAMPLEATTR {
     short detune;                        // offset 0x0, size 0x2
@@ -266,6 +282,7 @@ typedef struct SNDSAMPLEATTR {
     signed char vol;                     // offset 0x3, size 0x1
     signed char pan;                     // offset 0x4, size 0x1
     signed char fxlevel0;                // offset 0x5, size 0x1
+#ifndef EA_PLATFORM_XENON
     signed char bendrange;               // offset 0x6, size 0x1
     unsigned char platformver;           // offset 0x7, size 0x1
     unsigned short rendermode;           // offset 0x8, size 0x2
@@ -275,6 +292,15 @@ typedef struct SNDSAMPLEATTR {
     int tsdatasize[6];                   // offset 0x30, size 0x18
     void *puserdata[SND_MAX_USER_DATA];  // offset 0x48, size 0x10
     int userdatasize[SND_MAX_USER_DATA]; // offset 0x58, size 0x10
+#else
+    unsigned char platformver;           // offset 0x6, size 0x1 (Xenon)
+    char padchar[1];                     // offset 0x7, size 0x1 (Xenon: hueco de alineacion de azimuth)
+    unsigned short azimuth[6];           // offset 0x8, size 0xC (Xenon)
+    void *ptsdata[6];                    // offset 0x14, size 0x18 (Xenon)
+    int tsdatasize[6];                   // offset 0x2C, size 0x18 (Xenon)
+    void *puserdata[SND_MAX_USER_DATA];  // offset 0x44, size 0x10 (Xenon)
+    int userdatasize[SND_MAX_USER_DATA]; // offset 0x54, size 0x10 (Xenon)
+#endif
 } SNDSAMPLEATTR;
 
 // total size: 0x4

@@ -88,7 +88,11 @@ void uiOnlineVoiceInvite::NotificationMessage(u32 msg, FEObject *obj, u32 param1
             break;
         case 0x7c1bb77f:
             gVOIP_InviteState = 3;
+#ifdef EA_PLATFORM_PLAYSTATION2
             DoWithMainMemoryStack((void *)SetupVoiceInvite, 0, 0);
+#else
+            SetupVoiceInvite();
+#endif
             break;
         case 0x39992a2c:
             if (gVOIP_InviteState == 1) {

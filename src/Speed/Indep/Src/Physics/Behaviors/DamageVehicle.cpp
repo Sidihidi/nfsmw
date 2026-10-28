@@ -226,7 +226,13 @@ void DamageVehicle::OnImpact(const UMath::Vector3 &arm, const UMath::Vector3 &no
 
         float total_hit_points = this->mSpecs.HIT_POINTS();
         if (total_hit_points > 0.0f && this->mDamageTotal < 1.0f) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            // MSVC asocia ratio/total*hitpoint (exe 0x69C310: fmul st(1)=1/total antes que hitpoint_scale);
+            // GCC de GC/PS2 asocia (ratio*hitpoint)/total. Cada forma es la del 100 % en su plataforma.
+            float damage_points = ratio / total_hit_points * hitpoint_scale;
+#else
             float damage_points = (ratio * hitpoint_scale) / total_hit_points;
+#endif
             float threshold = this->mSpecs.HP_THRESHOLD() / total_hit_points;
             if (damage_points > threshold) {
                 this->mDamageTotal += damage_points;

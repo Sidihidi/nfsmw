@@ -130,7 +130,11 @@ void FEMessageResponse::SetCount(u32 NewCount) {
 
             FEResponse *pNewList = FNEW FEResponse[NewCount];
             u32 copyCount = Count;
+#ifdef EA_PLATFORM_XENON
+            if (NewCount < copyCount) {
+#else
             if (copyCount > NewCount) {
+#endif
                 copyCount = NewCount;
             }
             u32 i = 0;

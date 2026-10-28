@@ -11,6 +11,12 @@
 
 extern LobbyLoginAlertT LobbyLogin_DefaultAlertTable[];
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x9B4234): un mutex de RealSystem propio de LobbyLogin, sin destructor (su inicializador estatico,
+// 0x88D990, va justo antes del de lobbyMutex y no registra atexit). Start lo crea, Finish lo destruye y cada
+// DoContext* lo coge alrededor de su envio. Nombre NEUTRO: ningun binario lo da.
+static NetworkMutex win32_unknown_9B4234;
+#endif
 static OnlineMutex lobbyMutex("Lobby");
 
 #include "LobbyAccount.hpp"
@@ -32,11 +38,24 @@ int LobbyLoginSubmitCB(LobbyLoginRefT *login, LobbyLoginContextE context, char *
                        void (*callback)(LobbyLoginRefT *, LobbyLoginContextE, LobbyLoginStatusE, void *), void *callbackData);
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x78B310): sin doingRetryAttempt; el primer byte de cada buffer de parametros a cero.
+LobbyLogin::LobbyLogin()
+    : lobbylogin(nullptr) {
+    win32_unknown_0x88[0] = '\0';
+    win32_unknown_0xd0[0] = '\0';
+    win32_unknown_0x130[0] = '\0';
+    win32_unknown_0x138[0] = '\0';
+    win32_unknown_0x144[0] = '\0';
+    bMemSet(&personas, 0, sizeof(personas));
+}
+#else
 LobbyLogin::LobbyLogin()
     : lobbylogin(nullptr), //
       doingRetryAttempt(false) {
     bMemSet(&personas, 0, sizeof(personas));
 }
+#endif
 
 LobbyLogin::~LobbyLogin() { Finish(); }
 
@@ -45,6 +64,140 @@ LobbyLogin &LobbyLogin::Instance() {
     return the;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x792A00): con el mutex de LobbyLogin (lo crea antes de LobbyLoginCreate) y sin doingRetryAttempt.
+bool LobbyLogin::Start(const LobbyApiRefT *lobbyRef, const LobbyLoginAlertT *alertTable, LobbyLoginContextE startContext,
+                       LobbyLoginNameListT *autoLoginName, char *autoLoginParams) {
+    bool rc;
+
+    if (!alertTable) {
+        alertTable = LobbyLogin_DefaultAlertTable;
+    }
+    if (IsStarted() == true) {
+        win32_unknown_9B4234.Lock();
+        LobbyLoginAbort(lobbylogin, GetContext());
+    } else {
+        win32_unknown_9B4234.Create();
+        win32_unknown_9B4234.Lock();
+        lobbylogin = LobbyLoginCreate(lobbyRef, alertTable);
+        if (!lobbylogin) {
+            win32_unknown_9B4234.Unlock();
+            return false;
+        }
+    }
+
+    bMemSet(&personas, 0, sizeof(personas));
+    rc = true;
+    if (autoLoginName) {
+        LobbyLoginAutomaticCB(lobbylogin, autoLoginName, 1, 0, 0);
+        rc = DoContext(startContext, autoLoginParams);
+    } else {
+        LobbyLoginSetContextCB(lobbylogin, startContext, 0, 0);
+    }
+    win32_unknown_9B4234.Unlock();
+    return rc;
+}
+
+// PC (speed.exe 0x78FDD0; el destructor 0x7929F0 salta aqui).
+void LobbyLogin::Finish() {
+    if (IsStarted() == true) {
+        win32_unknown_9B4234.Lock();
+        LobbyLoginAbort(lobbylogin, GetContext());
+        LobbyLoginDestroy(lobbylogin);
+        lobbylogin = nullptr;
+        win32_unknown_9B4234.Unlock();
+        win32_unknown_9B4234.Destroy();
+    }
+}
+
+bool LobbyLogin::IsStarted() { return lobbylogin != nullptr; }
+
+// PC (speed.exe 0x78B360).
+bool LobbyLogin::IsFinished() { return LobbyLoginGetContext(lobbylogin) == LOBBYLOGIN_CONTEXT_DONE; }
+
+int LobbyLogin::Win32Unknown792AF0() {
+    if (IsFinished()) {
+        return 1;
+    }
+    if (GetStatus() == LOBBYLOGIN_STATUS_ALERT) {
+        return -1;
+    }
+    if (GetStatus() != LOBBYLOGIN_STATUS_IDLE) {
+        return 0;
+    }
+    LobbyLoginContextE context = GetContext();
+    win32_unknown_9B4234.Lock();
+    bool rc = true;
+    if (context == LOBBYLOGIN_CONTEXT_CONNECT) {
+        rc = DoContext(context, win32_unknown_0x88);
+    } else if (context == LOBBYLOGIN_CONTEXT_LOGIN) {
+        rc = DoContext(context, win32_unknown_0xd0);
+    } else if (context == LOBBYLOGIN_CONTEXT_TOS) {
+        rc = DoContext(context, win32_unknown_0x130);
+    } else if (context == LOBBYLOGIN_CONTEXT_SHARE) {
+        rc = DoContext(context, win32_unknown_0x138);
+    } else if (context == LOBBYLOGIN_CONTEXT_SELPERS) {
+        rc = DoContext(context, win32_unknown_0x144);
+    }
+    win32_unknown_9B4234.Unlock();
+    return rc == true ? 0 : -1;
+}
+
+bool LobbyLogin::DoContextConnect(const char *ipaddr, uint16 port, int timeoutMsec) {
+    bool rc;
+    win32_unknown_9B4234.Lock();
+    TagFieldSetString(win32_unknown_0x88, sizeof(win32_unknown_0x88), "NAME", ipaddr);
+    TagFieldSetNumber(win32_unknown_0x88, sizeof(win32_unknown_0x88), "PORT", port);
+    TagFieldSetNumber(win32_unknown_0x88, sizeof(win32_unknown_0x88), "TIME", timeoutMsec);
+    rc = DoContext(LOBBYLOGIN_CONTEXT_CONNECT, win32_unknown_0x88);
+    win32_unknown_9B4234.Unlock();
+    return rc;
+}
+
+bool LobbyLogin::DoContextLogin(const char *username, const char *password) {
+    bool rc;
+    win32_unknown_9B4234.Lock();
+    TagFieldSetString(win32_unknown_0xd0, sizeof(win32_unknown_0xd0), "NAME", username);
+    TagFieldSetString(win32_unknown_0xd0, sizeof(win32_unknown_0xd0), "PASS", password);
+    TagFieldSetNumber(win32_unknown_0xd0, sizeof(win32_unknown_0xd0), "MULTIPERS", 1);
+    TagFieldSetString(win32_unknown_0xd0, sizeof(win32_unknown_0xd0), "REGKEY",
+                      FEDatabase->GetOnlineSettings()->GetWin32Unknown0xe9());
+    rc = DoContext(LOBBYLOGIN_CONTEXT_LOGIN, win32_unknown_0xd0);
+    win32_unknown_9B4234.Unlock();
+    return rc;
+}
+
+bool LobbyLogin::DoContextTOS(bool acceptedTOS) {
+    bool rc;
+    win32_unknown_9B4234.Lock();
+    TagFieldSetNumber(win32_unknown_0x130, sizeof(win32_unknown_0x130), "TOS", acceptedTOS == true);
+    rc = DoContext(LOBBYLOGIN_CONTEXT_TOS, win32_unknown_0x130);
+    win32_unknown_9B4234.Unlock();
+    return rc;
+}
+
+// PC (speed.exe 0x792E10): la A124 no la define.
+bool LobbyLogin::DoContextShare(bool wantsEASpam, bool wantsEmailShared) {
+    bool rc;
+    win32_unknown_9B4234.Lock();
+    char spam[4] = "";
+    bSPrintf(spam, "%c%c", wantsEASpam ? 'Y' : 'N', wantsEmailShared ? 'Y' : 'N');
+    TagFieldSetString(win32_unknown_0x138, sizeof(win32_unknown_0x138), "SPAM", spam);
+    rc = DoContext(LOBBYLOGIN_CONTEXT_SHARE, win32_unknown_0x138);
+    win32_unknown_9B4234.Unlock();
+    return rc;
+}
+
+// PC (speed.exe 0x792EF0): sin el bucle sobre personas de la A124.
+bool LobbyLogin::DoContextSelPers(const char *persona) {
+    bool rc;
+    win32_unknown_9B4234.Lock();
+    TagFieldSetString(win32_unknown_0x144, sizeof(win32_unknown_0x144), "PERS", persona);
+    rc = DoContext(LOBBYLOGIN_CONTEXT_SELPERS, win32_unknown_0x144);
+    win32_unknown_9B4234.Unlock();
+    return rc;
+}
+#else
 bool LobbyLogin::Start(const LobbyApiRefT *lobbyRef, const LobbyLoginAlertT *alertTable, LobbyLoginContextE startContext,
                        LobbyLoginNameListT *autoLoginName, char *autoLoginParams) {
     bool rc;
@@ -115,12 +268,25 @@ bool LobbyLogin::DoContextSelPers(const char *persona) {
     TagFieldSetString(params, sizeof(params), "PERS", persona);
     return DoContext(LOBBYLOGIN_CONTEXT_SELPERS, params);
 }
+#endif
 
-LobbyLoginContextE LobbyLogin::GetContext() { return IsStarted() ? LobbyLoginGetContext(lobbylogin) : LOBBYLOGIN_CONTEXT_INVALID; }
+// PC (0x78B380) deja el -1 tras el salto con `== false`; con el ternario al reves lo pone delante. La A124 igual.
+LobbyLoginContextE LobbyLogin::GetContext() { return IsStarted() == false ? LOBBYLOGIN_CONTEXT_INVALID : LobbyLoginGetContext(lobbylogin); }
 
 LobbyLoginStatusE LobbyLogin::GetStatus() { return LobbyLoginGetStatus(lobbylogin, GetContext()); }
 
 LobbyLoginNameListT &LobbyLogin::GetPersonaList() { return personas; }
+
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x78B3F0).
+void LobbyLogin::Win32Unknown78B3F0() {
+    LobbyLoginNameListT *personaList = LobbyLoginGetNameList(lobbylogin, 0);
+
+    if (personaList) {
+        bMemCpy(&personas, personaList, sizeof(LobbyLoginNameListT));
+    }
+}
+#endif
 
 bool LobbyLogin::IsAlertSet() { return GetStatus() == LOBBYLOGIN_STATUS_ALERT; }
 
@@ -139,10 +305,22 @@ bool LobbyLogin::DoContext(LobbyLoginContextE context, char *params) {
         LobbyLoginSetContextCB(lobbylogin, context, 0, 0);
     }
     char emptyParams[1] = "";
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x78FE30): el envio va bien cuando LobbyLoginSubmitCB devuelve 0 (`neg; sbb al, al; inc al`); la
+    // A124 lo da por bueno con un valor distinto de 0.
+    if (context == LOBBYLOGIN_CONTEXT_LOGIN) {
+        return LobbyLoginSubmitCB(lobbylogin, LOBBYLOGIN_CONTEXT_LOGIN, params ? params : emptyParams, ContextLoginCB, this) == 0
+                   ? true
+                   : false;
+    }
+    return LobbyLoginSubmitCB(lobbylogin, context, params ? params : emptyParams, _LoginSubmitCallback, this) == 0 ? true
+                                                                                                                 : false;
+#else
     if (context == LOBBYLOGIN_CONTEXT_LOGIN) {
         return LobbyLoginSubmitCB(lobbylogin, LOBBYLOGIN_CONTEXT_LOGIN, params ? params : emptyParams, ContextLoginCB, this) != 0;
     }
     return LobbyLoginSubmitCB(lobbylogin, context, params ? params : emptyParams, _LoginSubmitCallback, this) != 0;
+#endif
 }
 
 void LobbyLogin::AddPersona(char *persona) {

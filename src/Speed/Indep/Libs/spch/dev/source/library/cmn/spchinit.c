@@ -46,6 +46,12 @@ void *iSPCH_MemAlloc(unsigned int numBytes) {
     if (gMemAlloc != 0) {
         data = gMemAlloc(numBytes);
     }
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 milestone (EGM 0x82662078; cadena en 0x82036060).
+    else {
+        XenonUnknown82667ED0("SPCH Mem allocator callback is not set - use SPCH_SetMemCallbacks().");
+    }
+#endif
     return data;
 }
 
@@ -53,6 +59,12 @@ void iSPCH_MemFree(void *data) {
     if (gMemFree != 0) {
         gMemFree(data);
     }
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 milestone (EGM 0x826620E0; cadena en 0x820360A8).
+    else {
+        XenonUnknown82667ED0("SPCH Mem Free callback is not set - use SPCH_SetMemCallbacks().");
+    }
+#endif
 }
 
 void iSPCH_InitInGame(void) {

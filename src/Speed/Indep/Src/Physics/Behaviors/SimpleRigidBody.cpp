@@ -315,7 +315,7 @@ void SimpleRigidBody::Update(const float dT, void *workspace) {
     bTList<SimpleRigidBody>::iterator endIter = TheSimpleBodies.end();
     bTList<SimpleRigidBody>::iterator iter = beginIter;
 
-    for (; iter != endIter; ++iter) {
+    for (iter = beginIter; iter != endIter; ++iter) {
         (*iter)->DoIntegration(dT);
     }
 

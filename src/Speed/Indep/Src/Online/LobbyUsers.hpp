@@ -52,8 +52,11 @@ struct PlayerDataT {
             uint32 totalNOSused;
             uint32 fastestFinishTime;
             uint32 winPercentage;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // el EGM tambien: 0x30 B (X360-A, ctor 0x82573100)
+            uint32 win32_unknown_0x2c; // PC: 0x30 B por modo (PlayerDataT::PlayerDataT, 0x51A2F0); nombre neutro: casi seguro las desconexiones del modo (0x53D1D0 lo muestra en 0x134dac12, donde la A124 pone GetTotalDisconnectPercentage; Stats::Clear 0x78E7D0 lo pone a cero; 0x791D50 lo divide por GetTotalGamesPlayed)
+#endif
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
             // La A124 lo define tras Stats() (playerdata.hpp:306): Stats() lo llama fuera de linea y solo pone a
             // cero los cinco primeros campos.
             OnlineModeStats();
@@ -63,6 +66,9 @@ struct PlayerDataT {
             ~OnlineModeStats() {}
 
             void Clear() {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // EGM: Stats::Clear 0x82589AD0 con paso 0x30
+                win32_unknown_0x2c = 0; // Stats::Clear de PC (0x78E7D0) lo pone a cero el primero de cada modo
+#endif
                 winPercentage = 0;
                 fastestFinishTime = 0;
                 totalNOSused = 0;
@@ -112,6 +118,30 @@ struct PlayerDataT {
     uint32 GetTotalLossesAsClient();
     uint32 GetTotalLossesAsHost();
     uint32 GetTotalLosses(int mode);
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe): todas fuera de linea en zOnline, aunque nadie llame a la mitad (0x78E670-0x78E7C3 y
+    // 0x791B70-0x791E43): MSVC no emite un inline sin llamantes, asi que en PC no lo eran. Sus formas de PC van en
+    // LobbyUsers.cpp. GetWin32Unknown0x2cPercentage (0x791D50, nombre nuestro) es el porcentaje por modo de
+    // win32_unknown_0x2c que UIOnlinePersonalRankings de PC pone en 0x134dac12 (donde la A124 pone el de desconexiones).
+    uint32 GetWeeklyPointTotals(int mode);
+    uint32 GetMonthlyPointTotals(int mode);
+    float GetWinPercentage(int mode);
+    float GetClientDisconnectPercentage();
+    float GetHostDisconnectPercentage();
+    float GetTotalDisconnectPercentage();
+    float GetWin32Unknown0x2cPercentage(int mode); // nombre neutro: casi seguro el porcentaje de desconexiones del modo
+    float GetTopSpeedInMPS(int mode);
+    float GetFastestDragFinish();
+    char *GetFastestDragFinishString();
+    uint32 GetTotalNOS(int mode);
+    float GetLongestJumpDuration(int mode);
+    char *GetLongestJumpDurationString();
+    float GetLongestPowerSlideInMetres();
+    void Clear();
+
+  private:
+    bool IsFloatEqual(float x, float y, float epsilon);
+#else
     uint32 GetWeeklyPointTotals(int mode) {
         if (static_cast<uint32>(mode) > 2) {
             return 0;
@@ -164,6 +194,7 @@ struct PlayerDataT {
 
   private:
     bool IsFloatEqual(float x, float y, float epsilon) { return bAbs(x - y) < epsilon; }
+#endif
 
   public:
     char persona[16];
@@ -179,7 +210,7 @@ struct PlayerDataT {
     ~PlayerDataT() {}
 };
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
 inline PlayerDataT::Stats::OnlineModeStats::OnlineModeStats()
     : points(0) //
     , clientWins(0) //
@@ -224,7 +255,15 @@ struct LobbyUsers {
     void ClearUserOnlineRecordCache(const LobbyApiPlayT &game);
     void SetSessionChangeFlag(bool changing);
     void SetSessionLatency(int latency);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC and Xbox 360 (EGM 0x8258B740 / 0x8258B3A8): no SetSessionRaceStatusInfo ("LP"); in its place (0x799DF0, right after SetSessionLatency as in the A124) a
+    // setter of one int with the tag "CD", and 0x79D3F0 packs the connection state of the players of my game ("CE").
+    // No source names them: neutral names.
+    void SetWin32Unknown0x23c(int value);
+    void SetWin32UnknownCE();
+#else
     void SetSessionRaceStatusInfo(int lap, int mapx, int mapy);
+#endif
     LobbyApiUserT *GetMyUserRecord() const;
 
   private:
@@ -233,9 +272,13 @@ struct LobbyUsers {
         , auxiData(nullptr) //
         , mLate(-1) //
         , mCar(-1) //
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        , win32_unknown_0x23c(-1) {}
+#else
         , mLap(0) //
         , mMapX(0) //
         , mMapY(0) {}
+#endif
     ~LobbyUsers() {}
     int32 Init();
     void Reset();
@@ -252,9 +295,13 @@ struct LobbyUsers {
     char *auxiData;
     int mLate;
     uint32 mCar;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    int win32_unknown_0x23c; // PC (ctor 0x792920: -1; Xbox 360 0x82573B38): the value of the tag "CD" (SetWin32Unknown0x23c)
+#else
     int mLap;
     int mMapX;
     int mMapY;
+#endif
 };
 
 extern LobbyUsers *pLobbyUsersInstance;

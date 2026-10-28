@@ -35,7 +35,7 @@ int TagFieldSetEpoch(char *pBuffer, int iBufferSize, const char *pName, unsigned
 unsigned int TagFieldGetEpoch(const char *pField, unsigned int uDefault);
 int TagFieldSetFloat(char *pBuffer, int iBufferSize, const char *pName, float fValue);
 float TagFieldGetFloat(const char *pField, float fDefault);
-int TagFieldPrintf(char *pBuffer, int iBufferSize, const char *pName, const char *pFormat, ...);
+int TagFieldPrintf(char *pBuffer, int iBufferSize, const char *pFormat, ...);
 int TagFieldGetDelim(const char *pField, char *pBuffer, int iBufferSize, const char *pDefault, int iIndex, int cDelim);
 
 #ifdef __cplusplus

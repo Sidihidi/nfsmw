@@ -527,7 +527,12 @@ class PC:
     def aplicar(self, finales):
         b = open(self.ruta, 'rb').read().decode('utf-8')
         cambios = 0
+        from nombra_elim import vetados  # noqa: E402 (nombra_elim importa este modulo)
+        vet = vetados()
         for f, n in finales.items():
+            if any(a in vet for a in self.por_nombre.get(f, [])):
+                print('  VETADA', f[:80], '->', n[:80])
+                continue
             # el nombre viejo puede estar en `functions` y en `names` (la misma direccion): se cambian los dos
             antes = '"name": "%s",' % json.dumps(f)[1:-1]
             if 1 <= b.count(antes) <= 2 and len(self.por_nombre.get(f, [])) == 1:

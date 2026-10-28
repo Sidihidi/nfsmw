@@ -102,7 +102,7 @@ int tEnvelope::GetIndex(float t) {
         }
     }
     if (i > 0) {
-        return i - 1;
+        i--;
     }
     return i;
 }

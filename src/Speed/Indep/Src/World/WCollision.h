@@ -182,7 +182,7 @@ struct WCollisionBarrier {
     }
 
     const float YTop() const {
-        return fPts[1].y < fPts[0].y ? fPts[0].y : fPts[1].y;
+        return fPts[0].y > fPts[1].y ? fPts[0].y : fPts[1].y;
     }
 
     float GetInvXZLength() const {

@@ -198,6 +198,11 @@ class IconPanel {
         }
     }
     virtual bool SetSelection(IconOption *option);
+#ifdef EA_PLATFORM_WIN32
+    // PC: la virtual de la ranura 0x2C de speed.exe (0x587190; IconScroller la sustituye en 0x592F10). Nombre neutro:
+    // ningun binario lo da; probablemente selecciona la opcion que esta bajo el cursor del raton.
+    virtual bool Win32Unknown0x2c();
+#endif
     bool JustScrolled() {
         return bJustScrolled;
     }
@@ -249,6 +254,9 @@ class IconScroller : public IconPanel {
     FEImage *AddOption(IconOption *option) override;
     virtual void SetInitialPos(int index);
     bool SetSelection(IconOption *option) override;
+#ifdef EA_PLATFORM_WIN32
+    bool Win32Unknown0x2c() override; // PC (0x592F10): la rueda del raton sobre la region del menu
+#endif
     void RemoveAll() override;
     void DelayUpdate() {
         bDelayUpdate = true;
@@ -257,8 +265,8 @@ class IconScroller : public IconPanel {
         bAllowColorAnim = allow;
     }
     void StartFadeIn() {
-        bFadingIn = true;
         bDelayUpdate = false;
+        bFadingIn = true;
         bFadingOut = false;
         fCurFadeTime = 0.0f;
     }

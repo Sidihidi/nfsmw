@@ -65,8 +65,39 @@ void DebugVehicleSelection::InitSelectionList() {
     }
 }
 
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Camera/ICE/ICEManager.hpp"
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#include "Speed/Indep/Src/Sim/SimSurface.h"
+
+void DebugVehicleSelection::DebugDisplay() {
+    if (TheICEManager.IsEditorOn()) {
+        return;
+    }
+    IPlayer *iplayer = IPlayer::First(PLAYER_LOCAL);
+    if (!iplayer) {
+        return;
+    }
+    ISimable *isimable = iplayer->GetSimable();
+    if (!isimable) {
+        return;
+    }
+    IVehicle *ivehicle = UTL::COM::QueryInterface<IVehicle>(isimable);
+    if (!ivehicle) {
+        return;
+    }
+    const char *vehicle_name = ivehicle->GetVehicleName();
+    if (vehicle_name) {
+        ScreenShadowPrintf(-300, 220, "Vehicle: %s", vehicle_name);
+    }
+    SimSurface surface(isimable->GetWPos().GetSurface());
+    ScreenShadowPrintf(-100, 220, "Surface: %s", surface.CollectionName());
+    ScreenShadowPrintf(50, 220, "Collision: %s --- %s", mCollisionObject, mCollisionSurface);
+}
+#else
 // STRIPPED
 void DebugVehicleSelection::DebugDisplay() {}
+#endif
 
 // STRIPPED
 void DebugVehicleSelection::ReportCollision(const char *objectname, const char *surfacename) {}

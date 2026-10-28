@@ -139,9 +139,7 @@ MemoryCard::MemoryCard() {
     m_pIMemcard = nullptr;
     m_PendingMessage = nullptr;
     m_BootupParams.Clear();
-
     m_Type = ST_PROFILE;
-
     m_bBootFoundFile = false;
     m_bAutoSave = false;
     m_bInAutoSave = false;
@@ -149,7 +147,6 @@ MemoryCard::MemoryCard() {
     m_bCheckingCardForOverwrite = false;
     m_bAutoSaveRequested = false;
     m_bAutoSaveCardPulled = false;
-
     m_ReqOp = 0;
     m_bInBootSequence = true;
     m_bRetryBootCheck = false;
@@ -173,12 +170,15 @@ MemoryCard::MemoryCard() {
     m_bNeedToAllowControllerErrors = false;
     m_bNonSilentAutoSave = false;
 #endif
-
 #ifdef EA_PLATFORM_GAMECUBE
     m_bAutoLoadDone = false;
     m_bMemcardScreenExiting = false;
+#elif defined(EA_PLATFORM_XENON)
+    x360_unknown_0x10 = 0;
+    x360_unknown_0x18 = 0;
+    x360_unknown_0x14 = false;
+    x360_unknown_0x1C = false;
 #endif
-
     m_nPlayer = 0;
 
 #ifdef EA_PLATFORM_GAMECUBE

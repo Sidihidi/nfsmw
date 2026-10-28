@@ -159,7 +159,7 @@ struct LobbyApiRankRecordT
 
 // sintetiza la direccion de maquina a partir del host (vacio) y la addr;
 // los llamadores pasan tambien la addr local (a2 en su asm), que no se usa
-void _LobbyApiSynthesizeMachineAddr(void *pHost, int iAddr, int iLAddr)
+static void _LobbyApiSynthesizeMachineAddr(void *pHost, int iAddr, int iLAddr)
 {
     if (*(char *)pHost == 0)
     {
@@ -184,7 +184,7 @@ void LobbyApiExtractUserSet(LobbyApiUserSetT *pRec, const char *pSrc)
 
 void LobbyApiExtractPlayRecord(LobbyApiPlayRecordT *pRec, const char *pSrc)
 {
-    LobbyApiOpponentT *pOpp;
+    char *pMAddr;
     int i;
     char Buf[0x20];
 
@@ -209,27 +209,27 @@ void LobbyApiExtractPlayRecord(LobbyApiPlayRecordT *pRec, const char *pSrc)
 
     for (i = 0; i < pRec->iCount; i++)
     {
-        pOpp = pRec->Opponents + i;
+        pMAddr = pRec->Opponents[i].szMAddr;
 
         sprintf(Buf, "OPID%d", i);
-        pOpp->iIdent = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
+        pRec->Opponents[i].iIdent = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
         sprintf(Buf, "OPPO%d", i);
-        TagFieldGetString(TagFieldFind(pSrc, Buf), pOpp->szName, 0x10, "");
+        TagFieldGetString(TagFieldFind(pSrc, Buf), pRec->Opponents[i].szName, 0x10, "");
         sprintf(Buf, "ADDR%d", i);
-        pOpp->iAddr = TagFieldGetAddress(TagFieldFind(pSrc, Buf), 0);
+        pRec->Opponents[i].iAddr = TagFieldGetAddress(TagFieldFind(pSrc, Buf), 0);
         sprintf(Buf, "LADDR%d", i);
-        pOpp->iLAddr = TagFieldGetAddress(TagFieldFind(pSrc, Buf), 0);
+        pRec->Opponents[i].iLAddr = TagFieldGetAddress(TagFieldFind(pSrc, Buf), 0);
         sprintf(Buf, "MADDR%d", i);
-        TagFieldGetString(TagFieldFind(pSrc, Buf), pOpp->szMAddr, 0x40, "");
-        _LobbyApiSynthesizeMachineAddr(pOpp->szMAddr, pOpp->iAddr, pOpp->iLAddr);
+        TagFieldGetString(TagFieldFind(pSrc, Buf), pMAddr, 0x40, "");
+        _LobbyApiSynthesizeMachineAddr(pMAddr, pRec->Opponents[i].iAddr, pRec->Opponents[i].iLAddr);
         sprintf(Buf, "OPPART%d", i);
-        pOpp->iPart = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
+        pRec->Opponents[i].iPart = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
         sprintf(Buf, "OPPARAM%d", i);
-        TagFieldGetString(TagFieldFind(pSrc, Buf), pOpp->szParam, 0x24, "");
+        TagFieldGetString(TagFieldFind(pSrc, Buf), pRec->Opponents[i].szParam, 0x24, "");
         sprintf(Buf, "OPFLAG%d", i);
-        pOpp->iFlag = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
+        pRec->Opponents[i].iFlag = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
         sprintf(Buf, "PRES%d", i);
-        pOpp->iPres = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
+        pRec->Opponents[i].iPres = TagFieldGetNumber(TagFieldFind(pSrc, Buf), 0);
     }
 
     for (i = 0; i < pRec->iNumPart; i++)
@@ -337,9 +337,9 @@ void LobbyApiExtractUserSetMember(LobbyApiUserSetMemberT *pRec, const char *pSrc
 void LobbyApiColor(unsigned char *pColor, int iValue)
 {
     int v = iValue ? iValue : 0x1FF;
-    unsigned r = (v >> 6) & 7;
-    unsigned g = (v >> 3) & 7;
-    unsigned b = v & 7;
+    unsigned char r = (v >> 6) & 7;
+    unsigned char g = (v >> 3) & 7;
+    unsigned char b = v & 7;
 
     pColor[0] = (unsigned char)((r << 5) | (r << 2) | (r >> 1));
     pColor[1] = (unsigned char)((g << 5) | (g << 2) | (g >> 1));

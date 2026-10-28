@@ -930,9 +930,22 @@ bool NISActivity::SetDynamicData(const EventSequencer::System *system, EventDyna
     return false;
 }
 
+#ifdef EA_PLATFORM_WIN32
+extern bool TexturePackDataIsTemp; // IsTempChunk (ResourceLoader.cpp)
+#endif
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+extern bool NISMotionBlurEnabled; // ICEManager.cpp
+#endif
+
 void NISActivity::UpdatePreloading() {
     if (mSceneHash != 0) {
         bool LockTrackStreamer = mNISType == CAnimChooser::Arrest;
+#ifdef EA_PLATFORM_WIN32
+        // speed.exe 0x6EF4B3: the arrest NIS keeps the texture pack data loaded.
+        if (mNISType == CAnimChooser::Arrest) {
+            TexturePackDataIsTemp = false;
+        }
+#endif
         if (TheAnimPlayer.Load(mSceneHash, mCameraTrackNumber, LockTrackStreamer)) {
             g_pEAXSound->QueueNISStream(mSceneHash, mCameraTrackNumber, NISActivity::NISStreamTimeCallback);
             if (g_pNISRevMgr) {
@@ -1285,6 +1298,9 @@ void NISActivity::Release() {
     }
 #endif
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    NISMotionBlurEnabled = true; // speed.exe 0x6F75D8
+#endif
     FacePixelation::Disable();
 
     SetNISRaceDriverVisible(1);
@@ -1327,6 +1343,10 @@ void NISActivity::Release() {
     if (mNISType != CAnimChooser::Moment) {
         SoundPause(false, eSNDPAUSE_NISON);
     }
+
+#ifdef EA_PLATFORM_WIN32
+    TexturePackDataIsTemp = true; // speed.exe 0x6F76A6
+#endif
 
     if (wasInterrupted) {
         if (GRaceStatus::Get().GetRaceParameters() == nullptr) {

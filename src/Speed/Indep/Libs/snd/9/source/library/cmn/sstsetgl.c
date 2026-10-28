@@ -10,16 +10,17 @@ void STREAM_setgreedylevel(int streamhandle, int greedylevel);
 }
 #endif
 
+// PC (speed.exe 0x81BAE3): la comprobacion de controlador y la vuelta temprana con -8; el DWARF de GameCube solo
+// da la local pssc.
 int SNDSTRM_setgreedylevel(int sndstreamhandle, int greedylevel) {
-    SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
-    int rc;
+    SNDSTREAMCHANNEL *pssc;
 
-    if (pssc != NULL) {
-        STREAM_setgreedylevel(pssc->streamhandle, greedylevel);
-        rc = 0;
-    } else {
-        rc = -8;
+    SNDI_CHECKINSTALLED();
+    pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
+    if (pssc == NULL) {
+        return -8;
     }
 
-    return rc;
+    STREAM_setgreedylevel(pssc->streamhandle, greedylevel);
+    return 0;
 }

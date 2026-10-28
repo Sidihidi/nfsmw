@@ -115,6 +115,8 @@ void ControllerUnplugged::Setup() {
 #endif
 #elif defined(EA_PLATFORM_GAMECUBE)
     FEPrintf(GetPackageName(), 0xB244CF71, GetLocalizedString(0x54EEF4C5), port + 1);
+#elif defined(EA_PLATFORM_XENON)
+    FEPrintf(GetPackageName(), 0xB244CF71, GetLocalizedString(0x54EE7FA6), port + 1); // X360: NFS.exe 0x82271CE4
 #else
     FEPrintf(GetPackageName(), 0xB244CF71, GetLocalizedString(0x54EEFEC2), port + 1);
 #endif

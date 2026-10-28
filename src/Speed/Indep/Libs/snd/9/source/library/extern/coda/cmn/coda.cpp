@@ -1,13 +1,13 @@
 #include <cstddef>
 #include <string.h>
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 #include "Speed/PC/Src/Win32Min.hpp" // GetVersionExA
 #endif
 
 namespace Snd {
 
 void *(*CODANew)(unsigned int size);
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 // PC (0x9C2540, entre CODANew y CODADelete): lo que la CPU sabe hacer; el bit 2 es SSE (eaxadecf.cpp elige con el
 // el decodificador de EA-XA). Nombre nuestro.
 int CODACPUFlags;
@@ -31,7 +31,7 @@ void CODASetDelete(void (*pfn)(void *pmem)) {
     CODADelete = pfn;
 }
 
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 // PC: la deteccion de CPU de CODA (speed.exe 0x825B1C-0x825C0B; docs/asm-de-ea.md). Lo de dentro de los __asm es de EA:
 // el bit ID de EFLAGS y la instruccion cpuid, que el C de MSVC 7.1 no puede escribir. Nombres nuestros.
 

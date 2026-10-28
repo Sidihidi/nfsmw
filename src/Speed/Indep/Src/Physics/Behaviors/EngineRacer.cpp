@@ -134,8 +134,7 @@ class EngineRacer : protected VehicleBehavior,
             return 0.0f;
         } else {
             range = (this->mEngineInfo.RED_LINE() - this->mEngineInfo.IDLE()) * 0.25f;
-            float upper_limit = this->mEngineInfo.RED_LINE() + -500.0f;
-            return UMath::Min(this->mPeakTorqueRPM + range, upper_limit) - range;
+            return UMath::Min(this->mPeakTorqueRPM + range, this->mEngineInfo.RED_LINE() + -500.0f) - range;
         }
     }
 
@@ -144,7 +143,7 @@ class EngineRacer : protected VehicleBehavior,
         return this->mMaxHP;
     }
     Hp GetMinHorsePower() const override {
-        return FTLB2HP(Physics::Info::Torque(this->mEngineInfo, this->mEngineInfo.IDLE()) * this->mEngineInfo.IDLE(), 1.0f);
+        return FTLB2HP(Physics::Info::Torque(this->mEngineInfo, this->mEngineInfo.IDLE()), this->mEngineInfo.IDLE());
     }
     Hp GetHorsePower() const override;
     float GetRPM() const override {
@@ -747,10 +746,7 @@ ShiftStatus EngineRacer::OnGearChange(GearID gear) {
 
 // Credits: Brawltendo
 bool EngineRacer::DoGearChange(GearID gear, bool automatic) {
-    if (gear > this->GetTopGear()) {
-        return false;
-    }
-    if (gear < G_REVERSE) {
+    if (gear > this->GetTopGear() || gear < G_REVERSE) {
         return false;
     }
 
@@ -828,7 +824,7 @@ void EngineRacer::SetDifferentialAngularVelocity(float w) {
         float w1 = this->mSuspension->GetWheelAngularVelocity(2);
         float w2 = this->mSuspension->GetWheelAngularVelocity(3);
         if (lockdiff)
-            w2 = w1 = (w1 + w2) * 0.5f;
+            w1 = w2 = (w1 + w2) * 0.5f;
 
         this->mSuspension->SetWheelAngularVelocity(2, w1 + diff);
         this->mSuspension->SetWheelAngularVelocity(3, w2 + diff);
@@ -842,7 +838,7 @@ void EngineRacer::SetDifferentialAngularVelocity(float w) {
         float w1 = this->mSuspension->GetWheelAngularVelocity(0);
         float w2 = this->mSuspension->GetWheelAngularVelocity(1);
         if (lockdiff)
-            w2 = w1 = (w1 + w2) * 0.5f;
+            w1 = w2 = (w1 + w2) * 0.5f;
 
         this->mSuspension->SetWheelAngularVelocity(0, w1 + diff);
         this->mSuspension->SetWheelAngularVelocity(1, w2 + diff);
@@ -913,12 +909,8 @@ float Engine_SmoothRPM(bool is_shifting, GearID gear, float dT, float old_rpm, f
     float rpm = new_rpm;
     float max_decel = max_rpm_decel * 1000.0f / engine_inertia;
     if (dT > 0.0f && (rpm - old_rpm) / dT < max_decel) {
-        float newrpm = max_decel * dT + old_rpm;
-
-        if (newrpm < rpm) {
-            newrpm = rpm;
-        }
-        rpm = newrpm;
+        float newrpm = old_rpm + max_decel * dT;
+        rpm = newrpm < rpm ? rpm : newrpm;
     }
 
     return rpm * 0.55f + old_rpm * 0.45f;
@@ -1031,8 +1023,11 @@ void EngineRacer::DoInduction(const Physics::Tunings *tunings, float dT) {
     if (this->IsGearChanging())
         desired_spool = 0.0f;
     // turbocharger can't start spooling up until the engine rpm is >= the boost threshold
-    if (type == Physics::Info::INDUCTION_TURBO_CHARGER && rpm < Physics::Info::InductionRPM(this->mEngineInfo, this->mInductionInfo, tunings)) {
-        desired_spool = 0.0f;
+    if (type == Physics::Info::INDUCTION_TURBO_CHARGER) {
+        float spoolrpm = Physics::Info::InductionRPM(this->mEngineInfo, this->mInductionInfo, tunings);
+        if (rpm < spoolrpm) {
+            desired_spool = 0.0f;
+        }
     }
 
     if (this->mSpool > desired_spool) {

@@ -94,6 +94,12 @@ class IAllocator {
 class ICoreAllocator {
   public:
     ICoreAllocator() {}
+#ifdef EA_PLATFORM_XENON
+    // En Xbox 360 el primer hueco de la vtable es el destructor: la de ICoreToIAllocatorAdaptor (EGM 0x820B78F4) es
+    // {0x82605B10, Alloc de 5, Alloc de 3, Free}, y 0x82605B10 solo repone la vtable de la base; csis llama a Alloc en
+    // +8 y a Free en +0xC (System::AllocFast/FreeFast, EGM 0x82605BF8).
+    virtual ~ICoreAllocator() {}
+#endif
 
     virtual void *Alloc(size_t size, const char *name, unsigned int flags);
     virtual void *Alloc(size_t size, const char *name, unsigned int flags, unsigned int align, unsigned int alignOffset);

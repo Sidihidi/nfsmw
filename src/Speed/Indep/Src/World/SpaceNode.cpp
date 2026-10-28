@@ -4,9 +4,19 @@
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/bWare/Inc/bSlotPool.hpp"
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos21: en las dos PS2 el orden es [SpaceNodeTrashList]
+// [SpaceNodeSlotPool] (PS2_globals:5936-5937 y el .data objetivo de la SLUS,
+// +0x12c4/+0x12cc). SpaceNodeSlotPool es POD; la TrashList conserva su orden
+// relativo de ctor.
+bTList<SpaceNode> SpaceNodeTrashList;
+
+SlotPool *SpaceNodeSlotPool = nullptr;
+#else
 SlotPool *SpaceNodeSlotPool = nullptr;
 
 bTList<SpaceNode> SpaceNodeTrashList;
+#endif
 
 SpaceNode::SpaceNode(SpaceNode *parent) {
     this->ReferenceCount = 0;

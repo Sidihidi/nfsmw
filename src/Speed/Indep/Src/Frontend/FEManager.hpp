@@ -145,6 +145,14 @@ class FEManager {
         return bAllowControllerError;
     }
 
+#ifdef EA_PLATFORM_WIN32
+    // PC: LoadingTips lo lee directamente (mov al, [FEManager]) para guardarlo mientras acepta entrada.
+    // Nombre neutro: probablemente es IsSuppressingControllerError (devuelve bSuppressControllerError, +0x0).
+    bool GetWin32Unknown0x0() {
+        return bSuppressControllerError;
+    }
+#endif
+
     void ExitOnlineGameplayBasedOnConnection();
 
     bool IsFirstBoot() { // Decl: speed/indep/src/frontend/FeManager.hpp:151

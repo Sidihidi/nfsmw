@@ -5,7 +5,7 @@ int FILESYS_sizesync(int filehandle, int priority);
 bool FILESYS_closesync(int filehandle, int priority);
 struct FILEDEVICE;
 int FILESYS_atomic(int (*func)(int, void *), FILEDEVICE *device, int priority, void *arg);
-int FILE_nametodevice(const char *name);
+FILEDEVICE *FILE_nametodevice(const char *name);
 
 int FILE_exists(const char *name) {
     return FILESYS_existssync(name, 100);
@@ -32,7 +32,7 @@ int FILE_size(const char *name) {
         int pad3;
     } atom;
 
-    atom.flags = 1;
     atom.name = name;
-    return FILESYS_atomic(filesizeatom, (FILEDEVICE *)FILE_nametodevice(name), 100, &atom);
+    atom.flags = 1;
+    return FILESYS_atomic(filesizeatom, FILE_nametodevice(name), 100, &atom);
 }

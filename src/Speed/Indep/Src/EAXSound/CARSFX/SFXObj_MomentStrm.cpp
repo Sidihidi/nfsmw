@@ -134,8 +134,10 @@ int SFXObj_MomentStrm::GetController(int Index) {
 }
 
 void SFXObj_MomentStrm::AttachController(SFXCTL *psfxctl) {
-    if (psfxctl->GetObjectIndex() == 2) {
+    switch (psfxctl->GetObjectIndex()) {
+    case 2:
         m_p3DPos = static_cast<SFXCTL_3DObjPos *>(psfxctl);
+        break;
     }
 }
 

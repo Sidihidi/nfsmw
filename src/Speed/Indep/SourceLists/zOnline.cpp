@@ -12,16 +12,22 @@
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
 #include "Speed/Indep/Libs/Support/Utility/UCollections.h"
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT
 // online/intquantizer.cpp: at the start of SmartBitstream.cpp
 // online/bitstream.cpp: in SmartBitstream.cpp, after IntQuantizer
 #include "Speed/Indep/Src/Online/SmartBitstream.cpp"
 // online/floatquantizer.cpp: at the end of SmartBitstream.cpp
 #include "Speed/Indep/Src/Online/OnlineCfg.cpp"
 // online/OnlineMemory.cpp: at the end of OnlineCfg.cpp (AllocOnlineMemoryPool...)
+#ifdef EA_PLATFORM_PLAYSTATION2
 #include "Speed/PSX2/Src/Online/PS2Isp.cpp"
+#endif
 #include "Speed/Indep/Src/Online/OnlineMutex.cpp"
+#ifdef EA_PLATFORM_PLAYSTATION2
 #include "Speed/PSX2/Src/Online/PlatformNetworkCore.cpp"
+#elif defined(EA_PLATFORM_XENON)
+#include "Speed/Xenon/Src/Online/PlatformNetworkCore.cpp"
+#endif
 #include "Speed/Indep/Src/Online/NetworkCore.cpp"
 #include "Speed/Indep/Src/Online/LobbyLogin.cpp"
 #include "Speed/Indep/Src/Online/LobbyCore.cpp"

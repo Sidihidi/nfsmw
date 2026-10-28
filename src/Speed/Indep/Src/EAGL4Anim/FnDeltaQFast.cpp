@@ -184,7 +184,7 @@ bool FnDeltaQFast::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
             } else {
                 int i;
 
-                if (mPrevKey <= 0) {
+                if (mPrevKey < 1) {
 
                     i = 0;
 
@@ -405,7 +405,7 @@ bool FnDeltaQFast::EvalSQTMask(float currTime, float *sqt, const BoneMask *boneM
         } else {
             int i;
 
-            if (mPrevKey <= 0) {
+            if (mPrevKey < 1) {
 
                 i = 0;
 

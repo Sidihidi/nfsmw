@@ -26,7 +26,7 @@
 #include "Speed/Indep/Src/Misc/Config.h"
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/Src/Misc/QueuedFile.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
@@ -57,9 +57,11 @@ extern void SPCH_SetMemCallbacks(void *(*memAlloc)(unsigned int), void (*memFree
 extern EAXS_StreamManager *gpEAXS_StrmMgr;
 extern SlotPool *pCsisSlotPools[];
 extern Timer RealTimer;
+#ifndef EA_BUILD_A124
 namespace Speech {
 static bool InteruptedAndNotDelayed(ScheduledSpeechEvent *this_event);
 }
+#endif
 
 static unsigned int gSpeechSeed = 0;
 #ifdef EA_PLATFORM_PLAYSTATION2
@@ -72,6 +74,12 @@ int VALIDATE_SED_GENERATE = 0;
 int SPEECH_DISPLAY_HISTORY = 0;
 #ifdef EA_BUILD_A124
 bool VERIFY_EVENTSAMPLE_INTEGRITY = true;
+// gcdatos13: solo en la A124, tras VERIFY_EVENTSAMPLE_INTEGRITY y delante de los
+// estaticos de Manager (0x62d808, PS2_globals.hpp:5186), a 0 en su .data objetivo.
+int EVLOG_ENABLED = 0;
+// gcdatos13: solo en la A124 (0x62eda8, PS2_globals.hpp:5208, entre los estaticos de
+// Manager y los de GameSpeech), a 0 en su .data objetivo.
+int ENFORCE_IO_MODE = 0;
 // Definido en zEAXSound (su .rodata, 0x5453b0, junto a EAXAemsManager::m_SlotSizes).
 extern const int PRINT_SND_IO_DEBUG;
 #endif
@@ -92,9 +100,9 @@ inline SpeechSampleData *SpeechSampleVec::Find(int handle) const {
 Module *Manager::m_SpeechModule[NUM_SPEECH_MODULES] = { 0, 0 };
 SPEECH_MODE Manager::m_speechMode = static_cast<SPEECH_MODE>(0);
 int Manager::m_numberSpeechBanks = 0;
-int Manager::m_SPEECH_initted = 0;
+bool Manager::m_SPEECH_initted = false;
 char *Manager::m_SPEECH_bankPtrMem = 0;
-int Manager::m_speechDisable = 0;
+bool Manager::m_speechDisable = false;
 int Manager::m_gameSpeechInitted = 0;
 int Manager::m_NISAudioInitted = 0;
 float Manager::m_clock_in_ms = 0.0f;
@@ -115,6 +123,11 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
     unsigned int eventkey;
     SPCHType_1_EventID eventID;
 
+#ifdef EA_BUILD_A124 // la A124 no mira el volumen ni avisa de la llamada
+    if ((IsSpeechEnabled == 0) || (m_speechMode == SPEECH_SPLITSCREEN_MODE)) {
+        return 0;
+    }
+#else
     if ((IsSpeechEnabled == 0) || (m_speechMode == SPEECH_SPLITSCREEN_MODE) || (g_pEAXSound == 0) ||
         (g_pEAXSound->GetCurAudioSettings() == 0) || (g_pEAXSound->GetCurAudioSettings()->SpeechVol == 0.0f)) {
         // El DWARF declara AQUI otro par eventkey/eventID que oculta a los de
@@ -128,6 +141,7 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
         }
         return 0;
     }
+#endif
     if (gSpeechCache.GetEventPool()->IsFull()) {
         return 0;
     }
@@ -152,9 +166,14 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
                 if (obj_updated) {
                     // El mapa de lineas da 174 al `lwz WorldTimer` y 178 al
                     // `stw r28,0xc(r3)`: entry_time va ANTES que actor.
+#ifdef EA_BUILD_A124
+                    this_event->actor = actor;
+                    this_event->entry_time = WorldTimer;
+#else
                     this_event->entry_time = WorldTimer;
                     this_event->actor = actor;
-                    if (size != 0) {
+#endif
+                    if (size > 0) {
                         bMemCpy(this_event->GetData(), data, size);
                     }
                 }
@@ -166,10 +185,15 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
     if (!event_atr.DoNotDropout()) {
         bool playback = CanPlayback(event_atr);
         if (!playback) {
+#ifdef MILESTONE_BUILD // la A124 avisa a Juice de la frase que se pierde
+            char buff[64];
+            bSPrintf(buff, "%s - %d", iid.pString, actor ? actor->GetSpeakerID() : 0);
+            Juice::GameHook::Instance()->AssetHit("DROPPED_SPEECH", buff);
+#endif
             return 0;
         }
     }
-    if (event_atr.Num_RecallList() != 0) {
+    if (event_atr.Num_RecallList() > 0) {
         for (unsigned int i = 0; i < event_atr.Num_RecallList(); ++i) {
             Attrib::Gen::speech recall(event_atr.RecallList(i).GetCollectionKey(), 0, 0);
             SPCHType_1_EventID recall_id = recall.SpeechID();
@@ -196,7 +220,7 @@ ScheduledSpeechEvent *Manager::ScheduleSpeechPartII(unsigned int size, void *dat
         event->flags |= 2;
     }
     mEvents[0].push_back(event);
-    if (size != 0) {
+    if (size > 0) {
         bMemCpy(event->GetData(), data, size);
     }
     return event;
@@ -392,7 +416,7 @@ void Manager::Init2() {
         }
     }
 
-    m_SPEECH_initted = 1;
+    m_SPEECH_initted = true;
 }
 
 void Manager::AttachSFXOBJ(SpeechModuleIndex idx, SFX_Base *psfx, eSFXOBJ_MAIN_TYPES sfxtype) {
@@ -468,25 +492,12 @@ void Manager::SpchLibAbort(const char *format, ...) {
 }
 
 int Manager::SampleRequestCallback(SPCHType_SampleRequestData *data) {
-    if (!m_speechDisable) {
-        if (data->channel == 1) {
-            goto done;
-        }
-        if (data->channel > 1) {
-            goto check_nis_channel;
-        }
-        if (data->channel == 0) {
-            goto cop_channel;
-        }
-        goto done;
-
-    check_nis_channel:
-        if (data->channel == 2) {
-            goto nis_callback;
-        }
-        goto done;
-
-    cop_channel:
+    if (m_speechDisable) {
+        return 0;
+    }
+    // Un switch (sin goto): GC y las PS2 dan su arbol de comparaciones y PC su `sub eax, 0` (diario ps2a12476).
+    switch (data->channel) {
+    case 0: {
         if (mSampleRequests.begin() == mSampleRequests.end()) {
             mSampleReqTimer = RealTimer;
         }
@@ -516,13 +527,17 @@ int Manager::SampleRequestCallback(SPCHType_SampleRequestData *data) {
                 mCurrentEvent->AddSample(sample, 0xff);
             }
         }
+        break;
     }
-    goto done;
-
-nis_callback:
-    return static_cast<int>(m_SpeechModule[NISSFX_MODULE]->SampleRequestCallback(data));
-
-done:
+    case 1:
+        // Sentencia sin codigo: MSVC 7.1 tira un case vacio y el original de PC lo tiene (`sub eax, 0`); `if (0) {}` llega
+        // vivo al switch de MSVC y no deja codigo en ninguna version (GC y PS2 igual). Ronda 78.
+        if (0) {
+        }
+        break;
+    case 2:
+        return static_cast<int>(m_SpeechModule[NISSFX_MODULE]->SampleRequestCallback(data));
+    }
     return 0;
 }
 
@@ -550,33 +565,28 @@ int Manager::LoadSpeechBank(CLUMP_IDX_FILE *index, int &type, int &number, SPEEC
     int upper = static_cast<int>(index->count) - 1;
     int i = upper >> 1;
 
-    if (index->item[i].key != key) {
-        while ((index->item[i].key != key) && (i != lower) && (i != upper)) {
-            if (index->item[i].key < key) {
-                lower = i;
-            } else {
-                upper = i;
-            }
-            i = (lower + upper) >> 1;
+    while ((index->item[i].key != key) && (i != lower) && (i != upper)) {
+        if (index->item[i].key < key) {
+            lower = i;
+        } else {
+            upper = i;
         }
-
-        if (index->item[i].key == key) {
-            goto found;
-        }
-        if (index->item[lower].key == key) {
-            i = lower;
-            goto found;
-        } else if (index->item[upper].key == key) {
-            i = upper;
-            goto found;
-        }
-        sb->mem = 0;
-        sb->offset = 0;
-        sb->bank = -1;
-        return -1;
+        i = (lower + upper) >> 1;
     }
 
-found:
+    if (index->item[i].key != key) {
+        if (index->item[lower].key == key) {
+            i = lower;
+        } else if (index->item[upper].key == key) {
+            i = upper;
+        } else {
+            sb->mem = 0;
+            sb->offset = 0;
+            sb->bank = -1;
+            return -1;
+        }
+    }
+
     if (index->item[i].size == 0) {
         sb->mem = 0;
         sb->offset = 0;
@@ -688,24 +698,15 @@ void Manager::Update(float t) {
     m_timestep = t;
     m_frameindex = 0;
 
-    if (m_speechMode == SPEECH_FRONTEND_MODE) {
-        goto done;
-    }
-
-    if (m_speechMode < SPEECH_SPLITSCREEN_MODE) {
-        if (m_speechMode == SPEECH_GAME_MODE) {
-            goto game_mode;
-        }
-        goto done;
-    } else {
-        if (m_speechMode == SPEECH_SPLITSCREEN_MODE && m_SpeechModule[NISSFX_MODULE] && IsNISAudioEnabled) {
+    switch (m_speechMode) {
+    case SPEECH_FRONTEND_MODE:
+        break;
+    case SPEECH_SPLITSCREEN_MODE:
+        if (m_SpeechModule[NISSFX_MODULE] && IsNISAudioEnabled) {
             m_SpeechModule[NISSFX_MODULE]->Update();
         }
-        goto done;
-    }
-
-game_mode:
-    {
+        break;
+    case SPEECH_GAME_MODE: {
         if (m_SpeechModule[NISSFX_MODULE] && IsNISAudioEnabled) {
             m_SpeechModule[NISSFX_MODULE]->Update();
         }
@@ -764,10 +765,9 @@ game_mode:
                 }
             }
         }
+        break;
     }
-
-done:
-    ;
+    }
 }
 
 void Manager::PopulateHashMap() {
@@ -811,6 +811,7 @@ bool Manager::HasBeenSaid(SPCHType_1_EventID event_id) {
     return false;
 }
 
+#ifndef EA_BUILD_A124 // la A124 lo hace en el bucle de ServiceInterruptEvents
 static bool InteruptedAndNotDelayed(ScheduledSpeechEvent *this_event) {
     Attrib::Gen::speech pb(Manager::GetHashIDMap().GetHash(this_event->ID), 0, 0);
     if (pb.interrupt() && ((this_event->flags & 2U) == 0)) {
@@ -819,9 +820,10 @@ static bool InteruptedAndNotDelayed(ScheduledSpeechEvent *this_event) {
     }
     return false;
 }
+#endif
 
 bool Manager::ServiceInterruptEvents() {
-    if (mEvents[3].size() != 0) {
+    if (mEvents[3].size() > 0) {
         if (mEvents[3].size() > 1) {
             std::sort(mEvents[3].begin(), mEvents[3].end());
         }
@@ -845,41 +847,46 @@ bool Manager::ServiceInterruptEvents() {
         }
 
         if (interruptable) {
-            if (mEvents[1].size() != 0) {
+            if (mEvents[1].size() > 0) {
                 mEvents[0] = mEvents[1];
                 mEvents[1].clear();
             }
 
             int rval = IndirectSpeechEvent(priority_event, false);
-            if (rval == -2) {
-                goto allocated_interrupt;
-            }
-            if (rval > -2) {
-                goto queue_interrupt;
-            }
-            if (rval != -5) {
-                goto queue_interrupt;
-            }
-            {
+            switch (rval) {
+            case Csis::RESULT_ERR_NOTFOUND:
                 delete priority_event;
                 mEvents[3].erase(priority_event_iter);
                 return false;
+            case Csis::RESULT_ERR_ALLOCATE:
+                if (PostValidate(priority_event, 1U) != kDitchEvt) {
+                    mEvents[0].insert(mEvents[0].begin(), priority_event);
+                    mEvents[3].erase(priority_event_iter);
+                    return true;
+                }
+            case Csis::RESULT_OK:
+            default:
+                if (mEvents[2].size() > 0) {
+#ifdef EA_BUILD_A124
+                    SchedSpchEvents::iterator i = mEvents[2].begin();
+                    while (i != mEvents[2].end()) {
+                        ScheduledSpeechEvent *this_event = *i;
+                        Attrib::Gen::speech pb(mHashMap.GetHash(this_event->ID), 0, 0);
+                        if (pb.interrupt() && ((this_event->flags & 2U) == 0)) {
+                            delete this_event;
+                            mEvents[2].erase(i);
+                        } else {
+                            ++i;
+                        }
+                    }
+#else
+                    SchedSpchEvents::iterator i =
+                        std::remove_if(mEvents[2].begin(), mEvents[2].end(), InteruptedAndNotDelayed);
+                    mEvents[2].erase(i, mEvents[2].end());
+#endif
+                }
+                mEvents[2].insert(mEvents[2].begin(), priority_event);
             }
-
-        allocated_interrupt:
-            if (PostValidate(priority_event, 1U) != kDitchEvt) {
-                mEvents[0].insert(mEvents[0].begin(), priority_event);
-                mEvents[3].erase(priority_event_iter);
-                return true;
-            }
-
-        queue_interrupt:
-            if (mEvents[2].size() != 0) {
-                SchedSpchEvents::iterator i =
-                    std::remove_if(mEvents[2].begin(), mEvents[2].end(), InteruptedAndNotDelayed);
-                mEvents[2].erase(i, mEvents[2].end());
-            }
-            mEvents[2].insert(mEvents[2].begin(), priority_event);
         } else {
             mEvents[0] = mEvents[3];
         }
@@ -894,7 +901,7 @@ bool Manager::ServiceInterruptEvents() {
 namespace Speech {
 
 void Manager::ServiceFilteredEvents() {
-    if (mEvents[1].size() != 0) {
+    if (mEvents[1].size() > 0) {
         std::sort(mEvents[1].begin(), mEvents[1].end());
 
         SchedSpchEvents::iterator i = mEvents[1].begin();
@@ -904,31 +911,24 @@ void Manager::ServiceFilteredEvents() {
 
             if (this_event->assoc_samples_count == 0) {
                 int rval = IndirectSpeechEvent(this_event, false);
-                if (rval == -2) {
-                    goto validate_event;
+                switch (rval) {
+                case Csis::RESULT_ERR_NOTFOUND:
+                    delete this_event;
+                    i = mEvents[1].erase(i);
+                    trimmed = true;
+                    break;
+                case Csis::RESULT_ERR_ALLOCATE:
+                    if (PostValidate(this_event, 1U) != kDitchEvt) {
+                        mEvents[0].insert(mEvents[0].begin(), this_event);
+                    }
+                    break;
+                case Csis::RESULT_OK:
+                default:
+                    mEvents[2].push_back(this_event);
+                    break;
                 }
-                if (rval > -2) {
-                    goto defer_event;
-                }
-                if (rval != -5) {
-                    goto defer_event;
-                }
-                delete this_event;
-                i = mEvents[1].erase(i);
-                trimmed = true;
-                goto next_event;
-
-            validate_event:
-                if (PostValidate(this_event, 1U) != kDitchEvt) {
-                    mEvents[0].insert(mEvents[0].begin(), this_event);
-                }
-                goto next_event;
-
-            defer_event:
-                mEvents[2].push_back(this_event);
             }
 
-        next_event:
             if (!trimmed) {
                 ++i;
             }
@@ -942,8 +942,17 @@ void Manager::Deduce() {
     SchedSpchEvents deferredEvents;
     bool service;
 
-    if (mEvents[0].size() != 0) {
+    if (mEvents[0].size() > 0) {
         for (SchedSpchEvents::iterator i = mEvents[0].begin(); i != mEvents[0].end(); i = mEvents[0].begin()) {
+#ifdef EA_BUILD_A124 // la A124 pinta las colas en pantalla antes de validar cada evento
+            if (SPEECH_DISPLAY_HISTORY) {
+                ScreenPrintf(-300, -200, 0x7FFF1010U, "REQ:%d (%d/%d)", mEvents[0].size(),
+                             gSpeechCache.GetEventPool()->CountAllocatedSlots(), gSpeechCache.GetEventPool()->CountFreeSlots());
+                ScreenPrintf(-300, -185, 0x7FFFFF00U, "PLA:%d", mEvents[2].size());
+            }
+            ScheduledSpeechEvent *this_event = *i;
+            SpeechValRtnType keep = static_cast<SpeechValRtnType>(PreValidate(*this_event));
+#else
             ScheduledSpeechEvent *this_event = *i;
             SpeechValRtnType keep = static_cast<SpeechValRtnType>(PreValidate(*this_event));
 
@@ -957,6 +966,7 @@ void Manager::Deduce() {
                 (void)gSpeechCache.GetEventPool()->CountFreeSlots();
                 (void)mEvents[1].size();
             }
+#endif
 
             switch (keep) {
                 case kIntEvt:
@@ -970,10 +980,19 @@ void Manager::Deduce() {
                     break;
                 case kDitchEvt:
                 case kEvtNotFound:
-                default:
+                default: {
+#ifdef MILESTONE_BUILD // la A124 avisa a Juice de los eventos caducados
+                    Attrib::Gen::speech speech(mHashMap.GetHash(this_event->ID), 0, 0);
+                    int speakerID = this_event->actor ? this_event->actor->GetSpeakerID() : 0;
+                    float elapsed = (WorldTimer - this_event->entry_time).GetSeconds();
+
+                    Juice::GameHook::Instance()->GameEvent("SPEECH", "EventPlayback", "Expired", speakerID, elapsed, speech.CollectionName(),
+                                                           Juice::MWExtension::GetImageName(), Juice::MWExtension::GetPlayerPosition());
+#endif
                     delete this_event;
                     this_event = 0;
                     break;
+                }
             }
 
             mEvents[0].erase(i);
@@ -981,11 +1000,19 @@ void Manager::Deduce() {
         mEvents[0].clear();
     }
 
-    if (deferredEvents.size() != 0) {
+    if (deferredEvents.size() > 0) {
         SchedSpchEvents::iterator i = deferredEvents.begin();
         for (; i != deferredEvents.end(); ++i) {
             ScheduledSpeechEvent *deferral = *i;
             if (PostValidate(deferral, 1U) == kDitchEvt) {
+#ifdef MILESTONE_BUILD
+                Attrib::Gen::speech speech(mHashMap.GetHash(deferral->ID), 0, 0);
+                int speakerID = deferral->actor ? deferral->actor->GetSpeakerID() : 0;
+                float elapsed = (WorldTimer - deferral->entry_time).GetSeconds();
+
+                Juice::GameHook::Instance()->GameEvent("SPEECH", "EventPlayback", "DeferredExpired", speakerID, elapsed, speech.CollectionName(),
+                                                       Juice::MWExtension::GetImageName(), Juice::MWExtension::GetPlayerPosition());
+#endif
                 deferredEvents.erase(i);
                 delete deferral;
                 deferral = 0;
@@ -1007,6 +1034,13 @@ void Manager::Deduce() {
         service = ServiceInterruptEvents();
     } while (!service);
 
+#ifdef EA_BUILD_A124
+    if (SPEECH_DISPLAY_HISTORY) {
+        ScreenPrintf(-300, -200, 0.5f, 0x7FFF1010U, "REQ:%d (%d/%d)", mEvents[0].size(), gSpeechCache.GetEventPool()->CountAllocatedSlots(),
+                     gSpeechCache.GetEventPool()->CountFreeSlots());
+        ScreenPrintf(-300, -185, 0.5f, 0x7FFFFF00U, "PLA:%d", mEvents[2].size());
+    }
+#else
     if (false) {
         int y;
         int x;
@@ -1017,6 +1051,7 @@ void Manager::Deduce() {
         (void)gSpeechCache.GetEventPool()->CountFreeSlots();
         (void)mEvents[1].size();
     }
+#endif
 }
 
 void Manager::ClearPlayback() {
@@ -1134,11 +1169,13 @@ float Manager::IsEventDead(ScheduledSpeechEvent *evt) {
 }
 
 void Manager::NotifyEventCompletion(ScheduledSpeechEvent *evt, bool playback_complete) {
+#ifndef EA_BUILD_A124
     if (!evt) {
         return;
     }
 
     SoundAI *ai = UTL::Collections::Singleton<SoundAI>::Get();
+#endif
     unsigned short speakerID;
 
     if (evt->actor != 0) {
@@ -1166,6 +1203,14 @@ void Manager::NotifyEventCompletion(ScheduledSpeechEvent *evt, bool playback_com
     if (evt->ID == kSPCH1_EventID_CellCall) {
         MNotifyCellCallComplete().Send(UCrc32(0x20d60dbf));
     }
+
+#ifdef MILESTONE_BUILD // la A124 avisa a Juice del final de cada evento
+    Attrib::Gen::speech speech(Manager::GetHashIDMap().GetHash(evt->ID), 0, 0);
+    float elapsed = (WorldTimer - evt->playback_time).GetSeconds();
+
+    Juice::GameHook::Instance()->GameEvent("SPEECH", "EventPlayback", "Finished", speakerID, elapsed, speech.CollectionName(),
+                                           Juice::MWExtension::GetImageName(), Juice::MWExtension::GetPlayerPosition());
+#endif
 }
 
 ScheduledSpeechEvent *Manager::GetNextEvent() {
@@ -1454,16 +1499,25 @@ int Manager::FlushSpeechForActor(EAXCharacter *actor) {
             SchedSpchEvents::iterator i = mEvents[ndx].begin();
             while (i != mEvents[ndx].end()) {
                 ScheduledSpeechEvent *this_event = *i;
+#ifdef EA_BUILD_A124 // la A124 compara por locutor y borra el evento
+                if (this_event->actor && (this_event->actor->GetSpeakerID() == actor->GetSpeakerID())) {
+                    mEvents[ndx].erase(i);
+                    delete this_event;
+                    num_flushed++;
+                } else {
+#else
                 if (this_event->actor && (this_event->actor == actor)) {
                     this_event->actor = 0;
                     num_flushed++;
                 } else {
+#endif
                     ++i;
                 }
             }
         }
     }
 
+#ifndef EA_BUILD_A124
     if (mCurrentEvent && (mCurrentEvent->actor == actor)) {
         mCurrentEvent->actor = 0;
     }
@@ -1473,6 +1527,7 @@ int Manager::FlushSpeechForActor(EAXCharacter *actor) {
     if (curr_event && curr_event->actor && (curr_event->actor == actor)) {
         curr_event->actor = 0;
     }
+#endif
     return num_flushed;
 }
 
@@ -1966,7 +2021,7 @@ void GameSpeech::Update() {
         int err = m_strm->GetRequestStatus(ss.currentrequest, &srs);
         if (err >= 0) {
             SpeechSampleData *sample;
-            if (m_pendingList.size() != 0) {
+            if (m_pendingList.size() > 0) {
                 sample = m_pendingList.Find(ss.currentrequest);
             } else {
                 sample = 0;
@@ -2024,7 +2079,7 @@ void GameSpeech::Update() {
             }
         }
 
-        if (m_pendingList.size() != 0) {
+        if (m_pendingList.size() > 0) {
             SpeechSampleVec::iterator i = std::remove_if(m_pendingList.begin(), m_pendingList.end(), Unlocked);
             m_pendingList.erase(i, m_pendingList.end());
         }
@@ -2308,7 +2363,8 @@ void GameSpeech::IssueSampleRequests() {
                 }
             }
 
-            i = requests.erase(i);
+            // erase devuelve la misma posicion: el original no reasigna i (PS2 lo saca del bucle: 91,86 -> 100).
+            requests.erase(i);
         }
     }
 }
@@ -2548,6 +2604,10 @@ void SED_NISSFX::LoadingCallback(int param, int) {
         int loadstate = obj->mLoadState.front();
         switch (loadstate) {
         case 0:
+            // Sentencia sin codigo: MSVC 7.1 tira un case vacio y el original de PC lo tiene (`sub eax, 0`); `if (0) {}` llega
+            // vivo al switch de MSVC y no deja codigo en ninguna version (GC y PS2 igual). Ronda 78.
+            if (0) {
+            }
             break;
         case 1: {
             m_clumpIdx = reinterpret_cast<CLUMP_IDX_FILE *>(m_tempCharPtr);
@@ -2623,8 +2683,8 @@ bool SED_NISSFX::QueStream(eNISSFX_TYPE stream_type, void (*callback)(), bool) {
         }
     }
     m_SyncObject.callback = callback;
-    m_SyncObject.id = stream_type;
     m_SyncObject.qsObject = 0;
+    m_SyncObject.id = stream_type;
     m_SyncObject.handle = -1;
     m_bIsStreamQueued = false;
     if (SPCH_Play(2) == 0) {
@@ -2636,7 +2696,7 @@ bool SED_NISSFX::QueStream(eNISSFX_TYPE stream_type, void (*callback)(), bool) {
 unsigned int SED_NISSFX::SampleRequestCallback(SPCHType_SampleRequestData *data) {
     if (IsNISAudioEnabled && m_strm) {
         int rval;
-        m_SyncObject.qsObject = static_cast<SpeechSampleData *>(AllocateMemory(0x30, "NIS SampleData"));
+        m_SyncObject.qsObject = static_cast<SpeechSampleData *>(AllocateMemory(sizeof(SpeechSampleData), "NIS SampleData"));
         m_SyncObject.holdtime = -1;
         m_SyncObject.qsObject->cached = false;
         m_SyncObject.qsObject->ready = false;

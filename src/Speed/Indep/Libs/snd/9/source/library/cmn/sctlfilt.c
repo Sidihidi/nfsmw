@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 int SNDCTRL_filteradd(int shandle, SNDFILTERDEF *psfd) {
+    SNDI_CHECKINSTALLED();
     int voice = SNDVOICEI_get(shandle);
 
     if (voice >= 0) {

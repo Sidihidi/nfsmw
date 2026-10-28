@@ -95,8 +95,8 @@ void LuaRuntime::CreateState() {
 void *LuaRuntime::Alloc(unsigned int size) {
     unsigned int blockIdx = (size + 7) >> 3;
 
-    if (blockIdx != 0) {
-        if (blockIdx <= 15) {
+    if (blockIdx > 0) {
+        if (blockIdx < 16) {
             void *smallBlockPtr = mSmallFreeBlockChain[blockIdx];
 
             if (smallBlockPtr != NULL) {
@@ -161,8 +161,8 @@ void LuaRuntime::Free(void *block, unsigned int size) {
 
     unsigned int blockIdx = (size + 7) >> 3;
 
-    if (blockIdx != 0) {
-        if (blockIdx <= 15) {
+    if (blockIdx > 0) {
+        if (blockIdx < 16) {
             *(void **) block = mSmallFreeBlockChain[blockIdx];
             mSmallFreeBlockChain[blockIdx] = block;
         } else {
@@ -226,7 +226,7 @@ void LuaRuntime::BeginDelivery() {
 void LuaRuntime::EndDelivery() {
     mMessagesBeingDelivered--;
 
-    if (mNeedToResetHeap && mMessagesBeingDelivered <= 0) {
+    if (mNeedToResetHeap && mMessagesBeingDelivered < 1) {
         ResetHeap();
     }
 }
@@ -273,8 +273,8 @@ void LuaRuntime::ResetHeap() {
         bMemCpy(mMemPoolBlock, mHeapSnapshot, mHeapSnapshotSize);
     }
 
-    mNeedToResetHeap = false;
     mMemPoolUsed = mHeapSnapshotSize;
+    mNeedToResetHeap = false;
 }
 
 void LuaRuntime::FreeEmergencyAllocations() {

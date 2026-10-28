@@ -9,6 +9,21 @@
 #include "Speed/Indep/Src/EAXSound/SND_GEN/COPSPEECH.hpp"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
 
+// gcdatos13: en el DWARF de GC (mw_dwarfdump.nothpp:125895) y los stabs de la A124
+// (PS2_types.nothpp:9675) va delante de Battalion, con estos valores.
+enum SpeakerID {
+    Dispatch = 1,
+    Heli = 2,
+    Primary1 = 3,
+    Primary2 = 4,
+    Primary3 = 5,
+    Secondary1 = 6,
+    Secondary2 = 7,
+    Secondary3 = 8,
+    Cross = 9,
+    NUM_SPEAKER_ID = 10,
+};
+
 // TODO where to put this?
 // total size: 0x8
 struct Battalion {

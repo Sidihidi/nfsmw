@@ -99,6 +99,14 @@ class LobbyLogin {
     LobbyLoginAlertT *GetAlert(LobbyLoginContextE context);
     LobbyLoginAlertE GetAlertEnum(LobbyLoginContextE context);
     bool IsRetryAttempt();
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x792AF0, sin llamantes directos): vuelve a enviar el contexto actual con los parametros que
+    // guardo su DoContext* (1 si ya termino, -1 si hay una alerta o falla, 0 si sigue en curso). Nombre NEUTRO:
+    // ningun binario lo da (probablemente el reintento del contexto).
+    int Win32Unknown792AF0();
+    // PC (0x78B3F0): copia en personas la lista de nombres de lobbylogin, como ContextLoginCB. Nombre NEUTRO.
+    void Win32Unknown78B3F0();
+#endif
 
   private:
     bool DoContext(LobbyLoginContextE context, char *params);
@@ -108,8 +116,21 @@ class LobbyLogin {
     friend struct LobbyAccount;
 
     LobbyLoginRefT *lobbylogin;
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe): sin doingRetryAttempt (personas en +0x04) y con un buffer de parametros por contexto tras
+    // personas, que cada DoContext* rellena con TagFieldSet* (con su tamano) y Win32Unknown792AF0 reenvia a DoContext;
+    // el ctor (0x78B310) les pone a cero el primer byte. sizeof 0x174 (el estatico de Instance, 0x9B5660-0x9B57D4).
+    // Nombres NEUTROS: ningun binario los da.
+    /* 0x004 */ LobbyLoginNameListT personas;
+    /* 0x088 */ char win32_unknown_0x88[72];  // DoContextConnect (NAME, PORT, TIME)
+    /* 0x0d0 */ char win32_unknown_0xd0[96];  // DoContextLogin (NAME, PASS, MULTIPERS, REGKEY)
+    /* 0x130 */ char win32_unknown_0x130[8];  // DoContextTOS (TOS)
+    /* 0x138 */ char win32_unknown_0x138[12]; // DoContextShare (SPAM)
+    /* 0x144 */ char win32_unknown_0x144[48]; // DoContextSelPers (PERS)
+#else
     bool doingRetryAttempt;
     LobbyLoginNameListT personas;
+#endif
 };
 
 #endif

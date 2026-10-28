@@ -61,34 +61,26 @@ IPathTrack *PATH_createstreamimp(int trackhandle, int maxrequests, float buffert
 
     trackimp = 0;
 
-    if (!PATHI_switchvoice(trackhandle))
-        goto abort;
-
-    {
+    if (PATHI_switchvoice(trackhandle)) {
         PATHTRACK *track = PATHI_gettrackptr(trackhandle);
 
-        if (!track)
-            goto abort;
-
-        {
+        if (track) {
             int byterate = PATHI_bytesperms(track->trackID);
             int result;
 
             result = IPathToSnd::sndimp->CreateStreamTrack(&trackimp, maxrequests, buffertime,
                                                            byterate);
 
-            if (!trackimp || result < 0)
-                goto abort;
-
-            track->trackimp = trackimp;
-            trackimp->SetName(track->trackname);
-            trackimp->SetFilePath(track->musicfilename);
-            trackimp->SetTrackInfo(PATHI_gettrackinfo(track->trackID));
-            trackimp->SetVolume(track->volume * track->volscale / 100);
+            if (trackimp && result >= 0) {
+                track->trackimp = trackimp;
+                trackimp->SetName(track->trackname);
+                trackimp->SetFilePath(track->musicfilename);
+                trackimp->SetTrackInfo(PATHI_gettrackinfo(track->trackID));
+                trackimp->SetVolume(track->volume * track->volscale / 100);
+            }
         }
     }
 
-abort:
     PATHI_unlock();
 
     return trackimp;

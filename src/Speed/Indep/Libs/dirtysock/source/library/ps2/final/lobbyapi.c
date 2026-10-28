@@ -6,6 +6,7 @@
 //
 // Medido del asm (r48):
 // - LobbyApiRefT mide 0x2078 B (LobbyApiCreate reserva e inicializa 0x2078).
+//   En PC (DirtySDK 3.9.3) mide 0x20F8: la cola crece 0x80 B (ver el struct).
 // - La cola de peticiones: 32 entradas de 0x14 B en +0x1A20 (head +0x1CA0,
 //   tail +0x1CA4, secuencia +0x1CB4); peticiones diferibles por 'idle'.
 // - La tabla de callbacks: 32 entradas de 0xC B en +0x18A0 {iKind, pCallback,
@@ -40,7 +41,7 @@ extern int CryptSSC2StringEncrypt(const char *pSrc, int iSrcSize, char *pDst, vo
 extern void *ProtoAriesCreate(int iBufSize);
 extern void ProtoAriesDestroy(void *pAries);
 extern int ProtoAriesConnect(void *pAries, const char *pHost, void *pX, int iPort);
-extern void ProtoAriesUnconnect(void *pAries);
+extern int ProtoAriesUnconnect(void *pAries);
 extern int ProtoAriesSend(void *pAries, void *pKind, void *pCode, void *pData, int iLen);
 extern void ProtoAriesRecv(void *pAries, void *pX, void *pY, void *pZ, void *pW);
 extern int ProtoAriesPeek(void *pAries, unsigned int *puKind, unsigned int *puCode, int *piExtra);
@@ -107,6 +108,9 @@ struct LobbyApiRequestT
     int iTick;                      // +0x08 (tick de alta)
     LobbyApiCallbackT pCallback;    // +0x0C
     void *pRef;                     // +0x10
+#ifdef EA_PLATFORM_WIN32
+    char X14[4];                    // +0x14 (en PC la entrada mide 0x18: el exe la limpia a 6 dwords)
+#endif
 };
 
 // un hueco de callback: 0xC B (iKind +0, pCallback +4, pRef +8; -1 = libre)
@@ -151,19 +155,16 @@ struct LobbyApiRefT
     char Party[0x40];                           // +0x548 (el party buffer)
     char Config[0x1004];                        // +0x588 (la config descargada)
     char User158C[0x14];                         // +0x158C ('acct'/'user')
-    unsigned char Pad15A0[0x15A0 - 0x15A0];
     char Serv[0x244];                           // +0x15A0 (datos de sesion del servidor)
     int iRooms;                                  // +0x17E4 ('room')
     int iRflg;                                   // +0x17E8 ('rflg')
     char Self17EC[0x48];                        // +0x17EC ('self')
-    unsigned char Pad1834[0x1834 - 0x1834];
     int iListCreated;                           // +0x1834
     int iSessPort;                              // +0x1838
     int iSessAddr;                              // +0x183C
     int i1840;                                  // +0x1840 (puerto alternativo de sesion)
     int i1844;                                  // +0x1844 (MASK de UpdateRdir)
     char X1848[0x40];                           // +0x1848 (DP del login)
-    unsigned char Pad1888[0x1888 - 0x1888];
     int iLoggedIn;                              // +0x1888 (el ADDR de sesion)
     int iLoginFail;                             // +0x188C ('rdrl' del UpdateRdir)
     int iMore;                                  // +0x1890
@@ -171,6 +172,33 @@ struct LobbyApiRefT
     int i1898;                                  // +0x1898 (peticiones 'snap' pendientes)
     int i189C;                                  // +0x189C (slots)
     LobbyApiCbSlotT CbSlots[32];                // +0x18A0
+#ifdef EA_PLATFORM_WIN32
+    // DirtySDK 3.9.3 de PC: la entrada de Queue mide 0x18 B (el exe camina con stride
+    // 0x18 y la limpia a 6 dwords) y lo posterior corre. Medido del exe: pUser1 +0x1D28,
+    // pUser2 +0x1D2C, uSeq +0x1D30 (la secuencia que se guarda en Queue[i].uKind),
+    // i1CB8 +0x1D38 (confirmado por __LobbyApiAsyncProcess_sst), iEpoch +0x1D3C,
+    // i1CC0 +0x1D40, i1CC4 +0x1D44, i2018 +0x2098, i2020 +0x20A0, i2024 +0x20A4,
+    // Sess +0x20B8 y sizeof 0x20F8. Tres huecos quedan sin papel medido (0x1D20,
+    // 0x1D24 y 0x1D34) y llevan los nombres de su posicion en la A124.
+    LobbyApiRequestT Queue[32];                 // +0x1A20
+    int iQueueHead;                             // +0x1D20 (en el exe, contador de peticiones)
+    int i1CA8;                                  // +0x1D24 (el exe lo pone a 0 al desconectar)
+    void *pUser1CAC;                            // +0x1D28 (arg de LobbyApiCreate)
+    void *pUser1CB0;                            // +0x1D2C
+    unsigned int uSeq;                          // +0x1D30 (& 0x7FFFFFFF)
+    int iQueueTail;                             // +0x1D34
+    int i1CB8;                                  // +0x1D38 (identificadores sinteticos)
+    int iEpoch;                                 // +0x1D3C (TagFieldGetEpoch)
+    int i1CC0;                                  // +0x1D40 (tick del ultimo Update)
+    unsigned int i1CC4;                         // +0x1D44 (resto de la division)
+    unsigned char Pad1D48[0x2098 - 0x1D48];
+    int i2018;                                  // +0x2098 ('vers': flag de listas)
+    int i201C;                                  // +0x209C
+    int i2020;                                  // +0x20A0 ('lcnt' cache)
+    int i2024;                                  // +0x20A4 ('lcnt' cache)
+    unsigned char Pad20A8[0x20B8 - 0x20A8];
+    char Sess[0x40];                            // +0x20B8 (host de sesion, '*' = cifrado)
+#else
     LobbyApiRequestT Queue[32];                 // +0x1A20
     int iQueueHead;                             // +0x1CA0
     int iQueueTail;                             // +0x1CA4
@@ -189,11 +217,11 @@ struct LobbyApiRefT
     int i2024;                                  // +0x2024 ('lcnt' cache)
     unsigned char Pad2028[0x2038 - 0x2028];
     char Sess[0x40];                            // +0x2038 (host de sesion, '*' = cifrado)
-    unsigned char Pad2078[0x2078 - 0x2078];
+#endif
 };
 
 // las que define este fichero mas abajo
-extern void _LobbyApiDisconnect(LobbyApiRefT *pApi, unsigned int uKind, void *pX);
+static void _LobbyApiDisconnect(LobbyApiRefT *pApi, unsigned int uKind, void *pX);
 extern void LobbyApiDisconnect();
 extern int _LobbyApiDequeueRequestCallback(LobbyApiRefT *pApi, LobbyApiRequestT *pReq, unsigned int uKind);
 extern int LobbyApiSetCallback(LobbyApiRefT *pApi, int iSlot, LobbyApiCallbackT pCallback, void *pRef);
@@ -205,7 +233,7 @@ extern void LobbyApiGlobalCallback();
 void _LobbyApiInitRequest(LobbyApiRefT *pApi, LobbyApiRequestT *pReq, int iType,
                           LobbyApiCallbackT pCallback, void *pRef)
 {
-    memset(pReq, 0, 0x14);
+    memset(pReq, 0, sizeof(LobbyApiRequestT));
     pReq->iType = iType;
     pReq->pCallback = pCallback;
     pReq->pRef = pRef;
@@ -238,7 +266,7 @@ int _LobbyApiDequeueRequestCallback(LobbyApiRefT *pApi, LobbyApiRequestT *pReq, 
     int iHead;
     int iTail;
 
-    memset(pReq, 0, 0x14);
+    memset(pReq, 0, sizeof(LobbyApiRequestT));
     iHead = pApi->iQueueHead;
     iTail = pApi->iQueueTail;
     if (iHead != iTail)
@@ -274,7 +302,7 @@ void _LobbyApiOneShotCB(LobbyApiRefT *pApi, void *pX, void *pRef)
 // registra un disparo (iSlot 0..31); devuelve el uKind o -1 sin memoria
 int _LobbyApiSetOneShotCB(LobbyApiRefT *pApi, int iSlot, LobbyApiCallbackT pCallback, void *pRef)
 {
-    LobbyApiRequestT *pReq = LobbyAlloc(0x14);
+    LobbyApiRequestT *pReq = LobbyAlloc(sizeof(LobbyApiRequestT));
 
     if (pReq == NULL)
         return -1;
@@ -427,7 +455,7 @@ void _LobbyApiCheckTimeout(LobbyApiRefT *pApi, int iNow)
 }
 
 // la desconexion completa: avisa una sola vez, baja todo y limpia la sesion
-void _LobbyApiDisconnect(LobbyApiRefT *pApi, unsigned int uKind, void *pX)
+static void _LobbyApiDisconnect(LobbyApiRefT *pApi, unsigned int uKind, void *pX)
 {
     if (pApi->uKind != KIND_OFFL)
     {
@@ -464,25 +492,25 @@ int _LobbyApiUpdateRdir(LobbyApiRefT *pApi, int iCode, int uKind, int iExtra, vo
             pApi->iSessAddr = (int)TagFieldGetAddress(TagFieldFind(pData, "ADDR"), 0);
             pApi->iSessPort = TagFieldGetNumber(TagFieldFind(pData, "PORT"), 0);
         }
-        TagFieldGetNumber(TagFieldFind(pData, "SESS"), 0);
-        TagFieldGetString(TagFieldFind(pData, "MASK"), &pApi->Key[0], 0x40, "");
+        pApi->i1844 = TagFieldGetNumber(TagFieldFind(pData, "SESS"), 0);
+        TagFieldGetString(TagFieldFind(pData, "MASK"), &pApi->X1848[0], 0x40, "");
         ProtoAriesUnconnect(pApi->pAries);
         if (pApi->iSessAddr != 0)
         {
-            _LobbyApiPingServer(pApi);
             pApi->uKind = KIND_CONN;
+            _LobbyApiPingServer(pApi);
             ProtoAriesConnect(pApi->pAries, NULL, pApi->iSessAddr, pApi->iSessPort);
+            return -1;
         }
         else
         {
             TagFieldGetString(TagFieldFind(pData, "DOWN"), Buf, 0x100, "");
             _LobbyApiDisconnect(pApi, 0x646F776E, Buf);
         }
-        return -1;
     }
-    if (uKind == 0xFFFFFFFF && iExtra == 0xFEFEFEFE)
+    if (uKind == -1 && iExtra == 0xFEFEFEFE)
     {
-        if (ProtoAriesStatus(pApi->pAries, KIND_CRYT) == 0)
+        if (ProtoAriesStatus(pApi->pAries, KIND_CRYT) != 0)
         {
             ProtoAriesSetKey(pApi->pAries, NULL, 0);
             pApi->uKind = KIND_INIT;
@@ -490,32 +518,38 @@ int _LobbyApiUpdateRdir(LobbyApiRefT *pApi, int iCode, int uKind, int iExtra, vo
         else
         {
             LobbyApiDisconnect(pApi, KIND_RDIR);
-            return -1;
         }
         return -1;
     }
     return 0;
 }
 
-// crea la referencia: 0x2078 B, el ProtoAries, el ping y las tablas
+// crea la referencia: 0x2078 B (0x20F8 en PC), el ProtoAries, el ping y las tablas
 LobbyApiRefT *LobbyApiCreate(const char *pAccount, void *pUser1, void *pUser2)
 {
-    LobbyApiRefT *pApi = NetAlloc(0x2078);
+    LobbyApiRefT *pApi = NetAlloc(sizeof(LobbyApiRefT));
     char Buf[0x20];
     int i;
 
     if (pApi != NULL)
     {
-    memset(pApi, 0, 0x2078);
+    memset(pApi, 0, sizeof(LobbyApiRefT));
     if (pAccount != NULL)
     {
         if (strchr(pAccount, '=') != NULL)
             TagFieldDupl(&pApi->Account[0], 0x100, pAccount);
         else
             TagFieldSetString(&pApi->Account[0], 0x100, "VERS", pAccount);
+#ifdef EA_PLATFORM_WIN32
+        // el DirtySDK de speed.exe es el "Oct 19 2005" (3.9.3.0); el de la A124, el "Sep 12 2005" (3.8.4.0)
+        sprintf(Buf, "%c.%c.%c.%c", 0x33, 0x39, 0x33, 0x30);
+        TagFieldSetString(&pApi->Account[0], 0x100, "SDKVERS", Buf);
+        TagFieldSetString(&pApi->Account[0], 0x100, "BUILDDATE", "Oct 19 2005");
+#else
         sprintf(Buf, "%c.%c.%c.%c", 0x33, 0x38, 0x34, 0x30);
         TagFieldSetString(&pApi->Account[0], 0x100, "SDKVERS", Buf);
         TagFieldSetString(&pApi->Account[0], 0x100, "BUILDDATE", "Sep 12 2005");
+#endif
     }
     pApi->pAries = ProtoAriesCreate(0x2000);
     if (pApi->pAries == NULL)
@@ -529,7 +563,7 @@ LobbyApiRefT *LobbyApiCreate(const char *pAccount, void *pUser1, void *pUser2)
     pApi->iTimeout = 0x1D4C0;
     pApi->iMaxCps = 0xEA60;
     pApi->iMinCps = 0x7530;
-    for (i = 31; i >= 0; i--)
+    for (i = 0; i < 32; i++)
         pApi->CbSlots[i].iKind = -1;
     LobbyApiListCreate(pApi);
     LobbyApiDisconnect(pApi, 0);
@@ -622,19 +656,17 @@ void LobbyApiResume(LobbyApiRefT *pApi)
 // registra un callback por uKind en el primer hueco libre
 int LobbyApiSetCallback(LobbyApiRefT *pApi, int iKind, LobbyApiCallbackT pCallback, void *pRef)
 {
-    LobbyApiCbSlotT *pSlot = &pApi->CbSlots[0];
     int i;
 
     for (i = 0; i < 32; i++)
     {
-        if (pSlot->iKind == -1)
+        if (pApi->CbSlots[i].iKind == -1)
         {
-            pSlot->iKind = iKind;
-            pSlot->pCallback = pCallback;
-            pSlot->pRef = pRef;
+            pApi->CbSlots[i].iKind = iKind;
+            pApi->CbSlots[i].pCallback = pCallback;
+            pApi->CbSlots[i].pRef = pRef;
             return i | 0x1000;
         }
-        pSlot++;
     }
     return -1;
 }
@@ -687,7 +719,9 @@ void *p1;
 // cifrado de la password si hace falta
 int LobbyApiRequestCB(LobbyApiRefT *pApi, int iCode, const char *pData, void *pCallback, void *pRef)
 {
-    char Buf[0x244];
+    char Buf[0x200];
+    char PassBuf[0x20];
+    char NameBuf[0x24];
     LobbyApiRequestT *pReq;
     int iVal;
 
@@ -701,17 +735,17 @@ int LobbyApiRequestCB(LobbyApiRefT *pApi, int iCode, const char *pData, void *pC
     {
         TagFieldDupl(Buf, 0x200, &pApi->Account[0]);
         TagFieldMerge(Buf, 0x200, pData);
-        TagFieldGetString(TagFieldFind(Buf, "PASS"), &Buf[0x201], 0x1F, "");
+        TagFieldGetString(TagFieldFind(Buf, "PASS"), &PassBuf[1], 0x1F, "");
         if (pApi->Key[0] == 0)
         {
-            TagFieldSetString(Buf, 0x200, "PASS", &Buf[0x201]);
+            TagFieldSetString(Buf, 0x200, "PASS", &PassBuf[1]);
             TagFieldSetNumber(Buf, 0x200, "MASK", pApi->i1844);
         }
         else
         {
-            Buf[0x200] = 0x7E;
-            CryptSSC2StringEncrypt(&Buf[0x201], 0x1F, &Buf[0x201], &pApi->Key[0], 0x10, 0x10);
-            TagFieldSetString(Buf, 0x200, "PASS", &Buf[0x200]);
+            PassBuf[0] = 0x7E;
+            CryptSSC2StringEncrypt(&PassBuf[1], 0x1F, &PassBuf[1], &pApi->Key[0], 0x10, 0x10);
+            TagFieldSetString(Buf, 0x200, "PASS", &PassBuf[0]);
         }
         pData = Buf;
     }
@@ -719,17 +753,17 @@ int LobbyApiRequestCB(LobbyApiRefT *pApi, int iCode, const char *pData, void *pC
     {
         iVal = TagFieldGetNumber(TagFieldFind(pData, "CHAN"), 0);
         if ((unsigned int)(iVal - 5) < 0x12)
-            LobbyApiListFlush(pApi, -1);
+            LobbyApiListFlush(pApi, iVal);
         pApi->i1894 = 0;
         pApi->i1898 = pApi->i1898 + 1;
     }
     if (iCode == KIND_MOVE && LobbyApiListGetHash(pApi, 0) != NULL)
     {
-        TagFieldGetString(TagFieldFind(pData, "NAME"), &Buf[0x220], 0x24, "");
-        if (Buf[0x220] != 0)
+        TagFieldGetString(TagFieldFind(pData, "NAME"), &NameBuf[0], 0x24, "");
+        if (NameBuf[0] != 0)
         {
             void *pList = LobbyApiListGetDisp(pApi, 0);
-            int iIndex = LobbyApiListFindByName(pApi, 0, &Buf[0x220]);
+            int iIndex = LobbyApiListFindByName(pApi, 0, &NameBuf[0]);
 
             if (iIndex != 0)
             {
@@ -774,34 +808,31 @@ int LobbyApiCancelCB(LobbyApiRefT *pApi, int iKind)
 // consulta un entero por nombre de 4 letras
 int LobbyApiInfoInt(LobbyApiRefT *pApi, unsigned int uName)
 {
-    void *pList;
-    int i;
-    int iSum;
 
     if (uName == 0x6578746E)
         return pApi->iLoggedIn;
     if (uName == 0x686F7374)
     {
+        int iStatus = 0;
         if (pApi->pAries != 0)
-            return ProtoAriesStatus(pApi->pAries, 0x61646472);
-        return 0;
+            iStatus = ProtoAriesStatus(pApi->pAries, 0x61646472);
+        return iStatus;
     }
     if (uName == 0x696E6174)
-    {
-        if (pApi->iLoggedIn != 0 && pApi->iLoginFail != 0)
-            return pApi->iLoggedIn != pApi->iLoginFail;
-        return 0;
-    }
+        return (pApi->iLoggedIn != 0 && pApi->iLoginFail != 0) ? (pApi->iLoggedIn != pApi->iLoginFail) : 0;
     if (uName == 0x6C636E74)
     {
+        int iSum;
+        void *pList;
         if (pApi->i2018 != 0)
             return pApi->i2020 + pApi->i2024;
-        pList = LobbyApiListGetDisp(pApi, 0);
         iSum = -1;
+        pList = LobbyApiListGetDisp(pApi, 0);
         if (pList != NULL)
         {
+            int i = 0;
             iSum = 0;
-            for (i = 0; i < DispListCount(pList); i++)
+            for (; i < DispListCount(pList); i++)
                 iSum += *(int *)((char *)DispListIndex(pList, i) + 0x10);
         }
         return iSum;
@@ -818,9 +849,10 @@ int LobbyApiInfoInt(LobbyApiRefT *pApi, unsigned int uName)
         return pApi->iRooms;
     if (uName == 0x73656375)
     {
+        int iStatus = 0;
         if (pApi->pAries != 0)
-            return ProtoAriesStatus(pApi->pAries, 0x73656375);
-        return 0;
+            iStatus = ProtoAriesStatus(pApi->pAries, 0x73656375);
+        return iStatus;
     }
     if (uName == 0x736C6F74)
         return pApi->i189C;
@@ -832,17 +864,18 @@ int LobbyApiInfoInt(LobbyApiRefT *pApi, unsigned int uName)
         return pApi->iSuspend;
     if (uName == 0x7469636B)
         return ProtoAriesTick(pApi->pAries);
+#ifndef EA_PLATFORM_WIN32
+    // el caso 'ping' no esta en el DirtySDK de PC (speed.exe 0x840AA0: tras 'tick' devuelve -1)
     if (uName == 0x70696E67)
         return pApi->iIcmpPing;
+#endif
     return -1;
 }
 
 // consulta un puntero por nombre de 4 letras
 void *LobbyApiInfoPtr(LobbyApiRefT *pApi, unsigned int uName)
 {
-    if (uName == 0x61636374)                 /* acct */
-        return &pApi->User158C;
-    if (uName == 0x75736572)                 /* user */
+    if (uName == 0x61636374 || uName == 0x75736572)   /* acct/user */
         return &pApi->User158C;
     if (uName == 0x61757464)                 /* autd */
         return &pApi->X148[0];

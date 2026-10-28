@@ -120,7 +120,7 @@ inline u32 FEngGetu32(u32 Val) {
 }
 
 inline i32 FEngGeti32(i32 Val) {
-    return (Val >> 24) | (Val << 24) | ((Val & 0xFF00) << 8) | ((Val >> 8) & 0xFF00);
+    return (static_cast<u32>(Val) >> 24) | (Val << 24) | ((Val & 0xFF00) << 8) | ((Val >> 8) & 0xFF00);
 }
 
 inline u16 FEngGetu16(u16 Val) {

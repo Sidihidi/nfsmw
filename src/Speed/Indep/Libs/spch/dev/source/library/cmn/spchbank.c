@@ -174,7 +174,7 @@ void iSPCHBank_AddToQueue(VOXBANKHDR *hdr, int sampleIndex) {
     unsigned char *queue;
     unsigned char index;
 
-    if (hdr->sampleRepeat == 0) {
+    if (hdr->sampleRepeat <= 0) {
         return;
     }
     queue = BANKHDR_GetSampleRepeatAddr(hdr);
@@ -300,7 +300,7 @@ int SPCH_AddBank(char *bankHdr) {
     gVoxBanks[bankIndex].voxHdr = hdr;
     bankHandle = gUniqueBankHandle;
     gVoxBanks[bankIndex].bankHandle = bankHandle;
-    gUniqueBankHandle = bankHandle + 1;
+    gUniqueBankHandle++;
     gBankCount = gBankCount + 1;
 abort:
     return bankHandle;

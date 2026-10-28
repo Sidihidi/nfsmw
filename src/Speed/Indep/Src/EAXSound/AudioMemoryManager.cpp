@@ -3,7 +3,7 @@
 #include "Speed/Indep/Src/EAXSound/EAXCarState.hpp" // needed for symbol order
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #endif
 
@@ -14,7 +14,16 @@ int DEBUG_360MEM = 0; // size: 0x4, address: 0xFFFFFFFF, Decl: 15
 AudioMemoryManager gAudioMemoryManager; // Decl: 128
 
 int AudioMemoryPool = -1; // Decl: 147
-int SND11MemoryPoolNum;   // size: 0x4, address: 0xFFFFFFFF, Decl: 148
+#if (defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos20: en las de tienda va a -1 justo tras AudioMemoryPool (SLUS zEAXSound
+// .data +0x38 y GC lbl_80417654, el segundo ff ff ff ff tras AudioMemoryPool;
+// el DWARF de GC lo declara a continuacion, globals.nothpp:164159-164160). La
+// A124 no tiene pool SND11 (sin m_pSnd11PoolMem) y tras AudioMemoryPool solo
+// lleva ceros: ahi queda tentativo, como hasta ahora.
+int SND11MemoryPoolNum = -1; // size: 0x4, address: 0xFFFFFFFF, Decl: 148
+#else
+int SND11MemoryPoolNum; // size: 0x4, address: 0xFFFFFFFF, Decl: 148
+#endif
 
 AudioMemoryManager::AudioMemoryManager()
     : m_pMemoryPoolMem(nullptr), //
@@ -56,7 +65,7 @@ void *AudioMemoryManager::AllocateMemory(int size, const char *debug_name, bool 
         }
     } else {
         bMemoryPrintAllocationsByAddress(AudioMemoryPool, 0, 0x7FFFFFFF);
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
         bReleasePrintf("ERROR:  AudioMemoryPool is out of memory allocating %d for %s.  Largest = %d, Free = %d\n", size, debug_name,
                        bLargestMalloc(AudioMemoryPool), bCountFreeMemory(AudioMemoryPool));
 #endif

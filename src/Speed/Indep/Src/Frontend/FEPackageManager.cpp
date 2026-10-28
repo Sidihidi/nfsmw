@@ -8,6 +8,10 @@
 
 bool IsCurrentlyHotChunking();
 
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/PC/Src/Ecstasy/eMousePlat.hpp" // TheMouse: Tick avisa de su cambio antes del tick de pantalla
+#endif
+
 FEPackageManager *FEPackageManager::mInstance = 0;
 
 void FEPackageManager::Init() {
@@ -37,7 +41,7 @@ void FEPackageManager::BroadcastMessage(u32 msg) {
     int count = 0;
     for (FEPackageData *data = ScreenList.GetHead(); data != ScreenList.EndOfList(); data = data->GetNext()) {
         bool is_loaded = data->GetPackage() != 0;
-        if (is_loaded && count <= 0x1F && (msg != FEMSG_MOUSE_CHANGED || data->GetPackage()->IsInputEnabled())) {
+        if (is_loaded && count < 32 && (msg != FEMSG_MOUSE_CHANGED || data->GetPackage()->IsInputEnabled())) {
             screens[count] = data;
             count = count + 1;
         }
@@ -200,6 +204,7 @@ void FEPackageManager::PackageWillBeUnloaded(FEPackage *pkg) {
 
 void FEPackageManager::Loader(bChunk *chunk, bool hotchunk_flag) {
     FEPackageData *data = new ("FEPackageData", 0) FEPackageData(chunk);
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
     if (chunk->GetID() == BCHUNK_FENG_COMPRESSED_PACKAGE) {
         bEndianSwap32((char *)chunk + 8);
         bEndianSwap32((char *)chunk + 0xC);
@@ -207,6 +212,7 @@ void FEPackageManager::Loader(bChunk *chunk, bool hotchunk_flag) {
         bEndianSwap32((char *)chunk + 0x14);
         bEndianSwap32((char *)chunk + 0x18);
     }
+#endif
     FEPackageManager::Get()->ScreenList.AddTail(data);
 }
 
@@ -226,6 +232,11 @@ void FEPackageManager::ErrorTick() {
 }
 
 void FEPackageManager::Tick() {
+#ifdef EA_PLATFORM_WIN32
+    if (TheMouse.HasChanged()) {
+        BroadcastMessage(FEMSG_MOUSE_CHANGED);
+    }
+#endif
     BroadcastMessage(FEMSG_SCREEN_TICK);
 }
 

@@ -6,7 +6,7 @@
 //
 #define GINSU_USE_BMATH
 
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 // PC: asm de EA (docs/asm-de-ea.md). fistp/fist redondean con el modo de la FPU y MSVC 7.1 no los emite desde C.
 inline int IntRound(float x) {
     int i;

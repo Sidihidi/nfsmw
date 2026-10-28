@@ -496,18 +496,17 @@ void StrategyFlow::Waiting() {
     if (pursuit->IsCollapseActive() || pursuit->IsFinisherActive()) {
         switch (pursuit->GetFormationType()) {
         case PIT:
-            if (active.size() < 2) {
-                goto cleanup;
-            }
-            if (bRandom(1.0f) > 0.5f) {
-                EAXCop *closest = ai->FindClosestCop(false, false);
-                if (closest) {
-                    closest->IntentToRam();
+            if (active.size() >= 2) {
+                if (bRandom(1.0f) > 0.5f) {
+                    EAXCop *closest = ai->FindClosestCop(false, false);
+                    if (closest) {
+                        closest->IntentToRam();
+                    }
+                } else {
+                    ai->GetLeader()->StrategyExecute();
                 }
-            } else {
-                ai->GetLeader()->StrategyExecute();
+                this->ChangeStateTo(kOutcome);
             }
-            this->ChangeStateTo(kOutcome);
             break;
         case HELI_PURSUIT:
             if (ai->GetHeli()) {
@@ -516,15 +515,14 @@ void StrategyFlow::Waiting() {
             break;
         case BOX_IN:
         case ROLLING_BLOCK:
-            if (active.size() < 2) {
-                goto cleanup;
+            if (active.size() >= 2) {
+                if (bRandom(1.0f) > 0.5f) {
+                    ai->GetLeader()->StrategyExecute();
+                } else {
+                    this->CallToPos();
+                }
+                this->ChangeStateTo(kOutcome);
             }
-            if (bRandom(1.0f) > 0.5f) {
-                ai->GetLeader()->StrategyExecute();
-            } else {
-                this->CallToPos();
-            }
-            this->ChangeStateTo(kOutcome);
             break;
         case FOLLOW:
         case HERD:
@@ -576,11 +574,11 @@ void StrategyFlow::Waiting() {
     this->mFormationCount = static_cast<int>(ai->GetCopsInFormation().size());
     this->mBackupType = 0x20;
     this->ChangeStateTo(kReqBackup);
-    // Este `return` parece redundante con el `cleanup:` de debajo, pero no lo es para
-    // el cross-jumping: sin el, este bloque cae al epilogo y se lleva la etiqueta del
-    // despacho generico de ChangeStateTo, y salen 16 B de mas. Con el, el objetivo casa.
-    return;
-cleanup:;
+    // Este `return` parece redundante con el final de la funcion, pero no lo es para el
+    // cross-jumping: sin el, este bloque cae al epilogo y se lleva la etiqueta del despacho
+    // generico de ChangeStateTo, y salen 16 B de mas. Con el, el objetivo casa. El `goto
+    // no_backup` se queda (ronda 88): el DWARF de GC no trae etiqueta en Waiting, pero las
+    // formas con if/else bajan la funcion del 100 % (90,0 y 91,8 %): propuesta en el diario.
     return;
 no_backup:
     this->mFormationCount = static_cast<int>(ai->GetCopsInFormation().size());
@@ -632,50 +630,43 @@ void StrategyFlow::Outrun() {
             EAXCop *outrunee = losList.front();
             outrunee->SuspectOutrun();
             this->ChangeStateTo(kWaiting);
-            goto cleanup;
-        }
+        } else if (losList.empty() && (ai->GetPerpLostTime() >= t_comment)) {
+            copList closeList;
+            closeList.reserve(ai->GetActors().size());
 
-        if (losList.empty()) {
-            if (ai->GetPerpLostTime() >= t_comment) {
-                copList closeList;
-                closeList.reserve(ai->GetActors().size());
-
-                {
-                    copMap::const_iterator iter = ai->GetActors().begin();
-                    while (iter != ai->GetActors().end()) {
-                        EAXCop *cop = iter->cop;
-                        if (cop->IsActive()) {
-                            closeList.push_back(cop);
-                        }
-                        ++iter;
+            {
+                copMap::const_iterator iter = ai->GetActors().begin();
+                while (iter != ai->GetActors().end()) {
+                    EAXCop *cop = iter->cop;
+                    if (cop->IsActive()) {
+                        closeList.push_back(cop);
                     }
+                    ++iter;
                 }
-
-                if (!closeList.empty()) {
-                    if (closeList.size() > 1) {
-                        std::sort(closeList.begin(), closeList.end());
-                    }
-
-                    EAXCop *closest = closeList.front();
-                    if (closest->IsHeli()) {
-                        ai->GetHeli()->LostVisual();
-                    } else {
-                        closest->LostVisual();
-
-                        if (ai->GetHeli() && ai->GetHeli()->HasLOS() && ai->GetHeli()->IsActive()) {
-                            ai->GetHeli()->Spotter();
-                            ai->GetHeli()->LocationReport();
-                        }
-                    }
-                }
-
-                this->ChangeStateTo(kLost);
-                goto cleanup;
             }
-        }
 
-        this->ChangeStateTo(kWaiting);
-    cleanup:;
+            if (!closeList.empty()) {
+                if (closeList.size() > 1) {
+                    std::sort(closeList.begin(), closeList.end());
+                }
+
+                EAXCop *closest = closeList.front();
+                if (closest->IsHeli()) {
+                    ai->GetHeli()->LostVisual();
+                } else {
+                    closest->LostVisual();
+
+                    if (ai->GetHeli() && ai->GetHeli()->HasLOS() && ai->GetHeli()->IsActive()) {
+                        ai->GetHeli()->Spotter();
+                        ai->GetHeli()->LocationReport();
+                    }
+                }
+            }
+
+            this->ChangeStateTo(kLost);
+        } else {
+            this->ChangeStateTo(kWaiting);
+        }
     }
 }
 

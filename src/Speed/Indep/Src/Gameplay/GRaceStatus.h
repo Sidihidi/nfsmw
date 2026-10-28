@@ -759,7 +759,7 @@ class GRaceStatus : public UTL::COM::Object, public IVehicleCache {
 
     typedef UTL::Std::vector<struct GTrigger *, _type_ID_GRaceStatusTriggerList> TriggerList;
 
-#ifndef EA_PLATFORM_PLAYSTATION2 // PS2 usa el new/delete global: SLUS llama a __builtin_vec_new y su destructor borra con el global
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_XENON) // PS2 usa el new/delete global: SLUS llama a __builtin_vec_new y su destructor borra con el global; X360 tambien
     static void *operator new(size_t size, unsigned int alloc_params) {
         return bMalloc(size, alloc_params);
     }

@@ -30,9 +30,29 @@ static const int AEMSVol = 32767; // TODO use Decl: 47
 #define REC_RPM 2  // Decl: 52
 #define REC_TRQ 3  // Decl: 53
 
+#ifdef EA_PLATFORM_GAMECUBE
+// gcdatos19: en GC mide 4 B, no 16 (config/GOWE69/symbols.txt: DataToPlayBack
+// .data:0x80418068 size:0x4, ntestrefcount justo detras en 0x8041806C; el
+// .data objetivo de zEAXSound2 no lleva los tres 1 entre
+// PLAYBACK_USING_ENGINE_PITCH +0x2bc y el s_TypeInfo de CARSFX_AEMSEngine
+// +0x2c8: solo [DataToPlayBack 0][ntestrefcount 0]). En las dos PS2 son los
+// 16 B {0,1,1,1} de abajo (A124 +0x820, SLUS +0x838, bytes de su .data
+// objetivo). Sin usos en el arbol: solo cambia el tamano del dato en GC.
+unsigned int DataToPlayBack[1][1] = {{0}}; // Decl: 56
+#else
 unsigned int DataToPlayBack[1][4] = {{0, 1, 1, 1}}; // Decl: 56
+#endif
 
-int PRINT_AI_ENGINE_INFO;                 // Decl: 71
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos16/17: a 0 en posicion de fuente en las DOS PS2 (A124: zEAXSound2 .data
+// +0x840 = 0x5e50f0, PS2_globals.hpp:1309, tras DataToPlayBack y delante de
+// ntestrefcount; SLUS: dentro del bloque de 24 B de ceros de +0x838 = 0x5419d8, que
+// es el mismo hueco entre DataToPlayBack y el TypeInfo de CARSFX_AEMSEngine). Sin
+// inicializar cae en el bloque tentativo del final.
+int PRINT_AI_ENGINE_INFO = 0;      // Decl: 71
+#else
+int PRINT_AI_ENGINE_INFO;      // Decl: 71
+#endif
 static const int SPEW_AI_ENGINE_INFO = 0; // Decl: 72
 
 #ifdef EA_BUILD_A124

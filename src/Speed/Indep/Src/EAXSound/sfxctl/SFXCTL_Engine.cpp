@@ -37,9 +37,25 @@ extern Slope RedLineDelayPerGear;
 static const float REDLINE_ENG_FADE[2] = {450.0f, 50.0f};
 static const float REDLINE_REDSAMP_FADE[2] = {50.0f, 120.0f};
 
-Slope RedLineDelayPerGear(1.0f, REDLINE_SCALE_PER_GEAR, 1.0f, REDLINE_SCALE_PER_GEAR);
-
+// gcdatos20: el s_TypeInfo va delante de RedLineDelayPerGear en los objetivos
+// (stabs PS2_globals.hpp:1039-1040; GC zEAXSound .data Engine::s_TypeInfo
+// +0x33c y RedLineDelayPerGear en .bss tras g_WheelLoadSlope). Es un POD con
+// reloc: moverlo no toca el orden de ctors (RedLineDelayPerGear sigue siendo
+// el unico objeto con ctor del bloque).
 SndBase::TypeInfo SFXCTL_Engine::s_TypeInfo = {(int)0x00020040, "SFXCTL_Engine", &SFXCTL::s_TypeInfo, SFXCTL_Engine::CreateObject};
+
+Slope RedLineDelayPerGear(1.0f, REDLINE_SCALE_PER_GEAR, 1.0f, REDLINE_SCALE_PER_GEAR);
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos14: en la A124, entre RedLineDelayPerGear y RevPat5 (0x5e352c-0x5e3534,
+// PS2_globals.hpp:1041-1043), a 0 en su .data objetivo.
+// gcdatos20: tambien en GC: el DWARF los declara (globals.nothpp:164771-164773)
+// y entre Engine::s_TypeInfo (+0x33c) y CarIdPrintHeight (+0x358) hay 12 B a 0
+// exactos (RedLineDelayPerGear y los RevPat van en .bss en GC). SLUS por la
+// misma fuente de tienda.
+int g_SpewData = 0;
+int g_RPM = 0;
+int g_TRQ = 0;
+#endif
 
 SndBase::TypeInfo *SFXCTL_Engine::GetTypeInfo() const { return &s_TypeInfo; }
 
@@ -480,20 +496,20 @@ void SFXCTL_Engine::UpdateEngineLFO_FX(float t) {
     tmp_VOL_LFO_FRQ = bClamp(tmp_VOL_LFO_FRQ, 1, 10000);
 
     if (tmp_RPM_LFO_AMP != 0) {
-        this->m_aglRPM_LFO = static_cast<unsigned short>(this->m_aglRPM_LFO +
-                                                        static_cast<int>((t / (static_cast<float>(tmp_RPM_LFO_FRQ) * 0.001f)) * 65535.0f)) % 0xFFFF;
+        this->m_aglRPM_LFO += static_cast<int>((t / (static_cast<float>(tmp_RPM_LFO_FRQ) * 0.001f)) * 65535.0f);
+        this->m_aglRPM_LFO %= 0xFFFF;
         this->m_RPM_LFO = static_cast<float>(tmp_RPM_LFO_AMP) * bSin(this->m_aglRPM_LFO);
     }
 
     if (tmp_TRQ_LFO_AMP != 0) {
-        this->m_aglTRQ_LFO = static_cast<unsigned short>(this->m_aglTRQ_LFO +
-                                                        static_cast<int>((t / (static_cast<float>(tmp_TRQ_LFO_FRQ) * 0.001f)) * 65535.0f)) % 0xFFFF;
+        this->m_aglTRQ_LFO += static_cast<int>((t / (static_cast<float>(tmp_TRQ_LFO_FRQ) * 0.001f)) * 65535.0f);
+        this->m_aglTRQ_LFO %= 0xFFFF;
         this->m_TRQ_LFO = static_cast<float>(tmp_TRQ_LFO_AMP) * bSin(this->m_aglTRQ_LFO);
     }
 
     if (tmp_VOL_LFO_AMP != 0) {
-        this->m_aglVOL_LFO = static_cast<unsigned short>(this->m_aglVOL_LFO +
-                                                        static_cast<int>((t / (static_cast<float>(tmp_VOL_LFO_FRQ) * 0.001f)) * 65535.0f)) % 0xFFFF;
+        this->m_aglVOL_LFO += static_cast<int>((t / (static_cast<float>(tmp_VOL_LFO_FRQ) * 0.001f)) * 65535.0f);
+        this->m_aglVOL_LFO %= 0xFFFF;
         this->m_VOL_LFO = static_cast<float>(tmp_VOL_LFO_AMP) * bSin(this->m_aglVOL_LFO);
     }
 }

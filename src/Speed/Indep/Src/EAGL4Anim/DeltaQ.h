@@ -17,6 +17,19 @@
 
 namespace EAGL4Anim {
 
+// Las constantes de cuantizacion de este fichero, en el orden del DWARF de GameCube (sin direccion: el compilador
+// las pliega), como en DeltaQFast.h. En Xbox 360 cl relee en cada vuelta una constante que es un objeto con un
+// inicializador (1.0f / TwoPower7Minus1) y saca del bucle un literal: el EGM relee 1/127 y 1/255 (0x82065D30 y
+// 0x82065D34, contiguas) en cada vuelta de FnDeltaQ::EvalSQT.
+static const unsigned short TwoPower7Minus1 = 127;
+static const float OneOverTwoPower7Minus1 = 1.0f / TwoPower7Minus1;
+static const unsigned short TwoPower8Minus1 = 255;
+static const float OneOverTwoPower8Minus1 = 1.0f / TwoPower8Minus1;
+static const unsigned short TwoPower15Minus1 = 32767;
+static const float OneOverTwoPower15Minus1 = 1.0f / TwoPower15Minus1;
+static const unsigned short TwoPower16Minus1 = 65535;
+static const float OneOverTwoPower16Minus1 = 1.0f / TwoPower16Minus1;
+
 // Declarados en el DWARF de GameCube (sin direccion: alli nadie los usa) y en
 // la A124 (.rodata 0x544340 y 0x544350, con estos valores; la w de
 // Coord4NegOneXYZ tambien vale -1). Solo las UnQuantize de PS2 los leen.
@@ -107,8 +120,9 @@ struct DeltaQPhysical {
 
     // Los datos llevan mW en el bit 0 en las dos plataformas. En big-endian el
     // primer campo es el bit alto; en el EE (little-endian) el bajo, y la A124
-    // lo declara primero: mX sale con `srl 1' y mW con `andi 1'.
-#ifdef EA_PLATFORM_PLAYSTATION2
+    // lo declara primero: mX sale con `srl 1' y mW con `andi 1'. En PC (x86, little-endian como el EE)
+    // tambien: speed.exe saca el mX de DeltaQDelta con `shr al, 1'.
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
     unsigned short mW : 1;  // offset 0x0, size 0x2
     unsigned short mX : 15; // offset 0x0, size 0x2
 #else
@@ -122,11 +136,11 @@ struct DeltaQPhysical {
 // total size: 0x3
 struct DeltaQDelta {
     static float DeQuantize7Bit(int v) {
-        return v * (1.0f / 127.0f);
+        return v * OneOverTwoPower7Minus1;
     }
 
     static float DeQuantize8Bit(int v) {
-        return v * (1.0f / 255.0f);
+        return v * OneOverTwoPower8Minus1;
     }
 
     void UnQuantize(const DeltaQMinRangef &minRangef, COORD4 &q) {
@@ -136,7 +150,7 @@ struct DeltaQDelta {
     }
 
     // Como en DeltaQPhysical: la A124 saca mX con `srl 1' y mW con `andi 1'.
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
     unsigned char mW : 1; // offset 0x0, size 0x1
     unsigned char mX : 7; // offset 0x0, size 0x1
 #else
@@ -208,9 +222,11 @@ struct DeltaQ : public AnimMemoryMap {
     }
 
     unsigned char *GetConstBoneIdx() {
-        const int binSize = AlignSize2(mNumBones * ((GetBinLength() - 1) * sizeof(DeltaQDelta) + sizeof(DeltaQPhysical)));
-        unsigned char *s = &GetBin(0)[binSize * (mNumKeys / GetBinLength())];
-        int r = mNumKeys % GetBinLength();
+        // El DWARF de GameCube: las locales binLen, binSize, s y r, y una sola expansion de GetBinLength.
+        unsigned int binLen = GetBinLength();
+        const int binSize = AlignSize2(mNumBones * ((binLen - 1) * sizeof(DeltaQDelta) + sizeof(DeltaQPhysical)));
+        unsigned char *s = &GetBin(0)[binSize * (mNumKeys / binLen)];
+        int r = mNumKeys % binLen;
 
         if (r > 0) {
             s = &s[mNumBones * ((r - 1) * sizeof(DeltaQDelta) + sizeof(DeltaQPhysical))];

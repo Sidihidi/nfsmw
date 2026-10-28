@@ -42,7 +42,7 @@ void AIActionGetUnstuck::OnBehaviorChange(const UCrc32 &mechanic) {
     }
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionGetUnstuck("AIActionGetUnstuck", AIActionGetUnstuck::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionGetUnstuck(UCrc32("AIActionGetUnstuck"), AIActionGetUnstuck::Construct);
 
 AIAction *AIActionGetUnstuck::Construct(AIActionParams *params) {
     return new AIActionGetUnstuck(params, 1.0f);

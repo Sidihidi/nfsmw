@@ -52,53 +52,65 @@ BOOL VP6_AllocateFragmentInfo(PB_INSTANCE *pbi) {
     VP6_DeleteFragmentInfo(pbi);
 
     pbi->mbi.CoeffsAlloc = (Q_LIST_ENTRY(*)[64])duck_malloc(6 * 64 * sizeof(Q_LIST_ENTRY) + 32, DMEM_GENERAL);
-    if (!pbi->mbi.CoeffsAlloc)
-        goto Exit;
+    if (!pbi->mbi.CoeffsAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->mbi.Coeffs = (Q_LIST_ENTRY(*)[64])(((UINT32)pbi->mbi.CoeffsAlloc + 31) & ~31);
 
     pbi->fc.AboveYAlloc = (BLOCK_CONTEXT *)duck_malloc(pbi->HFragments * sizeof(BLOCK_CONTEXT) + 160, DMEM_GENERAL);
-    if (!pbi->fc.AboveYAlloc)
-        goto Exit;
+    if (!pbi->fc.AboveYAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->fc.AboveY = (BLOCK_CONTEXT *)(((UINT32)pbi->fc.AboveYAlloc + 31) & ~31);
 
     pbi->fc.AboveUAlloc =
         (BLOCK_CONTEXT *)duck_malloc((pbi->HFragments / 2) * sizeof(BLOCK_CONTEXT) + 160, DMEM_GENERAL);
-    if (!pbi->fc.AboveUAlloc)
-        goto Exit;
+    if (!pbi->fc.AboveUAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->fc.AboveU = (BLOCK_CONTEXT *)(((UINT32)pbi->fc.AboveUAlloc + 31) & ~31);
 
     pbi->fc.AboveVAlloc =
         (BLOCK_CONTEXT *)duck_malloc((pbi->HFragments / 2) * sizeof(BLOCK_CONTEXT) + 160, DMEM_GENERAL);
-    if (!pbi->fc.AboveVAlloc)
-        goto Exit;
+    if (!pbi->fc.AboveVAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->fc.AboveV = (BLOCK_CONTEXT *)(((UINT32)pbi->fc.AboveVAlloc + 31) & ~31);
 
     pbi->MBInterlacedAlloc = (char *)duck_malloc(pbi->MacroBlocks + 32, DMEM_GENERAL);
-    if (!pbi->MBInterlacedAlloc)
-        goto Exit;
+    if (!pbi->MBInterlacedAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->MBInterlaced = (char *)(((UINT32)pbi->MBInterlacedAlloc + 31) & ~31);
 
     pbi->predictionModeAlloc = (char *)duck_malloc(pbi->MacroBlocks + 32, DMEM_GENERAL);
-    if (!pbi->predictionModeAlloc)
-        goto Exit;
+    if (!pbi->predictionModeAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->predictionMode = (char *)(((UINT32)pbi->predictionModeAlloc + 31) & ~31);
 
     pbi->MBMotionVectorAlloc =
         (MOTION_VECTOR *)duck_malloc(pbi->MacroBlocks * sizeof(MOTION_VECTOR) + 32, DMEM_GENERAL);
-    if (!pbi->MBMotionVectorAlloc)
-        goto Exit;
+    if (!pbi->MBMotionVectorAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->MBMotionVector = (MOTION_VECTOR *)(((UINT32)pbi->MBMotionVectorAlloc + 31) & ~31);
 
     pbi->FragInfoAlloc = (FRAG_INFO *)duck_malloc(pbi->UnitFragments * sizeof(FRAG_INFO) + 32, DMEM_GENERAL);
-    if (!pbi->FragInfoAlloc)
-        goto Exit;
+    if (!pbi->FragInfoAlloc) {
+        VP6_DeleteFragmentInfo(pbi);
+        return FALSE;
+    }
     pbi->FragInfo = (FRAG_INFO *)(((UINT32)pbi->FragInfoAlloc + 31) & ~31);
 
     return TRUE;
-
-Exit:
-    VP6_DeleteFragmentInfo(pbi);
-    return FALSE;
 }
 
 void VP6_DeleteFrameInfo(PB_INSTANCE *pbi) {
@@ -128,26 +140,28 @@ BOOL VP6_AllocateFrameInfo(PB_INSTANCE *pbi, unsigned int FrameSize) {
 
     pbi->ThisFrameReconAlloc =
         (YUV_BUFFER_ENTRY *)duck_malloc(pbi->Configuration.YStride + FrameSize, DMEM_GENERAL);
-    if (!pbi->ThisFrameReconAlloc)
-        goto Exit;
+    if (!pbi->ThisFrameReconAlloc) {
+        VP6_DeleteFrameInfo(pbi);
+        return FALSE;
+    }
     pbi->ThisFrameRecon = (YUV_BUFFER_ENTRY *)(((UINT32)pbi->ThisFrameReconAlloc + 31) & ~31);
 
     pbi->GoldenFrameAlloc = (YUV_BUFFER_ENTRY *)duck_malloc(pbi->Configuration.YStride + FrameSize, DMEM_GENERAL);
-    if (!pbi->GoldenFrameAlloc)
-        goto Exit;
+    if (!pbi->GoldenFrameAlloc) {
+        VP6_DeleteFrameInfo(pbi);
+        return FALSE;
+    }
     pbi->GoldenFrame = (YUV_BUFFER_ENTRY *)(((UINT32)pbi->GoldenFrameAlloc + 31) & ~31);
 
     pbi->LastFrameReconAlloc =
         (YUV_BUFFER_ENTRY *)duck_malloc(pbi->Configuration.YStride + FrameSize, DMEM_GENERAL);
-    if (!pbi->LastFrameReconAlloc)
-        goto Exit;
+    if (!pbi->LastFrameReconAlloc) {
+        VP6_DeleteFrameInfo(pbi);
+        return FALSE;
+    }
     pbi->LastFrameRecon = (YUV_BUFFER_ENTRY *)(((UINT32)pbi->LastFrameReconAlloc + 31) & ~31);
 
     return TRUE;
-
-Exit:
-    VP6_DeleteFrameInfo(pbi);
-    return FALSE;
 }
 
 BOOL VP6_InitFrameDetails(PB_INSTANCE *pbi) {

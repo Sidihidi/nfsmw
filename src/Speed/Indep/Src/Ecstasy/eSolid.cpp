@@ -855,7 +855,12 @@ eSolidIndexEntry *GetSolidIndexEntry(eSolidListHeader *list_header, uint32 name_
     if (!list_header) {
         return nullptr;
     } else {
+#if E_PLAT_LP64
+        return reinterpret_cast<eSolidIndexEntry *>(ScanHashTableKey32(name_hash, list_header->SolidIndexEntryTable, list_header->NumSolids, 0,
+                                                                       (int)sizeof(eSolidIndexEntry)));
+#else
         return reinterpret_cast<eSolidIndexEntry *>(ScanHashTableKey32(name_hash, list_header->SolidIndexEntryTable, list_header->NumSolids, 0, 8));
+#endif
     }
 }
 

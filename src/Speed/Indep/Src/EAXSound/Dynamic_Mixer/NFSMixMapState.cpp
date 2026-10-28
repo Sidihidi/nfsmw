@@ -170,8 +170,8 @@ void NFSMixMapState::CreateSubMixChannels() {
         return;
     }
 
-    this->m_SubMixChannelsAdded = 0;
     this->m_pSubChHdr = reinterpret_cast<stMixChHdr *>(reinterpret_cast<char *>(&this->m_pMMStateHdr->StateIndex) + offset);
+    this->m_SubMixChannelsAdded = 0;
 
     if (this->m_pSubChHdr->NumMixChannels > 0) {
         stSubMixChParams *pSubMixParms;
@@ -251,9 +251,11 @@ void NFSMixMapState::CreateMasterMixChannels() {
 
             if (this->m_ObjectIndex != 0) {
                 // TODO 64 bit
-                pMMSD = reinterpret_cast<stMasterMixChProc *>(
-                            reinterpret_cast<unsigned int>(this->m_pFirstInstance->m_MixStateParams.pMasterMixChProcs) + (n << 3))
-                            ->pMixChData_S;
+                // pMMCP sirve primero para el proc de la primera instancia: las PS2 usan para esa direccion el mismo
+                // registro que para el pMMCP de despues (96,51 -> 98,71).
+                pMMCP = reinterpret_cast<stMasterMixChProc *>(
+                    reinterpret_cast<unsigned int>(this->m_pFirstInstance->m_MixStateParams.pMasterMixChProcs) + (n << 3));
+                pMMSD = pMMCP->pMixChData_S;
 
                 pMMCP = this->m_pNFSMixMap->GetNextMasterMixProc(true);
                 pMMUD = this->m_pNFSMixMap->GetNextMasterMixUnique(true);
@@ -264,16 +266,16 @@ void NFSMixMapState::CreateMasterMixChannels() {
 
                 pMMSD->pMapParams = pMasterParms;
 
-                int MixInID = pMasterParms->MIXCHID;
-                pMMSD->pPRESETS = nullptr;
-
-                int nstate = (MixInID & 0xFF00U) << 8;
-                MixInID &= 0x10000000U;
+                // Orden del mapa de lineas de GameCube (451-460): las dos PS2 casan con el (98,71 -> 100).
+                int MixInID = pMasterParms->MIXCHID & 0x10000000U;
+                int nstate = (pMasterParms->MIXCHID & 0xFF00U) << 8;
                 MixInID |= nstate;
                 MixInID |= 0x20000000;
                 MixInID |= n;
 
                 pMMSD->MIXCHINID = MixInID;
+
+                pMMSD->pPRESETS = nullptr;
                 pMMSD->NumInputs = (pMasterParms->MIXCHID & 0xFF0000) >> 16;
             }
 

@@ -23,7 +23,7 @@ extern CListDStack gSystems;
 extern int gMutexLocks;
 extern int gMutexHandle;
 extern int gMutexOwner;
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
 extern HANDLE gMutexHandle;
 #else
 extern OSMutex gMutexHandle;

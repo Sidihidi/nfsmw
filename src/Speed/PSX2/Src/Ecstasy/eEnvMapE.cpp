@@ -11,7 +11,7 @@
 // del cubo) que despues se proyectan en las paletas de reflejo. Los datos, en el orden y con los valores del .data
 // original (los tipos, de los stabs).
 eEnvMap TheOnlyEnvMap;
-bVector3 envmap_fakeup;
+bVector3 envmap_fakeup(0.0f, 0.0f, 1.0f);
 float EnvMapScreenZ = 64.0f;
 
 float HackDirArray[2][6][4] = {
@@ -63,6 +63,14 @@ int EnableEnvMapFaces[5][6] = {
 };
 
 bMatrix4 hack_man_matrix;
+
+#ifndef EA_BUILD_A124
+// La retail define ademas este objeto de 16 B con (1.0, 0.0, 1.0), justo detras de hack_man_matrix en su .data
+// (0x54FFA0, 16 B) y sin nombre en el objeto troceado (el ELF de SLUS va sin .symtab): su $I$ lo inicializa
+// entrelazado con envmap_fakeup y su UpdateCameras lo suma a la posicion del mapa de entorno con la camara de
+// capo. El nombre es el del objeto original.
+bVector3 D_0054FFA0(1.0f, 0.0f, 1.0f);
+#endif
 
 extern uint32 numCopsActiveCherry;
 
@@ -139,6 +147,21 @@ int eInitEnvMap() {
 // Orienta las seis camaras del mapa de entorno: la base del cubo mirando del espectador al coche, y cada cara con su
 // direccion de HackDirArray (las del frontend o las de carrera). Solo se actualizan las caras que tocan este frame.
 void eEnvMap::UpdateCameras(bVector3 *viewer_world_position, bVector3 *envmap_world_position) {
+#ifndef EA_BUILD_A124
+    // La retail abre con un bloque que la alpha no tiene (820 B frente a 740): si la camara que mueve la vista
+    // del jugador 1 es de capo, la posicion del mapa de entorno se corre con D_0054FFA0. La llamada es la
+    // virtual IsHoodCamera del CameraMover (vtable +0x88/+0x8c, con el ajuste de this de la entrada).
+    CameraMover *mover = NULL;
+    CameraMover *head = (CameraMover *)eViews[EVIEW_PLAYER1].CameraMoverList.HeadNode.Next;
+
+    if (head != (CameraMover *)&eViews[EVIEW_PLAYER1].CameraMoverList.HeadNode) {
+        mover = head;
+    }
+
+    if (mover && mover->IsHoodCamera()) {
+        *envmap_world_position += D_0054FFA0;
+    }
+#endif
     bMatrix4 camera_basis;
     bVector3 a(0.0f, 0.0f, 0.0f);
     bVector3 b(1.0f, 0.0f, 0.0f);

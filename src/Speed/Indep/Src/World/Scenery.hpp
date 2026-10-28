@@ -20,6 +20,18 @@ enum SceneryDetailLevel {
     NUM_SCENERY_DETAIL_LEVELS = 4,
 };
 
+// gcdatos2: simetrico a GetTrackPathZoneName (DWARF-1: global_subroutine inline, char*,
+// un int); la definicion va en Scenery.cpp para no internar High/Medium/Low/Reflection
+// en cada TU que parsea esta cabecera.
+// gcdatos3 (medido y REVERTIDO): con la definicion en esta cabecera las cadenas entran en
+// 20 TU de GC (el objetivo las tiene en 14: sobran zAI/zEAXSound/zFe/zFe2/zFeOverlay/
+// zPlatform/zRender, falta zLua) y desplazadas (en zAnim caen en +0x2E8 contra obj+0x880):
+// nuestro grafo parsea Scenery.hpp demasiado pronto (WorldModel.hpp via Skids) y en TU
+// de mas. Codigo/fn x5 identicos y matched_data GC identico, pero zRender .rodata bajo
+// 83,2649->81,9192. La forma fiel es la definicion aqui, pero solo tras restaurar el
+// grafo (receta en docs/analisis/2026-10-18_gcdatos3.md).
+char *GetSceneryDetailName(int detail_level);
+
 // total size: 0x18
 struct SceneryBoundingBox {
 #ifdef EA_BUILD_A124
@@ -117,6 +129,48 @@ struct SceneryDrawInfo {
     eModel *pModel;               // offset 0x0, size 0x4
     bMatrix4 *pMatrix;            // offset 0x4, size 0x4
     SceneryInstance *SceneryInst; // offset 0x8, size 0x4
+};
+
+// gcdatos11: typedef y tipos de culling/log ausentes del arbol, reconstruidos del
+// DWARF GC (symbols/mw_dwarfdump.nothpp:2198484 SceneryLogInfo 0x184 tras el
+// typedef SceneryCallback, :2201993 CullingStats 0x8) confirmados campo a campo
+// en stabs PS2 (PS2_types.nothpp; SceneryLogInfo es 0x190 alli por el alineado
+// a 16 de bVector3, que los tipos bVector3/bMatrix4 ya reproducen sin relleno
+// manual). Solo declaraciones: sin cuerpos ni variables no emiten nada.
+typedef void (*SceneryCallback)(SceneryDrawInfo *);
+
+// total size: 0x184
+struct SceneryLogInfo {
+    char MeshName[32];              // offset 0x0, size 0x20
+    char InstanceMeshName[32];      // offset 0x20, size 0x20
+    char BBGFilename[48];           // offset 0x40, size 0x30
+    char SmokeableTypeName[32];     // offset 0x70, size 0x20
+    char SmokeableCollisionName[32]; // offset 0x90, size 0x20
+    unsigned int NameHash[4];       // offset 0xB0, size 0x10
+    bVector3 Position;              // offset 0xC0, size 0x10
+    bMatrix4 Matrix;                // offset 0xD0, size 0x40
+    bVector3 BBoxMin;               // offset 0x110, size 0x10
+    bVector3 BBoxMax;               // offset 0x120, size 0x10
+    int SectionNumber;              // offset 0x130, size 0x4
+    int SceneryInfoNumber;          // offset 0x134, size 0x4
+    int SceneryInstanceNumber;      // offset 0x138, size 0x4
+    int OverrideInfoNumber;         // offset 0x13C, size 0x4
+    int ExcludeFlags;               // offset 0x140, size 0x4
+    float Radius;                   // offset 0x144, size 0x4
+    int SmokeableFlag;              // offset 0x148, size 0x4
+    unsigned int SmokeableHash;     // offset 0x14C, size 0x4
+    int FlattenIfDrivenOver;        // offset 0x150, size 0x4
+    int IncludedAsTopology;         // offset 0x154, size 0x4
+    int IsTrafficLight;             // offset 0x158, size 0x4
+    char SoundEventType[32];        // offset 0x15C, size 0x20
+    int NumPolysWorld;              // offset 0x17C, size 0x4
+    int NumPolysMemory;             // offset 0x180, size 0x4
+};
+
+// total size: 0x8
+struct CullingStats {
+    int TotalNumObjects; // offset 0x0, size 0x4
+    int TotalNumPolys;   // offset 0x4, size 0x4
 };
 
 // total size: 0xBC
@@ -416,6 +470,7 @@ class GrandSceneryCullInfo {
     void CullView(SceneryCullInfo *scenery_cull_info);
     void DoCulling();
     void StuffScenery(eView *view, int stuff_flags);
+    void CallbackScenery(eView *view, void (*callback)(SceneryDrawInfo *));
 
     SceneryCullInfo SceneryCullInfos[12]; // offset 0x0, size 0x8D0
     int NumCullInfos;                     // offset 0x8D0, size 0x4

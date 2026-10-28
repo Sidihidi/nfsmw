@@ -24,12 +24,15 @@ uint32 CalcLanguageHash(const char *prefix, GRaceParameters *pRaceParams) {
     return FEHashUpper(buffer);
 }
 
-#ifdef EA_BUILD_A124
-// Solo la A124 la tiene (RaceDB.cpp:55-60 en su .mdebug).
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// La A124 (RaceDB.cpp:55-60 en su .mdebug), PC y X360 (expandida en cOnlineSettings::Default de speed.exe y del EGM).
 void OnlineRaceParameters::Default() {
     TrackDirection = 0;
     NumLaps = 3;
     CopDensity = 0;
+#ifndef EA_BUILD_A124
+    TimeOfDay = 0.0f;
+#endif
     IsLapKO = false;
 }
 #endif
@@ -243,10 +246,9 @@ int HighScoresDatabase::CalcPursuitRank(ePursuitDetailTypes type, bool career_ra
             break;
         default:
             key = 0;
-            goto GotAttribKey;
+            break;
     }
 
-GotAttribKey:
     Attrib::Gen::frontend rankingsData(key, 0, nullptr);
     rank = 0x10;
 

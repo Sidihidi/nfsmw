@@ -11,7 +11,7 @@
 #include <types.h>
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
 #include "Speed/Indep/Src/Online/LobbyCore.hpp"
 #include "Speed/Indep/Src/Online/LobbyUsers.hpp"
 #endif
@@ -149,9 +149,8 @@ class CatchUp : public FEToggleWidget {
     CatchUp(bool enabled) : FEToggleWidget(enabled) {}
     void Act(const char *parent_pkg, uint32 data) override {
         if (data == 0x9120409e || data == 0xb5971bf1) {
-            RaceSettings *settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
-            RaceSettings *settings2 = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
-            settings->CatchUp = !settings2->CatchUp;
+            FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->CatchUp =
+                !FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->CatchUp;
         }
         bMovedLastUpdate = true;
         BlinkArrows(data);
@@ -218,7 +217,7 @@ class NumLaps : public FEToggleWidget {
   public:
     NumLaps(bool enabled) : FEToggleWidget(enabled) {}
     void Act(const char *parent_pkg, uint32 data) override {
-#ifdef EA_BUILD_A124 // la A124 tambien edita las vueltas de la partida online
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)) // la A124 tambien edita las vueltas de la partida online
         int laps;
         if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
             laps = FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps;
@@ -241,7 +240,7 @@ class NumLaps : public FEToggleWidget {
                 laps = 1;
             }
         }
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
         if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
             FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps = static_cast<uint8>(laps);
         } else {
@@ -256,7 +255,7 @@ class NumLaps : public FEToggleWidget {
         Draw();
     };
     void Draw() override {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
         if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
             FEPrintf(GetDataObject(), "%d", FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps);
         } else {
@@ -277,16 +276,15 @@ class TrackDirection : public FEToggleWidget {
     TrackDirection(bool enabled) : FEToggleWidget(enabled) {}
     void Act(const char *parent_pkg, uint32 data) override {
         if (data == 0x9120409e || data == 0xb5971bf1) {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
             if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
                 FEDatabase->GetOnlineSettings()->GetRaceSettings()->TrackDirection =
                     (FEDatabase->GetOnlineSettings()->GetRaceSettings()->TrackDirection == 0);
             } else
 #endif
             {
-                RaceSettings *settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
-                RaceSettings *settings2 = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
-                settings->TrackDirection = (settings2->TrackDirection == 0);
+                FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->TrackDirection =
+                    (FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb))->TrackDirection == 0);
             }
         }
         bMovedLastUpdate = true;
@@ -294,7 +292,7 @@ class TrackDirection : public FEToggleWidget {
         Draw();
     };
     void Draw() override {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
         unsigned char TrackDirection;
         if (FEDatabase->IsOnlineMode() || FEDatabase->IsLanMode()) {
             TrackDirection = FEDatabase->GetOnlineSettings()->GetRaceSettings()->TrackDirection;
@@ -314,27 +312,30 @@ class TrackDirection : public FEToggleWidget {
     };
 };
 
-#ifdef EA_BUILD_A124 // las opciones de la partida online del prototipo
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)) // las opciones de la partida online del prototipo
 class MO_OL_PrivateRoom : public FEToggleWidget {
   public:
     MO_OL_PrivateRoom(bool enabled) : FEToggleWidget(enabled) {}
     void Act(const char *parent_pkg, uint32 data) override {
         if (data == 0x9120409e || data == 0xb5971bf1) {
             FEDatabase->GetOnlineSettings()->IsPrivateRoom = !FEDatabase->GetOnlineSettings()->IsPrivateRoom;
+#ifndef EA_PLATFORM_WIN32
             if (FEDatabase->GetOnlineSettings()->IsPrivateRoom) {
                 FEDatabase->GetOnlineSettings()->Passworded = false;
             }
+#endif
         }
+#ifdef EA_PLATFORM_WIN32 // PC (0x7AB97D): la sala privada quita la contrasena aunque el dato no sea una flecha
+        if (FEDatabase->GetOnlineSettings()->IsPrivateRoom) {
+            FEDatabase->GetOnlineSettings()->Passworded = false;
+        }
+#endif
         bMovedLastUpdate = true;
         BlinkArrows(data);
         Draw();
     }
     void Draw() override {
-        unsigned int hash = LANGUAGE_COMMON_NO;
-        if (FEDatabase->GetOnlineSettings()->IsPrivateRoom) {
-            hash = LANGUAGE_COMMON_YES;
-        }
-        FEngSetLanguageHash(GetDataObject(), hash);
+        FEngSetLanguageHash(GetDataObject(), FEDatabase->GetOnlineSettings()->IsPrivateRoom ? LANGUAGE_COMMON_YES : LANGUAGE_COMMON_NO);
         FEngSetLanguageHash(GetTitleObject(), 0x95684a90);
     }
 };
@@ -413,18 +414,14 @@ class OL_CollisionDetection : public FEToggleWidget {
     void Act(const char *parent_pkg, uint32 data) override {
         if (data == 0x9120409e || data == 0xb5971bf1) {
             FEDatabase->GetOnlineSettings()->CollisionDetection = !FEDatabase->GetOnlineSettings()->CollisionDetection;
-            cFEng::Get()->QueueGameMessage(0x92b703b5, parent_pkg, 0xff);
         }
+        cFEng::Get()->QueueGameMessage(0x92b703b5, parent_pkg, 0xff);
         bMovedLastUpdate = true;
         BlinkArrows(data);
         Draw();
     }
     void Draw() override {
-        unsigned int hash = LANGUAGE_COMMON_OFF;
-        if (FEDatabase->GetOnlineSettings()->CollisionDetection) {
-            hash = LANGUAGE_COMMON_ON;
-        }
-        FEngSetLanguageHash(GetDataObject(), hash);
+        FEngSetLanguageHash(GetDataObject(), FEDatabase->GetOnlineSettings()->CollisionDetection ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF);
         FEngSetLanguageHash(GetTitleObject(), 0x7712e575);
     }
 };
@@ -435,18 +432,14 @@ class OL_PerformanceMatching : public FEToggleWidget {
     void Act(const char *parent_pkg, uint32 data) override {
         if (data == 0x9120409e || data == 0xb5971bf1) {
             FEDatabase->GetOnlineSettings()->PerformanceMatching = !FEDatabase->GetOnlineSettings()->PerformanceMatching;
-            cFEng::Get()->QueueGameMessage(0x92b703b5, parent_pkg, 0xff);
         }
+        cFEng::Get()->QueueGameMessage(0x92b703b5, parent_pkg, 0xff);
         bMovedLastUpdate = true;
         BlinkArrows(data);
         Draw();
     }
     void Draw() override {
-        unsigned int hash = LANGUAGE_COMMON_OFF;
-        if (FEDatabase->GetOnlineSettings()->PerformanceMatching) {
-            hash = LANGUAGE_COMMON_ON;
-        }
-        FEngSetLanguageHash(GetDataObject(), hash);
+        FEngSetLanguageHash(GetDataObject(), FEDatabase->GetOnlineSettings()->PerformanceMatching ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF);
         FEngSetLanguageHash(GetTitleObject(), 0x711179f7);
     }
 };
@@ -457,18 +450,14 @@ class OL_UseNOS : public FEToggleWidget {
     void Act(const char *parent_pkg, uint32 data) override {
         if (data == 0x9120409e || data == 0xb5971bf1) {
             FEDatabase->GetOnlineSettings()->UseNOS = !FEDatabase->GetOnlineSettings()->UseNOS;
-            cFEng::Get()->QueueGameMessage(0x92b703b5, parent_pkg, 0xff);
         }
+        cFEng::Get()->QueueGameMessage(0x92b703b5, parent_pkg, 0xff);
         bMovedLastUpdate = true;
         BlinkArrows(data);
         Draw();
     }
     void Draw() override {
-        unsigned int hash = LANGUAGE_COMMON_OFF;
-        if (FEDatabase->GetOnlineSettings()->UseNOS) {
-            hash = LANGUAGE_COMMON_ON;
-        }
-        FEngSetLanguageHash(GetDataObject(), hash);
+        FEngSetLanguageHash(GetDataObject(), FEDatabase->GetOnlineSettings()->UseNOS ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF);
         FEngSetLanguageHash(GetTitleObject(), 0xc62e);
     }
 };
@@ -531,7 +520,12 @@ class OL_DisconnectPercentage : public FEToggleWidget {
 };
 #endif
 
-UIQRTrackOptions::UIQRTrackOptions(ScreenConstructorData *sd) : UIWidgetMenu(sd), m_code(0), msgHandle(0), m_boDisconnectPercAvail(false) {
+UIQRTrackOptions::UIQRTrackOptions(ScreenConstructorData *sd)
+    : UIWidgetMenu(sd),
+#ifdef EA_PLATFORM_WIN32
+      bOnlineTogglesPending(false),
+#endif
+      m_code(0), msgHandle(0), m_boDisconnectPercAvail(false) {
     race = GRaceDatabase::Get().GetRaceFromHash(FEDatabase->GetQuickRaceSettings(FEDatabase->RaceMode)->EventHash);
     iMaxWidgetsOnScreen = 9;
     Setup();
@@ -642,6 +636,111 @@ void UIQRTrackOptions::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, 
         case 0x34dc1bcf:
             break;
     }
+#elif ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)
+    switch (msg) {
+        case 0x406415e3:
+            if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
+                GRaceCustom *custom = GRaceDatabase::Get().AllocCustomRace(race);
+                custom->SetCopsEnabled(false);
+                FEDatabase->FillCustomRace(custom, FEDatabase->GetQuickRaceSettings(race->GetRaceType()));
+                if (FEDatabase->IsSplitScreenMode()) {
+                    custom->SetNumOpponents(1);
+                }
+                GRaceDatabase::Get().SetStartupRace(custom, GRace::kRaceContext_QuickRace);
+                GRaceDatabase::Get().FreeCustomRace(custom);
+            }
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+                if (GetCurrentInputWidget() == GetWidget(EnterPasswordId) || GetCurrentInputWidget() == GetWidget(ConfirmPasswordId)) {
+                    return;
+                }
+                if ((bStrLen(FEDatabase->GetOnlineSettings()->Password) < 3 || bStrLen(FEDatabase->GetOnlineSettings()->Password) > 12) &&
+                    FEDatabase->GetOnlineSettings()->Passworded == true) {
+                    DialogInterface::ShowOk(GetPackageName(), "", dialog_alert, 0xd29a1a18, 3, 12);
+                    return;
+                }
+                if (bStrCmp(FEDatabase->GetOnlineSettings()->VerifyPassword, FEDatabase->GetOnlineSettings()->Password) != 0 &&
+                    FEDatabase->GetOnlineSettings()->Passworded == true) {
+                    DialogInterface::ShowOk(GetPackageName(), "", dialog_alert, 0xff99d845);
+                    return;
+                }
+                cFEng::Get()->QueuePackageSwitch("OL_GameRoom.fng", 0, 0, false);
+                return;
+            }
+            if (FEDatabase->IsSplitScreenMode()) {
+                cFEng::Get()->QueuePackageSwitch("PressStart.fng", 0, 0, false);
+                return;
+            }
+            cFEng::Get()->QueuePackageSwitch("Car_Select.fng", 0, 0, false);
+            return;
+        case 0x911ab364:
+            cFEng::Get()->QueuePackageSwitch("Track_Select.fng", 0, 0, false);
+            return;
+        case 0xc519bfc4:
+            DialogInterface::ShowTwoButtons(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_YES, LANGUAGE_COMMON_NO, 0xd05fc3a3, 0x34dc1bcf, 0x34dc1bcf,
+                                            first_dialog_button2, GetLocalizedString(0x8aef5ae8));
+            break;
+        case 0xd05fc3a3:
+            FEDatabase->DefaultRaceSettings();
+            if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+                LoadOnlineDefaults();
+                Reset();
+                bOnlineTogglesPending = true;
+            }
+            for (int i = 0; i < Options.CountElements(); i++) {
+                FEWidget *w = static_cast<FEWidget *>(Options.GetNode(i));
+                w->Draw();
+            }
+            break;
+        case 0xc98356ba:
+            if (bOnlineTogglesPending) {
+                bOnlineTogglesPending = false;
+                SetOnlineTogglesProperties();
+                return;
+            }
+            break;
+        case 0xda5b8712: {
+            FEInputWidget *input = GetCurrentInputWidget();
+            FEWidget *enter = GetWidget(EnterPasswordId);
+            FEWidget *confirm = GetWidget(ConfirmPasswordId);
+            if (input == enter) {
+                FEDatabase->GetOnlineSettings()->SetGamePassword(input->GetInputText());
+                return;
+            }
+            if (input == confirm) {
+                FEDatabase->GetOnlineSettings()->SetGameVerifyPassword(input->GetInputText());
+                return;
+            }
+            break;
+        }
+        case 0x1fab5998:
+            if (msgHandle) {
+                DialogInterface::DismissDialog(msgHandle);
+            }
+            m_boDisconnectPercAvail = true;
+            Setup();
+            break;
+        case 0x9120409e:
+        case 0xb5971bf1:
+            if (FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
+                if (pCurrentOption && pCurrentOption == GetWidget(1)) {
+                    SetOnlineTogglesProperties();
+                    return;
+                }
+            }
+            break;
+        case 0x4ebed0a1:
+            if (msgHandle) {
+                DialogInterface::DismissDialog(msgHandle);
+                msgHandle = 0;
+            }
+            if (m_code != 0) {
+                msgHandle = DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x1fab5998, 0x1fab5998,
+                                                           GetLocalizedString(0xf77b0d99));
+            } else {
+                Setup();
+            }
+            break;
+    }
 #else
     switch (msg) {
         case 0x406415e3:
@@ -688,7 +787,39 @@ void UIQRTrackOptions::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, 
 }
 
 void UIQRTrackOptions::Setup() {
-#ifdef EA_BUILD_A124 // el prototipo carga los valores online y la tasa de desconexion del jugador
+#if ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)
+    if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
+        unsigned int titleHash = 0;
+        GRace::Type type = race->GetRaceType();
+        switch (type) {
+            case GRace::kRaceType_Circuit:
+                titleHash = 0xa6ed015d;
+                break;
+            case GRace::kRaceType_Drag:
+                titleHash = 0xec86e188;
+                break;
+            case GRace::kRaceType_Knockout:
+                titleHash = 0xcc959b8;
+                break;
+            case GRace::kRaceType_P2P:
+                titleHash = 0xb80bfc8a;
+                break;
+            case GRace::kRaceType_Tollbooth:
+                titleHash = 0x141edfe1;
+                break;
+            case GRace::kRaceType_SpeedTrap:
+                titleHash = 0xf2745852;
+                break;
+            default:
+                titleHash = 0;
+                break;
+        }
+        FEngSetLanguageHash(GetPackageName(), 0x42adb44c, titleHash);
+    } else {
+        FEngSetLanguageHash(GetPackageName(), 0x42adb44c, 0x7dadee33);
+    }
+#endif
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)) // el prototipo carga los valores online y la tasa de desconexion del jugador
     int percentage;
     GRace::Type raceType;
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
@@ -742,6 +873,12 @@ void UIQRTrackOptions::Setup() {
             SetupCircuit();
             break;
     }
+#if ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)
+    if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+        SetOnlineTogglesProperties();
+    }
+    SetInitialOption(0);
+#else
     SetInitialOption(0);
 #ifdef EA_BUILD_A124
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
@@ -778,16 +915,19 @@ void UIQRTrackOptions::Setup() {
             break;
     }
     FEngSetLanguageHash(GetPackageName(), 0x42adb44c, titleHash);
+#endif
 }
 
 void UIQRTrackOptions::BoilerPlateOnline(const bool &boAddLaps) {
-#ifdef EA_BUILD_A124 // las opciones de la partida online; en LAN no hay partida puntuada, tasa de desconexion ni sala privada
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)) // las opciones de la partida online; en LAN no hay partida puntuada, tasa de desconexion ni sala privada
     if (FEDatabase->IsLANMode()) {
         AddToggleOption(new ("OL_GameType", 0) OL_GameType(false), true);
     } else {
         AddToggleOption(new ("OL_GameType", 0) OL_GameType(true), true);
     }
+#ifndef EA_PLATFORM_WIN32 // PC (0x7AC5F0) no pone el sentido de la pista en la partida online
     AddToggleOption(new ("TrackDirection", 0) TrackDirection(true), true);
+#endif
     if (boAddLaps) {
         AddToggleOption(new ("NumLaps", 0) NumLaps(true), true);
     }
@@ -803,7 +943,7 @@ void UIQRTrackOptions::BoilerPlateOnline(const bool &boAddLaps) {
 }
 
 void UIQRTrackOptions::SetupCircuit() {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         BoilerPlateOnline(true);
         FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps = 3;
@@ -814,7 +954,7 @@ void UIQRTrackOptions::SetupCircuit() {
         AddToggleOption(new ("TrackDirection", 0) TrackDirection(true), true);
     }
     AddToggleOption(new ("NumLaps", 0) NumLaps(true), true);
-#ifndef EA_PLATFORM_PLAYSTATION2 // las dos PS2 ponen siempre el trafico
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // las dos PS2 y PC ponen siempre el trafico
     if (!FEDatabase->IsSplitScreenMode())
 #endif
     {
@@ -837,7 +977,7 @@ void UIQRTrackOptions::SetupCircuit() {
 }
 
 void UIQRTrackOptions::SetupSprint() {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         BoilerPlateOnline(false);
         FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps = 1;
@@ -847,7 +987,7 @@ void UIQRTrackOptions::SetupSprint() {
     if (race->GetCanBeReversed()) {
         AddToggleOption(new ("TrackDirection", 0) TrackDirection(true), true);
     }
-#ifndef EA_PLATFORM_PLAYSTATION2 // las dos PS2 ponen siempre el trafico
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // las dos PS2 y PC ponen siempre el trafico
     if (!FEDatabase->IsSplitScreenMode())
 #endif
     {
@@ -870,7 +1010,7 @@ void UIQRTrackOptions::SetupSprint() {
 }
 
 void UIQRTrackOptions::SetupDrag() {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         BoilerPlateOnline(false);
         FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps = 1;
@@ -912,11 +1052,9 @@ void UIQRTrackOptions::SetupKnockout() {
         AddToggleOption(no, true);
         NumLaps *nl = new ("NumLaps", 0) NumLaps(true);
         unsigned int idx = AddToggleOption(nl, true);
-        FEToggleWidget *tw = static_cast<FEToggleWidget *>(GetWidget(idx));
-        tw->SetDisableScript(FEHashUpper("GREY"));
-        tw = static_cast<FEToggleWidget *>(GetWidget(idx));
-        tw->Disable();
-#ifndef EA_PLATFORM_PLAYSTATION2
+        static_cast<FEToggleWidget *>(GetWidget(idx))->SetDisableScript(FEHashUpper("GREY"));
+        static_cast<FEToggleWidget *>(GetWidget(idx))->Disable();
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
         bool isSplitScreen = FEDatabase->IsSplitScreenMode();
         if (!isSplitScreen)
 #endif
@@ -945,7 +1083,7 @@ void UIQRTrackOptions::SetupSpeedTrap() {
         if (race->GetCanBeReversed()) {
             AddToggleOption(new ("TrackDirection", 0) TrackDirection(true), true);
         }
-#ifndef EA_PLATFORM_PLAYSTATION2 // las dos PS2 ponen siempre el trafico
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // las dos PS2 y PC ponen siempre el trafico
         if (!FEDatabase->IsSplitScreenMode())
 #endif
         {
@@ -978,7 +1116,7 @@ void UIQRTrackOptions::SetupTollbooth() {
         if (race->GetCanBeReversed()) {
             AddToggleOption(new ("TrackDirection", 0) TrackDirection(true), true);
         }
-#ifndef EA_PLATFORM_PLAYSTATION2 // las dos PS2 ponen siempre el trafico
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32) // las dos PS2 y PC ponen siempre el trafico
         if (!FEDatabase->IsSplitScreenMode())
 #endif
         {
@@ -990,7 +1128,7 @@ void UIQRTrackOptions::SetupTollbooth() {
     }
 }
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32))
 void UIQRTrackOptions::LoadOnlineDefaults() {
     if (FEDatabase->IsLANMode()) {
         FEDatabase->GetOnlineSettings()->RankedGame = false;
@@ -1012,6 +1150,39 @@ void UIQRTrackOptions::LoadOnlineDefaults() {
 }
 
 void UIQRTrackOptions::SetOnlineTogglesProperties() {
+#ifdef EA_PLATFORM_WIN32
+    if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
+        int last_widget = FEDatabase->GetOnlineSettings()->RaceMode == GRace::kRaceType_Circuit ? 6 : 5;
+
+        if (FEDatabase->GetOnlineSettings()->RankedGame) {
+            FEDatabase->GetOnlineSettings()->GetRaceSettings()->TrackDirection = 0;
+            FEDatabase->GetOnlineSettings()->UseNOS = true;
+            FEDatabase->GetOnlineSettings()->CollisionDetection = true;
+            FEDatabase->GetOnlineSettings()->PerformanceMatching = true;
+            if (FEDatabase->GetOnlineSettings()->RaceMode == GRace::kRaceType_Circuit) {
+                FEDatabase->GetOnlineSettings()->GetRaceSettings()->NumLaps = 3;
+            }
+            FEDatabase->GetOnlineSettings()->MinOnlinePlayers = 2;
+            for (int i = 2; i <= last_widget; i++) {
+                FEWidget *w = GetWidget(i);
+                if (w) {
+                    w->Draw();
+                    w->Disable();
+                }
+            }
+        } else {
+            if (FEDatabase->IsOnlineMode()) {
+                last_widget += 2;
+            }
+            for (int i = 2; i <= last_widget; i++) {
+                FEWidget *w = GetWidget(i);
+                if (w) {
+                    w->Enable();
+                }
+            }
+        }
+    }
+#else
     if (FEDatabase->IsOnlineMode() || FEDatabase->IsLANMode()) {
         if (FEDatabase->GetOnlineSettings()->RankedGame) {
             FEDatabase->GetOnlineSettings()->GetRaceSettings()->TrackDirection = 0;
@@ -1044,6 +1215,7 @@ void UIQRTrackOptions::SetOnlineTogglesProperties() {
             }
         }
     }
+#endif
 }
 
 int32 UIQRTrackOptions::GetDisconnectPercentage(int *percentage) {

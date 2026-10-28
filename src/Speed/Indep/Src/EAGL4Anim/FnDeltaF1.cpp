@@ -1,4 +1,5 @@
 #include "DeltaQ.h"
+#include "DeltaQFast.h"
 #include "DeltaSingleQ.h"
 #include "FnDeltaF1.h"
 #include "AnimTypeId.h"
@@ -391,7 +392,7 @@ bool FnDeltaF1::EvalVel2D(float currTime, float *vel) {
 void FnDeltaF1::InitBuffersAsRequired() {
     DeltaF1 *deltaF = reinterpret_cast<DeltaF1 *>(mpAnim);
 
-    if (deltaF->GetNumBones() != 0) {
+    if (deltaF->GetNumBones() > 0) {
         // PS2: como en FnDeltaF3, 15 bytes de mas y el puntero alineado a 16 (`addiu 15; sra 4; sll 4').
 #ifdef EA_PLATFORM_PLAYSTATION2
         mPrevVBlock = MemoryPoolManager::NewBlock(deltaF->GetNumBones() * sizeof(*mPrevValues) + 15);
@@ -415,6 +416,15 @@ void FnDeltaF1::InitBuffersAsRequired() {
             mMinRangesf[b].mPhysMin = dofInfo->mPhysMin;
 
             mMinRangesf[b].mPhysRange = dofInfo->mPhysRange;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            // PC y Xbox 360 (MSVC) asocian (q * rango) * 2/65535 con las constantes del DWARF (speed.exe: fild, fmul rango,
+            // fmul constante; el EGM lee OneOverTwoPower16Minus1 y TwoOverTwoPower16Minus1 en 0x82065D3C y 0x82065D50);
+            // GameCube y PS2 (GCC con -ffast-math) llevan 2 * (q * 1/65535) * rango, que es lo que su codigo casa.
+            mMinRangesf[b].mPhysRange *= OneOverTwoPower16Minus1;
+            mMinRangesf[b].mDeltaMin = dofInfo->mQuantMin * dofInfo->mPhysRange * TwoOverTwoPower16Minus1 - dofInfo->mPhysRange;
+            mMinRangesf[b].mDeltaRange = dofInfo->mQuantRange * dofInfo->mPhysRange * TwoOverTwoPower16Minus1;
+            mMinRangesf[b].mDeltaRange *= OneOverTwoPower8Minus1;
+#else
             // TODO magic
             mMinRangesf[b].mPhysRange *= 1.5259022e-5f;
 
@@ -423,6 +433,7 @@ void FnDeltaF1::InitBuffersAsRequired() {
 
             mMinRangesf[b].mDeltaRange = 2 * (dofInfo->mQuantRange * 1.5259022e-5f) * dofInfo->mPhysRange;
             mMinRangesf[b].mDeltaRange *= 0.003921569f;
+#endif
 
             dofInfo++;
         }

@@ -425,7 +425,8 @@ int SNDAEMSI_updatemerge(AemsDef::MERGETRIGSTATE *pmergetrigstate) {
     int i = 0;
     if (i < pmergetrigstate->settings.numinputs) {
         for(; i < pmergetrigstate->settings.numinputs; i++) {
-            if (pmergetrigstate->settings.triggered[i] != 0) {
+            const int *triggered = pmergetrigstate->settings.triggered;
+            if (triggered[i] != 0) {
                 return 1;
             }
         }
@@ -1468,6 +1469,12 @@ void SNDAEMSI_resolvemodulebank(
         );
     }
 
+#ifdef EA_PLATFORM_XENON
+    // La variante de Xenon no tiene el bloque de streamfile: su resolvemodulebank (EGM
+    // 0x82613268, 1.428 B) no llama a strlen, no asigna streamfilepath —solo lo pone a NULL en
+    // 0x8261377C— y ni lee streamfileoffset.
+    pModuleBank->streamfilepath = NULL;
+#else
     if (streamfilename != NULL && streamfilename[0] != 0) {
         pModuleBank->streamfilepath = reinterpret_cast<char *>(SNDMEMI_allocz(strlen(streamfilename) + 1));
         strcpy(pModuleBank->streamfilepath, streamfilename);
@@ -1475,6 +1482,7 @@ void SNDAEMSI_resolvemodulebank(
     } else {
         pModuleBank->streamfilepath = NULL;
     }
+#endif
 
     if (firstbank) {
         sndaems.variabletimerclient.pClientFunc = SNDAEMSI_timerupdate;

@@ -24,7 +24,7 @@ static unsigned char gOverlay = 0;
 
 int GetOverlayIndex(unsigned char overlay) {
     int index = 0;
-    for (int i = 0; i <= 4; i++) {
+    for (int i = 0; i < 5; i++) {
 
         if (overlay == gIceOverlays[i].nOverlay) {
 

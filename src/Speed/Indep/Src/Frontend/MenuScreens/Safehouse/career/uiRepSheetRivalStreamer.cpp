@@ -262,10 +262,11 @@ void uiRepSheetRivalStreamer::TexturesLoadedCallback() {
         idx++;
         FEngSetVisible(reinterpret_cast<FEObject *>(Tag));
     }
-    if (BG != nullptr) {
-        cFEng::Get()->QueuePackageMessage(0xD22B95D0, pkg_name, nullptr);
-        FEngSetTextureHash(BG, LoadedTextures[idx]);
-        FEngSetVisible(reinterpret_cast<FEObject *>(BG));
+    if (BG == nullptr) {
+        return;
     }
+    cFEng::Get()->QueuePackageMessage(0xD22B95D0, pkg_name, nullptr);
+    FEngSetTextureHash(BG, LoadedTextures[idx]);
+    FEngSetVisible(reinterpret_cast<FEObject *>(BG));
 }
 #endif

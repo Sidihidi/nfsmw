@@ -26,8 +26,9 @@
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
-#ifdef EA_BUILD_A124
-// La A124 lleva el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en sus stabs).
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
+// Las milestone llevan el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en los stabs de la
+// A124; en el EGM el dtor escribe 0 en 0x82A814F4/0x82A814F0 (0x82124938/0x82124940), los dos estaticos).
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #endif
 
@@ -514,7 +515,7 @@ AIPursuit::AIPursuit(Sim::Param params)
 
 AIPursuit::~AIPursuit() {
     this->DetachAll();
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
     DebugMenu::SetPursuitFormation(static_cast<FormationType>(0));
     DebugMenu::SetPursuitState(STATE_IDLE);
 #endif
@@ -1755,7 +1756,7 @@ bool AIPursuit::OnTask(HSIMTASK htask, float dT) {
         mBustedIncrement = dT * 0.25f;
     }
 
-    if (!mIsPerpBusted && !mIsPursuitBailed && mBustedTimer > 5.0f) {
+    if (!TheOnlineManager.IsOnlineRace() && !mIsPerpBusted && !mIsPursuitBailed && mBustedTimer > 5.0f) {
         mIsPerpBusted = true;
         mPursuitStatus = PS_BUSTED;
 
@@ -2543,6 +2544,14 @@ Attrib::Gen::pursuitlevels *GetGlobalPursuitLevelAttrib() {
         IVehicleAI *iai;
         if (ivehicle->QueryInterface(&iperp) && ivehicle->QueryInterface(&iai)) {
             bool pursuing = iai->GetPursuit() != nullptr;
+#ifdef EA_PLATFORM_XENON
+            if (!result || pursuing) {
+                result = iperp->GetPursuitLevelAttrib();
+            }
+            if (pursuing) {
+                return result;
+            }
+#else
             if (result && !pursuing) {
                 continue;
             }
@@ -2550,6 +2559,7 @@ Attrib::Gen::pursuitlevels *GetGlobalPursuitLevelAttrib() {
             if (pursuing) {
                 return result;
             }
+#endif
         }
     }
 
@@ -2564,6 +2574,14 @@ Attrib::Gen::pursuitlevels *GetGlobalPursuitLevelAttrib() {
             IVehicleAI *iai;
             if (ivehicle->QueryInterface(&iperp) && ivehicle->QueryInterface(&iai)) {
                 bool pursuing = iai->GetPursuit() != nullptr;
+#ifdef EA_PLATFORM_XENON
+                if (!result || pursuing) {
+                    result = iperp->GetPursuitLevelAttrib();
+                }
+                if (pursuing) {
+                    return result;
+                }
+#else
                 if (result && !pursuing) {
                     continue;
                 }
@@ -2571,6 +2589,7 @@ Attrib::Gen::pursuitlevels *GetGlobalPursuitLevelAttrib() {
                 if (pursuing) {
                     return result;
                 }
+#endif
             }
         }
     }

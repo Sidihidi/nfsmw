@@ -19,6 +19,9 @@ class uiRapSheetRankings : public MenuScreen {
 
     uint32 button_pressed; // offset 0x2C, size 0x4
     uint32 init_button;    // offset 0x30, size 0x4
+#ifdef EA_PLATFORM_WIN32
+    uint32 highlighted_button; // offset 0x34, size 0x4 (speed.exe: the mouse; Create allocates 0x38)
+#endif
 };
 
 #endif

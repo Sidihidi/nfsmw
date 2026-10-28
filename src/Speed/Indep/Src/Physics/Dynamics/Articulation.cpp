@@ -3,6 +3,9 @@
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #include "Speed/Indep/Src/Physics/Dynamics/Articulation.h"
 #include "Speed/Indep/Src/Physics/Dynamics/Collision.h"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Debug/Common/DebugDraw.h"
+#endif
 
 
 namespace Dynamics {
@@ -229,8 +232,8 @@ void Constraint::Resolve(const UVector3 &joint_fulcrum) {
     if (mType != PRISMATIC) {
         UVector3 pt;
         UMath::Rotate(opp_point, joint_rotationInv, pt);
-        float angle_pitch = -UMath::Atan2a(pt.y, pt.z);
-        Quaternion pitch(UVector3(1.0f, 0.0f, 0.0f), angle_pitch);
+        float angle_pitch = UMath::Atan2a(pt.y, pt.z);
+        Quaternion pitch(UVector3(1.0f, 0.0f, 0.0f), -angle_pitch);
 
         if (mType == CONICAL) {
             float angle_roll = UMath::Atan2a(pt.y, pt.x);
@@ -267,7 +270,60 @@ void Constraint::Rotate(Lever &lever, const Quaternion &joint_rotation, const Qu
     lever.SetFulcrum(joint_fulcrum, false);
 }
 
-void Constraint::OnDebugDraw() {}
+void Constraint::OnDebugDraw() {
+#ifdef EA_BUILD_A124
+    UMath::Vector3 fulcrum;
+    UMath::RotateTranslate(mFemale.GetArm(), mFemale.GetEntity()->GetOrientation(), mFemale.GetEntity()->GetPosition(), fulcrum);
+    if (mType == PRISMATIC) {
+        UMath::Matrix4 worldmat;
+        UMath::Matrix4 mat;
+        Quaternion q;
+        UMath::Matrix4 mrot;
+        UMath::Vector3 post;
+        UMath::Vector3 p0;
+        UMath::Vector3 p1;
+        float length = UMath::Length(mPost);
+        UMath::Mult(mFemale.GetEntity()->GetOrientation(), mOrientation, q);
+        UMath::QuaternionToMatrix4(q, worldmat);
+        worldmat.v3 = UMath::Vector4Make(fulcrum, 1.0f);
+        UMath::SetYRot(mrot, -mInnerA);
+        UMath::Mult(mrot, worldmat, mat);
+        UMath::ScaleAddxyz(mat.v2, length * 0.5f, mat.v3, mat.v3);
+        DebugDraw::Get().Box(mat, 0.01f, length, length, 0x7f00ff00, 1, false, -1, false);
+        UMath::SetYRot(mrot, mOuterA);
+        UMath::Mult(mrot, worldmat, mat);
+        UMath::ScaleAddxyz(mat.v2, length * 0.5f, mat.v3, mat.v3);
+        DebugDraw::Get().Box(mat, 0.01f, length, length, 0x7f00ff00, 1, false, -1, false);
+        post = mPost;
+        UMath::Normalize(post);
+        UMath::Scale(post, length + length, post);
+        UMath::RotateTranslate(post, mMale.GetEntity()->GetOrientation(), fulcrum, post);
+        p0 = fulcrum;
+        p1 = post;
+        DebugDraw::Get().LineSeg(p0, p1, 0xff00ff00, 1);
+    } else if (mType == CONICAL) {
+        UMath::Matrix4 mat;
+        Quaternion q;
+        float length = UMath::Length(mPost);
+        UMath::Mult(mFemale.GetEntity()->GetOrientation(), mOrientation, q);
+        UMath::QuaternionToMatrix4(q, mat);
+        mat.v3 = UMath::Vector4Make(fulcrum, 1.0f);
+        float height = UMath::Cosa(bMin(mInnerA, mOuterA)) * length;
+        float radius = UMath::Sina(bMin(mInnerA, mOuterA)) * length;
+        DebugDraw::Get().Cone(mat, height, radius, 0x7fffff00, 1);
+        UMath::Vector3 post;
+        UMath::Vector3 p0;
+        UMath::Vector3 p1;
+        post = mPost;
+        UMath::Normalize(post);
+        UMath::Scale(post, length + length, post);
+        UMath::RotateTranslate(post, mMale.GetEntity()->GetOrientation(), fulcrum, post);
+        p0 = fulcrum;
+        p1 = post;
+        DebugDraw::Get().LineSeg(p0, p1, 0xffffff00, 1);
+    }
+#endif
+}
 
 bool Constraint::React(const UVector3 &joint_collision_normal, const UVector3 &joint_collision_point, const UVector3 &joint_fulcrum, const float deltaA,
                        const Quaternion &joint_rotation, const Quaternion &joint_rotationInv) {

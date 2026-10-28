@@ -40,7 +40,7 @@ void GRuntimeInstance::SetConnectionBuffer(ConnectedInstance *buffer, unsigned i
 }
 
 void GRuntimeInstance::AllocateConnectionBuffer(unsigned int numEntries) {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     mConnected = new ("Gameplay instance connection list", 0) ConnectedInstance[numEntries];
 #else
     mConnected = new ConnectedInstance[numEntries];

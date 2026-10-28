@@ -66,8 +66,8 @@ int gPlayerNum;
 
 QRCarSelectBustedManager::QRCarSelectBustedManager(const char *pkg_name, int flags) {
     Flags = static_cast<eBustedAnimationTypes>(flags);
-    ParentPkg = pkg_name;
     ImpoundStampHash = 0;
+    ParentPkg = pkg_name;
     bWantsImpound = false;
     WorkingCareerRecord = nullptr;
     WorkingCarRecord = nullptr;
@@ -99,8 +99,8 @@ void QRCarSelectBustedManager::NotificationMessage(u32 msg, FEObject *pobj, u32 
             WorkingCareerRecord->TheImpoundData.NotifyPlayerPaidToRelease();
             WorkingCareerRecord->SetVehicleHeat(0.0f);
             {
-                unsigned int cost = WorkingCarRecord->GetReleaseFromImpoundCost();
-                FEDatabase->GetCareerSettings()->SpendCash(bFloatToInt(static_cast<float>(cost)));
+                float cost = WorkingCarRecord->GetReleaseFromImpoundCost();
+                FEDatabase->GetCareerSettings()->SpendCash(bFloatToInt(cost));
             }
             RefreshHeader();
             return;
@@ -116,7 +116,7 @@ void QRCarSelectBustedManager::NotificationMessage(u32 msg, FEObject *pobj, u32 
             if (!CalcGameOver())
                 return;
             FEDatabase->GetCareerSettings()->SetGameOver();
-            DialogInterface::ShowOneButton(ParentPkg, "GameOver.fng", dialog_alert, LANGUAGE_COMMON_OK, 0x3fdc64c1, 0x164bed94);
+            DialogInterface::ShowOneButton(GetPackageName(), "GameOver.fng", dialog_alert, LANGUAGE_COMMON_OK, 0x3fdc64c1, 0x164bed94);
             return;
         case 0x3fdc64c1:
             FEManager::Get()->SetGarageType(static_cast<eGarageType>(1));
@@ -239,31 +239,38 @@ void QRCarSelectBustedManager::RefreshHeader() {
     if (ShowImpoundedTexture()) {
         TextureInfo *texInfo = GetTextureInfo(ImpoundStampHash, 0, 0);
         if (texInfo) {
-            FEngSetScript(ParentPkg, 0xbc7b91f, FEHASH_NORMAL, true);
-            FEngSetScript(ParentPkg, 0x64f3a49c, FEHASH_APPEAR, true);
+#ifdef EA_BUILD_A124
+            FEngSetScript(GetPackageName(), 0xbc7b91f, FEHASH_ANIMATE, true);
+#else
+            FEngSetScript(GetPackageName(), 0xbc7b91f, FEHASH_NORMAL, true);
+            FEngSetScript(GetPackageName(), 0x64f3a49c, FEHASH_APPEAR, true);
             FEngSetTextureHash(GetPackageName(), 0xce18427d, ImpoundStampHash);
             FEngSetTextureHash(GetPackageName(), 0x5b8f2a45, ImpoundStampHash);
+#endif
         }
-        unsigned int cost = WorkingCarRecord->GetReleaseFromImpoundCost();
-        int playerCash = *reinterpret_cast<int *>(reinterpret_cast<char *>(FEDatabase->GetUserProfile(0)) + 0xf0);
-        bool canAffordRelease = playerCash >= static_cast<int>(static_cast<float>(cost));
-        bool hasMarkers = TheFEMarkerManager.HasMarker(FEMarkerManager::MARKER_IMPOUND_RELEASE, 0);
-        if (WorkingCareerRecord->TheImpoundData.IsReleasable() && canAffordRelease) {
-            FEngSetLanguageHash(ParentPkg, 0xb94139f4, 0x281dee8a);
-        } else if (hasMarkers) {
-            FEngSetLanguageHash(ParentPkg, 0xb94139f4, 0xf9c73cc2);
+        float cost = WorkingCarRecord->GetReleaseFromImpoundCost();
+        bool has_cash = FEDatabase->GetCareerSettings()->GetCash() >= bFloatToInt(cost);
+        bool has_marker = TheFEMarkerManager.HasMarker(FEMarkerManager::MARKER_IMPOUND_RELEASE, 0);
+        if (WorkingCareerRecord->TheImpoundData.IsReleasable() && has_cash) {
+            FEngSetLanguageHash(GetPackageName(), 0xb94139f4, 0x281dee8a);
+        } else if (has_marker) {
+            FEngSetLanguageHash(GetPackageName(), 0xb94139f4, 0xf9c73cc2);
         } else {
-            FEngSetLanguageHash(ParentPkg, 0xb94139f4, 0x2b65a216);
+            FEngSetLanguageHash(GetPackageName(), 0xb94139f4, 0x2b65a216);
         }
     } else {
-        FEngSetLanguageHash(ParentPkg, 0xb94139f4, 0x2b65a216);
-        FEngSetScript(ParentPkg, 0x64f3a49c, 0x16a259, true);
+#ifdef EA_BUILD_A124
+        FEngSetScript(GetPackageName(), 0xbc7b91f, 0x16a259, true);
+#else
+        FEngSetLanguageHash(GetPackageName(), 0xb94139f4, 0x2b65a216);
+        FEngSetScript(GetPackageName(), 0x64f3a49c, 0x16a259, true);
+#endif
     }
-    if ((WorkingCareerRecord->TheImpoundData.TimesBusted & 0x80) == 0) {
-        FEngSetVisible(ParentPkg, 0x75721326);
+    if (WorkingCareerRecord->GetTimesBusted() >= 0) {
+        FEngSetVisible(GetPackageName(), 0x75721326);
         int posIndex = 1;
-        unsigned int script1 = 0x16a259;
         unsigned int script2 = 0x16a259;
+        unsigned int script1 = 0x16a259;
         switch (WorkingCareerRecord->TheImpoundData.MaxBusted) {
             case 4:
                 posIndex = 2;
@@ -275,37 +282,36 @@ void QRCarSelectBustedManager::RefreshHeader() {
                 script1 = 0x1ca7c0;
                 break;
         }
-        FEngSetScript(ParentPkg, 0x5bc78037, script2, true);
-        FEngSetScript(ParentPkg, 0x48095518, script1, true);
-        FEngSetScript(ParentPkg, 0xf9a5ce86, FEngHashString("POS%d", posIndex), true);
-        FEngSetScript(ParentPkg, 0xebf0016e, FEngHashString("POS%d", posIndex), true);
-        if (Flags == BUSTED_ANIM_SHOW_STRIKE) {
-            FEngSetScript(ParentPkg, FEngHashString("IMPOUND_STATE_%d", static_cast<int>(WorkingCareerRecord->TheImpoundData.TimesBusted)),
-                          FEHASH_ANIMATE, true);
+        FEngSetScript(GetPackageName(), 0x5bc78037, script2, true);
+        FEngSetScript(GetPackageName(), 0x48095518, script1, true);
+        FEngSetScript(GetPackageName(), 0xf9a5ce86, FEngHashString("POS%d", posIndex), true);
+        FEngSetScript(GetPackageName(), 0xebf0016e, FEngHashString("POS%d", posIndex), true);
+        if (ShowNewStrikeAnimation()) {
+            FEngSetScript(GetPackageName(), FEngHashString("IMPOUND_STATE_%d", WorkingCareerRecord->GetTimesBusted()), FEHASH_ANIMATE, true);
             Flags = BUSTED_ANIM_NOTHING;
         }
         for (int i = 1; i <= static_cast<int>(static_cast<unsigned char>(WorkingCareerRecord->TheImpoundData.MaxBusted)); i++) {
-            if (i <= WorkingCareerRecord->TheImpoundData.TimesBusted) {
-                if (!FEngIsScriptSet(ParentPkg, FEngHashString("IMPOUND_STATE_%d", i), FEHASH_ANIMATE)) {
-                    FEngSetScript(ParentPkg, FEngHashString("IMPOUND_STATE_%d", i), 0x1ca7c0, true);
+            if (i <= WorkingCareerRecord->GetTimesBusted()) {
+                if (!FEngIsScriptSet(GetPackageName(), FEngHashString("IMPOUND_STATE_%d", i), FEHASH_ANIMATE)) {
+                    FEngSetScript(GetPackageName(), FEngHashString("IMPOUND_STATE_%d", i), 0x1ca7c0, true);
                 }
             } else {
-                FEngSetScript(ParentPkg, FEngHashString("IMPOUND_STATE_%d", i), 0x16a259, true);
+                FEngSetScript(GetPackageName(), FEngHashString("IMPOUND_STATE_%d", i), 0x16a259, true);
             }
         }
     } else {
         if (WorkingCareerRecord->TheImpoundData.IsReleasable()) {
-            FEngSetInvisible(ParentPkg, 0x75721326);
+            FEngSetInvisible(GetPackageName(), 0x75721326);
         } else if (WorkingCareerRecord->TheImpoundData.IsImpounded()) {
-            FEngSetInvisible(ParentPkg, 0x75721326);
+            FEngSetInvisible(GetPackageName(), 0x75721326);
         } else {
             bNotImpounded = true;
         }
     }
     if (bNotImpounded) {
-        FEngSetScript(ParentPkg, 0xbc7b91f, 0x16a259, true);
-        FEngSetInvisible(ParentPkg, 0x75721326);
-        FEngSetLanguageHash(ParentPkg, 0xb94139f4, 0x2b65a216);
+        FEngSetScript(GetPackageName(), 0xbc7b91f, 0x16a259, true);
+        FEngSetInvisible(GetPackageName(), 0x75721326);
+        FEngSetLanguageHash(GetPackageName(), 0xb94139f4, 0x2b65a216);
     }
 }
 
@@ -321,7 +327,8 @@ bool QRCarSelectBustedManager::CalcGameOver() {
 }
 
 void QRCarSelectBustedManager::MaybeReleaseCar() {
-    FECareerRecord *record = FEDatabase->GetPlayerCarStable(0)->GetCareerRecordByHandle(WorkingCarRecord->CareerHandle);
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+    FECareerRecord *record = stable->GetCareerRecordByHandle(WorkingCarRecord->CareerHandle);
     float costf = WorkingCarRecord->GetReleaseFromImpoundCost();
     int cost = bFloatToInt(costf);
     bool has_cash = FEDatabase->GetCareerSettings()->GetCash() >= cost;
@@ -330,21 +337,21 @@ void QRCarSelectBustedManager::MaybeReleaseCar() {
     if (record->TheImpoundData.IsReleasable() && has_cash) {
         if (has_marker) {
 #ifdef EA_BUILD_A124 // la A124 abre el dialogo en el primer boton
-            DialogInterface::ShowThreeButtons(ParentPkg, "", dialog_confirmation, 0xf9c73cc2, 0x4eb9591f, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0xa0fc39f9,
+            DialogInterface::ShowThreeButtons(GetPackageName(), "", dialog_confirmation, 0xf9c73cc2, 0x4eb9591f, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0xa0fc39f9,
                                               0x5ee58948, 0x5ee58948, first_dialog_button1, 0xb715ae8f, cost);
 #else
-            DialogInterface::ShowThreeButtons(ParentPkg, "", dialog_confirmation, 0xf9c73cc2, 0x4eb9591f, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0xa0fc39f9,
+            DialogInterface::ShowThreeButtons(GetPackageName(), "", dialog_confirmation, 0xf9c73cc2, 0x4eb9591f, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0xa0fc39f9,
                                               0x5ee58948, 0x5ee58948, first_dialog_button2, 0xb715ae8f, cost);
 #endif
         } else {
-            DialogInterface::ShowTwoButtons(ParentPkg, "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xa0fc39f9, 0x5ee58948, first_dialog_button1,
+            DialogInterface::ShowTwoButtons(GetPackageName(), "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xa0fc39f9, 0x5ee58948, first_dialog_button1,
                                             0xcad5722e, cost);
         }
     } else if (has_marker) {
-        DialogInterface::ShowTwoButtons(ParentPkg, "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0x5ee58948, first_dialog_button1,
+        DialogInterface::ShowTwoButtons(GetPackageName(), "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0xe845bc1c, 0x5ee58948, first_dialog_button1,
                                         0xed4dd591, bFloatToInt(costf));
     } else {
-        DialogInterface::ShowOneButton(ParentPkg, "", dialog_alert, LANGUAGE_COMMON_OK, 0x5ee58948, 0xe96fa0c5);
+        DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, LANGUAGE_COMMON_OK, 0x5ee58948, 0xe96fa0c5);
     }
 
 
@@ -359,12 +366,21 @@ void QRCarSelectBustedManager::MaybeAddImpoundBox() {
         can_add_impound_box = true;
     }
     can_add_impound_box = can_add_impound_box && TheFEMarkerManager.HasMarker(FEMarkerManager::MARKER_ADD_IMPOUND_BOX, 0);
-    bool showDialog = can_add_impound_box || CheatCanAddImpoundBox != 0;
-    if (showDialog) {
-        DialogInterface::ShowTwoButtons(GetPackageName(), "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0x8defa48b, 0xb4edeb6d,
+    // La forma del original: la variable can_add_impound_box absorbe el cheat (el original no tiene la local
+    // showDialog), la alpha usa el hash 0x1fab5998 y no tiene la rama ShowOneButton (maibB, medidas r90/r94).
+    can_add_impound_box = can_add_impound_box || CheatCanAddImpoundBox != 0;
+    if (can_add_impound_box) {
+        DialogInterface::ShowTwoButtons(GetPackageName(), "", dialog_confirmation, LANGUAGE_COMMON_OK, LANGUAGE_COMMON_CANCEL, 0x8defa48b,
+#ifdef EA_BUILD_A124
+                                        0x1fab5998,
+#else
+                                        0xb4edeb6d,
+#endif
                                         first_dialog_button2, 0xcebda20);
+#ifndef EA_BUILD_A124
     } else if (static_cast<int>(WorkingCareerRecord->TheImpoundData.MaxBusted) >= g_MaximumMaximumTimesBusted) {
         DialogInterface::ShowOneButton(GetPackageName(), "", dialog_info, LANGUAGE_COMMON_OK, 0xb4edeb6d, 0xbcae8539);
+#endif
     }
 }
 
@@ -1034,9 +1050,9 @@ void UIQRCarSelect::Setup() {
 #endif
                 MemoryCard::GetInstance()->StartListingOldSaveFiles();
             }
-            goto init_list_handles;
+        } else {
+            filter = 0xf0002;
         }
-        filter = 0xf0002;
     } else {
         RaceSettings *settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
         originalCar = settings->GetSelectedCar(iPlayerNum);
@@ -1274,7 +1290,7 @@ void UIQRCarSelect::RefreshHeader() {
 
     unsigned int langhash;
     unsigned int texhash;
-    unsigned int list = static_cast<unsigned short>(filter);
+    unsigned int list = filter & 0xffff;
     switch (list) {
         case 1:
             langhash = LANGUAGE_CARLIST_STOCK;
@@ -1312,8 +1328,7 @@ void UIQRCarSelect::RefreshHeader() {
     }
 
     FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xaa9834bc, langhash);
-    FEImage *filterImg = FEngFindImage(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xe3b271b8);
-    FEngSetTextureHash(filterImg, texhash);
+    FEngSetTextureHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xe3b271b8, texhash);
     FEngSetScript(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xd0f7c7cc, 0x16a259, true);
 
     if (!pSelectedCar) {
@@ -1323,6 +1338,26 @@ void UIQRCarSelect::RefreshHeader() {
     }
 
     if (!pSelectedCar) {
+#ifdef EA_BUILD_A124 // la A124 vacia los textos del coche y pone los logos genericos
+        FEPrintf(pCarName, "");
+        FEPrintf(pCarNameShadow, "");
+        FEngSetTextureHash(pManuLogo, FEHashUpper("GENERIC_LOGO_128"));
+        FEngSetTextureHash(pCarBadge, FEHashUpper("GENERIC_LOGO_256"));
+        FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), __NUMBER__, "0");
+        FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), __NUMBER_OF__, "0");
+        FEPrintf(pCarName, "NO CARS");
+        FEPrintf(pCarNameShadow, "NO CARS");
+        GarageMainScreen::GetInstance()->DisableCarRendering();
+        cFEng::Get()->QueuePackageMessage(0x913fa282, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
+        FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x2d25b2c4, LANGUAGE_CS_NO_CARS_IN_LIST);
+        cFEng::Get()->QueuePackageMessage(0xd9420cd5, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
+        if (filter & 4) {
+            FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x36c1e04d, 0x0da87b01);
+        } else {
+            FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x36c1e04d, LANGUAGE_CS_NO_CARS_IN_LIST);
+        }
+        return;
+#else
         FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x2d25b2c4, LANGUAGE_CS_NO_CARS_IN_LIST);
         cFEng::Get()->QueuePackageMessage(0xd9420cd5, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
         if (filter & 4) {
@@ -1338,23 +1373,39 @@ void UIQRCarSelect::RefreshHeader() {
         bLoadingBarActive = false;
         tLastEventTimer = 0;
         return;
+#endif
     }
 
+#ifndef EA_BUILD_A124 // la A124 no tiene modo online ni LAN aqui
     if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
         FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x0e9ed0a2);
         FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x18a4384f);
     }
+#endif
 
     FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x7379349b);
     cFEng::Get()->QueuePackageMessage(0x7c4583dc, reinterpret_cast<MenuScreen *>(this)->GetPackageName(), nullptr);
     FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), __NUMBER__, "%d", FilteredCarsList.GetNodeNumber(pSelectedCar));
     FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), __NUMBER_OF__, "%d", FilteredCarsList.CountElements());
 
+#ifdef EA_BUILD_A124 // la A124 siempre mira la cuadra del jugador uno
+    FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
+#else
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(iPlayerNum);
+#endif
 
     if (pSelectedCar->bLocked) {
         FEngSetScript(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xd0f7c7cc, 0x1ca7c0, true);
         FECarRecord *car = stable->GetCarRecordByHandle(pSelectedCar->mHandle);
+#ifdef EA_BUILD_A124 // el prototipo no tiene coches de bonificacion y compone "%d, %s" en un segundo bufer
+        Attrib::Gen::frontend fe_attrib(car->FEKey, 0, nullptr);
+        int rival_num = fe_attrib.UnlockedAt() + 1;
+        char rival_name_locdb[128];
+        char buf[128];
+        FEngSNPrintf(rival_name_locdb, 0x80, "blacklist_rival_%02d_aka", rival_num);
+        bSNPrintf(buf, 0x80, "%d, %s", rival_num, GetLocalizedString(FEHashUpper(rival_name_locdb)));
+        FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x2d25b2c4, GetLocalizedString(0x4ef2a115), buf);
+#else
         if (car->MatchesFilter(0xf0008)) {
             int unlockText = GetBonusUnlockText(car);
             if (unlockText == 0x4ef2a115) {
@@ -1374,11 +1425,22 @@ void UIQRCarSelect::RefreshHeader() {
             FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x2d25b2c4, GetLocalizedString(0x4ef2a115),
                      GetLocalizedString(FEHashUpper(rival_name_locdb)), rival_num);
         }
+#endif
     }
 
     FECarRecord *car = stable->GetCarRecordByHandle(pSelectedCar->mHandle);
+#ifdef EA_BUILD_A124 // la A124 escribe el nombre del coche en sus dos textos
+    if (car->GetNameHash() != 0x9bb9ccc3 && DoesStringExist(car->GetNameHash())) {
+        FEngSetLanguageHash(pCarName, car->GetNameHash());
+        FEngSetLanguageHash(pCarNameShadow, car->GetNameHash());
+    } else {
+        FEPrintf(pCarName, car->GetDebugName());
+        FEPrintf(pCarNameShadow, car->GetDebugName());
+    }
+#else
     FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), __CARNAME__);
     FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x79d6e45c);
+#endif
     FEngSetTextureHash(pManuLogo, car->GetManuLogoHash());
     FEngSetTextureHash(pCarBadge, car->GetLogoHash());
 
@@ -1406,15 +1468,18 @@ void UIQRCarSelect::RefreshHeader() {
             FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x39dc21f9);
             FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x5b875870, "%2d", num_markers);
             FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xea8aecd9, "%2d", num_markers);
-        } else {
+        }
+#ifndef EA_BUILD_A124
+        else {
             FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x39dc21f9);
         }
+#endif
 
         if (career->TheImpoundData.IsReleasable()) {
             FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x72e7ea88, 0x9db4df7d);
             FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x9d974df3, 0x073b79e0);
-            unsigned int cost = car->GetReleaseFromImpoundCost();
-            FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x322b18f9, "%$0.0f", static_cast<float>(cost));
+            float costf = static_cast<float>(car->GetReleaseFromImpoundCost());
+            FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x322b18f9, "%$0.0f", costf);
             FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x7044a5a4, "%$d", FEDatabase->GetCareerSettings()->GetCash());
             FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x0e9ed0a2);
         } else if (career->TheImpoundData.IsImpounded()) {
@@ -1427,17 +1492,26 @@ void UIQRCarSelect::RefreshHeader() {
             if (TheFEMarkerManager.HasMarker(static_cast<FEMarkerManager::ePossibleMarker>(0x15), 0) || CheatReleaseFromImpoundMarker) {
                 int num_markers = TheFEMarkerManager.GetNumMarkers(static_cast<FEMarkerManager::ePossibleMarker>(0x15), 0);
                 FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xe998fe99);
+#ifdef EA_BUILD_A124 // la A124 escribe la cuenta en los mismos textos que la caja de deposito
+                FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x5b875870, "%2d", num_markers);
+                FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xea8aecd9, "%2d", num_markers);
+#else
                 FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xcc59b910, "%2d", num_markers);
                 FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xb8f9938a, "%2d", num_markers);
+#endif
                 FEngSetInvisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x39dc21f9);
             }
         } else {
             FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x72e7ea88, 0x17574b0e);
             FEngSetLanguageHash(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x9d974df3, 0x915f4d26);
 
+#ifdef EA_BUILD_A124
+            FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x0e9ed0a2);
+#else
             if (!FEDatabase->IsOnlineMode() && !FEDatabase->IsLANMode()) {
                 FEngSetVisible(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0x0e9ed0a2);
             }
+#endif
 
             FECareerRecord *record = stable->GetCareerRecordByHandle(car->CareerHandle);
             if (record) {
@@ -1456,9 +1530,9 @@ void UIQRCarSelect::RefreshHeader() {
 
 void UIQRCarSelect::ChooseTransmission() {
 #ifdef EA_BUILD_A124 // la A124 monta el dialogo a mano y lo ata al mando del jugador en pantalla partida
-    eDialogFirstButtons first_button = first_dialog_button2;
-    if (FEDatabase->GetPlayerSettings(iPlayerNum)->Transmission) {
-        first_button = first_dialog_button1;
+    eDialogFirstButtons first_button = first_dialog_button1;
+    if (!FEDatabase->GetPlayerSettings(iPlayerNum)->Transmission) {
+        first_button = first_dialog_button2;
     }
     feDialogConfig conf;
     GetLocalizedString(conf.BlurbString, 0x200, LANGUAGE_COMMON_TRANSMISSION);
@@ -1541,27 +1615,35 @@ bool IsValidMikeMannCar(FECarRecord *fe_car, unsigned int filter) {
     if (GetMikeMannBuild() == 1) {
         return fe_car->GetType() != CARTYPE_CAYMANS;
     }
-    if (GetMikeMannBuild() != 2) {
-        return true;
-    }
-    unsigned short lowFilter = static_cast<unsigned short>(filter);
-    if (lowFilter == 1) {
-        switch (fe_car->GetType()) {
-            case CARTYPE_RX8:
-            case CARTYPE_SLR:
-            case CARTYPE_BMWM3GTR:
-            case CARTYPE_CAYMANS:
-            case CARTYPE_GALLARDO:
-            case CARTYPE_PUNTO:
-                return true;
-            default:
-                return false;
+    if (GetMikeMannBuild() == 2) {
+        if (static_cast<unsigned short>(filter) == 1) {
+            switch (fe_car->GetType()) {
+#ifdef EA_BUILD_A124
+                case CARTYPE_MUSTANGGT:
+                case CARTYPE_SLR:
+                case CARTYPE_BMWM3GTR:
+                case CARTYPE_IS300:
+                case CARTYPE_GALLARDO:
+#else
+                case CARTYPE_RX8:
+                case CARTYPE_SLR:
+                case CARTYPE_BMWM3GTR:
+                case CARTYPE_CAYMANS:
+                case CARTYPE_GALLARDO:
+                case CARTYPE_PUNTO:
+#endif
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        if (static_cast<unsigned short>(filter) == 0x10) {
+            return fe_car->Handle == bStringHash("M3GTRCAREERSTART");
         }
     }
-    if (lowFilter != 0x10) {
-        return true;
-    }
-    return fe_car->Handle == bStringHash("M3GTRCAREERSTART");
+    // Un solo return true al final (linea 1870 del original, detras del de la 1867): GameCube junta ahi los de
+    // GetMikeMannBuild() != 2 y los del switch.
+    return true;
 }
 
 void UIQRCarSelect::RefreshBonusCarList() {
@@ -1673,22 +1755,16 @@ void UIQRCarSelect::ClearCarList() {
 }
 
 void UIQRCarSelect::ScrollCars(eScrollDir dir) {
-    SelectableCar *cur = pSelectedCar;
-    if (!cur)
+    SelectableCar *old_car = pSelectedCar;
+    if (!old_car)
         return;
-    SelectableCar *newCar = static_cast<SelectableCar *>(reinterpret_cast<bTNode<SelectableCar> *>(cur)->GetPrev());
-    if (newCar == FilteredCarsList.EndOfList()) {
-        newCar = FilteredCarsList.GetTail();
-    }
+    SelectableCar *new_car = FilteredCarsList.GetPrevCircular(old_car);
     if (dir == eSD_PREV) {
     } else if (dir == eSD_NEXT) {
-        newCar = static_cast<SelectableCar *>(reinterpret_cast<bTNode<SelectableCar> *>(cur)->GetNext());
-        if (newCar == FilteredCarsList.EndOfList()) {
-            newCar = FilteredCarsList.GetHead();
-        }
+        new_car = FilteredCarsList.GetNextCircular(old_car);
     }
-    if (newCar != cur) {
-        SetSelectedCar(newCar, iPlayerNum);
+    if (new_car != old_car) {
+        SetSelectedCar(new_car, iPlayerNum);
         RefreshHeader();
     }
 }

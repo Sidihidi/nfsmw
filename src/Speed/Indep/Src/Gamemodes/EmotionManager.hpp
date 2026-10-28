@@ -72,6 +72,7 @@ const char *GetEmotionalResponsePhaseString(EmotionalResponse::ePhase phase);
 // EmotionManager -------------------------------------------------------
 
 struct Car;
+struct EmotionManagerImpl;
 
 struct EmotionManager {
     enum eEmotionalContext {
@@ -91,7 +92,11 @@ struct EmotionManager {
     float GetEmotionalEvaluation(eEmotionalContext context);
     void SendResponseEvent(EmotionalResponse::eTrigger trigger, float intensity);
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    EmotionManagerImpl *mpImpl; // 0x00
+#else
     EmotionalSummary mSummary; // 0x00
+#endif
 };
 
 #endif

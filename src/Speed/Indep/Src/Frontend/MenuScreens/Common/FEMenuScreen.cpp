@@ -10,7 +10,7 @@
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEStrings.hpp"
 #include "Speed/Indep/Src/Frontend/FEngHashes/FEHash_Credits.hpp"
 #include "Speed/Indep/Src/Generated/FEngHash/FEHash_FeWorldMapQuickList.hpp"
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32))
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Online/BuddyCore.hpp"
 #include "Speed/Indep/Src/Online/LobbyCore.hpp"
@@ -29,7 +29,6 @@ extern KeyboardEditString gKeyboardManager;
 MenuScreen *g_pOLCurrentScreen = nullptr;
 
 MenuScreen::MenuScreen(ScreenConstructorData *sd) : mDirectionForNextSound(0), bEnableEAMessenger(false) {
-#ifdef EA_BUILD_A124 // el prototipo enciende los iconos de EA Messenger y no lleva la pantalla online actual
     ConstructData = *sd;
     PackageFilename = sd->PackageFilename;
     IsGarageScreen = false;
@@ -42,6 +41,7 @@ MenuScreen::MenuScreen(ScreenConstructorData *sd) : mDirectionForNextSound(0), b
 
     mStartCapturingFromKeyboard = 0;
 
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)) // el prototipo y PC encienden los iconos de EA Messenger
     UpdateEAMIcons();
 
     bEnableEAMessenger = FEDatabase->IsLANMode() ? false : true;
@@ -49,35 +49,27 @@ MenuScreen::MenuScreen(ScreenConstructorData *sd) : mDirectionForNextSound(0), b
     if (FEDatabase->IsOnlineMode() && FEDatabase->GetOnlineSettings()->GetState() >= cOnlineSettings::OLS_LOBBY_IDLE) {
         cFEng::Get()->QueuePackageMessage(0x41AAF577, PackageFilename, nullptr);
     }
+#endif
 
-    FEngSetButtonTexture(FEngFindImage(PackageFilename, 0x6B364F8B), 0x5BC);
-    FEngSetButtonTexture(FEngFindImage(PackageFilename, 0x79354351), 0x682);
-#else
-    ConstructData = *sd;
-    PackageFilename = sd->PackageFilename;
-    IsGarageScreen = false;
+    FEngSetButtonTexture(FEngFindImage(GetPackageName(), 0x6B364F8B), 0x5BC);
+    FEngSetButtonTexture(FEngFindImage(GetPackageName(), 0x79354351), 0x682);
+#ifdef EA_PLATFORM_WIN32
+    // PC trae una tercera textura de boton (speed.exe: FEngFindImage con 0x1BB3C514 dos veces).
+    FEngSetButtonTexture(FEngFindImage(GetPackageName(), 0x1BB3C514), 0x1BB3C514);
+#endif
 
-    TextInputObject = nullptr;
-
-    mPlaySound = true;
-
-    FESoundControl(true, PackageFilename);
-
-    mStartCapturingFromKeyboard = 0;
-    FEngSetButtonTexture(FEngFindImage(PackageFilename, 0x6B364F8B), 0x5BC);
-    FEngSetButtonTexture(FEngFindImage(PackageFilename, 0x79354351), 0x682);
-
-    bool set_current = bStrCmp(PackageFilename, "InGameDialog.fng") != 0                  //
-        && bStrCmp(PackageFilename, "OL_Dialog.fng") != 0                  //
-        && bStrCmp(PackageFilename, "ControllerUnplugged.fng") != 0        //
-        && bStrCmp(PackageFilename, "Dialog.fng") != 0                     //
-        && bStrCmp(PackageFilename, "EA_Trax.fng") != 0                    //
-        && bStrCmp(PackageFilename, "OL_Dialog_Stacked_Buttons.fng") != 0  //
-        && bStrCmp(PackageFilename, "OL_GameRoom_Car_Select.fng") != 0     //
-        && bStrCmp(PackageFilename, "OL_GameRoom_Edit_Race.fng") != 0      //
-        && bStrCmp(PackageFilename, "OL_GameRoom_Player_Details.fng") != 0 //
+#ifndef EA_BUILD_A124 // el prototipo no lleva la pantalla online actual
+    bool set_current = bStrCmp(GetPackageName(), "InGameDialog.fng") != 0                  //
+        && bStrCmp(GetPackageName(), "OL_Dialog.fng") != 0                  //
+        && bStrCmp(GetPackageName(), "ControllerUnplugged.fng") != 0        //
+        && bStrCmp(GetPackageName(), "Dialog.fng") != 0                     //
+        && bStrCmp(GetPackageName(), "EA_Trax.fng") != 0                    //
+        && bStrCmp(GetPackageName(), "OL_Dialog_Stacked_Buttons.fng") != 0  //
+        && bStrCmp(GetPackageName(), "OL_GameRoom_Car_Select.fng") != 0     //
+        && bStrCmp(GetPackageName(), "OL_GameRoom_Edit_Race.fng") != 0      //
+        && bStrCmp(GetPackageName(), "OL_GameRoom_Player_Details.fng") != 0 //
 #ifndef EA_PLATFORM_PLAYSTATION2 // la PS2 de venta no tiene EA Messenger
-        && bStrCmp(PackageFilename, "OL_EAMessenger.fng") != 0             //
+        && bStrCmp(GetPackageName(), "OL_EAMessenger.fng") != 0             //
         && !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng")
 #endif
         ;
@@ -89,17 +81,18 @@ MenuScreen::MenuScreen(ScreenConstructorData *sd) : mDirectionForNextSound(0), b
 
 MenuScreen::~MenuScreen() {
     FESoundControl(false, PackageFilename);
-#ifdef EA_BUILD_A124 // el prototipo apaga EA Messenger y no lleva la pantalla online actual
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)) // el prototipo y PC apagan EA Messenger (speed.exe: byte [esi+0xC] a 0)
     bEnableEAMessenger = false;
-#else
+#endif
+#ifndef EA_BUILD_A124 // el prototipo no lleva la pantalla online actual
 
-    bool clear_current = bStrCmp(PackageFilename, "InGameDialog.fng") != 0 && bStrCmp(PackageFilename, "OL_Dialog.fng") != 0 &&
-        bStrCmp(PackageFilename, "ControllerUnplugged.fng") != 0 && bStrCmp(PackageFilename, "Dialog.fng") != 0 &&
-        bStrCmp(PackageFilename, "EA_Trax.fng") != 0 && bStrCmp(PackageFilename, "OL_Dialog_Stacked_Buttons.fng") != 0 &&
-        bStrCmp(PackageFilename, "OL_GameRoom_Car_Select.fng") != 0 && bStrCmp(PackageFilename, "OL_GameRoom_Edit_Race.fng") != 0 &&
-        bStrCmp(PackageFilename, "OL_GameRoom_Player_Details.fng") != 0
+    bool clear_current = bStrCmp(GetPackageName(), "InGameDialog.fng") != 0 && bStrCmp(GetPackageName(), "OL_Dialog.fng") != 0 &&
+        bStrCmp(GetPackageName(), "ControllerUnplugged.fng") != 0 && bStrCmp(GetPackageName(), "Dialog.fng") != 0 &&
+        bStrCmp(GetPackageName(), "EA_Trax.fng") != 0 && bStrCmp(GetPackageName(), "OL_Dialog_Stacked_Buttons.fng") != 0 &&
+        bStrCmp(GetPackageName(), "OL_GameRoom_Car_Select.fng") != 0 && bStrCmp(GetPackageName(), "OL_GameRoom_Edit_Race.fng") != 0 &&
+        bStrCmp(GetPackageName(), "OL_GameRoom_Player_Details.fng") != 0
 #ifndef EA_PLATFORM_PLAYSTATION2 // la PS2 de venta no tiene EA Messenger
-        && bStrCmp(PackageFilename, "OL_EAMessenger.fng") != 0 && !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng")
+        && bStrCmp(GetPackageName(), "OL_EAMessenger.fng") != 0 && !cFEng::Get()->IsPackagePushed("OL_EAMessenger.fng")
 #endif
         ;
     if (clear_current) {
@@ -108,7 +101,7 @@ MenuScreen::~MenuScreen() {
 #endif
 }
 
-#ifdef EA_BUILD_A124 // el prototipo une partidas online desde cualquier pantalla (invitaciones de EA Messenger)
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)) // el prototipo y PC unen partidas online desde cualquier pantalla (invitaciones de EA Messenger)
 extern const char *g_GameRoomName;
 extern ChallengeInfo *gSelfChallengeInfo;
 char gCallingScreenPackageName[64];
@@ -116,8 +109,14 @@ uint32 gAcceptingGameDialogHandle;
 
 void MenuScreen::HandleGameSessionJoinDialog(int result) {
     if (result >= 0) {
+#ifdef EA_PLATFORM_WIN32
+        // El texto de PC tiene otro hash (speed.exe: el push de 0x984b3ecb en HandleGameSessionJoinDialog).
+        gAcceptingGameDialogHandle =
+            DialogInterface::ShowMessage(GetPackageName(), "animating", dialog_none, 0x984b3ecb, gBuddySettings.buddyName);
+#else
         gAcceptingGameDialogHandle =
             DialogInterface::ShowMessage(GetPackageName(), "animating", dialog_none, 0x91070ff2, gBuddySettings.buddyName);
+#endif
     } else {
         DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, 0x417b2601, 0xffffffff, 0xffffffff,
                                        GetLocalizedString(0x331f4f58));
@@ -134,7 +133,7 @@ void MenuScreen::BaseNotify(u32 Message, FEObject *pObject, u32 Param1, u32 Para
                 notify = false;
             }
             break;
-#ifdef EA_BUILD_A124 // el prototipo atiende aqui el chat de voz, EA Messenger, los retos y la cuenta atras online
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)) // el prototipo y PC atienden aqui EA Messenger, los retos y la cuenta atras online (BaseNotify de speed.exe: 2034 B)
         case __PAD_BUTTON3__:
             if (VoiceCore::instance().IsHeadsetConnected()) {
                 VoiceCore::instance().SetMicStatus(true);
@@ -246,7 +245,41 @@ void MenuScreen::BaseNotify(u32 Message, FEObject *pObject, u32 Param1, u32 Para
     }
 }
 
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)) // PC tambien: BaseNotify de speed.exe pasa ChallengeAcceptGameCB a JoinSession
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe, 398 B): el cambio de paquete lleva la mascara del mando del jugador 0, los dialogos de error van al
+// paquete de la pantalla del contexto (o a "" sin el) y los dos hashes de boton son 0x0b1fb0b6.
+void MenuScreen::ChallengeAcceptGameCB(LobbyApiMsgT *msg, void *context) {
+    if (gAcceptingGameDialogHandle) {
+        DialogInterface::DismissDialog(gAcceptingGameDialogHandle);
+        gAcceptingGameDialogHandle = 0;
+    }
+
+    if (msg->code == 0) {
+        FEDatabase->GetOnlineSettings()->GameDetails = eJOINING;
+        cFEng::Get()->FindPackageWithControl();
+        cFEng::Get()->QueuePackageSwitch(g_GameRoomName, 0, FEngMapJoyportToJoyParam(FEDatabase->GetPlayersJoystickPort(0)), false);
+    } else {
+        MenuScreen *screen = static_cast<MenuScreen *>(context);
+        const char *pkg = screen ? screen->GetPackageName() : "";
+        FEngSetScript(gCallingScreenPackageName, 0x47ff4e7c, 0x6ebbfb68, true);
+        if (msg->code == 'ugam') {
+            DialogInterface::ShowOneButton(pkg, "", dialog_alert, 0x417b2601, 0x0b1fb0b6, 0x0b1fb0b6, GetLocalizedString(0x331f4f58));
+        } else if (msg->code == 'full') {
+            DialogInterface::ShowOneButton(pkg, "", dialog_alert, 0x417b2601, 0x0b1fb0b6, 0x0b1fb0b6, GetLocalizedString(0xd155595a));
+        } else if (msg->code == 'pass') {
+            DialogInterface::ShowOneButton(pkg, "", dialog_alert, 0x417b2601, 0x0b1fb0b6, 0x0b1fb0b6, GetLocalizedString(0xb5eaa702));
+        } else if (msg->code == 'asta') {
+            DialogInterface::ShowOneButton(pkg, "", dialog_alert, 0x417b2601, 0x0b1fb0b6, 0x0b1fb0b6, GetLocalizedString(0x1c098ddf));
+        } else if (msg->code == 'invp') {
+            DialogInterface::ShowOneButton(pkg, "", dialog_alert, 0x417b2601, 0x0b1fb0b6, 0x0b1fb0b6, GetLocalizedString(0x4ad41e75));
+        } else {
+            DialogInterface::ShowOneButton(pkg, "", dialog_alert, 0x417b2601, 0x0b1fb0b6, 0x0b1fb0b6, GetLocalizedString(0x7aa591cc));
+        }
+    }
+    FEDatabase->GetOnlineSettings()->SetState(cOnlineSettings::OLS_LOBBY_IDLE);
+}
+#else
 void MenuScreen::ChallengeAcceptGameCB(LobbyApiMsgT *msg, void *context) {
     if (gAcceptingGameDialogHandle) {
         DialogInterface::DismissDialog(gAcceptingGameDialogHandle);
@@ -276,6 +309,7 @@ void MenuScreen::ChallengeAcceptGameCB(LobbyApiMsgT *msg, void *context) {
     FEDatabase->GetOnlineSettings()->SetState(cOnlineSettings::OLS_LOBBY_IDLE);
 }
 #endif
+#endif
 
 #ifdef EA_BUILD_A124 // solo el prototipo tiene teclado online que se pueda cancelar
 void MenuScreen::FEngAbortTextInput() {
@@ -286,7 +320,15 @@ void MenuScreen::FEngAbortTextInput() {
 #endif
 
 const char *MenuScreen::FEngGetEditedString() {
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe): la edicion va en el sitio con el teclado del PC; sin objeto de entrada no hay cadena.
+    if (TextInputObject) {
+        return gKeyboardManager.GetEditedString();
+    }
+    return nullptr;
+#else
     return FEDatabase->mFEKeyboardSettings.Buffer;
+#endif
 }
 
 void MenuScreen::FEngEndTextInput() {
@@ -834,7 +876,7 @@ void MenuScreen::BaseNotifySound(u32 msg, FEObject * /* obj */, u32 /* controlle
     }
 }
 
-#ifdef EA_BUILD_A124 // los iconos de estado de EA Messenger y el chat de voz solo existen en el prototipo
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)) // los iconos de estado de EA Messenger existen en el prototipo y en PC (UpdateStatusIcons/UpdateEAMIcons en speed.exe)
 int MenuScreen::gEAMIconState;
 
 void MenuScreen::UpdateStatusIcons(int iconType, bool on) {
@@ -855,34 +897,33 @@ void MenuScreen::UpdateStatusIcons(int iconType, bool on) {
 
 void MenuScreen::UpdateEAMIcons() {
     for (int i = 0; i < 4; i++) {
-        const char *pkg = PackageFilename;
         switch (i) {
             case 0:
                 if (gEAMIconState & 1) {
-                    FEngSetScript(pkg, 0xFC050956, FEHASH_ACTIVE, false);
+                    FEngSetScript(PackageFilename, 0xFC050956, FEHASH_ACTIVE, false);
                 } else {
-                    FEngSetScript(pkg, 0xFC050956, FEHASH_IDLE, true);
+                    FEngSetScript(PackageFilename, 0xFC050956, FEHASH_IDLE, true);
                 }
                 break;
             case 1:
                 if (gEAMIconState & 2) {
-                    FEngSetScript(pkg, 0x94D342D6, FEHASH_ACTIVE, false);
+                    FEngSetScript(PackageFilename, 0x94D342D6, FEHASH_ACTIVE, false);
                 } else {
-                    FEngSetScript(pkg, 0x94D342D6, FEHASH_IDLE, true);
+                    FEngSetScript(PackageFilename, 0x94D342D6, FEHASH_IDLE, true);
                 }
                 break;
             case 2:
                 if (gEAMIconState & 4) {
-                    FEngSetScript(pkg, 0x7D50BD09, FEHASH_ACTIVE, false);
+                    FEngSetScript(PackageFilename, 0x7D50BD09, FEHASH_ACTIVE, false);
                 } else {
-                    FEngSetScript(pkg, 0x7D50BD09, FEHASH_IDLE, true);
+                    FEngSetScript(PackageFilename, 0x7D50BD09, FEHASH_IDLE, true);
                 }
                 break;
             case 3:
                 if (gEAMIconState & 8) {
-                    FEngSetScript(pkg, 0x024C278B, FEHASH_ACTIVE, false);
+                    FEngSetScript(PackageFilename, 0x024C278B, FEHASH_ACTIVE, false);
                 } else {
-                    FEngSetScript(pkg, 0x024C278B, FEHASH_IDLE, true);
+                    FEngSetScript(PackageFilename, 0x024C278B, FEHASH_IDLE, true);
                 }
                 break;
         }

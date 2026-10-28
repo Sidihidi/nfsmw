@@ -102,5 +102,6 @@ class cFEngRender {
 };
 
 uint32 FEngColorToEpolyColor(FEColor c);
+uint32 next_power_of_2(uint32 number);
 
 #endif

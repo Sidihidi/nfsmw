@@ -65,8 +65,15 @@ void SelectCarCameraMover::Update(float dT) {
 
             CurrentCameraData.OrbitVAngle = possibleNewOrbitV;
 
+#ifdef EA_PLATFORM_WIN32
+            // MSVC multiplica RadiusSpeed antes que 0.125 (speed.exe 0x476B0B/0x476B11); GCC de GC/PS2
+            // agrupa the_frame_rate * 0.125. Cada forma es la del 100 % en su plataforma.
+            float zoom_rate = RadiusSpeed * the_frame_rate * 0.125f;
+            float possibleNewRadius = CurrentCameraData.Radius + zoom_rate;
+#else
             float zoom_rate = the_frame_rate * 0.125f;
             float possibleNewRadius = CurrentCameraData.Radius + RadiusSpeed * zoom_rate;
+#endif
 
             if (!CarGuysCamera) {
                 if (possibleNewRadius > 6.65f) {

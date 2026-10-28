@@ -82,9 +82,8 @@ template <typename T> class bTNode : public bNode {
 };
 
 class bList {
-    bNode HeadNode; // offset 0x0, size 0x8
-
   public:
+    bNode HeadNode; // offset 0x0, size 0x8
     typedef int (*SortFunc)(bNode *, bNode *);
 
     bList() {

@@ -50,7 +50,11 @@ UIOLLobbyRoom::UIOLLobbyRoom(ScreenConstructorData *sd)
     , m_LobbyApiMsgT_code(0) //
     , m_bPerformJoinSession(false) //
     , m_currentSortColumn(3) //
-    , m_PlayerDisconnectMinThreshold(OLS_DISCONNECT_PERC_ANY) {
+    , m_PlayerDisconnectMinThreshold(OLS_DISCONNECT_PERC_ANY) //
+#ifdef EA_PLATFORM_XENON
+    , xenon_unknown_0x1d4(0) //
+#endif
+{
     m_password = nullptr;
     if (FEDatabase->IsLANMode()) {
         FEPrintf(GetPackageName(), 0x42adb44c, GetTranslatedString(0xe50258b1));
@@ -497,8 +501,13 @@ int32 UIOLLobbyRoom::FindSessions() {
         CarViewer::GetRideInfo(eCARVIEWER_PLAYER1_CAR);
         if (LobbyGameSessions::Instance().FindSessions(OnlineSessionFilter, FindSessionsCB, this) >= 0) {
             FEDatabase->GetOnlineSettings()->SetState(cOnlineSettings::OLS_LOBBY_REQUEST_PENDING);
+#ifdef EA_PLATFORM_XENON
+            xenon_unknown_0x198 = DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, 0x1a294dad, 0x00ca4ce1,
+                                                                 GetLocalizedString(0x65fda335));
+#else
             msgHandle = DialogInterface::ShowOneButton(GetPackageName(), "", dialog_alert, 0x1a294dad, 0x00ca4ce1,
                                                        GetLocalizedString(0x65fda335));
+#endif
             return 0;
         }
     }
@@ -512,7 +521,7 @@ static int LobbyConnectionUnknownHash[9] = {
 void UIOLLobbyRoom::SetConnectionQualityGood(int row) {
     char temp[32] = "";
 
-    for (int col = 1; col < 4; col++) {
+    for (int col = 1; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", row, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, 0xe8ee5b38)) {
@@ -527,7 +536,7 @@ void UIOLLobbyRoom::SetConnectionQualityGood(int row) {
 void UIOLLobbyRoom::SetConnectionQualityAverage(int row) {
     char temp[32] = "";
 
-    for (int col = 1; col < 3; col++) {
+    for (int col = 1; col <= 2; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", row, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, 0x76d72a2d)) {
@@ -552,7 +561,7 @@ void UIOLLobbyRoom::SetConnectionQualityBad(int row) {
     if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, 0x2d02fcd6)) {
         FEngSetScript(GetPackageName(), obj->NameHash, 0x2d02fcd6, true);
     }
-    for (int col = 2; col < 4; col++) {
+    for (int col = 2; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", row, col);
         obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, 0xccfa)) {
@@ -567,7 +576,7 @@ void UIOLLobbyRoom::SetConnectionQualityBad(int row) {
 void UIOLLobbyRoom::SetConnectionQualityUnknown(int row) {
     char temp[32] = "";
 
-    for (int col = 1; col < 4; col++) {
+    for (int col = 1; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", row, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, 0x5e40072f)) {
@@ -582,7 +591,7 @@ void UIOLLobbyRoom::SetConnectionQualityUnknown(int row) {
 void UIOLLobbyRoom::TurnOffPingCircles(int row) {
     char temp[32] = "";
 
-    for (int col = 1; col < 4; col++) {
+    for (int col = 1; col <= 3; col++) {
         FEngSNPrintf(temp, 32, "Ping_Circle_%d_%d", row, col);
         FEObject *obj = FEngFindObject(GetPackageName(), FEHashUpper(temp));
         if (!FEngIsScriptRunning(GetPackageName(), obj->NameHash, 0xccfa)) {

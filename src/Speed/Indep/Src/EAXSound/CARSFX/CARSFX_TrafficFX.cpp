@@ -97,7 +97,16 @@ void CARSFX_TrafficEngine::Destroy() {
 
 static const float TrafficVelocityScale = 140.0f; // size: 0x4, Decl: 152
 
+// gcdatos16/17: a 0 (false) en posicion de fuente en las DOS PS2. A124: zEAXSound2
+// .data +0xb00 = 0x5e53b0, PS2_globals.hpp:1333, justo tras v3NULL. SLUS: el bloque de
+// 24 B de ceros de +0xb00 = 0x541ca0, con el mismo reparto que la A124 (v3NULL 16 B +
+// esta + hueco de 4 B) entre el TypeInfo de CARSFX_TrafficEngine y el de
+// SFXCTL_3DTrafficPos. Sin inicializar cae en el bloque tentativo del final.
+#ifdef EA_PLATFORM_PLAYSTATION2
+bool bPRINTDOPPLERINMIXER = false; // size: 0x1, address: 0xFFFFFFFF, Decl: 155
+#else
 bool bPRINTDOPPLERINMIXER; // size: 0x1, address: 0xFFFFFFFF, Decl: 155
+#endif
 void CARSFX_TrafficEngine::ProcessUpdate() {
     SndBase::ProcessUpdate();
     if (!this->m_pStateBase->IsAttached()) {

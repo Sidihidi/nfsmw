@@ -37,6 +37,10 @@ VehicleFragmentConn::VehicleFragmentConn(const Sim::ConnectionData &data)
     bIdentity(&mModelOffset);
 }
 
+// PC (decision del usuario, ronda 88): esta funcion casaba en speed.exe solo por el desempate de dos ranuras de pila
+// (vrc en [esp+0x20] y car_render_info en [esp+0x18]) que voltea cualquier cambio de cabecera de la unidad (13
+// variantes en la ronda 87); se acepta perderla a cambio de operator new[] fiel en WIN32, VU0_v3scaleadd con local,
+// el `<=` de UpdateDecalTextures y UMath::Ramp como if/return.
 void VehicleFragmentConn::UpdateModel() {
     if (this->mPartSlot == CARPARTID_INVALID) {
         return;
@@ -56,7 +60,7 @@ void VehicleFragmentConn::UpdateModel() {
 
             if (this->mReplacementTextureTable == nullptr) {
                 // TODO
-                this->mReplacementTextureTable = new ("", 0) eReplacementTextureTable[CarRenderInfo::REPLACETEX_NUM];
+                this->mReplacementTextureTable = new ("eReplacementTextureTable", 0) eReplacementTextureTable[CarRenderInfo::REPLACETEX_NUM];
                 bMemCpy(this->mReplacementTextureTable, car_render_info->MasterReplacementTextureTable,
                         sizeof(car_render_info->MasterReplacementTextureTable));
             }

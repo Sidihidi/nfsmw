@@ -90,7 +90,7 @@ class AIGoalNone : public AIGoal {
     ~AIGoalNone() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalNone("AIGoalNone", AIGoalNone::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalNone(UCrc32("AIGoalNone"), AIGoalNone::Construct);
 
 AIGoalNone::AIGoalNone(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionNone");
@@ -108,7 +108,7 @@ class AIGoalTraffic : public AIGoal {
     ~AIGoalTraffic() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalTraffic("AIGoalTraffic", AIGoalTraffic::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalTraffic(UCrc32("AIGoalTraffic"), AIGoalTraffic::Construct);
 
 AIGoalTraffic::AIGoalTraffic(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionTraffic");
@@ -127,7 +127,7 @@ class AIGoalPatrol : public AIGoal {
     ~AIGoalPatrol() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPatrol("AIGoalPatrol", AIGoalPatrol::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPatrol(UCrc32("AIGoalPatrol"), AIGoalPatrol::Construct);
 
 AIGoalPatrol::AIGoalPatrol(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionTraffic");
@@ -154,7 +154,7 @@ class AIGoalPursuit : public AIGoal {
     float mFwdCG; // offset 0x18, size 0x4
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPursuit("AIGoalPursuit", AIGoalPursuit::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPursuit(UCrc32("AIGoalPursuit"), AIGoalPursuit::Construct);
 
 AIGoalPursuit::AIGoalPursuit(ISimable *isimable)
     : AIGoal(isimable), //
@@ -192,7 +192,7 @@ class AIGoalStopShort : public AIGoal {
     ~AIGoalStopShort() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalStopShort("AIGoalStopShort", AIGoalStopShort::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalStopShort(UCrc32("AIGoalStopShort"), AIGoalStopShort::Construct);
 
 AIGoalStopShort::AIGoalStopShort(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionStopShort");
@@ -214,7 +214,7 @@ class AIGoalRam : public AIGoal {
     ~AIGoalRam() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalRam("AIGoalRam", AIGoalRam::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalRam(UCrc32("AIGoalRam"), AIGoalRam::Construct);
 
 AIGoalRam::AIGoalRam(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionRam");
@@ -240,7 +240,7 @@ class AIGoalPit : public AIGoal {
     ~AIGoalPit() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPit("AIGoalPit", AIGoalPit::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPit(UCrc32("AIGoalPit"), AIGoalPit::Construct);
 
 AIGoalPit::AIGoalPit(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionRam");
@@ -266,7 +266,7 @@ class AIGoalPullOver : public AIGoal {
     ~AIGoalPullOver() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPullOver("AIGoalPullOver", AIGoalPullOver::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalPullOver(UCrc32("AIGoalPullOver"), AIGoalPullOver::Construct);
 
 // STRIPPED
 AIGoalPullOver::AIGoalPullOver(ISimable *isimable) : AIGoal(isimable) {}
@@ -283,7 +283,7 @@ class AIGoalHeadOnRam : public AIGoal {
     ~AIGoalHeadOnRam() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalHeadOnRam("AIGoalHeadOnRam", AIGoalHeadOnRam::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalHeadOnRam(UCrc32("AIGoalHeadOnRam"), AIGoalHeadOnRam::Construct);
 
 AIGoalHeadOnRam::AIGoalHeadOnRam(ISimable *isimable) : AIGoal(isimable) {
     IPursuitAI *ipv;
@@ -311,7 +311,7 @@ class AIGoalStaticRoadBlock : public AIGoal {
     ~AIGoalStaticRoadBlock() override;
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalStaticRoadBlock("AIGoalStaticRoadBlock", AIGoalStaticRoadBlock::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalStaticRoadBlock(UCrc32("AIGoalStaticRoadBlock"), AIGoalStaticRoadBlock::Construct);
 
 AIGoalStaticRoadBlock::AIGoalStaticRoadBlock(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionStaticRoadBlock");
@@ -332,7 +332,7 @@ class AIGoalFleePursuit : public AIGoal {
     ~AIGoalFleePursuit() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalFleePursuit("AIGoalFleePursuit", AIGoalFleePursuit::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalFleePursuit(UCrc32("AIGoalFleePursuit"), AIGoalFleePursuit::Construct);
 
 AIGoalFleePursuit::AIGoalFleePursuit(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionRace");
@@ -354,7 +354,7 @@ class AIGoalHeliPursuit : public AIGoal {
     ~AIGoalHeliPursuit() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalHeliPursuit("AIGoalHeliPursuit", AIGoalHeliPursuit::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalHeliPursuit(UCrc32("AIGoalHeliPursuit"), AIGoalHeliPursuit::Construct);
 
 AIGoalHeliPursuit::AIGoalHeliPursuit(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionHeliPursuit");
@@ -375,7 +375,7 @@ class AIGoalHeliExit : public AIGoal {
     ~AIGoalHeliExit() override {}
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalHeliExit("AIGoalHeliExit", AIGoalHeliExit::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalHeliExit(UCrc32("AIGoalHeliExit"), AIGoalHeliExit::Construct);
 
 AIGoalHeliExit::AIGoalHeliExit(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionHeliExit");
@@ -406,7 +406,7 @@ class AIGoalRacer : public AIGoal {
     AIGoalRacer(ISimable *isimable);
 };
 
-UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalRacer("AIGoalRacer", AIGoalRacer::Construct);
+UTL::COM::Factory<ISimable *, AIGoal, UCrc32>::Prototype _AIGoalRacer(UCrc32("AIGoalRacer"), AIGoalRacer::Construct);
 
 AIGoalRacer::AIGoalRacer(ISimable *isimable) : AIGoal(isimable) {
     AddAction("AIActionRace");

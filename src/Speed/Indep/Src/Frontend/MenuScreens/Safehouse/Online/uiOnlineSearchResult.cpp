@@ -124,9 +124,15 @@ void UIOnlineSearchResult::PopulateList() {
     m_resultScroller.DeleteScrollerData();
 
     m_usedCount = 0;
+#ifdef EA_PLATFORM_XENON
+    BuddyIter = 0;
+    numBuddies = GetBuddysNumFound();
+    bFinished = false;
+#else
     bFinished = false;
     BuddyIter = 0;
     numBuddies = GetBuddysNumFound();
+#endif
 
     while (m_usedCount < numBuddies && !bFinished) {
         pName = GetBuddysFound(BuddyIter + m_listStart);

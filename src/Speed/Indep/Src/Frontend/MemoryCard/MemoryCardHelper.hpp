@@ -20,7 +20,7 @@ struct THREAD {
     // Opaco y de plataforma, como MUTEX: 0x8 en PS2 (stabs de la A124). MyThread::SetPriority guarda mPriority en
     // 0x1C y pasa this + 0x14 a THREAD_setpriority en las dos builds (SLES 0x27EE80, SLUS 0x24E3D0).
     int reserved[2]; // total size: 0x8
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // X360: MemoryCard::Init (0x822B0FB0) hace bMalloc(0x28)
     int reserved[3]; // total size: 0xC (MyThread: mPriority en 0x20 y mActive en 0x24)
 #else
     int reserved[198]; // total size: 0x318

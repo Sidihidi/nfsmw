@@ -77,7 +77,7 @@ class CDActionIce : public CameraAI::Action, public IAttachable {
     int mSwitchOut;                 // offset 0x2F0, size 0x4
 };
 
-UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32>::Prototype _CDActionIce("CDActionIce", CDActionIce::Construct);
+UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32>::Prototype _CDActionIce(UCrc32("CDActionIce"), CDActionIce::Construct);
 
 CameraAI::Action *CDActionIce::Construct(CameraAI::Director *director) {
     IPlayer *found = 0;
@@ -139,7 +139,7 @@ CDActionIce::CDActionIce(CameraAI::Director *director, IPlayer *player)
             UVector3 cg = cbody->GetCenterOfGravity();
             body->ConvertLocalToWorld(cg, false);
             VU0_v3add(cg, body->GetPosition(), cg);
-            bSetPosition(mat.v3, cg);
+            eSwizzleWorldVector(*reinterpret_cast<const bVector3 *>(&cg), *reinterpret_cast<bVector3 *>(&mat.v3));
         }
         mAnchor->Update(0.0f, *reinterpret_cast<const ICE::Matrix4 *>(&mat), *reinterpret_cast<const ICE::Vector3 *>(mTarget.GetVelocity()),
                         *reinterpret_cast<const ICE::Vector3 *>(mTarget.GetAcceleration()));
@@ -251,7 +251,7 @@ void CDActionIce::Update(float dT) {
             UVector3 cg = cbody->GetCenterOfGravity();
             body->ConvertLocalToWorld(cg, false);
             VU0_v3add(cg, body->GetPosition(), cg);
-            bSetPosition(mat.v3, cg);
+            eSwizzleWorldVector(*reinterpret_cast<const bVector3 *>(&cg), *reinterpret_cast<bVector3 *>(&mat.v3));
         }
 
         mAnchor->SetSlipAngle(0.0f);

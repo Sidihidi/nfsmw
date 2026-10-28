@@ -5,10 +5,11 @@ extern "C" {
 #endif
 
 int SNDSTRM_status(int sndstreamhandle, SNDSTREAMSTATUS *psss) {
-    SNDI_CHECKINSTALLED();
     psss->timebuffered = 0;
     psss->currentrequest = 0;
     psss->outstandingrequests = 0;
+
+    SNDI_CHECKINSTALLED();
 
     SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
 

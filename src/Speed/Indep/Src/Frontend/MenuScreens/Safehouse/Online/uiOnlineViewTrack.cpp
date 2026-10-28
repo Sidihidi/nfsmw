@@ -24,7 +24,11 @@ void uiOnlineViewTrack::SetCurrentTrack() {
     Tracks.DeleteAllElements();
     uint32 EventHash = FEDatabase->GetOnlineSettings()->GetRaceSettings()->EventHash;
     GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromHash(EventHash);
+#ifdef EA_BUILD_A124
     Tracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true));
+#else
+    Tracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true, 0)); // EGM: bin 0 (0x8228AA10)
+#endif
     pCurrentNode = Tracks.GetHead();
     pCurrentTrack = pCurrentNode->pRaceParams;
     SetSelectedTrack(pCurrentTrack);

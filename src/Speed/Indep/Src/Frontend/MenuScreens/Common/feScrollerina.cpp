@@ -116,8 +116,8 @@ void Scrollerina::AddData(ScrollerDatum *datum) {
     Data.AddTail(datum);
     iNumData++;
     if (!TopDatum) {
-        iViewHeadDataIndex = 1;
         TopDatum = Data.GetHead();
+        iViewHeadDataIndex = 1;
     }
     if (!SelectedDatum) {
         SelectedDatum = Data.GetHead();
@@ -381,9 +381,9 @@ bool Scrollerina::ScrollSelection(eScrollDir dir) {
     }
 
     if (slot != SelectedSlot) {
-        SelectedSlot->SetScript(FEHASH_UNHIGHLIGHT);
+        SelectedSlot->UnHighlight();
         SelectedSlot = slot;
-        slot->SetScript(FEHASH_HIGHLIGHT);
+        slot->Highlight();
         ret = true;
     }
     return ret;

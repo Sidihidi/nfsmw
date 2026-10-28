@@ -1381,7 +1381,9 @@ void RigidBody::DoBarrierCollision(float dT) {
         UVector3 dim(rad, rad, rad);
 
         thisGeom.Set(data.bodyMatrix, data.position, dim, Dynamics::Collision::Geometry::SPHERE, dVdT);
-        testall = WCollisionMgr(this->mCollisionMask, 3).Collide(&thisGeom, &barriers, nullptr, nullptr, false) == true;
+        if (!WCollisionMgr(this->mCollisionMask, 3).Collide(&thisGeom, &barriers, nullptr, nullptr, false)) {
+            testall = false;
+        }
     }
 
     if (testall) {

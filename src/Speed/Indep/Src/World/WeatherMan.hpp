@@ -82,8 +82,14 @@ class WeatherRegionPack : public bTNode<WeatherRegionPack> {
     int32 NumRegions; // offset 0xC, size 0x4
 };
 
+void WeatherManInit();
+void WeatherManClose();
 void AddRegion(GenericRegion *region);
+GenericRegion *BuildWeatherRegion(RegionType type, bVector3 *position, float Intensity, unsigned int colour, float radius, float falloffstart,
+                                  float FogFalloff, float FogFalloffX, float FogFalloffY, float fogstart, float modifier);
 void RemoveRegion(GenericRegion *region);
+GenericRegion *GenericRegionQuery(bVector3 *position, RegionType Rtype);
+unsigned int InRegion(bVector3 *position, GenericRegion *region);
 int DepthRegion(GenericRegion *before, GenericRegion *after);
 GenericRegion *GetClosestRegionInView(eView *view, bVector3 *endVector, float *angleCos);
 int UnloaderWeatherMan(bChunk *bchunk);

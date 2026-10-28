@@ -39,6 +39,18 @@ void emEventManagerInit() {
     EventHandlerSlotPool = bNewSlotPool(0x18, 20, "EventHandlerSlotPool", 0);
 }
 
+// gcdatos7: sin llamantes (DIE .debug+0x40E7EE9 low_pc=-1, tras emEventManagerInit;
+// la A124 la trae igual, 60 B en una linea). Espejo de la Init: borra los dos
+// slot pools que aquella crea.
+void emEventManagerClose() {
+    if (EventSlotPool) {
+        bDeleteSlotPool(EventSlotPool);
+    }
+    if (EventHandlerSlotPool) {
+        bDeleteSlotPool(EventHandlerSlotPool);
+    }
+}
+
 int LoaderEventManager(bChunk *bchunk) {
     if (bchunk->GetID() != BCHUNK_SPEED_EMTRIGGER_PACK) {
         return 0;
@@ -194,6 +206,24 @@ emEvent *emAddEvent(EVENT_ID event_id) {
     CurrentEventQueue->AddTail(event);
     EventManagerStats[0]++;
     return event;
+}
+
+// gcdatos7: las tres sin llamantes (DIEs .debug+0x40EB9CF..0x40EBC81 low_pc=-1,
+// tras emAddEvent; A124 76/16/16 B). emRemoveEvent: su DIE solo trae los inlines
+// bTNode::Remove y ~emEvent (el delete), como el tramo de emProcessAllEvents.
+// Lock/Unlock mueven ReferenceCount, el contador que emProcessAllEvents mira
+// para retener el evento en la cola de bloqueados.
+void emRemoveEvent(emEvent *event) {
+    event->Remove();
+    delete event;
+}
+
+void emLockEvent(emEvent *event) {
+    event->ReferenceCount++;
+}
+
+void emUnlockEvent(emEvent *event) {
+    event->ReferenceCount--;
 }
 
 void emProcessAllEvents() {

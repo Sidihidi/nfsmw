@@ -8,6 +8,7 @@
 namespace RealmcUtils {
 
 unsigned int Crc32(const void *buf, int bufsize);
+void Unicode2Ascii(char *dst, const wchar_t *src);
 void Ascii2Unicode(wchar_t *dst, const char *src);
 int Wildcard(char *str, char *pattern);
 

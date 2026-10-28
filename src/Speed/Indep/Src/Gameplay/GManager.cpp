@@ -20,6 +20,9 @@
 #include "Speed/Indep/Src/Generated/Events/ECellCall.hpp"
 #include "Speed/Indep/Src/Generated/Events/EFadeScreenOff.hpp"
 #include "Speed/Indep/Src/Generated/Events/EShowSMS.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Generated/Messages/MForcePursuitStart.h"
+#endif
 #include "Speed/Indep/Src/Generated/Messages/MEnteringGameplay.h"
 #include "Speed/Indep/Src/Generated/Messages/MNotifyMilestoneProgress.h"
 #include "Speed/Indep/Src/Interfaces/SimActivities/ICopMgr.h"
@@ -81,7 +84,11 @@ class PhotoFinishScreen {
 // El objetivo las define en .data en ESTE orden, justo antes de GManager::mObj
 // (zGameplay.s .data:0xDC y 0xE0). Sin definicion quedaban UNDEF en el .o.
 int TWEAK_ShowGameplayMilestoneValues = 0;
+#ifdef EA_PLATFORM_WIN32
+bool TWEAK_ShowAllGameplayIcons = false; // PC: exe `mov dl,[0x91E00A]; test dl,dl` en UpdateIconVisibility (GC: lwz)
+#else
 int TWEAK_ShowAllGameplayIcons = 0;
+#endif
 
 GManager *GManager::mObj = NULL;
 
@@ -209,8 +216,8 @@ void GManager::InitializeVaults() {
     LZByteSwapHeader(compressed_buf);
 
     void *imageBuffer = bMalloc(compressed_buf->UncompressedSize, "Gameplay vault pack image (temporary)", 0,
-#ifdef EA_PLATFORM_PLAYSTATION2
-                                0x1040 // las dos PS2 la piden al pool principal; GameCube, al 7
+#ifndef EA_PLATFORM_GAMECUBE
+                                0x1040 // PS2, PC (exe push 0x1040) y X360 (li r6,0x1040) al pool principal; GC al 7
 #else
                                 0x1047
 #endif
@@ -532,9 +539,9 @@ void GManager::ReleaseObjectStateStorage() {
 void GManager::DefragObjectStateStorage() {
     ObjectStateBlockHeader *stackList[256];
 
-    unsigned int count = mPersistentStateBlocks.size() + mSessionStateBlocks.size();
-
     ObjectStateBlockHeader **list = stackList;
+
+    unsigned int count = mPersistentStateBlocks.size() + mSessionStateBlocks.size();
 
     if (count > 256) {
         list = new ("Temp buffer to defrag object state", 0) ObjectStateBlockHeader *[count];
@@ -567,9 +574,7 @@ void GManager::DefragObjectStateStorage() {
             for (unsigned int j = 0; j < 2; j++) {
                 ObjectStateMap &blocks = j ? mPersistentStateBlocks : mSessionStateBlocks;
 
-                ObjectStateMap::iterator it = blocks.find(key32);
-
-                if (it != blocks.end()) {
+                if (blocks.find(key32) != blocks.end()) {
                     blocks[key32] = (ObjectStateBlockHeader *)dest;
                 }
             }
@@ -1457,7 +1462,7 @@ void GManager::DetachCharacter(GCharacter *character) {
 }
 
 void GManager::UnspawnAllCharacters() {
-    while (mActiveCharacters.size()) {
+    while (mActiveCharacters.size() > 0) {
         mActiveCharacters[0]->Unspawn();
     }
 
@@ -1804,6 +1809,62 @@ unsigned int GManager::SaveMilestoneInfo(MilestoneTypeInfo *dest) {
     return mMilestoneTypeInfo.size();
 }
 
+#ifdef EA_BUILD_A124
+void GManager::StartActivities() {
+    bool startCareerActivities = SkipFE == 0;
+
+    GRaceCustom *startupRace = GRaceDatabase::Get().GetStartupRace();
+
+    if (startupRace) {
+        startupRace->GetRaceActivity()->Run();
+
+        Context raceContext = GRaceDatabase::Get().GetStartupRaceContext();
+
+        GRaceStatus::Get().SetRaceContext((GRace::Context)raceContext);
+
+        if (raceContext != kRaceContext_Career) {
+            startCareerActivities = false;
+        }
+    }
+
+    if (startCareerActivities) {
+        bool freeRoam = startupRace == NULL;
+
+        GObjectIterator<GActivity> iter(-1);
+
+        while (iter.IsValid()) {
+            GActivity *activity = iter.GetInstance();
+            bool shouldRun = activity->AutoStart();
+
+            if (activity->FreeRoamOnly() && !freeRoam) {
+                shouldRun = false;
+            }
+            if (shouldRun) {
+                activity->Run();
+            }
+
+            iter.Advance();
+        }
+
+        GRaceBin *currentBin = GRaceStatus::Get().GetRaceBin();
+
+        if (currentBin) {
+            GActivity *binActivity = (GActivity *)Get().FindInstance(currentBin->GetCollectionKey());
+
+            if (!binActivity->GetIsRunning()) {
+                binActivity->Run();
+            }
+        }
+
+        if (freeRoam && mStartFreeRoamPursuit) {
+            ICopMgr::Get()->LockoutCops(false);
+            MForcePursuitStart((int)mQueuedPursuitMinHeat).Post(UCrc32("AICopManager"));
+            mStartFreeRoamPursuit = false;
+            mQueuedPursuitMinHeat = 0.0f;
+        }
+    }
+}
+#else
 void GManager::StartActivities() {
     bool startCareerActivities = SkipFE == 0;
 
@@ -1848,6 +1909,7 @@ void GManager::StartActivities() {
         }
     }
 }
+#endif
 
 void GManager::StartWorldActivities(bool startFreeRoamOnly) {
     GObjectIterator<GActivity> activityIter(-1);
@@ -2307,8 +2369,8 @@ void GManager::RefreshEngageTriggerIcons() {
 
         if (activity != nullptr) {
             GRaceParameters *race = GRaceDatabase::Get().GetRaceFromActivity(activity);
-            bool completed = GRaceDatabase::Get().CheckRaceScoreFlags(race->GetEventHash(), GRaceDatabase::kCompleted_ContextCareer);
-            bool unlocked = GRaceDatabase::Get().CheckRaceScoreFlags(race->GetEventHash(), GRaceDatabase::kUnlocked_Career);
+            bool completed = GRaceDatabase::Get().IsCareerRaceComplete(race->GetEventHash());
+            bool unlocked = GRaceDatabase::Get().IsCareerRaceUnlocked(race->GetEventHash());
 
             if (unlocked && !completed) {
                 trigger->ShowIcon();
@@ -2405,7 +2467,7 @@ void GManager::FreeIcon(GIcon *icon) {
 }
 
 void GManager::FreeIconAt(unsigned int index) {
-    if (mNumIcons) {
+    if (mNumIcons > 0) {
         if (mIcons[index]) {
             // La A124 no guia con el GPS hacia iconos: no hay nada que limpiar.
 #ifndef EA_BUILD_A124
@@ -2739,8 +2801,8 @@ void GManager::PreloadStockCarsForActivity(GActivity *activity) {
 
         GRaceParameters *parms = GRaceDatabase::Get().GetRaceFromActivity(activity);
 
-        if (parms != NULL) {
-            forcePreload = parms->GetRaceType() == GRace::kRaceType_Drag;
+        if (parms != NULL && parms->GetRaceType() == GRace::kRaceType_Drag) {
+            forcePreload = true;
         }
 
         if (gVerboseTesterOutput) {

@@ -355,9 +355,10 @@ void Collection::Delete() const {
 }
 
 AttributeIterator::AttributeIterator(const Collection *c) {
+    // orden de las tres asignaciones: speed.exe escribe mCurrentKey, mCollection y mInLayout (offsets 0, 4, 8).
     mCurrentKey = 0;
-    mInLayout = false;
     mCollection = c;
+    mInLayout = false;
     mCurrentKey = c->FirstKey(mInLayout);
 }
 

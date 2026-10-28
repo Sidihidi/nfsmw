@@ -71,7 +71,7 @@ class ICETrack : public bTNode<ICETrack> {
     ICEData *GetKey(int n) {
         int c = ICE::Clamp(n, 0, NumKeys - 1);
         if (n == c) {
-            return &Keys[c];
+            return &Keys[n];
         }
         return 0;
     }
@@ -346,7 +346,7 @@ class ICEManager {
 
     ICEData *GetNeighbour(ICEData *pKey, int dir, ICETrack *pTrack);
 
-    int ChooseCameraPlaybackTrack();
+    bool ChooseCameraPlaybackTrack();
 
     void ChooseReplayCamera();
 

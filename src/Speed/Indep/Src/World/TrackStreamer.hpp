@@ -5,12 +5,21 @@
 #pragma once
 #endif
 
-#include "TrackPath.hpp"
 #include "VisibleSection.hpp"
 #include "Speed/Indep/bWare/Inc/bChunk.hpp"
 #include "Speed/Indep/bWare/Inc/bList.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
+
+// gcdatos4: el TrackStreamer.hpp original no incluia TrackPath.hpp. En la CU
+// zSpeech del DWARF-1 (que parsea esta cabecera via SpeechManager.cpp) la
+// clase TrackStreamer esta completa (2184 B) pero TrackPathZone solo tiene
+// un DIE incompleto de 28 B, sin el enum eTrackPathZoneType ni
+// GetTrackPathZoneName; y en la CU zTrack, TrackPathZone se completa en la
+// fase de TrackPath.cpp y TrackStreamer en la de TrackStreamer.cpp, sin
+// parseos tempranos via Camera.hpp. A esta cabecera solo le hace falta la
+// declaracion de DoLinesIntersect para TrackStreamingBarrier::Intersects.
+bool DoLinesIntersect(const bVector2 &a, const bVector2 &b, const bVector2 &c, const bVector2 &d);
 
 enum eTrackStreamingFileType {
     TRACK_STREAMING_FILE_PERMANENT = 0,
@@ -148,6 +157,11 @@ class TrackStreamer {
     // GManager::SpawnSectionIcons, UnspawnSectionIcons y SpawnAllLoadedSectionIcons.
     friend class GIcon;
     friend class GManager;
+#ifdef EA_BUILD_A124
+    // DisplayDebugScreenPrints (Main.cpp) leia CurrentZoneOutOfMemory en la alpha a traves de un
+    // accesor inline de su TrackStreamer.hpp (linea 65 en su mapa de lineas); aqui basta el acceso.
+    friend void DisplayDebugScreenPrints();
+#endif
 
   public:
     TrackStreamer();
@@ -381,6 +395,11 @@ class TrackStreamer {
     void LoadSection(TrackStreamingSection *section);
     static void SectionLoadedCallback(intptr_t param, int error_status);
     void SectionLoadedCallback(TrackStreamingSection *section);
+#ifdef EA_PLATFORM_XENON
+    static void PermFileLoadedCallback(intptr_t param, int error_status) {
+        reinterpret_cast<TrackStreamer *>(param)->PermFileLoadedCallback();
+    }
+#endif
 
     TrackStreamingSection *pTrackStreamingSections;       // offset 0x0, size 0x4
     int NumTrackStreamingSections;                        // offset 0x4, size 0x4
@@ -432,7 +451,7 @@ class TrackStreamer {
     int UserMemoryAllocationSize;                         // offset 0x85C, size 0x4
     TSMemoryPool *pMemoryPool;                            // offset 0x860, size 0x4
     bBitTable CurrentVisibleSectionTable;                 // offset 0x864, size 0x8
-    uint16 KeepSectionTable[4];                           // offset 0x86C, size 0x8
+    short KeepSectionTable[4];                            // offset 0x86C, size 0x8
     void (*pCallback)(intptr_t);                          // offset 0x874, size 0x4
     intptr_t CallbackParam;                               // offset 0x878, size 0x4
     void (*MakeSpaceInPoolCallback)(intptr_t);            // offset 0x87C, size 0x4

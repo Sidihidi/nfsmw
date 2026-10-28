@@ -15,8 +15,7 @@ template <typename T, int U> class CookieTrail {
         if (this->mCount < this->mCapacity) {
             return this->mData[0];
         }
-        int next = this->mLast + 1;
-        return this->mData[next - (next / this->mCapacity) * this->mCapacity];
+        return this->mData[(this->mLast + 1) % this->mCapacity];
     }
 
     const T &Newest() const {

@@ -87,6 +87,7 @@ class Observer : public SpeechFlow {
   private:
     float CalcFWVec_Road_Car();
     void GasStationAftermath();
+    void AssessWeather();
     void AssessArrest();
     void AssessLOS();
 #ifdef EA_BUILD_A124

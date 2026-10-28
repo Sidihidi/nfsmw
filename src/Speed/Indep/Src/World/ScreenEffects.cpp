@@ -14,12 +14,17 @@
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 
 ScreenEffectPaletteDef SE_PaletteFile[EFX_NUMBER];
+#ifdef EA_BUILD_A124
+// gcdatos13: solo en la A124, tras SE_PaletteFile (0x6439b4 y 0x6439b8,
+// PS2_globals.hpp:5687-5688), a cero en su .data objetivo. Sin simbolo en las demas.
+ScreenEffectType TestScreenEffectType;
+ScreenEffectDef TestScreenEffectDef;
+#endif
 
 // TODO move these
 extern eModel *pVisibleZoneBoundaryModel;
 extern unsigned int FrameMallocFailed;
 extern unsigned int FrameMallocFailAmount;
-int debugflash = 0;
 extern TrackPathZone *zoneB[2];
 #ifdef EA_BUILD_A124
 extern float DarkFalloff;
@@ -119,6 +124,20 @@ void ScreenEffectDB::AddPaletteEffect(ScreenEffectPaletteDef *palette) {
     }
 }
 
+// gcdatos7: sin llamantes (DIEs .debug+0x40E2990/0x40E2A1E low_pc=-1, tras las
+// AddPaletteEffect; A124 24/96 B). Espejos exactos de aquellas: la de enum
+// delega en la de puntero (parametro PalPtr en su DIE, con el bloque {i} y el
+// inline RemoveScreenEffect).
+void ScreenEffectDB::RemovePaletteEffect(ScreenEffectPalette palette) {
+    this->RemovePaletteEffect(&SE_PaletteFile[palette]);
+}
+
+void ScreenEffectDB::RemovePaletteEffect(ScreenEffectPaletteDef *PalPtr) {
+    for (int i = 0; i < PalPtr->NumEffects; i++) {
+        this->RemoveScreenEffect(PalPtr->SE_type[i]);
+    }
+}
+
 void InitScreenEFX() {
 #ifdef EA_BUILD_A124
     SE_PaletteFile[EFX_UNIQUE].NumEffects = 1;
@@ -132,6 +151,16 @@ void InitScreenEFX() {
 ParameterAccessorBlendByDistance TintSunRiseAccessor[2] = {"Screen Tint SunRise", "Screen Tint SunRise"};
 ParameterAccessorBlendByDistance TintMiddayAccessor[2] = {"Screen Tint Midday", "Screen Tint Midday"};
 
+// gcdatos8: el bloque [0,1,2,3] de la .data objetivo de zTrack entre
+// distfall y debugflash (obj+0x11D0): los cuatro ColourTintParam* del DWARF
+// (sin direccion en GC; en la A124 en 0x6385F8-0x638608 con estos valores,
+// tras los dos Tint*Accessor).
+int ColourTintParamRed = 0;
+int ColourTintParamGreen = 1;
+int ColourTintParamBlue = 2;
+int ColourTintParamIntensity = 3;
+int debugflash = 0;
+
 void TickSFX() {
     static uint32 ticS = 0;
     if (IsGameFlowInGame()) {
@@ -142,10 +171,36 @@ void TickSFX() {
     }
 }
 
+// gcdatos8 (receta r68): en la .data objetivo de zTrack entre ticS
+// (0x80437128) y FACflush (0x80437134), sin direccion en el DWARF de GC.
+float frame_max = 120.0f;
+float frame_speed = 0.2f;
+
 static unsigned int FACflush = 0;
+// gcdatos8 (receta r68): hueco de 4 B a 0 entre FACflush y GlareFalloff
+// (0x80437138), el InTunnel muerto del DWARF.
+unsigned int InTunnel = 0;
 float GlareFalloff = 0.0199999996f;
 float GlareFallon = 0.0399999991f;
+// gcdatos8 (receta r68): definidos aqui en el original (lbl_80437144, entre
+// GlareFallon y TUNHEIGHT) con estos valores; solo estaban los extern de
+// arriba y el codigo vivo de este fichero los usa.
+#ifdef EA_BUILD_A124
+// gcdatos16: 0.04f en la A124 (bytes de su .data objetivo en zTrack +0x8e48:
+// 0a d7 23 3d); 0.06f en las demas.
+float DarkFalloff = 0.04f;
+#else
+float DarkFalloff = 0.06f;
+#endif
+float DarkFallon = 0.1f;
+int tunnelDark = 70;
 float TUNHEIGHT = 10.0f;
+#ifdef EA_BUILD_A124
+// gcdatos13: solo en la A124, tras TUNHEIGHT (0x638638 y 0x63863c,
+// PS2_globals.hpp:5666-5667), a 1.0f en su .data objetivo. Sin simbolo en las demas.
+float togbias = 1.0f;
+float movbias = 1.0f;
+#endif
 
 void UpdateAllScreenEFX() {
     for (int i = 1; i <= 2; i++) {

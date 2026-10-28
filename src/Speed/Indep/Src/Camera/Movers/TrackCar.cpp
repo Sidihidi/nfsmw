@@ -7,7 +7,12 @@
 #include "Speed/Indep/Src/Misc/Point.hpp"
 #include "Speed/Indep/Src/World/WRoadNetwork.h"
 
+// La alpha no tiene PreviousEye: ni el simbolo (ausente en config/SLES-53558-A124/symbols.txt y en el objeto
+// original de zCamera) ni su inicializacion dinamica en el $I$ de zCamera. La retail si (D_005AC2A0, tres stores
+// de 0 en el $I$, detras de vCopViewPivot en .bss).
+#ifndef EA_BUILD_A124
 static bVector3 PreviousEye(0.0f, 0.0f, 0.0f); // .bss: 0x8045ADF4
+#endif
 
 static const float Tweak_JumpCamPositionSpeedMult[4] = {0.5f, 1.2999999523f, 1.0f, 1.5f};       // 0x803D3AFC
 static const float TrackCarIsoZoomDistance[3] = {3.2999999523f, 3.2999999523f, 3.2999999523f}; // 0x803D3B0C
@@ -122,38 +127,78 @@ void TrackCarCameraMover::Init() {
         gCamCloseToRoadBlock = 0;
         CameraType = 2;
     } else if (IsBeingPursued(ViewID)) {
+#ifdef EA_BUILD_A124
+        // La alpha pone CameraType = 1 sin mirar los policias: su Init no llama a IsAnyCopNear (no existe en el
+        // objeto original de la A124).
+        CameraType = 1;
+#else
         if (IsAnyCopNear(CarToFollow)) {
             CameraType = 1;
         }
+#endif
     }
 
-    float positionSpeedMultiplier[2];
+#ifdef EA_BUILD_A124
+    // La alpha lleva los dos multiplicadores en escalares sueltos (el original los mantiene en registros: ni un
+    // store a pila); la retail los agrupa en un array de dos floats inicializado en la declaracion: gcc 2.95
+    // construye los inicializadores en un temporal de 8 B y lo copia al array con ldl/ldr/sdl/sdr (el original
+    // retail tiene ese patron: stores a 0x360(sp) y copia de 8 B a 0x350(sp)).
+    float positionSpeedMultiplier0;
+    float positionSpeedMultiplier1;
+#else
+    float positionSpeedMultiplier[2] = {Tweak_JumpCamPositionSpeedMult[CameraType], Tweak_JumpCamPositionSpeedMult[3]};
+#endif
 
     const float kMaxPositionDistance = 150.0f;
 
-    positionSpeedMultiplier[0] = Tweak_JumpCamPositionSpeedMult[CameraType];
-    positionSpeedMultiplier[1] = Tweak_JumpCamPositionSpeedMult[3];
-    if (CarToFollow->GetVelocityMagnitude() * positionSpeedMultiplier[0] > kMaxPositionDistance) {
+#ifdef EA_BUILD_A124
+    positionSpeedMultiplier0 = Tweak_JumpCamPositionSpeedMult[CameraType];
+    // La alpha escribe 1.5f a mano (lui 0x3fc0 en su Init); la retail lee Tweak_JumpCamPositionSpeedMult[3].
+    positionSpeedMultiplier1 = 1.5f;
+    if (positionSpeedMultiplier0 * CarToFollow->GetVelocityMagnitude() > kMaxPositionDistance) {
+        positionSpeedMultiplier0 = kMaxPositionDistance / CarToFollow->GetVelocityMagnitude();
+    }
+    if (CarToFollow->GetVelocityMagnitude() * positionSpeedMultiplier1 > kMaxPositionDistance) {
+        positionSpeedMultiplier1 = kMaxPositionDistance / CarToFollow->GetVelocityMagnitude();
+    }
+#else
+    // Los ordenes de operandos de los mul.s son los del original retail (sm[i] * vel en las compuertas,
+    // vel * sm[0] en IncNavPosition).
+    if (positionSpeedMultiplier[0] * CarToFollow->GetVelocityMagnitude() > kMaxPositionDistance) {
         positionSpeedMultiplier[0] = kMaxPositionDistance / CarToFollow->GetVelocityMagnitude();
     }
-    if (CarToFollow->GetVelocityMagnitude() * positionSpeedMultiplier[1] > kMaxPositionDistance) {
+    if (positionSpeedMultiplier[1] * CarToFollow->GetVelocityMagnitude() > kMaxPositionDistance) {
         positionSpeedMultiplier[1] = kMaxPositionDistance / CarToFollow->GetVelocityMagnitude();
     }
+#endif
 
     bVector3 vCarPosQuarterTime;
+#ifdef EA_BUILD_A124
+    // La alpha mira un cuarto de segundo atras (0.25f); la retail, 0.1f.
+    bScaleAdd(&vCarPosQuarterTime, CarToFollow->GetGeometryPosition(), CarToFollow->GetVelocity(), 0.25f);
+#else
     bScaleAdd(&vCarPosQuarterTime, CarToFollow->GetGeometryPosition(), CarToFollow->GetVelocity(), 0.1f);
+#endif
 
     UMath::Vector4 carPosQuarterTime;
     eUnSwizzleWorldVector(vCarPosQuarterTime, (bVector3 &)carPosQuarterTime);
 
     bVector3 vFuture;
+#ifdef EA_BUILD_A124
+    bScaleAdd(&vFuture, CarToFollow->GetGeometryPosition(), CarToFollow->GetVelocity(), positionSpeedMultiplier0);
+#else
     bScaleAdd(&vFuture, CarToFollow->GetGeometryPosition(), CarToFollow->GetVelocity(), positionSpeedMultiplier[0]);
+#endif
     bVector3 vLeft(vFuture);
     bVector3 vRight(vFuture);
 
     bVector3 vFutureHigh;
+#ifdef EA_BUILD_A124
+    bScaleAdd(&vFutureHigh, CarToFollow->GetGeometryPosition(), CarToFollow->GetVelocity(), positionSpeedMultiplier1);
+#else
     bScaleAdd(&vFutureHigh, CarToFollow->GetGeometryPosition(), CarToFollow->GetVelocity(),
               positionSpeedMultiplier[1]);
+#endif
     bVector3 vLeftHigh(vFutureHigh);
     bVector3 vRightHigh(vFutureHigh);
 
@@ -171,8 +216,13 @@ void TrackCarCameraMover::Init() {
     nav.InitAtPoint(Vector4To3(carPos), Vector4To3(carDir), true, 1.0f);
 
     if (nav.IsValid()) {
-        nav.IncNavPosition(positionSpeedMultiplier[0] * CarToFollow->GetVelocityMagnitude(),
+#ifdef EA_BUILD_A124
+        nav.IncNavPosition(CarToFollow->GetVelocityMagnitude() * positionSpeedMultiplier0,
                            UMath::Vector3::kZero, 0.0f);
+#else
+        nav.IncNavPosition(CarToFollow->GetVelocityMagnitude() * positionSpeedMultiplier[0],
+                           UMath::Vector3::kZero, 0.0f);
+#endif
 
         const float kMaxNavDist = 10.0f;
         float navDist;
@@ -190,12 +240,20 @@ void TrackCarCameraMover::Init() {
         FixWorldHeight(&leftPos, CameraType);
 
         if (!IsSomethingInBetween(Vector4Make(leftPos, 1.0f), carPos) ||
+#ifndef EA_BUILD_A124
             (!IsSomethingInBetween(Vector4Make(leftPos, 1.0f), carPosQuarterTime) &&
              CameraType != 2)) {
+#else
+            !IsSomethingInBetween(Vector4Make(leftPos, 1.0f), carPosQuarterTime)) {
+#endif
             eSwizzleWorldVector(leftPos, vLeft);
+#ifdef EA_BUILD_A124
+            leftDist = bDistBetween(&vFuture, &vLeft);
+#else
             if (bDistBetween(&PreviousEye, &vLeft) > 3.0f) {
                 leftDist = bDistBetween(&vFuture, &vLeft);
             }
+#endif
         }
 
         navDist = Distancexz(nav.GetPosition(), nav.GetRightPosition());
@@ -210,12 +268,20 @@ void TrackCarCameraMover::Init() {
         FixWorldHeight(&rightPos, CameraType);
 
         if (!IsSomethingInBetween(Vector4Make(rightPos, 1.0f), carPos) ||
+#ifndef EA_BUILD_A124
             (!IsSomethingInBetween(Vector4Make(rightPos, 1.0f), carPosQuarterTime) &&
              CameraType != 2)) {
+#else
+            !IsSomethingInBetween(Vector4Make(rightPos, 1.0f), carPosQuarterTime)) {
+#endif
             eSwizzleWorldVector(rightPos, vRight);
+#ifdef EA_BUILD_A124
+            rightDist = bDistBetween(&vFuture, &vRight);
+#else
             if (bDistBetween(&PreviousEye, &vRight) > 3.0f) {
                 rightDist = bDistBetween(&vFuture, &vRight);
             }
+#endif
         }
 
     }
@@ -223,6 +289,29 @@ void TrackCarCameraMover::Init() {
     {
         UMath::Vector3 pos;
 
+#ifdef EA_BUILD_A124
+        // La alpha escala los offsets altos con 3.0f (no 4.0f), arregla la altura con CameraType (no con 3) y
+        // deja las distancias altas sin el 0.1f de la retail.
+        bScaleAdd(&vLeftHigh, &vFutureHigh, CarToFollow->GetLeftVector(), 3.0f);
+        eUnSwizzleWorldVector(vLeftHigh, (bVector3 &)pos);
+        FixWorldHeight(&pos, CameraType);
+        vLeftHigh.z = pos.y;
+
+        if (!IsSomethingInBetween(Vector4Make(pos, 1.0f), carPos) ||
+            !IsSomethingInBetween(Vector4Make(pos, 1.0f), carPosQuarterTime)) {
+            leftDistHigh = bDistBetween(&vFutureHigh, &vLeftHigh);
+        }
+
+        bScaleAdd(&vRightHigh, &vFutureHigh, CarToFollow->GetLeftVector(), -3.0f);
+        eUnSwizzleWorldVector(vRightHigh, (bVector3 &)pos);
+        FixWorldHeight(&pos, CameraType);
+        vRightHigh.z = pos.y;
+
+        if (!IsSomethingInBetween(Vector4Make(pos, 1.0f), carPos) ||
+            !IsSomethingInBetween(Vector4Make(pos, 1.0f), carPosQuarterTime)) {
+            rightDistHigh = bDistBetween(&vFutureHigh, &vRightHigh);
+        }
+#else
         bScaleAdd(&vLeftHigh, &vFutureHigh, CarToFollow->GetLeftVector(), 4.0f);
         eUnSwizzleWorldVector(vLeftHigh, (bVector3 &)pos);
         FixWorldHeight(&pos, 3);
@@ -248,6 +337,7 @@ void TrackCarCameraMover::Init() {
                 rightDistHigh = 0.1f * bDistBetween(&vFutureHigh, &vRightHigh);
             }
         }
+#endif
     }
 
     if (leftDist > 0.0f || rightDist > 0.0f || leftDistHigh > 0.0f || rightDistHigh > 0.0f) {
@@ -266,14 +356,19 @@ void TrackCarCameraMover::Init() {
         }
     } else {
         Eye = *pCamera->GetPosition();
+#ifndef EA_BUILD_A124
+        // La alpha no ajusta la altura del ojo de respaldo (ni la prueba de obstaculos): solo copia la posicion.
         Eye.z += 2.0f;
         if (IsSomethingInBetween(&Eye, CarToFollow->GetGeometryPosition())) {
             Eye.z -= 2.0f;
         }
+#endif
     }
 
     Eye.z += 0.5f;
+#ifndef EA_BUILD_A124
     PreviousEye = Eye;
+#endif
 
     FocalDistCubic.duration = 0.42f;
     FocalDistCubic.flags = 1;
@@ -317,7 +412,7 @@ void TrackCarCameraMover::Update(float dT) {
     }
 
     fov = 2 * bATan(distance, TrackCarIsoZoomDistance[CameraType]);
-    if (fov != 0) {
+    if (fov > 0) {
 #ifdef EA_BUILD_A124
         pCamera->SetFieldOfView(bClamp(fov, 1600, 13100));
 #else

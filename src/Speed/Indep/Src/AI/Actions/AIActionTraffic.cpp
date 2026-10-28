@@ -119,7 +119,7 @@ AIActionTraffic::~AIActionTraffic() {
     delete mDefaultPursuitLevelAttrib;
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionTraffic("AIActionTraffic", AIActionTraffic::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionTraffic(UCrc32("AIActionTraffic"), AIActionTraffic::Construct);
 
 float aAIStoppingDist[2] = {3.0f, 50.0f};
 Table aAIStoppingDistTable(aAIStoppingDist, 2, 0.0f, 80.0f);

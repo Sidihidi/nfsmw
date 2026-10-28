@@ -21,7 +21,7 @@ class FEResponse {
     FEResponse &operator=(FEResponse &rhs); // Decl: speed/indep/src/feng/FEMessageResponse.h:102
 
     static bool HasString(u32 ResponseID) {
-        return (ResponseID - 0x200u < 5) && (ResponseID != 0x203);
+        return (ResponseID >= 0x200 && ResponseID <= 0x204) && (ResponseID != 0x203);
     }
     static bool SpawnsPackage(u32 ResponseID) {
         return ResponseID == 0x2C1 || HasString(ResponseID);

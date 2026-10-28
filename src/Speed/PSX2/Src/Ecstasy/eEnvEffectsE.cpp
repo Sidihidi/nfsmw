@@ -22,6 +22,11 @@ u_long128 FogPalette[3][2][64];
 u_long128 AlphaPalette[3][64];
 u_long128 FocusPalettes[3][64];
 
+// Las matrices de textura del VU1 (los bucles de construccion del _GLOBAL_$I$ de zEcstasy caen en la linea 486
+// de este fichero segun el .mdebug de la A124, justo detras de envmap_fakeup).
+bMatrix4 VU1textureModMatrix[2][4];
+bMatrix4 VU1clipToTexMatrix[2][2];
+
 // Sube una imagen a la VRAM por el PATH2: un paquete de registros (BITBLTBUF, TRXPOS, TRXREG, TRXDIR) y un tag REF
 // que manda la imagen directamente desde donde esta.
 void AttachImageDataPacketDMA(eDmaChain *dma_chain, void *image_data, unsigned int vram_address, unsigned int qwsize,

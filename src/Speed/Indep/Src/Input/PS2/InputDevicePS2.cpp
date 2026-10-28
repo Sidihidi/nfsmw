@@ -109,7 +109,7 @@ struct DeviceScalarInfo {
     bool wheel;             // offset 0x18, size 0x4
 };
 
-UTL::COM::Factory<int, InputDevice, UCrc32>::Prototype _GameDevice("GameDevice", GameDevice::Construct);
+UTL::COM::Factory<int, InputDevice, UCrc32>::Prototype _GameDevice(UCrc32("GameDevice"), GameDevice::Construct);
 
 RealInput::Interface *inputsys = nullptr;
 static RealInput::Device *input_devices[RealInput::PD_NUM_PORTS * RealInput::PD_NUM_SLOTS] = {

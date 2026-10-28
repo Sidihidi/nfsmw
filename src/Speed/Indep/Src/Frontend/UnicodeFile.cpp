@@ -23,7 +23,7 @@ bool UnicodeFile::Load(const char *filename) {
         FixEOLs();
         end_[-1] = 0;
     }
-    return data_ != 0;
+    return data_;
 }
 
 void UnicodeFile::Unload() {
@@ -48,13 +48,11 @@ short *UnicodeFile::Next() {
     if (data_ == 0 || next_ == 0) {
         return 0;
     }
-    if (next_ != end_) {
-        while (next_ != end_ && *next_ != 0) {
-            next_ = next_ + 1;
-        }
-        while (next_ != end_ && *next_ == 0) {
-            next_ = next_ + 1;
-        }
+    while (next_ != end_ && *next_ != 0) {
+        next_ = next_ + 1;
+    }
+    while (next_ != end_ && *next_ == 0) {
+        next_ = next_ + 1;
     }
     if (next_ == end_) {
         next_ = 0;

@@ -45,8 +45,12 @@ const Attribute &Attribute::operator=(const Attribute &rhs) {
 }
 
 bool Attribute::IsValid() const {
-    if (mInternal) {
-        return true;
+    return mInternal != nullptr;
+}
+
+bool Attribute::IsMutable() const {
+    if (mCollection && mInternal) {
+        return mCollection->IsDynamic();
     }
     return false;
 }
@@ -65,8 +69,19 @@ unsigned int Attribute::GetType() const {
     return 0;
 }
 
+const Instance *Attribute::GetInstance() const {
+    return mInstance;
+}
+
 const Collection *Attribute::GetCollection() const {
     return mCollection;
+}
+
+unsigned int Attribute::GetSize() const {
+    if (mInternal) {
+        return mInternal->GetSize(mInstance->GetLayoutPointer());
+    }
+    return 0;
 }
 
 unsigned int Attribute::GetLength() const {
@@ -74,6 +89,14 @@ unsigned int Attribute::GetLength() const {
         return mInternal->GetCount(mInstance->GetLayoutPointer());
     }
     return 0;
+}
+
+bool Attribute::SetLength(unsigned int length) {
+    if (mInternal && IsMutable() && mInternal->IsArray()) {
+        mInternal->GetArray(mInstance->GetLayoutPointer())->SetCount(length);
+        return true;
+    }
+    return false;
 }
 
 void *Attribute::GetInternalPointer(unsigned int index) const {

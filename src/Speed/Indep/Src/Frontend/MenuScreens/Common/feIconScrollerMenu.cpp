@@ -12,6 +12,11 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEAnyTutorialScreen.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/PC/Src/Ecstasy/eMousePlat.hpp" // TheMouse: el cursor (IconPanel::Win32Unknown0x2c)
+#include "Speed/Indep/Src/Frontend/FEngInterfaces/FEGameInterface.hpp" // pc_fe_515960/515990
+#endif
+
 const char *gTUTORIAL_MOVIE_DRAG = "drag_tutorial";
 const char *gTUTORIAL_MOVIE_SPEEDTRAP = "speedtrap_tutorial";
 
@@ -63,7 +68,8 @@ FEImage *IconPanel::AddOption(IconOption *option) {
     char name[32];
     bStrCat(concat, pButtonName, "%d");
     FEngSNPrintf(name, 32, concat, iIndexToAdd);
-    FEImage *image = FEngFindImage(pPackageName, FEHashUpper(name));
+    const char *pkg_name = pPackageName;
+    FEImage *image = FEngFindImage(pkg_name, FEHashUpper(name));
     if (image == nullptr) {
         return nullptr;
     }
@@ -114,6 +120,22 @@ int IconPanel::GetOptionIndex(IconOption *to_find) {
     return -1;
 }
 
+#ifdef EA_PLATFORM_WIN32
+bool IconPanel::Win32Unknown0x2c() {
+    for (IconOption *node = Options.GetHead(); node != Options.EndOfList(); node = node->GetNext()) {
+        if (FEngTestForIntersection(TheMouse.X - 320.0f, TheMouse.Y - 240.0f, node->FEngObject)) {
+            if (node != pCurrentNode) {
+                SetSelection(node);
+                bJustScrolled = true;
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+#endif
+
 bool IconPanel::SetSelection(IconOption *option) {
     if (!option->IsGreyOut) {
         pCurrentNode->StartScale(0.614f, 0.2f);
@@ -150,7 +172,7 @@ void IconPanel::Scroll(eScrollDir dir) {
     if (Options.CountElements() != 0) {
         IconOption *new_option = pCurrentNode;
         if (dir == eSD_PREV) {
-            if (new_option != Options.GetHead()) {
+            if (pCurrentNode != Options.GetHead()) {
                 do {
                     new_option = new_option->GetPrev();
                     if (!new_option->IsGreyOut) {
@@ -159,7 +181,7 @@ void IconPanel::Scroll(eScrollDir dir) {
                 } while (new_option != Options.GetHead());
             }
         } else if (dir == eSD_NEXT) {
-            if (new_option != Options.GetTail()) {
+            if (pCurrentNode != Options.GetTail()) {
                 do {
                     new_option = new_option->GetNext();
                     if (!new_option->IsGreyOut) {
@@ -344,7 +366,8 @@ void IconScroller::AddInitialBookEnds() {
 FEImage *IconScroller::AddOption(IconOption *option) {
     char name[32];
     FEngSNPrintf(name, 32, "%s%d", pButtonName, iIndexToAdd);
-    FEImage *image = FEngFindImage(pPackageName, FEHashUpper(name));
+    const char *pkg_name = pPackageName;
+    FEImage *image = FEngFindImage(pkg_name, FEHashUpper(name));
     if (image == nullptr) {
         if (option != nullptr) {
             delete option;
@@ -401,9 +424,10 @@ void IconScroller::SetInitialPos(int index) {
     } else {
         AnimateCubic.SetValDesired(-pCurrentNode->YPos);
     }
-    AnimateCubic.Val = AnimateCubic.ValDesired;
-    AnimateCubic.dVal = AnimateCubic.dValDesired;
-    AnimateCubic.state = 0;
+    tCubic1D &cubic = AnimateCubic;
+    cubic.Val = cubic.ValDesired;
+    cubic.dVal = cubic.dValDesired;
+    cubic.state = 0;
     if (!bDelayUpdate) {
         for (IconOption *option = Options.GetHead(); option != Options.EndOfList(); option = option->GetNext()) {
             PositionOption(option);
@@ -460,10 +484,10 @@ int IconScroller::GetOptionIndex(IconOption *to_find) {
 }
 
 void IconScroller::Scroll(eScrollDir dir) {
-    if (Options.CountElements() - iNumBookEnds > 0) {
+    if (Options.CountElements() - iNumBookEnds >= 1) {
         IconOption *new_option = pCurrentNode;
         if (dir == eSD_PREV) {
-            if (new_option != HeadBookEnd->GetNext()) {
+            if (pCurrentNode != HeadBookEnd->GetNext()) {
                 do {
                     new_option = new_option->GetPrev();
                     if (!new_option->IsGreyOut) {
@@ -472,7 +496,7 @@ void IconScroller::Scroll(eScrollDir dir) {
                 } while (new_option != HeadBookEnd->GetNext());
             }
         } else if (dir == eSD_NEXT) {
-            if (new_option != TailBookEnd->GetPrev()) {
+            if (pCurrentNode != TailBookEnd->GetPrev()) {
                 do {
                     new_option = new_option->GetNext();
                     if (!new_option->IsGreyOut) {
@@ -489,7 +513,7 @@ void IconScroller::Scroll(eScrollDir dir) {
 }
 
 void IconScroller::ScrollWrapped(eScrollDir dir) {
-    if (Options.CountElements() - iNumBookEnds > 0) {
+    if (Options.CountElements() - iNumBookEnds >= 1) {
         IconOption *node = pCurrentNode;
         if (dir == eSD_PREV) {
             do {
@@ -608,6 +632,30 @@ void IconScroller::UpdateFade(IconOption *option, float scale) {
         FEngSetColor(option->FEngObject, color + b);
     }
 }
+
+#ifdef EA_PLATFORM_WIN32
+bool IconScroller::Win32Unknown0x2c() {
+    ScrollBar.Win32Unknown589900();
+    if (pScrollRegion != nullptr) {
+        float x;
+        float y;
+        pc_fe_515960(&x, &y);
+        if (FEngTestForIntersection(x, y, pScrollRegion)) {
+            float wheel;
+            pc_fe_515990(&wheel);
+            if (wheel < 0.0f) {
+                cFEng::Get()->QueuePackageMessage(0x039FEFFD, pPackageName, nullptr);
+                ScrollNext();
+            } else if (wheel > 0.0f) {
+                cFEng::Get()->QueuePackageMessage(0x0018C32A, pPackageName, nullptr);
+                ScrollPrev();
+            }
+            return true;
+        }
+    }
+    return false;
+}
+#endif
 
 void IconScroller::UpdateArrows() {
     if (pCurrentNode == Options.GetHead()) {

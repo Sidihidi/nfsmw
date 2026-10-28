@@ -282,6 +282,11 @@ void SFXCTL_Physics::UpdateMixerOutputs() {
 }
 
 SndBase::TypeInfo SFXCTL_AIPhysics::s_TypeInfo = {(int)0x00030000, "SFXCTL_AIPhysics", &SFXCTL_Physics::s_TypeInfo, SFXCTL_AIPhysics::CreateObject};
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, entre SFXCTL_AIPhysics::s_TypeInfo y SFXCTL_TruckPhysics::s_TypeInfo
+// (0x5e4358, PS2_globals.hpp:1063), a 0 en su .data objetivo.
+bool JustEnteredPostRace = false;
+#endif
 
 SndBase::TypeInfo *SFXCTL_AIPhysics::GetTypeInfo() const { return &s_TypeInfo; }
 
@@ -452,7 +457,12 @@ Gear SFXCTL_AIPhysics::SuggestGear() {
 
     PercentOfMaxSpeed /= this->GetPhysCar()->GetTheoreticalTopSpeed();
     GearNumber = static_cast<int>(PercentOfMaxSpeed * Spread * 8.0f);
+#ifdef EA_PLATFORM_WIN32
+    // PC acota por la marcha mas alta del coche (EAX_CarState +0x1FC, 0x4B5220); el Xbox A138 y GC, por SEVENTH_GEAR.
+    Result = bClamp(GearNumber, FIRST_GEAR, this->GetPhysCar()->mTopGear);
+#else
     Result = bClamp(GearNumber, FIRST_GEAR, SEVENTH_GEAR);
+#endif
     return static_cast<Gear>(Result);
 }
 
@@ -464,8 +474,10 @@ int SFXCTL_AIPhysics::GetController(int Index) {
 }
 
 void SFXCTL_AIPhysics::AttachController(SFXCTL *psfxctl) {
-    if (psfxctl->GetObjectIndex() == 2) {
+    switch (psfxctl->GetObjectIndex()) {
+    case 2:
         this->m_pShiftCtl = static_cast<SFXCTL_Shifting *>(psfxctl);
+        break;
     }
 }
 

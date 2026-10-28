@@ -60,11 +60,24 @@
 #include "Speed/Indep/Src/Misc/TestHooks/debugtrap.h"
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
+#include "Speed/Indep/Src/Camera/CameraMover.hpp"
+#include "Speed/Indep/bWare/Inc/bPrintf.hpp"
+#include "Speed/Indep/Src/EAXSound/AudioMemoryManager.hpp"
+#include "Speed/Indep/Src/Gameplay/GRaceStatus.h"
+#include "Speed/Indep/Src/Interfaces/SimEntities/IRecordablePlayer.h"
 #include "Speed/Indep/Src/Online/BuddyCore.hpp"
 #include "Speed/Indep/Src/Online/ConditionSimulator.hpp"
 #include "Speed/Indep/Src/World/WDbgCollisionDraw.h"
 #include "Speed/Indep/Src/Online/NetworkCore.hpp"
 #include <sifdev.h>
+#elif defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
+#include "Speed/Indep/Src/Frontend/NFSDebugMenu.h"
+#include "Speed/Indep/Src/Misc/TestHooks/debugtrap.h"
+#include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+#include "Speed/Indep/Src/Online/ConditionSimulator.hpp"
+#define NOMINMAX // sin el min/max de windef.h
+#include <xtl.h> // GetCurrentThreadId (el perfilador de Juice de InitializeEverything)
 #endif
 
 int ExitTheGameFlag = false;
@@ -156,6 +169,16 @@ void InitBigFiles() {
 static void Main_MyAssert(const char *format, ...) {}
 
 int InitializeEverythingTicks = 0;
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+// Xbox 360 0x8296D17C (.bss): lo escribe InitializeEverything con lo que devuelve Juice (0x8288B9B0) y lo lee MainLoop
+// (Juice::GameHook::XenonUnknown8288B908). Sin nombre en ningun binario: nombre neutro.
+int xenon_unknown_8296D17C;
+#endif
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 0x824748B0 (zRender de Xenon): MainLoop la llama tras AdvanceRealTime; recorre una bPList de hasta tres
+// nodos, llama a tres funciones por nodo y la cierra con bPListClose. Ni PC ni PS2 la tienen: nombre neutro.
+void XenonUnknown824748B0();
+#endif
 
 void InitScreenPrintf();
 void DebugMenuInit();
@@ -181,12 +204,15 @@ void InitializeEverything(int argc, char **argv) {
 #endif
     FirstBreakpoint();
     bMathTimingTest();
-#ifdef EA_BUILD_A124
-    // La A124 crea el procesador de ordenes de depuracion (debugtrap.h).
+#ifdef MILESTONE_BUILD
+    // Las milestone crean el procesador de ordenes de depuracion (debugtrap.h): la A124 y el EGM de X360 (pCommandProc
+    // en 0x8296E1F4, que leen InitializeEverything, MainLoop, el bucle principal y las dos de debugtrap.cpp).
     pCommandProc = new cCommandProcessor;
 #endif
     BuildRegion::IsAmerica();
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
+    // PS2 y Xbox 360 abren los ficheros grandes aqui (el EGM: bFileExists("NFS\ZDIR.BIN") y bInitDisculatorDriver
+    // antes de la demo disc); GameCube y PC, despues de BootLoadingScreen.
     InitBigFiles();
 #endif
     TheDemoDiscManager.Init(argc, argv);
@@ -196,7 +222,7 @@ void InitializeEverything(int argc, char **argv) {
     bPListInit(0x1800);
 #endif
     InitConfig();
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // La A124 arranca Juice y, si queda activo, el joylog lo graba la repeticion de Juice.
     InitJuice();
     if (!gJuiceEnabled)
@@ -214,17 +240,22 @@ void InitializeEverything(int argc, char **argv) {
     FEPackageManager::Init();
     LoadGlobalAChunks();
     FEManager::Init();
+#ifndef EA_PLATFORM_XENON
     BootLoadingScreen();
-#ifndef EA_PLATFORM_PLAYSTATION2
+#endif
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_XENON)
     InitBigFiles();
+#endif
+#ifndef EA_PLATFORM_PLAYSTATION2
     InitMemoryCard();
 #endif
     LoadGlobalChunks();
     InitFrontendDatabase();
 
     TheOnlineManager.Initialize(argc, argv);
-#ifdef EA_BUILD_A124
-    // Solo la A124 (SLUS no lee m_simCondition): GetSimCondition es inline de conditionsimulator.hpp.
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
+    // La A124 y el EGM de Xbox 360 (cmpwi 4 / li 2 tras OnlineManager::Initialize); SLUS no lee m_simCondition:
+    // GetSimCondition es inline de conditionsimulator.hpp.
     if (ConditionSimulator::GetSimCondition() == SIMCONDITION_NTSCINEUROPE) {
         SetVideoMode(MODE_NTSC);
     }
@@ -232,6 +263,10 @@ void InitializeEverything(int argc, char **argv) {
 
     IOModule::GetIOModule().Initialize();
     FEManager::InitInput();
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: la pantalla de carga de arranque va tras la entrada (el EGM la llama despues de FEManager::InitInput).
+    BootLoadingScreen();
+#endif
     IOModule::GetIOModule().EnableUpdating(true);
 #ifdef EA_BUILD_A124
     DebugDraw::Get();
@@ -267,7 +302,7 @@ void InitializeEverything(int argc, char **argv) {
     TheICEManager.Init();
     FastMem::Lock();
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // Sin servidor de Juice se avisa en pantalla y se apaga; con el, la salida de texto va a Juice.
     if (!Juice::GameHook::Instance()->IsConnected()) {
         int lastPrintfState = DoScreenPrintf;
@@ -277,6 +312,14 @@ void InitializeEverything(int argc, char **argv) {
         DoScreenPrintf = lastPrintfState;
         gJuiceEnabled = 0;
     } else {
+#if defined(EA_PLATFORM_XENON)
+        // Xbox 360: con Juice conectado, el hilo principal se da de alta en el perfilador de Juice (EGM 0x823DB64C).
+        Juice::GameHook::Instance()->XenonUnknown8288BA18(65000);
+        Juice::GameHook::Instance()->XenonUnknown8288B900();
+        unsigned int threadId = GetCurrentThreadId();
+        xenon_unknown_8296D17C = Juice::GameHook::Instance()->XenonUnknown8288B9B0(threadId);
+        Juice::GameHook::Instance()->XenonUnknown8288BA08(threadId, "Main Execution");
+#endif
         bSetUserPutStringFunction(JuicePutStringFunction);
     }
     Juice::MWCommands::Instance();
@@ -288,7 +331,193 @@ void InitializeEverything(int argc, char **argv) {
 
 void WriteFreekerBaseAddressBeacon() {}
 
-void DisplayDebugScreenPrints() {}
+#ifdef EA_BUILD_A124
+// Los tiempos del fotograma anterior que DisplayDebugScreenPrints pinta; la alpha los define en este
+// fichero, en este orden, antes de RenderTimingStart (en SLUS/GameCube no estan en la unidad).
+float PreviousCpuFrameTime = 0.0f;
+float PreviousGpuFrameTime = 0.0f;
+float PreviousCpuFrameRate = 0.0f;
+float PreviousGpuFrameRate = 0.0f;
+float PreviousSimFrameTime = 0.0f;
+float PreviousRenderFrameTime = 0.0f;
+int PreviousSimCallCount = 0;
+float PreviousProfileTime = 0.0f;
+int DisplayPolyCount = 0;
+
+extern float TotalWalkPathTime;
+extern int RenderTimingStart;
+extern int RenderTimingEnd;
+extern int FrameTimingStartTime;
+extern int FrameTimingEndTime;
+#endif
+
+void DisplayDebugScreenPrints() {
+#ifdef EA_BUILD_A124
+    IRecordablePlayer *player;
+    float wait_for_buffer_swap_time;
+    float vif_time;
+    float render_time;
+    float profile_time;
+    float cpu_time;
+    float cpu_frame_rate;
+    float gpu_frame_rate;
+    static int last_realtime_frames;
+    static float prev_walk_path_times[16];
+
+    if (FullBuildVersionName) {
+        ScreenPrintf(-315, -235, 0xffffffff, FullBuildVersionName);
+    }
+    player = IRecordablePlayer::First();
+    if (player) {
+        unsigned int packetsize = player->GetPacketSize();
+        if (packetsize) {
+            ScreenPrintf(-220, -231, 0xffffffff, "Packet size: %d", packetsize);
+        }
+    }
+    if (TheOnlineManager.IsOnlineRace()) {
+        float y = -245.0f;
+        if (TheOnlineManager.GetState() != OLS_RACING) {
+            unsigned int time = NetworkCore::Instance().GetTime();
+            ScreenPrintf(-220, -231, 0xffffffff, "%d:%02d:%02d.%03d", time / 3600000, (time / 60000) % 60, (time / 1000) % 60,
+                         time % 1000);
+        } else {
+            unsigned int masterTime = TheOnlineManager.GetMasterTime();
+            if (!TheOnlineManager.IsServer()) {
+                unsigned int serverTime = TheOnlineManager.GetServerTime();
+                ScreenPrintf(-100, -231, 0xffffffff, "%d", masterTime - serverTime);
+                ScreenPrintf(-20, -231, 0xffffffff, "%.3f",
+                             1.0f - (float)(int)(TheOnlineManager.mMasterTime - TheOnlineManager.mStartTime) / (float)serverTime);
+            }
+            y += 14.0f;
+            ScreenPrintf(-300, (int)y, 0xffffffff, "Master: ");
+            ScreenPrintf(-220, (int)y, 0xffffffff, "%d:%02d:%02d.%03d", masterTime / 3600000, (masterTime / 60000) % 60,
+                         (masterTime / 1000) % 60, masterTime % 1000);
+            OnlineRacer *localracer = TheOnlineManager.GetLocalRacer();
+            if (localracer) {
+                y += 14.0f;
+                float lasttime = localracer->GetLastTime();
+                ScreenPrintf(-300, (int)y, 0xffffffff, "Local: ");
+                ScreenPrintf(-220, (int)y, 0xffffffff, "%d:%02d:%02d.%03d", (unsigned int)(lasttime / 3600.0f),
+                             (unsigned int)(lasttime / 60.0f) % 60, (unsigned int)lasttime % 60,
+                             (unsigned int)(lasttime * 1000.0f) % 1000);
+                ScreenPrintf(-100, (int)y, 0xffffffff, "%.3f", localracer->GetLatency());
+                for (int i = 0; i < 4; i++) {
+                    OnlineRacer *racer = TheOnlineManager.GetOnlineRacer(i);
+                    if (racer && racer != localracer) {
+                        y += 14.0f;
+                        float lasttime = racer->GetLastTime();
+                        ScreenPrintf(-300, (int)y, 0xffffffff, "Remote: ");
+                        ScreenPrintf(-220, (int)y, 0xffffffff, "%d:%02d:%02d.%03d", (unsigned int)(lasttime / 3600.0f),
+                                     (unsigned int)(lasttime / 60.0f) % 60, (unsigned int)lasttime % 60,
+                                     (unsigned int)(lasttime * 1000.0f) % 1000);
+                        ScreenPrintf(-100, (int)y, 0xffffffff, "%.3f", racer->GetLatency());
+                        float percent = 0.0f;
+                        ScreenPrintf(-20, (int)y, 0xffffffff, "%.0f", percent);
+                    }
+                }
+            }
+        }
+    }
+    wait_for_buffer_swap_time = GetWaitForBufferSwapTime();
+    vif_time = GetVifTime();
+    render_time = bGetTickerDifference(RenderTimingStart, RenderTimingEnd) - wait_for_buffer_swap_time;
+    cpu_time = bGetTickerDifference(FrameTimingStartTime, FrameTimingEndTime) - wait_for_buffer_swap_time;
+    if (cpu_time < 0.1f) {
+        cpu_time = 0.1f;
+    }
+    gpu_frame_rate = 0.0f;
+    if (0.1f < vif_time) {
+        cpu_frame_rate = 1000.0f / cpu_time;
+        gpu_frame_rate = 1000.0f / vif_time;
+    }
+    if ((RealTimeFrames & 8) != (last_realtime_frames & 8)) {
+        last_realtime_frames = RealTimeFrames;
+        if (render_time != 0.0f) {
+            PreviousRenderFrameTime = render_time;
+        }
+        PreviousCpuFrameTime = cpu_time;
+        PreviousGpuFrameTime = vif_time;
+        PreviousCpuFrameRate = cpu_frame_rate;
+        PreviousGpuFrameRate = gpu_frame_rate;
+        profile_time = Sim::GetProfile();
+        PreviousSimFrameTime = profile_time;
+        PreviousSimCallCount = Sim::GetCallCount();
+        if (PreviousGpuFrameRate < 1.0f) {
+            PreviousGpuFrameRate = PreviousCpuFrameRate;
+        }
+    }
+    prev_walk_path_times[RealLoopCounter % 16] = TotalWalkPathTime;
+    TotalWalkPathTime = 0.0f;
+    if (DisplayFrameRate && DoScreenPrintf && !TheICEManager.IsEditorOn()) {
+        ScreenPrintf(-300, -30, 0xffffffff, "C: %.2f ms", PreviousCpuFrameTime);
+        if (PreviousGpuFrameTime != 0.0f) {
+            ScreenPrintf(-200, -30, 0xffffffff, "G: %.2fms", PreviousGpuFrameTime);
+        }
+        float fps = bMin(PreviousGpuFrameRate, PreviousCpuFrameRate);
+        Juice::MWExtension::JuiceLowFrameRateLog(fps);
+        ScreenPrintf(-300, -15, 0xffffffff, "F: %.2f fps", fps);
+        float time = 0.0f;
+        for (int n = 0; n < 16; n++) {
+            time = bMax(time, prev_walk_path_times[n]);
+        }
+        if (time > 0.5f) {
+            ScreenPrintf(-200, -15, 0xffffffff, "Road: %.2fms", time);
+        }
+        if (DisplayPolyCount) {
+            for (int i = 0; i < 10; i++) {
+                ScreenPrintf(30, i * 13, "%s", GetPCType((polyCountEnum)i));
+                ScreenPrintf(170, i * 13, "PC:%d", GetPolyCount((polyCountEnum)i));
+                ScreenPrintf(260, i * 13, "MC:%d ", GetModelCount((polyCountEnum)i));
+            }
+            ClearPolyCounts();
+        }
+    }
+    Sim::PrintInventory();
+    DebugVehicleSelection::Get().DebugDisplay();
+    DebugWorld::Get().DebugDisplay();
+    if (pCurrentWorld && DoScreenPrintf && !TheICEManager.IsEditorOn()) {
+        CameraMover *cammover = eViews[EVIEW_PLAYER1].GetCameraMover();
+        if (cammover && cammover->GetCamera()) {
+            bVector3 position = cammover->GetCamera()->GetPositionSimSpace();
+            if (!DisplayCoordinatesInSimSpace) {
+                position = *cammover->GetCamera()->GetPosition();
+            }
+            const char *currentRaceID = nullptr;
+            if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceParameters()) {
+                currentRaceID = GRaceStatus::Get().GetRaceParameters()->GetEventID();
+            }
+            ScreenPrintf(-300, 15, "(%.0f,%.0f,%.0f) %s", position.x, position.y, position.z, currentRaceID ? currentRaceID : "");
+        }
+    }
+    if (TheGameFlowManager.GetState() != GAMEFLOW_STATE_RACING) {
+        if (DoScreenPrintf && !TheICEManager.IsEditorOn()) {
+            ScreenPrintf(-300, 30, "CL %s", BuildVersionChangelistName);
+        }
+    }
+    if (DoScreenPrintf && !TheICEManager.IsEditorOn()) {
+        const char *out_of_memory_string = "";
+        if (TheTrackStreamer.CurrentZoneOutOfMemory) {
+            out_of_memory_string = " ** No Mem **";
+        }
+        char loading_backlog[10] = {0};
+        if (TheTrackStreamer.GetLoadingBacklog() > 0.0f) {
+            bSPrintf(loading_backlog, " %3.1f", TheTrackStreamer.GetLoadingBacklog());
+        }
+        int track_mem_size = bCountFreeMemory(7);
+        if (TheGameFlowManager.GetState() == GAMEFLOW_STATE_RACING) {
+            ScreenPrintf(-300, 30, "TS = %d / %dK %s%s%s", (TheTrackStreamer.GetMemoryPoolSize() - track_mem_size) / 1024,
+                         TheTrackStreamer.GetMemoryPoolSize() / 1024, TheTrackStreamer.GetCurrentZoneName(), loading_backlog,
+                         out_of_memory_string);
+        }
+        int fast_mem_free = gFastMem.mBytes - gFastMem.mUsed;
+        int main_mem_size = bCountFreeMemory(0);
+        if (IsSoundEnabled) {
+            bCountFreeMemory(AudioMemoryPool);
+        }
+        ScreenPrintf(-300, 45, "Main = %dK  Fast = %dK", main_mem_size / 1024, fast_mem_free / 1024);
+    }
+#endif
+}
 
 void VerifyJoylogChecksum() {
     if (!Joylog::IsCapturing() && !Joylog::IsReplaying()) {
@@ -342,7 +571,7 @@ void VerifyJoylogChecksum() {
         Joylog::AddData(real_loop_counter_checksum, 16, JOYLOG_CHANNEL_CHECKSUM);
     }
     if (checksum_error) {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
         // La A124 lleva los ganchos de Juice: con Juice activo el error se registra alli y para su gestor de
         // repeticiones.
         if (!gJuiceEnabled)
@@ -351,7 +580,7 @@ void VerifyJoylogChecksum() {
             bBreak();
             Joylog::StopReplaying();
         }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
         else {
             Juice::GameHook::Instance()->AssertLog(0, "", "Main.cpp", "checksum_error && StopOnJoylogChecksumError",
                                                   "Joylog Checksum Error has occured");
@@ -442,11 +671,14 @@ void Main_DisplayFrame() {
 }
 
 void CheckTweakerTriggers() {
-#ifdef EA_BUILD_A124
-    // La A124 (una milestone) atiende aqui el volcado de memoria y los ajustes de coches; GameCube y SLUS la
-    // tienen vacia.
+#ifdef MILESTONE_BUILD
+    // Las dos milestone (la A124 y el EGM de X360, 0x823DCDB0) atienden aqui el volcado de memoria y los ajustes de
+    // coches; GameCube y SLUS la tienen vacia.
     ServiceMemoryDump();
     TheCarLoader.ServiceTweakables();
+#endif
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    ServiceFileStats();
 #endif
 }
 
@@ -498,14 +730,15 @@ bool Tweak_FullSpeedMode = false; // Decl: 2585
 bool twkDumpProfileMarks = false; // Decl: 2586
 
 void MainLoop(
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
     bFix hardware_ms_fix
 #else
     float hardware_ms
 #endif
 ) {
-#ifdef EA_PLATFORM_PLAYSTATION2
-    // PS2 (A124 y SLUS) recibe los milisegundos en coma fija 16.16 (MainLoop__Fi) y los pasa a float aqui.
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
+    // PS2 (A124 y SLUS) y X360 reciben los milisegundos en coma fija 16.16 (MainLoop__Fi; en el EGM, 0x823DCF38,
+    // extsw/fcfid del entero y el bucle de 0x823DD170 lo pasa con fctiwz) y los pasan a float aqui.
     float hardware_ms = hardware_ms_fix / 65536.0f;
 #endif
     int ret = bGetTicker();
@@ -584,11 +817,14 @@ void MainLoop(
     AdvanceWorldTime();
     MaybePrintUnusedTextures();
     MaybeDoMemoryProfile();
-#ifdef EA_BUILD_A124
-    // La A124 (milestone) atiende aqui el menu de depuracion, la memoria libre del IOP y los ganchos de Juice.
+#ifdef MILESTONE_BUILD
+    // Las milestone atienden aqui el menu de depuracion (la A124 y el EGM de X360, 0x823DD110).
     if (gDebugMenuIOHandler) {
         gDebugMenuIOHandler->PollInput();
     }
+#endif
+#ifdef EA_BUILD_A124
+    // La A124 atiende tambien la memoria libre del IOP y los ganchos de Juice.
     if (gbLogFreeIOPMemToTTY && TheICEManager.IsEditorOff()) {
         unsigned int IOPMaxFree = sceSifQueryMaxFreeMemSize();
         unsigned int IOPFree = sceSifQueryTotalFreeMemSize();
@@ -620,14 +856,23 @@ void MainLoop(
     JuiceStatsDB::Instance()->UpdateTimers();
     Juice::GameHook::Instance()->FrameUpdate();
 #endif
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // X360 (0x823DD0F4): los ganchos de Juice que quedan en el EGM.
+    Juice::GameHook::Instance()->XenonUnknown8288B908(xenon_unknown_8296D17C);
+    JuiceStatsDB::Instance()->UpdateTimers();
+#endif
     AdvanceRealTime();
+#ifdef EA_PLATFORM_XENON
+    XenonUnknown824748B0();
+#endif
     profile_node_entire_mainloop.End();
     profile_node.End();
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     pCommandProc->setTickCount();
 #endif
 
-#ifndef EA_PLATFORM_PLAYSTATION2
+    // El EGM de X360 no lo tiene.
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_XENON)
     static int PrintFreeMem = 0;
     if (PrintFreeMem != 0) {
         int free_memory = bCountFreeMemory(0);
@@ -663,6 +908,10 @@ int MainThreadFunction(int argc, char **argv)
     frames_elapsed = 1;
 
     loop_ticker = bGetTicker();
+#ifdef MILESTONE_BUILD
+    // Las milestone arrancan aqui el procesador de ordenes (setState(1): la A124, y el EGM de X360 en linea).
+    pCommandProc->setState(1);
+#endif
     Scheduler::Get().Synchronize(RealTimer);
 
     while (!ExitTheGameFlag) {
@@ -704,6 +953,8 @@ int MainThreadFunction(int argc, char **argv)
             }
             MainLoop(milliseconds_fix);
         }
+#elif defined(EA_PLATFORM_XENON)
+        MainLoop(milliseconds_fix);
 #else
         MainLoop(milliseconds);
 #endif

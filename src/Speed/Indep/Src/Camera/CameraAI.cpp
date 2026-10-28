@@ -54,7 +54,13 @@ namespace CameraAI {
 } // namespace CameraAI
 
 CameraAI::Director::Director(EVIEW_ID view)
-    : mView(view), mActionName("CDActionDrive"), mAction(0), mQueue(1, 0x98c7a2f5, "CameraAI", false), mUnused(0), mPursuitTimer(0.0f),
+    : mView(view), mActionName("CDActionDrive"), mAction(0),
+#ifdef EA_PLATFORM_WIN32
+      mQueue(0, 0x98c7a2f5, "CameraAI", false),
+#else
+      mQueue(1, 0x98c7a2f5, "CameraAI", false),
+#endif
+      mUnused(0), mPursuitTimer(0.0f),
       mJumpTimer(0.0f), mFlags(0), mCinematicScale(0.0f) {}
 
 CameraAI::Director::~Director() {

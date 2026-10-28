@@ -3,7 +3,7 @@
 #include "Speed/Indep/Src/Input/ActionQueue.h"
 #include "Speed/Indep/Src/Misc/Joylog.hpp"
 #include "Speed/Indep/Src/Misc/Joystick.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 
@@ -71,7 +71,13 @@ bool IOModule::CheckUnplugged() {
                 q->IO_Flush();
             }
 
+#ifdef EA_PLATFORM_XENON
+            // El EGM prueba la mascara (slw r8, r19, r30 + and r7, r8, r22 en
+            // 0x823CE6F8-0x823CE700), no el desplazamiento a derechas.
+            if (disconnected & (1 << port)) {
+#else
             if ((disconnected >> port) & 1) {
+#endif
                 q->IO_SetConnected(false);
             } else {
                 q->IO_SetConnected(true);
@@ -113,7 +119,7 @@ void IOModule::Update() {
     if (fUpdateEnabled) {
         ActionQueue::BeginJoylogFrame();
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
         if ((!gJuiceEnabled && !Joylog::IsReplaying()) ||
             (gJuiceEnabled && !Juice::GameHook::Instance()->Replay_IsReplaying() && !MWJuicePad::Instance()->IsLastJoyFrame())) {
 #else
@@ -123,7 +129,7 @@ void IOModule::Update() {
             UpdateAllDevices();
         }
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
         Juice::GameHook::Instance()->UpdatePad(nullptr);
 #endif
         ActionQueue::EndJoylogFrame();
@@ -132,7 +138,11 @@ void IOModule::Update() {
 
 void IOModule::CreateDevices() {
     this->fDisconnected = 0;
+#ifdef EA_PLATFORM_XENON
+    for (int i = 0; i < 4; i++) {
+#else
     for (int i = 0; i <= 1; i++) {
+#endif
         InputDevice *newDevice = InputDevice::CreateInstance(UCrc32("GameDevice"), i);
         if (newDevice != 0) {
             newDevice->Initialize();

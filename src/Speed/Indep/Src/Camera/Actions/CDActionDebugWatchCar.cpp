@@ -9,7 +9,7 @@
 #include "Speed/Indep/Src/World/WorldConn.h"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
-extern int CameraDebugWatchCar;
+extern bool CameraDebugWatchCar;
 
 // Listable<IDebugWatchCar,2>::_mTable: en .bss del original va entre
 // _CDActionIce (0x8045AC70) y _CDActionDebugWatchCar (0x8045AC94), asi que la

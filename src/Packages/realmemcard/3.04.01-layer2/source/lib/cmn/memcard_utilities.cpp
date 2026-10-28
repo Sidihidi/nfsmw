@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 #include <ctype.h>
 
 #include "../../../include/common/realmemcard/memcard_utilities.h"
@@ -265,6 +266,44 @@ static unsigned int crctab[256] = {
     0xB1F740B4,
 };
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void Unicode2Ascii(char *dst, const wchar_t *src) {
+    while (*src != 0) {
+        if (*src >= 0x100 || (*src == '\\' && src[1] == 'x')) {
+            sprintf(dst, "\\x%04x", *src);
+            dst += 6;
+        } else {
+            *dst++ = static_cast<char>(*src);
+        }
+        src++;
+    }
+    *dst = 0;
+}
+#endif
+
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void Ascii2Unicode(wchar_t *dst, const char *src) {
+    while (*src != 0) {
+        bool isunicodemarkup = false;
+        int unicode = 0;
+
+        if (src[0] == '\\' && src[1] == 'x') {
+            int digit;
+
+            isunicodemarkup = true;
+            for (int i = 0; i < 4 && src[i + 2] != 0; i++) {
+                if (src[i + 2] >= '0' && src[i + 2] <= '9') {
+                    digit = static_cast<unsigned char>(src[i + 2]) - '0';
+                } else if (src[i + 2] >= 'a' && src[i + 2] <= 'f') {
+                    digit = static_cast<unsigned char>(src[i + 2]) - 'a' + 10;
+                } else {
+                    isunicodemarkup = false;
+                    break;
+                }
+                unicode = unicode * 16 + digit;
+            }
+        }
+#else
 void Ascii2Unicode(wchar_t *dst, const char *src) {
     while (*src != 0) {
         bool isunicodemarkup;
@@ -298,6 +337,7 @@ void Ascii2Unicode(wchar_t *dst, const char *src) {
                 }
             }
         }
+#endif
 
         if (isunicodemarkup) {
             *dst++ = unicode;
@@ -314,15 +354,27 @@ unsigned int Crc32(const void *buf, int bufsize) {
     unsigned char *d;
 
     d = static_cast<unsigned char *>(const_cast<void *>(buf));
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // La revision WIN32/XENON chequea < 4 (cmpwi 4 en fn_825F38C8) y niega en dos pasos con el
+    // avance del puntero en medio (or + nor en el original, no un solo nor fusionado; r63).
+    if (bufsize < 4) {
+#else
     if (bufsize <= 3) {
+#endif
         return 0;
     }
 
     result = static_cast<unsigned int>(*d) << 24;
     result |= static_cast<unsigned int>(*++d) << 16;
     result |= static_cast<unsigned int>(*++d) << 8;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    result |= *++d;
+    d++;
+    result = ~result;
+#else
     result = ~(result | *++d);
     d++;
+#endif
     {
         int i;
 
@@ -350,6 +402,84 @@ static char *strrstr(char *str, char *searchfor) {
     return best;
 }
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 (r63): la revision de Xenon combina los resultados booleanos con && y || (el cuerpo
+// original, fn_825F39B0 de 616 B, no pone bopmatch a 0 antes de las llamadas recursivas: lo
+// materializa despues en el registro de retorno) y encadena el bucle principal con else if
+// (la rotacion del bucle del original prueba la cadena: hay dos pruebas de '*', en la cabecera
+// y al final). La comparacion de caracteres es con tolower (dos bl a _tolower en el original),
+// como en PC; en PC el cierre sigue pendiente del /Ob0 de la TU y del byte de bopmatch en x86
+// (receta de la r61), y en GC/PS2 la forma de abajo ya casa al 100 %: por eso el cuerpo nuevo va
+// solo en Xenon de momento.
+int Wildcard(char *nam, char *pat) {
+    char *bop;
+    int bopmatch;
+
+    bop = strrstr(pat, "&|!~^");
+    if (bop != nullptr) {
+        if (*bop == '&') {
+            *bop = 0;
+            bopmatch = Wildcard(nam, pat) && Wildcard(nam, bop + 1);
+            *bop = '&';
+            return bopmatch;
+        }
+        if (*bop == '|') {
+            *bop = 0;
+            bopmatch = Wildcard(nam, pat) || Wildcard(nam, bop + 1);
+            *bop = '|';
+            return bopmatch;
+        }
+        if (*bop == '!' || *bop == '~') {
+            *bop = 0;
+            bopmatch = Wildcard(nam, pat) || Wildcard(nam, bop + 1);
+            *bop = '!';
+            return bopmatch;
+        }
+        if (*bop == '^') {
+            *bop = 0;
+            bopmatch = Wildcard(nam, pat) ^ Wildcard(nam, bop + 1);
+            *bop = '^';
+            return bopmatch;
+        }
+    }
+
+    for (;;) {
+        if (*pat == '*') {
+            pat++;
+            do {
+                if (Wildcard(nam, pat)) {
+                    return 1;
+                }
+            } while (*nam++ != 0);
+            return 0;
+        } else if (*pat == '?') {
+            pat++;
+            if (*nam == 0) {
+                return 0;
+            }
+            nam++;
+        } else if (*pat == '#') {
+            pat++;
+            if (!isdigit(*nam)) {
+                return 0;
+            }
+            nam++;
+        } else if (*pat != '~') {
+            if (tolower(*pat) != tolower(*nam)) {
+                return 0;
+            }
+            if (*pat != 0) {
+                pat++;
+                nam++;
+            } else {
+                return 1;
+            }
+        } else {
+            return !Wildcard(nam, pat + 1);
+        }
+    }
+}
+#else
 int Wildcard(char *nam, char *pat) {
     char *bop;
     int bopmatch;
@@ -444,5 +574,6 @@ matchPattern:
 noMatch:
     return 0;
 }
+#endif
 
 } // namespace RealmcUtils

@@ -308,6 +308,16 @@ class Node {
         return 0;
     }
 
+    std::size_t GetSize(void *layoutptr) const {
+        if (IsValid()) {
+            if (IsArray()) {
+                return GetArray(layoutptr)->GetTypeSize();
+            }
+            return GetTypeDesc().GetSize();
+        }
+        return 0;
+    }
+
     Key GetKey() const {
         return IsValid() ? mKey : 0;
     }

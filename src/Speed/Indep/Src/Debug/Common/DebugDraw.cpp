@@ -9,7 +9,13 @@
 
 extern float Tweak_drawRange;
 
+#ifdef EA_PLATFORM_XENON
+// El EGM reparte la mitad: AllocLists pide 0xFA0 B para los DrawPrimTri y 0x2EE0 para los
+// colores (0x821965C8), o sea 1000 primitivas; la A124 casa al 100 % con 2000.
+int sDebugDrawMaxPrims = 1000;
+#else
 int sDebugDrawMaxPrims = 2000;
+#endif
 int sDebugDrawMaxLinePrims = 0;
 
 DebugDraw *DebugDraw::fgDbgDraw;

@@ -69,7 +69,8 @@
 
 #include "Speed/Indep/Src/Misc/Timer.cpp"
 
-#ifdef EA_BUILD_A124
+// Tambien en el EGM de X360 (milestone): entre Timer.cpp y Hermes.cpp, 0x823FBFB0-0x823FC828.
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/debugtrap.cpp"
 
 #include "Speed/Indep/Src/Misc/TestHooks/inputsimulation.cpp"

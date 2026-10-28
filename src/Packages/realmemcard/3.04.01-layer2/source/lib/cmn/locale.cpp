@@ -9,7 +9,11 @@ namespace Locale {
 
 static const int TRC_MSG_BUFFER_SIZE = 1024;
 static const int NUM_TRC_MSG_BUFFERS = 5;
+#if defined(_MSC_VER)
+static __declspec(align(32)) unsigned short gTrcMsgBuffer[NUM_TRC_MSG_BUFFERS][TRC_MSG_BUFFER_SIZE];
+#else
 static unsigned short __attribute__((aligned(32))) gTrcMsgBuffer[NUM_TRC_MSG_BUFFERS][TRC_MSG_BUFFER_SIZE];
+#endif
 static int gTrcMsgBufferIndex = 0;
 static const char *(*gLocaleCallback)(int) = nullptr;
 
@@ -117,8 +121,8 @@ const wchar_t *GetString(int strID, char *parameterTypes, ...) {
 }
 
 // GameCube tambien la tenia (DWARF: rango 0xFFFFFFFF, con isunicodemarkup, unicode, digit e i) y su enlazador la
-// estripa entera; en PS2 se queda.
-#ifdef EA_PLATFORM_PLAYSTATION2
+// estripa entera; en PS2 se queda. En X360 queda emitida en 0x825E9878 (244 B, la logica de escapes \x).
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
 void ConvertAsciiToUnicode(const char *src, unsigned short *dst) {
     while (*src != 0) {
         bool isunicodemarkup = false;

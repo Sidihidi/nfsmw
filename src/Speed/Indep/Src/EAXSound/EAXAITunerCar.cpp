@@ -6,7 +6,18 @@
 #include "Speed/Indep/Src/EAXSound/States/STATE_DriveBy.hpp"
 #include "Speed/Indep/Src/Generated/Messages/MGamePlayMoment.h"
 
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, entre TablePitch y EAXCopCar::s_StateInfo (0x5e2c78-0x5e2c7c y
+// 0x5e2c90, PS2_globals.hpp:979-982), a 0 en su .data objetivo.
+int DEBUG_ONLINE_ENGINES = 0;
+int g_AI_PITCH_OFFSET = 0;
+#endif
+
 STATETYPE_IMPLEMENT(0x00030000, EAXAITunerCar, EAXCar)
+
+#ifdef EA_BUILD_A124
+int SND_AI_FollowAICar = 0;
+#endif
 
 EAXAITunerCar::EAXAITunerCar() {
     emAddHandler(EAXAITunerCar::ProcessEvent, 0x40000);

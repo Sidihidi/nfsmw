@@ -10,7 +10,7 @@
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
-extern int Tweak_EnableICEAuthoring;
+extern bool Tweak_EnableICEAuthoring;
 
 class CDActionDebug : public CameraAI::Action, public ITrafficCenter {
   public:
@@ -41,17 +41,27 @@ class CDActionDebug : public CameraAI::Action, public ITrafficCenter {
     ActionQueue mQueue;       // offset 0x20, size 0x294
     CameraMover *mMover;      // offset 0x2B4, size 0x4
     Attrib::StringKey mNext;  // offset 0x2B8, size 0x10
+#ifdef EA_PLATFORM_WIN32
+    bool mSwitchOut; // PC: byte en 0x2C0 (ctor: mov [esi+0x2c0],bl)
+#else
     int mSwitchOut;           // offset 0x2C8, size 0x4
+#endif
 };
 
-UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32>::Prototype _CDActionDebug("CDActionDebug", CDActionDebug::Construct);
+UTL::COM::Factory<CameraAI::Director *, CameraAI::Action, UCrc32>::Prototype _CDActionDebug(UCrc32("CDActionDebug"), CDActionDebug::Construct);
 
 CameraAI::Action *CDActionDebug::Construct(CameraAI::Director *director) {
     return new CDActionDebug(director);
 }
 
 CDActionDebug::CDActionDebug(CameraAI::Director *director)
-    : CameraAI::Action(0), mQueue(1, 0x98c7a2f5, "CDActionDebug", false), mNext(), mSwitchOut(0) {
+    : CameraAI::Action(0),
+#ifdef EA_PLATFORM_WIN32
+      mQueue(0, 0x98c7a2f5, "CDActionDebug", false),
+#else
+      mQueue(1, 0x98c7a2f5, "CDActionDebug", false),
+#endif
+      mNext(), mSwitchOut(0) {
     bVector3 start_position;
     bFill(&start_position, 0.0f, 0.0f, 1.0f);
     bVector3 start_direction;
@@ -67,7 +77,11 @@ CDActionDebug::CDActionDebug(CameraAI::Director *director)
         }
     }
 
+#ifdef EA_PLATFORM_WIN32
+    mMover = new ("DebugWorldCameraMover", 0) DebugWorldCameraMover(director->GetView(), &start_position, &start_direction, static_cast<JoystickPort>(0));
+#else
     mMover = new ("DebugWorldCameraMover", 0) DebugWorldCameraMover(director->GetView(), &start_position, &start_direction, static_cast<JoystickPort>(1));
+#endif
 }
 
 CDActionDebug::~CDActionDebug() {

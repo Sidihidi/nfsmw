@@ -151,7 +151,7 @@ void AITrafficManager::OnDetached(IAttachable *pOther) {
 
 Attrib::Key AITrafficManager::NextSpawn() {
     unsigned int num_types = mPattern.Num_Vehicles();
-    if (num_types == 0) {
+    if (num_types <= 0) {
         return 0;
     }
     unsigned int max_types = UMath::Min(num_types, 10U);

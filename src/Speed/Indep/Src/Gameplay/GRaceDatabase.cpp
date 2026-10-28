@@ -39,7 +39,7 @@ inline PackedDecimal::PackedDecimal(float value) {
 
     if (value < 0.0f) {
         neg = true;
-        value = -value;
+        value *= -1.0f;
     }
     if (value > 0.0f) {
         while (value < (float)FloatingPoint<short, 10, 3, 5, 11>::GetNormalizedLower()) {
@@ -461,6 +461,12 @@ void GRaceDatabase::UpdateRaceScore(bool setComplete) {
         }
         break;
 
+    case GRace::kRaceType_SpeedTrap:
+        if ((info->mFlags & kCompleted_ContextAny) == 0 || racer->mPointTotal > info->mHighScores.mBestCash) {
+            info->mHighScores.mBestCash = racer->mPointTotal;
+        }
+        break;
+
     case GRace::kRaceType_Checkpoint: {
         unsigned int points = (unsigned int)racer->mPointTotal;
 
@@ -470,7 +476,6 @@ void GRaceDatabase::UpdateRaceScore(bool setComplete) {
         break;
     }
 
-    case GRace::kRaceType_SpeedTrap:
     case GRace::kRaceType_CashGrab:
         if ((info->mFlags & kCompleted_ContextAny) == 0 || racer->mPointTotal > info->mHighScores.mBestCash) {
             info->mHighScores.mBestCash = racer->mPointTotal;
@@ -586,7 +591,7 @@ const char *GRaceDatabase::GetNextDDayRace() {
         const char *raceName = sDDayRaces[i];
         GRaceParameters *race = GetRaceFromHash(Attrib::StringHash32(raceName));
 
-        if (!CheckRaceScoreFlags(race->GetEventHash(), kCompleted_ContextCareer)) {
+        if (!IsCareerRaceComplete(race->GetEventHash())) {
             return raceName;
         }
     }
@@ -620,7 +625,8 @@ int GRaceParameters::GetReputation() const {
 
 float GRaceParameters::GetCashValue() const {
     if (mIndex != nullptr) {
-        return (float)mIndex->mCash;
+        float cash = mIndex->mCash;
+        return cash;
     }
     EnsureLoaded();
     return mRaceRecord->CashValue();
@@ -660,7 +666,8 @@ float GRaceParameters::GetRivalBestTime() const {
 
 float GRaceParameters::GetChallengeGoal() const {
     if (mIndex != nullptr) {
-        return (float)mIndex->mChallengeGoal;
+        float goal = mIndex->mChallengeGoal;
+        return goal;
     }
     EnsureLoaded();
     return mRaceRecord->ThreshholdValue();
@@ -676,7 +683,12 @@ bool GRaceParameters::GetInitiallyUnlockedQuickRace() const {
 
 bool GRaceParameters::GetInitiallyUnlockedOnline() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_AvailableOnline) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_AvailableOnline) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->AvailableOnline();
@@ -684,7 +696,12 @@ bool GRaceParameters::GetInitiallyUnlockedOnline() const {
 
 bool GRaceParameters::GetInitiallyUnlockedChallenge() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_InitiallyUnlocked) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_InitiallyUnlocked) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->InitiallyUnlocked();
@@ -718,7 +735,12 @@ bool GRaceParameters::GetIsBossRace() const {
 
 bool GRaceParameters::GetIsMarkerRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_MarkerRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_MarkerRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->IsMarkerRace();
@@ -765,7 +787,12 @@ bool GRaceParameters::GetRankPlayersByPoints() const {
 
 bool GRaceParameters::GetRankPlayersByDistance() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_RankPlayersByDistance) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_RankPlayersByDistance) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->RankPlayersByDistance();
@@ -786,7 +813,12 @@ bool GRaceParameters::GetCopsEnabled() const {
 
 bool GRaceParameters::GetScriptedCopsInRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_ScriptedCopsInRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_ScriptedCopsInRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->ScriptedCopsInRace();
@@ -794,7 +826,12 @@ bool GRaceParameters::GetScriptedCopsInRace() const {
 
 bool GRaceParameters::GetNeverInQuickRace() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_NeverInQuickRace) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_NeverInQuickRace) != 0;
+#endif
     }
     EnsureLoaded();
     return mRaceRecord->NeverInQuickRace();
@@ -1379,11 +1416,11 @@ int GRaceParameters::GetCopDensity() const {
         return 0;
     }
 
-    if (density <= 33) {
+    if (density < 34) {
         return 1;
     }
 
-    if (density <= 66) {
+    if (density < 67) {
         return 2;
     }
 
@@ -1392,7 +1429,12 @@ int GRaceParameters::GetCopDensity() const {
 
 bool GRaceParameters::GetCanBeReversed() const {
     if (mIndex != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        bool flagSet = (mIndex->mFlags & GRaceIndexData::kRaceFlag_CanBeReversed) != 0;
+        return flagSet;
+#else
         return (mIndex->mFlags & GRaceIndexData::kRaceFlag_CanBeReversed) != 0;
+#endif
     }
 
 #ifndef EA_BUILD_A124
@@ -1689,12 +1731,17 @@ void GRaceCustom::SetReversed(bool isReverseDir) {
 
 template <typename T>
 void GRaceCustom::SetAttribute(unsigned int key, const T &value, unsigned int index) {
+#ifdef EA_PLATFORM_WIN32 // PC (0x5E74C0) anade siempre la clave antes de leerla (el EGM y GC la buscan primero)
+    mRaceRecord->Add(key, 1);
+    Attrib::Attribute attribute = mRaceRecord->Get(key);
+#else
     Attrib::Attribute attribute = mRaceRecord->Get(key);
 
     if (!attribute.IsValid()) {
         mRaceRecord->Add(key, 1);
         attribute = mRaceRecord->Get(key);
     }
+#endif
 
     T *data = (T *)attribute.GetElementPointer(index);
     if (data != nullptr) {
@@ -1906,7 +1953,7 @@ void GRaceBin::RefreshProgress() {
 
     for (unsigned int i = 0; i < GetWorldRaceCount(); i++) {
         unsigned int raceHash = GetWorldRaceHash(i);
-        if (GRaceDatabase::Get().CheckRaceScoreFlags(raceHash, GRaceDatabase::kCompleted_ContextCareer)) {
+        if (GRaceDatabase::Get().IsCareerRaceComplete(raceHash)) {
             racesWon++;
         }
     }

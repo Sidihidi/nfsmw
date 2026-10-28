@@ -8,6 +8,10 @@
 #include "Speed/Indep/bWare/Inc/bList.hpp"
 #ifdef EA_PLATFORM_PLAYSTATION2
 #include "Speed/PSX2/Src/Online/PlatformNetworkCore.hpp"
+#elif defined(EA_PLATFORM_WIN32)
+#include "Speed/PC/Src/Online/PlatformNetworkCore.hpp"
+#elif defined(EA_PLATFORM_XENON)
+#include "Speed/Xenon/Src/Online/PlatformNetworkCore.hpp"
 #endif
 
 struct NetGameLinkRefT;
@@ -63,12 +67,12 @@ extern "C" {
 NetGameLinkStatT *NetGameLinkStatus(NetGameLinkRefT *link);
 }
 
-// La base PlatformNetworkCore solo esta reconstruida en PS2 (Speed/PSX2); en PC el
-// subsistema online vive todavia en los unassigned de SPEED_EXE_1_3 y su base no se
-// ha levantado. Mientras, NetworkCore compila en PC sin la base (nadie la instancia:
-// zOnline solo enlaza fuentes en la A124).
+// La base PlatformNetworkCore existe tambien en PC: el ctor de NetworkCore en
+// speed.exe (0x792990) fija el vptr 0x8B6CFC y su dtor (0x7929B0) lo deja en la
+// vtable de la base (0x8B68A0) tras destruir procFuncList. En GC no hay capa
+// online y la clase compila sin base, como hasta ahora.
 class NetworkCore
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
     : public PlatformNetworkCore
 #endif
 {
@@ -100,6 +104,9 @@ class NetworkCore
     static char *MyIPAddressText();
     static DirtyAddrT &MyDirtyAddr();
     uint8 GetNetworkVersionNumber();
+#ifdef EA_PLATFORM_XENON
+    int XenonUnknown825748B8(); // NetworkCore.cpp
+#endif
 
     int RegisterProcessingFunc(ProcFunc func, void *context);
     void UnregisterProcessingFunc(ProcFunc func, void *context);
@@ -116,6 +123,14 @@ class NetworkCore
     bool networkIsInitialized;
     static int msecPerThreadInterval;
     bTList<ProcFuncNode> procFuncList;
+#ifdef EA_PLATFORM_XENON
+    // EGM: el ctor (0x825741C8) los pone a cero y la funcion de estado de Xenon (0x825748B8), que pregunta a
+    // NetConnStatus por 'plug', 'onln' y 'conn' y mira '-dup', los lee y los escribe. Ningun binario da los nombres:
+    // probablemente el cable, la sesion de Xbox Live y la conexion.
+    bool xenon_unknown_0x10;
+    bool xenon_unknown_0x11;
+    bool xenon_unknown_0x12;
+#endif
     static NetworkCore mInstance;
 };
 

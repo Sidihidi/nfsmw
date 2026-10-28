@@ -468,8 +468,12 @@ void eUnloadAllStreamingTextures(const char *filename);
 void eUnloadStreamingTexture(unsigned int *name_hash_table, int num_hashes);
 #ifdef EA_BUILD_A124
 int eUnloadStreamingTexturePack(const char *filename, void (*callback_function)(uint32) = nullptr, uint32 callback_param = 0);
-#else
+#elif defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// speed.exe y el EGM: ?eUnloadStreamingTexturePack@@YAXPBD@Z (void)
 void eUnloadStreamingTexturePack(const char *filename);
+#else
+// GameCube (DWARF) y SLUS devuelven el int de DeleteStreamingPack
+int eUnloadStreamingTexturePack(const char *filename);
 #endif
 
 TextureInfo *eCreateTextureInfo();

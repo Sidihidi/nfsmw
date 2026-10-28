@@ -244,6 +244,8 @@ struct ConfigOptions {
         : mAllocator(nullptr)
 #ifdef EA_PLATFORM_PLAYSTATION2
         , mIOPModulePath(nullptr)
+#elif defined(EA_PLATFORM_WIN32)
+        , win32_unknown_0x4(nullptr)
 #endif
         , mpEnumDevicesCallback(nullptr)
         , mEnumDevicesCallbackUserData(0)
@@ -254,6 +256,11 @@ struct ConfigOptions {
     EA::Allocator::IAllocator *mAllocator;
 #ifdef EA_PLATFORM_PLAYSTATION2
     char *mIOPModulePath; // los modulos de la IOP (stabs de la A124: ConfigOptions mide 0x18)
+#elif defined(EA_PLATFORM_WIN32)
+    // PC: ConfigOptions tambien mide 0x18 y este campo va en +0x4 (speed.exe: el ctor de InterfaceImp en 0x7F1E60
+    // copia 6 palabras y lee mEventQueueSize en +0x10; el llamante del juego, 0x628410, lo deja a 0). Ningun binario
+    // da su nombre ni su tipo; probablemente es el dato de plataforma que ocupa el sitio del mIOPModulePath de PS2.
+    void *win32_unknown_0x4;
 #endif
     int (*mpEnumDevicesCallback)(Device *, unsigned int, Interface *);
     unsigned int mEnumDevicesCallbackUserData;

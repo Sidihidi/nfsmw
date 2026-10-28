@@ -17,8 +17,35 @@ struct ElementInfo {
     unsigned int mFlags : 24; // offset 0x0, size 0x4
 };
 
+// El tipo de texel: el byte 0 de cada elemento (los valores, en src/realshape.hpp).
+enum TexelType {
+    TEXEL_TYPE_INVALID = 0
+};
+
+// Bits por texel de cada TexelType (creates.cpp de librealshape).
+extern const unsigned char gTexelTypeToBpp[256];
+
+// total size: 0x1
+struct TexelTypeHelper {
+    static inline int GetDepth(TexelType texelType) {
+        return gTexelTypeToBpp[(unsigned char)texelType];
+    }
+};
+
 // total size: 0x10
 struct ShapeElement {
+    inline TexelType GetType() const {
+        return (TexelType)mElementInfo.mType;
+    }
+
+    // shapeelement.inl (la expande DescramblePS2MovieFrame en las dos PS2).
+    inline void *GetData() const {
+        if (mDataOffset == 0) {
+            return 0;
+        }
+        return (char *)this + mDataOffset;
+    }
+
     struct ElementInfo mElementInfo; // offset 0x0, size 0x4
     int mNextOffset;                 // offset 0x4, size 0x4
     int mDataOffset;                 // offset 0x8, size 0x4
@@ -49,9 +76,13 @@ struct Shape {
 
     static inline void Destroy(struct Shape *shape) {}
 
-    // inline enum TexelType GetType() const {}
+    inline TexelType GetType() const {
+        return GetTexture()->GetType();
+    }
 
-    inline int GetDepth() const {}
+    inline int GetDepth() const {
+        return TexelTypeHelper::GetDepth(GetType());
+    }
 
     // inline void (*GetMover(enum TexelType targetType))(unsigned char *, const unsigned char *, int) const {}
 
@@ -151,6 +182,26 @@ struct Shape {
 };
 
 } // namespace RealShape
+
+// La interfaz C de realshape.h (los SHAPE_* del DWARF de GC). En los stabs de la A124 la Shape de realgraph no
+// hereda de ShapeElement (mide 0x1): SHAPE_data mira su cabecera como ShapeElement.
+typedef RealShape::Shape SHAPE;
+
+inline int SHAPE_width(const SHAPE *shp) {
+    return shp->GetWidth();
+}
+
+inline int SHAPE_height(const SHAPE *shp) {
+    return shp->GetHeight();
+}
+
+inline int SHAPE_depth(const SHAPE *shp) {
+    return shp->GetDepth();
+}
+
+inline void *SHAPE_data(const SHAPE *shp) {
+    return reinterpret_cast<const RealShape::ShapeElement *>(shp)->GetData();
+}
 
 namespace RCMP {
 

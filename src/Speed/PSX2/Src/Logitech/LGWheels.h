@@ -28,7 +28,7 @@ enum ForceType {
 // total size: 0x14C0 (alineado a 64 por el PositionLast de LogiWheels)
 struct LGWheels {
     int NonLinearWheel[2][256];  // offset 0x0, size 0x800
-    lgDevPosition Position[2];   // offset 0x800, size 0x30
+    lgDevPosition2 Position;   // offset 0x800, size 0x30
 
   private:
     LogiWheels wheels;           // offset 0x840, size 0x900

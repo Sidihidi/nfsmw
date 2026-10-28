@@ -13,7 +13,7 @@ struct eView;
 
 // total size: 0x174
 struct eViewPlatInfo {
-    char dummy[0x174];
+    char dummy[0x174]; // View 0x0, Projection 0x40, ViewProjection 0x80 (SetViewMatrix 0x82470310; nombres del PDB de ProStreet X360, que mete dos ZBias)
 };
 
 enum eVisibleState;

@@ -12,6 +12,19 @@
 #include "Speed/Indep/Src/Physics/Bounds.h"
 #include "Speed/Indep/Src/World/Rain.hpp"
 
+// gcdatos15: tpPlayer (PS2_globals:6147 `Player *tpPlayer`) y FogInfo (PS2_globals:6148
+// `FogQuery FogInfo`, tambien en SLUS), en sus huecos exactos de las PS2 (A124
+// 0x6495e0/0x6495e8 = zWorld .data +0x5b10/+0x5b18, entre cs_OneOverZ y RVManchor).
+// Sin inicializar: van al bloque de fin de .data de las PS2 y ese es su sitio en el
+// objetivo (cs_OneOverZ +0x5b0c, tpPlayer +0x5b10, FogInfo +0x5b18, RVManchor +0x5b30).
+#ifdef EA_BUILD_A124
+class Player;
+Player *tpPlayer;
+#endif
+#ifdef EA_PLATFORM_PLAYSTATION2
+FogQuery FogInfo;
+#endif
+
 #ifdef CLANGD_DAMNIT
 #include "CarRender.cpp"
 #endif
@@ -459,6 +472,7 @@ void VehicleRenderConn::RenderFlares(eView *view, int reflection, int renderFlar
         offset2.y = render_matrix.v3.y;
         offset2.z = render_matrix.v3.z;
 
+#ifndef EA_BUILD_A124 // la A124 pinta las luces tambien en la vista desde dentro
         mover = view->GetCameraMover();
 
         if (mover != nullptr && !mover->RenderCarPOV()) {
@@ -468,12 +482,20 @@ void VehicleRenderConn::RenderFlares(eView *view, int reflection, int renderFlar
                 continue;
             }
         }
+#endif
 
         car_render_info->RenderFlaresOnCar(view, &offset2, &render_matrix, 0, reflection, renderFlareFlags);
 
         CarRenderInfo *info = conn->GetRenderInfo();
+#ifdef EA_BUILD_A124 // la A124 cuenta los coches de policia de la vista y solo deja estela al jugador
+        if (info->pCarTypeInfo != nullptr && info->pCarTypeInfo->GetCarUsageType() == CAR_USAGE_TYPE_COP) {
+            view->NumCopsInView++;
+        }
+        if (info->GetRideInfo()->GetCarRenderUsage() == CarRenderUsage_Player && reflection == 0) {
+#else
         info->pCarTypeInfo->GetCarUsageType();
         if (reflection == 0) {
+#endif
             float NOSamount;
             if (view->GetID() == EVIEW_PLAYER1 || view->GetID() == EVIEW_PLAYER2) {
                 if (info->matrixIndex < 0) {

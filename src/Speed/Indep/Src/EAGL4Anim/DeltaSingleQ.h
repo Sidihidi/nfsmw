@@ -9,8 +9,21 @@
 #include "AnimUtil.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
 #include "Speed/Indep/Libs/Support/Utility/UVectorMath.h"
+// OneOverTwoPower16Minus1 (GetAlignment): en el DWARF de GameCube las constantes de DeltaQ.h van antes que las de este
+// fichero.
+#include "DeltaQ.h"
 
 namespace EAGL4Anim {
+
+// Las constantes de este fichero en el orden del DWARF de GameCube (TwoPower4Minus1 ... kRadRange; sin direccion: GCC
+// las pliega). El EGM de Xbox 360 tiene 1/15, -pi y pi como objetos en el bloque de constantes de zEagl4Anim
+// (0x82065D40-0x82065D4B, tras 1/65535) y kRadRange en .data (6.2831855 en 0x82957008: su inicializador es una
+// expresion), y GetAlignment la lee de alli: (mConst0 * kRadRange) * 1/65535 y luego - pi.
+static const unsigned short TwoPower4Minus1 = 15;
+static const float OneOverTwoPower4Minus1 = 1.0f / TwoPower4Minus1;
+static const float kRadMin = -3.1415927f;
+static const float kRadMax = 3.1415927f;
+static const float kRadRange = kRadMax - kRadMin;
 
 // total size: 0x1C
 struct DeltaSingleQMinRangef {
@@ -24,8 +37,8 @@ struct DeltaSingleQMinRangef {
 // total size: 0xE
 struct DeltaSingleQMinRange {
     void GetAlignment(float &c0, float &c1) {
-        c0 = mConst0 * (2.0f * 3.1415927f / 65535.0f) + -3.1415927f;
-        c1 = mConst1 * (2.0f * 3.1415927f / 65535.0f) + -3.1415927f;
+        c0 = mConst0 * kRadRange * OneOverTwoPower16Minus1 + kRadMin;
+        c1 = mConst1 * kRadRange * OneOverTwoPower16Minus1 + kRadMin;
     }
 
     void UnQuantize(DeltaSingleQMinRangef &minRangef) {
@@ -74,7 +87,7 @@ struct DeltaSingleQPhysical {
 // total size: 0x1
 struct DeltaSingleQDelta {
     static float DeQuantize4Bit(int v) {
-        return v * (1.0f / 15.0f);
+        return v * OneOverTwoPower4Minus1;
     }
 
     void UnQuantize(const DeltaSingleQMinRangef &minRangef, COORD4 &q) {
@@ -92,8 +105,8 @@ struct DeltaSingleQDelta {
     }
 
     // mW es el nibble bajo en las dos plataformas: en el EE (little-endian) va
-    // declarado primero, y la A124 saca mV con `srl 4' y mW con `andi 0xf'.
-#ifdef EA_PLATFORM_PLAYSTATION2
+    // declarado primero, y la A124 saca mV con `srl 4' y mW con `andi 0xf'. Igual en PC (little-endian).
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
     unsigned char mW : 4; // offset 0x0, size 0x1
     unsigned char mV : 4; // offset 0x0, size 0x1
 #else

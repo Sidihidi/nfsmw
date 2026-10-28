@@ -110,8 +110,19 @@ void CARSFX_WindNoise::ProcessUpdate() {
     }
 }
 
+// gcdatos16/17: a 0 en posicion de fuente en las DOS PS2. A124: zEAXSound2 .data
+// +0x7a0/+0x7a4 = 0x5e5050/0x5e5054, PS2_globals.hpp:1295-1296. SLUS: los 16 B de
+// ceros de +0x7a8 (0x541948), justo tras el TypeInfo de CARSFX_WindNoise y delante
+// del de CARSFX_WindWeather (gfTestRatio/gfTestCurVel/debugPrintWindNoise + un hueco
+// de 4 B, el mismo reparto que la A124). Sin inicializar caen en el bloque tentativo
+// del final.
+#ifdef EA_PLATFORM_PLAYSTATION2
+float gfTestRatio = 0.0f;  // size: 0x4, address: 0xFFFFFFFF, Decl: 258
+float gfTestCurVel = 0.0f; // size: 0x4, address: 0xFFFFFFFF, Decl: 259
+#else
 float gfTestRatio;  // size: 0x4, address: 0xFFFFFFFF, Decl: 258
 float gfTestCurVel; // size: 0x4, address: 0xFFFFFFFF, Decl: 259
+#endif
 
 void CARSFX_WindNoise::UpdateParams(float t) {
     if (!this->IsEnabled()) {
@@ -180,7 +191,14 @@ void CARSFX_WindNoise::UpdateParams(float t) {
     }
 }
 
+// gcdatos16/17: a 0 en posicion de fuente en las DOS PS2, con gfTestRatio/gfTestCurVel
+// (mismo bloque de 16 B de la SLUS; A124: +0x7a8 = 0x5e5058, PS2_globals.hpp:1297).
+// Sin inicializar cae en el bloque tentativo del final.
+#ifdef EA_PLATFORM_PLAYSTATION2
+int debugPrintWindNoise = 0; // size: 0x4, address: 0xFFFFFFFF, Decl: 565
+#else
 int debugPrintWindNoise; // size: 0x4, address: 0xFFFFFFFF, Decl: 565
+#endif
 
 void CARSFX_WindNoise::UpdateCSISParams() {
     int nLeftVolume = this->GetDMixOutput(2, DMX_VOL) * this->m_nVelocityWeightedVolume >> 15;

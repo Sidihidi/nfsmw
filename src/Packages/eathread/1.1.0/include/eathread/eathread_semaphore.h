@@ -4,4 +4,6 @@
 #include "eathread/ps2/eathread_semaphore_ps2.h"
 #elif defined(EA_PLATFORM_WIN32)
 #include "eathread/win32/eathread_semaphore_win32.h"
+#elif defined(EA_PLATFORM_XENON)
+#include "eathread/xenon/eathread_semaphore_xenon.h"
 #endif

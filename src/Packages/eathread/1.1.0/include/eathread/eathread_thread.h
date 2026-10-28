@@ -1,6 +1,10 @@
 #ifndef EATHREAD_EATHREAD_THREAD_H
 #define EATHREAD_EATHREAD_THREAD_H
 
+#ifdef EA_PLATFORM_XENON
+#include "eathread/xenon/eathread_thread_xenon.h"
+#else
+
 #include "dolphin/os/OSThread.h"
 #include "eathread/powerpc/eathread_atomic_powerpc.h"
 #include "types.h"
@@ -32,5 +36,7 @@ struct EAThreadDynamicData {
 
 }
 }
+
+#endif // EA_PLATFORM_XENON
 
 #endif

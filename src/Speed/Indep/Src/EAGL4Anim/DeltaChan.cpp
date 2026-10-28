@@ -123,7 +123,7 @@ bool FnDeltaLerpChan::EvalSQTMask(float currTime, float *sqt, const BoneMask *bo
 
     int idof;
     int boneIdx;
-    if (mDofMask == nullptr && numDofs != 0) {
+    if (mDofMask == nullptr && numDofs > 0) {
         mDofMask = reinterpret_cast<unsigned short *>(MemoryPoolManager::NewBlock(numDofs * sizeof(*mDofMask)));
         for (idof = 0; idof < numDofs; idof++) {
             boneIdx = (dofIndices[idof] / 0xCu) & 0xFF; // TODO magic
@@ -233,7 +233,7 @@ bool FnDeltaQuatChan::EvalSQTMask(float currTime, float *sqt, const BoneMask *bo
     int iquat;
 
     int boneIdx;
-    if (mDofMask == nullptr && numDofs != 0) {
+    if (mDofMask == nullptr && numDofs > 0) {
         mDofMask = reinterpret_cast<unsigned short *>(MemoryPoolManager::NewBlock(numDofs * sizeof(*mDofMask)));
         for (iquat = 0, idof = 0; iquat < numDofs; iquat += 4, idof++) {
             boneIdx = (dofIndices[idof] / 0xCu) & 0xFF; // TODO magic
@@ -310,7 +310,7 @@ int FnKeyDeltaChan::FindLowerKey(float currTime) {
     }
 
     int lowerKey; // r3
-    if (mPrevKey <= 0) {
+    if (mPrevKey < 1) {
         lowerKey = 0;
     } else {
         lowerKey = mPrevKey - 1;
@@ -386,7 +386,7 @@ bool FnKeyLerpChan::EvalSQTMask(float currTime, float *sqt, const BoneMask *bone
 
     int idof;
     int boneIdx;
-    if (mDofMask == nullptr && numDofs != 0) {
+    if (mDofMask == nullptr && numDofs > 0) {
         mDofMask = reinterpret_cast<unsigned short *>(MemoryPoolManager::NewBlock(numDofs * sizeof(*mDofMask)));
         for (idof = 0; idof < numDofs; idof++) {
             boneIdx = (dofIndices[idof] / 0xCu) & 0xFF; // TODO magic
@@ -487,7 +487,7 @@ bool FnKeyQuatChan::EvalSQTMask(float currTime, float *sqt, const BoneMask *bone
     int idof;
     int iquat;
     int boneIdx;
-    if (mDofMask == nullptr && numDofs != 0) {
+    if (mDofMask == nullptr && numDofs > 0) {
         mDofMask = reinterpret_cast<unsigned short *>(MemoryPoolManager::NewBlock(numDofs * sizeof(*mDofMask)));
         for (iquat = 0, idof = 0; iquat < numDofs; iquat += 4, idof++) {
             boneIdx = (dofIndices[idof] / 0xCu) & 0xFF; // TODO magic

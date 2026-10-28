@@ -102,7 +102,9 @@ class EAXCar : public CSTATE_Base {
     float PhysRPM; // offset 0x64, size 0x4, Decl: 122
 
     void SetIsAccelerating(float _IsAccelerating) {
-        this->bIsAccelerating = _IsAccelerating != 0.0f;
+        // la conversion implicita de float a bool: speed.exe guarda `mov al, 1` / `xor al, al` (con `!= 0.0f` MSVC 7.1
+        // materializa en eax; SFXCTL_Physics::UpdateParams)
+        this->bIsAccelerating = _IsAccelerating;
     } // Decl: 124
     bool bIsAccelerating; // offset 0x68, size 0x1, Decl: 125
 

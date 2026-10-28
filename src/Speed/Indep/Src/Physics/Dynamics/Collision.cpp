@@ -21,7 +21,11 @@ namespace Collision {
 Friction::State Friction::GetForce(const UVector3 &p, const float impulse, const UVector3 &n, UVector3 &Ff) const {
     float fy = -impulse;
     Ff.x = Ff.y = Ff.z = 0.0f;
+#ifdef EA_PLATFORM_XENON
+    if (fy <= 0.0f) {
+#else
     if (!(fy > 0.0f)) {
+#endif
         return None;
     }
     Ff = p + n * fy;

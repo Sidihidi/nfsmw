@@ -21,10 +21,21 @@
 #include "Speed/Indep/Src/World/TrackPath.hpp"
 #include "Speed/Indep/Src/Sim/SimSubSystem.h"
 
+// gcdatos21: el _Physics_System_WRoadNetwork va delante de los miembros
+// (PS2_globals:6205-6206 y el .data objetivo de la A124, +0x308 delante de
+// fgRoadNetwork en +0x31c). Entre este punto y el anterior solo hay
+// definiciones POD y las lanes const: el orden relativo de ctors no cambia.
+BIND_SIM_SUBSYSTEM(WRoadNetwork, WRoadNetwork::Init, WRoadNetwork::Shutdown);
+
 WRoadNetwork *WRoadNetwork::fgRoadNetwork = nullptr;       // size: 0x4, address: 0x80438FC8
 WRoadProfile *WRoadNetwork::fProfiles = nullptr;           // size: 0x4, address: 0x80438FCC
 WRoadNode *WRoadNetwork::fNodes = nullptr;                 // size: 0x4, address: 0x80438FD0
 WRoadSegment *WRoadNetwork::fSegments = nullptr;           // size: 0x4, address: 0x80438FD4
+// gcdatos20: fIntersections va aqui, entre fSegments y fRoads, en los tres
+// objetivos (stabs PS2_globals.hpp:6209-6211; A124 zWorld2 .data +0x32c; el
+// hueco de 4 B entre fSegments y fRoads en GC +0x80 y en SLUS +0x2b4). Estaba
+// definido tras nTotalMemoryUsage en todas las versiones.
+WRoadIntersection *WRoadNetwork::fIntersections = nullptr; // size: 0x4, address: 0xFFFFFFFF
 WRoad *WRoadNetwork::fRoads = nullptr;                     // size: 0x4, address: 0x80438FDC
 unsigned long WRoadNetwork::fSegmentStamp = 0;             // size: 0x4, address: 0x80438FE0
 unsigned int WRoadNetwork::nRoadMemoryUsage = 0;           // size: 0x4, address: 0x80438FE4
@@ -33,7 +44,6 @@ unsigned int WRoadNetwork::nProfileMemoryUsage = 0;        // size: 0x4, address
 unsigned int WRoadNetwork::nSegmentMemoryUsage = 0;        // size: 0x4, address: 0x80438FF0
 unsigned int WRoadNetwork::nIntersectionMemoryUsage = 0;   // size: 0x4, address: 0x80438FF4
 unsigned int WRoadNetwork::nTotalMemoryUsage = 0;          // size: 0x4, address: 0x80438FF8
-WRoadIntersection *WRoadNetwork::fIntersections = nullptr; // size: 0x4, address: 0xFFFFFFFF
 unsigned int WRoadNetwork::fNumRoads;                      // size: 0x4, address: 0x804FFF0C
 unsigned int WRoadNetwork::fNumNodes;                      // size: 0x4, address: 0x804FFF10
 unsigned int WRoadNetwork::fNumProfiles;                   // size: 0x4, address: 0x804FFF14
@@ -52,7 +62,13 @@ static const int selectable_lanes[8] = {
     0x00000402, 0x00000002, 0xFFFFDF5B, 0x00000472, 0xFFFFDF7F, 0x00000402, 0x00000402, 0xFFFFFFFF,
 };
 
-BIND_SIM_SUBSYSTEM(WRoadNetwork, WRoadNetwork::Init, WRoadNetwork::Shutdown);
+// gcdatos15: numActiveCurtains (PS2_globals:6277 `int numActiveCurtains`), en su hueco
+// exacto de la A124 (0x649e54 = zWorld2 .data +0x4c4, el ultimo simbolo de la seccion,
+// tras fNumRoads y las lanes de arriba). Sin inicializar: al bloque de fin de .data de
+// las PS2, que es su sitio en el objetivo. Solo A124 (otrasELF).
+#ifdef EA_BUILD_A124
+int numActiveCurtains;
+#endif
 
 void WRoadNetwork::Init() {
     if (fgRoadNetwork == nullptr) {
@@ -475,12 +491,49 @@ void WRoadNetwork::GetSegmentForwardVector(const WRoadSegment &segment, UMath::V
     UMath::Unit(v, forwardVector);
 }
 
+// gcdatos8: sin llamantes (DIEs low_pc=-1, entre GetSegmentForwardVector y
+// GetSegmentEndPoints(ref)): la de indice delega como sus hermanas vivas; la
+// de referencia trae solo los inlines GetEndRightVec y GetStartRightVec, en
+// ese orden en su DIE.
+void WRoadNetwork::GetSegmentEndVecs(int segInd, UMath::Vector3 &start, UMath::Vector3 &end) {
+    WRoadNetwork &roadNetwork = Get();
+    const WRoadSegment *segment = roadNetwork.GetSegment(segInd);
+    roadNetwork.GetSegmentEndVecs(*segment, start, end);
+}
+
+void WRoadNetwork::GetSegmentEndVecs(const WRoadSegment &segment, UMath::Vector3 &startVec, UMath::Vector3 &endVec) {
+    segment.GetEndRightVec(endVec);
+    segment.GetStartRightVec(startVec);
+}
+
+// gcdatos8: sin llamantes (DIE low_pc=-1, delante de la de referencia):
+// delega como sus hermanas vivas.
+void WRoadNetwork::GetSegmentEndPoints(int segInd, UMath::Vector3 &start, UMath::Vector3 &end) {
+    WRoadNetwork &roadNetwork = Get();
+    const WRoadSegment *segment = roadNetwork.GetSegment(segInd);
+    roadNetwork.GetSegmentEndPoints(*segment, start, end);
+}
+
 void WRoadNetwork::GetSegmentEndPoints(const WRoadSegment &segment, UMath::Vector3 &start, UMath::Vector3 &end) {
     WRoadNetwork &roadNetwork = Get();
     const WRoadNode *nodePtr[2];
     roadNetwork.GetSegmentNodes(segment, nodePtr);
     start = nodePtr[0]->fPosition;
     end = nodePtr[1]->fPosition;
+}
+
+// gcdatos8: sin llamantes (DIEs low_pc=-1, entre GetSegmentEndPoints y
+// GetSegmentOppNode): la de indice trae roadNetwork/segment con los inlines
+// Get()+GetSegment y delega como la viva GetSegmentOppNode(int); la de
+// referencia trae el unico inline WRoadSegment::GetLength.
+float WRoadNetwork::GetSegmentLength(int segInd) {
+    WRoadNetwork &roadNetwork = Get();
+    const WRoadSegment *segment = roadNetwork.GetSegment(segInd);
+    return roadNetwork.GetSegmentLength(*segment);
+}
+
+float WRoadNetwork::GetSegmentLength(const WRoadSegment &segment) {
+    return segment.GetLength();
 }
 
 const WRoadNode *WRoadNetwork::GetSegmentOppNode(int segInd, const WRoadNode *node) {
@@ -741,7 +794,7 @@ bool WRoadNav::OnPath() const {
     return false;
 }
 
-bool bAiRandomTurns = false;
+extern bool bAiRandomTurns; // gcdatos20: definido en WPathFinder.cpp, tras PathFinder::pInstance
 
 // UNSOLVED https://decomp.me/scratch/Beczf
 // PS: https://decomp.me/scratch/rJkvP
@@ -1685,10 +1738,17 @@ int WRoadNav::FetchAvoidables(IBody **avoidables, const int listsize) const {
 
     IPursuitAI *my_pursuitai;
     my_ai->QueryInterface(&my_pursuitai);
+#ifdef EA_PLATFORM_XENON
+    // El EGM materializa el bool del && de una vez (li r11, 1 / cmplwi sobre el
+    // resultado de GetInFormation / clrlwi r22 en 0x8255666C-0x82556680):
+    // no hay inicializacion a false previa a la llamada.
+    bool is_formation_cop = my_pursuitai && my_pursuitai->GetInFormation();
+#else
     bool is_formation_cop = false;
     if (my_pursuitai && my_pursuitai->GetInFormation()) {
         is_formation_cop = true;
     }
+#endif
 
     ISimable *my_pursuit_target = nullptr;
     if (my_pursuit && is_formation_cop) {
@@ -3213,7 +3273,7 @@ bool WRoadNav::IncLane(int direction) {
     for (int n = 0; n < profile->fNumZones - 1; n++) {
         float width = profile->GetLaneWidth(n, inverted_xor_backward);
         float offset = profile->GetRelativeLaneOffset(n, inverted_xor_backward);
-        if (fLaneOffset > width * 0.5f + offset) {
+        if (fLaneOffset > offset + width * 0.5f) {
             current_lane++;
         }
     }
@@ -3232,12 +3292,12 @@ bool WRoadNav::IncLane(int direction) {
     float new_offset = profile->GetRelativeLaneOffset(current_lane, inverted_xor_backward);
     float new_width = profile->GetLaneWidth(current_lane, inverted_xor_backward);
 
-    if (UMath::Abs(new_offset - fLaneOffset) >= new_width * 0.5f) {
-        ChangeLanes(new_offset, 0.0f);
-        return true;
+    if (UMath::Abs(new_offset - fLaneOffset) < new_width * 0.5f) {
+        return false;
     }
 
-    return false;
+    ChangeLanes(new_offset, 0.0f);
+    return true;
 }
 
 void WRoadNav::ChangeDragLanes(int left_right) {

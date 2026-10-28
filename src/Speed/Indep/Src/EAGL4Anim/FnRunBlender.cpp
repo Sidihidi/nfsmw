@@ -367,19 +367,22 @@ bool FnRunBlender::FindMatchTime(const MatchPhaseInput &input, float &time) cons
 
 void FnRunBlender::ComputeAlignQ(float *v1, float *v2, UMath::Vector4 &q) const {
 
-    float dot = v1[0] * v2[0] + v1[1] * v2[1];
-    float len1 = sqrtf(v1[0] * v1[0] + v1[1] * v1[1]);
-    float len2 = sqrtf(v2[0] * v2[0] + v2[1] * v2[1]);
-    float cosA = dot / (len1 * len2);
+    // Las locales del DWARF de GameCube (c2, c, n1 y n2; c2 y c en f31). El EGM de Xbox 360 cambia el signo con un
+    // producto por -1 (lfs -1.0 de .rdata y fmuls), no con fneg: `*= -1.0f`.
+    float c2;
+    float c = v1[0] * v2[0] + v1[1] * v2[1];
+    float n1 = sqrtf(v1[0] * v1[0] + v1[1] * v1[1]);
+    float n2 = sqrtf(v2[0] * v2[0] + v2[1] * v2[1]);
 
-    float t = (cosA + 1.0f) * 0.5f;
+    c /= n1 * n2;
+    c2 = (c + 1.0f) * 0.5f;
     q.x = 0.0f;
-    q.y = sqrtf(1.0f - t);
+    q.y = sqrtf(1.0f - c2);
     q.z = 0.0f;
-    q.w = sqrtf(t);
+    q.w = sqrtf(c2);
 
     if (v1[0] * v2[1] - v1[1] * v2[0] > 0.0f) {
-        q.y = -q.y;
+        q.y *= -1.0f;
     }
 }
 
@@ -408,7 +411,7 @@ void FnRunBlender::AlignCycleBeginEnd(int cIdx) {
         ComputeAlignQ(v0, v1, q);
         if (mCycleIdx - 1 == cIdx) {
 
-            q.y = -q.y;
+            q.y *= -1.0f;
         }
 
         QuatMult(mAlignQ, q, resultQ);

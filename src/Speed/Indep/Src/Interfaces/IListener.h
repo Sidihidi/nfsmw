@@ -1,6 +1,10 @@
 #ifndef INTERFACES_ILISTENER_H
 #define INTERFACES_ILISTENER_H
 
+// Como en el original: _vt.Q33Sim9Collision9IListener solo se define en zCamera (implementacion en
+// SourceLists/zCamera.cpp); las demas unidades la referencian sin emitirla.
+#pragma interface
+
 namespace Sim {
 namespace Collision {
 

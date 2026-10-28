@@ -15,6 +15,14 @@
 #define REALMEMCARD_VERSION 30401
 #endif
 
+// PC y Xbox 360 no pasan el nombre del tipo en la carga: su MemcardInterface::Load tiene 5 argumentos
+// (speed.exe, ret 0x14) y su LoadInfo no lleva mTypeName (mHeader cae en +0x44).
+#if REALMEMCARD_VERSION >= 30401 && !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+#define REALMEMCARD_HAS_TYPENAME 1
+#else
+#define REALMEMCARD_HAS_TYPENAME 0
+#endif
+
 namespace Realmc {
 
 struct Interface;
@@ -45,12 +53,19 @@ struct SystemInterface {
         this->mThread = iSystem->mThread;
         this->mMutex = iSystem->mMutex;
         this->mGetStrCallback = iSystem->mGetStrCallback;
+#ifdef EA_PLATFORM_XENON
+        this->mTimerOverhead = iSystem->mTimerOverhead;
+#endif
     }
 
     EA::Allocator::IAllocator *mAllocator;
     IThread *mThread;
     IMutex *mMutex;
     const char *(*mGetStrCallback)(int);
+#ifdef EA_PLATFORM_XENON
+    // X360: una palabra mas (InterfaceImp::InterfaceImp, 0x825FA270, copia 0x14 bytes; MemoryCard::Init pone 0 en +0x10).
+    unsigned int mTimerOverhead; // nombre y tipo de realmemcard_ps3 1.00.00 (DWARF de NFS Carbon PS3 Alpha 56)
+#endif
 };
 
 void SetMemAllocator(EA::Allocator::IAllocator *allocator);
@@ -275,6 +290,12 @@ struct EntryInfo {
     TimeInfo mTime;
     char mCompanyCode[2];
     char mGameCode[4];
+#ifdef EA_PLATFORM_XENON
+    // La realmemcard de Xbox 360 lleva dos campos mas (sin nombre): EntryInfo::Clear (0x825E8F30) pone -1 en +0x24
+    // y 0 en el byte +0x28, tras los de mGameCode.
+    int x360_unknown_0x24;
+    bool x360_unknown_0x28;
+#endif
 };
 
 struct BootupCheckParams {
@@ -339,11 +360,21 @@ struct SaveInfo {
 
     Ps2SaveInfo mPs2Info;
     XboxSaveInfo mXboxInfo;
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: 0xC mas entre mXboxInfo y mGcInfo (SaveInfo mide 0x6C: MemoryCardImp::ConstructSaveInfo,
+    // 0x824950A8, reserva 0x6C y pone mHeaderSize en +0x58). El constructor (0x825E9100) los pone a 0;
+    // SaveInfo::Clear (0x825E91E8) no los toca. Sin nombre: su ctor/Clear propios son 0x825E9310/0x825E9328.
+    unsigned int x360_unknown_0x34[3];
+#endif
     GcSaveInfo mGcInfo;
     unsigned int mHeaderSize;
     unsigned int mBodySize;
     const wchar_t *mTypeName;
     const wchar_t *mContentName;
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: un puntero mas al final (ConstructSaveInfo guarda ahi el DisplayName; Clear lo pone a 0).
+    const char *x360_unknown_0x68;
+#endif
 };
 
 struct SaveReq {
@@ -352,6 +383,10 @@ struct SaveReq {
 
     unsigned int mNumSaves;
     SaveInfo *mSaveInfo;
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: SaveReq::Clear (0x825E9268) pone a 0 el byte +8; MemoryCard::Init lo hace en el sMemcardImp (+0xC).
+    bool mAlwaysCheckAtBoot; // nombre de realmemcard_ps3 1.00.00 (DWARF de NFS Carbon PS3 Alpha 56)
+#endif
 };
 
 struct TitleInfo {
@@ -362,6 +397,10 @@ struct TitleInfo {
     TitleId mTitleId;
     NameType mNameType;
     DataFormat mDataFormat;
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: TitleInfo::Clear (0x825E92B0) pone a 0 el byte +0x10.
+    bool x360_unknown_0x10;
+#endif
 };
 
 struct DirectoryList;
@@ -395,14 +434,15 @@ struct IGameInterface {
 #else
     virtual void CardChanged(TaskResult, CardStatus) = 0;
 #endif
-
+#ifndef EA_PLATFORM_XENON // Xbox 360 sin destructor virtual: NFS.exe lleva 19 _purecall (0x82080738, 76 B) y 19 en MemcardCallbacks
   protected:
     virtual ~IGameInterface() {}
+#endif
 };
 
 struct MemcardInterfaceImpl;
 
-class MemcardInterface {
+struct MemcardInterface {
   public:
     static void *operator new(unsigned int size) {
         return Realmc::AllocateMemSize(0, size, 0, 0, 0);
@@ -442,7 +482,7 @@ class MemcardInterface {
     void BootupCheck(const BootupCheckParams *params, unsigned int nEntries, const AutoloadEntry *autoloadEntries);
     void SaveCheck(const char *entryName, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
     void Save(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
-#if REALMEMCARD_VERSION < 30401
+#if !REALMEMCARD_HAS_TYPENAME
     void Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo);
 #else
     void Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo, const wchar_t *typeName);

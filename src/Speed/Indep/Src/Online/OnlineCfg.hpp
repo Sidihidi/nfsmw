@@ -8,6 +8,12 @@
 #include <types.h>
 
 #include "Speed/Indep/Src/Gameplay/GRace.h"
+// OnlineRaceParameters (TheOnlineRaceSettings) es la class de RaceDB.hpp (DWARF: RaceDB.hpp:157); con una copia
+// propia aqui, zOnline la decoraba como struct en MSVC (?GetRaceSettings@...PAUOnlineRaceParameters@@).
+#include "Speed/Indep/Src/Frontend/Database/RaceDB.hpp"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/bWare/Inc/Strings.hpp"
+#endif
 
 struct OnlineCfg {
     static void ReadConfigFile(const char *filename);
@@ -41,23 +47,6 @@ eOnlineDisconnectPerc GetDiconnectPercentageThreshold(const int32 &nDisconnectPe
 
 enum eOnlinePrevPage { ePrevPage_None = 0, ePrevPage_LobbyRoom = 1 };
 
-#ifndef ONLINERACEPARAMETERS_DEFINED
-#define ONLINERACEPARAMETERS_DEFINED
-struct OnlineRaceParameters { // 0x10
-    void Default();
-
-    /* 0x0 */ uint32 EventHash;
-    /* 0x4 */ uint8 NumLaps;
-    /* 0x5 */ uint8 TrackDirection;
-    /* 0x6 */ uint8 CopDensity;
-    // La A124 no lo tiene (ver RaceDB.hpp).
-#ifndef EA_BUILD_A124
-    /* 0x8 */ float TimeOfDay;
-#endif
-    /* 0xC */ bool IsLapKO;
-};
-#endif
-
 // total size: 0x114
 struct cOnlineSettings {
     friend struct OnlineCfg;
@@ -75,7 +64,13 @@ struct cOnlineSettings {
     /* 0x000 */ int iNumPlayers;
     // const en la A124: _15cOnlineSettings$MaxOnlinePlayers vive en .rodata (0x55c97a, vale 4) y EE-GCC adelanta su
     // lectura por encima de los stores (EditGameDetails::ChangeSelectedItem).
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: con valor en la clase; LobbyGameSessions::CreateSession ("SIZE") y LobbyGames ("MAXSIZE") pasan el 4
+    // como inmediato (`li r6, 4`) y el EGM no tiene el dato en .rdata.
+    static const uint8 MaxOnlinePlayers = 4;
+#else
     static const uint8 MaxOnlinePlayers;
+#endif
     /* 0x004 */ uint8 MinOnlinePlayers;
     /* 0x008 */ eOnlineGameDetails GameDetails;
     /* 0x00c */ bool AnyCarClassAllowed;
@@ -99,9 +94,32 @@ struct cOnlineSettings {
     /* 0x068 */ bool ShowBadConnectionWarning;
     /* 0x06c */ bool AppearOffline;
     /* 0x070 */ bool ShowForeignReg;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC (speed.exe) y Xbox 360: un bool en +0x44 (cOnlineSettings::Default lo pone a 0 justo tras ShowForeignReg, +0x43;
+    // EGM 0x822EE018). NO es inErrorState: SetState no lo borra y BuddyConnectCB/doprocessing no lo leen; solo lo
+    // escriben Default y LobbyGameSessions::Win32Unknown79A1D0 (true desde el callback de la sala, false desde
+    // EndOnlineRace) y lo lee UpdateSessionFlags como el bit 0x4000 de la sesion, que FindSessions de PC filtra.
+    // Probablemente "carrera en curso" de la sesion. Nombre NEUTRO: ningun binario lo da. Tras lastState no hay
+    // inErrorState en estas dos (NetworkUserName empieza en +0x70 en PC: SaveToBuffer).
+    bool win32_unknown_0x44;
+#endif
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: SetState (0x822EE1F8) pone a 0 SelectedGameRoomListOption en +0x4C y Default deja SelectedConnectingScreen
+    // y ePrevPage en +0x50/+0x54: 4 B mas aqui, que ni Default ni SetState tocan. Sin nombre en ningun binario.
+    int xenon_unknown_0x48;
+#endif
     /* 0x074 */ int SelectedGameRoomListOption;
     /* 0x078 */ int SelectedConnectingScreen;
     /* 0x07c */ eOnlinePrevPage ePrevPage;
+#ifdef EA_PLATFORM_WIN32
+    int win32_unknown_0x54; // PC: Default lo pone a 1 (+0x54 en speed.exe); nombre nuestro
+#endif
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: Default los pone a 3 y a false tras RestoreDefaultSettings, donde PC pone a 1 su win32_unknown_0x54
+    // (probablemente el mismo campo); el EGM los lee en FEDatabase + 0x190/0x194. Sin nombre en ningun binario.
+    int xenon_unknown_0x58;
+    bool xenon_unknown_0x5c;
+#endif
 
   private:
     friend struct BuddyCore;
@@ -109,7 +127,9 @@ struct cOnlineSettings {
     /* 0x080 */ OnlineRaceParameters TheOnlineRaceSettings;
     /* 0x08c */ eOnlineState onlineState;
     /* 0x090 */ eOnlineState lastState;
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     /* 0x094 */ bool inErrorState;
+#endif
     /* 0x098 */ char NetworkUserName[20];
     /* 0x0ac */ char NetworkPersona[20];
     /* 0x0c0 */ char NetworkPasswd[20];
@@ -117,12 +137,24 @@ struct cOnlineSettings {
     /* 0x0e8 */ char LANPersona[20];
     /* 0x0fc */ char LANPasswd[20];
     /* 0x110 */ bool bLoggedInToBuddyServer;
+#ifdef EA_PLATFORM_WIN32
+    // PC: Default limpia 21 B tras bLoggedInToBuddyServer (+0xE8 en BuddyConnectCB de speed.exe) de una sola
+    // pasada; el sizeof total es 0x100 (operator==: repe cmpsd de 0x40 dwords).
+    char win32_unknown_0xe9[21];
+#endif
     static char LobbyServerAddr[32];
     static uint16 LobbyServerPort;
+#ifdef EA_PLATFORM_WIN32
+    // PC: el par del servidor en LAN, tras el de internet en el .data de speed.exe (0x8F42EC "127.0.0.1" y
+    // 0x8F430C 9900; LobbyServerAddr/Port estan en 0x8F42C8/0x8F42E8). Solo los leen GetLobbyServerAddr
+    // (0x56E440) y GetLobbyServerPort (0x56E460) cuando FEDatabase->IsLANMode(); nombres nuestros.
+    static char LANServerAddr[32];
+    static uint16 LANServerPort;
+#endif
 
   public:
-#ifdef EA_BUILD_A124
-    // Inline in the prototype: the constructor of cFrontendDatabase calls Default directly.
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
+    // Inline in the prototype and on PC: the constructor of cFrontendDatabase calls Default directly.
     cOnlineSettings() {
         Default();
     }
@@ -138,10 +170,13 @@ struct cOnlineSettings {
     }
     eOnlineState GetLastState();
     void SetErrorState();
-    // Inline en la A124 (OnlineDB.hpp:125; UIOnlineLogin::BuddyConnectCB lo expande: lw 148(settings)).
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+    // Inline en la A124 (OnlineDB.hpp:125; UIOnlineLogin::BuddyConnectCB lo expande: lw 148(settings)). PC y Xbox 360
+    // no tienen inErrorState (ver win32_unknown_0x44).
     bool IsInErrorState() {
         return inErrorState;
     }
+#endif
     OnlineRaceParameters *GetRaceSettings() { return &TheOnlineRaceSettings; }
     char *GetLobbyAccountName();
     char *GetLobbyPersona();
@@ -151,12 +186,31 @@ struct cOnlineSettings {
     void SetLobbyPassword(const char *password);
     char *GetLobbyServerAddr();
     uint16 GetLobbyServerPort();
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x56E4D0: `lea eax, [ecx + 0xE9]`): devuelve win32_unknown_0xe9; LobbyLogin::DoContextLogin lo
+    // manda como REGKEY (probablemente la clave de registro del juego; 0x56E4A0 la copia con bStrNCpy de 21 y
+    // bToUpper). Nombre NEUTRO: ningun binario lo da.
+    char *GetWin32Unknown0xe9();
+    // PC (0x56E4A0): la copia con bStrNCpy de 21 y bToUpper (desde UIOnlineLogin::DoLobbyLoginProcessing). NEUTRO.
+    void SetWin32Unknown0xe9(const char *value);
+    // PC (0x56E480): copia la direccion en LANServerAddr (bStrCpy, si no es nula). Nombre NEUTRO.
+    void Win32Unknown56E480(const char *addr);
+#endif
     char *SaveToBuffer(char *buf);
     char *LoadFromBuffer(char *buf);
     int32 GetSaveBufferSize();
     char *GetGamePassword();
+#ifdef EA_PLATFORM_WIN32
+    void SetGamePassword(const char *pwd) {
+        bStrNCpy(Password, pwd, 12);
+    }
+    void SetGameVerifyPassword(const char *pwd) {
+        bStrNCpy(VerifyPassword, pwd, 12);
+    }
+#else
     void SetGamePassword(const char *pwd);
     void SetGameVerifyPassword(const char *pwd);
+#endif
     // Inline en la A124 (OnlineDB.hpp:192-193; UIOnlineLogin::BuddyConnectCB y DoLobbyLoginProcessing los expanden).
     // La A124 lo declara SetBuddyServerLoggedIn(bool); el nombre del parametro no queda en los stabs.
     void SetBuddyServerLoggedIn(bool bLoggedIn) {
@@ -187,7 +241,7 @@ struct OnlineCreateUserSettings { // 0xe8
     /* 0xe0 */ bool TermsOfService;
     /* 0xe4 */ OnlineGender Gender;
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
     OnlineCreateUserSettings();
 #endif
     void Initialize();

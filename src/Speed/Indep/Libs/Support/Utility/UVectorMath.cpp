@@ -727,7 +727,6 @@ void VU0_MATRIX4setzrot(UMath::Matrix4 &dest, const float zangle) {
 }
 #endif
 
-#ifndef EA_PLATFORM_PLAYSTATION2
 // Decl: GC MW: UVectorMath.cpp: 4088
 void VU0_m4toquat(const UMath::Matrix4 &mat, UMath::Vector4 &result) {
     // La forma sale del DWARF del original (mw_dwarfdump.nothpp), que en esta
@@ -779,6 +778,32 @@ void VU0_m4toquat(const UMath::Matrix4 &mat, UMath::Vector4 &result) {
     }
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Lineas 1208-1214 del original de la A124, entre VU0_m4toquat y VU0_Matrix4ToEuler. Solo PS2 la emite
+// (la llama el QuaternionToEuler inline de UMath.h); en las demas no existe ni el simbolo.
+void VU0_QuatToEuler(const UMath::Vector4 &q, UMath::Vector3 &e) {
+    UMath::Matrix4 m;
+    VU0_quattom4(q, m);
+    float sy = m[0][2];
+    if (sy < -1.0f)
+        sy = -1.0f;
+    if (sy > 1.0f)
+        sy = 1.0f;
+    float cy = sqrtf(1.0f - sy * sy);
+    if ((m[0][0] < 0.0f) && (m[2][2] < 0.0f))
+        cy = -cy;
+    if (VU0_fabs(cy) > 0.001f) {
+        e.x = UMath::Atan2a(m[1][2] / cy, m[2][2] / cy);
+        e.y = -UMath::Atan2a(sy, cy);
+        e.z = UMath::Atan2a(m[0][1] / cy, m[0][0] / cy);
+    } else {
+        e.x = UMath::Atan2a(-m[2][1], m[1][1]);
+        e.y = -rasin(sy);
+        e.z = 0.0f;
+    }
+}
+#endif
+
 // Decl: GC MW: UVectorMath.cpp: 4896
 void VU0_Matrix4ToEuler(const UMath::Matrix4 &m, UMath::Vector3 &e) {
     float sy = m[0][2];
@@ -789,22 +814,16 @@ void VU0_Matrix4ToEuler(const UMath::Matrix4 &m, UMath::Vector3 &e) {
     float cy = sqrtf(1.0f - sy * sy);
     if ((m[0][0] < 0.0f) && (m[2][2] < 0.0f))
         cy = -cy;
-    float z = 0.0f;
-    float abs_cy = cy;
-    if (cy < z)
-        abs_cy = -cy;
-    if (abs_cy > 0.001f) {
+    if (VU0_fabs(cy) > 0.001f) {
         e.x = UMath::Atan2a(m[1][2] / cy, m[2][2] / cy);
         e.y = -UMath::Atan2a(sy, cy);
         e.z = UMath::Atan2a(m[0][1] / cy, m[0][0] / cy);
     } else {
         e.x = UMath::Atan2a(-m[2][1], m[1][1]);
         e.y = -rasin(sy);
-        e.z = z;
+        e.z = 0.0f;
     }
 }
-
-#endif // EA_PLATFORM_PLAYSTATION2
 
 #ifdef EA_PLATFORM_PLAYSTATION2
 // Lineas 3388-3452 del original. En PS2 no van en linea: los llamadores hacen `jal VU0_Sin__Ff'. El angulo va en

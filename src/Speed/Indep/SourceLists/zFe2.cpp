@@ -16,8 +16,12 @@
 #include "Speed/Indep/Src/Frontend/HUD/FeCostToState.cpp"
 
 #include "Speed/Indep/Src/Frontend/HUD/FeReputation.cpp"
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON)
 #include "Speed/Indep/Src/Frontend/HUD/FeOnlineHudSupport.cpp"
+#endif
+#ifdef EA_PLATFORM_XENON
+// Solo el EGM conserva su codigo (/OPT:NOREF; GameCube y la A124 lo tiran al enlazar): 0x822C0D28-0x822C0FF8.
+#include "Speed/Indep/Src/Frontend/HUD/FeQueuedMessageSwapper.cpp"
 #endif
 
 #include "Speed/Indep/Src/Frontend/HUD/FeMinimapStreamer.cpp"
@@ -113,7 +117,9 @@
 #include "Speed/Indep/Src/Frontend/Localization/Localize.cpp"
 
 #include "Speed/Indep/Src/Frontend/Localization/WideCharHistogram.cpp"
-#ifdef EA_BUILD_A124
+// Las milestone (la A124 y el EGM de X360, donde ScreenPrintf y GetUnusedScreenPrintItem estan entre
+// WideCharHistogram y RaceStarter, 0x822E4BC0-0x822E5898).
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Frontend/ScreenPrintf.cpp"
 #endif
 
@@ -126,7 +132,7 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/Slider.cpp"
 
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.cpp"
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // PC y el EGM: cOnlineSettings::Default/SetState viven en zFe2
 #include "Speed/Indep/Src/Frontend/Database/OnlineDB.cpp"
 #endif
 

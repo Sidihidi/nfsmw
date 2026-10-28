@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 int SNDSTRM_fxlevel(int sndstreamhandle, int bus, int level) {
+    SNDI_CHECKINSTALLED();
     SNDSTREAMCHANNEL *pssc = SNDSTRMI_getstreamptr(sndstreamhandle);
 
     if (pssc == NULL) {

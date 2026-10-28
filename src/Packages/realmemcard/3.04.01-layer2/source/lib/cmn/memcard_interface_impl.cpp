@@ -116,7 +116,10 @@ void MemcardInterfaceImpl::_ClearMessage() {
         this->mMessageShowing = false;
     }
 
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_VERSION >= 30401 && !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+    // En PC _ClearMessage no avisa al driver (23 B en speed.exe, como la 3.04.00). En Xbox 360 tampoco:
+    // su _ClearMessage (0x825ED880, 80 B) y la copia expandida en _ShowGuidelinesMessage (0x825ED7E0)
+    // solo llaman a IGameInterface::ClearMessage, sin SendMessage.
     this->mIMemcard->SendMessage(Realmc::UMSG_NONE, 0);
 #endif
 }
@@ -221,13 +224,19 @@ void MemcardInterfaceImpl::TaskManagerFindEntries(const char *entryNamePattern, 
     this->mTaskManager->FindEntries(entryNamePattern, titleInfo);
 }
 
-#if REALMEMCARD_VERSION < 30401
+#if !REALMEMCARD_HAS_TYPENAME
 void MemcardInterfaceImpl::TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo) {
     this->mTaskManager->Load(entryName, header, body, contentName, titleInfo);
 }
 #else
 void MemcardInterfaceImpl::TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName, const TitleInfo *titleInfo) {
     this->mTaskManager->Load(entryName, header, body, contentName, typeName, titleInfo);
+}
+#endif
+
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void MemcardInterfaceImpl::TaskManagerSaveCheck(const char *entryName, const SaveInfo *saveInfo, const TitleInfo *titleInfo) {
+    this->mTaskManager->SaveCheck(entryName, saveInfo, titleInfo);
 }
 #endif
 
@@ -239,6 +248,12 @@ void MemcardInterfaceImpl::TaskManagerDelete(const char *entryName, const wchar_
     this->mEntryList = &entryName;
     this->mTaskManager->Delete(1, &entryName, contentName);
 }
+
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void MemcardInterfaceImpl::TaskManagerDeleteMultiple(unsigned int nEntryNames, const char **entryNames, const wchar_t *contentName) {
+    this->mTaskManager->Delete(nEntryNames, entryNames, contentName);
+}
+#endif
 
 void MemcardInterfaceImpl::TaskManagerCheckCard(CardId cardId) {
     this->mTaskManager->CheckCard(cardId);

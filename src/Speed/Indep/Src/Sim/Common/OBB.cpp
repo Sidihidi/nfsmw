@@ -101,12 +101,22 @@ bool OBB::BoxVsBox(OBB *obbA, OBB *obbB, OBB *result) {
     OBB *a = obbA;
     OBB *b = obbB;
 
+#ifdef EA_PLATFORM_XENON
+    // Las colas del EGM comparan con < estricto: cmpwi r31, 3 en 0x8249ADE4 (a_lp) y
+    // cmpwi r30, 2 en 0x8249ADF0 (cycle); las demas versiones emiten el <=.
+    for (int cycle = 0; cycle < 2; cycle++) {
+#else
     for (int cycle = 0; cycle <= 1; cycle++) {
+#endif
         if (cycle == 1) {
             a = obbB;
             b = obbA;
         }
+#ifdef EA_PLATFORM_XENON
+        for (int a_lp = 0; a_lp < 3; a_lp++) {
+#else
         for (int a_lp = 0; a_lp <= 2; a_lp++) {
+#endif
             int a_normal_index;
 
             if (a_lp == 1) {

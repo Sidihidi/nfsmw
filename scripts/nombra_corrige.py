@@ -453,6 +453,9 @@ def punto_fijo(exe, est, us, primero, llamantes=True, verificar=False):
         nuevas = unicas(props)
         if llamantes and not nuevas:
             nuevas = unicas([p for p in propone_duplicados(us, est, ev) if (p['a'], p['nuevo']) not in rechazadas])
+        # direcciones vetadas por el usuario (nombres_vetados.tsv): ni se renombran ni pierden su nombre
+        nuevas = [p for p in nuevas if p['a'] not in ne.VETADOS
+                  and not any(a2 in ne.VETADOS for a2 in est.dirs.get(p['nuevo'], ()) if a2 != p['a'])]
         if not nuevas:
             break
         for p in nuevas:

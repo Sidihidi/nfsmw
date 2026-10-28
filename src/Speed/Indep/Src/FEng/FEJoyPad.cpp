@@ -48,7 +48,7 @@ u32 FEJoyPad::HeldFor(u32 Mask) {
     u32 uResult = 0xFFFFFFFF;
     for (int i = 0; i < 32; i++) {
         if (Mask & (1 << i)) {
-            uResult = HeldCount[i] > uResult ? uResult : HeldCount[i];
+            uResult = uResult < HeldCount[i] ? uResult : HeldCount[i];
         }
     }
     return uResult;

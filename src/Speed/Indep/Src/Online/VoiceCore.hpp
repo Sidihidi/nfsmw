@@ -65,6 +65,11 @@ class VoiceCore {
     void ToggleMuted(const char *persona);
     void ClearMuteRecords();
     void ApplyMuteRecords();
+#ifdef EA_PLATFORM_XENON
+    // EGM 0x82584CB0: Lock, el privado de 0x82585438 (busca la persona en mute_record y pone su registro a cero) y
+    // Unlock. Sin nombre en ningun binario: probablemente olvida el silencio guardado de esa persona.
+    void XenonUnknown82584CB0(const char *persona);
+#endif
     bool IsMuted(int channel);
     bool IsMuted(const char *persona);
     bool IsInVOIPChat(const char *name, int *channel);
@@ -99,8 +104,26 @@ class VoiceCore {
     void _SetSpeakerState(bool enable);
     void _SetSpeakerVolume(float volume);
     void _SetPlaybackVolume(float volume);
+#ifdef EA_PLATFORM_XENON
+    void _XenonUnknown82585438(const char *persona);
+#endif
 
     static int num_channels;
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360 (EGM: ctor 0x82584100, Startup 0x825841E0, Construct pide 0x114 B): tres canales, VoipStartup(3), sin
+    // PushToTalk (el microfono siempre abierto), sin mTransmit ni all_muted, y ocho registros de silencio que
+    // _RemovePlayer guarda como una pila (el ultimo silenciado en mute_record[0]).
+    channel_type channels[3];          // offset 0x0 (Startup pone a cero 0x42 B)
+    VoipRefT *VoipRef;                 // offset 0x44
+    channel_type mute_record[8];       // offset 0x48 (memset de 0xB0 B)
+    bool headset_state_at_last_shutdown; // offset 0xF8
+    bool headset_ready_remember;       // offset 0xF9
+    bool speaker_state_remember;       // offset 0xFA
+    float speaker_volume_remember;     // offset 0xFC
+    float playback_volume_remember;    // offset 0x100
+    Timer startup_timer;               // offset 0x104
+    int last_remote_status[3];         // offset 0x108
+#else
     PushToTalk mPTT;
     bool mTransmit;
     channel_type channels[4];
@@ -114,6 +137,7 @@ class VoiceCore {
     bool all_muted;
     Timer startup_timer;
     int last_remote_status[4];
+#endif
     static VoiceCore *mInstance;
 
     friend struct ConnectionCore;

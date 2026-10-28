@@ -70,7 +70,7 @@ void AIActionHeadOnRam::OnBehaviorChange(const UCrc32 &mechanic) {
     }
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeadOnRam("AIActionHeadOnRam", AIActionHeadOnRam::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeadOnRam(UCrc32("AIActionHeadOnRam"), AIActionHeadOnRam::Construct);
 
 AIAction *AIActionHeadOnRam::Construct(AIActionParams *params) {
     return new AIActionHeadOnRam(params, 0.1f);

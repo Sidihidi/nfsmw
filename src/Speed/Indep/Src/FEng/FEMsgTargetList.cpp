@@ -41,7 +41,7 @@ void FEMsgTargetList::Allocate(u32 NewAlloc) {
 
 void FEMsgTargetList::AppendTarget(FEObject *pObject) {
     if (Count == Alloc) {
-        Allocate(Count + 1);
+        Allocate(Alloc + 1);
     }
     pTargets[Count++] = pObject;
 }

@@ -69,7 +69,14 @@ void uiRapSheetMain::RefreshHeader() {
     UserProfile *prof = FEDatabase->GetUserProfile(0);
     FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
     HighScoresDatabase *scores = prof->GetHighScores();
+#ifdef EA_PLATFORM_XENON
+    // El EGM materializa ya el puntero final (addi r28, r29, 0x31c en 0x8225DFC8,
+    // = &TheCareerSettings + 0x26C de una vez): es el retorno de
+    // GetCaseFileName(), no la direccion del campo a medio componer.
+    FEPrintf(GetPackageName(), 0x1232703A, GetLocalizedString(0xE21D083C), prof->GetCareer()->GetCaseFileName());
+#else
     FEPrintf(GetPackageName(), 0x1232703A, GetLocalizedString(0xE21D083C), prof->GetCareer()->CaseFileName);
+#endif
     FEPrintf(GetPackageName(), 0xE3DA78E7, GetLocalizedString(0x6031106E), prof->GetProfileName());
     FEPrintf(GetPackageName(), 0xE3DA78E8, GetLocalizedString(0x364E4525), stable->GetTotalBounty());
     FEPrintf(GetPackageName(), 0xE3DA78E9, GetLocalizedString(0xA355FEDD), scores->CareerPursuitDetails.GetValue(PD_COST_TO_STATE));

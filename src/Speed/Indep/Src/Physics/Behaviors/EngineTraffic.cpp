@@ -31,7 +31,7 @@ class EngineTraffic : protected VehicleBehavior, protected ITransmission, protec
     Hp GetMaxHorsePower() const override;
     Hp GetHorsePower() const override;
     Hp GetMinHorsePower() const override {
-        return FTLB2HP(Physics::Info::Torque(this->mEngineInfo, this->mEngineInfo.IDLE()) * this->mEngineInfo.IDLE(), 1.0f);
+        return FTLB2HP(Physics::Info::Torque(this->mEngineInfo, this->mEngineInfo.IDLE()), this->mEngineInfo.IDLE());
     }
     float GetRPM() const override {
         return this->mRPM;

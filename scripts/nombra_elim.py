@@ -69,6 +69,7 @@ V = 'SPEED_EXE_1_3'
 CONFIG = os.path.join(RAIZ, 'config', V)
 SYMBOLS = os.path.join(CONFIG, 'symbols.json')
 PROCEDENCIA = os.path.join(CONFIG, 'nombres_procedencia.tsv')
+VETOS = os.path.join(CONFIG, 'nombres_vetados.tsv')
 OBJDIFF = os.path.join(RAIZ, 'build', 'tools', 'objdiff-cli.exe')
 TMP = os.path.join(RAIZ, 'build', V, 'nombra_elim_tmp')
 EH = ('__unwindfunclet$', '__ehhandler$', '__catch$', '__tryblock')
@@ -81,6 +82,25 @@ _IDA = re.compile(r'^(sub|nullsub|j_sub|j|unknown_libname|loc|jpt|SEH|lpStartAdd
                   r'|^Unwind@|^FID_conflict:|::|\(|\s|__[0-9A-F]{8}$|_[0-9a-f]{8}$|__delink_')
 _GCC = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*__(?:\d|F|C|Q\d|t\d|H\d)|^_\$_|^__ct__|^__dt__')
 _DUP = re.compile(r'^\?.*@[A-Z0-9]*Z_\d+$|^\?.*_\d+_SEH$')
+
+
+def vetados():
+    """{direccion: nombre fijo} de config/SPEED_EXE_1_3/nombres_vetados.tsv: direcciones cuyo nombre decidio el usuario
+    (ronda 84: 0x568F10 se queda sub_568F10). Ninguna regla de la rutina (nombra_elim, nombra_corrige, nombra_grafo)
+    las propone ni las escribe. Formato: direccion en hex, nombre fijo y motivo separados por tabulador; '#' comenta."""
+    out = {}
+    if not os.path.exists(VETOS):
+        return out
+    for linea in open(VETOS, encoding='utf-8'):
+        linea = linea.rstrip('\r\n')
+        if not linea.strip() or linea.startswith('#'):
+            continue
+        c = linea.split('\t')
+        out[int(c[0], 16)] = c[1]
+    return out
+
+
+VETADOS = vetados()
 
 
 def valido(n):
@@ -234,6 +254,8 @@ def corre(exe, unidades, escondidas):
                 b = sorted(ns, key=lambda x: u.indice.get(x, 1 << 30))
                 parejas, regla = list(zip(a, b)), 'elim-orden'
             for o, n in parejas:
+                if u.va.get(o) in VETADOS:
+                    continue
                 contra, testigos = destinos(exe, u.fo[o], u.fs[n])
                 if contra:
                     continue
@@ -368,6 +390,11 @@ def aplica(cambios):
     entrada de `functions` (start) y en la de `names` (addr) de esa direccion SOLO si alli esta el nombre viejo, asi
     que es idempotente (si ya tiene el nuevo, no hace nada). No reescribe el JSON: el resto del fichero queda igual."""
     texto = open(SYMBOLS, 'rb').read().decode('utf-8')
+    vet = vetados()
+    for a, viejo, nuevo in cambios:
+        if a in vet and nuevo != vet[a]:
+            print('  VETADA 0x%X: se queda %s (no %s)' % (a, vet[a], nuevo[:80]))
+    cambios = [c for c in cambios if c[0] not in vet or c[2] == vet[c[0]]]
     por_dir = {a: (viejo, nuevo) for a, viejo, nuevo in cambios}
     trozos, ultimo, hechos = [], 0, set()
     for m in _ENTRADA.finditer(texto):

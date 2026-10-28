@@ -89,184 +89,152 @@ eMenuSoundTriggers uiRepSheetMilestones::NotifySoundMessage(u32 msg, eMenuSoundT
 void uiRepSheetMilestones::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 param2) {
     int currentIndex = data.IsInList(currentDatum) - 1;
     ArrayScrollerMenu::NotificationMessage(msg, obj, param1, param2);
-    if (msg == 0x911c0a4b) {
-        goto refresh;
-    }
-    if (msg <= 0x911c0a4b) {
-        if (msg == 0x34dc1bcf) {
+    // Un switch (sin goto): GC da el arbol de comparaciones que GCC hace para el (diario ps2a12476).
+    switch (msg) {
+    case 0xc407210: {
+        if (theMilestone == nullptr) {
             return;
         }
-        if (msg <= 0x34dc1bcf) {
-            if (msg == 0xc407210) {
-                goto handleActivate;
-            }
+        if (theMilestone->IsChecked()) {
+            g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(7));
             return;
         }
-        if (msg == 0x72619778) {
-            goto refresh;
+        if (!bIsInGame) {
+            signed char joyPort = static_cast<signed char>(FEngMapJoyParamToJoyport(param1));
+            FEDatabase->SetPlayersJoystickPort(0, joyPort);
         }
-        if (msg == 0x911ab364) {
-            goto handlePackageSwitch;
-        }
-        return;
-    }
-    if (msg == 0xc3960eb9) {
-        goto handleWarp;
-    }
-    if (msg <= 0xc3960eb9) {
-        if (msg == 0x9120409e || msg == 0xb5971bf1) {
-            goto refresh;
-        }
-        return;
-    }
-    if (msg == 0xc98356ba) {
-        goto handleUpdateAnimation;
-    }
-    if (msg <= 0xc98356ba) {
-        if (msg == 0xc519bfc3) {
-            goto handleTutorial;
-        }
-        return;
-    }
-    if (msg == 0xd05fc3a3) {
-        goto handleTutorialAccept;
-    }
-    return;
-
-handleActivate: {
-    if (theMilestone == nullptr) {
-        return;
-    }
-    if (theMilestone->IsChecked()) {
-        g_pEAXSound->PlayUISoundFX(static_cast<eMenuSoundTriggers>(7));
-        return;
-    }
-    if (!bIsInGame) {
-        signed char joyPort = static_cast<signed char>(FEngMapJoyParamToJoyport(param1));
-        FEDatabase->SetPlayersJoystickPort(0, joyPort);
-    }
-    const char *dialog = "";
-    if (bIsInGame) {
-        dialog = "InGameDialog.fng";
-    }
-    unsigned int messageHash = 0xa5a8409a;
-    if (theMilestone->GetType() != 0) {
-        messageHash = 0xbf1dcd38;
-    }
-    DialogInterface::ShowTwoButtons(GetPackageName(), dialog, static_cast<eDialogTitle>(1), LANGUAGE_COMMON_YES, LANGUAGE_COMMON_NO, 0xd05fc3a3, 0x34dc1bcf,
-                                    0x34dc1bcf, static_cast<eDialogFirstButtons>(1), messageHash);
-    return;
-}
-
-handleTutorial: {
-    if (bIsInGame) {
-        return;
-    }
-    FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
-    FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
-#ifndef EA_BUILD_A124
-                                     ,
-                                     GetPackageName()
-#endif
-    );
-    return;
-}
-
-handleWarp: {
-    if (bIsInGame) {
-        FEngSetVisible("InGameBackground.fng", 0x2716cdbf);
-    }
-    FEngSetScript(GetPackageName(), 0x99344537, 0x1744b3, true);
-    if (theMilestone == nullptr) {
-        return;
-    }
-    unsigned int marker;
-    bool pursuit = false;
-    if (theMilestone->GetType() == 0) {
-        GMilestone *pMilestone = theMilestone->my_milestone;
-        marker = pMilestone->GetJumpMarkerKey();
-        pursuit = true;
-    } else {
-        SpeedTrapDatum *st = static_cast<SpeedTrapDatum *>(theMilestone);
-        GSpeedTrap *pSpeedTrap = st->my_speedtrap;
-        marker = pSpeedTrap->GetJumpMarkerKey();
-    }
-    if (bIsInGame) {
-        new ERaceSheetOff();
-        GManager::Get().WarpToMarker(marker, pursuit);
-        return;
-    }
-    GManager::Get().OverrideFreeRoamStartMarker(marker);
-    if (pursuit) {
-        GManager::Get().QueueFreeRoamPursuit(0.0f);
-    }
-    RaceStarter::StartCareerFreeRoam();
-    return;
-}
-
-handleUpdateAnimation:
-    // La A124 salta a UpdateAnimation con this+0xE8 sin mirar nada: miembro por valor, sin comprobacion.
-#ifndef EA_BUILD_A124
-    if (TrackMapStreamer != nullptr)
-#endif
-    {
-#ifdef EA_BUILD_A124
-        TrackMapStreamer.UpdateAnimation();
-#else
-        TrackMapStreamer->UpdateAnimation();
-#endif
-    }
-    return;
-
-refresh: {
-    int newIndex = data.IsInList(currentDatum) - 1;
-    if (currentIndex != newIndex && currentDatum != nullptr) {
-        RefreshTrack();
-    }
-    return;
-}
-
-handleTutorialAccept: {
-    CareerSettings *career = FEDatabase->GetCareerSettings();
-    if (((career->SpecialFlags >> 9) & 1) == 0) {
+        const char *dialog = "";
         if (bIsInGame) {
+            dialog = "InGameDialog.fng";
+        }
+        unsigned int messageHash = 0xa5a8409a;
+        if (theMilestone->GetType() != 0) {
+            messageHash = 0xbf1dcd38;
+        }
+        DialogInterface::ShowTwoButtons(GetPackageName(), dialog, static_cast<eDialogTitle>(1), LANGUAGE_COMMON_YES, LANGUAGE_COMMON_NO, 0xd05fc3a3, 0x34dc1bcf,
+                                        0x34dc1bcf, static_cast<eDialogFirstButtons>(1), messageHash);
+        return;
+    }
+
+    case 0xc519bfc3: {
+        if (bIsInGame) {
+            return;
+        }
+        FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
+        FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
 #ifndef EA_BUILD_A124
-            if (TrackMapStreamer != nullptr) {
-                delete TrackMapStreamer;
-            }
-            TrackMapStreamer = nullptr;
+                                         ,
+                                         GetPackageName()
 #endif
-            InGameAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
+        );
+        return;
+    }
+
+    case 0xc3960eb9: {
+        if (bIsInGame) {
+            FEngSetVisible("InGameBackground.fng", 0x2716cdbf);
+        }
+        FEngSetScript(GetPackageName(), 0x99344537, 0x1744b3, true);
+        if (theMilestone == nullptr) {
+            return;
+        }
+        unsigned int marker;
+        bool pursuit = false;
+        if (theMilestone->GetType() == 0) {
+            GMilestone *pMilestone = theMilestone->my_milestone;
+            marker = pMilestone->GetJumpMarkerKey();
+            pursuit = true;
+        } else {
+            SpeedTrapDatum *st = static_cast<SpeedTrapDatum *>(theMilestone);
+            GSpeedTrap *pSpeedTrap = st->my_speedtrap;
+            marker = pSpeedTrap->GetJumpMarkerKey();
+        }
+        if (bIsInGame) {
+            new ERaceSheetOff();
+            GManager::Get().WarpToMarker(marker, pursuit);
+            return;
+        }
+        GManager::Get().OverrideFreeRoamStartMarker(marker);
+        if (pursuit) {
+            GManager::Get().QueueFreeRoamPursuit(0.0f);
+        }
+        RaceStarter::StartCareerFreeRoam();
+        return;
+    }
+
+    case 0xc98356ba:
+        // La A124 salta a UpdateAnimation con this+0xE8 sin mirar nada: miembro por valor, sin comprobacion.
+#ifndef EA_BUILD_A124
+        if (TrackMapStreamer != nullptr)
+#endif
+        {
+#ifdef EA_BUILD_A124
+            TrackMapStreamer.UpdateAnimation();
+#else
+            TrackMapStreamer->UpdateAnimation();
+#endif
+        }
+        return;
+
+    case 0x72619778:
+    case 0x911c0a4b:
+    case 0x9120409e:
+    case 0xb5971bf1: {
+        int newIndex = data.IsInList(currentDatum) - 1;
+        if (currentIndex != newIndex && currentDatum != nullptr) {
+            RefreshTrack();
+        }
+        return;
+    }
+
+    case 0xd05fc3a3: {
+        CareerSettings *career = FEDatabase->GetCareerSettings();
+        if (((career->SpecialFlags >> 9) & 1) == 0) {
+            if (bIsInGame) {
+#ifndef EA_BUILD_A124
+                if (TrackMapStreamer != nullptr) {
+                    delete TrackMapStreamer;
+                }
+                TrackMapStreamer = nullptr;
+#endif
+                InGameAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
+#ifndef EA_BUILD_A124
+                                                     ,
+                                                     GetPackageName()
+#endif
+                );
+                FEngSetInvisible("InGameBackground.fng", 0x2716cdbf);
+            } else {
+                FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
 #ifndef EA_BUILD_A124
                                                  ,
                                                  GetPackageName()
 #endif
-            );
-            FEngSetInvisible("InGameBackground.fng", 0x2716cdbf);
-        } else {
-            FEAnyTutorialScreen::LaunchMovie(gTUTORIAL_MOVIE_PURSUIT
-#ifndef EA_BUILD_A124
-                                             ,
-                                             GetPackageName()
-#endif
-            );
+                );
+            }
+            FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
+            FEngSetInvisible(GetPackageName(), FEngHashString("TRACK_MAP"));
+            career->SpecialFlags |= 0x200;
+            return;
         }
-        FEngSetScript(GetPackageName(), 0x99344537, 0x16a259, true);
-        FEngSetInvisible(GetPackageName(), FEngHashString("TRACK_MAP"));
-        career->SpecialFlags |= 0x200;
+        cFEng::Get()->QueueGameMessage(0xc3960eb9, GetPackageName(), 0xff);
         return;
     }
-    cFEng::Get()->QueueGameMessage(0xc3960eb9, GetPackageName(), 0xff);
-    return;
-}
 
-handlePackageSwitch:
-    if (bIsInGame) {
-        cFEng::Get()->QueuePackageSwitch("InGameReputationOverview.fng", 1, 0, false);
-    } else {
-        cFEng::Get()->QueuePackageSwitch("SafeHouseReputationOverview.fng", 0, 0, false);
+    case 0x911ab364:
+        if (bIsInGame) {
+            cFEng::Get()->QueuePackageSwitch("InGameReputationOverview.fng", 1, 0, false);
+        } else {
+            cFEng::Get()->QueuePackageSwitch("SafeHouseReputationOverview.fng", 0, 0, false);
+        }
+        return;
+    case 0x34dc1bcf:
+    // El arbol de GC tiene su raiz en el 5.o de 11 valores: hace falta un case sin cuerpo mas entre
+    // 0x0c407210 y 0x34dc1bcf, que no deja codigo. Su valor es ARBITRARIO dentro de ese hueco: cualquiera
+    // da los mismos bytes en las cinco versiones (decision del usuario, ronda 77).
+    case 0x20000000:
+        return;
     }
-    return;
 }
 
 void uiRepSheetMilestones::Setup() {

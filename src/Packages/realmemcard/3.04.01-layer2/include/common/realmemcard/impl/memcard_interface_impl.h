@@ -128,14 +128,28 @@ struct CardID {
     CardID() {
         this->slot = 0;
         this->systemData = 0;
+#ifdef EA_PLATFORM_XENON
+        this->x360_unknown_0x4 = 0;
+        this->x360_unknown_0x8 = 0;
+#endif
     }
     CardID(unsigned short s, unsigned short sysData) {
         this->slot = s;
         this->systemData = sysData;
+#ifdef EA_PLATFORM_XENON
+        this->x360_unknown_0x4 = 0;
+        this->x360_unknown_0x8 = 0;
+#endif
     }
 
     unsigned short slot;
     unsigned short systemData;
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: el CardID mide 0xC (MemcardInterface::GetCardName, 0x825E8DA8, construye uno de 3 palabras
+    // y MemcardInterfaceImpl::mIsResettable cae en +0xA0, tras dos CardID desde mGameInfo en +0x20).
+    unsigned int x360_unknown_0x4;
+    unsigned int x360_unknown_0x8;
+#endif
 #endif
 };
 
@@ -251,6 +265,81 @@ struct StartGameInfo {
     bool checkAllSlots;
     wchar_t *gameTitle;
     bool autoSave;
+};
+#elif defined(EA_PLATFORM_WIN32)
+// En PC el FileInfo es el corto (el constructor de MemcardInterfaceImpl de speed.exe lo pone a cero con 3
+// stores) y el StartGameInfo mide 0x10 (mStartGameInfo en +0xA4 y mEntryName en +0xB4).
+struct DirectoryInfo;
+
+struct FileInfo {
+    FileInfo() {
+        this->fileName = nullptr;
+        this->fileByteSize = 0;
+        this->directoryInfo = nullptr;
+    }
+
+    const char *fileName;
+    int fileByteSize;
+    DirectoryInfo *directoryInfo;
+};
+
+struct StartGameInfo {
+    StartGameInfo()
+        : fileInfo()
+        , checkCardID() {}
+
+    FileInfo fileInfo;
+    CardID checkCardID;
+};
+#elif defined(EA_PLATFORM_XENON)
+// Xbox 360 (r62, derivado del XEX): el DirectoryInfo mide 0xC (su ctor suelto en 0x825E99D8 pone a cero
+// 3 palabras; SaveCheck de la TU de plataforma, 0x825EA880, copia en +4/+8 las dos primeras palabras del
+// sub-struct sin nombre de SaveInfo en +0x34 y en +0 el nombre ancho de la entrada). El FileInfo mide 0x14
+// (ctor suelto en 0x825E9A08: 4 palabras y el bool en +0x10; el ctor de MemcardInterfaceImpl, 0x825EA070,
+// lo pone a cero como miembro en impl+0x13C y MemcardInterfaceImpl::SaveCheck guarda fileContentName en
+// +0xC desde SaveInfo+0x64 y el puntero al DirectoryInfo en +8). El StartGameInfo mide 0x28 (memset de 10
+// palabras sobre impl+0xC0 en el ctor de MemcardInterfaceImpl y mEntryName en impl+0xE8 justo despues;
+// su ctor suelto en 0x825E9A28 inicializa fileInfo, totalBlocksNeeded en +0x14 y el CardID de 3 palabras
+// en +0x18, sin tocar la palabra de +0x24; totalFilesNeeded no existe en esta revision: SaveCheck pasa 0
+// a TrcSaveFile y BootupCheck solo acumula bloques, en impl+0xD4 = StartGameInfo+0x14).
+struct DirectoryInfo {
+    DirectoryInfo() {
+        this->directoryName = nullptr;
+        this->x360_unknown_0x4 = 0;
+        this->x360_unknown_0x8 = 0;
+    }
+
+    wchar_t *directoryName;
+    unsigned int x360_unknown_0x4;
+    unsigned int x360_unknown_0x8;
+};
+
+struct FileInfo {
+    FileInfo()
+        : fileName(0)
+        , fileByteSize(0)
+        , directoryInfo(0)
+        , fileContentName(0)
+        , usingMultipleSaves(false) {}
+
+    const char *fileName;
+    int fileByteSize;
+    DirectoryInfo *directoryInfo;
+    wchar_t *fileContentName;
+    bool usingMultipleSaves;
+};
+
+struct StartGameInfo {
+    StartGameInfo()
+        : fileInfo()
+        , checkCardID() {
+        this->totalBlocksNeeded = 0;
+    }
+
+    FileInfo fileInfo;
+    unsigned int totalBlocksNeeded;
+    CardID checkCardID;
+    bool checkAllSlots;
 };
 #else
 struct FileInfo {
@@ -497,6 +586,43 @@ struct Interface : public BaseInterface {
     virtual void DeleteDirectory(const CardID &, const char *) = 0;
     virtual Sjis *GetSjisInterface() = 0;
     virtual void Format(const CardID &) = 0;
+#elif defined(EA_PLATFORM_WIN32)
+    // En PC Interface no anade virtuales: la vtable de InterfaceImp en speed.exe (0x8C2580) tiene 28
+    // entradas y ClearTask es el slot 27 (+0x6C), justo tras el destructor.
+#elif defined(EA_PLATFORM_XENON)
+    // Xbox 360 (r63, de la vtable de Interface lbl_820B74D0: 35 entradas, slots 27-34 propios, y la
+    // concreta lbl_820B73B0 con ClearTask en el slot 35, +0x8C): Interface anade OCHO virtuales, no
+    // las cuatro de GC. Las dos primeras quedan probadas por su tarea estatica (mID en +8 del objeto
+    // de .data: 18 = TID_CREATE_DIRECTORY en 0x8295CF28 y 19 = TID_DELETE_DIRECTORY en 0x8295CF9C,
+    // con los TID 14/15 de CardExists/GetCardInfo de ancla) y por su Start (copia el CardID de 3
+    // palabras y la cadena ancha con el wcscpy de 0x8289BA98 a la tarea): son las mismas
+    // CreateDirectory/DeleteDirectory de la rama PS2, con el nombre de directorio ancho como el
+    // DirectoryInfo::directoryName de esta revision. De las seis restantes el binario prueba el
+    // slot y la forma de los argumentos (cuerpos concretos y llamantes citados en cada una) pero
+    // NO el nombre: quedan marcadas como desconocidas con su desplazamiento de vtable.
+    virtual void CreateDirectory(const CardID &, const wchar_t *) = 0;
+    virtual void DeleteDirectory(const CardID &, const wchar_t *) = 0;
+    // Slot 29 (+0x74): tarea estatica 0x8295CEE8 con mID 30; su cuerpo concreto (0x825F9DD0) y los
+    // llamantes de la TU de plataforma (BootupCheck 0x825EA868 y _ProcessBootupCheck 0x825EB95C le
+    // pasan StartGameInfo::totalBlocksNeeded, impl+0xD4) prueban (const CardID &, unsigned int).
+    virtual void XenonUnknown_0x74(const CardID &, unsigned int) = 0;
+    // Slot 30 (+0x78): el cuerpo concreto 0x825F9E38 escribe en *arg la palabra +8 del objeto del
+    // driver (el puntero global de 0x82A828EC); la gemela no virtual 0x825F87E8 la devuelve.
+    virtual void XenonUnknown_0x78(int *) = 0;
+    // Slot 31 (+0x7C): el cuerpo concreto 0x825F9E50 guarda el argumento en esa misma palabra +8;
+    // el llamante del juego en 0x8224F040 le pasa un byte con signo extendido (extsb).
+    virtual void XenonUnknown_0x7C(int) = 0;
+    // Slot 32 (+0x80): el cuerpo concreto 0x825F9E60 guarda un byte en +4 del objeto del driver;
+    // los llamantes del juego (0x8224F078 y 0x822B0CB0) le pasan 0/1.
+    virtual void XenonUnknown_0x80(bool) = 0;
+    // Slot 33 (+0x84): el cuerpo concreto 0x825F9E70 guarda un byte en el global 0x82A82908 (junto
+    // a gInterface en 0x82A8290C), que las tareas de plataforma leen al arrancar (0x825F5A8C).
+    virtual void XenonUnknown_0x84(bool) = 0;
+    // Slot 34 (+0x88): el cuerpo concreto 0x825EF890 guarda el argumento en 0x82946DBC si es >= 10
+    // (cmpwi con signo); ese global es la longitud a la que la ayuda de GetCardName (0x825EF928)
+    // recorta el nombre con "...", y los dos envoltorios de la biblioteca (0x825E8E00 y 0x825ED3C0)
+    // lo fijan a 26. El papel esta probado; el nombre de la virtual, no.
+    virtual void XenonUnknown_0x88(int) = 0;
 #else
 
     virtual void Mount(const CardID &) = 0;
@@ -1491,14 +1617,22 @@ struct LoadInfo {
         return Realmc::AllocateMemSize(0, size, 0, 4, 0);
     }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // En PC el delete[] de LoadInfo libera sin tamano (la copia de 21 B junto a FreeMemSize en speed.exe
+    // pasa 0 como tamano a IAllocator::Free, y _ClearTaskList la llama con un solo argumento). En Xbox 360
+    // igual: la copia de memcard_memvectors (0x825E94E0, gemela de la que el LTCG expandio en
+    // _ClearTaskList, 0x825F3630) llama a IAllocator::Free(ptr, 0) con un solo argumento de puntero.
+    static void operator delete[](void *ptr);
+#else
     static void operator delete[](void *ptr, unsigned int size) {
         Realmc::FreeMemSize(ptr, size);
     }
+#endif
 
     void Clear() {
         memset(this->mEntryName, 0, sizeof(this->mEntryName));
         this->mContentName = nullptr;
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
         this->mTypeName = nullptr;
 #endif
         this->mHeader = nullptr;
@@ -1508,14 +1642,14 @@ struct LoadInfo {
     }
 
     void Init(const char *entryName, const wchar_t *content,
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
               const wchar_t *type,
 #endif
               char *header, char *body, const TitleInfo *titleInfo) {
         this->Clear();
         strncpy(this->mEntryName, entryName, sizeof(this->mEntryName));
         this->mContentName = content;
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
         this->mTypeName = type;
 #endif
         this->mHeader = header;
@@ -1528,7 +1662,7 @@ struct LoadInfo {
 
     char mEntryName[64];
     const wchar_t *mContentName;
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
     const wchar_t *mTypeName;
 #endif
     char *mHeader;
@@ -1543,22 +1677,24 @@ struct McTask {
     }
 
     void InitBootupCheck(const BootupCheckParams *params) {
+        this->mTask = TASK_BOOTUPCHECK;
         this->mDetails.mBootupCheck.mBootupParams = params;
         this->mDetails.mBootupCheck.mCardStatus = STATUS_UNKNOWN;
         this->mDetails.mBootupCheck.mBootupResults.Clear();
     }
 
     void InitLoad(unsigned int nEntries, const char **entryNames, const wchar_t *content,
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
                   const wchar_t *type,
 #endif
                   const TitleInfo *titleInfo) {
+        this->mTask = TASK_LOAD;
         this->mDetails.mLoad.mNumEntries = nEntries;
         this->mDetails.mLoad.mCurEntry = 0;
         this->mDetails.mLoad.mLastEntryFound = 0;
         this->mDetails.mLoad.mLoadInfos = new LoadInfo[nEntries];
         for (unsigned int iEntry = 0; iEntry < nEntries; iEntry++) {
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
             this->mDetails.mLoad.mLoadInfos[iEntry].Init(entryNames[iEntry], content, type, nullptr, nullptr, titleInfo);
 #else
             this->mDetails.mLoad.mLoadInfos[iEntry].Init(entryNames[iEntry], content, nullptr, nullptr, titleInfo);
@@ -1566,11 +1702,26 @@ struct McTask {
         }
     }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    void InitLoad(unsigned int nEntries, const AutoloadEntry *autoloadEntries, const TitleInfo *titleInfo) {
+        this->mTask = TASK_LOAD;
+        this->mDetails.mLoad.mNumEntries = nEntries;
+        this->mDetails.mLoad.mCurEntry = 0;
+        this->mDetails.mLoad.mLastEntryFound = 0;
+        this->mDetails.mLoad.mLoadInfos = new LoadInfo[nEntries];
+        for (unsigned int iEntry = 0; iEntry < nEntries; iEntry++) {
+            this->mDetails.mLoad.mLoadInfos[iEntry].Init(autoloadEntries[iEntry].entryName, autoloadEntries[iEntry].content, nullptr, nullptr, titleInfo);
+        }
+    }
+#endif
+
     void InitFindEntries(const char *entryNamePattern, const TitleInfo *titleInfo) {
+        this->mTask = TASK_FINDENTRIES;
         this->mDetails.mFindEntries.Init(entryNamePattern, titleInfo);
     }
 
     void InitSaveCheck(const char *entryName, const SaveInfo *saveInfo, const TitleInfo *titleInfo) {
+        this->mTask = TASK_SAVECHECK;
         this->mDetails.mSaveCheck.mEntryName = entryName;
         this->mDetails.mSaveCheck.mSaveInfo = saveInfo;
         this->mDetails.mSaveCheck.mTitleInfo = titleInfo;
@@ -1578,6 +1729,7 @@ struct McTask {
 
     void InitSave(const char *entryName, const char *header, const char *body,
                   const SaveInfo *saveInfo, const TitleInfo *titleInfo) {
+        this->mTask = TASK_SAVE;
         this->mDetails.mSave.mEntryName = entryName;
         this->mDetails.mSave.mHeader = header;
         this->mDetails.mSave.mBody = body;
@@ -1586,6 +1738,7 @@ struct McTask {
     }
 
     void InitDelete(unsigned int nEntries, const char **entryNames, const wchar_t *contentName) {
+        this->mTask = TASK_DELETE;
         this->mDetails.mDelete.mNumEntries = nEntries;
         this->mDetails.mDelete.mContentName = contentName;
         if (nEntries == 1) {
@@ -1596,11 +1749,13 @@ struct McTask {
     }
 
     void InitCheckCard(CardId cardId) {
+        this->mTask = TASK_CHECKCARD;
         this->mDetails.mCheckCardId = cardId;
     }
 
     void InitSetAutosave(AutosaveState state, unsigned int nSaveReqs, SaveReq **saveReqs,
                          const char *entryName, CardId cardId) {
+        this->mTask = TASK_SETAUTOSAVE;
         this->mDetails.mSetAutosave.mState = state;
         this->mDetails.mSetAutosave.mNumSaveReqs = nSaveReqs;
         this->mDetails.mSetAutosave.mSaveReqs = saveReqs;
@@ -1609,6 +1764,7 @@ struct McTask {
     }
 
     void InitMonitor() {
+        this->mTask = TASK_CHECKCARD;
         this->mDetails.mMonitorStatus = STATUS_UNKNOWN;
     }
 
@@ -1662,18 +1818,29 @@ struct TaskManager {
     }
 
     TaskManager(MemcardInterfaceImpl *, IGameInterface *);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    ~TaskManager();
+#endif
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    void _ClearMainTask();
+#else
     void _ClearMainTask() {
-        this->mMainTask = TASK_NONE;
+        if (this->mMainTask != TASK_MONITOR && this->mMainTask != TASK_BOOTUPCHECK) {
+            this->mMainTask = TASK_NONE;
+        }
     }
+#endif
 
     void BootupCheck(const BootupCheckParams *, unsigned int, const char **, wchar_t *);
+    void BootupCheck(const BootupCheckParams *, unsigned int, const AutoloadEntry *);
     void FindEntries(const char *, const TitleInfo *);
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
     void Load(const char *, char *, char *, const wchar_t *, const wchar_t *, const TitleInfo *);
 #else
     void Load(const char *, char *, char *, const wchar_t *, const TitleInfo *);
 #endif
+    void SaveCheck(const char *, const SaveInfo *, const TitleInfo *);
     void Save(const char *, const char *, const char *, const SaveInfo *, const TitleInfo *);
     void Delete(const char *, const wchar_t *);
     void Delete(unsigned int, const char **, const wchar_t *);
@@ -1726,13 +1893,17 @@ struct MemcardInterfaceImpl {
         return ptr;
     }
 
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     static void operator delete(void *) {}
+#endif
 
     static void *operator new[](unsigned int, void *ptr) {
         return ptr;
     }
 
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
     static void operator delete[](void *) {}
+#endif
 
     MemcardInterfaceImpl(Realmc::SystemInterface *iSystem, IGameInterface *iGame, GameInfo *gameInfo);
     ~MemcardInterfaceImpl();
@@ -1742,13 +1913,15 @@ struct MemcardInterfaceImpl {
     void SetMessage(MessageState state, unsigned int message);
     void TaskManagerBootupCheck(const BootupCheckParams *params, unsigned int nEntries, const char **entryNames, wchar_t *content);
     void TaskManagerFindEntries(const char *entryNamePattern, const TitleInfo *titleInfo);
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
     void TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName, const TitleInfo *titleInfo);
 #else
     void TaskManagerLoad(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo);
 #endif
+    void TaskManagerSaveCheck(const char *entryName, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
     void TaskManagerSave(const char *entryName, const char *header, const char *body, const SaveInfo *saveInfo, const TitleInfo *titleInfo);
     void TaskManagerDelete(const char *entryName, const wchar_t *contentName);
+    void TaskManagerDeleteMultiple(unsigned int nEntryNames, const char **entryNames, const wchar_t *contentName);
     void TaskManagerCheckCard(CardId cardId);
     void TaskManagerSetAutosave(AutosaveState state, unsigned int nSaveReqs, SaveReq **saveReqs, const char *entryName, CardId cardId);
     void SaveCheck(const char *entryName, unsigned int nSaveReqs, SaveReq **saveReqs);
@@ -1759,13 +1932,14 @@ struct MemcardInterfaceImpl {
     void SetBootFlow(bool bootFlow);
 #endif
     unsigned int CalcSaveSize(const SaveInfo *saveInfo, const DataFormat dataFormat);
+    void SetRootPath(const char *path);
     void ConvertAsciiToSjisString(const char *asciiStr, wchar_t *sjisStr);
     void SetAutosave(AutosaveState state, unsigned int nSaveReqs, SaveReq **saveReqs, const char *entryName, CardId cardId);
     void Delete(const char *entryName, const wchar_t *contentName);
     void FindEntries(const char *entryNamePattern);
     void DeleteMultiple(unsigned int nEntryNames, const char **entryNames, const wchar_t *contentName);
     void FindEntriesAlternate(const char *entryNamePattern, const TitleInfo *titleInfo);
-#if REALMEMCARD_VERSION >= 30401
+#if REALMEMCARD_HAS_TYPENAME
     void Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName);
     void LoadAlternate(const char *entryName, char *header, char *body, const wchar_t *contentName, const wchar_t *typeName, const TitleInfo *titleInfo);
 #else
@@ -1798,8 +1972,35 @@ struct MemcardInterfaceImpl {
         return this->mIsResettable;
     }
 
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360 (r63): las dos GetCardName de MemcardInterface (0x825E8D88 y 0x825E8DA8) llegan a
+    // mIMemcard (vtbl+0x5C) con &mActiveCard (impl+0x6C) o con un CardID de 3 palabras construido
+    // en la pila cuya primera palabra es el enum CardId tal cual (stw del argumento y dos ceros;
+    // SetActiveCard de la TU de plataforma, 0x825EB63C, construye mActiveCard igual).
+    const wchar_t *GetCardName() {
+        return reinterpret_cast<const wchar_t *>(this->mIMemcard->GetCardName(this->mActiveCard));
+    }
+
+    const wchar_t *GetCardName(CardId cardId) {
+        Realmc::CardID id;
+
+        *reinterpret_cast<CardId *>(&id) = cardId;
+        return reinterpret_cast<const wchar_t *>(this->mIMemcard->GetCardName(id));
+    }
+
+    // El GetLowlevelInterface de MemcardInterface (0x825E8E28, 12 B) devuelve sin mas el
+    // mIMemcard de impl+0x18.
+    Realmc::Interface *GetLowlevelInterface() {
+        return this->mIMemcard;
+    }
+#endif
+
     bool IsActiveTaskNone() {
-        return this->mActiveTask == TASK_NONE;
+        // La forma ternaria: en Xbox 360 su copia suelta (0x825F1BF0) mide 16 B sin el clrlwi final
+        // y en los llamantes de TaskManager la condicion se pliega a un cmpwi directo sobre mActiveTask
+        // (Delete suelto en 0x825F2070, CompleteTask en 0x825F3578); con la forma `return ==` el cl de
+        // Xenon materializa el bool con cntlzw/rlwinm/cmplwi en cada llamante (+8 B por funcion).
+        return this->mActiveTask == TASK_NONE ? true : false;
     }
 
   private:
@@ -1808,8 +2009,14 @@ struct MemcardInterfaceImpl {
     Realmc::Interface *mIMemcard;
     TaskManager *mTaskManager;
     GameInfo mGameInfo;
+#if defined(EA_PLATFORM_WIN32)
+    // PC: tras mGameInfo (+0x68) solo quedan 2 bytes antes de mAutosaveEnabled (+0x6A) y no hay tarjeta de
+    // autoguardado (el SetAutosave de PC no guarda ningun CardId): una sola tarjeta de 2 bytes.
+    unsigned short mActiveCard;
+#else
     Realmc::CardID mActiveCard;
     Realmc::CardID mAutosaveCard;
+#endif
     bool mAutosaveEnabled;
     MemcardTask mActiveTask;
     MemcardSubtask mActiveSubtask;
@@ -1826,7 +2033,9 @@ struct MemcardInterfaceImpl {
     EntryInfo mEntryInfo;
     unsigned int mBlockSize;
     Realmc::FileInfo mFileInfo;
+#if !defined(EA_PLATFORM_WIN32)
     Realmc::OpenFileDescriptor *mFilehandle;
+#endif
     FileHeader mFileHeader;
     char *mUserHeader;
     char *mUserBody;
@@ -1845,9 +2054,29 @@ struct MemcardInterfaceImpl {
     unsigned int mNumFiles;
     bool mFileFound;
     NameType mNameType;
+#elif defined(EA_PLATFORM_XENON)
+    // Xbox 360 (r62): detras de mCurEntry (impl+0x190) no van mInsufficientSpaceMsg/mFilesNeeded. En
+    // +0x194 hay un buffer ancho de 32 (memset de 0x40 en el ctor 0x825EA070 y en cada Save/Load/Delete
+    // de la TU de plataforma, siempre seguido de Ascii2Unicode(buffer, entryName) y de su uso como
+    // DirectoryInfo::directoryName), en +0x1D4 el DirectoryInfo (su direccion se guarda en
+    // mFileInfo.directoryInfo, impl+0x144), en +0x1E0 la copia de TitleInfo::mNameType y en +0x1E4 la de
+    // TitleInfo::mTitleId (ambas en LoadAlternate 0x825EAFC8 y FindEntriesAlternate 0x825EB458; la de
+    // +0x1E4 alimenta ademas la tercera palabra del CardID en SetActiveCard, 0x825EB618). El sizeof del
+    // impl es 0x1E8: el operador new del ctor de MemcardInterface (0x825E8B20) pide 0x1E8.
+    wchar_t x360_wideEntryName_0x194[32];
+    Realmc::DirectoryInfo mDirInfo;
+    NameType mNameType;
+    TitleId x360_titleId_0x1E4;
 #else
     wchar_t *mInsufficientSpaceMsg;
     unsigned int mFilesNeeded;
+#endif
+#if defined(EA_PLATFORM_WIN32)
+    // PC: MemcardInterfaceImpl mide 0x304 (el operator new del constructor de MemcardInterface pide 0x304).
+    // Detras de mFilesNeeded (+0x150) van la ruta raiz (0x104 en +0x18C, SetRootPath), dos objetos de 0x30
+    // en +0x290/+0x2C0 y cinco palabras en +0x2F0 (stores del constructor de la TU de plataforma), aun sin
+    // nombre: se deja el hueco medido.
+    unsigned int win32_unknown_0x154[(0x304 - 0x154) / 4];
 #endif
 };
 

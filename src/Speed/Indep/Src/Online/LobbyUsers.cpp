@@ -9,6 +9,10 @@ extern "C" {
 int TagFieldGetStructure(const char *field, void *buffer, int bufferSize, const char *format);
 float TagFieldGetFloat(const char *field, float defaultValue);
 void TagFieldSetFloat(char *record, int recordLength, const char *name, float value);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+int TagFieldSetStructure(char *record, int recordLength, const char *name, const void *data, int size, const char *format);
+int TagFieldDelete(char *record, const char *name);
+#endif
 void *LobbyApiInfoPtr(LobbyApiRefT *lobbyRef, int selector);
 void LobbyApiExtractUserRecord(LobbyApiUserT *user, const char *record);
 }
@@ -112,7 +116,8 @@ uint32 PlayerDataT::GetTotalLosses(int mode) {
 }
 
 uint32 PlayerDataT::GetMonthlyPointTotals(int mode) {
-    if (static_cast<uint32>(mode) > 2) {
+    // PC (0x78E6A0): test/jl y cmp 3/jge, las dos comparaciones con signo; GCC junta el rango en una sin signo.
+    if (mode < 0 || mode >= 3) {
         return 0;
     }
     return stats.raceModeStats[mode].points - lastMonthStats.raceModeStats[mode].points;
@@ -120,21 +125,38 @@ uint32 PlayerDataT::GetMonthlyPointTotals(int mode) {
 
 float PlayerDataT::GetWinPercentage(int mode) {
     uint32 gamesPlayed = GetTotalGamesPlayed(mode);
+#ifdef EA_PLATFORM_WIN32
+    // PC (0x791B70): el 0.0f sale justo tras el test (jne); con el if de la A124 MSVC lo deja al final
+    if (gamesPlayed == 0) {
+        return 0.0f;
+    }
+    return (static_cast<float>(GetTotalWins(mode)) / static_cast<float>(gamesPlayed)) * 100.0f;
+#else
     if (gamesPlayed != 0) {
         return (static_cast<float>(GetTotalWins(mode)) / static_cast<float>(gamesPlayed)) *
                100.0f;
     }
     return 0.0f;
+#endif
 }
 
 float PlayerDataT::GetTotalDisconnectPercentage() {
-    uint32 gamesPlayed = GetTotalGamesPlayedAsHost();
-    gamesPlayed += GetTotalGamesPlayedAsClient();
+    // Una sola suma: PC (0x791CC0) suma el cliente antes; la A124 da el mismo objeto con las dos formas.
+    uint32 gamesPlayed = GetTotalGamesPlayedAsHost() + GetTotalGamesPlayedAsClient();
+#ifdef EA_PLATFORM_WIN32
+    // PC: el retorno temprano, como GetWinPercentage
+    if (gamesPlayed == 0) {
+        return 0.0f;
+    }
+    float totalDisconnects = static_cast<float>(stats.hostDisconnects + stats.clientDisconnects);
+    return (totalDisconnects / static_cast<float>(gamesPlayed)) * 100.0f;
+#else
     float totalDisconnects = static_cast<float>(stats.hostDisconnects + stats.clientDisconnects);
     if (gamesPlayed != 0) {
         return (totalDisconnects / static_cast<float>(gamesPlayed)) * 100.0f;
     }
     return 0.0f;
+#endif
 }
 
 float PlayerDataT::GetTopSpeedInMPS(int mode) {
@@ -168,6 +190,69 @@ void PlayerDataT::Stats::Clear() {
     }
 }
 
+#ifdef EA_PLATFORM_WIN32
+// Las que la A124 tiene en linea en la clase (LobbyUsers.hpp) y PC emite fuera de linea; formas de speed.exe.
+uint32 PlayerDataT::GetWeeklyPointTotals(int mode) {
+    if (mode < 0 || mode >= 3) {
+        return 0;
+    }
+    return stats.raceModeStats[mode].points - lastWeekStats.raceModeStats[mode].points;
+}
+
+float PlayerDataT::GetClientDisconnectPercentage() {
+    uint32 gamesPlayedAsClient = GetTotalGamesPlayedAsClient();
+    if (gamesPlayedAsClient == 0) {
+        return 0.0f;
+    }
+    return (static_cast<float>(stats.clientDisconnects) / static_cast<float>(gamesPlayedAsClient)) * 100.0f;
+}
+
+float PlayerDataT::GetHostDisconnectPercentage() {
+    uint32 gamesPlayedAsHost = GetTotalGamesPlayedAsHost();
+    if (gamesPlayedAsHost == 0) {
+        return 0.0f;
+    }
+    return (static_cast<float>(stats.hostDisconnects) / static_cast<float>(gamesPlayedAsHost)) * 100.0f;
+}
+
+// 0x791D50: el contador de PC a +0x2C de cada modo partido por las partidas de ese modo (nombre nuestro).
+float PlayerDataT::GetWin32Unknown0x2cPercentage(int mode) {
+    uint32 gamesPlayed = GetTotalGamesPlayed(mode);
+    if (gamesPlayed == 0) {
+        return 0.0f;
+    }
+    return (static_cast<float>(stats.raceModeStats[mode].win32_unknown_0x2c) / static_cast<float>(gamesPlayed)) * 100.0f;
+}
+
+float PlayerDataT::GetFastestDragFinish() {
+    return static_cast<float>(stats.fastestDragFinish) * 0.001f;
+}
+
+// PC: PrintToString(time, 0) (push 0 en 0x791DD8 y 0x791E28).
+char *PlayerDataT::GetFastestDragFinishString() {
+    static char time[32];
+    Timer tmptime(GetFastestDragFinish());
+    tmptime.PrintToString(time, 0);
+    return time;
+}
+
+char *PlayerDataT::GetLongestJumpDurationString() {
+    static char time[32];
+    Timer tmptime(static_cast<float>(stats.longestJumpDuration) * 0.001f);
+    tmptime.PrintToString(time, 0);
+    return time;
+}
+
+float PlayerDataT::GetLongestPowerSlideInMetres() {
+    return static_cast<float>(stats.longestPowerSlideDistance) * 0.001f;
+}
+
+// PC (0x78E790): y - epsilon < x y despues y + epsilon > x, sin restar x - y.
+bool PlayerDataT::IsFloatEqual(float x, float y, float epsilon) {
+    return x > y - epsilon && x < y + epsilon;
+}
+#endif
+
 LobbyUsers &LobbyUsers::Instance() {
     static LobbyUsers theLobbyUsers;
     pLobbyUsersInstance = &theLobbyUsers;
@@ -175,6 +260,11 @@ LobbyUsers &LobbyUsers::Instance() {
 }
 
 void LobbyUsers::UpdateCarName() {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // PC (FEDatabase + 0x19C >= 2) y Xbox 360 (+ 0x1A8): los datos auxiliares solo salen con el lobby en marcha
+    if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_IDLE) {
+        return;
+    }
+#endif
     lobbyMutex.Lock("LobbyUsers::SetAuxiCarName");
     uint32 selectedCar = FEDatabase->GetQuickRaceSettings(GRace::kRaceType_NumTypes)->SelectedCar[0];
     if (mCar != selectedCar) {
@@ -191,7 +281,11 @@ void LobbyUsers::UpdateCarName() {
             customization->WriteRecordIntoPhysics(pvehicle);
         }
         Physics::Info::Performance performance;
+#ifdef EA_PLATFORM_XENON // EGM 0x82589CF8: la estimacion, no el calculo
+        Physics::Info::EstimatePerformance(pvehicle, performance);
+#else
         Physics::Info::ComputePerformance(pvehicle, performance);
+#endif
         TagFieldSetFloat(auxiData, 128, "PT", performance.TopSpeed);
         TagFieldSetFloat(auxiData, 128, "PH", performance.Handling);
         TagFieldSetFloat(auxiData, 128, "PA", performance.Acceleration);
@@ -223,8 +317,12 @@ int32 LobbyUsers::GetUserOnlineRecord(const char *persona, CommandCBFunc func, v
         oud->Reset();
         bStrCpy(oud->user.name, persona);
     } else {
+#ifdef EA_PLATFORM_XENON // EGM 0x8258A038: bMalloc(0x250, ruta, 145, 8)
+        oud = new ("e:\\mw\\speed\\indep\\src\\online/LobbyUsers.cpp", 145, 8) OnlineUsersData;
+#else
         oud = new ("d:/p4_apex1666_d1001856/mw/speed/indep/src/online/LobbyUsers.cpp", 0x84,
                    8) OnlineUsersData;
+#endif
         if (!oud) {
             lobbyMutex.Unlock("LobbyUsers::GetUserOnlineRecord");
             return -1;
@@ -334,7 +432,7 @@ bool LobbyUsers::GetPointsFromUserRecord(const char *persona, uint32 &points,
                                          OnlineRaceModeE mode) {
     lobbyMutex.Lock("LobbyUsers::GetPointsFromUserRecord");
     if (bStrCmp(persona, FEDatabase->OnlineSettings.GetLobbyPersona()) == 0) {
-        if (gotMyStats) {
+        if (gotMyStats == true) {
             points = myStats.stats.raceModeStats[mode].points;
             lobbyMutex.Unlock("LobbyUsers::GetPointsFromUserRecord");
             return true;
@@ -348,6 +446,8 @@ bool LobbyUsers::GetPointsFromUserRecord(const char *persona, uint32 &points,
             lobbyMutex.Unlock("LobbyUsers::GetPointsFromUserRecord");
             return true;
         }
+        lobbyMutex.Unlock("LobbyUsers::GetPointsFromUserRecord");
+        return false;
     } else {
         for (OnlineUsersData *oud = userList.GetHead(); oud != userList.EndOfList();
              oud = oud->GetNext()) {
@@ -486,17 +586,36 @@ void LobbyUsers::MaybeCreateAuxiBuffer() {
 }
 
 void LobbyUsers::SetSessionChangeFlag(bool setFlag) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // PC (FEDatabase + 0x19C >= 2) y Xbox 360 (+ 0x1A8): los datos auxiliares solo salen con el lobby en marcha
+    if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_IDLE) {
+        return;
+    }
+#endif
     MaybeCreateAuxiBuffer();
     TagFieldSetNumber(auxiData, 128, "SCF", setFlag ? 1 : 0);
     SendAuxiData();
 }
 
 void LobbyUsers::SetSessionLatency(int late) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // PC (FEDatabase + 0x19C >= 2) y Xbox 360 (+ 0x1A8): los datos auxiliares solo salen con el lobby en marcha
+    if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_IDLE) {
+        return;
+    }
+#endif
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // Xbox 360 igual (EGM 0x8258B690)
+    // PC (speed.exe 0x799D60): la condicion negada y `<= 25` (MSVC distingue `< 26`: cmp 0x1a/jge frente a cmp 0x19/jg).
+    if (!((mLate >= 0 && late < 0) || (mLate < 0 && late >= 0))) {
+        if (mLate - late <= 25 && late - mLate <= 25) {
+            return;
+        }
+    }
+#else
     if ((mLate < 0 && late < 0) || (mLate >= 0 && late >= 0)) {
         if (mLate - late < 26 && late - mLate < 26) {
             return;
         }
     }
+#endif
 
     mLate = late;
     MaybeCreateAuxiBuffer();
@@ -504,6 +623,46 @@ void LobbyUsers::SetSessionLatency(int late) {
     SendAuxiData();
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (0x799DF0; Xbox 360 0x8258B740): neutral name (see LobbyUsers.hpp).
+void LobbyUsers::SetWin32Unknown0x23c(int value) {
+    if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_IDLE) {
+        return;
+    }
+    if (win32_unknown_0x23c != value) {
+        win32_unknown_0x23c = value;
+        MaybeCreateAuxiBuffer();
+        TagFieldSetNumber(auxiData, 128, "CD", win32_unknown_0x23c);
+        SendAuxiData();
+    }
+}
+
+// PC (0x79D3F0): neutral name. When I host the game, "CE" carries 4 ints: 3 for me and the connection state of each
+// other player (0 if connapi does not know him); otherwise the tag is deleted.
+void LobbyUsers::SetWin32UnknownCE() {
+    if (FEDatabase->GetOnlineSettings()->GetState() < cOnlineSettings::OLS_LOBBY_IDLE) {
+        return;
+    }
+    lobbyMutex.Lock(nullptr);
+    MaybeCreateAuxiBuffer();
+    LobbyApiPlayT *game = LobbyGames::Instance().GetMyGame();
+    if (game && bStrCmp(FEDatabase->GetOnlineSettings()->GetLobbyPersona(), game->strHost) == 0) {
+        ConnectionCore &connection = ConnectionCore::Instance();
+        int status[4];
+        bMemSet(status, 0, sizeof(status));
+        status[0] = 3;
+        for (int i = 1; i < game->iMaxsize; i++) {
+            ConnApiClientT *player = connection.GetPlayer(game->aOpponents[i].strPers);
+            status[i] = player ? player->GameInfo.eStatus : 0;
+        }
+        TagFieldSetStructure(auxiData, 128, "CE", status, sizeof(status), "l*");
+    } else {
+        TagFieldDelete(auxiData, "CE");
+    }
+    SendAuxiData();
+    lobbyMutex.Unlock(nullptr);
+}
+#else
 void LobbyUsers::SetSessionRaceStatusInfo(int lap, int mapx, int mapy) {
     if (mLap != lap) {
         mLap = lap;
@@ -514,6 +673,7 @@ void LobbyUsers::SetSessionRaceStatusInfo(int lap, int mapx, int mapy) {
         SendAuxiData();
     }
 }
+#endif
 
 int32 LobbyUsers::SendAuxiData() {
     if (!auxiData) {

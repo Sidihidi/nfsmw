@@ -56,7 +56,303 @@ unsigned int bFileGetFilenameHash(const char *filename) {
     return bStringHash(mangled_name);
 }
 
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+// Las estadisticas de lectura de disco solo existen en el EGM de X360: ni la A124 (la otra milestone) ni GameCube, PC,
+// SLUS o el Release 07.42 de X360 las llevan (sus cadenas, "%s: %.2f %dK %d Reads"..., solo estan en el EGM).
+// Nombres, orden y desplazamientos del PDB del prototipo de ProStreet (Sep 16, 2007; bfile.cpp), comprobados en el EGM:
+// gFileStats (0x82A93300) mide 0x1270 B, con 64 entradas en vez de las 96 de ProStreet. DoneSeekTicks/DoneReadTicks
+// son int en MW (el EGM los compara con cmpwi; ProStreet los tiene unsigned y usa cmplwi).
+// total size: 0x1270
+class FileStats {
+  public:
+    // total size: 0x48
+    struct StatEntry {
+        bool IsSeeking() {
+            return DoneSeekTicks == 0;
+        }
+        bool IsReading() {
+            return DoneReadTicks == 0;
+        }
+        bool IsFinished() {
+            if (DoneReadTicks != 0) {
+                return true;
+            }
+            return false;
+        }
+        float GetSeekTime() {
+            if (DoneSeekTicks != 0) {
+                return bGetTickerDifference(StartTicks, DoneSeekTicks);
+            }
+            return bGetTickerDifference(StartTicks, bGetTicker());
+        }
+        float GetReadSeekTime() {
+            if (DoneReadTicks != 0) {
+                return bGetTickerDifference(StartTicks, DoneReadTicks);
+            }
+            return bGetTickerDifference(StartTicks, bGetTicker());
+        }
+        float GetReadTime() {
+            if (DoneReadTicks != 0) {
+                return bGetTickerDifference(DoneSeekTicks, DoneReadTicks);
+            }
+            if (DoneSeekTicks != 0) {
+                return bGetTickerDifference(DoneSeekTicks, bGetTicker());
+            }
+            return 0.0f;
+        }
+
+        char Filename[40];       // offset 0x0, size 0x28
+        float RealTime;          // offset 0x28, size 0x4
+        unsigned int StartTicks; // offset 0x2C, size 0x4
+        int DoneSeekTicks;       // offset 0x30, size 0x4
+        int DoneReadTicks;       // offset 0x34, size 0x4
+        int SeekSector;          // offset 0x38, size 0x4
+        int ReadSize;            // offset 0x3C, size 0x4
+        unsigned int *ReadBufBot; // offset 0x40, size 0x4
+        unsigned int *ReadBufTop; // offset 0x44, size 0x4
+    };
+
+    // total size: 0x14
+    struct DistributionEntry {
+        const char *PartialFilename; // offset 0x0, size 0x4
+        const char *DisplayName;     // offset 0x4, size 0x4
+        float ReadSeekTime;          // offset 0x8, size 0x4
+        int NumBytesRead;            // offset 0xC, size 0x4
+        int NumReads;                // offset 0x10, size 0x4
+    };
+
+    FileStats();
+    void ServicePrinting();
+    void AddStatEntry(const char *filename, int seek_sector, int read_size, void *read_buf);
+    void CaptureTimings();
+    void Print(bool on_screen);
+
+    int TablePos;                                // offset 0x0, size 0x4
+    int LastPrintPos;                            // offset 0x4, size 0x4
+    int TableSize;                               // offset 0x8, size 0x4
+    StatEntry StatEntryTable[64];                // offset 0xC, size 0x1200
+    DistributionEntry DistributionEntryTable[5]; // offset 0x120C, size 0x64
+};
+
+void ScreenPrintf(int x, int y, const char *fmt, ...);
+
+// Los que nadie escribe los pliega LTCG (en el EGM salen como constantes); los demas los cambia el menu de depuracion.
+int FileStatsScreenX = -300;
+int FileStatsScreenY = -200;
+int FileStatsMaxToPrint = 10;
+int DisplayFileStatsDistribution = 1;
+int FileStatsPrintRealTime = 1;
+int FileStatsPrintCpuElapsed = 1;
+int FileStatsPrintReadSeekTime = 1;
+int FileStatsPrintReadSize = 1;
+int FileStatsDistributionScreenX = 120;
+int FileStatsDistributionScreenY = -50;
+float FileStatsDistributionSampleTime = 4.0f;
+int DisplayFileStats = 0;
+int PrintFileStats = 0;
+int FileStatsDisplayPaths = 0;
+int FileStatsDisplayPosition = 0;
+int FileStatsPrintElapsed = 0;
+int FileStatsPrintSeekTime = 0;
+int FileStatsPrintReadTime = 0;
+int FileStatsPrintSeekPos = 0;
+int FileStatsPrintSeekDistance = 0;
+
+FileStats::FileStats() {
+    TablePos = 0;
+    LastPrintPos = 0;
+    TableSize = 64;
+    DistributionEntryTable[0].PartialFilename = "STREAML2RA";
+    DistributionEntryTable[0].DisplayName = "Track";
+    DistributionEntryTable[1].PartialFilename = "pfdata";
+    DistributionEntryTable[1].DisplayName = "Music";
+    DistributionEntryTable[2].PartialFilename = "Speech";
+    DistributionEntryTable[2].DisplayName = "Speech";
+    DistributionEntryTable[3].PartialFilename = "Cars\\";
+    DistributionEntryTable[3].DisplayName = "Cars";
+    DistributionEntryTable[4].PartialFilename = "";
+    DistributionEntryTable[4].DisplayName = "Other";
+}
+
+void FileStats::ServicePrinting() {
+    if (DisplayFileStats) {
+        Print(true);
+    }
+    if (PrintFileStats) {
+        Print(false);
+    }
+}
+
+FileStats gFileStats;
+
+void FileStats::AddStatEntry(const char *filename, int seek_sector, int read_size, void *read_buf) {
+    if (!PrintFileStats && !DisplayFileStats) {
+        return;
+    }
+    if (read_size < 4 || (reinterpret_cast<int>(read_buf) & 3) != 0) {
+        return;
+    }
+    CaptureTimings();
+    StatEntry *entry = &StatEntryTable[TablePos++ % TableSize];
+    bSafeStrCpy(entry->Filename, filename, sizeof(entry->Filename));
+    unsigned int ticks = bGetTicker();
+    entry->DoneSeekTicks = 0;
+    entry->DoneReadTicks = 0;
+    entry->SeekSector = seek_sector;
+    entry->ReadSize = read_size;
+    entry->RealTime = 0.0f;
+    entry->StartTicks = ticks;
+    if (TablePos > 2) {
+        StatEntry *prev_entry = &StatEntryTable[(TablePos - 2) % TableSize];
+        entry->RealTime = prev_entry->RealTime + bGetTickerDifference(prev_entry->StartTicks, ticks);
+    }
+    entry->ReadBufBot = static_cast<unsigned int *>(read_buf);
+    entry->ReadBufTop = &entry->ReadBufBot[(read_size - 1) / 4];
+    *entry->ReadBufBot = entry->StartTicks;
+    *entry->ReadBufTop = entry->StartTicks;
+}
+
+void FileStats::CaptureTimings() {
+    for (int i = TablePos - TableSize + 1; i < TablePos; i++) {
+        if (i >= 0) {
+            StatEntry *entry = &StatEntryTable[i % TableSize];
+            if (!entry->IsFinished()) {
+                if (entry->IsSeeking() && *entry->ReadBufBot != entry->StartTicks) {
+                    entry->DoneSeekTicks = bGetTicker();
+                }
+                if (entry->IsReading() && *entry->ReadBufTop != entry->StartTicks) {
+                    entry->DoneReadTicks = bGetTicker();
+                }
+            }
+        }
+    }
+}
+
+void FileStats::Print(bool on_screen) {
+    if (TablePos == 0) {
+        return;
+    }
+    int start_pos = LastPrintPos;
+    if (on_screen) {
+        start_pos = TablePos - FileStatsDisplayPosition - FileStatsMaxToPrint;
+    }
+    if (start_pos < 0) {
+        start_pos = 0;
+    }
+    if (start_pos < TablePos - TableSize + 1) {
+        start_pos = TablePos - TableSize + 1;
+    }
+
+    if (DisplayFileStatsDistribution) {
+        for (int n = 0; n < 5; n++) {
+            DistributionEntryTable[n].ReadSeekTime = 0.0f;
+            DistributionEntryTable[n].NumBytesRead = 0;
+            DistributionEntryTable[n].NumReads = 0;
+        }
+        unsigned int current_ticks = bGetTicker();
+        int i;
+        for (i = 0; i < TableSize; i++) {
+            StatEntry *entry = &StatEntryTable[(TableSize - i + TablePos - 1) % TableSize];
+            if (bGetTickerDifference(entry->StartTicks, current_ticks) > FileStatsDistributionSampleTime * 1000.0f) {
+                break;
+            }
+            for (int n = 0; n < 5; n++) {
+                DistributionEntry *dist = &DistributionEntryTable[n];
+                if (bStrIStr(entry->Filename, dist->PartialFilename) || dist->PartialFilename[0] == '\0') {
+                    dist->ReadSeekTime += entry->GetReadSeekTime();
+                    dist->NumBytesRead += entry->ReadSize;
+                    dist->NumReads++;
+                    break;
+                }
+            }
+        }
+
+        bool table_overflow = i == TableSize;
+        float total_read_seek_time = 0.0f;
+        int y = FileStatsDistributionScreenY;
+        for (int n = 0; n < 5; n++) {
+            DistributionEntry *dist = &DistributionEntryTable[n];
+            total_read_seek_time += dist->ReadSeekTime;
+            if (dist->NumReads > 0) {
+                ScreenPrintf(FileStatsDistributionScreenX, y, "%s: %.2f %dK %d Reads", dist->DisplayName,
+                             dist->ReadSeekTime / (FileStatsDistributionSampleTime * 1000.0f), dist->NumBytesRead / 1024,
+                             dist->NumReads);
+                y += 15;
+            }
+        }
+        if (table_overflow) {
+            ScreenPrintf(FileStatsDistributionScreenX, y, "Table overflow");
+        } else {
+            ScreenPrintf(FileStatsDistributionScreenX, y, "Idle: %.2f  (last %.1fsec)",
+                         1.0f - total_read_seek_time / (FileStatsDistributionSampleTime * 1000.0f),
+                         FileStatsDistributionSampleTime);
+        }
+    }
+
+    int screen_y = FileStatsScreenY;
+    for (int pos = start_pos; pos < TablePos; pos++) {
+        StatEntry *entry = &StatEntryTable[pos % TableSize];
+        StatEntry *prev_entry = entry;
+        if (pos > 0) {
+            prev_entry = &StatEntryTable[(pos - 1) % TableSize];
+        }
+        float elapsed = bGetTickerDifference(prev_entry->StartTicks, entry->StartTicks);
+        float cpu_elapsed = elapsed - prev_entry->GetReadSeekTime();
+        char text[200] = {0};
+
+        if (FileStatsPrintRealTime) {
+            bSPrintf(&text[bStrLen(text)], "%06.3f ", bFMod(entry->RealTime * 0.001f, 100.0f));
+        }
+        if (FileStatsPrintElapsed) {
+            bSPrintf(&text[bStrLen(text)], "%5.3f ", elapsed * 0.001f);
+        }
+        if (FileStatsPrintCpuElapsed) {
+            bSPrintf(&text[bStrLen(text)], "%5.3f ", cpu_elapsed * 0.001f);
+        }
+        if (FileStatsPrintSeekTime) {
+            bSPrintf(&text[bStrLen(text)], "%5.3f ", entry->GetSeekTime() * 0.001f);
+        }
+        if (FileStatsPrintReadTime) {
+            bSPrintf(&text[bStrLen(text)], "%5.3f ", entry->GetReadTime() * 0.001f);
+        }
+        if (FileStatsPrintReadSeekTime) {
+            bSPrintf(&text[bStrLen(text)], "%5.3f ", entry->GetReadSeekTime() * 0.001f);
+        }
+        if (FileStatsPrintReadSize) {
+            bSPrintf(&text[bStrLen(text)], "%4dK ", entry->ReadSize / 1024);
+        }
+        if (FileStatsPrintSeekPos) {
+            bSPrintf(&text[bStrLen(text)], "%4dM ", entry->SeekSector * 2048 / 1024 / 1024);
+        }
+        if (FileStatsPrintSeekDistance) {
+            bSPrintf(&text[bStrLen(text)], "%4dM ", (entry->SeekSector - prev_entry->SeekSector) * 2048 / 1024 / 1024);
+        }
+
+        const char *filename = entry->Filename;
+        if (!FileStatsDisplayPaths) {
+            const char *p;
+            while ((p = bStrStr(filename, "\\")) != nullptr) {
+                filename = p + 1;
+            }
+        }
+        bSPrintf(&text[bStrLen(text)], "%s ", filename);
+
+        if (on_screen) {
+            ScreenPrintf(FileStatsScreenX, screen_y, "%s", text);
+            screen_y += 15;
+        } else if (entry->IsFinished()) {
+            LastPrintPos = pos + 1;
+        }
+    }
+}
+
+void ServiceFileStats() {
+    gFileStats.CaptureTimings();
+    gFileStats.ServicePrinting();
+}
+#else
 void ServiceFileStats() {}
+#endif
 
 int GetRealFileOpenFlags(bFileOpenMode open_mode) {
     if (open_mode == BOPEN_MODE_READONLY) {
@@ -215,7 +511,11 @@ CachedRealFileHandle *CachedRealFileHandle::FindHandle(const char *filename) {
 }
 
 CachedRealFileHandle *CachedRealFileHandle::AddHandle(const char *filename, int file_handle, int file_size) {
+#ifdef EA_PLATFORM_XENON
+    while (NumInstances >= 128 && RemoveUnusedHandle()) { // X360: cmpwi r11, 0x80 (NFS.exe 0x823EF5A0)
+#else
     while (NumInstances >= 4 && RemoveUnusedHandle()) {
+#endif
         // nop
     }
     CachedRealFileHandle *c = new CachedRealFileHandle(filename, file_handle, file_size);
@@ -437,7 +737,7 @@ uint32_t DisculatorDriver::Read(EAFileHandle h, void *buf, unsigned int bufsize,
         static bool first_time;
     }
     // TODO using undercover
-    gFileStats.AddStatEntry(odf->filename, new_start_sector, bufsize, nullptr);
+    gFileStats.AddStatEntry(odf->filename, new_start_sector, bufsize, buf);
 
     ddParent->Seek(ddFileHandle, odf->seekPos + static_cast<uint64_t>(odf->localSectorOffset << 11), 0, nullptr, 0);
     int nread = ddParent->Read(ddFileHandle, buf, bufsize, nullptr, 0);
@@ -1099,7 +1399,11 @@ void *bGetFile(const char *filename, int32 *size, int allocation_params) {
         *size = bFileSize(f);
     }
     // TODO remove
+#ifdef EA_PLATFORM_XENON
+    int hack = bMemoryGetAlignment(allocation_params);
+#else
     unsigned int hack = bMemoryGetAlignment(allocation_params);
+#endif
     if (hack == 0) {
         hack = 16;
     }

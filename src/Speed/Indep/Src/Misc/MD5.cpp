@@ -30,9 +30,7 @@ void MD5::Update(const void *buffer, int length) {
     uIndex = uCount & 0x3F;
 
     for (; length > 0; length--) {
-        strData[uIndex] = *_buffer;
-        _buffer++;
-        uIndex++;
+        strData[uIndex++] = *_buffer++;
         uCount++;
         if (uIndex == 64) {
             _Transform();
@@ -164,8 +162,8 @@ void MD5::_Final() {
     unsigned char *raw;
     unsigned char *str;
 
-    uIndex = this->uCount & 0x3F;
     uPad = 0x80;
+    uIndex = this->uCount & 0x3F;
     do {
         this->strData[uIndex] = uPad;
         uIndex++;
@@ -189,12 +187,8 @@ void MD5::_Final() {
 
     raw = this->rawMD5;
     str = this->strMD5;
-#ifdef EA_PLATFORM_XENON
-    // X360 escribe `< 16`, no `<= 15` (probado al 100 %).
+    // `< 16`, no `<= 15`: X360 y PC lo distinguen (cmp 0x10; jl en speed.exe); GCC da lo mismo con las dos.
     for (uIndex = 0; uIndex < 16; uIndex++) {
-#else
-    for (uIndex = 0; uIndex <= 15; uIndex++) {
-#endif
         if ((uIndex & 3) == 0) {
             uData = this->uRegs[uIndex >> 2];
         }

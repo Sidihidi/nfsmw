@@ -97,7 +97,15 @@ def main():
         import re as _re
         for rel in _re.findall(r'#include "([^"]+)"', texto):
             if os.path.isfile(os.path.join(sombra, rel)) and not any(r == rel for r, _ in sust):
-                sust.append((rel, os.path.join(sombra, rel)))
+                # solo las que DIFIEREN del arbol (ronda 87): una cabecera copiada tal cual que la SourceList incluye
+                # dos veces (UStandard.h y UCollections.h en zPhysics) no se sustituye y no rompe la corrida
+                try:
+                    igual = open(os.path.join(sombra, rel), 'rb').read() == \
+                        open(os.path.join(RAIZ, 'src', rel), 'rb').read()
+                except OSError:
+                    igual = False
+                if not igual:
+                    sust.append((rel, os.path.join(sombra, rel)))
     for rel, copia in sust:
         viejo = '#include "%s"' % rel
         if texto.count(viejo) == 0:

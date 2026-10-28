@@ -5,7 +5,57 @@
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
+// gcdatos2: inline en el original (DWARF), sin copia fuera de linea ni referencias a las
+// cadenas en el .text de zTrack: existen porque SN interna los literales al parsear el
+// cuerpo. El orden de casos es el orden 0..14 del enum, que es el de la .rodata objetivo.
+inline char *GetTrackPathZoneName(eTrackPathZoneType zone_type) {
+    switch (zone_type) {
+        case TRACK_PATH_ZONE_RESET:
+            return "RESET";
+        case TRACK_PATH_ZONE_RESET_TO_POINT:
+            return "RESET_TO_POINT";
+        case TRACK_PATH_ZONE_GUIDED_RESET:
+            return "GUIDED_RESET";
+        case TRACK_PATH_ZONE_TUNNEL:
+            return "TUNNEL";
+        case TRACK_PATH_ZONE_OVERPASS:
+            return "OVERPASS";
+        case TRACK_PATH_ZONE_OVERPASS_SMALL:
+            return "OVERPASS_SMALL";
+        case TRACK_PATH_ZONE_STREAMER_PREDICTION:
+            return "STREAMER_PREDICTION";
+        case TRACK_PATH_ZONE_GARAGE:
+            return "GARAGE";
+        case TRACK_PATH_ZONE_HIDDEN:
+            return "HIDDEN";
+        case TRACK_PATH_ZONE_TRAFFIC_PATTERN:
+            return "TRAFFIC_PATTERN";
+        case TRACK_PATH_ZONE_DYNAMIC:
+            return "DYNAMIC";
+        case TRACK_PATH_ZONE_NEIGHBOURHOOD:
+            return "NEIGHBOURHOOD";
+        case TRACK_PATH_ZONE_JUMP_CAM:
+            return "JUMP_CAM";
+        case TRACK_PACH_ZONE_NO_COP_SPAWN:
+            return "NO_COP_SPAWN";
+        case TRACK_PATH_ZONE_PURSUIT_START:
+            return "PURSUIT_START";
+        default:
+            return "RESET";
+    }
+}
+
 TrackPathZone *zoneB[2] = {};
+#ifdef EA_BUILD_A124
+// gcdatos13: la tabla que el switch de arriba sustituye en retail; entera solo en la
+// A124 (0x62f8d8, 60 B, PS2_globals.hpp:5576), con las mismas cadenas en el orden del
+// enum, leidas de su .data/.rodata objetivo. En GC queda solo el puntero [14] cadaver
+// (gcdatos9) y en SLUS/X360 no hay simbolo. En PC si existe (symbols.json, addr 9445608).
+char *TrackPathZoneTypeNames[15] = {"RESET", "RESET_TO_POINT", "GUIDED_RESET", "TUNNEL",
+                                    "OVERPASS", "OVERPASS_SMALL", "STREAMER_PREDICTION", "GARAGE",
+                                    "HIDDEN", "TRAFFIC_PATTERN", "DYNAMIC", "NEIGHBOURHOOD",
+                                    "JUMP_CAM", "NO_COP_SPAWN", "PURSUIT_START"};
+#endif
 TrackPathManager TheTrackPathManager;
 bChunkLoader bChunkLoaderTrackPath(BCHUNK_TRACK_PATH_MANAGER, LoaderTrackPath, UnloaderTrackPath);
 bChunkLoader bChunkLoaderTrackPathBarriers(BCHUNK_TTRACK_PATH_BARRIERS, LoaderTrackPath, UnloaderTrackPath);
@@ -238,8 +288,26 @@ void TrackPathManager::ResetZoneVisitInfos() {
     }
 }
 
-#ifdef EA_PLATFORM_PLAYSTATION2
-// Solo en las PS2 (GameCube y PC no la tienen): el segmento de la zona mas paralelo a in0-in1, sin contar el mismo.
+// gcdatos5: sin llamantes en ninguna version (DIE de GC .debug+0x3F849F3 con low_pc=-1;
+// la A124 la trae igual, 132 B de codigo PS2 eliminado por el enlazador): existen la
+// declaracion (TrackPath.hpp:93), su DIE (unico local `n` en un bloque, 0 inlines, this/
+// point/n en registros callee-saved r30/r29/r31: hay una llamada por iteracion) y su
+// literal en el pool de zTrack (obj+0x450: 0.001f, el unico). La llamada que encaja en
+// las tres cosas es bEqual (externa, el mismo `bEqual(..., 0.001f)` de TrackStreamer.cpp).
+bool TrackPathZone::IsPointOnBoundary(const bVector2 *point) {
+    for (int n = 0; n < NumPoints; n++) {
+        if (bEqual(&Points[n], point, 0.001f)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// Viva solo en las PS2; en GC la CU la parsea y emite igual (DIE .debug+0x3F84ABF entre
+// IsPointOnBoundary y GetIntercept, low_pc=-1: codigo eliminado por el enlazador, su
+// 0.0f queda en el pool en obj+0x454) y en PC no hay evidencia de que se parseara.
+// gcdatos5: la guarda pasa a incluir GC por eso. El segmento mas paralelo a in0-in1.
 void TrackPathZone::GetOpposite(bVector2 *in0, bVector2 *in1, bVector2 *opp0, bVector2 *opp1) {
     float cosMax = 0.0f;
     int pointIndex = 0;
@@ -269,6 +337,71 @@ void TrackPathZone::GetOpposite(bVector2 *in0, bVector2 *in1, bVector2 *opp0, bV
     *opp1 = Points[(pointIndex + 1) % NumPoints];
 }
 #endif
+
+// gcdatos5: sin llamantes en ninguna version (DIE de GC .debug+0x3F85429 con low_pc=-1,
+// subarbol de 8715 B; la A124 la trae igual, 928 B de codigo PS2 eliminado por el
+// enlazador): existen la declaracion (TrackPath.hpp:96), su DIE (locales
+// TempInterceptPoint/P1/V1/P2/V2/t2/Numer0/Denom0/InterceptOccured en la funcion, `n`
+// en el bloque del bucle y TmpVec1/TmpVec2 dentro de el, con su secuencia de inlines
+// =, bNormalize= | =, bSub+bNormalize=, bDot, bSub+bNormalize+==, =, bScale++=,
+// -=, -=, bDot, bDistBetween x2, =) y sus literales en el pool de zTrack
+// (obj+0x458..0x468: 1.0f, 0.001f, -0.001f, 0.0f, y el 5e-11f del bSqrt de
+// bDistBetween). El cuerpo sigue ese esqueleto y ese orden de primera aparicion de
+// constantes; la aritmetica exacta no esta en la evidencia y la funcion no emite en
+// ningun retail. El `==` de vectores usa el bVector2::operator== inline original, que
+// nuestro bMath.hpp solo declara (pedido al coordinador, ver gcdatos5.md).
+bool TrackPathZone::GetIntercept(bVector2 &InterceptPoint, const bVector2 *Start, const bVector2 *Direction) {
+    bVector2 TempInterceptPoint;
+    bVector2 P1;
+    bVector2 V1;
+    bVector2 P2;
+    bVector2 V2;
+    float t2;
+    float Numer0;
+    float Denom0;
+    bool InterceptOccured = false;
+
+    // Los huecos de pila del DIE (P2 en r1+0x8 y V2 en r1+0x18, delante de P1/V1) dicen
+    // que P2/V2 son el rayo (Start/Direction) y P1/V1 el segmento de cada iteracion.
+    P2 = *Start;
+    V2 = bNormalize(*Direction);
+
+    for (int n = 0; n < NumPoints; n++) {
+        P1 = Points[n];
+        V1 = bNormalize(bSub(Points[(n + 1) % NumPoints], P1));
+        Denom0 = bDot(V1, V2);
+        Denom0 = 1.0f - Denom0 * Denom0;
+
+        if (Denom0 < 0.001f && Denom0 > -0.001f) {
+            continue;
+        }
+
+        Numer0 = (P1.x - P2.x) * V1.y - (P1.y - P2.y) * V1.x;
+        t2 = Numer0 / (V2.x * V1.y - V2.y * V1.x);
+
+        if (t2 < 0.0f || bNormalize(bSub(P1, P2)) == V2) {
+            continue;
+        }
+
+        InterceptPoint = *Start;
+        TempInterceptPoint = P2 + bScale(V2, t2);
+
+        bVector2 TmpVec1;
+        bVector2 TmpVec2;
+
+        TmpVec1 = Points[n] - TempInterceptPoint;
+        TmpVec2 = Points[(n + 1) % NumPoints] - TempInterceptPoint;
+
+        if (bDot(TmpVec1, TmpVec2) < 0.0f) {
+            if (!InterceptOccured || bDistBetween(InterceptPoint, *Start) > bDistBetween(TempInterceptPoint, *Start)) {
+                InterceptPoint = TempInterceptPoint;
+                InterceptOccured = true;
+            }
+        }
+    }
+
+    return InterceptOccured;
+}
 
 bool TrackPathZone::IsPointInside(const bVector2 *point) {
     return bIsPointInPoly(point, this->Points, this->NumPoints);

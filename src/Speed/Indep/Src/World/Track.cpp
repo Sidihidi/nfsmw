@@ -44,6 +44,17 @@ int UnloaderTrackOBB(bChunk *chunk) {
 }
 #endif
 
+TrackPolygon *TrackPolygonAllocationTable = nullptr;
+int NumUsedTrackPolygons = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos13: entera solo en las dos PS2, entre NumUsedTrackPolygons y
+// TrackPositionMarkerList (A124 0x62f860, PS2_globals.hpp:5568; SLUS 0x58b1b8),
+// con estos valores leidos de su .data objetivo. En GC queda solo el DIE sin
+// direccion (eliminada) y en PC/X360 no hay simbolo.
+float RoadNoiseTable[16] = {-0.5f, -0.2f, 0.5f, 0.2f, -0.4f, -0.1f, 0.2f, 0.5f,
+                            -0.2f, -0.5f, 0.4f, -0.3f, 0.3f, 0.0f, -0.2f, 0.1f};
+#endif
+
 void EstablishRemoteCaffeineConnection() {}
 
 float TopologyCoordinate::GetElevation(const bVector3 *position, TerrainType *type, bVector3 *normal, bool *point_valid) {

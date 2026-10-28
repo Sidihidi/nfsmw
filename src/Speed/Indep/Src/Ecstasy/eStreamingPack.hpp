@@ -16,6 +16,21 @@
 #include <cstddef>
 
 // total size: 0x18
+// r92 (familia ANDROID96): el tamano de fila de las tablas indexadas por hash. En las plataformas
+// del original las clases caben en 32 bits y el binario trae el literal; en LP64 crecen por su
+// puntero y hay que usar el tamano real, porque si no la busqueda por hash caia entre entradas:
+// UnloadStreamingEntry no encontraba el hash, no descontaba el RefCount y lo cargado no se
+// liberaba nunca (la retencion de las partidas largas, medida en telefono con 30 carreras). Donde
+// el literal es cierto se deja el literal, para que el codigo de las cinco versiones no se mueva.
+// OJO (r93, ANDROID97): este bloque tiene que ir ANTES de su primer uso. En #if un macro sin
+// definir vale 0, y definido despues E_FILA_STREAMING_ENTRY salia siempre 0x18: la cura era inerte
+// en las tres tablas.
+#if defined(__LP64__) || defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__) || defined(__arm64__) || defined(__powerpc64__) || defined(__ppc64__) || defined(_M_X64) || defined(_M_ARM64)
+#define E_PLAT_LP64 1
+#else
+#define E_PLAT_LP64 0
+#endif
+
 class eStreamingEntry {
   public:
     uint32 NameHash;        // offset 0x0, size 0x4
@@ -34,6 +49,15 @@ class eStreamingEntry {
         bPlatEndianSwap(&this->UncompressedSize);
     }
 };
+
+// r92: el tamano de fila de esta tabla. Donde la clase cabe en 32 bits, el literal del binario; en
+// LP64 crece por ChunkData y hay que usar el tamano real. Ver la nota de E_PLAT_LP64 en
+// eStreamingPack.hpp.
+#if E_PLAT_LP64
+#define E_FILA_STREAMING_ENTRY ((int)sizeof(eStreamingEntry))
+#else
+#define E_FILA_STREAMING_ENTRY 0x18
+#endif
 
 class eStreamingPackHeaderLoadingInfo {
     // total size: 0x10
@@ -249,5 +273,6 @@ extern eStreamPackLoader StreamingSolidPackLoader;
 void InitStreamingPacks();
 void *ScanHashTableKey8(unsigned char key_value, void *table_start, int table_length, int entry_key_offset, int entry_size);
 void *ScanHashTableKey32(uint32 key_value, void *table_start, int table_length, int entry_key_offset, int entry_size);
+
 
 #endif

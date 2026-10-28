@@ -10,6 +10,7 @@
 #include "Speed/PC/Src/Ecstasy/TextureInfoPlat.hpp"
 #include "Speed/PC/Src/Ecstasy/eViewPlat.hpp"
 #include "Speed/PC/Src/Ecstasy/eEffect.hpp"
+#include "Speed/PC/Src/Ecstasy/eMousePlat.hpp"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Src/Camera/Camera.hpp"
 #include "Speed/Indep/Src/World/FacePixelate.hpp"
@@ -22,6 +23,8 @@
 #include "Speed/Indep/Src/Misc/GameFlow.hpp"
 #include "Speed/Indep/Src/World/Scenery.hpp"
 #include "Speed/Indep/Src/World/TimeOfDay.hpp"
+#include "Speed/Indep/Src/World/SkyRender.hpp"
+#include "Speed/Indep/Src/Misc/Timer.hpp"
 
 #include <string.h>
 
@@ -31,6 +34,7 @@ extern IDirect3DCubeTexture9 *eFEEnvMapCubeTexture; // (0x982A64)
 extern bool eFEEnvMapEnabled;                      // (0x8F945B)
 static const char *EnvMapFaceNames[6] = {"XPOS", "XNEG", "YPOS", "YNEG", "ZPOS", "ZNEG"};
 unsigned char NumEnvMapFacesLoaded;                // (0x93E86C)
+bool NISMotionBlurEnabled = true;                  // (0x8F9B28) ICEManager.cpp
 
 // Las dos declaraciones de vertices fijas de PC: la de 36 bytes (posicion, normal, color y UV) y la de pantalla de
 // 24 bytes (posicion transformada, color y UV) (0x6BF3E0; nombres nuestros: 0x93CB2C y 0x93CC60).
@@ -1260,31 +1264,7 @@ int MouseGetWheel();      // (0x628D00)
 bool MouseLeftButton();   // (0x628CD0)
 bool MouseRightButton();  // (0x628CE0)
 bool MouseMiddleButton(); // (0x628CF0)
-
-// total size: 0x2C
-class eMouse {
-  public:
-    void UpdateCursorPos(); // (0x6C9B60)
-    int Update();           // (0x6C9C80)
-
-    int Unknown0;           // offset 0x0, size 0x4
-    int X;                  // offset 0x4, size 0x4
-    int Y;                  // offset 0x8, size 0x4
-    int PrevX;              // offset 0xC, size 0x4
-    int PrevY;              // offset 0x10, size 0x4
-    char Unknown14[8];      // offset 0x14, size 0x8
-    int Wheel;              // offset 0x1C, size 0x4
-    bool LeftDown;          // offset 0x20, size 0x1
-    bool LeftPressed;       // offset 0x21, size 0x1
-    bool LeftReleased;      // offset 0x22, size 0x1
-    bool RightDown;         // offset 0x23, size 0x1
-    bool RightPressed;      // offset 0x24, size 0x1
-    bool RightReleased;     // offset 0x25, size 0x1
-    bool MiddleDown;        // offset 0x26, size 0x1
-    bool MiddlePressed;     // offset 0x27, size 0x1
-    bool MiddleReleased;    // offset 0x28, size 0x1
-};
-extern eMouse TheMouse;     // (0x987F50)
+// La clase eMouse y TheMouse: Speed/PC/Src/Ecstasy/eMousePlat.hpp.
 
 // El raton en cada cuadro: el cursor, la rueda y, por boton, si se acaba de pulsar o de soltar (0x6C9C80).
 int eMouse::Update() {
@@ -1303,6 +1283,15 @@ int eMouse::Update() {
     MiddleReleased = !middle & MiddleDown;
     MiddleDown = middle;
     return 0;
+}
+
+// Si ha cambiado algo desde el ultimo Update: un boton, la rueda o la posicion (0x6C9D00). Lo consulta
+// FEPackageManager::Tick para difundir FEMSG_MOUSE_CHANGED.
+bool eMouse::HasChanged() {
+    bool left = LeftPressed || LeftReleased;
+    bool right = RightPressed || RightReleased;
+    bool middle = MiddlePressed || MiddleReleased;
+    return left || right || Wheel != 0 || middle || DeltaX != 0 || DeltaY != 0;
 }
 
 // Las capturas de pantalla de PC: la imagen de la cadena de intercambio, copiada a un destino que se puede bloquear y
@@ -1649,6 +1638,101 @@ int eResetDevice() {
     eSetDefaultRenderStates();
     eResetEffects();
     return result;
+}
+
+// Una capa del cielo de PC (speed.exe 0x6DB310; la llaman ___eDisplayFrame y 0x6DE210 con la intensidad del cielo).
+// Como el StuffSkyLayer de SkyRender.cpp pero sobre SkydomeLocalWorld, con las escalas de PC (nubes 0.9, reflejo 0.06,
+// mapa de entorno 0.0065, retrovisor 0.03) y, con el cielo de esta generacion (skyshader sin Unknown40), las texturas
+// de la capa y su color (GetLayerMod por la intensidad) en el parametro 27 de SkyboxCurrentGen.
+void StuffSkyLayer(eView *view, SKY_LAYER layer, float intensity) {
+    static unsigned short matAng = 0;
+
+    if (!SkyNexGenTexturesReady) {
+        return;
+    }
+
+    float time = WorldTimeElapsed;
+    Camera *view_camera = view->GetCamera();
+    bVector3 CamPosWORLD = *view_camera->GetPosition();
+    eIdentity(&SkydomeLocalWorld);
+
+    float ScaleFactor = 1.0f;
+    int MoveMent = 0;
+    float heightAdjust = 0.0f;
+    int view_id = view->GetID();
+
+    if (layer == SKY_LAYER_BLUE) {
+        ScaleFactor = 1.0f;
+    } else if (layer == SKY_LAYER_CLOUDS) {
+        ScaleFactor = 0.9f;
+    } else if (layer == SKY_LAYER_OVERCAST) {
+        ScaleFactor = 0.8f;
+        MoveMent = 1;
+    } else if (layer == SKY_LAYER_REFLECTION) {
+        ScaleFactor = 0.06f;
+        SkydomeLocalWorld.v2.z = -1.0f;
+        heightAdjust = 130.0f;
+        MoveMent = 1;
+    }
+
+    if (view_id >= EVIEW_FIRST_ENVMAP && view_id <= EVIEW_LAST_ENVMAP) {
+        ScaleFactor = 0.0065f;
+        if (!DrawSkyEnvMap) {
+            return;
+        }
+    } else if (view_id == EVIEW_PLAYER1_RVM) {
+        ScaleFactor = 0.03f;
+    }
+
+    SkydomeLocalWorld.v3.x = CamPosWORLD.x;
+    SkydomeLocalWorld.v3.y = CamPosWORLD.y;
+    SkydomeLocalWorld.v3.z = CamPosWORLD.z;
+
+    if (!eEffects[19]->Unknown40) {
+        float r;
+        float g;
+        float b;
+        float a;
+
+        ReplaceSkyTextures(layer);
+        GetLayerMod(view, layer, &r, &g, &b, &a);
+        r *= intensity;
+        g *= intensity;
+        b *= intensity;
+        if (layer == SKY_LAYER_OVERCAST && a == 0.0f) {
+            return;
+        }
+        eEffects[21]->pD3DXEffect->SetInt(eEffects[21]->Parameters[27].Handle,
+                                          ((static_cast<int>(a * 255.0f) & 0xff) << 24) | ((static_cast<int>(r * 255.0f) & 0xff) << 16) |
+                                              ((static_cast<int>(g * 255.0f) & 0xff) << 8) | (static_cast<int>(b * 255.0f) & 0xff));
+    }
+
+    if (view_id >= EVIEW_FIRST_PLAYER && view_id <= EVIEW_LAST_PLAYER) {
+        if (!DrawSky) {
+            return;
+        }
+        float scale = MainSkyScale * ScaleFactor;
+        SkydomeLocalWorld.v0.x *= scale;
+        SkydomeLocalWorld.v1.y *= scale;
+        SkydomeLocalWorld.v2.z *= scale;
+        SkydomeLocalWorld.v3.z += heightAdjust;
+
+        if (MoveMent) {
+            bMatrix4 LocalRot;
+
+            matAng += static_cast<unsigned short>(time * 300.0f);
+            eCreateRotationZ(&LocalRot, matAng);
+            D3DXMatrixMultiply(reinterpret_cast<D3DXMATRIX *>(&SkydomeLocalWorld), reinterpret_cast<D3DXMATRIX *>(&LocalRot),
+                               reinterpret_cast<D3DXMATRIX *>(&SkydomeLocalWorld));
+        }
+    } else {
+        SkydomeLocalWorld.v0.x *= ScaleFactor;
+        SkydomeLocalWorld.v1.y *= ScaleFactor;
+        SkydomeLocalWorld.v2.z *= ScaleFactor;
+        SkydomeLocalWorld.v3.z += heightAdjust;
+    }
+
+    view->Render(&SkydomeModel, &SkydomeLocalWorld, nullptr, 0x20000, nullptr);
 }
 
 void eDisplayFrame() {

@@ -430,9 +430,11 @@ Behavior *DrawRaceCar::Construct(const BehaviorParams &params) {
 
     CarRenderUsage usage;
     switch (ivehicle->GetDriverClass()) {
+#ifndef EA_PLATFORM_XENON
         case DRIVER_RACER:
             usage = CarRenderUsage_AIRacer;
             break;
+#endif
         case DRIVER_HUMAN:
             usage = CarRenderUsage_Player;
             break;

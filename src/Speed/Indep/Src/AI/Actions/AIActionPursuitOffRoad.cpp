@@ -179,7 +179,7 @@ void AIActionPursuitOffRoad::OnBehaviorChange(const UCrc32 &mechanic) {
     }
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionPursuitOffRoad("AIActionPursuitOffRoad", AIActionPursuitOffRoad::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionPursuitOffRoad(UCrc32("AIActionPursuitOffRoad"), AIActionPursuitOffRoad::Construct);
 
 AIAction *AIActionPursuitOffRoad::Construct(AIActionParams *params) {
     return new AIActionPursuitOffRoad(params, 0.01f);

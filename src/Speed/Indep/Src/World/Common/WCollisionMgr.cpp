@@ -129,8 +129,8 @@ static void CalcCollisionFaceNormal(UMath::Vector3 *norm, UMath::Vector4 *facePt
     v3crossprod(&vecX, &vecZ, &normal);
     if (normal.x == 0.0f && normal.y == 0.0f && normal.z == 0.0f) {
         norm->x = 0.0f;
-        norm->z = 0.0f;
         norm->y = 1.0f;
+        norm->z = 0.0f;
     } else {
 #ifdef EA_PLATFORM_PLAYSTATION2
         float invlen = VU0_rsqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
@@ -142,8 +142,8 @@ static void CalcCollisionFaceNormal(UMath::Vector3 *norm, UMath::Vector4 *facePt
 #endif
     }
     if (norm->y < 0.0f) {
-        norm->y = -norm->y;
         norm->x = -norm->x;
+        norm->y = -norm->y;
         norm->z = -norm->z;
     }
     if (norm->y >= 0.9999f) {
@@ -175,8 +175,8 @@ bool WCollisionMgr::FindFaceInTriStrip(const UMath::Matrix4 &vectorMat, const UM
             CalcCollisionFaceNormal(&norm, reinterpret_cast<UMath::Vector4 *>(&face));
             faceY = pt.y - WWorldMath::GetPlaneY(norm, face.fPt2, pt);
             if (faceY < bestFaceY && faceY > -1.0f && this->SurfacePassesExclusion(face.fSurface)) {
-                bestFaceY = faceY;
                 retFaceInd = i;
+                bestFaceY = faceY;
                 foundFace = true;
             }
         }
@@ -933,9 +933,9 @@ bool WCollisionMgr::GetClosestIntersectingBarrier(const WCollisionBarrierList &b
                 intersectionPt.y < barrier->YTop()) {
                 float distSq = UMath::DistanceSquare(UMath::Vector4To3(intersectionPt), UMath::Vector4To3(*testSegment));
                 if (distSq < closestDistSq) {
-                    cInfo.fCollidePt = intersectionPt;
-                    ret = &*bIter;
                     closestDistSq = distSq;
+                    ret = &*bIter;
+                    cInfo.fCollidePt = intersectionPt;
                 }
             }
         }
@@ -1140,10 +1140,17 @@ struct AABB {
     }
 
     AABB(const UMath::Vector3 &pt1, const UMath::Vector3 &pt2, const UMath::Vector3 &pt3) {
+#ifdef EA_PLATFORM_WIN32
+        mMin.x = bMin(pt1.x, bMin(pt2.x, pt3.x));
+        mMin.y = bMin(pt1.z, bMin(pt2.z, pt3.z));
+        mMax.x = bMax(pt1.x, bMax(pt2.x, pt3.x));
+        mMax.y = bMax(pt1.z, bMax(pt2.z, pt3.z));
+#else
         mMin.x = bMin(pt3.x, bMin(pt1.x, pt2.x));
         mMin.y = bMin(pt3.z, bMin(pt1.z, pt2.z));
         mMax.x = bMax(pt3.x, bMax(pt1.x, pt2.x));
         mMax.y = bMax(pt3.z, bMax(pt1.z, pt2.z));
+#endif
     }
 
     bool Overlap(const AABB &test) {

@@ -100,9 +100,9 @@ void USpline::EvaluateSpline(float t, UMath::Vector4 &position) {
     UMath::Vector4 tvec;
 
     tvec.w = 1.0f;
-    tvec.x = t * t * t;
     tvec.z = t;
     tvec.y = t * t;
+    tvec.x = t * t * t;
 
     UMath::Matrix4 matrix;
 
@@ -124,9 +124,9 @@ void USpline::EvaluateDerivative(float t, UMath::Vector4 &tangent) {
     UMath::Vector4 tvec;
 
     tvec.w = 1.0f;
-    tvec.x = t * t * t;
     tvec.z = t;
     tvec.y = t * t;
+    tvec.x = t * t * t;
 
     UMath::Matrix4 matrix;
 
@@ -139,9 +139,9 @@ void USpline::Evaluate2ndDerivative(float t, UMath::Vector4 &tangent) {
     UMath::Vector4 tvec;
 
     tvec.w = 1.0f;
-    tvec.x = t * t * t;
     tvec.z = t;
     tvec.y = t * t;
+    tvec.x = t * t * t;
 
     UMath::Matrix4 matrix;
 

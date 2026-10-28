@@ -15,15 +15,27 @@ static inline float TrackCopAngToDeg(unsigned short angle) {
     return ((float)angle) * (360.0f / 65536.0f);
 }
 
-int TrackCopCameraMover_IdleSim = 0; // .data: 0x80416FF0
+bool TrackCopCameraMover_IdleSim = false; // .data: 0x80416FF0
 
 Bezier::Bezier() {
     pControlPoints = NULL;
 
-    bFill(&mBasis.v0, 1.0f, -3.0f, 3.0f, -1.0f);
-    bFill(&mBasis.v1, 0.0f, 3.0f, -6.0f, 3.0f);
-    bFill(&mBasis.v2, 0.0f, 0.0f, 3.0f, -3.0f);
-    bFill(&mBasis.v3, 0.0f, 0.0f, 0.0f, 1.0f);
+    mBasis.v0.x = 1.0f;
+    mBasis.v0.y = -3.0f;
+    mBasis.v0.z = 3.0f;
+    mBasis.v0.w = -1.0f;
+    mBasis.v1.x = 0.0f;
+    mBasis.v1.y = 3.0f;
+    mBasis.v1.z = -6.0f;
+    mBasis.v1.w = 3.0f;
+    mBasis.v2.x = 0.0f;
+    mBasis.v2.y = 0.0f;
+    mBasis.v2.z = 3.0f;
+    mBasis.v2.w = -3.0f;
+    mBasis.v3.x = 0.0f;
+    mBasis.v3.y = 0.0f;
+    mBasis.v3.z = 0.0f;
+    mBasis.v3.w = 1.0f;
 }
 
 void Bezier::GetPoint(bVector3 *pOut, float t) {
@@ -202,7 +214,7 @@ void TrackCopCameraMover::Init() {
     }
 
     unsigned short fov = 2 * bATan(distance, 3.0f);
-    if (fov != 0) {
+    if (fov > 0) {
         fov = bClamp(fov, 1000, 13100);
 
         float startDeg = TrackCopAngToDeg(pCamera->GetFieldOfView());

@@ -97,8 +97,13 @@
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/ControllerUnplugged.cpp"
 
-// Solo el prototipo: las pantallas online, en el orden del .mdebug de la A124.
-#ifdef EA_BUILD_A124
+// Las pantallas online, en el orden del .mdebug de la A124: el prototipo y el EGM de Xbox 360 (0x82272AD0-
+// 0x822958C0, en el mismo orden). En Xenon la revision final escribe FEPrintf(pkg, hash, fmt...) donde la A124
+// llama a su FEngPrintf de depuracion con los mismos argumentos (UIOnlineMain::Setup, fn_82293CA0 del EGM).
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
+#ifdef EA_PLATFORM_XENON
+#define FEngPrintf FEPrintf
+#endif
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/UIOnlineDisconnect.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineLogin.cpp"
@@ -140,6 +145,9 @@
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/uiOnlineChallengeInvite.cpp"
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Safehouse/Online/UIOnlineRankingsLeaderboard.cpp"
+#ifdef EA_PLATFORM_XENON
+#undef FEngPrintf
+#endif
 #endif
 
 #include "Speed/Indep/Src/Frontend/FEJoyInput.cpp"
@@ -166,8 +174,9 @@
 
 #include "Speed/Indep/Src/Frontend/MenuScreens/Common/FEAnyTutorialScreen.cpp"
 
-// Solo el prototipo: el menu de depuracion, en el orden del .mdebug de la A124.
-#ifdef EA_BUILD_A124
+// Solo las milestone (la A124 y el EGM de X360, que carga sus cadenas): el menu de depuracion, en el orden del
+// .mdebug de la A124.
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Frontend/DebugMenu.cpp"
 
 #include "Speed/Indep/Src/Frontend/DebugMenuWidgets.cpp"

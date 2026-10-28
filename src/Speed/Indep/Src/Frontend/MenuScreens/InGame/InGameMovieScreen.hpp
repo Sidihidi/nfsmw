@@ -22,8 +22,9 @@ class InGameAnyMovieScreen : public MenuScreen {
   private:
     static char MovieFilename[64];
     SubTitler mSubtitler;           // offset 0x2C
-    // Ninguna PS2 lo tiene: la A124 y SLUS hacen new de 0x50.
-#ifndef EA_PLATFORM_PLAYSTATION2
+    // Solo el prototipo no lo tiene: SLUS hace new de 0x54 y lo guarda/recupera
+    // en el ctor/dtor; la A124 hace new de 0x50.
+#ifndef EA_BUILD_A124
     bool bAllowingControllerErrors; // offset 0x50
 #endif
 };

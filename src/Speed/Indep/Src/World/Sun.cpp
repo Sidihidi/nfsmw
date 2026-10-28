@@ -25,6 +25,7 @@ int LoaderSun(bChunk *chunk) {
     }
     SunInfoTable = reinterpret_cast<SunChunkInfo *>(chunk->GetAlignedData(16));
     NumSunInfo = chunk->GetAlignedSize(16) / sizeof(SunChunkInfo);
+#ifdef NATIVE_ENDIAN_BIG
     for (int n = 0; n < NumSunInfo; n++) {
         SunChunkInfo *sun_info = &SunInfoTable[n];
         bPlatEndianSwap(reinterpret_cast<int *>(sun_info));
@@ -47,6 +48,7 @@ int LoaderSun(bChunk *chunk) {
             bPlatEndianSwap(&sun_info->SunLayers[layer_num].SweepAngleAmount);
         }
     }
+#endif
     return 1;
 }
 

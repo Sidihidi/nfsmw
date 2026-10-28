@@ -127,9 +127,9 @@ class CWebOffer {
         char *pPersonaName;
         char *pProductName;
         char *pPlatformName;
-        char *pLanguage;
-        char *pCountry;
-        char *pSLUSCode;
+        const char *pLanguage;
+        const char *pCountry;
+        const char *pSLUSCode;
         char *pLobbyKey;
         char *pOfferURL;
     };
@@ -313,7 +313,7 @@ class CUIWebOfferStart : public MenuScreen {
         bStrNCpy(m_NextPackageFail, pFailPackage, 31);
     }
     static void MakeURLScript2(const char *url, uint32 titleHash, uint32 messageHash);
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON) // EGM: 0x822720D0 (MMOnlineNews/TOS::React)
     // A124: stab MakeURLScript::f22:PCciiii y cuerpo inline (WebOfferUG2.hpp:261-283) que expanden
     // MMOnlineNews::React y MMOnlineTOS::React (uionlinemainmenu.cpp). pURL, TotalStrLen, FudgedURL y
     // pURLScriptFormat salen de los stabs del bloque inline; los cuatro int llegan como constantes y no dejan

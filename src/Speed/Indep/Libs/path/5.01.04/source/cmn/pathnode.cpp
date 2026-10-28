@@ -96,8 +96,15 @@ int PATHI_choosesynchtime(int node, const PATHFINDNODE &entryinfo, const PATHBEA
     int overbeatsleft;
     int overbeatsdone;
 
+#ifdef EA_PLATFORM_XENON
+    if ((short)entryinfo.partID < 0)
+        return 1;
+    if (node < 0)
+        return 1;
+#else
     if ((short)entryinfo.partID < 0 || node < 0)
         return 1;
+#endif
 
     nodeinfo = PATHI_getnode(node);
 
@@ -489,9 +496,13 @@ void PATHI_seeknextnode(int trackindex)
 
     nodeinfo = PATHI_getnode(track->node);
 
+#ifdef EA_PLATFORM_XENON
+    nodebeat = track->ramtrack ? 1 : -1;
+#else
     nodebeat = -1;
     if (track->ramtrack)
         nodebeat = 1;
+#endif
 
     if (track->nodebeat > 0 && nodeinfo->extra.beat.playbeats &&
         track->nodebeat <= (int)(nodeinfo->beats * nodeinfo->bars))
@@ -613,19 +624,8 @@ int PATHI_queuenode(PATHTRACK *track)
             track->nextbeattime -= pfstate->timerinterval * 5;
         }
 
-        if (playbeats)
-        {
-            int lastbeat = track->nodebeat;
-
-            track->nodebeat = lastbeat + 1;
-
-            if (lastbeat < (int)(nodeinfo->beats * nodeinfo->bars))
-                goto beatdone;
-        }
-
-        track->nodebeat = 0;
-
-    beatdone:
+        if (!playbeats || track->nodebeat++ >= (int)(nodeinfo->beats * nodeinfo->bars))
+            track->nodebeat = 0;
 
         if (playbeats)
             duration = duration / (nodeinfo->beats * nodeinfo->bars);

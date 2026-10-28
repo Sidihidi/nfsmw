@@ -61,12 +61,13 @@ struct SNDIPATCHHEADER {
     void *ptimestretchdata[6];         // offset 0x98, size 0x18, Decl: 525
     unsigned short timestretchsize[6]; // offset 0xB0, size 0xC, Decl: 526
     unsigned short azimuth[6];         // offset 0xBC, size 0xC, Decl: 529
-#ifndef EA_PLATFORM_PLAYSTATION2
-    // snd 9.06.00-ps2 no lleva los libros de codigos ni los estados de bucle del ADPCM de la DSP (mide 0xCC)
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_WIN32)
+    // snd 9.06.00-ps2 no lleva los libros de codigos ni los estados de bucle del ADPCM de la DSP (mide 0xCC); el PC
+    // tampoco (SNDI_parsetimbre, speed.exe 0x823E83: ptimbre en +0xC8)
     void *pcodebookdata[6];            // offset 0xC8, size 0x18
     void *ploopstatedata[6];           // offset 0xE0, size 0x18
 #endif
-    void *ptimbre;                     // offset 0xF8 (PS2: 0xC8), size 0x4, Decl: 531
+    void *ptimbre;                     // offset 0xF8 (PS2 y PC: 0xC8), size 0x4, Decl: 531
 };
 
 // total size: 0x8
@@ -450,27 +451,34 @@ static inline void StreamVolSetState(StreamSourceChannelState *pSourceChannelSta
 typedef int STREAMHANDLE;
 typedef int STREAMREQUESTID;
 
-// total size: 0x214
+// total size: 0x214 (Xenon 0x208: 4 B de hueco delante y SNDSAMPLEATTR/SNDPLAYOPTS mas cortos;
+// SNDSTRM_purge de 360 en 0x8260F488 deja los campos de cabecera 4 B mas alla y los de detras de
+// newsa 4 B mas aca: streamhandle/shandle/packetinstancehandle/state/fromtap/cursf/newsf en
+// 0x4/0x8/0xC/0x14/0x15/0x18/0x1C, cursa en 0x20 (0x64), newsa en 0x84 (0x64) y las listas de
+// peticiones en 0x114/0x120 con parsingrequest en 0x12C)
 typedef struct SNDSTREAMCHANNEL {
-    STREAMHANDLE streamhandle;                           // offset 0x0, size 0x4
-    volatile int shandle;                                // offset 0x4, size 0x4
-    volatile int packetinstancehandle;                   // offset 0x8, size 0x4
-    volatile int lastsndrequesthandle;                   // offset 0xC, size 0x4
-    volatile signed char state;                          // offset 0x10, size 0x1
-    volatile signed char fromtap;                        // offset 0x11, size 0x1
-    unsigned char useOldAzimuthBehaviour;                // offset 0x12, size 0x1
-    char pad[1];                                         // offset 0x13, size 0x1
-    SNDSAMPLEFORMAT cursf;                               // offset 0x14, size 0x4
-    SNDSAMPLEFORMAT newsf;                               // offset 0x18, size 0x4
-    SNDSAMPLEATTR cursa;                                 // offset 0x1C, size 0x68
-    SNDSAMPLEATTR newsa;                                 // offset 0x84, size 0x68
-    SNDPLAYOPTS po;                                      // offset 0xEC, size 0x18
-    Snd::SNDSTREAMFXVOLUME *pFxVolume;                   // offset 0x104, size 0x4
-    SNDFILTERDEF filter[1];                              // offset 0x108, size 0x18
-    SNDLINKLIST allocatedrequests;                       // offset 0x120, size 0xC
-    SNDLINKLIST freerequests;                            // offset 0x12C, size 0xC
-    volatile Snd::SNDSTREAMREQUEST *parsingrequest;      // offset 0x138, size 0x4
-    Snd::StreamSourceChannelState sourceChannelState[6]; // offset 0x13C, size 0xD8
+#ifdef EA_PLATFORM_XENON
+    char pad0[4];                                        // offset 0x0, size 0x4 (Xenon: hueco delante de streamhandle)
+#endif
+    STREAMHANDLE streamhandle;                           // offset 0x0, size 0x4 (Xenon 0x4)
+    volatile int shandle;                                // offset 0x4, size 0x4 (Xenon 0x8)
+    volatile int packetinstancehandle;                   // offset 0x8, size 0x4 (Xenon 0xC)
+    volatile int lastsndrequesthandle;                   // offset 0xC, size 0x4 (Xenon 0x10)
+    volatile signed char state;                          // offset 0x10, size 0x1 (Xenon 0x14)
+    volatile signed char fromtap;                        // offset 0x11, size 0x1 (Xenon 0x15)
+    unsigned char useOldAzimuthBehaviour;                // offset 0x12, size 0x1 (Xenon 0x16)
+    char pad[1];                                         // offset 0x13, size 0x1 (Xenon 0x17)
+    SNDSAMPLEFORMAT cursf;                               // offset 0x14, size 0x4 (Xenon 0x18)
+    SNDSAMPLEFORMAT newsf;                               // offset 0x18, size 0x4 (Xenon 0x1C)
+    SNDSAMPLEATTR cursa;                                 // offset 0x1C, size 0x68 (Xenon 0x20, size 0x64)
+    SNDSAMPLEATTR newsa;                                 // offset 0x84, size 0x68 (Xenon 0x84, size 0x64)
+    SNDPLAYOPTS po;                                      // offset 0xEC, size 0x18 (Xenon 0xE8, size 0x10)
+    Snd::SNDSTREAMFXVOLUME *pFxVolume;                   // offset 0x104, size 0x4 (Xenon 0xF8)
+    SNDFILTERDEF filter[1];                              // offset 0x108, size 0x18 (Xenon 0xFC)
+    SNDLINKLIST allocatedrequests;                       // offset 0x120, size 0xC (Xenon 0x114)
+    SNDLINKLIST freerequests;                            // offset 0x12C, size 0xC (Xenon 0x120)
+    volatile Snd::SNDSTREAMREQUEST *parsingrequest;      // offset 0x138, size 0x4 (Xenon 0x12C)
+    Snd::StreamSourceChannelState sourceChannelState[6]; // offset 0x13C, size 0xD8 (Xenon 0x130)
 } SNDSTREAMCHANNEL;
 
 // total size: 0x80
@@ -557,7 +565,7 @@ inline int SNDI_ftoiround(float val) {
     tmp = val < 0.0f ? -0.5f : 0.5f;
     asm volatile("add.s %1, %1, %2\n\tcvt.w.s $f4, %1\n\tmfc1 %0, $f4" : "=r"(result), "+f"(tmp) : "f"(val) : "$f4");
     return result;
-#elif defined(EA_PLATFORM_WIN32)
+#elif defined(EA_PLATFORM_WIN32) && defined(_MSC_VER) // otro compilador toma el C de abajo
     // asm de EA (speed.exe): fld + fistp, que redondea con el modo de la FPU. La copia fuera de linea de 0x820056
     // (51 d9442408 db1c24 8b0424 59 c3) es byte a byte la de este bloque; MSVC 7.1 sin /QIfist convierte con __ftol2.
     int result;
@@ -680,8 +688,53 @@ int iSNDpatchkey(int chan, int *psetchan);
 void SNDI_patchtohdr(void *pbank, TAGGEDPATCH *ptp, SNDSAMPLEFORMAT *pssf, SNDSAMPLEATTR *pssa, SNDSAMPLEDESC *pssd, unsigned char *isgeneric);
 
 // smemman.c
+#ifdef EA_PLATFORM_XENON
+// Xenon: el snd no tiene heap propio; SNDMEMI_allocz/SNDMEMI_free son la llamada por interfaz
+// del asignador del nucleo y entran en linea en cada sitio del EGM (MIX_create 0x82617580,
+// MIX_destroy 0x82617938, ??1GlobalFxProcessor 0x82615580, SNDI_patchtohdr 0x8262DB38):
+// asignador en el campo +0x20 del nucleo de 0x82A7F9F0, Alloc en vtable[1] con
+// (obj, size, 0, 1, 0x10, 0) y Free en vtable[3] con (obj, ptr, 0). smemman.c no se compila.
+namespace EA {
+namespace Thread {
+class Mutex;
+}
+}
+
+struct XenonSndAllocVt {
+    void *slot0;                     // +0x0
+    void *(*Alloc)(void *pself, unsigned size, unsigned a, unsigned b, unsigned c, unsigned d); // +0x4
+    void *slot2;                     // +0x8
+    void (*Free)(void *pself, void *ptr, unsigned a); // +0xC
+};
+
+struct XenonSndAllocator {
+    XenonSndAllocVt *vt;
+};
+
+struct XenonUnknown82A7F9F0_t {
+    char pad000[0x20];               // 0x00-0x1F (sin probar)
+    XenonSndAllocator *allocator;    // 0x20
+    char pad024[0x30];               // 0x24-0x53 (sin probar)
+    void (*enterFn)();               // 0x54
+    void (*leaveFn)();               // 0x58
+    EA::Thread::Mutex *mutex;        // 0x5C
+};
+
+extern XenonUnknown82A7F9F0_t *XenonUnknown82A7F9F0;
+
+inline void SNDMEMI_free(void *paddr) {
+    XenonSndAllocator *palloc = XenonUnknown82A7F9F0->allocator;
+    palloc->vt->Free(palloc, paddr, 0);
+}
+
+inline void *SNDMEMI_allocz(int size) {
+    XenonSndAllocator *palloc = XenonUnknown82A7F9F0->allocator;
+    return palloc->vt->Alloc(palloc, (unsigned)size, 0, 1, 0x10, 0);
+}
+#else
 void SNDMEMI_free(void *paddr);
 void *SNDMEMI_allocz(int size);
+#endif
 
 // sbvalid.c
 int SNDBANKI_valid(int bhandle);
@@ -778,8 +831,8 @@ extern "C" {
 /* Poner a cero: en PC snd tiene su rutina (SNDI_memclear, speed.exe 0x822050, asm de x87 de EA con `fst qword`; la
  * llaman 40 sitios de snd y ninguno llama a memset); GameCube y PS2 usan memset. Solo donde el exe de PC llama a
  * 0x822050: donde PC pone `rep stosd`, el original escribe memset. Con enlace de C (snd es C); pc/sdsound.c la
- * vuelve a declarar sin especificacion y conserva este enlace. */
-#ifdef EA_PLATFORM_WIN32
+ * vuelve a declarar sin especificacion y conserva este enlace. Su cuerpo es asm de x86: fuera de MSVC, memset. */
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
 void SNDI_memclear(void *p, int bytes);
 #else
 #define SNDI_memclear(p, bytes) memset((p), 0, (bytes))

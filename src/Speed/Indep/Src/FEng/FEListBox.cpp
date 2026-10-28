@@ -1013,38 +1013,30 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
             }
             mulCurrentColumn = lColumn;
             mstTargetLocation.h = GetCurrentColumnData()->fCummulativeValue;
-            goto end_column;
-        } else {
-
-            if (lColumn < 0) {
-                i32 i = mulNumColumns + lColumn;
-                mstTargetLocation.h = GetColumnData(i)->fCummulativeValue;
-                mstCurrentLocation.h = mstTargetLocation.h;
-                do {
-                    mstCurrentLocation.h = mstCurrentLocation.h + GetColumnData(i)->fValue;
-                    i32 next = i + 1;
-                    i = next % mulNumColumns;
-                } while (i != static_cast<i32>(mulCurrentColumn));
-            } else {
-                if (lColumn < static_cast<i32>(mulNumColumns)) {
-                    goto set_column;
-                }
-                mstTargetLocation.h = mstCurrentLocation.h;
-                i32 i = mulCurrentColumn;
-                do {
-                    mstTargetLocation.h =
-                        mstTargetLocation.h + GetColumnData(i % mulNumColumns)->fValue;
-                    i = i + 1;
-                } while (i != lColumn);
-            }
-            mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
+        } else if (lColumn < 0) {
+            i32 i = mulNumColumns + lColumn;
+            mstTargetLocation.h = GetColumnData(i)->fCummulativeValue;
+            mstCurrentLocation.h = mstTargetLocation.h;
+            do {
+                mstCurrentLocation.h = mstCurrentLocation.h + GetColumnData(i)->fValue;
+                i = (i + 1) % mulNumColumns;
+            } while (i != static_cast<i32>(mulCurrentColumn));
             mulCurrentColumn = lColumn % mulNumColumns;
-            goto end_column;
+            mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
+        } else if (lColumn >= static_cast<i32>(mulNumColumns)) {
+            mstTargetLocation.h = mstCurrentLocation.h;
+            i32 i = mulCurrentColumn;
+            do {
+                mstTargetLocation.h =
+                    mstTargetLocation.h + GetColumnData(i % mulNumColumns)->fValue;
+                i = i + 1;
+            } while (i != lColumn);
+            mulCurrentColumn = lColumn % mulNumColumns;
+            mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
+        } else {
+            mulCurrentColumn = lColumn;
+            mstTargetLocation.h = GetCurrentColumnData()->fCummulativeValue;
         }
-    set_column:
-        mulCurrentColumn = lColumn;
-        mstTargetLocation.h = GetCurrentColumnData()->fCummulativeValue;
-    end_column:
 
         fNewWidth = 0.0f;
         for (i = mulCurrentColumn; i < mulNumColumns; i++) {
@@ -1063,11 +1055,7 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
         mulFlags = mulFlags | 0x20;
     }
 
-    if (lRowNum == 0 || (mulFlags & 0x40) != 0) {
-        goto compute_direction;
-    }
-
-    {
+    if (lRowNum != 0 && (mulFlags & 0x40) == 0) {
         i32 lRow;
         float fNewHeight;
         lRow = mulCurrentRow + lRowNum;
@@ -1079,36 +1067,31 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
             if (lRow < 0) {
                 lRow = 0;
             }
-            goto set_row;
-        } else {
-            if (lRow < 0) {
-                i32 i = mulNumRows + lRow;
-                mstTargetLocation.v = GetRowData(i)->fCummulativeValue;
-                mstCurrentLocation.v = mstTargetLocation.v;
-                do {
-                    mstCurrentLocation.v = mstCurrentLocation.v + GetRowData(i)->fValue;
-                    i32 next = i + 1;
-                    i = next % mulNumRows;
-                } while (i != static_cast<i32>(mulCurrentRow));
-            } else {
-                if (lRow < static_cast<i32>(mulNumRows)) {
-                    goto set_row;
-                }
-                mstTargetLocation.v = mstCurrentLocation.v;
-                i32 i = mulCurrentRow;
-                do {
-                    mstTargetLocation.v = mstTargetLocation.v + GetRowData(i % mulNumRows)->fValue;
-                    i = i + 1;
-                } while (i != lRow);
-            }
-            mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
+            mulCurrentRow = lRow;
+            mstTargetLocation.v = GetCurrentRowData()->fCummulativeValue;
+        } else if (lRow < 0) {
+            i32 i = mulNumRows + lRow;
+            mstTargetLocation.v = GetRowData(i)->fCummulativeValue;
+            mstCurrentLocation.v = mstTargetLocation.v;
+            do {
+                mstCurrentLocation.v = mstCurrentLocation.v + GetRowData(i)->fValue;
+                i = (i + 1) % mulNumRows;
+            } while (i != static_cast<i32>(mulCurrentRow));
             mulCurrentRow = lRow % mulNumRows;
-            goto end_row;
+            mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
+        } else if (lRow >= static_cast<i32>(mulNumRows)) {
+            mstTargetLocation.v = mstCurrentLocation.v;
+            i32 i = mulCurrentRow;
+            do {
+                mstTargetLocation.v = mstTargetLocation.v + GetRowData(i % mulNumRows)->fValue;
+                i = i + 1;
+            } while (i != lRow);
+            mulCurrentRow = lRow % mulNumRows;
+            mulFlags = mulFlags | FELISTBOX_FLAGS_WRAPH;
+        } else {
+            mulCurrentRow = lRow;
+            mstTargetLocation.v = GetCurrentRowData()->fCummulativeValue;
         }
-    set_row:
-        mulCurrentRow = lRow;
-        mstTargetLocation.v = GetCurrentRowData()->fCummulativeValue;
-    end_row:
 
         fNewHeight = 0.0f;
         for (i = mulCurrentRow; i < mulNumRows; i++) {
@@ -1127,7 +1110,6 @@ void FEListBox::ScrollSelection(i32 lColumnNum, i32 lRowNum) {
         mulFlags = mulFlags | 0x40;
     }
 
-compute_direction:
     FEVector2 &obTargetLocation = reinterpret_cast<FEVector2 &>(mstTargetLocation);
     FEVector2 &obCurrentLocation = reinterpret_cast<FEVector2 &>(mstCurrentLocation);
     FEVector2 &obDirection = reinterpret_cast<FEVector2 &>(mstDirection);
@@ -1137,9 +1119,27 @@ compute_direction:
     if (fLength < 0.1f) {
         CompleteScroll();
     } else {
-        obDirection *= 1.0f / obDirection.Length();
+        obDirection.Normalize();
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

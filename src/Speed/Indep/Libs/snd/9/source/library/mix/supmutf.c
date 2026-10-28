@@ -37,7 +37,7 @@ struct CMTBLKDecf {
 
 } // namespace Snd
 
-// total size: 0x2C
+// total size: 0x2C (Xenon: 0x28)
 typedef struct UNPACKINITPARAMS {
     void *psample;                 // offset 0x0
     void *ploopstart;              // offset 0x4
@@ -45,11 +45,15 @@ typedef struct UNPACKINITPARAMS {
     int totalframes;               // offset 0xC
     int sustainstart;              // offset 0x10
     int sustainend;                // offset 0x14
+#ifndef EA_PLATFORM_XENON
+    // Xenon no tiene bits16 (EGM, MIX_playinit 0x82617AC0: escribe voice/cpu/platformver
+    // en 0x18/0x1C/0x20 y unpackgetframe en 0x24, y el struct mide 0x28).
     int bits16;                    // offset 0x18
-    int voice;                     // offset 0x1C
-    int cpu;                       // offset 0x20
-    int platformver;               // offset 0x24
-    int (*unpackgetframe)(void *); // offset 0x28
+#endif
+    int voice;                     // offset 0x1C (Xenon: 0x18)
+    int cpu;                       // offset 0x20 (Xenon: 0x1C)
+    int platformver;               // offset 0x24 (Xenon: 0x20)
+    int (*unpackgetframe)(void *); // offset 0x28 (Xenon: 0x24)
 } UNPACKINITPARAMS;
 
 // total size: 0x2C
@@ -82,7 +86,7 @@ int SFILTER_unpackmtf(void *pstate, int framestoup, void *psrcp, void *pdstp, in
         pdst += framesdecoded;
         if (framesdecoded < framestoup) {
             framestoup -= framesdecoded;
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) && defined(_MSC_VER)
             SNDI_memclear(pdst, framestoup * sizeof(float));
 #else
             memset(pdst, 0, framestoup * sizeof(float));
@@ -113,6 +117,10 @@ void SFILTER_unpackmtfinit(void *pstate, UNPACKINITPARAMS *pupip) {
     mts = pups->pDecoder->GetState();
     mts.doWholeInit = 1;
     pups->pDecoder->SetState(&mts, 0);
+#ifdef EA_PLATFORM_XENON
+    // Xenon (EGM 0x8264E760) da siempre el codec 1, sin mirar platformver.
+    pups->pDecoder->SetCodecVersion(1);
+#else
 #ifdef EA_PLATFORM_WIN32
     // PC solo da el codec 0 a platformver <= 1 (speed.exe 0x826C9F: cmp [ebx+0x24], 1; jg). Las voces de PC
     // (copspeech, platformver 2) llevan el byte de marca por trama del codec 1.
@@ -124,5 +132,6 @@ void SFILTER_unpackmtfinit(void *pstate, UNPACKINITPARAMS *pupip) {
     } else {
         pups->pDecoder->SetCodecVersion(1);
     }
+#endif
     pups->pDecoder->Feed(pupip->psample, pups->totalframes * sizeof(float), pups->totalframes);
 }

@@ -22,8 +22,10 @@ int SFXCTL_Helicopter::GetController(int Index) {
 }
 
 void SFXCTL_Helicopter::AttachController(SFXCTL *psfxctl) {
-    if (psfxctl->GetObjectIndex() == 1) {
+    switch (psfxctl->GetObjectIndex()) {
+    case 1:
         this->m_p3DHeliPosCtl = static_cast<SFXCTL_3DHeliPos *>(psfxctl);
+        break;
     }
 }
 

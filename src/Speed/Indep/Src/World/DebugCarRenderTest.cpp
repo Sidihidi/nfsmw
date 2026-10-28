@@ -23,8 +23,8 @@ ISimable *CreateACop(const UMath::Vector3 &position, float degrees);
 void KillAllCars();
 void Render();
 
-unsigned int lastCarRenderTestNum = 0;
-ISimable *testCars[20];
+static unsigned int lastCarRenderTestNum = 0;
+static ISimable *testCars[20];
 
 }; // namespace DebugCarRenderTest
 

@@ -11,7 +11,9 @@ struct StringToNumberEntry {
 
 class StringToNumber {
 public:
-    // static void operator delete(void *mem, const char *name) {};
+#ifdef EA_PLATFORM_PLAYSTATION2
+    USE_FASTALLOC(StringToNumber)
+#endif
 
     StringToNumber(StringToNumberEntry *null_terminated_table);
     ~StringToNumber();

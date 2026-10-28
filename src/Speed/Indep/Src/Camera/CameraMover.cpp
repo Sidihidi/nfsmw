@@ -10,9 +10,9 @@
 #include "Speed/Indep/Src/World/WWorldMath.h"
 #include "Speed/Indep/Src/World/Rain.hpp"
 
-int CameraDebugWatchCar = 0;
-int Tweak_EnableICEAuthoring = 0;
-int Tweak_ForceICEReplay = 0;
+bool CameraDebugWatchCar = false;
+bool Tweak_EnableICEAuthoring = false;
+bool Tweak_ForceICEReplay = false;
 
 const bVector4 CameraNoiseHandheldFrequency(0.213f, 0.175f, 0.153f, 0.192f); // .bss: 0x8045AB38
 const bVector4 CameraNoiseHandheldAmplitude(0.01f, 0.01f, 0.03f, 0.03f);    // .bss: 0x8045AB48
@@ -39,8 +39,8 @@ void CameraMoverRestartRace() {
     WeHaveCheckedIfJR2ServerExists = 0;
     CameraAI::Reset();
 
-#ifdef EA_PLATFORM_XENON
-    // X360 escribe el limite como <= 3 (ble, tope 0x194); el resto usa < 4 (blt, tope 0x204). Mismas 3 pasadas.
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+    // X360 y PC escriben el limite como <= 3 (ble/jle); GC y PS2 usan < 4 (blt, tope 0x204). Mismas 3 pasadas.
     for (int view_id = 1; view_id <= 3; ++view_id) {
 #else
     for (int view_id = 1; view_id < 4; ++view_id) {
@@ -219,6 +219,9 @@ void CameraMover::TerrainVelocityNoise(bMatrix4 *world_to_camera, CameraAnchor *
 
     float f_road_noise_amplitude = p_car->GetSurface().CAMERA_NOISE(0);
     float f_road_noise_grid_spacing_inverse = p_car->GetSurface().CAMERA_NOISE(1);
+#ifdef EA_BUILD_A124 // la A124 dobla el ruido del firme y usa otros pesos de aceleracion y de corte
+    f_road_noise_amplitude *= 2.0f;
+#endif
 
     float f_speed_magnitude = f_speed_scale * v_speed_terrain_freq.x;
     float f_speed_frequency = v_speed_terrain_freq.z;
@@ -235,13 +238,22 @@ void CameraMover::TerrainVelocityNoise(bMatrix4 *world_to_camera, CameraAnchor *
         const float accel_max = 20.0f;
 
         float accel = bClamp(bDot(p_car->GetAcceleration(), p_car->GetForwardVector()), accel_min, accel_max) * 0.05f;
+#ifdef EA_BUILD_A124
+        f_speed_magnitude += accel * 0.5f;
+#else
         f_speed_magnitude += accel * 0.15f;
+#endif
         f_speed_frequency += (0.5f - f_speed_frequency) * accel;
     }
     if (p_car->IsOverRev()) {
 
+#ifdef EA_BUILD_A124
+        f_speed_magnitude += 0.2f;
+        f_speed_frequency *= 0.5f;
+#else
         f_speed_magnitude += 0.15f;
         f_speed_frequency *= 0.7f;
+#endif
     }
     if (p_car->IsNosEngaged() && p_car->GetVelocityMagnitude() > speed_tresh) {
 
@@ -257,11 +269,13 @@ void CameraMover::TerrainVelocityNoise(bMatrix4 *world_to_camera, CameraAnchor *
     float f_terrain_magnitude = f_terrain_scale * v_speed_terrain_freq.y * f_road_noise_amplitude;
     float f_terrain_frequency = v_speed_terrain_freq.w * f_road_noise_grid_spacing_inverse;
 
+#ifndef EA_BUILD_A124
     if (!OutsidePOV()) {
 
         f_speed_magnitude *= 0.25f;
         f_terrain_magnitude *= 0.25f;
     }
+#endif
 
     bVector4 v_speed_frequency;
     bVector4 v_speed_magnitude;
@@ -700,7 +714,10 @@ bool CameraMover::OnWCollide(const WCollisionMgr::WorldCollisionInfo &cInfo, con
 
 WUID CameraMover::GetAnchorID() {
     CameraAnchor *anchor = GetAnchor();
-    return anchor == NULL ? 0 : anchor->GetWorldID();
+    if (anchor != NULL) {
+        return anchor->GetWorldID();
+    }
+    return 0;
 }
 
 void CameraMover::FovCubicInit(tCubic1D *cubic) {
@@ -767,7 +784,7 @@ void RenderCameraMovers(eView *view) {
 void UpdateCameraMovers(float dT) {
     eView *view;
 
-    for (int view_id = 0; view_id < 22; ++view_id) {
+    for (int view_id = EVIEW_FIRST; view_id <= EVIEW_LAST; ++view_id) { // PC y X360 tienen 24 vistas (speed.exe 0x47C8B5)
         eView *view = eGetView(view_id, false);
         if (view != nullptr) {
             CameraMover *m = view->GetCameraMover();
@@ -840,7 +857,7 @@ void UpdateCameraMovers(float dT) {
     }
 
     bool streamerCleared = false;
-    for (int view_id = 1; view_id < 3; ++view_id) {
+    for (int view_id = 1; view_id <= 2; ++view_id) {
         view = eGetView(view_id, false);
         if (view->IsActive() && view->GetCameraMover() != nullptr) {
             if (!streamerCleared) {

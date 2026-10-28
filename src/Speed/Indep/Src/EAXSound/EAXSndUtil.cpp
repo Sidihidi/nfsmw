@@ -216,11 +216,11 @@ void Slope::Initialize(float _Min, float _Max, float _Start, float _Finish) {
     this->Max = _Max;
     this->Start = _Start;
     this->Finish = _Finish;
-    if (bAbs(_Finish - _Start) < 1e-06f) {
-        this->Finish = _Finish + 1e-06f;
+    if (bAbs(this->Finish - this->Start) < 1e-06f) {
+        this->Finish = this->Finish + 1e-06f;
     }
-    this->LastOutput = this->Min;
     this->LastInput = 0.0f;
+    this->LastOutput = this->Min;
     (void)zero;
 }
 

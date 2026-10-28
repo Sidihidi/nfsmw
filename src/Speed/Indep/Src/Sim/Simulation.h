@@ -44,6 +44,9 @@ class IStateManager : public UTL::COM::IUnknown {
 
 bool Exists();
 void StartProfile();
+float GetProfile();
+int GetCallCount();
+void PrintInventory();
 void Suspend();
 float GetTime();
 void SetWorkspace(void *data_buffer, void *stack);

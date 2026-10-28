@@ -1209,7 +1209,11 @@ void EmitterSystem::UpdateParticles(float dt) {
                         g = bClamp(bFloatToInt(col.y), 0, 255);
                         b = bClamp(bFloatToInt(col.z), 0, 255);
                         a = bClamp(bFloatToInt(col.w), 0, 255);
+#ifdef EA_PLATFORM_WIN32 // speed.exe empaqueta ARGB (0x50917C-0x50918D: a << 8 | r, << 8 | g, << 8 | b), como :490
+                        particle->mColour = a << 24 | r << 16 | g << 8 | b;
+#else
                         particle->mColour = r << 24 | g << 16 | b << 8 | a;
+#endif
                         ignore_programmer_badness = em->GetAttributes().NoKillAtAlpha();
                         alpha_value_to_kill_at = em->GetAttributes().AlphaToKillAt();
                         if (ignore_programmer_badness) {
@@ -1877,7 +1881,8 @@ void EmitterSystem::Update(float dt) {
             // La A124 no borra los emisores de los grupos que llevan diez cuadros sin particulas.
 #ifndef EA_BUILD_A124
         } else {
-            if ((group->GetFlags() & 0x40000000) && !group->IsOldSurfaceEffect() && group->GetNumParticles() == 0) {
+            // DWARF de GC: dos GetFlags() y ningun IsOldSurfaceEffect() en esta rama; speed.exe `test eax,0x40000000; jbe`.
+            if ((group->GetFlags() & 0x40000000) > 0 && !(group->GetFlags() & 0x80000) && group->GetNumParticles() == 0) {
                 group->IncZeroParticleFrame();
                 if (group->GetNumZeroParticleFrames() > 10)
                     group->DeleteEmitters();
@@ -1892,7 +1897,9 @@ void EmitterSystem::Update(float dt) {
         }
     }
     this->UpdateParticles(dt);
+#ifndef EA_PLATFORM_WIN32 // speed.exe acaba en UpdateParticles (0x50D435-0x50D43C): no llama a UpdateXenonEmitters
     UpdateXenonEmitters(dt);
+#endif
 }
 
 void EmitterGroup::Update(float dt) {
@@ -2249,6 +2256,7 @@ void Emitter::SpawnParticles(float dt, float intensity) {
         }
     }
 
+#ifndef EA_PLATFORM_WIN32 // PC (0x509B30) no anade los efectos de Xenon: del bucle de particulas pasa a mRandomSeed
     {
         int num_xenon_emitters = this->mDynamicData->GetAttributes().Num_XenonEffect();
 
@@ -2259,6 +2267,7 @@ void Emitter::SpawnParticles(float dt, float intensity) {
                                reinterpret_cast<const UMath::Vector4 *>(&this->mInheritVelocity));
         }
     }
+#endif
 
     this->mRandomSeed = random_seed;
 }

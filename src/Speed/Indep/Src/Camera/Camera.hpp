@@ -118,7 +118,7 @@ class Camera {
         return &this->CurrentKey.Direction;
     }
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
     bVector3 *GetUpVec();
 #endif
 

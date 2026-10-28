@@ -924,10 +924,10 @@ bool Exists() {
 }
 
 const State GetState() {
-    if (Internal::mSystem) {
-        return Internal::mSystem->GetState();
+    if (!Internal::mSystem) {
+        return STATE_NONE;
     }
-    return STATE_NONE;
+    return Internal::mSystem->GetState();
 }
 
 void SetWorkspace(void *data_buffer, void *stack) {

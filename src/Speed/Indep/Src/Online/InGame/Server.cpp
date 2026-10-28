@@ -218,8 +218,12 @@ void Server::ProcessCarMessage(SmartBitStream &bitstream_data, int client_id) {
         float player_timestamp = RealTimer.GetSeconds();
         OnlineRacer *racer = TheOnlineManager.GetOnlineRacer(driver_number);
         if (racer && racer->IsConnected()) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            TheOnlineManager.ImportPositionData(driver_number, bitstream_data, pos_priority);
+#else
             TheOnlineManager.ImportPositionData(driver_number, bitstream_data,
                                                 player_timestamp, pos_priority);
+#endif
             OnlineRacer *sender = TheOnlineManager.GetOnlineRacer(driver_number);
             for (int player_num = 0; player_num < 3; player_num++) {
                 OnlinePlayer *p_player = OnlinePlayerMgr::GetOnlinePlayer(player_num);
@@ -241,7 +245,7 @@ void Server::ProcessClockSyncMessage(SmartBitStream &bitstream_data, int client_
     float latency_s = (RealTimer.GetSeconds() - server_realtime) * 0.5f;
     int latency_ms = static_cast<int>(latency_s * 1000.0f + 0.5f);
     OnlinePlayer *p_player = OnlinePlayerMgr::FindPlayerWithClientId(client_id);
-    if (p_player->GetLastClockSyncRealTimeReceived() < server_realtime) {
+    if (server_realtime > p_player->GetLastClockSyncRealTimeReceived()) {
         p_player->SetLastClockSyncRealTimeReceived(server_realtime);
         p_player->SetOneWayLatencyMs(latency_ms);
     }
@@ -410,7 +414,7 @@ void Server::ProcessDriverFinishMessage(SmartBitStream &bitstream_data, int clie
 void Server::ProcessClientStateChangeMessage(SmartBitStream &bitstream_data, int client_id) {
     uint32 temp = 0;
     bitstream_data.GetBits(temp, 32);
-    uint32 new_state = temp;
+    int new_state = temp; // X360 compara con cmpwi
     OnlinePlayer *p_player = OnlinePlayerMgr::FindPlayerWithClientId(client_id);
     int old_state = p_player->GetClientState();
     p_player->SetClientState(new_state);

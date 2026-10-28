@@ -15,9 +15,23 @@ MemcardInterface *MemcardInterface::CreateInstance(Realmc::SystemInterface *iSys
     return gInstance;
 }
 
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 (r63): emitida tras CreateInstance (0x825E8A68, 12 B: devuelve la direccion del
+// literal "*" de 0x82062FF8 directamente, sin cargar el puntero ALL_ENTRIES).
+const char *MemcardInterface::GetFilterForAllEntries() {
+    return "*";
+}
+#endif
+
 MemcardInterface::MemcardInterface(Realmc::SystemInterface *iSystem, IGameInterface *iGame, GameInfo *gameInfo) {
     this->mImpl = new MemcardInterfaceImpl(iSystem, iGame, gameInfo);
 }
+
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+MemcardInterface::~MemcardInterface() {
+    delete this->mImpl;
+}
+#endif
 
 void MemcardInterface::BootupCheck(const BootupCheckParams *params, unsigned int nEntries, const char **entryNames, wchar_t *content) {
     this->mImpl->TaskManagerBootupCheck(params, nEntries, entryNames, content);
@@ -40,6 +54,14 @@ void MemcardInterface::Load(const char *entryName, char *header, char *body, con
         this->mImpl->TaskManagerLoad(entryName, header, body, contentName, nullptr);
     }
 }
+#elif !REALMEMCARD_HAS_TYPENAME
+void MemcardInterface::Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo) {
+    if (titleInfo != nullptr && (titleInfo->mDataFormat == FORMAT_RAW || titleInfo->mTitleType == TITLE_ALTERNATE)) {
+        this->mImpl->TaskManagerLoad(entryName, header, body, contentName, titleInfo);
+    } else {
+        this->mImpl->TaskManagerLoad(entryName, header, body, contentName, nullptr);
+    }
+}
 #else
 void MemcardInterface::Load(const char *entryName, char *header, char *body, const wchar_t *contentName, const TitleInfo *titleInfo, const wchar_t *typeName) {
     if (titleInfo != nullptr && (titleInfo->mTitleType == TITLE_ALTERNATE || titleInfo->mDataFormat == FORMAT_RAW)) {
@@ -53,6 +75,12 @@ void MemcardInterface::Load(const char *entryName, char *header, char *body, con
 void MemcardInterface::Delete(const char *entryName, const wchar_t *contentName) {
     this->mImpl->TaskManagerDelete(entryName, contentName);
 }
+
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void MemcardInterface::DeleteMultiple(unsigned int nEntryNames, const char **entryNames, const wchar_t *contentName) {
+    this->mImpl->TaskManagerDeleteMultiple(nEntryNames, entryNames, contentName);
+}
+#endif
 
 void MemcardInterface::FindEntries(const char *entryNamePattern, const TitleInfo *titleInfo) {
 #if REALMEMCARD_VERSION < 30401
@@ -74,6 +102,12 @@ void MemcardInterface::CheckCard(CardId cardId) {
     this->mImpl->TaskManagerCheckCard(cardId);
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void MemcardInterface::SetActiveCard(CardId cardId) {
+    this->mImpl->SetActiveCard(cardId);
+}
+#endif
+
 void MemcardInterface::SetAutosave(AutosaveState state, unsigned int nSaveReqs, SaveReq **saveReqs, const char *entryName, CardId cardId) {
     this->mImpl->TaskManagerSetAutosave(state, nSaveReqs, saveReqs, entryName, cardId);
 }
@@ -85,6 +119,19 @@ void MemcardInterface::SetMonitor(MonitorState state) {
 void MemcardInterface::SetMessage(MessageState state, unsigned int message) {
     this->mImpl->SetMessage(state, message);
 }
+
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 (r63): emitidas en esta TU (0x825E8D88, 28 B, y 0x825E8DA8, 72 B, entre SetMessage y
+// Update, como en el orden de declaracion de la cabecera). En GC la TU original no las emite y en
+// PC la TU cerro 40/40 sin ellas: solo la revision de Xenon las define aqui.
+const wchar_t *MemcardInterface::GetCardName() {
+    return this->mImpl->GetCardName();
+}
+
+const wchar_t *MemcardInterface::GetCardName(CardId cardId) {
+    return this->mImpl->GetCardName(cardId);
+}
+#endif
 
 MemcardTask MemcardInterface::Update(unsigned int elapsedTime) {
     return this->mImpl->Update(elapsedTime);
@@ -99,6 +146,23 @@ void MemcardInterface::ConvertAsciiToSjisString(const char *asciiStr, wchar_t *s
 bool MemcardInterface::IsResettable() {
     return this->mImpl->IsResettable();
 }
+
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+unsigned int MemcardInterface::CalcSaveSize(const SaveInfo *saveInfo, DataFormat dataFormat) {
+    return this->mImpl->CalcSaveSize(saveInfo, dataFormat);
+}
+
+#ifdef EA_PLATFORM_XENON
+// Xbox 360 (r63): emitida en esta TU (0x825E8E28, 12 B).
+Realmc::Interface *MemcardInterface::GetLowlevelInterface() {
+    return this->mImpl->GetLowlevelInterface();
+}
+#endif
+
+void MemcardInterface::SetRootPath(const char *path) {
+    this->mImpl->SetRootPath(path);
+}
+#endif
 
 void BootupCheckParams::Clear() {
     this->mEntryNamePattern = 0;
@@ -143,6 +207,10 @@ void EntryInfo::Clear() {
     this->mGameCode[2] = 0;
     this->mGameCode[1] = 0;
     this->mGameCode[0] = 0;
+#ifdef EA_PLATFORM_XENON
+    this->x360_unknown_0x24 = -1;
+    this->x360_unknown_0x28 = false;
+#endif
 }
 
 GameInfo::GameInfo(const wchar_t *gameTitle, const TitleId titleId, bool multipleSaveTypesUsed, bool multitapSupported) {
@@ -157,6 +225,16 @@ GameInfo::GameInfo(const wchar_t *gameTitle, const TitleId titleId, bool multipl
     this->mMultipleSaveTypesUsed = multipleSaveTypesUsed;
     this->mMultitapSupported = multitapSupported;
 }
+
+#ifdef EA_PLATFORM_XENON
+// En el XEX de Xbox 360 queda emitida (0x825E9020); en las demas el enlazador la descarta sin llamantes.
+void GameInfo::Clear() {
+    memset(this->mGameTitle, 0, 0x42);
+    this->mTitleId = 0;
+    this->mMultipleSaveTypesUsed = false;
+    this->mMultitapSupported = false;
+}
+#endif
 
 GcSaveInfo::GcSaveInfo() {
     this->Clear();
@@ -201,6 +279,9 @@ void SaveInfo::Clear() {
     this->mBodySize = 0;
     this->mTypeName = 0;
     this->mContentName = 0;
+#ifdef EA_PLATFORM_XENON
+    this->x360_unknown_0x68 = 0;
+#endif
 }
 
 SaveReq::SaveReq() {
@@ -210,6 +291,9 @@ SaveReq::SaveReq() {
 void SaveReq::Clear() {
     this->mNumSaves = 0;
     this->mSaveInfo = 0;
+#ifdef EA_PLATFORM_XENON
+    this->mAlwaysCheckAtBoot = false;
+#endif
 }
 
 TimeInfo::TimeInfo() {
@@ -231,6 +315,9 @@ void TitleInfo::Clear() {
 #endif
     this->mNameType = static_cast<NameType>(0);
     this->mDataFormat = static_cast<DataFormat>(0);
+#ifdef EA_PLATFORM_XENON
+    this->x360_unknown_0x10 = false;
+#endif
 }
 
 void TitleInfo::Init(TitleType titleType, const TitleId titleId, NameType nameType, DataFormat dataFormat) {

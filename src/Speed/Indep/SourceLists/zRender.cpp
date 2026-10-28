@@ -10,3 +10,9 @@
 #include "Speed/Indep/Src/Render/Common/RRandom.cpp"
 
 #include "Speed/Indep/Src/Render/Common/RenderConn.cpp"
+#ifdef EA_PLATFORM_XENON
+#include "Speed/Xenon/Src/Ecstasy/eMathE.cpp"
+
+#include "Speed/Xenon/Src/Ecstasy/eViewPlat.cpp"
+
+#endif

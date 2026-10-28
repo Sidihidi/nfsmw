@@ -85,7 +85,14 @@ struct LobbyGameSessions {
     void StartSessionChanges();
     void FinishSessionChanges();
     void SetSessionLatency(int late);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    void SetWin32Unknown0x23c(int value); // PC (0x79A190): neutral name, see LobbyUsers.hpp
+    // PC (0x79A1D0), sin nombre en ningun binario: guarda el bool de cOnlineSettings que UpdateSessionFlags anuncia
+    // como el bit 0x4000 de la sesion y actualiza la sesion.
+    void Win32Unknown79A1D0(const bool &value);
+#else
     void SetSessionRaceStatusInfo(int lap, int mapx, int mapy);
+#endif
     bool IsMemberMakingChanges(int32 index);
     int GetMemberLatency(int32 index);
     void GetMemberRaceStatus(int32 index, int &lap, int &mapx, int &mapy);
@@ -141,6 +148,13 @@ struct LobbyGameSessions {
     friend void LobbyDisconnect();
     friend class LobbyCore;
 
+#ifdef EA_PLATFORM_XENON
+    // EGM (ctor 0x8257DFA0, destructor del estatico 0x8257E080): 0x154 B que el ctor no toca y un byte en +0x154 que
+    // pone a cero antes de construir extraSessionDataMap (+0x158); sessionList va en +0x164 (Suspend, 0x825802A0).
+    // Ningun binario da los nombres: lo de Xbox Live de la sesion, probablemente.
+    uint8 xenon_unknown_0x0[0x154];
+    bool xenon_unknown_0x154;
+#endif
     ExtraSessionDataMap extraSessionDataMap;
     DispListRef *sessionList;
     DispListRef *sessionMembers;
@@ -154,6 +168,13 @@ struct LobbyGameSessions {
     Timer hostStartSessionTimer;
     Timer hostHurryTimer;
     Timer hostInactiveTimer;
+#ifdef EA_PLATFORM_XENON
+    // EGM: CreateSession/JoinSession (0x8257E138...) los ponen a cero con los tres tiempos de arriba a -1 (en Xenon
+    // son tiempos sin signo con -1 por "sin poner"); UpdateSessionInfo (0x8257F0D8) los lee. Probablemente las
+    // banderas del aviso de prisa del host, que la A124 tiene como mHurryTimerStarted/mHurryTimerStopped estaticos.
+    bool xenon_unknown_0x264;
+    bool xenon_unknown_0x265;
+#endif
 
   public:
     // Publicos en la A124 (stab /2); UIOLGameRoom::UpdateInfoBox los lee y los borra.

@@ -73,12 +73,6 @@
 #include "Speed/GameCube/Src/Ecstasy/eVisualTreatment.cpp"
 
 #endif
-#ifdef EA_PLATFORM_XENON
-#include "Speed/Xenon/Src/Ecstasy/eMathE.cpp"
-
-#include "Speed/Xenon/Src/Ecstasy/eViewPlat.cpp"
-
-#endif
 #include "Speed/Indep/Src/Generated/TexturePacks/TexEnumGen_ParticleTextures.cpp"
 
 #include "Speed/Indep/Src/Ecstasy/EmitterSystem.cpp"

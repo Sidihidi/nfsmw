@@ -6,11 +6,16 @@
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
 int GlobalStichSizes = 0;
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, tras GlobalStichSizes (0x5e3334, PS2_globals.hpp:1013),
+// a 0 en su .data objetivo.
+int SPEW_AI_STATE_INFO = 0;
+#endif
 
-cStitchLoop::cStitchLoop(unsigned int attrib)
-    : m_StitchAttribKey(attrib) {
+cStitchLoop::cStitchLoop(unsigned int attrib) {
     this->m_Stitch[0] = nullptr;
     this->m_Stitch[1] = nullptr;
+    this->m_StitchAttribKey = attrib;
 
     Attrib::Gen::aud_stitch_loop loopdata(attrib, 0, nullptr);
 

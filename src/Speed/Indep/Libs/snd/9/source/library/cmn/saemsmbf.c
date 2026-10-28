@@ -1,4 +1,7 @@
 #include "Speed/Indep/Libs/realcore/6.24.00/include/common/realcore/file/filesys.h"
+// types.h (que filesys.h incluye) define override vacio para C++ anterior a C++11; aemsdef.h tiene un miembro
+// con ese nombre (COUNTERSTATE::override, del DWARF). Como saems.c.
+#undef override
 #include "Speed/Indep/Libs/snd/9/extern/aemsdef.h"
 #include "Speed/Indep/Libs/snd/9/source/library/cmn/saemsi.h"
 #include "Speed/Indep/Libs/snd/9/source/library/cmn/sndcmn.h"

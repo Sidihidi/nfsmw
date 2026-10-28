@@ -5,7 +5,7 @@
 
 #include <types.h>
 
-const UCrc32 UCrc32::kNull;
+// La definicion de UCrc32::kNull no va aqui: es el primer .globl de la TU y vive en zFoundation.cpp (2026-10-25_zfound91).
 
 static inline void InitResolverData(UGroupResolverData &self, unsigned int numParts, const unsigned int *partOffsets, const void *const *partBases, unsigned int deltaAddress) {
     self.fNumParts = numParts;
@@ -34,6 +34,28 @@ inline void *UGroupResolverData::ConvertOffsetToPointer(const void *basePtr, uns
     }
     return 0;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Lineas 17 y 19 del UGroup.cpp de la alpha: los comparadores de qsort de GroupSort/DataSort,
+// por la fTag de cada elemento. Solo quedan en el objeto de PS2.
+int GroupCompare(const void *a, const void *b) {
+    const UGroup *groupA = static_cast<const UGroup *>(a);
+    const UGroup *groupB = static_cast<const UGroup *>(b);
+    if (groupA->fTag < groupB->fTag) {
+        return -1;
+    }
+    return groupA->fTag != groupB->fTag;
+}
+
+int DataCompare(const void *a, const void *b) {
+    const UData *dataA = static_cast<const UData *>(a);
+    const UData *dataB = static_cast<const UData *>(b);
+    if (dataA->fTag < dataB->fTag) {
+        return -1;
+    }
+    return dataA->fTag != dataB->fTag;
+}
+#endif
 
 void UDataGroupEncodeTag(unsigned int tag, bool indexed, char *str) {
     unsigned int type;
@@ -127,6 +149,17 @@ void UData::ResolveOffsets(const UGroupResolverData &resolverData) const {
     mutableThis->fEmbedded = 0;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Linea 109 del original: solo un grupo allocated (mutable) se puede const-castear.
+UGroup *UGroup::ConstCast() const {
+    bool notAllocated = !fAllocated;
+    if (notAllocated) {
+        return 0;
+    }
+    return const_cast<UGroup *>(this);
+}
+#endif
+
 const UGroup *UGroup::Deserialize(const void *serializedData, bool resolveOffsets, unsigned int deltaAddress) {
     const void *parts[1] = {serializedData};
     if (resolveOffsets) {
@@ -198,6 +231,18 @@ const UGroup *UGroup::GroupLocateTag(unsigned int typeIndexTag) const {
     return result;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Linea 175 del original: ordena los subgrupos por tag (una vez: fGroupSorted).
+void UGroup::GroupSort() {
+    if (!fGroupSorted) {
+        if (fGroupCount >= 2) {
+            qsort(const_cast<void *>(GetArray()), fGroupCount, sizeof(UGroup), GroupCompare);
+        }
+        fGroupSorted = 1;
+    }
+}
+#endif
+
 unsigned int UGroup::DataCountType(unsigned int type) const {
     unsigned int count = 0;
     const UData *d = DataBegin();
@@ -246,6 +291,18 @@ const UData *UGroup::DataLocateTag(unsigned int typeIndexTag) const {
     }
     return result;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Linea 221 del original: la de los datos, con fDataSorted.
+void UGroup::DataSort() {
+    if (!fDataSorted) {
+        if (fDataCount >= 2) {
+            qsort(const_cast<UData *>(DataBegin()), fDataCount, sizeof(UData), DataCompare);
+        }
+        fDataSorted = 1;
+    }
+}
+#endif
 
 void UGroup::ProcessBreadthFirst(UGroup::Processor &p) const {
     bool keepProcessing;
@@ -315,3 +372,21 @@ const void *UGroup::GetArray() const {
     }
     return result;
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+// Linea 311 del original: el procesador que ordena cada grupo (solo si es mutable) al recorrer
+// el arbol. En el arbol solo lo emite esta unidad de PS2.
+class UGroupRecursiveSort : public UGroup::Processor {
+  public:
+    bool StartGroup(const UGroup *g);
+};
+
+bool UGroupRecursiveSort::StartGroup(const UGroup *g) {
+    UGroup *mutableGroup = g->ConstCast();
+    if (mutableGroup) {
+        mutableGroup->GroupSort();
+        mutableGroup->DataSort();
+    }
+    return true;
+}
+#endif

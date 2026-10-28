@@ -154,10 +154,7 @@ void AOInteractiveMusicMode::Act(const char* parent_pkg, unsigned int data) {
 
 void AOInteractiveMusicMode::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xA3DBB390);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetAudioSettings()->InteractiveMusicMode != 0) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetAudioSettings()->InteractiveMusicMode != 0 ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -171,10 +168,7 @@ void AOEATraxMusicMode::Act(const char* parent_pkg, unsigned int data) {
 
 void AOEATraxMusicMode::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xDCFB6B36);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetAudioSettings()->EATraxMode != 0) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetAudioSettings()->EATraxMode != 0 ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -310,9 +304,11 @@ void AOAudioMode::Draw() {
     case 1:
         hash = 0x55DA8BF8;
         break;
+#ifndef EA_PLATFORM_WIN32 // PC solo tiene los dos primeros modos (como Act)
     case 2:
         hash = 0xF6FAFF24;
         break;
+#endif
     }
     FEngSetLanguageHash(GetDataObject(), hash);
 }
@@ -441,10 +437,7 @@ void VOWideScreen::Act(const char* parent_pkg, unsigned int data) {
 
 void VOWideScreen::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xD3588630);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetVideoSettings()->WideScreen) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetVideoSettings()->WideScreen ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -517,10 +510,7 @@ void GODamage::Act(const char* parent_pkg, unsigned int data) {
 
 void GODamage::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0x1582ADFF);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetGameplaySettings()->Damage) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetGameplaySettings()->Damage ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -536,10 +526,7 @@ void GOAutoSave::Act(const char* parent_pkg, unsigned int data) {
 
 void GOAutoSave::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xD1056C88);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetGameplaySettings()->AutoSaveOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetGameplaySettings()->AutoSaveOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -552,10 +539,7 @@ void GOJumpCams::Act(const char* parent_pkg, unsigned int data) {
 
 void GOJumpCams::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xF26A5CBF);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetGameplaySettings()->JumpCam) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetGameplaySettings()->JumpCam ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -568,10 +552,7 @@ void GORearview::Act(const char* parent_pkg, unsigned int data) {
 
 void GORearview::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0x85A6CE05);
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetGameplaySettings()->RearviewOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetGameplaySettings()->RearviewOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -589,10 +570,7 @@ void GOSpeedoUnits::Act(const char* parent_pkg, unsigned int data) {
 
 void GOSpeedoUnits::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0x01E19173);
-    unsigned int hash = 0xAF70E736;
-    if (FEDatabase->GetGameplaySettings()->SpeedoUnits == 0) {
-        hash = 0xFBD74FC5;
-    }
+    unsigned int hash = FEDatabase->GetGameplaySettings()->SpeedoUnits == 0 ? 0xFBD74FC5 : 0xAF70E736;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -669,7 +647,7 @@ void GOExploringMiniMap::Draw() {
 void POTransmission::Act(const char* parent_pkg, unsigned int data) {
     if (data == 0x9120409E || data == 0xB5971BF1) {
         int player = GetPlayerToEditForOptions();
-        unsigned char trans = FEDatabase->GetPlayerSettings(player)->Transmission;
+        int trans = FEDatabase->GetPlayerSettings(player)->Transmission;
         if (trans == 0) {
             trans = 1;
         } else if (trans == 1) {
@@ -682,8 +660,8 @@ void POTransmission::Act(const char* parent_pkg, unsigned int data) {
 }
 
 void POTransmission::Draw() {
-    unsigned int hash = 0;
     FEngSetLanguageHash(GetTitleObject(), 0xD31407E7);
+    unsigned int hash = 0;
     int player = GetPlayerToEditForOptions();
     unsigned char trans = FEDatabase->GetPlayerSettings(player)->Transmission;
     switch (trans) {
@@ -709,10 +687,7 @@ void POTransPrompt::Act(const char* parent_pkg, unsigned int data) {
 void POTransPrompt::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0x50E2172B);
     int player = GetPlayerToEditForOptions();
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetPlayerSettings(player)->TransmissionPromptOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetPlayerSettings(player)->TransmissionPromptOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -808,10 +783,7 @@ void POGauges::Act(const char* parent_pkg, unsigned int data) {
 void POGauges::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xAC148579);
     int player = GetPlayerToEditForOptions();
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetPlayerSettings(player)->GaugesOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetPlayerSettings(player)->GaugesOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -826,10 +798,7 @@ void POPosition::Act(const char* parent_pkg, unsigned int data) {
 void POPosition::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0x82CD8F92);
     int player = GetPlayerToEditForOptions();
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetPlayerSettings(player)->PositionOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetPlayerSettings(player)->PositionOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -844,10 +813,7 @@ void POLapInfo::Act(const char* parent_pkg, unsigned int data) {
 void POLapInfo::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0x969F96A5);
     int player = GetPlayerToEditForOptions();
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetPlayerSettings(player)->LapInfoOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetPlayerSettings(player)->LapInfoOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
@@ -862,25 +828,21 @@ void POScore::Act(const char* parent_pkg, unsigned int data) {
 void POScore::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xC03F9F19);
     int player = GetPlayerToEditForOptions();
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetPlayerSettings(player)->ScoreOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetPlayerSettings(player)->ScoreOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
 void POSplitTime::Act(const char* parent_pkg, unsigned int data) {
     if (data == 0x9120409E || data == 0xB5971BF1) {
-        int type = (!FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->SplitTimeType)
-                   << 2;
+        int type = FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->SplitTimeType ? 0 : 4;
         FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->SplitTimeType = type;
     }
     Update(data);
 }
 
 void POSplitTime::Draw() {
-    unsigned int hash = 0;
     FEngSetLanguageHash(GetTitleObject(), 0x084BC378);
+    unsigned int hash = 0;
     int player = GetPlayerToEditForOptions();
     unsigned char splitTime = FEDatabase->GetPlayerSettings(player)->SplitTimeType;
     switch (splitTime) {
@@ -914,14 +876,31 @@ void POLeaderBoard::Act(const char* parent_pkg, unsigned int data) {
 void POLeaderBoard::Draw() {
     FEngSetLanguageHash(GetTitleObject(), 0xC93FBFB5);
     int player = GetPlayerToEditForOptions();
-    unsigned int hash = LANGUAGE_COMMON_OFF;
-    if (FEDatabase->GetPlayerSettings(player)->LeaderboardOn) {
-        hash = LANGUAGE_COMMON_ON;
-    }
+    unsigned int hash = FEDatabase->GetPlayerSettings(player)->LeaderboardOn ? LANGUAGE_COMMON_ON : LANGUAGE_COMMON_OFF;
     FEngSetLanguageHash(GetDataObject(), hash);
 }
 
 void COVibration::Act(const char* parent_pkg, unsigned int data) {
+#ifdef EA_PLATFORM_PLAYSTATION2 // las dos PS2 solo conmutan el Rumble y hacen vibrar el mando; sin flechas
+    if (data == 0x9120409E || data == 0xB5971BF1) {
+        FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Rumble =
+            !FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Rumble;
+        if (FEDatabase->GetPlayerSettings(GetPlayerToEditForOptions())->Rumble) {
+            InputDevice* device = IOModule::GetIOModule().GetDevice(
+                FEDatabase->GetPlayersJoystickPort(
+#ifdef EA_BUILD_A124 // el prototipo hace vibrar el mando del jugador 0
+                    0
+#else
+                    GetPlayerToEditForOptions()
+#endif
+                    ));
+            if (device != nullptr) {
+                device->StartVibration();
+            }
+        }
+    }
+    Update(data);
+#else
     if (data == 0x9120409E || data == 0xB5971BF1) {
         if (data == 0x9120409E) {
             int player = GetPlayerToEditForOptions();
@@ -956,6 +935,7 @@ void COVibration::Act(const char* parent_pkg, unsigned int data) {
         }
     }
     Update(data);
+#endif
 }
 
 void COVibration::Draw() {

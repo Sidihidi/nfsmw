@@ -128,7 +128,7 @@ void CopViewCameraMover::SetDesired(bMatrix4 *p_eye_car_to_world, bMatrix4 *p_wo
             unsigned short a_look_eye_car = bACos(bDot(&v_eye_to_look, &v_eye_to_chaser));
             unsigned short a_fov_band = bFloatToInt(v_dist_fov_band.y * v_dist_fov_band.z);
 
-            if (a_fov_band < a_look_eye_car) {
+            if (a_look_eye_car > a_fov_band) {
                 bVector3 v_look_to_eye = -v_eye_to_look;
                 bVector3 v_look_to_chaser = v_chaser - v_look;
                 float f_look_to_chaser = bLength(&v_look_to_chaser);

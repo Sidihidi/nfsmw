@@ -28,7 +28,7 @@ class AIActionNone : public AIAction {
     void OnBehaviorChange(const UCrc32 &mechanic) override {}
 };
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionNone("AIActionNone", AIActionNone::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionNone(UCrc32("AIActionNone"), AIActionNone::Construct);
 
 AIAction *AIActionNone::Construct(AIActionParams *params) {
     return new AIActionNone(params, 0.0f);

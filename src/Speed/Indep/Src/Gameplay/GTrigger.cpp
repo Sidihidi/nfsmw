@@ -205,7 +205,7 @@ void GTrigger::RemoveActivationReference() {
         mActivationReferences = mActivationReferences - 1;
     }
 #endif
-    if (mActivationReferences <= 0) {
+    if (mActivationReferences < 1) {
         Disable();
     }
 }

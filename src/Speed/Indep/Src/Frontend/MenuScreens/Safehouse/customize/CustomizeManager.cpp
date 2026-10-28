@@ -45,7 +45,7 @@ void CarCustomizeManager::TakeControl(eCustomizeEntryPoint entry_point, FECarRec
 void CarCustomizeManager::RelinquishControl() {
 #ifndef EA_BUILD_A124
     FEDatabase->ClearGameMode(eFE_GAME_MODE_CUSTOMIZE);
-    for (int i = 0; i <= 2; i++) {
+    for (int i = 0; i < 3; i++) {
         delete Showcase::FromColor[i];
         Showcase::FromColor[i] = nullptr;
     }
@@ -489,22 +489,26 @@ void CarCustomizeManager::MaxOutPerformance() {
         int num_packages = GetNumPackages(type);
         int best_level = 0;
 
+#ifdef EA_BUILD_A124
+        for (int j = 0; j <= num_packages; j++) {
+            SelectablePart sp(nullptr, 0, j, type, true, CPS_AVAILABLE, 0, false);
+            if (!IsPartLocked(&sp)) {
+                best_level = j;
+            }
+        }
+#else
         for (int j = 0; j < num_packages; j++) {
             SelectablePart sp(nullptr, 0, j + 1, type, true, CPS_AVAILABLE, 0, false);
-#ifndef EA_BUILD_A124
             int level_param = GetMaxPackages(type) - GetNumPackages(type) + j + 1;
-#endif
-            if (!IsPartLocked(&sp
-#ifndef EA_BUILD_A124
-                              ,
-                              level_param
-#endif
-                              )) {
+            if (!IsPartLocked(&sp, level_param)) {
                 best_level = j + 1;
             }
         }
+#endif
 
+#ifndef EA_BUILD_A124
         if (best_level != 0) {
+#endif
             ShoppingCartItem *existing = IsPartTypeInCart(type);
             if (existing) {
                 RemoveFromCart(existing);
@@ -542,8 +546,10 @@ void CarCustomizeManager::MaxOutPerformance() {
             sp->SetPrice(gCarCustomizeManager.GetPartPrice(sp));
 
             AddToCart(sp);
+#ifndef EA_BUILD_A124
             delete sp;
         }
+#endif
     }
 }
 
@@ -1764,18 +1770,15 @@ void CarCustomizeManager::GetCarPartList(int car_slot, bTList<SelectablePart> &t
                     exists = false;
                 }
                 is_collectors = part->GetBrandNameHash() == bStringHash("CEO");
-                if (!exists) {
-                    goto skip_vinyl;
-                }
+                if (exists
 #ifndef EA_BUILD_A124
-                if ((part->GetGroupNumber() & 0x1f) != param) {
-                    goto skip_vinyl;
-                }
+                    && (part->GetGroupNumber() & 0x1f) == param
 #endif
-                if (!is_collectors || GetIsCollectorsEdition()) {
-                    break;
+                ) {
+                    if (!is_collectors || GetIsCollectorsEdition()) {
+                        break;
+                    }
                 }
-            skip_vinyl:
                 part = CarPartDB.NewGetNextCarPart(part, car_type, car_slot, 0, -1);
                 continue;
             }

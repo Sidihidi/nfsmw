@@ -50,11 +50,11 @@ struct Gps : public Sim::Activity, public UTL::Collections::Singleton<Gps> {
         mState = GPS_DOWN;
     }
 
-    UMath::Vector3 mTarget;    // offset 0x50, size 0xC
-    HSIMTASK mTask;            // offset 0x5C, size 0x4
-    UMath::Vector3 mPosition;  // offset 0x60, size 0xC
-    eModel *mArrowModel;       // offset 0x6C, size 0x4
-    UMath::Vector3 mDirection; // offset 0x70, size 0xC
+    ALIGNVEC UMath::Vector3 mTarget;    // offset 0x50, size 0xC
+    HSIMTASK mTask;                     // offset 0x5C, size 0x4
+    ALIGNVEC UMath::Vector3 mPosition;  // offset 0x60, size 0xC
+    eModel *mArrowModel;                // offset 0x6C, size 0x4
+    ALIGNVEC UMath::Vector3 mDirection; // offset 0x70, size 0xC
     eGPSState mState;          // offset 0x7C, size 0x4
     WRoadNav mRoadNav;         // offset 0x80, size 0x2F0
     float mPathDist;           // offset 0x370, size 0x4

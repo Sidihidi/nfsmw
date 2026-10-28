@@ -141,8 +141,30 @@ void UIQRChallengeSeries::NotificationMessage(u32 msg, FEObject *obj, u32 param1
 }
 
 void UIQRChallengeSeries::ChooseTransmission() {
+#ifdef EA_BUILD_A124 // la A124 monta el dialogo a mano (como UIQRCarSelect)
+    eDialogFirstButtons first_button = first_dialog_button1;
+    if (!FEDatabase->GetPlayerSettings(0)->Transmission) {
+        first_button = first_dialog_button2;
+    }
+    feDialogConfig conf;
+    GetLocalizedString(conf.BlurbString, 0x200, LANGUAGE_COMMON_TRANSMISSION);
+    conf.Title = dialog_confirmation;
+    conf.NumButtons = 2;
+    conf.Button1TextHash = LANGUAGE_COMMON_MANUAL;
+    conf.Button1PressedMessage = 0x5f5e3886;
+    conf.Button2TextHash = LANGUAGE_COMMON_AUTO;
+    conf.Button2PressedMessage = 0x1a2826e1;
+    conf.DialogCancelledMessage = 0x1fab5998;
+    conf.FirstButton = first_button;
+    conf.ParentPackage = GetPackageName();
+    conf.DialogPackage = "";
+    conf.bIsDismissable = true;
+    conf.ControlMask = 0xff;
+    DialogInterface::ShowDialog(&conf);
+#else
     DialogInterface::ShowTwoButtons(GetPackageName(), "", dialog_confirmation, LANGUAGE_COMMON_MANUAL, LANGUAGE_COMMON_AUTO, 0x5f5e3886, 0x1a2826e1, 0x34dc1bcf,
                                     (eDialogFirstButtons)(FEDatabase->GetPlayerSettings(0)->Transmission == 0), LANGUAGE_COMMON_TRANSMISSION);
+#endif
 }
 
 void UIQRChallengeSeries::RefreshHeader() {
@@ -173,15 +195,23 @@ void UIQRChallengeSeries::RefreshHeader() {
     FEPrintf(GetPackageName(), 0x80c9daa, "%$0.1f %s - %d laps", race->GetRaceLengthMeters() * 0.001f, distUnits,
              race->GetNumLaps());
 
+#ifdef EA_BUILD_A124
+    FEPrintf(GetPackageName(), 0xbbf970cd, "%s", race->GetEventID());
+#else
     FEngSetInvisible(GetPackageName(), 0xbbf970cd);
+#endif
     int challengeType = race->GetChallengeType();
     unsigned int iconHash;
     if (challengeType == 0) {
         iconHash = 0x65818ee8;
+#ifndef EA_BUILD_A124
         cFEng::Get()->QueuePackageMessage(0xb295482e, GetPackageName(), nullptr);
+#endif
     } else {
         iconHash = FEDatabase->GetMilestoneIconHash(challengeType, true);
+#ifndef EA_BUILD_A124
         cFEng::Get()->QueuePackageMessage(0xf7b54c7, GetPackageName(), nullptr);
+#endif
     }
     FEngSetTextureHash(GetPackageName(), __EVENT_ICON__, iconHash);
 
@@ -194,6 +224,7 @@ void UIQRChallengeSeries::RefreshHeader() {
 
     FEPrintf(GetPackageName(), __EVENT_DESCRIPTION__, GetLocalizedString(FEDatabase->GetChallengeDescHash(race->GetLocalizationTag())), buf, buf);
 
+#ifndef EA_BUILD_A124
     if (static_cast<ChallengeDatum *>(GetCurrentDatum())->IsLocked()) {
         cFEng::Get()->QueuePackageMessage(0xc5dd9d68, GetPackageName(), nullptr);
 #if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
@@ -201,16 +232,16 @@ void UIQRChallengeSeries::RefreshHeader() {
 #else
         int index = GetCurrentDatumNum();
 #endif
-        int page = (index / 5) * 5;
-        int mod = index - page;
+        int mod = index % 5;
         int prevIndex = index - 1;
         if (index < 61) {
+            int page = index / 5;
             if (static_cast<unsigned int>(mod - 1) <= 1) {
-                FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_02), page);
+                FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_02), page * 5);
             } else if (static_cast<unsigned int>(mod - 3) <= 1) {
-                FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_01), page + 1, page + 2);
+                FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_01), page * 5 + 1, page * 5 + 2);
             } else {
-                FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_01), (index / 5 - 1) * 5 + 3, (index / 5 - 1) * 5 + 4);
+                FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_01), (page - 1) * 5 + 3, (page - 1) * 5 + 4);
             }
         } else {
             FEPrintf(GetPackageName(), 0x68215623, GetLocalizedString(LANGUAGE_CHALLENGE_SERIES_UNLOCK_MSG_02), prevIndex);
@@ -218,6 +249,7 @@ void UIQRChallengeSeries::RefreshHeader() {
     } else {
         cFEng::Get()->QueuePackageMessage(0x38091fa1, GetPackageName(), nullptr);
     }
+#endif
 
     for (int i = 0; i < GetNumSlots(); i++) {
         ChallengeDatum *datum = static_cast<ChallengeDatum *>(GetDatumAt(i + GetStartDatumNum()));

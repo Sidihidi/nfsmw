@@ -58,6 +58,11 @@ class FEScrollBar {
     void SetArrow1Dim(bool dim);
 
     void SetArrow2Dim(bool dim);
+#ifdef EA_PLATFORM_WIN32
+    // PC (0x589900): el raton sobre la barra (el asa y el fondo); IconScroller la llama cada vez. Nombre neutro: puede
+    // ser una de UpdateArrowsMouse/UpdateHandleMouse/UpdateBackingMouse (GC las declara), sin prueba de cual.
+    void Win32Unknown589900();
+#endif
 
   private:
     bool bVertical;              // offset 0x0, size 0x1

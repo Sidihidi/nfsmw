@@ -121,8 +121,13 @@ Minimap::Minimap(const char *pkg_name, int player_number)
         mRacerElementArt[p] = RegisterImage(FEngHashString("MMICON_AIRACER_%d", p));
 
         for (int g = 0; g < GII_MAX + 1; g++) {
-            if (kGameplayIconInfo[g].mItemType != WMIT_NONE) {
+            int onType = kGameplayIconInfo[g].mItemType;
+            if (onType != WMIT_NONE) {
+#ifdef EA_PLATFORM_XENON // X360: cmpwi con signo en 0x822C1F68 (el bucle p<8 es cmplwi en 0x822C20EC)
+                if ((int)p == 0 || bStrStr(kGameplayIconInfo[g].mElementString, "%") != nullptr) {
+#else
                 if (p == 0 || bStrStr(kGameplayIconInfo[g].mElementString, "%") != nullptr) {
+#endif
                     mGameplayIcons[g][p] = RegisterImage(FEngHashString(kGameplayIconInfo[g].mElementString, p));
                     if (mGameplayIcons[g][p] != nullptr) {
                         FEngSetInvisible(mGameplayIcons[g][p]);
@@ -353,6 +358,18 @@ void Minimap::UpdateElementArt(bVector2 *elementPos, bVector2 *elementDir, FEObj
     float distance = bSqrt(rot_epoly_x * rot_epoly_x + rot_epoly_y * rot_epoly_y);
     float alpha = 1.0f;
 
+#ifdef EA_BUILD_A124
+    if (distance > 0.0f && distance > 0.06f && distance < 0.23f) {
+        float scale = 0.06f / distance;
+        rot_epoly_x *= scale;
+        rot_epoly_y *= scale;
+
+        if (distance > 0.125f) {
+            alpha = 1.0f - (distance - 0.125f) * 9.5238094f;
+        }
+        distance = 0.06f;
+    }
+#else
     if (distance > 0.0f && distance > 0.06f) {
         float scale = 0.06f / distance;
         rot_epoly_x *= scale;
@@ -369,15 +386,17 @@ void Minimap::UpdateElementArt(bVector2 *elementPos, bVector2 *elementDir, FEObj
         }
         distance = 0.06f;
     }
+#endif
 
     if (distance <= 0.06f) {
-        float centerX = rot_epoly_x * 1024.0f + mTrackMapCentre.x;
-        float centerY = rot_epoly_y * 1024.0f + mTrackMapCentre.y;
+        float centerX = mTrackMapCentre.x + rot_epoly_x * 1024.0f;
+        float centerY = mTrackMapCentre.y + rot_epoly_y * 1024.0f;
         FEngSetCenter(elementArt, centerX, centerY);
         FEngSetVisible(elementArt);
-        FEngSetRotationZ(elementArt, static_cast<unsigned int>(bATan(elementDir->y, elementDir->x)) * 0.0054931640625f - mPolyRotation);
+        float element_angle = bAngToDeg(bATan(elementDir->y, elementDir->x));
+        FEngSetRotationZ(elementArt, element_angle - mPolyRotation);
 
-        uint32 color = FEngGetObjectColor(elementArt);
+        uint32 color = FEngGetColor(elementArt);
         color = (color & 0xFFFFFF) | (static_cast<uint32>(static_cast<int>(alpha * 255.0f)) << 24);
         FEngSetColor(elementArt, color);
 
@@ -511,21 +530,20 @@ void Minimap::UpdatePlayer2Element() {
 }
 
 void Minimap::UpdateIconElement(FEImage *image, GIcon *icon) {
-    bVector2 pos;
-    icon->GetPosition2D(pos);
-
-    bVector2 dir;
-    dir.x = 1.0f;
-    dir.y = 0.0f;
+    bVector2 pos2D;
+    bVector2 dir2D;
+    icon->GetPosition2D(pos2D);
+    dir2D.x = 1.0f;
+    dir2D.y = 0.0f;
 
 #ifndef EA_BUILD_A124 // la A124 no apaga el GPS del icono
-    if (icon->GetType() != GIcon::kType_AreaUnlock && !GPS_IsEngaged() && icon->IsGPSing()) {
+    if (icon->GetType() != GIcon::kType_AreaUnlock && !GPS_IsEngaged() && icon->GetIsGPSing()) {
 
         icon->ClearGPSing();
     }
 #endif
 
-    UpdateElementArt(&pos, &dir, image, icon->IsGPSing());
+    UpdateElementArt(&pos2D, &dir2D, image, icon->GetIsGPSing());
     FEngSetRotationZ(image, 0.0f);
 }
 

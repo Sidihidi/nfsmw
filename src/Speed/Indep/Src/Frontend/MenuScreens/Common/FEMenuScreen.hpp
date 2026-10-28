@@ -27,13 +27,13 @@ class MenuScreen {
         return maybe;
     }
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
     void HandleGameSessionJoinDialog(int result);
 #endif
 
     void BaseNotify(u32 Message, FEObject *pObject, u32 Param1, u32 Param2);
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_WIN32)
     static void ChallengeAcceptGameCB(struct LobbyApiMsgT *msg, void *context);
 #endif
 

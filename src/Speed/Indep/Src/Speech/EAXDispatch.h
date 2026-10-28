@@ -41,6 +41,13 @@ class EAXDispatch : public EAXCharacter {
     // EVReply, VehicleVinyls y VehicleCustomPaint NO existen en el ELF (ni el
     // simbolo ni las tres instanciaciones de ScheduleSpeech que arrastraban).
     // Eran codigo anadido en la descompilacion; fuera.
+    // gcdatos6: ojo, si tienen DIEs concretos de definicion en la CU zSpeech de GC
+    // (low_pc=-1, locales data / ai+data+color+pcar / ai+data+pcar e inlines) y
+    // stabs en la A124 (56/104/80 B): son funciones muertas del original. Escritas
+    // con el esqueleto de sus DIEs y MEDIDAS x5 por duplicado: codigo/fn y datos GC
+    // identicos, pero la .rodata de zSpeech en PS2 baja (A124 17,1051->17,0449,
+    // SLUS 15,7812->15,6900) sin ganancia en GC. Revertidas; no reintentar sin
+    // encontrar la forma que EE-GCC interna igual que el original.
     void SubRBReply();
 };
 

@@ -67,6 +67,7 @@ void SNDAEMSI_almbmservice() {
 }
 
 int SNDAEMS_asyncloadmodulebankmem(void *pModuleBank, char *streamFileName, int streamFileOffset, void *(* mallocCb)(int)) {
+    SNDI_CHECKINSTALLED();
     sndaems.asyncloading = true;
     SNDAEMSalmbmpmodulebank = (char *)pModuleBank;
     SNDAEMSalmbmmalloccb = mallocCb;

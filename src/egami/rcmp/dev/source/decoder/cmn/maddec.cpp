@@ -519,7 +519,7 @@ void MAD_decodemacroblock(const unsigned char *src_y, const unsigned char *src_c
     }
     else
     {
-        if ((int)madshiftreg < 0)
+        if ((madshiftreg & 0x80000000) != 0)
         {
             flags = 0x3ff;
             discardbits(1);

@@ -11,6 +11,13 @@
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEMovies.hpp"
 #include "Speed/Indep/Src/Generated/Messages/MNotifyMovieFinished.h"
 #include "Speed/Indep/Src/Generated/Events/EFadeScreenOn.hpp"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
+#include "Speed/Indep/Src/Frontend/FEManager.hpp"
+#include "Speed/Indep/Src/Misc/Main.hpp"
+#include "Speed/Indep/Src/World/CarLoader.hpp"
+#include "Speed/Indep/Src/World/TrackStreamer.hpp"
+#endif
 
 extern bool gInGameMoviePlaying;
 
@@ -24,7 +31,20 @@ InGameAnyTutorialScreen::InGameAnyTutorialScreen(ScreenConstructorData *sd) : Me
     unsigned int str_hash = 0;
     bool mSkipable = true;
 
+#ifdef EA_PLATFORM_WIN32
+    // speed.exe 0x58F320: no chyron; wait for the loads and take EA Trax off the screen
+    bAllowingControllerErrors = FEManager::Get()->IsAllowingControllerError();
+    FEManager::Get()->AllowControllerError(false);
+    while (TheCarLoader.IsLoadingInProgress() || TheTrackStreamer.IsLoadingInProgress() ||
+           g_pEAXSound->AreResourceLoadsPending()) {
+        MiniMainLoop();
+    }
+    if (cFEng::Get()->IsPackagePushed("EA_Trax.fng")) {
+        cFEng::Get()->PopNoControlPackage("EA_Trax.fng");
+    }
+#else
     DismissChyron();
+#endif
     FEngSetMovieName(GetPackageName(), 0x348ff9f, MovieFilename);
 
     if (eIsWidescreen()) {
@@ -110,6 +130,9 @@ void InGameAnyTutorialScreen::NotificationMessage(u32 msg, FEObject *obj, u32 pa
 InGameAnyTutorialScreen::~InGameAnyTutorialScreen() {
 #ifndef EA_PLATFORM_PLAYSTATION2
     gInGameMoviePlaying = false;
+#endif
+#ifdef EA_PLATFORM_WIN32
+    FEManager::Get()->AllowControllerError(bAllowingControllerErrors);
 #endif
 }
 

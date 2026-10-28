@@ -4,8 +4,8 @@
 #include "Speed/Indep/Src/Misc/Profiler.hpp"
 #include "Speed/Indep/Src/Misc/Timer.hpp"
 
-SlotPool *ClanSlotPool = nullptr;
 bTList<Clan> ClanList;
+SlotPool *ClanSlotPool = nullptr;
 
 void InitClans() {
     if (ClanSlotPool == nullptr) {

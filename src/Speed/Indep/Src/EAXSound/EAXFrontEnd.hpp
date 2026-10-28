@@ -85,7 +85,7 @@ struct EAXFrontEnd {
     void DestroyAllDriveOnSnds();
 };
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 // EAXFrontEnd.cpp. EAXSound::PlayUISoundFX de la A124 escribe en pantalla el sonido del FE.
 char *GetFESoundName(eMenuSoundTriggers id);
 extern bool DEBUG_PRINT_FE_SND;

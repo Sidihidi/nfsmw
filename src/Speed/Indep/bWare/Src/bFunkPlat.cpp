@@ -104,16 +104,60 @@ uint16 bFunkPacketHeader::CalculateChecksum(const void *data, int data_size) {
     return checksum;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void bFunkCallASync(const char *server_name, int function_num, const void *data, int size) {
+    bFunkPacketHeader header;
+
+    if (bIsCodeineConnected() && size <= 2016) {
+        bMemSet(&header, 0, sizeof(header));
+        header.SetDataSize(size);
+        header.Type = 0;
+        header.FunctionNum = function_num;
+        header.DestServer = bStringHash(server_name);
+        bMonitorService();
+        bSendPacket(&header, data, size);
+    }
+}
+#else
 void bFunkCallASync(const char *server_name, int function_num, const void *data, int size) {
     bFunkPacketHeader header;
 }
+#endif
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+int bFunkCallSync(const char *server_name, int function_num, const void *data, int size, void *return_data, int max_return_size) {
+    volatile int return_code;
+    bFunkPacketHeader header;
+
+    if (bIsCodeineConnected()) {
+        if (size > 2016 || max_return_size > 2016) {
+            return -6;
+        }
+        return_code = -10;
+        bMemSet(&header, 0, sizeof(header));
+        header.SetDataSize(size);
+        header.Type = 1;
+        header.FunctionNum = function_num;
+        header.DestServer = bStringHash(server_name);
+        header.ReturnBufferAddress = reinterpret_cast<uint32>(return_data);
+        header.ReturnCodeAddress = reinterpret_cast<uint32>(&return_code);
+        header.MaxReturnSize = max_return_size;
+        bSendPacket(&header, data, size);
+        while (return_code == -10) {
+            bMonitorService();
+        }
+        return return_code;
+    }
+    return -5;
+}
+#else
 int bFunkCallSync(const char *server_name, int function_num, const void *data, int size, void *return_data, int max_return_size) {
     volatile int return_code;
     bFunkPacketHeader header;
 
     return -5;
 }
+#endif
 
 // STRIPPED
 int bFunkCallSyncTimeout(const char *server_name, int function_num, const void *data, int size, void *return_data, int timeout_ms,
@@ -157,8 +201,50 @@ void bFunkServer::AddSync(int function_num, int (*function)(const void *, int, v
 // STRIPPED
 void bFunkServer::Remove(int function_num) {}
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void bFunkServer::ProcessPacket(const bFunkPacket *packet) {
+    if (packet->GetType() == 0) {
+        int function_num = packet->FunctionNum;
+
+        if (FunctionTypes[function_num] == 0) {
+            bFunkHandleASyncFunction *func = (bFunkHandleASyncFunction *)FunctionTable[function_num];
+            if (func) {
+                func(packet->GetData(), packet->GetDataSize());
+                return;
+            }
+        }
+        if (FunctionTypes[function_num] == 1) {
+            bFunkHandleSyncFunction *func = (bFunkHandleSyncFunction *)FunctionTable[function_num];
+            if (func) {
+                func(packet->GetData(), packet->GetDataSize(), nullptr);
+            }
+        }
+    } else if (packet->GetType() == 1) {
+        bFunkPacket return_packet;
+        int return_code = -4;
+        void *func = FunctionTable[packet->FunctionNum];
+
+        if (func) {
+            if (FunctionTypes[packet->FunctionNum] == 0) {
+                ((bFunkHandleASyncFunction *)func)(packet->GetData(), packet->GetDataSize());
+                return_code = 0;
+            } else {
+                return_code = ((bFunkHandleSyncFunction *)func)(packet->GetData(), packet->GetDataSize(), return_packet.GetData());
+            }
+        }
+        return_packet.InitReturnPacketHeader(packet, return_code);
+        DeliverPacket(&return_packet);
+    } else if (packet->GetType() == 2) {
+        if (packet->ReturnCode > 0) {
+            bMemCpy((void *)packet->ReturnBufferAddress, packet->GetData(), packet->ReturnCode);
+        }
+        *(int *)packet->ReturnCodeAddress = packet->ReturnCode;
+    }
+}
+#else
 // TODO
 void bFunkServer::ProcessPacket(const bFunkPacket *packet) {}
+#endif
 
 struct bFunkServer *bFunkFindServer(uint32 server_hash) {
     for (bFunkServer *server = static_cast<bFunkServer *>(bFunkServerList.GetHead()); server != bFunkServerList.EndOfList();
@@ -178,23 +264,86 @@ bool bFunkServer::CanDeliverPacket(uint32 server_hash) {
     return false;
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+bool bFunkServer::DeliverPacket(bFunkPacket *packet) {
+    if (packet->DestServer == NameHash) {
+        ProcessPacket(packet);
+        return true;
+    } else {
+        bFunkServer *server = bFunkFindServer(packet->DestServer);
+        if (server) {
+            server->ProcessPacket(packet);
+            return true;
+        }
+    }
+    return false;
+}
+#else
 // TODO
 bool bFunkServer::DeliverPacket(bFunkPacket *packet) {}
+#endif
 
 // STRIPPED
 bFunkServerPlatform::bFunkServerPlatform(const char *name, int max_receive_packets) : bFunkServer(name) {}
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+bFunkServerPlatform::~bFunkServerPlatform() {
+    bFunkCallASync("CODEINE", 0x15, GetName(), bStrLen(GetName()) + 1);
+}
+#else
 // STRIPPED
 bFunkServerPlatform::~bFunkServerPlatform() {}
+#endif
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+int bFunkServerPlatform::Service() {
+    int num_processed = 0;
+
+    if (!ProcessingPacket) {
+        bFunkPacket *packet;
+        while ((packet = &pReceivePackets[NextReceivePacketNum % MaxReceivePackets])->GetTotalSize()) {
+            NextReceivePacketNum++;
+            ProcessingPacket = true;
+            ProcessPacket(packet);
+            num_processed++;
+            packet->SetTotalSize(0);
+            ProcessingPacket = false;
+        }
+    }
+    return num_processed;
+}
+#else
 // TODO
 int bFunkServerPlatform::Service() {}
+#endif
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+bool bFunkServerPlatform::DeliverPacket(bFunkPacket *packet) {
+    if (bIsCodeineConnected()) {
+        if (bFunkServer::DeliverPacket(packet)) {
+            return true;
+        }
+        bSendPacket(packet, packet->GetData(), packet->GetDataSize());
+        return true;
+    }
+    return false;
+}
+#else
 // TODO
 bool bFunkServerPlatform::DeliverPacket(bFunkPacket *packet) {}
+#endif
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+void bFunkService() {
+    for (bFunkServer *server = static_cast<bFunkServer *>(bFunkServerList.GetHead()); server != bFunkServerList.EndOfList();
+         server = server->GetNext()) {
+        server->Service();
+    }
+}
+#else
 // TODO
 void bFunkService() {}
+#endif
 
 #ifdef EA_PLATFORM_PLAYSTATION2
 void bFigureOutPSX2Platform() {

@@ -117,18 +117,14 @@ bool DoesCategoryHaveNewUnlock(eUnlockableEntity entity) {
 
     switch (entity) {
         case UNLOCKABLE_THING_CUSTOMIZE_PARTS:
-            if (TheUnlockData[UNLOCKABLE_THING_BODY_KIT].CareerIsNewPart != UNLOCK_IS_OLD) {
-                answer = true;
-            }
+            answer |= (TheUnlockData[UNLOCKABLE_THING_BODY_KIT].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_SPOILERS].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_RIM_BRANDS].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_HOODS].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_ROOF_SCOOPS].CareerIsNewPart != UNLOCK_IS_OLD);
             return answer;
         case UNLOCKABLE_THING_CUSTOMIZE_PERFORMANCE:
-            if (TheUnlockData[UNLOCKABLE_THING_PUT_TIRES].CareerIsNewPart != UNLOCK_IS_OLD) {
-                answer = true;
-            }
+            answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_TIRES].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_BRAKES].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_CHASSIS].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_TRANSMISSION].CareerIsNewPart != UNLOCK_IS_OLD);
@@ -137,9 +133,7 @@ bool DoesCategoryHaveNewUnlock(eUnlockableEntity entity) {
             answer |= (TheUnlockData[UNLOCKABLE_THING_PUT_NOS].CareerIsNewPart != UNLOCK_IS_OLD);
             return answer;
         case UNLOCKABLE_THING_CUSTOMIZE_VISUAL:
-            if (TheUnlockData[UNLOCKABLE_DECAL_HOOD].CareerIsNewPart != UNLOCK_IS_OLD) {
-                answer = true;
-            }
+            answer |= (TheUnlockData[UNLOCKABLE_DECAL_HOOD].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_CUSTOM_HUD].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_DECAL_NUMBERS].CareerIsNewPart != UNLOCK_IS_OLD);
             answer |= (TheUnlockData[UNLOCKABLE_THING_PAINTABLE_BODY].CareerIsNewPart != UNLOCK_IS_OLD);
@@ -405,11 +399,15 @@ bool QuickRaceUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car, i
     answer |= (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
     return answer;
 #else
+#ifdef EA_PLATFORM_PLAYSTATION2 // la PS2 de venta acumula con |= y sigue a los interruptores
+    answer |= (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin());
+#else
     if (CarAttribs.UnlockedAt() >= FEDatabase->GetCareerSettings()->GetCurrentBin()) {
         answer = true;
     } else {
         answer = answer != 0;
     }
+#endif
     if (fe_car->MatchesFilter(0xF0007)) {
         switch (fe_car->GetType()) {
             case 5:
@@ -506,17 +504,32 @@ bool QuickRaceUnlocker::IsCarUnlocked(eUnlockFilters filter, unsigned int car, i
                 }
                 return true;
             case 0xCB6AAF2F:
+#ifdef EA_PLATFORM_PLAYSTATION2 // la PS2 de venta pasa por los metodos HasBeaten*
+                if (!FEDatabase->GetCareerSettings()->HasBeatenSpecialChallengeEvent()) {
+#else
                 if ((FEDatabase->GetCareerSettings()->SpecialFlags & 0x8000) == 0) {
+#endif
                     break;
                 }
                 return true;
             case 0x2CF385B2:
+#ifdef EA_PLATFORM_PLAYSTATION2
+                if (!FEDatabase->GetCareerSettings()->HasBeatenChallengeSeries()) {
+                    break;
+                }
+                return true;
+#else
                 if (((FEDatabase->GetCareerSettings()->SpecialFlags >> 16) & 1) == 0) {
                     break;
                 }
                 return true;
+#endif
             case 0x34498EB2:
+#ifdef EA_PLATFORM_PLAYSTATION2
+                if (!FEDatabase->GetCareerSettings()->HasBeenAwardedCastrolGT()) {
+#else
                 if ((FEDatabase->GetCareerSettings()->SpecialFlags & 0x40000) == 0) {
+#endif
                     break;
                 }
                 return true;

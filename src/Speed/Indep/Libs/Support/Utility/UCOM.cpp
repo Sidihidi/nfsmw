@@ -27,6 +27,9 @@ UTL::COM::IUnknown *UTL::COM::Object::_IList::Find(HINTERFACE handle) {
 }
 
 void UTL::COM::Object::_IList::Remove(IUnknown *pUnk) {
+#ifdef EA_PLATFORM_PLAYSTATION2
+    erase(std::remove_if(begin(), end(), _IPair::_Finder(pUnk)));
+#else
     _IPair::_Finder finder(pUnk);
     iterator last = end();
     iterator first = std::find_if(begin(), last, finder);
@@ -39,4 +42,5 @@ void UTL::COM::Object::_IList::Remove(IUnknown *pUnk) {
         result = std::remove_copy_if(++next, last, first, finder);
     }
     erase(result);
+#endif
 }

@@ -66,7 +66,7 @@ int SPCH_AddEventDB(char *dataFile, unsigned int channel) {
     int result;
 
     result = 0;
-    if (channel <= 7) {
+    if (channel < 8) {
         result = iSPCH_BindData(dataFile, channel);
         iSPCH_InitCsis(dataFile);
     }

@@ -102,10 +102,10 @@ void Cache::Dump() {
         mCacheSize = 0;
     }
 
-    unsigned int index = mIndex.GetNextValidIndex(0);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     while (mIndex.ValidIndex(index)) {
         SpeechSampleData::Destruct(mIndex.GetPtrAtIndex(index));
-        index = mIndex.GetNextValidIndex(index + 1);
+        index = mIndex.GetNextValidIndex(index);
     }
 
     mIndex.Clear();
@@ -140,22 +140,22 @@ bool Cache::IsCached(SPCHType_SampleRequestData *data, bool check_preparedness) 
 }
 
 unsigned long long Cache::CreateKey(int bank, int offset) {
-    unsigned long long x = static_cast<unsigned long long>(offset);
-    unsigned long long y = static_cast<unsigned long long>(bank);
+    unsigned long long x = static_cast<unsigned long long>(bank);
+    unsigned long long y = static_cast<unsigned long long>(offset);
     unsigned long long result;
-
     x = (x | x << 16) & 0xffff0000ffffULL;
-    y = (y | y << 16) & 0xffff0000ffffULL;
     x = (x | x << 8) & 0xff00ff00ff00ffULL;
-    y = (y | y << 8) & 0xff00ff00ff00ffULL;
     x = (x | x << 4) & 0xf0f0f0f0f0f0f0fULL;
-    y = (y | y << 4) & 0xf0f0f0f0f0f0f0fULL;
     x = (x | x << 2) & 0x3333333333333333ULL;
-    y = (y | y << 2) & 0x3333333333333333ULL;
-    y = (y | y << 1) & 0x5555555555555555ULL;
     x = (x | x << 1) & 0x5555555555555555ULL;
 
-    result = y | x << 1;
+    y = (y | y << 16) & 0xffff0000ffffULL;
+    y = (y | y << 8) & 0xff00ff00ff00ffULL;
+    y = (y | y << 4) & 0xf0f0f0f0f0f0f0fULL;
+    y = (y | y << 2) & 0x3333333333333333ULL;
+    y = (y | y << 1) & 0x5555555555555555ULL;
+
+    result = x | y << 1;
     return result;
 }
 
@@ -228,6 +228,14 @@ SpeechSampleData *Cache::LoadSample(Module *module, SPCHType_SampleRequestData *
 #ifdef EA_BUILD_A124
     CBdata = new SpeechLoadCBData; // la A124 llama a __builtin_new
 #else
+    // gcdatos4 (medido y REVERTIDO): la receta gcdatos1-C, `new
+    // ("SpeechLoadCBData", 0)`, si interna el literal de obj+0x794 (falta
+    // 647->631) y LoadSample sigue casada al 100 % en las 5, pero la forma
+    // con nombre reordena la emision de .data de la TU (los 32 `_name.*` de
+    // DECLARE_CONTAINER_TYPE saltan a la cabeza, seccion 1496->1552 B) y el
+    // .data de zSpeech GC cae 100->73,6930 % (matched_data 8716->7220).
+    // Probadas la forma escalar y la de array, con y sin comentario: las dos
+    // rompen igual. El literal sigue faltando; ver gcdatos4.md.
     CBdata = new SpeechLoadCBData[1];
 #endif
     CBdata->data = sample;
@@ -334,7 +342,7 @@ void Cache::TossSample(SpeechSampleData *data) {
         Attrib::Gen::speech speech(Manager::mHashMap.GetHash(data->eventID), 0, 0);
     }
 
-    unsigned int index = mIndex.GetNextValidIndex(0);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     while (mIndex.ValidIndex(index)) {
         SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
 #ifdef EA_PLATFORM_WIN32
@@ -354,12 +362,12 @@ void Cache::TossSample(SpeechSampleData *data) {
             }
             return;
         }
-        index = mIndex.GetNextValidIndex(index + 1);
+        index = mIndex.GetNextValidIndex(index);
     }
 }
 
 void Cache::FlushUncached() {
-    unsigned int index = mIndex.GetNextValidIndex(0);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     while (mIndex.ValidIndex(index)) {
         SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         if (!sample->lock && sample->ready && !sample->cached) {
@@ -371,7 +379,7 @@ void Cache::FlushUncached() {
             SpeechSampleData::Destruct(sample);
             mIndex.DeleteIndex(index);
         }
-        index = mIndex.GetNextValidIndex(index + 1);
+        index = mIndex.GetNextValidIndex(index);
     }
 
     ++flushcount_uncached;
@@ -381,7 +389,7 @@ void Cache::FlushLRU() {
     bLargestMalloc(SpeechMemoryPool);
 
     unsigned int prelargest = 0;
-    unsigned int index = mIndex.GetNextValidIndex(prelargest);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     unsigned int postlargest = 0;
 
     while (mIndex.ValidIndex(index)) {
@@ -392,7 +400,7 @@ void Cache::FlushLRU() {
                 mIndex.DeleteIndex(index);
             }
         }
-        index = mIndex.GetNextValidIndex(index + 1);
+        index = mIndex.GetNextValidIndex(index);
     }
 
     bLargestMalloc(SpeechMemoryPool);
@@ -403,7 +411,7 @@ void Cache::FlushAllUnlocked() {
     bLargestMalloc(SpeechMemoryPool);
 
     unsigned int prelargest = 0;
-    unsigned int index = mIndex.GetNextValidIndex(prelargest);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     unsigned int postlargest = 0;
 
     while (mIndex.ValidIndex(index)) {
@@ -413,7 +421,7 @@ void Cache::FlushAllUnlocked() {
             mIndex.DeleteIndex(index);
         }
 
-        index = mIndex.GetNextValidIndex(index + 1);
+        index = mIndex.GetNextValidIndex(index);
     }
 
     bLargestMalloc(SpeechMemoryPool);
@@ -424,7 +432,7 @@ void Cache::FlushInactiveSpeakers() {
     bLargestMalloc(SpeechMemoryPool);
 
     unsigned int prelargest = 0;
-    unsigned int index = mIndex.GetNextValidIndex(prelargest);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     unsigned int postlargest = 0;
 
     while (mIndex.ValidIndex(index)) {
@@ -443,7 +451,7 @@ void Cache::FlushInactiveSpeakers() {
             }
         }
 
-        index = mIndex.GetNextValidIndex(index + 1);
+        index = mIndex.GetNextValidIndex(index);
     }
 
     bLargestMalloc(SpeechMemoryPool);
@@ -453,7 +461,7 @@ void Cache::FlushInactiveSpeakers() {
 void Cache::DebugPrintAllocations() {
     bMemoryPrintAllocations(SpeechMemoryPool, 0, 0x7fffffff);
 
-    unsigned int index = mIndex.GetNextValidIndex(0);
+    unsigned int index = mIndex.GetNextValidIndex(-1);
     for (;;) {
         int valid = mIndex.ValidIndex(index);
         if (valid == 0) {
@@ -462,7 +470,7 @@ void Cache::DebugPrintAllocations() {
         SpchSampleMap *map = &mIndex;
         SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         Attrib::Gen::speech speech(Manager::mHashMap.GetHash(sample->eventID), 0, 0);
-        index = map->GetNextValidIndex(index + 1);
+        index = map->GetNextValidIndex(index);
     }
 }
 
@@ -488,7 +496,7 @@ void Cache::DebugPrints() {
     unsigned int blip_count = 0;
     unsigned int index;
 
-    for (index = mIndex.GetNextValidIndex(0); mIndex.ValidIndex(index); index = mIndex.GetNextValidIndex(index + 1)) {
+    for (index = mIndex.GetNextValidIndex(-1); mIndex.ValidIndex(index); index = mIndex.GetNextValidIndex(index)) {
         SpeechSampleData *sample = mIndex.GetPtrAtIndex(index);
         bool cached = sample->cached;
 

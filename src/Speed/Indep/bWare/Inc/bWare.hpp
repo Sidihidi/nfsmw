@@ -6,6 +6,13 @@
 #endif
 
 #include "Strings.hpp"
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC and X360 (GC bPrintf.cpp calls memset unprototyped); before bMath.hpp: bMemZero is memset in both exes.
+#include <cstring>
+#define bMemCpy(dest, src, numbytes) memcpy(dest, src, numbytes)
+#define bMemSet(dest, pattern, size) memset(dest, pattern, size)
+#define bMemCmp(s1, s2, numbytes) memcmp(s1, s2, numbytes)
+#endif
 #include "bMath.hpp"
 #include "Speed/Indep/Libs/Support/Utility/UCrc.h"
 #include "bMemory.hpp"
@@ -44,13 +51,6 @@ inline void bNullPrintf(char terminal_channel, const char *format, ...) {}
 #define ASSERT_NOTRENDERTHREAD()
 #define ASSERT_ISMAINTHREAD()
 #define ASSERT_ISRENDERTHREAD()
-#if defined(EA_PLATFORM_WIN32)
-// Only here: on GameCube bPrintf.cpp calls memset without a prototype, as the original does.
-#include <cstring>
-#define bMemCpy(dest, src, numbytes) memcpy(dest, src, numbytes)
-#define bMemSet(dest, pattern, size) memset(dest, pattern, size)
-#define bMemCmp(s1, s2, numbytes) memcmp(s1, s2, numbytes)
-#endif
 #define BMEMORY_TOP_BIT (1 << 6)
 #define BMEMORY_MAX_POOLS 16
 #define BMEMORY_POOL_MASK (BMEMORY_MAX_POOLS - 1)
@@ -118,7 +118,7 @@ int bGetMallocPool(void *ptr);
 int bMemoryGetAllocations(int pool_num, void **allocations, int max_allocations);
 
 extern "C" {
-#if !defined(EA_PLATFORM_WIN32)
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
 void bMemCpy(void *dest, const void *src, unsigned int numbytes);
 void bMemSet(void *dest, unsigned char pattern, unsigned int size);
 int bMemCmp(const void *s1, const void *s2, unsigned int numbytes);
@@ -143,6 +143,12 @@ void *operator new[](size_t size, const char *file, int line);
 // __nw__FUiPCcii (A124 0x35bc78): DebugMenuAllocate la llama con el pool de FEng.
 void *operator new(size_t size, const char *file, int line, int allocation_params);
 #else
+#ifdef EA_PLATFORM_WIN32
+// PC: el `new char[size]` de los dos new con nombre de abajo llama a operator new[] (??_U@YAPAXI@Z, speed.exe 0x652AD0;
+// 422 llamadas desde funciones que ya casan, 369 de ellas con nuestro objeto llamando a operator new): sin declararlo
+// antes, MSVC 7.1 usa operator new para un new[] de char.
+void *operator new[](size_t size);
+#endif
 // TODO move the milestone path into a cpp file?
 inline void *operator new(size_t size, const char *file, int line) {
 #ifdef EA_BUILD_A124

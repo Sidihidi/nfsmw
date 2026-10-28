@@ -138,7 +138,7 @@ bool FnDeltaQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask) {
         } else {
             int timeIndex;
 
-            if (mPrevKey <= 0) {
+            if (mPrevKey < 1) {
 
                 timeIndex = 0;
 
@@ -395,7 +395,7 @@ bool FnDeltaQ::EvalSQTMasked(float currTime, const BoneMask *boneMask, float *sq
         } else {
             int timeIndex;
 
-            if (mPrevKey <= 0) {
+            if (mPrevKey < 1) {
 
                 timeIndex = 0;
 

@@ -171,8 +171,10 @@ template <typename T, int Alignment = DEFAULT_VECTOR_ALIGNMENT> class Vector {
     }
 
     iterator insert(iterator position, const_reference val) {
-        size_type posIndex = position - mBegin;
+        // El sequencer antes que posIndex: las dos PS2 guardan &val en el sequencer antes de copiar mBegin
+        // (SpeechHashIDMap::Add y EventHistory::Init, las unicas instancias).
         RepeatSequencer<const value_type> sequencer(val);
+        size_type posIndex = position - mBegin;
         insert_sequence(position, 1, sequencer);
         return mBegin + posIndex;
     }

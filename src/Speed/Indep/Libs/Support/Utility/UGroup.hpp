@@ -117,6 +117,11 @@ class UGroup {
     const UData *DataLocateFirst(unsigned int tag, unsigned int baseIndex, unsigned int maxIndex) const;
     const UData *DataLocateTag(unsigned int typeIndexTag) const;
     const void *GetArray() const;
+#ifdef EA_PLATFORM_PLAYSTATION2
+    UGroup *ConstCast() const;
+    void GroupSort();
+    void DataSort();
+#endif
 
     const UGroup *GroupBegin() const {
         return static_cast<const UGroup *>(GetArray());

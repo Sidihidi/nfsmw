@@ -82,6 +82,14 @@ int UnloaderWorldAnimTreeMarker(bChunk *chunk);
 
 static int LoaderStub(bChunk *chunk);
 
+#ifdef EA_PLATFORM_WIN32
+// PC only: the texture pack data (BCHUNK_TEXTURE_PACK_DATA) is temporary and freed after LoadChunks, except while the
+// arrest NIS runs (NISActivity clears the flag in UpdatePreloading and sets it again in Release). It lives here: speed.exe
+// 0x64A9A0 loads it as a dword, which cl 7.1 only does for a bool defined in the same file, and it sits right before
+// LoaderTable (0x8F7DD4, initial value 1). GC, PS2 and X360 return false from IsTempChunk. The name is ours.
+bool TexturePackDataIsTemp = true;
+#endif
+
 bChunkLoaderFunction LoaderTable[LOADER_AMOUNT] = {LoaderFEngFont, LoaderEventManager, LoaderVisibleSections, LoaderEAGLAnimations, LoaderEAGLSkeletons, LoaderAnimSceneData, LoaderAnimDirectoryData, LoaderWorldAnimEntityData, LoaderWorldAnimDirectoryData, LoaderWorldAnimTreeMarker, LoaderWorldAnimInstanceEntry, LoaderSun, LoaderCarInfo, LoaderLanguage, LoaderWeatherMan, LoaderFEngPackage, LoaderQuickSpline, LoaderICECameras, LoaderSoundStichs, LoaderFEPresetCars, LoaderParameterMaps, LoaderWCollisionPack, LoaderBounds, LoaderTrigger, LoaderColourCube, LoaderStub};
 bChunkLoaderFunction UnloaderTable[LOADER_AMOUNT] = {UnloaderFEngFont, UnloaderEventManager, UnloaderVisibleSections, UnloaderEAGLAnimations, UnloaderEAGLSkeletons, UnloaderAnimSceneData, UnloaderAnimDirectoryData, UnloaderWorldAnimEntityData, UnloaderWorldAnimDirectoryData, UnloaderWorldAnimTreeMarker, UnloaderWorldAnimInstanceEntry, UnloaderSun, UnloaderCarInfo, UnloaderLanguage, UnloaderWeatherMan, UnloaderFEngPackage, UnloaderQuickSpline, UnloaderICECameras, UnloaderSoundStichs, UnloaderFEPresetCars, UnloaderParameterMaps, UnloaderWCollisionPack, UnloaderBounds, UnloaderTrigger, UnloaderColourCube, LoaderStub};
 
@@ -276,7 +284,11 @@ void EndianSwapChunkHeadersRecursive(bChunk *first_chunk, bChunk *last_chunk) {
 
 bool IsTempChunk(bChunk *chunk) {
     unsigned int chunk_id = chunk->GetID();
+#ifdef EA_PLATFORM_WIN32
+    return chunk_id == BCHUNK_TEXTURE_PACK_DATA ? TexturePackDataIsTemp : false;
+#else
     return false;
+#endif
 }
 
 int SplitPermTempChunks(bool split_temp, bChunk *source_chunks, int source_chunks_size, uint8 *dest_buffer, int dest_position, int depth) {
@@ -299,8 +311,8 @@ int SplitPermTempChunks(bool split_temp, bChunk *source_chunks, int source_chunk
         if (is_temp_chunk == split_temp) {
             intptr_t source_position = reinterpret_cast<intptr_t>(source_chunk);
             int pad_size = source_position - dest_position & alignment_mask;
-#ifdef EA_PLATFORM_XENON
-            // X360 escribe el umbral como <= 8 (cmpwi 8 / bgt); el resto usa < 9 (cmpwi 9 / bge).
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+            // X360 y PC escriben el umbral como <= 8 (cmpwi 8 / bgt; cmp esi,8 / jg); GC y PS2, < 9 (cmpwi 9 / bge).
             if ((pad_size != 0) && (pad_size <= 8)) {
 #else
             if ((pad_size != 0) && (pad_size < 9)) {
@@ -705,7 +717,7 @@ ResourceFile *FindResourceFile(ResourceFileType type) {
 int CurrentlyHotChunking = 0;
 
 bool IsCurrentlyHotChunking() {
-    return CurrentlyHotChunking;
+    return CurrentlyHotChunking != 0;
 }
 
 int LoaderWCollisionPack(bChunk *chunk) {

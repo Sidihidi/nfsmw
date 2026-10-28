@@ -8,6 +8,9 @@
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
+#ifdef EA_BUILD_A124
+void ScreenPrintf(int x, int y, const char *fmt, ...);
+#endif
 
 extern bool IsMovieTimerPrintf;
 
@@ -117,10 +120,23 @@ void SubTitler::Update(uint32 msg) {
                     Timer timer(bFloatToInt(timenow * 4000.0f + 0.5f));
                     char timer_str[100];
                     timer.PrintToString(timer_str, 0);
+#ifdef EA_BUILD_A124
+                    ScreenPrintf(0, -220, "TIME : %s", timer_str);
+#endif
                 }
                 unsigned short delta = static_cast<unsigned short>(timenow * 10.0f);
                 if (data_[next_].startTime <= delta) {
+#ifdef EA_BUILD_A124
+                    if (data_[next_].stringHash != 0x1A20BA && bStrCmp("", GetLocalizedString(data_[next_].stringHash)) != 0) {
+                        FEngSetLanguageHash(str_, data_[next_].stringHash);
+                        FEngSetTopLeftY(back_, FEngGetTopLeftY(str_));
+                    } else {
+                        FEngSetTopLeftY(back_, 6000.0f);
+                        FEPrintf(str_, "");
+                    }
+#else
                     RefreshText();
+#endif
                     next_++;
                 }
             }
@@ -140,6 +156,7 @@ void SubTitler::NotifyFirstFrame() {
     }
 }
 
+#ifndef EA_BUILD_A124
 void SubTitler::RefreshText() {
 #ifndef EA_BUILD_A124
     if (!mIsTutorial)
@@ -174,6 +191,8 @@ void SubTitler::RefreshText() {
     }
 #endif
 }
+
+#endif
 
 #ifndef EA_BUILD_A124
 void SubTitler::SetIsTutorialMovie(const char *movieName) {

@@ -6,6 +6,8 @@
 struct SIGNAL { // opaco y de plataforma, como MUTEX (system.h): 0xC en PS2 (stabs de la A124)
 #ifdef EA_PLATFORM_PLAYSTATION2
     int reserved[3]; // offset 0x0, size 0xC
+#elif defined(EA_PLATFORM_WIN32)
+    int reserved[2]; // 0x8 en PC: SIGNAL_create(dev + 0x44) y el atomic en 0x4C (speed.exe 0x7ED751)
 #else
     int reserved[10]; // offset 0x0, size 0x28
 #endif
@@ -13,6 +15,8 @@ struct SIGNAL { // opaco y de plataforma, como MUTEX (system.h): 0xC en PS2 (sta
 struct THREAD { // 0x8 en PS2: THREAD_create(dev + 0x54) y pThreadStack en 0x5C (SLES 0x4FEE84, SLUS 0x48C564)
 #ifdef EA_PLATFORM_PLAYSTATION2
     int reserved[2]; // offset 0x0, size 0x8
+#elif defined(EA_PLATFORM_WIN32)
+    int reserved[3]; // 0xC en PC: THREAD_create(dev + 0x68) guarda el HANDLE de _beginthreadex en +4 (0x7EC44F)
 #else
     int reserved[198]; // offset 0x0, size 0x318
 #endif
@@ -23,6 +27,19 @@ bool THREAD_create(THREAD *t, int (*func)(void *), void *param, void *stack, int
 void SIGNAL_set(SIGNAL *s);
 void SIGNAL_wait(SIGNAL *s);
 void SIGNAL_destroy(SIGNAL *s);
+#ifdef EA_PLATFORM_WIN32
+// PC: la atencion del dispositivo es un evento de Win32 (speed.exe 0x7ED751 y 0x7ED66A llaman por la tabla de
+// importaciones a CreateEventA, WaitForSingleObject, ResetEvent, SetEvent y CloseHandle) y el hilo se destruye.
+extern "C" {
+__declspec(dllimport) void *__stdcall CreateEventA(void *lpEventAttributes, int bManualReset, int bInitialState,
+                                                   const char *lpName);
+__declspec(dllimport) unsigned long __stdcall WaitForSingleObject(void *hHandle, unsigned long dwMilliseconds);
+__declspec(dllimport) int __stdcall ResetEvent(void *hEvent);
+__declspec(dllimport) int __stdcall SetEvent(void *hEvent);
+__declspec(dllimport) int __stdcall CloseHandle(void *hObject);
+}
+void THREAD_destroy(THREAD *t);
+#endif
 
 // total size: 0xC
 struct TagValuePair {
@@ -208,7 +225,11 @@ struct FILEDEVICE : public ListNodeS {
     RealSystem::Mutex atomic;       // offset 0x6C, size 0x1C
     THREAD deviceThread;            // offset 0x88, size 0x318
     void *pThreadStack;             // offset 0x3A0, size 0x4
+#ifdef EA_PLATFORM_WIN32
+    void *attention;                // PC: HANDLE de un evento de reinicio manual (CreateEventA); drv en 0x80
+#else
     SIGNAL attention;               // offset 0x3A4, size 0x28
+#endif
     int minpriority;                // offset 0x3CC, size 0x4
     RealFile::DeviceDriver *drv;    // offset 0x3D0, size 0x4
 };
@@ -351,7 +372,11 @@ static void iStartDevice(FILEDEVICE *dev) {
 
     //
     //
+#ifdef EA_PLATFORM_WIN32
+    dev->attention = CreateEventA(0, 1, 0, 0);
+#else
     SIGNAL_create(&dev->attention);
+#endif
 
     dev->atomic.Create();
     dev->minpriority = 255;
@@ -367,12 +392,15 @@ static void iStartDevice(FILEDEVICE *dev) {
     //
     //
     //
+#ifndef EA_PLATFORM_WIN32
+    // PC no reserva la pila del hilo (speed.exe 0x7ED751 pasa pThreadStack tal cual)
     dev->pThreadStack = gFileSysOpts.allocator->Alloc(
         gFileSysOpts.ThreadStackSize,
         TagValuePair(4, 1) + TagValuePair(2, 32u) +
             TagValuePair(1, (const void *)"File System") +
             TagValuePair(5, (const void *)"d:/packages/realcore/6.24.00/source/file/cmn/filesys.cpp") +
             TagValuePair(6, 312));
+#endif
 
     //
     //
@@ -399,7 +427,12 @@ static void iStartDevice(FILEDEVICE *dev) {
     //
     //
     //
+#ifdef EA_PLATFORM_WIN32
+    WaitForSingleObject(dev->attention, 0xFFFFFFFF);
+    ResetEvent(dev->attention);
+#else
     SIGNAL_wait(&dev->attention);
+#endif
 
     //
     //
@@ -723,7 +756,11 @@ static int iDeviceCommandProcessorThreadFunc(void *param) {
 
     device->running = 1;
 
+#ifdef EA_PLATFORM_WIN32
+    SetEvent(device->attention);
+#else
     SIGNAL_set(&device->attention);
+#endif
 
     while (device->terminate == 0) {
 
@@ -766,7 +803,11 @@ static int iDeviceCommandProcessorThreadFunc(void *param) {
                                   op->IsCancelled() ? -1 : op->GetStatus(),
                                   op->GetUserData());
 
+#ifdef EA_PLATFORM_WIN32
+                SetEvent(device->attention);
+#else
                 SIGNAL_set(&device->attention);
+#endif
             }
         }
     }
@@ -1365,7 +1406,13 @@ int FILESYS_waitop(int ophandle) {
                 //
                 //
                 //
+#ifdef EA_PLATFORM_WIN32
+                dev = FILEOPERATION::GetDevice(ophandle);
+                WaitForSingleObject(dev->attention, 0xFFFFFFFF);
+                ResetEvent(dev->attention);
+#else
                 SIGNAL_wait(&FILEOPERATION::GetDevice(ophandle)->attention);
+#endif
             }
         }
         //
@@ -1831,8 +1878,13 @@ void RemoveDevice(unsigned int DevId) {
             //
             //
             //
+#ifdef EA_PLATFORM_WIN32
+            SetEvent(dev->attention);
+            CloseHandle(dev->attention);
+#else
             SIGNAL_set(&dev->attention);
             SIGNAL_destroy(&dev->attention);
+#endif
 
             //
             //
@@ -1849,8 +1901,13 @@ void RemoveDevice(unsigned int DevId) {
             //
             //
             //
+#ifdef EA_PLATFORM_WIN32
+            // PC destruye el hilo y no libera pila (no la reservo: speed.exe 0x7ED66A)
+            THREAD_destroy(&dev->deviceThread);
+#else
             gFileSysOpts.allocator->Free(dev->pThreadStack, 0);
             dev->pThreadStack = 0;
+#endif
 
             //
             //

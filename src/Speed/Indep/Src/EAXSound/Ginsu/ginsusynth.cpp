@@ -235,7 +235,9 @@ int GinsuSynthesis::StartSynthesis(float startFreq) {
 
     SNDSAMPLEATTR ssa;
     SND_attrsetdef(&ssa);
+#ifndef EA_PLATFORM_XENON // la variante de Xenon no tiene rendermode: su StartSynthesis (EGM 0x82223840) no escribe nada mas sobre ssa
     ssa.rendermode = 4;
+#endif
 
     SNDPLAYOPTS spo;
     SNDplaysetdef(&spo);

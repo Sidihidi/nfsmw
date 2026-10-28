@@ -64,8 +64,8 @@ class TrackCopCameraMover : public CameraMover {
     float LookSplineParam;     // offset 0x214, size: 0x4
     CameraAnchor *CarToFollow; // offset 0x218, size: 0x4
     tCubic1D FocalDistCubic;   // offset 0x21C, size: 0x2C
-    int FocusEffects;          // offset 0x248, size: 0x4
-    bool bRenderCarPOV;        // offset 0x24C, size: 0x4
+    bool FocusEffects;         // offset 0x248, size: 0x1
+    bool bRenderCarPOV;        // offset 0x24C, size: 0x1
 };
 
 #endif

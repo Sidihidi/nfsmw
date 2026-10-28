@@ -81,7 +81,7 @@ static Attrib::Key FindScreenInfo(const char *pkg_name, int category) {
         bStrCpy(name, "");
     }
     int len = bStrLen(name);
-    if (len > 3) {
+    if (len >= 4) {
         name[len - 4] = 0;
         bMemSet(prefix, 0, 128);
         if (FEDatabase->IsCustomizeMode()) {
@@ -92,8 +92,7 @@ static Attrib::Key FindScreenInfo(const char *pkg_name, int category) {
             unsigned int key = Attrib::StringToLowerCaseKey(prefix);
             {
                 Attrib::Gen::frontend inst(key, 0, nullptr);
-                bool hasCollection = inst.GetConstCollection() != 0;
-                if (hasCollection) {
+                if (inst.IsValid()) {
                     return key;
                 }
                 if (category > -1) {
@@ -120,8 +119,7 @@ static Attrib::Key FindScreenInfo(const char *pkg_name, int category) {
         unsigned int key = Attrib::StringToLowerCaseKey(prefix);
         {
             Attrib::Gen::frontend inst(key, 0, nullptr);
-            bool hasCollection = inst.GetConstCollection() != 0;
-            if (hasCollection) {
+            if (inst.IsValid()) {
                 return key;
             }
         }
@@ -336,10 +334,22 @@ bool GarageMainScreen::IsCarRendering() {
 
 void GarageMainScreen::HandleTick(u32 msg) {
     bool have_new_car = false;
-    if (CarState == 0 && TheGarageCarLoader->HasSwitched()) {
-        TheGarageCarLoader->Switch();
-        CarState = 1;
-        have_new_car = true;
+    // Un switch: PC da `sub eax, 0` (no `test`), y los mapas de lineas de GC y de la A124 dos `break` sin codigo.
+    // El `case 1` vacio es la rama que CSE pliega y que GC necesita (diario ps2a12476).
+    switch (CarState) {
+    case 0:
+        if (TheGarageCarLoader->HasSwitched()) {
+            TheGarageCarLoader->Switch();
+            CarState = 1;
+            have_new_car = true;
+        }
+        break;
+    case 1:
+        // Sentencia sin codigo: MSVC 7.1 tira un case vacio y el original de PC lo tiene (`sub eax, 0`); `if (0) {}` llega
+        // vivo al switch de MSVC y no deja codigo en ninguna version (GC y PS2 igual). Ronda 78.
+        if (0) {
+        }
+        break;
     }
     if (have_new_car) {
         RideInfo *CurrentRideInfo = TheGarageCarLoader->GetCurrentRideInfo();
@@ -356,35 +366,33 @@ void GarageMainScreen::HandleTick(u32 msg) {
         sNumTicksSinceUserMovedCamera--;
     }
 
-    bool bTimeToRotate = false;
-    if (sNumTicksSinceUserMovedCamera == 0 && bUserRotate) {
-        bTimeToRotate = bAutoMovement == 0;
-    }
+    bool bTimeToRotate = sNumTicksSinceUserMovedCamera == 0 && bUserRotate && bAutoMovement == 0;
     if (bTimeToRotate && bPass1) {
         pCameraMover->SetHRotateSpeed(CarRotateSpeed);
         bPass1 = 0;
-        bAutoMovement = 1;
         bTimeToRotate = false;
+        bAutoMovement = 1;
     }
 
+
+
+
     FEPackage *currentControllingPackage = cFEng::Get()->FindPackageAtBase();
-    if (!currentControllingPackage)
-        goto after_camera;
-    {
+    if (currentControllingPackage) {
         const unsigned int screenKey = FindScreenInfo(currentControllingPackage->GetName(), mCustomizationCategory);
         const unsigned int attribKey = FindScreenCameraInfo(screenKey);
         Attrib::Gen::frontend camera(attribKey, 0, nullptr);
         Attrib::Gen::frontend screen(screenKey, 0, nullptr);
 
-        if (screenKey != mScreenKeyCamIsSetTo) {
-            sNumTicksSinceUserMovedCamera = static_cast<int>(camera.cam_anim_speed() * 60.0f);
-            bPass1 = 0;
-            bAutoMovement = 0;
-            goto set_cam;
-        } else if (bTimeToRotate) {
-            sNumTicksSinceUserMovedCamera = static_cast<int>(camera.cam_anim_speed() * 60.0f);
-            bPass1 = 1;
-        set_cam:
+        if (screenKey != mScreenKeyCamIsSetTo || bTimeToRotate) {
+            if (screenKey != mScreenKeyCamIsSetTo) {
+                sNumTicksSinceUserMovedCamera = static_cast<int>(camera.cam_anim_speed() * 60.0f);
+                bPass1 = 0;
+                bAutoMovement = 0;
+            } else {
+                sNumTicksSinceUserMovedCamera = static_cast<int>(camera.cam_anim_speed() * 60.0f);
+                bPass1 = 1;
+            }
             mScreenKeyCamIsSetTo = screenKey;
             bUserRotate = screen.cam_user_rotate();
             if (!CameraPushRequested) {
@@ -399,7 +407,6 @@ void GarageMainScreen::HandleTick(u32 msg) {
             pCameraMover->SetCurrentOrientation(orbit, camera.cam_roll_angle(), camera.cam_fov(), lookAt);
         }
     }
-after_camera:
     eView *view = eGetView(1, false);
     if (view && view->ScreenEffects) {
         view->ScreenEffects->AddScreenEffect(SE_FE_BLUR, cam_blur, 0.0f, 0.0f, 0.0f);
@@ -602,7 +609,7 @@ float GarageMainScreen::GetGeometryZPos() {
 
 void GarageMainScreen::UpdateRenderingCarParameters(FrontEndRenderingCar *fe_car) {
     RideInfo *loaded_ride_info = fe_car->GetRideInfo();
-    if (reinterpret_cast<int>(fe_car) == -8 || loaded_ride_info->Type == static_cast<CarType>(-1) || HideEntireScreen) {
+    if (!loaded_ride_info || loaded_ride_info->Type == static_cast<CarType>(-1) || HideEntireScreen) {
         fe_car->Visible = 0;
         return;
     }
@@ -616,7 +623,7 @@ void GarageMainScreen::UpdateRenderingCarParameters(FrontEndRenderingCar *fe_car
     float average_wheel_radius = 0.0f;
     float average_wheel_z = 0.0f;
 
-    for (unsigned int i = 0; i <= 3; i++) {
+    for (unsigned int i = 0; i < 4; i++) {
         if (!fe_car->LookupWheelPosition(i, &wheel_positions[i])) {
             wheel_positions[i] = bVector4(0.0f, 0.0f, 0.0f, 1.0f);
         }
@@ -655,7 +662,7 @@ void GarageMainScreen::UpdateRenderingCarParameters(FrontEndRenderingCar *fe_car
     for (int tire_num = 0; tire_num < 4; tire_num++) {
         eIdentity(&tire_matrices[tire_num]);
         eIdentity(&brake_matrices[tire_num]);
-        if (tire_num < 2) {
+        if (tire_num <= 1) {
             eRotateZ(&brake_matrices[tire_num], &brake_matrices[tire_num], front_tire_angle);
             eRotateZ(&tire_matrices[tire_num], &tire_matrices[tire_num], front_tire_angle);
         }
@@ -708,8 +715,9 @@ void GarageMainScreen::HandleHidePackage(unsigned int msg) {
 }
 
 void GarageMainScreen::HandleJoyEvents() {
-    static float zoomIn = 0.0f;
-    static float zoomOut = 0.0f;
+#ifdef EA_BUILD_A124
+    for (int port = 0; port < 2; port++) {
+#else
     int firstPortToCheck = 0;
     int lastPortToCheck = 2;
     if (FEDatabase->IsSplitScreenMode()) {
@@ -720,17 +728,22 @@ void GarageMainScreen::HandleJoyEvents() {
         }
     }
     for (int port = firstPortToCheck; port < lastPortToCheck; port++) {
+#endif
         if (!mActionQ[port])
             continue;
         while (!mActionQ[port]->IsEmpty()) {
             if (bUserRotate || CarGuysCamera != 0) {
                 ActionRef aRef = mActionQ[port]->GetAction();
+#if defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_BUILD_A124)
+                float controllerValue = aRef.Data();
+#else
                 float controllerValue;
                 if (mActionQ[port]->IsConnected()) {
                     controllerValue = aRef.Data();
                 } else {
                     controllerValue = 0.0f;
                 }
+#endif
                 int msg = aRef.ID();
                 switch (msg) {
                     case 0x88:
@@ -760,7 +773,9 @@ void GarageMainScreen::HandleJoyEvents() {
                         sNumTicksSinceUserMovedCamera = sNumTicksBeforeCamMovesBackToScreenPosition;
                         break;
                     case 0x2b:
-                    case 0x2c:
+                    case 0x2c: {
+                        static float zoomIn = 0.0f;
+                        static float zoomOut = 0.0f;
                         if (aRef.ID() == 0x2b) {
                             zoomOut = controllerValue;
                             sNumTicksSinceUserMovedCamera = sNumTicksBeforeCamMovesBackToScreenPosition;
@@ -779,6 +794,7 @@ void GarageMainScreen::HandleJoyEvents() {
                         }
                         pCameraMover->SetZoomSpeed(mZoom);
                         break;
+                    }
                 }
                 if (sNumTicksSinceUserMovedCamera > 0) {
                     if (bAutoMovement) {

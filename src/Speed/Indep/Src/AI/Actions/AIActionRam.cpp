@@ -75,7 +75,7 @@ void AIActionRam::OnBehaviorChange(const UCrc32 &mechanic) {
     }
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionRam("AIActionRam", AIActionRam::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionRam(UCrc32("AIActionRam"), AIActionRam::Construct);
 
 AIAction *AIActionRam::Construct(AIActionParams *params) {
     return new AIActionRam(params, 0.1f);

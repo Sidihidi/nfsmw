@@ -120,6 +120,15 @@ struct LobbyApiStatsT
     int iGCM;                       // +0x1C 'GCM'
 };
 
+// En PC (speed.exe: DirtySDK 3.9.3.0, "Oct 19 2005") la cola de peticiones de lobbyapi.c (+0x1A20) tiene
+// 32 entradas de 0x18 B en vez de 0x14: lo que va detras corre 0x80 B (iIdent +0x1D38, UserSets +0x1D48,
+// Stats +0x2098; _LobbyApiCreate de PC reserva 0x20F8). Los offsets de abajo son los de la A124.
+#ifdef EA_PLATFORM_WIN32
+#define LOBBYAPI_QUEUE_EXTRA 0x80
+#else
+#define LOBBYAPI_QUEUE_EXTRA 0
+#endif
+
 // el ref de lobby: solo los campos que toca esta unidad (los offsets mandan)
 struct LobbyApiRefT
 {
@@ -131,7 +140,7 @@ struct LobbyApiRefT
     char Structure[0x24];           // +0x1810 (el 'C' del '+who', "l*")
     char X1834[0x1894 - 0x1834];
     int i1894;                      // +0x1894 (la lista del ranking en curso)
-    char X1898[0x1CB8 - 0x1898];
+    char X1898[0x1CB8 - 0x1898 + LOBBYAPI_QUEUE_EXTRA];
     int iIdent;                     // +0x1CB8 (identificadores sinteticos, --)
     char X1CBC[0x1CC8 - 0x1CBC];
     LobbyApiUserSetT UserSets[4];   // +0x1CC8
@@ -397,7 +406,7 @@ void _LobbyApiAsyncProcess_snp(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
     LobbyApiRankRecordT *pRec;
     int iFind;
 
-    if ((unsigned)(pApi->i1894 - 5) >= 0x12)
+    if ((pApi->i1894 < 5) || (pApi->i1894 > 0x16))
         return;
     pHash = LobbyApiListGetHash(pApi, pApi->i1894);
     if (!pHash)
@@ -405,15 +414,14 @@ void _LobbyApiAsyncProcess_snp(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
     pRec = LobbyAlloc(sizeof(LobbyApiRankRecordT));
     LobbyApiExtractRankRecord(pRec, pSrc, pApi->Serv.szName);
     {
-        char *pKey = pRec->szKey;
         int iArg;
 
         pDisp = LobbyApiListGetDisp(pApi, pApi->i1894);
-        iFind = HashStrFind(pHash, pKey);
+        iFind = HashStrFind(pHash, pRec->szKey);
         if (!iFind)
         {
             iFind = DispListAdd(pDisp, pRec);
-            HashStrAdd(pHash, pKey, iFind);
+            HashStrAdd(pHash, pRec->szKey, iFind);
             iArg = 1;
         }
         else
@@ -454,7 +462,7 @@ void _LobbyApiAsyncProcess_usm(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
     if (iSet < 0)
         return;
     iSet += 0x18;
-    if ((unsigned)(iSet - 0x18) >= 5)
+    if ((iSet < 0x18) || (iSet > 0x1C))
         return;
     pHash = LobbyApiListGetHash(pApi, iSet);
     if (!pHash)
@@ -505,8 +513,6 @@ void _LobbyApiAsyncProcess_usr(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
     LobbyApiUserRecordT *pRec;
     int iIdent;
     int iFind;
-    int iT;
-    int iRG;
 
     if (!pHash)
         return;
@@ -551,9 +557,8 @@ void _LobbyApiAsyncProcess_usr(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
             LobbyFree(pRec);
         }
     }
-    iT = TagFieldGetNumber(TagFieldFind(pSrc, "T"), 0);
-    iRG = TagFieldGetNumber(TagFieldFind(pSrc, "RG"), -1);
-    LobbyApiPopul(pApi, pApi->iRooms, iT, iRG);
+    LobbyApiPopul(pApi, pApi->iRooms, TagFieldGetNumber(TagFieldFind(pSrc, "T"), 0),
+                  TagFieldGetNumber(TagFieldFind(pSrc, "RG"), -1));
 }
 
 void _LobbyApiAsyncProcess_uss(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
@@ -568,15 +573,14 @@ void _LobbyApiAsyncProcess_uss(LobbyApiRefT *pApi, const char *pSrc, void *pRef)
     pRec = LobbyAlloc(sizeof(LobbyApiUserSetT));
     LobbyApiExtractUserSet(pRec, pSrc);
     {
-        char *pKey = pRec->szName;
         int iArg;
 
         pDisp = LobbyApiListGetDisp(pApi, 0x17);
-        iFind = HashStrFind(pHash, pKey);
+        iFind = HashStrFind(pHash, pRec->szName);
         if (!iFind)
         {
             iFind = DispListAdd(pDisp, pRec);
-            HashStrAdd(pHash, pKey, iFind);
+            HashStrAdd(pHash, pRec->szName, iFind);
             iArg = 1;
         }
         else

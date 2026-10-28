@@ -17,6 +17,12 @@ static const bool debug_SmackableWooshs_ALL = true; // size: 0x1, Decl: 23
 static const bool debug_SmackableWooshs_CAM = true; // size: 0x1, Decl: 24
 static const bool debug_SmackableWooshs_CAR = true; // size: 0x1, Decl: 25
 static const bool debug_EventWooshs = true;         // size: 0x1, Decl: 26
+#ifdef EA_BUILD_A124
+// gcdatos14: declarada en STATEMGR_DriveBy.hpp:27 y sin definir en el arbol; solo la A124 la
+// conserva (0x5e4c88, PS2_globals.hpp:1266, tras CSTATEMGR_AICar::bUsingGinsu), a 0 en su
+// .data objetivo. En GC su direccion es 0xFFFFFFFF (eliminada).
+int CSTATEMGR_DriveBy::UpdateSmokeableWooshs = 0;
+#endif
 
 CSTATEMGR_DriveBy::CSTATEMGR_DriveBy() : CSTATEMGR_Base() {
     this->WooshCheckFrameCntr = WOOSHCHECK_FRAME_FREQ;
@@ -75,7 +81,6 @@ void TestSmackableForWoosh(IModel *model, int carid) {
         }
 
         bytype = smackattribs.WooshType();
-        goto CreateWoosh;
     } else {
         if (!debug_SmackableWooshs_CAM) {
             return;
@@ -101,7 +106,6 @@ void TestSmackableForWoosh(IModel *model, int carid) {
 #endif
     }
 
-CreateWoosh:
     stDriveByInfo tmpdrivebypackage;
     tmpdrivebypackage.eDriveByType = bytype;
     tmpdrivebypackage.pEAXCar = SndCamera::GetPlayerCar(carid);

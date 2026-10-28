@@ -88,7 +88,10 @@ int32 LobbyRanks::GetRanks(RankListE rankList, CommandCBFunc func, void *context
     return -1;
 }
 
-inline int32 LobbyRanks::GetAllMonthRanks(CommandCBFunc func, void *context) {
+#ifndef EA_PLATFORM_XENON // Xbox 360: fuera de linea
+inline
+#endif
+int32 LobbyRanks::GetAllMonthRanks(CommandCBFunc func, void *context) {
     int32 commandID = -1;
     for (RankListE rl = RL_FIRST_MONTH_LIST; rl <= RL_LAST_MONTH_LIST; rl = static_cast<RankListE>(rl + 1)) {
         commandID = GetRanks(rl, rl == RL_LAST_MONTH_LIST ? func : nullptr, rl == RL_LAST_MONTH_LIST ? context : nullptr);
@@ -99,7 +102,10 @@ inline int32 LobbyRanks::GetAllMonthRanks(CommandCBFunc func, void *context) {
     return commandID;
 }
 
-inline int32 LobbyRanks::GetMonthRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context) {
+#ifndef EA_PLATFORM_XENON // Xbox 360: fuera de linea
+inline
+#endif
+int32 LobbyRanks::GetMonthRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context) {
     int32 rc = -1;
     for (RankListSubcategoryE category = RANKLIST_BY_RATING; category <= RANKLIST_BY_WIN_PERCENTAGE;
          category = static_cast<RankListSubcategoryE>(category + 1)) {
@@ -113,7 +119,10 @@ inline int32 LobbyRanks::GetMonthRanks(OnlineRaceModeE mode, RankListTypeE type,
     return rc;
 }
 
-inline int32 LobbyRanks::GetAllWeeksRanks(CommandCBFunc func, void *context) {
+#ifndef EA_PLATFORM_XENON // Xbox 360: fuera de linea
+inline
+#endif
+int32 LobbyRanks::GetAllWeeksRanks(CommandCBFunc func, void *context) {
     int32 commandID = -1;
     for (RankListE rl = RL_FIRST_WEEK_LIST; rl <= RL_LAST_WEEK_LIST; rl = static_cast<RankListE>(rl + 1)) {
         commandID = GetRanks(rl, rl == RL_LAST_WEEK_LIST ? func : nullptr, rl == RL_LAST_WEEK_LIST ? context : nullptr);
@@ -124,7 +133,10 @@ inline int32 LobbyRanks::GetAllWeeksRanks(CommandCBFunc func, void *context) {
     return commandID;
 }
 
-inline int32 LobbyRanks::GetWeekRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context) {
+#ifndef EA_PLATFORM_XENON // Xbox 360: fuera de linea
+inline
+#endif
+int32 LobbyRanks::GetWeekRanks(OnlineRaceModeE mode, RankListTypeE type, CommandCBFunc func, void *context) {
     int32 rc = -1;
     for (RankListSubcategoryE category = RANKLIST_BY_RATING; category <= RANKLIST_BY_WIN_PERCENTAGE;
          category = static_cast<RankListSubcategoryE>(category + 1)) {
@@ -148,7 +160,11 @@ LobbyApiRankT *LobbyRanks::GetRankData(RankListE rankList, RankListTypeE type, i
     return rank;
 }
 
+#ifdef EA_PLATFORM_XENON // EGM 0x825795E8: fuera de linea, y aborta el grupo
+void LobbyRanks::AbortCommand(int32 commandID) { LobbyCore::Instance().AbortGroup(commandID); }
+#else
 inline void LobbyRanks::AbortCommand(int32 commandID) { LobbyCore::Instance().AbortCommand(commandID); }
+#endif
 
 void LobbyRanks::ClearCache() { bMemSet(gotRankList, 0, sizeof(gotRankList)); }
 
@@ -219,6 +235,10 @@ void LobbyRanks::SnapsDispListCB(LobbyApiRefT *pRef, LobbyApiMsgT *pMsg, void *p
         LobbyCore &lobbyCore = LobbyCore::Instance();
         if (lobbyCore.currentCommand && lobbyCore.currentCommand->kind == 'snap') {
             lobbyCore.FinishCommand(pMsg, true);
+#ifdef EA_PLATFORM_XENON // EGM 0x825798C4: si no, avisa al objeto de + 0
+        } else if (lobbyRanks->xenon_unknown_0x0) {
+            lobbyRanks->xenon_unknown_0x0->XenonUnknown0();
+#endif
         }
     }
 }
@@ -245,54 +265,56 @@ int LobbyRanks::RankSort(void *sortref, int sortcon, void *recptr1, void *recptr
 }
 
 LobbyRanks::RankListMapping LobbyRanks::RankList2SnapIndex(RankListE rankList, RankListTypeE type) {
+    RankListMapping mapping = RLM_INVALID;
+
     if (type == RLT_TOP100) {
-        if (rankList >= RL_CIRCUIT_BY_RATING && rankList <= RL_CIRCUIT_BY_WIN_PERCENTAGE) return static_cast<RankListMapping>(5);
-        if (rankList >= RL_SPRINT_BY_RATING && rankList <= RL_SPRINT_BY_WIN_PERCENTAGE) return static_cast<RankListMapping>(6);
-        if (rankList >= RL_DRAG_BY_RATING && rankList <= RL_DRAG_BY_FASTEST_FINISH) return static_cast<RankListMapping>(7);
-        if (rankList >= RL_CIRCUIT_WEEK_BEST_BY_RATING && rankList <= RL_CIRCUIT_WEEK_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(11);
-        if (rankList >= RL_SPRINT_WEEK_BEST_BY_RATING && rankList <= RL_SPRINT_WEEK_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(12);
-        if (rankList >= RL_DRAG_WEEK_BEST_BY_RATING && rankList <= RL_DRAG_WEEK_BY_FASTEST_FINISH)
-            return static_cast<RankListMapping>(13);
-        if (rankList >= RL_CIRCUIT_MONTH_BEST_BY_RATING && rankList <= RL_CIRCUIT_MONTH_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(17);
-        if (rankList >= RL_SPRINT_MONTH_BEST_BY_RATING && rankList <= RL_SPRINT_MONTH_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(18);
-        if (rankList >= RL_DRAG_MONTH_BEST_BY_RATING && rankList <= RL_DRAG_MONTH_BY_FASTEST_FINISH)
-            return static_cast<RankListMapping>(19);
+        if (rankList >= RL_CIRCUIT_BY_RATING && rankList <= RL_CIRCUIT_BY_WIN_PERCENTAGE) mapping = static_cast<RankListMapping>(5);
+        else if (rankList >= RL_SPRINT_BY_RATING && rankList <= RL_SPRINT_BY_WIN_PERCENTAGE) mapping = static_cast<RankListMapping>(6);
+        else if (rankList >= RL_DRAG_BY_RATING && rankList <= RL_DRAG_BY_FASTEST_FINISH) mapping = static_cast<RankListMapping>(7);
+        else if (rankList >= RL_CIRCUIT_WEEK_BEST_BY_RATING && rankList <= RL_CIRCUIT_WEEK_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(11);
+        else if (rankList >= RL_SPRINT_WEEK_BEST_BY_RATING && rankList <= RL_SPRINT_WEEK_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(12);
+        else if (rankList >= RL_DRAG_WEEK_BEST_BY_RATING && rankList <= RL_DRAG_WEEK_BY_FASTEST_FINISH)
+            mapping = static_cast<RankListMapping>(13);
+        else if (rankList >= RL_CIRCUIT_MONTH_BEST_BY_RATING && rankList <= RL_CIRCUIT_MONTH_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(17);
+        else if (rankList >= RL_SPRINT_MONTH_BEST_BY_RATING && rankList <= RL_SPRINT_MONTH_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(18);
+        else if (rankList >= RL_DRAG_MONTH_BEST_BY_RATING && rankList <= RL_DRAG_MONTH_BY_FASTEST_FINISH)
+            mapping = static_cast<RankListMapping>(19);
     } else if (type == RLT_PERSONAL) {
-        if (rankList >= RL_CIRCUIT_BY_RATING && rankList <= RL_CIRCUIT_BY_WIN_PERCENTAGE) return static_cast<RankListMapping>(8);
-        if (rankList >= RL_SPRINT_BY_RATING && rankList <= RL_SPRINT_BY_WIN_PERCENTAGE) return static_cast<RankListMapping>(9);
-        if (rankList >= RL_DRAG_BY_RATING && rankList <= RL_DRAG_BY_FASTEST_FINISH) return static_cast<RankListMapping>(10);
-        if (rankList >= RL_CIRCUIT_WEEK_BEST_BY_RATING && rankList <= RL_CIRCUIT_WEEK_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(14);
-        if (rankList >= RL_SPRINT_WEEK_BEST_BY_RATING && rankList <= RL_SPRINT_WEEK_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(15);
-        if (rankList >= RL_DRAG_WEEK_BEST_BY_RATING && rankList <= RL_DRAG_WEEK_BY_FASTEST_FINISH)
-            return static_cast<RankListMapping>(16);
-        if (rankList >= RL_CIRCUIT_MONTH_BEST_BY_RATING && rankList <= RL_CIRCUIT_MONTH_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(20);
-        if (rankList >= RL_SPRINT_MONTH_BEST_BY_RATING && rankList <= RL_SPRINT_MONTH_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(21);
-        if (rankList >= RL_DRAG_MONTH_BEST_BY_RATING && rankList <= RL_DRAG_MONTH_BY_FASTEST_FINISH)
-            return static_cast<RankListMapping>(22);
+        if (rankList >= RL_CIRCUIT_BY_RATING && rankList <= RL_CIRCUIT_BY_WIN_PERCENTAGE) mapping = static_cast<RankListMapping>(8);
+        else if (rankList >= RL_SPRINT_BY_RATING && rankList <= RL_SPRINT_BY_WIN_PERCENTAGE) mapping = static_cast<RankListMapping>(9);
+        else if (rankList >= RL_DRAG_BY_RATING && rankList <= RL_DRAG_BY_FASTEST_FINISH) mapping = static_cast<RankListMapping>(10);
+        else if (rankList >= RL_CIRCUIT_WEEK_BEST_BY_RATING && rankList <= RL_CIRCUIT_WEEK_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(14);
+        else if (rankList >= RL_SPRINT_WEEK_BEST_BY_RATING && rankList <= RL_SPRINT_WEEK_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(15);
+        else if (rankList >= RL_DRAG_WEEK_BEST_BY_RATING && rankList <= RL_DRAG_WEEK_BY_FASTEST_FINISH)
+            mapping = static_cast<RankListMapping>(16);
+        else if (rankList >= RL_CIRCUIT_MONTH_BEST_BY_RATING && rankList <= RL_CIRCUIT_MONTH_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(20);
+        else if (rankList >= RL_SPRINT_MONTH_BEST_BY_RATING && rankList <= RL_SPRINT_MONTH_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(21);
+        else if (rankList >= RL_DRAG_MONTH_BEST_BY_RATING && rankList <= RL_DRAG_MONTH_BY_FASTEST_FINISH)
+            mapping = static_cast<RankListMapping>(22);
     } else if (type == RLT_CURRENT_WEEK) {
         if (rankList >= RL_CIRCUIT_WEEK_BEST_BY_RATING && rankList <= RL_CIRCUIT_WEEK_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(11);
-        if (rankList >= RL_SPRINT_WEEK_BEST_BY_RATING && rankList <= RL_SPRINT_WEEK_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(12);
-        if (rankList >= RL_DRAG_WEEK_BEST_BY_RATING && rankList <= RL_DRAG_WEEK_BY_FASTEST_FINISH)
-            return static_cast<RankListMapping>(13);
+            mapping = static_cast<RankListMapping>(11);
+        else if (rankList >= RL_SPRINT_WEEK_BEST_BY_RATING && rankList <= RL_SPRINT_WEEK_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(12);
+        else if (rankList >= RL_DRAG_WEEK_BEST_BY_RATING && rankList <= RL_DRAG_WEEK_BY_FASTEST_FINISH)
+            mapping = static_cast<RankListMapping>(13);
     } else if (type == RLT_CURRENT_MONTH) {
         if (rankList >= RL_CIRCUIT_MONTH_BEST_BY_RATING && rankList <= RL_CIRCUIT_MONTH_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(17);
-        if (rankList >= RL_SPRINT_MONTH_BEST_BY_RATING && rankList <= RL_SPRINT_MONTH_BEST_BY_WIN_PERCENTAGE)
-            return static_cast<RankListMapping>(18);
-        if (rankList >= RL_DRAG_MONTH_BEST_BY_RATING && rankList <= RL_DRAG_MONTH_BY_FASTEST_FINISH)
-            return static_cast<RankListMapping>(19);
+            mapping = static_cast<RankListMapping>(17);
+        else if (rankList >= RL_SPRINT_MONTH_BEST_BY_RATING && rankList <= RL_SPRINT_MONTH_BEST_BY_WIN_PERCENTAGE)
+            mapping = static_cast<RankListMapping>(18);
+        else if (rankList >= RL_DRAG_MONTH_BEST_BY_RATING && rankList <= RL_DRAG_MONTH_BY_FASTEST_FINISH)
+            mapping = static_cast<RankListMapping>(19);
     }
-    return RLM_INVALID;
+    return mapping;
 }
 
 int LobbyRanks::RankList2DispListIndex(RankListE rankList, RankListTypeE type) {
@@ -302,7 +324,10 @@ int LobbyRanks::RankList2DispListIndex(RankListE rankList, RankListTypeE type) {
 
 int LobbyRanks::RankListMapping2DispListIndex(RankListMapping mapping) { return mapping - 5; }
 
-inline RankListTypeE LobbyRanks::RankListMapping2RankListType(RankListMapping mapping) {
+#ifndef EA_PLATFORM_XENON // Xbox 360: fuera de linea
+inline
+#endif
+RankListTypeE LobbyRanks::RankListMapping2RankListType(RankListMapping mapping) {
     if (mapping >= static_cast<RankListMapping>(5) && mapping <= static_cast<RankListMapping>(7)) return RLT_TOP100;
     if (mapping >= static_cast<RankListMapping>(8) && mapping <= static_cast<RankListMapping>(10)) return RLT_PERSONAL;
     if (mapping >= static_cast<RankListMapping>(11) && mapping <= static_cast<RankListMapping>(13)) return RLT_CURRENT_WEEK;
@@ -312,7 +337,10 @@ inline RankListTypeE LobbyRanks::RankListMapping2RankListType(RankListMapping ma
     return RLT_INVALID;
 }
 
-inline int LobbyRanks::InitTierArray() {
+#ifndef EA_PLATFORM_XENON // Xbox 360: fuera de linea
+inline
+#endif
+int LobbyRanks::InitTierArray() {
     char *config = LobbyCore::Instance().GetServerConfig();
     if (!config) {
         return -1;

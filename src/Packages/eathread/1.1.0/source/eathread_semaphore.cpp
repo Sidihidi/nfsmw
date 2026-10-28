@@ -7,4 +7,7 @@
 #ifdef EA_PLATFORM_WIN32
 #include "win32/eathread_semaphore_win32.cpp"
 #endif
+#ifdef EA_PLATFORM_XENON
+#include "xenon/eathread_semaphore_xenon.cpp"
+#endif
 #endif

@@ -36,7 +36,7 @@ extern "C" void MIX_setpitch(int voice, int pitchmult) {
 #endif
     if (psmv->prsf == 0) {
         psmv->prsf = (RSFSTATE *)SNDMEMI_allocz(sizeof(RSFSTATE));
-        if (sndmix.platformver > 0x31) {
+        if (sndmix.platformver >= 0x32) {
             method = 1;
         }
         psmv->prsf->sfn.restorefn = 0;

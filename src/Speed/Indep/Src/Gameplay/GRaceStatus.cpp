@@ -128,7 +128,7 @@ GRaceStatus::~GRaceStatus() {
 }
 
 void GRaceStatus::Init() {
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_XENON) // X360: bMalloc(0x4620, "GRaceStatus", 0, 0) en el EGM (0x82357B40)
     fObj = new ("GRaceStatus", 0) GRaceStatus();
 #else
     fObj = new (GetVirtualMemoryAllocParams()) GRaceStatus();
@@ -825,8 +825,8 @@ void GRaceStatus::SetNextCheckpointPos(GRuntimeInstance *trigger) {
 float GRaceStatus::DetermineRaceSegmentLength(const UMath::Vector4 *positions, const UMath::Vector4 *directions, int start, int end) {
     WRoadNav nav;
 
-    nav.SetNavType(WRoadNav::kTypeDirection);
     nav.SetDecisionFilter(true);
+    nav.SetNavType(WRoadNav::kTypeDirection);
     const bool force_centre_lane = true;
     const float direction_weight = 1.0f;
 
@@ -916,7 +916,9 @@ float GRaceStatus::DetermineRaceSegmentLength(const UMath::Vector4 *positions, c
                 float distance_delta = current->mDistance - previous->mDistance;
                 UTL::Std::set<short, _type_ID_ROAD_SET>::iterator road_it = unique_roads.begin();
                 while (road_it != unique_roads.end()) {
-                    road_length += static_cast<float>(WRoadNetwork::Get().GetRoad(*road_it)->nLength) * (4000.0f / 65535.0f);
+                    short road_number = *road_it;
+                    const WRoad *road = WRoadNetwork::Get().GetRoad(road_number);
+                    road_length += road->GetLength();
                     ++road_it;
                 }
 
@@ -1065,7 +1067,7 @@ int SplitChars(char *in, char ***array, int (*func)(char)) {
         }
     }
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // La A124 etiquetaba esta reserva; la version final usa el new[] plano.
     *array = new ("GRaceStatus SplitChars()", 0) char *[count];
 #else
@@ -2406,8 +2408,8 @@ void GRacerInfo::FinalizeRaceStats() {
         return;
     }
 
-    float adjustedTime = mRaceTimer.GetTime();
-    float raceTime = adjustedTime;
+    float raceTime = mRaceTimer.GetTime();
+    float adjustedTime = raceTime;
     float pct = mPctRaceComplete;
     if (pct > 0.1f) {
         adjustedTime = raceTime / (pct * 0.01f);
@@ -2477,7 +2479,7 @@ void GRacerInfo::FinalizeRaceStats() {
             deathPercent = 1.0f;
         }
         const float pct[4] = {0.2f, 0.4f, 0.6f, 0.8f};
-        for (int onSplit = 0; onSplit <= 3; onSplit++) {
+        for (int onSplit = 0; onSplit < 4; onSplit++) {
             bool wasAliveAtPct = deathPercent >= pct[onSplit];
             if (mSplitTimes[onSplit] == 0.0f) {
                 if (wasAliveAtPct) {

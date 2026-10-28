@@ -148,6 +148,7 @@ void ScreenPrintf(int x, int y, const char *fmt, ...);
 void ScreenPrintf(int x, int y, float duration, const char *fmt, ...);
 void ScreenPrintf(int x, int y, unsigned int color, const char *fmt, ...);
 void ScreenPrintf(int x, int y, float duration, unsigned int color, const char *fmt, ...);
+void ScreenShadowPrintf(int x, int y, const char *fmt, ...);
 void CancelScreenPrintf(int x, int y);
 void ResetScreenPrintf();
 

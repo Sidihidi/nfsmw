@@ -249,7 +249,9 @@ struct ConnectionCore {
     int GetNumConnectedPlayers();
     ConnApiClientT *GetPlayer(char *name);
     ConnApiClientT *GetPlayer(int index);
-    ConnApiClientT *GetHost();
+    ConnApiClientT *GetHost() {
+        return GetPlayer(0);
+    }
     static void BuildUserInfo(ConnApiUserInfoT &dest, const LobbyApiUserT &src);
     static void BuildUserInfo(ConnApiUserInfoT &dest, const LobbyApiPlayerT &src);
     int GetStatus();
@@ -304,7 +306,11 @@ class LobbyCore {
         void Clear();
 
         char auth[64];
+#ifdef EA_PLATFORM_WIN32
+        uint32 when; // PC: 4 B (RankCB, 0x790180: rept en +0x44 y results en +0x94)
+#else
         uint64 when;
+#endif
         char rept[16];
         char name[4][16];
         char results[1024];

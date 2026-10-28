@@ -22,27 +22,21 @@ ArraySlot::ArraySlot(FEObject *obj)
 void ArraySlot::Update(ArrayDatum *datum, bool isSelected) {
     if (!datum) {
         FEngSetInvisible(GetFEngObject());
-    } else {
-        FEngSetVisible(GetFEngObject());
-        if (datum->IsGreyedOut() || !datum->IsEnabled()) {
-            if (!FEngIsScriptSet(GetFEngObject(), scripts->GetGreyHash())) {
-                FEngSetScript(GetFEngObject(), scripts->GetGreyHash(), true);
-            }
-        } else {
-            if (isSelected) {
-                if (!FEngIsScriptSet(GetFEngObject(), scripts->GetHighlightHash())) {
-                    FEngSetScript(GetFEngObject(), scripts->GetHighlightHash(), true);
-                }
-            } else {
-                if (FEngIsScriptSet(GetFEngObject(), scripts->GetHighlightHash())) {
-                    FEngSetScript(GetFEngObject(), scripts->GetUnHighlightHash(), true);
-                } else {
-                    if (!FEngIsScriptSet(GetFEngObject(), scripts->GetNormalHash())) {
-                        FEngSetScript(GetFEngObject(), scripts->GetNormalHash(), true);
-                    }
-                }
-            }
+        return;
+    }
+    FEngSetVisible(GetFEngObject());
+    if (datum->IsGreyedOut() || !datum->IsEnabled()) {
+        if (!FEngIsScriptSet(GetFEngObject(), scripts->GetGreyHash())) {
+            FEngSetScript(GetFEngObject(), scripts->GetGreyHash(), true);
         }
+    } else if (isSelected) {
+        if (!FEngIsScriptSet(GetFEngObject(), scripts->GetHighlightHash())) {
+            FEngSetScript(GetFEngObject(), scripts->GetHighlightHash(), true);
+        }
+    } else if (FEngIsScriptSet(GetFEngObject(), scripts->GetHighlightHash())) {
+        FEngSetScript(GetFEngObject(), scripts->GetUnHighlightHash(), true);
+    } else if (!FEngIsScriptSet(GetFEngObject(), scripts->GetNormalHash())) {
+        FEngSetScript(GetFEngObject(), scripts->GetNormalHash(), true);
     }
 }
 

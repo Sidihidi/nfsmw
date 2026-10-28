@@ -180,7 +180,7 @@ CDActionShowcase::CDActionShowcase(CameraAI::Director *director, IPlayer *player
             UVector3 cg = cbody->GetCenterOfGravity();
             body->ConvertLocalToWorld(cg, false);
             VU0_v3add(cg, body->GetPosition(), cg);
-            bSetPosition(mat.v3, cg);
+            eSwizzleWorldVector(*reinterpret_cast<const bVector3 *>(&cg), *reinterpret_cast<bVector3 *>(&mat.v3));
         }
         mAnchor->Update(0.0f, mat, *mTarget.GetVelocity(), *mTarget.GetAcceleration());
     }
@@ -281,7 +281,7 @@ void CDActionShowcase::Update(float dT) {
         cg.x = 0.0f;
         body->ConvertLocalToWorld(cg, false);
         VU0_v3add(cg, body->GetPosition(), cg);
-        bSetPosition(mat.v3, cg);
+        eSwizzleWorldVector(*reinterpret_cast<const bVector3 *>(&cg), *reinterpret_cast<bVector3 *>(&mat.v3));
     }
 
     mAnchor->Update(dT, mat, *mTarget.GetVelocity(), *mTarget.GetAcceleration());

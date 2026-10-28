@@ -217,6 +217,12 @@ void FECodeListBox::Initialize(u32 ulNumVisCols, u32 ulNumVisRows) {
     SetTotalNumColumns(mulNumVisibleColumns);
     SetTotalNumRows(mulNumVisibleRows);
     if (mulFlags & 1) {
+#ifdef EA_PLATFORM_XENON
+        // El minimo del EGM es un ternario (cmplw + mr del nuevo + bgt en
+        // 0x823196A4-0x823196B0, y el de filas en 0x823196B8-0x823196C4).
+        u32 ulNumColumns = ulOldNumVisibleColumns > mulNumVisibleColumns ? mulNumVisibleColumns : ulOldNumVisibleColumns;
+        u32 ulNumRows = ulOldNumVisibleRows > mulNumVisibleRows ? mulNumVisibleRows : ulOldNumVisibleRows;
+#else
         u32 ulNumColumns = ulOldNumVisibleColumns;
         if (ulOldNumVisibleColumns > mulNumVisibleColumns) {
             ulNumColumns = mulNumVisibleColumns;
@@ -225,6 +231,7 @@ void FECodeListBox::Initialize(u32 ulNumVisCols, u32 ulNumVisRows) {
         if (ulOldNumVisibleRows > mulNumVisibleRows) {
             ulNumRows = mulNumVisibleRows;
         }
+#endif
         if (pstOldCells) {
             u32 i;
             u32 j;
@@ -268,13 +275,6 @@ void FECodeListBox::Initialize(u32 ulNumVisCols, u32 ulNumVisRows) {
 
 
 
-
-
-
-
-
-
-
 FEObject *FECodeListBox::Clone(bool bReference) {
     return FNEW FECodeListBox(*this, bReference);
 }
@@ -300,6 +300,11 @@ void FECodeListBox::FillAllCells() {
     i32 lRow = mulCurrentVirtualRow;
     i32 lStartColumn = mulCurrentVirtualColumn;
 
+#ifdef EA_PLATFORM_XENON
+    // Como en Initialize: el minimo es un ternario.
+    u32 ulNumRows = mulNumVisibleRows > mulNumTotalRows ? mulNumTotalRows : mulNumVisibleRows;
+    u32 ulNumColumns = mulNumVisibleColumns > mulNumTotalColumns ? mulNumTotalColumns : mulNumVisibleColumns;
+#else
     u32 ulNumRows = mulNumVisibleRows;
     if (ulNumRows > mulNumTotalRows) {
         ulNumRows = mulNumTotalRows;
@@ -309,6 +314,7 @@ void FECodeListBox::FillAllCells() {
     if (ulNumColumns > mulNumTotalColumns) {
         ulNumColumns = mulNumTotalColumns;
     }
+#endif
 
     if (mpSetCellCallback != nullptr) {
         for (u32 i = 0; i < ulNumRows; i++) {
@@ -332,12 +338,6 @@ void FECodeListBox::FillAllCells() {
         }
     }
 }
-
-
-
-
-
-
 
 
 
@@ -512,10 +512,7 @@ void FECodeListBox::AllocateStrings(u32 ulNumStrings, u32 ulStringSize) {
         }
         mulNumStrings = ulNumStrings;
         mulStringSize = ulStringSize;
-        if (!psOldStrings) {
-            goto cleanup_ptrs;
-        }
-        if (ppsOldStringData) {
+        if (psOldStrings && ppsOldStringData) {
             for (i = 0; i < mulNumVisibleRows; i++) {
                 for (j = 0; j < mulNumVisibleColumns; j++) {
                     FEListBoxCell *pstCell = GetRealCellData(j, i);
@@ -532,7 +529,6 @@ void FECodeListBox::AllocateStrings(u32 ulNumStrings, u32 ulStringSize) {
     if (psOldStrings) {
         delete[] psOldStrings;
     }
-cleanup_ptrs:
     if (ppsOldStringData) {
         delete[] ppsOldStringData;
     }
@@ -1081,8 +1077,16 @@ bool FECodeListBox::ScrollSelection(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ul
                         u32 c = 0;
                         while (c < NumColumns) {
                             u32 Index = r * mulNumVisibleColumns + c;
+                            // En Xenon el incremento va tras la copia: el EGM lo emite
+                            // despues del bl memcpy (addi r30, r30, 1 en 0x8231A854,
+                            // y en los otros tres bucles gemelos).
+#ifndef EA_PLATFORM_XENON
                             c++;
+#endif
                             FEngMemCpy(&mpstCells[Index], &mpstCells[Index + 1], sizeof(FEListBoxCell));
+#ifdef EA_PLATFORM_XENON
+                            c++;
+#endif
                         }
                         mpstCells[r * mulNumVisibleColumns + c].u.string.pStr = psString;
                         mpSetCellCallback(
@@ -1097,8 +1101,13 @@ bool FECodeListBox::ScrollSelection(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ul
                         u32 c = 0;
                         while (c < NumColumns) {
                             u32 Index = r * mulNumVisibleColumns + c;
+#ifndef EA_PLATFORM_XENON
                             c++;
+#endif
                             FEngMemCpy(&mpstCells[Index], &mpstCells[Index + 1], sizeof(FEListBoxCell));
+#ifdef EA_PLATFORM_XENON
+                            c++;
+#endif
                         }
                         mpstCells[r * mulNumVisibleColumns + c].u.string.pStr = psString;
                         mpobRenderer->SetCellData(
@@ -1148,8 +1157,13 @@ bool FECodeListBox::ScrollSelection(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ul
                     u32 r = 0;
                     while (r < NumRows) {
                         u32 Index = r * mulNumVisibleColumns + c;
+#ifndef EA_PLATFORM_XENON
                         r++;
+#endif
                         FEngMemCpy(&mpstCells[Index], &mpstCells[Index + mulNumVisibleColumns], sizeof(FEListBoxCell));
+#ifdef EA_PLATFORM_XENON
+                        r++;
+#endif
                     }
                     mpstCells[r * mulNumVisibleColumns + c].u.string.pStr = psString;
                     mpSetCellCallback(
@@ -1165,8 +1179,13 @@ bool FECodeListBox::ScrollSelection(i32 lNumMove, u32 &ulCurrentVirtual, u32 &ul
                     u32 r = 0;
                     while (r < NumRows) {
                         u32 Index = r * mulNumVisibleColumns + c;
+#ifndef EA_PLATFORM_XENON
                         r++;
+#endif
                         FEngMemCpy(&mpstCells[Index], &mpstCells[Index + mulNumVisibleColumns], sizeof(FEListBoxCell));
+#ifdef EA_PLATFORM_XENON
+                        r++;
+#endif
                     }
                     mpstCells[r * mulNumVisibleColumns + c].u.string.pStr = psString;
                     mpobRenderer->SetCellData(

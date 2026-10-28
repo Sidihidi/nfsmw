@@ -51,8 +51,11 @@
 #include "Speed/Indep/Src/World/VisibleSection.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Ecstasy/EcstasyE.hpp"
+#ifdef EA_PLATFORM_XENON
+#include "Speed/Indep/Src/Debug/Common/DebugDraw.h"
+#endif
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
@@ -105,7 +108,11 @@ const char *LoadingControllerScreenPackageName = "Loading_Controller.fng"; // De
 #ifdef EA_PLATFORM_GAMECUBE
 VMFile *pFrontEndVirtualMemBundle = nullptr;
 #endif
+#ifdef EA_PLATFORM_WIN32
+int CarLoaderPoolSizes[2] = {50000, 1}; // speed.exe 0x8F7EF0
+#else
 int CarLoaderPoolSizes[2] = {3500, 1750}; // Decl: 349
+#endif
 
 int CodeOverlayMemoryPoolNumber = 0; // Decl: 693
 int EnableCodeOverlayDebuggingOnly = 0;
@@ -180,6 +187,19 @@ static bool sFrontEndVaultHigh = false;
 void RenderTrackMarkers(eView *view) {}
 
 Sim::eUserMode CalculateSimMode() {
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x64B020): otra revision, con retornos tempranos y la rama de carrera online como la A124.
+    if (SkipFE) {
+        return SkipFESplitScreen ? Sim::USER_SPLIT_SCREEN : Sim::USER_SINGLE;
+    }
+    if (TheOnlineManager.IsOnlineRace()) {
+        return Sim::USER_ONLINE;
+    }
+    if (FEDatabase->IsSplitScreenMode()) {
+        return Sim::USER_SPLIT_SCREEN;
+    }
+    return Sim::USER_SINGLE;
+#else
     Sim::eUserMode mode = Sim::USER_SINGLE;
     if (SkipFE) {
         if (SkipFESplitScreen) {
@@ -193,6 +213,7 @@ Sim::eUserMode CalculateSimMode() {
         mode = Sim::USER_SPLIT_SCREEN;
     }
     return mode;
+#endif
 }
 
 void GetBuildVersionName(char *build_version_name) {
@@ -366,14 +387,14 @@ void SetLeakDetector() {
 void LeakDetectorFailed() {}
 
 void CheckLeakDetector(const char *debug_name) {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     // GameCube y SLUS lo dejan vacio (en el DWARF de GameCube quedan las locales con rangos vacios).
     int amount_leaked = LeakDetectorFreeMemory - bCountFreeMemory(0);
     int largest_alloc_leak = LeakDetectorLargestAlloc - bLargestMalloc(0);
 
     if (amount_leaked != 0 || largest_alloc_leak != 0) {
-        bReleasePrintf("WARNING:  Memory leak in %s!  %d bytes leaked
-", debug_name, amount_leaked);
+        bReleasePrintf("WARNING:  Memory leak in %s!  %d bytes leaked\n"
+, debug_name, amount_leaked);
         Juice::GameHook::Instance()->GameEvent("MEMORY", "LEAK", "", amount_leaked, 0.0f, debug_name, "", "");
         bMemoryPrintAllocations(0, LeakDetectorAllocationNumber, 0x7FFFFFFF);
         LeakDetectorFailed();
@@ -391,8 +412,8 @@ void CheckLeakDetector(const char *debug_name) {
                     char str[128];
 
                     max_prints--;
-                    bSNPrintf(str, 128, "Memory leak: %d bytes, %s
-", bGetMallocSize(ptr), bGetMallocName(ptr));
+                    bSNPrintf(str, 128, "Memory leak: %d bytes, %s\n"
+, bGetMallocSize(ptr), bGetMallocName(ptr));
                     Juice::GameHook::Instance()->LogText(str);
                     {
                         float duration = 4.0f;
@@ -519,6 +540,49 @@ void RegionLoader::BeginLoading() {
     LoadHandler();
 }
 
+#ifdef EA_BUILD_A124 // la A124 mete el sufijo de la hora antes del punto copiando letra a letra
+void GetTODFilename(eTimeOfDay tod, const char *filename_in, char *filename_out, int bufsize_out) {
+    int len_in = bStrLen(filename_in);
+    bool done = false;
+    int out_ix = 0;
+    int in_ix = 0;
+    bool inserting_suffix = false;
+    const char *tod_suffix = GetTimeOfDaySuffix(tod);
+    int len_suf = bStrLen(tod_suffix);
+    int suf_ix = 0;
+
+    if (len_suf == 0) {
+        bStrCpy(filename_out, filename_in);
+        return;
+    }
+
+    while (!done) {
+        if (out_ix < bufsize_out) {
+            if (filename_in[in_ix] == '.') {
+                filename_out[out_ix++] = tod_suffix[suf_ix++];
+                in_ix++;
+                inserting_suffix = true;
+            } else if (inserting_suffix) {
+                filename_out[out_ix++] = tod_suffix[suf_ix++];
+                if (suf_ix == len_suf) {
+                    filename_out[out_ix] = '.';
+                    inserting_suffix = false;
+                    out_ix++;
+                }
+            } else {
+                filename_out[out_ix++] = filename_in[in_ix++];
+            }
+            if (in_ix >= len_in) {
+                filename_out[out_ix++] = 0;
+                done = true;
+            }
+        } else {
+            filename_out[out_ix++] = 0;
+            done = true;
+        }
+    }
+}
+#else
 void GetTODFilename(eTimeOfDay tod, const char *filename_in, char *filename_out, int bufsize_out) {
     bStrCpy(filename_out, filename_in);
     if (NeedsSeperateTODStreamingFile(bGetPlatformName())) {
@@ -527,6 +591,7 @@ void GetTODFilename(eTimeOfDay tod, const char *filename_in, char *filename_out,
         bSPrintf(extension_out, "%s%s", GetTimeOfDaySuffix(tod), extension_in);
     }
 }
+#endif
 
 // c34ord3 m8: cuerpo del LoadHandler estatico, que el original tiene aqui y no
 // en la clase (debug_lines: GameFlow.cpp:1978). Es POSICION, no optimizacion.
@@ -589,7 +654,14 @@ void RegionLoader::LoadHandler() {
         LoadPrecullerBooBooScripts();
         LoadAemsInGame(&RegionLoader::LoadHandler, reinterpret_cast<intptr_t>(this));
     } else if (Phase == 4) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        // PC loads the sky in NotifySkyLoader (InitSkyHash() without a callback): this phase only moves on. speed.exe
+        // 0x666B6C jumps back to the top of LoadHandler (the tail call made a loop) without calling anything.
+        // X360 igual: su fase 4 es la llamada recursiva (bl a si misma), sin InitSkyHash.
+        LoadHandler();
+#else
         InitSkyHash(&RegionLoader::LoadHandler, reinterpret_cast<intptr_t>(this));
+#endif
     } else if (Phase == 5) {
         TheGameFlowManager.ClearWaitingForCallback();
         FinishedLoading();
@@ -617,6 +689,9 @@ void RegionLoader::Unload() {
     gEmitterSystem.KillEverything();
 
     WWorld::Get().Close();
+#ifdef EA_PLATFORM_XENON
+    DebugDraw::Get().DeAllocLists();
+#endif
 
     while (g_pEAXSound->AreResourceLoadsPending()) {
         g_pEAXSound->Update(0.1f);
@@ -624,7 +699,10 @@ void RegionLoader::Unload() {
     }
 
     UnloadAemsInGame();
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+    // El Unload de speed.exe (0x664250) y el del XEX no la llaman: su cielo se descarga por plataforma.
     UnloadSkyTextures();
+#endif
     eUnloadAllStreamingTextures(HudDragTexturePackFilename);
     eUnloadAllStreamingTextures(HudSingleRaceTexturePackFilename);
     eUnloadAllStreamingTextures(HudSplitScreenTexturePackFilename);
@@ -655,9 +733,18 @@ void RegionLoader::Unload() {
 
     TrackInfo::SetLoadedTrackInfo(0);
     TheSlotPoolManager.CleanupExpandedSlotPools();
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
+    // speed.exe no trae el sistema de code overlays: no hay CodeOverlay* en el exe. En el
+    // EGM tampoco: tras CleanupExpandedSlotPools va directo a RemoveUnusedHandle (0x823E68xx).
     CodeOverlayUnloadingGame();
+#endif
     bFileFlushCachedFiles();
+#ifdef EA_PLATFORM_WIN32
+    // La cola del Unload de speed.exe llama al detector de plataforma, no al de GameFlow.
+    CheckedLeakDetector();
+#else
     CheckLeakDetector("Region");
+#endif
 
     static int dummy = 1;
     dummy++;
@@ -870,7 +957,10 @@ void BeginWorldLoad() {
         activity = "CareerGame";
     }
     Sim::Init(activity, mode);
+#ifndef EA_PLATFORM_PLAYSTATION2
+    // Las dos PS2 no tienen SimpleModelAnim::Reset (ni la funcion ni la llamada).
     SimpleModelAnim::Reset();
+#endif
     OpenVisualTreatment();
     IVisualTreatment::Get()->SetState(IVisualTreatment::HEAT_LOOK);
     TheGameFlowManager.SetSingleFunction(WaitForSimulation, "WaitForSimulation");
@@ -1070,7 +1160,10 @@ void GameFlowManager::UnloadTrack() {
 void GameFlowManager::CheckForDemoDiscTimeout() {}
 
 bool GameFlowManager::IsPaused() {
-    return TheOnlineManager.IsOnlineRace() ? false : Sim::GetState() == Sim::STATE_IDLE;
+    if (TheOnlineManager.IsOnlineRace()) {
+        return false;
+    }
+    return Sim::GetState() == Sim::STATE_IDLE;
 }
 
 #ifdef EA_PLATFORM_GAMECUBE
@@ -1258,7 +1351,7 @@ void GameFlowLoadingFrontEndPart1(int) {
 
 void BeginGameFlowLoadingFrontEnd() {
     TheGameFlowManager.SetState(GAMEFLOW_STATE_LOADING_FRONTEND);
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON)
     bReleasePrintf("Loading front end...\n");
 #endif
     TheRaceParameters.InitWithDefaults();

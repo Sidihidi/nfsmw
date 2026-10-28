@@ -18,7 +18,12 @@ static const float NIS_ENG_RESUME = 500.0f;
 extern int GetCsisEventIndex(unsigned int anim_id);
 extern uintptr_t uNIS_STRINGHASHMAP[][3];
 
+#if !defined(EA_PLATFORM_PLAYSTATION2) && !defined(EA_PLATFORM_GAMECUBE)
 NIS_RevManager *g_pNISRevMgr = nullptr;
+#endif
+// gcdatos20: en PS2/GC el trio CarIdPrint y g_pNISRevMgr se definen tras
+// RevPat12 (abajo), que es su sitio en los objetivos; aqui solo queda la
+// definicion de PC/X360, en su posicion de siempre.
 
 EngRevDataPoint RevPat5[] = {
     EngRevDataPoint(0.0f, 1000, 0),
@@ -336,6 +341,24 @@ EngRevDataPoint RevPat12[] = {
     EngRevDataPoint(8.700001f, 4210, 0)
 };
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos14: en la A124, entre RevPat12 y g_pNISRevMgr (0x5e42f8-0x5e4300,
+// PS2_globals.hpp:1052-1054), con los valores de su .data objetivo.
+// gcdatos19: no es solo-A124: la secuencia 1.5f/1.0f/0xFFFFFFFF esta en el
+// mismo hueco delante de g_pNISRevMgr en SLUS (zEAXSound .data +0x2e68,
+// g_pNISRevMgr en +0x2e74) y en GC (+0x358 tras SFXCTL_Engine::s_TypeInfo,
+// g_pNISRevMgr en +0x364); el DWARF de GC los declara. PC/X360 sin definir,
+// como hasta ahora.
+// gcdatos20: la definicion baja a este punto, tras RevPat12: estaba arriba,
+// delante de RevPat5, y en PS2 el trio salia ~0xDD0 B antes de su sitio (en
+// GC los RevPat van en .bss y el .data no cambia). g_pNISRevMgr baja con el
+// trio en PS2/GC; los RevPat conservan su orden relativo de ctors.
+float CarIdPrintHeight = 1.5f;
+float CarIdPrintWidth = 1.0f;
+unsigned int CarIdPrintColor = 0xFFFFFFFF;
+NIS_RevManager *g_pNISRevMgr = nullptr;
+#endif
+
 PF_Allocator gPF_MemoryAllocator;
 
 void *NIS_RevManager::operator new(unsigned int size, const char *debug_name) {
@@ -459,14 +482,13 @@ void SFXCTL_Physics::UpdateNIS(float TotalTime, float deltaTime) {
     case NIS_MERGE_WITH_PHYSICS:
         this->NISTRQ = this->m_pEAXCar->GetPhysRPM() < this->PhysicsRPM ? 100.0f : 0.0f;
         this->NISRPM = smooth(this->m_pEAXCar->GetPhysRPM(), this->PhysicsRPM, NIS_ENG_RESUME);
-        goto ClampAndStore;
+        break;
     default:
         this->NISRPM = this->NISRPM - NIS_ENG_RESUME;
         this->NISTRQ = this->NISTRQ - 15.0f;
-        goto ClampAndStore;
+        break;
     }
 
-ClampAndStore:
     this->NISRPM = bClamp(this->NISRPM, 1000.0f, 10000.0f);
     this->NISTRQ = bClamp(this->NISTRQ, 0.0f, 100.0f);
 

@@ -168,10 +168,8 @@ void FEToggleWidget::CheckMouse(const char *parent_pkg, const float mouse_x, con
 
 void FEToggleWidget::Position() {
     FEStatWidget::Position();
-    float left_width, left_height;
-    FEngGetSize(reinterpret_cast<FEObject *>(GetLeftImage()), left_width, left_height);
-    float right_width, right_height;
-    FEngGetSize(reinterpret_cast<FEObject *>(GetRightImage()), right_width, right_height);
+    float left_img_width = FEngGetSizeX(reinterpret_cast<FEObject *>(GetLeftImage()));
+    float right_img_width = FEngGetSizeX(reinterpret_cast<FEObject *>(GetRightImage()));
     FEngSetCenter(reinterpret_cast<FEObject *>(GetLeftImage()), GetDataPosX(), GetDataPosY() + GetMaxTitleHeight() * 0.5f);
     FEngSetCenter(reinterpret_cast<FEObject *>(GetRightImage()), GetDataPosX() + GetMaxDataWidth(), GetDataPosY() + GetMaxTitleHeight() * 0.5f);
 }
@@ -734,8 +732,8 @@ bool CTextScroller::PreAllocate(int BytesToAllocate) {
 
 void CTextScroller::Initialise(MenuScreen *pOwner, int ViewWidth, int ViewLines, char *pTextDisplayNameTempl, FEngFont *pFont) {
     m_pOwner = pOwner;
-    m_ViewWidth = ViewWidth;
     m_ViewVisibleLines = ViewLines;
+    m_ViewWidth = ViewWidth;
     bStrNCpy(m_TextBoxNameTemplate, pTextDisplayNameTempl, 31);
     m_pFont = pFont;
 }

@@ -22,7 +22,9 @@ struct bFunkPacketHeader {
     int16 ReturnCode;           // offset 0x18, size 0x2
     int16 MaxReturnSize;        // offset 0x1A, size 0x2
 
-    int GetType() const {}
+    int GetType() const {
+        return Type;
+    }
 
     int GetTotalSize() const {
         return TotalSize;

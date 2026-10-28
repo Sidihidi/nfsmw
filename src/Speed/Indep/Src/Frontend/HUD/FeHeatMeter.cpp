@@ -4,7 +4,7 @@
 #include "Speed/Indep/Src/FEng/FEString.h"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterfaceFEObjects.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 
@@ -124,7 +124,7 @@ void HeatMeter::SetVehicleHeat(float heat) {
     }
     mHeatChanged = true;
     mVehicleHeat = heat;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     JuiceStatsDB::Instance()->SetHeat(static_cast<int>(heat));
 #endif
 }

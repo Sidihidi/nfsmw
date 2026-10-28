@@ -127,6 +127,12 @@ class RegionLoader {
     static void LoadHandler(intptr_t object);
 
   private:
+#ifdef EA_PLATFORM_WIN32
+    // En speed.exe la clase mide 0x18 (TheRegionLoader 0x8F8334 y TheTrackLoader 0x8F834C van seguidos) y Phase
+    // va en +4: LoadHandler (0x666AA0) lo lee de [esi+4] y Unload (0x664250) pone los ResourceFile en
+    // +8/+0xC/+0x10/+0x14. Delante hay una palabra que ningun metodo del exe toca.
+    int win32_unknown_0x0; // offset 0x0, size 0x4
+#endif
     int Phase;                                // offset 0x0, size 0x4
     ResourceFile *pResourceInGameA;           // offset 0x4, size 0x4
     ResourceFile *pResourceInGameB;           // offset 0x8, size 0x4
@@ -155,6 +161,10 @@ class TrackLoader {
     void CloseTopologyAndSceneryGroups();
 
   private:
+#ifdef EA_PLATFORM_WIN32
+    // Como RegionLoader: en speed.exe el Phase de TrackLoader va en +4 (LoadHandler 0x666D00 lo lee de [esi+4]).
+    int win32_unknown_0x0; // offset 0x0, size 0x4
+#endif
     int Phase; // offset 0x0, size 0x4
 };
 

@@ -134,7 +134,7 @@ class PVehicle : public PhysicsObject,
 
     // total size: 0x18
     struct ManageNode {
-        ManageNode() : result(VCR_DONTCARE), instancecount(0) {}
+        ManageNode() : vehicle(nullptr), result(VCR_DONTCARE), instancecount(0) {}
 
         static bool sort_remove_resources(const ManageNode &lhs, const ManageNode &rhs) {
             if (rhs.resource.Type != lhs.resource.Type) {

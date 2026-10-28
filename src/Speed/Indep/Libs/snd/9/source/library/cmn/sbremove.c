@@ -11,6 +11,8 @@ int SNDbankremove(int bhandle) {
     int moretags;
     int i;
 
+    SNDI_CHECKINSTALLED();
+
     if (bhandle == -1) {
         for (i = 0; i < sndgs.sso.set.maxbanks; i++) {
             SNDbankremove(i);

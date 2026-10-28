@@ -160,6 +160,14 @@ enum SPEECH_MODE {
     NUM_SPEECH_MODES = 4,
 };
 
+// gcdatos13: entre SPEECH_MODE y SpeechModuleIndex en los stabs de la A124
+// (PS2_types.nothpp:3263) y el DWARF de GC.
+enum SPEECH_CHANNEL {
+    GAME_CHANNEL = 0,
+    FRONTEND_CHANNEL = 1,
+    NISSFX_CHANNEL = 2,
+};
+
 enum SpeechModuleIndex {
     NISSFX_MODULE = 0,
     COPSPEECH_MODULE = 1,

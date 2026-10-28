@@ -266,7 +266,7 @@ bool FEManager::ShouldPauseSimulation(bool useControllerErrors) {
         !UTL::Collections::Singleton<INIS>::Get() && !gMoviePlayer) {
         return true;
     }
-    return mPauseRequest != 0;
+    return mPauseRequest;
 }
 
 void FEManager::RequestPauseSimulation(const char *reason) {
@@ -359,9 +359,15 @@ void FEManager::StopFE() {
 }
 
 void FEManager::Render() {
+#ifdef EA_PLATFORM_XENON
+    // Xenon: sin la comprobacion de DrawFEng (EGM 0x8229EE50, 0x10 B, con el menu de depuracion escribiendo DrawFEng
+    // en 0x822AE208); la hacen los llamantes del render de Xenon (0x82302DB0 y 0x82476208).
+    cFEng::Get()->DrawForeground();
+#else
     if (DrawFEng) {
         cFEng::Get()->DrawForeground();
     }
+#endif
 }
 
 // STRIPPED
@@ -551,4 +557,18 @@ void FEManager::SetEATraxSecondButton() {
     }
 }
 
+#ifdef EA_BUILD_A124
+void FEManager::ExitOnlineGameplayBasedOnConnection() {
+    if (NetworkCore::Instance().IsInitialized()) {
+        if (FEDatabase->IsLANMode()) {
+            FEDatabase->SetGameMode(eFE_GAME_MODE_LAN);
+        }
+        FEDatabase->SetGameMode(eFE_GAME_MODE_ONLINE);
+        FEManager::Get()->SetFirstScreen(g_GameRoomName, 0, 0);
+    } else {
+        FEManager::Get()->SetFirstScreen("MainMenu.fng", 0, 0);
+    }
+}
+#else
 void FEManager::ExitOnlineGameplayBasedOnConnection() {}
+#endif

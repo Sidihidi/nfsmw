@@ -37,7 +37,7 @@ Showcase::Showcase(ScreenConstructorData *sd) : MenuScreen(sd), RivalStreamer(sd
             CarViewer::SetRideInfo(&ride, SET_RIDE_INFO_REASON_LOAD_CAR, eCARVIEWER_PLAYER1_CAR);
         }
 #endif
-        if (BlackListNumber != 0) {
+        if (BlackListNumber > 0) {
 #ifdef EA_BUILD_A124
             char buf[32];
             FEngSNPrintf(buf, 0x20, "%s %d", GetLocalizedString(0xcace5999), BlackListNumber);
@@ -104,7 +104,7 @@ void Showcase::NotificationMessage(u32 msg, FEObject *pObj, u32 param1, u32 para
         }
 #endif
         cFEng::Get()->QueuePackageSwitch(FromPackage, FromArgs, 0, false);
-        if (BlackListNumber != 0) {
+        if (BlackListNumber > 0) {
             car->Handle = INVALID_CAR_HANDLE;
 #ifndef EA_BUILD_A124
             GarageMainScreen::GetInstance()->DisableCarRendering();

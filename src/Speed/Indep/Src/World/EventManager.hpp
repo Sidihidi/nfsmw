@@ -126,6 +126,10 @@ class emEvent : public bTNode<emEvent> {
 typedef void (*EVENT_HANDLER_FUNC)(emEvent *);
 
 void emEventManagerInit();
+void emEventManagerClose();
+void emRemoveEvent(emEvent *event);
+void emLockEvent(emEvent *event);
+void emUnlockEvent(emEvent *event);
 void emProcessAllEvents();
 emEvent **emTriggerEventsInSection(bVector3 *position, int section_number);
 int emAddHandler(EVENT_HANDLER_FUNC function, unsigned int stream_mask);

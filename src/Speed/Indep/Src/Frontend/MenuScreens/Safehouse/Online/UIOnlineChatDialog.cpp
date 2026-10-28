@@ -36,7 +36,11 @@ class UIOnlineChatDialog : public MenuScreen {
     }
     void _SendBuddyMessage(const char *message);
     void SendBuddyMessage(const char *message) {
+#ifdef EA_PLATFORM_PLAYSTATION2
         DoWithMainMemoryStack((void *)_DoWithStackBuddyMessage, (int)this, (int)message);
+#else
+        _SendBuddyMessage(message);
+#endif
     }
     void SendBuddyMessageCB(int op, int status);
     void ReadBuddyMessage();
@@ -116,7 +120,9 @@ UIOnlineChatDialog::UIOnlineChatDialog(ScreenConstructorData *sd)
         FEngBeginTextInput(FEngHashString("Message_body"), 0, "", GetLocalizedString(0x9a2e5f7b), 116);
     }
 
+#ifdef EA_BUILD_A124
     FEngPrintf(GetPackageName(), "Header", GetLocalizedString(0x53f9fd5c));
+#endif
 
     for (int i = 0; i < 256; i++) {
         m_ASCIIToUTF8Table.uCodeTbl[i] = i;
@@ -426,7 +432,7 @@ void UIOnlineChatDialog::Display() {
 
         m_pChatBody->Flags |= 0x400802;
 
-        if (m_Lines < 13) {
+        if (m_Lines <= 12) {
             m_ScrollBar.SetBackingVisibility(false);
         } else {
             m_ScrollBar.SetBackingVisibility(true);

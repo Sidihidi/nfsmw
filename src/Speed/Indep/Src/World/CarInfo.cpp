@@ -1295,6 +1295,7 @@ void RideInfo::SetRandomParts() {
     }
 }
 
+#ifdef EA_BUILD_A124
 void RideInfo::SetRandomPart(CAR_SLOT_ID slot, int upgrade_level) {
     int num_parts = CarPartDB.NewGetNumCarParts(this->Type, slot, 0, upgrade_level);
     CarPart *part = nullptr;
@@ -1311,10 +1312,52 @@ void RideInfo::SetRandomPart(CAR_SLOT_ID slot, int upgrade_level) {
         if (part != nullptr) {
             bool part_missing;
 
-            if (slot != CARSLOTID_VINYL_LAYER0 ||
-                (part->GetGroupNumber() != 8 && (part->GetBrandNameHash() != bStringHash("CEO") || GetIsCollectorsEdition() != 0))) {
-                if (slot != CARSLOTID_BASE_PAINT || this->mMyCarRenderUsage != CarRenderUsage_AIRacer ||
-                    part->GetBrandNameHash() != STRINGHASH_PEARL) {
+            if (!(slot == CARSLOTID_VINYL_LAYER0 && part->GetGroupNumber() == 8)) {
+                part_missing = false;
+
+                for (int n = 0; n < NUM_ELEMENTS(MissingCarPartTable); n++) {
+                    MissingCarPart *missing_part = &MissingCarPartTable[n];
+
+                    if (missing_part->Type == this->Type && missing_part->Slot == slot && missing_part->PartNameHash == part->GetPartNameHash()) {
+                        part_missing = true;
+                        break;
+                    }
+                }
+
+                if (!part_missing) {
+                    foundModel = true;
+                    this->SetPart(slot, part, true);
+                }
+            }
+        }
+
+        if (foundModel) {
+            break;
+        }
+        attempt++;
+    } while (attempt < 16);
+}
+#else
+void RideInfo::SetRandomPart(CAR_SLOT_ID slot, int upgrade_level) {
+    int num_parts = CarPartDB.NewGetNumCarParts(this->Type, slot, 0, upgrade_level);
+    CarPart *part = nullptr;
+    bool foundModel = false;
+    int attempt = 1;
+
+    do {
+        int part_number = bRandom(num_parts) + 1;
+
+        for (int i = 0; i < part_number; i++) {
+            part = CarPartDB.NewGetNextCarPart(part, this->Type, slot, 0, upgrade_level);
+        }
+
+        if (part != nullptr) {
+            bool part_missing;
+
+            if (!(slot == CARSLOTID_VINYL_LAYER0 &&
+                  (part->GetGroupNumber() == 8 || (part->GetBrandNameHash() == bStringHash("CEO") && GetIsCollectorsEdition() == 0)))) {
+                if (!(slot == CARSLOTID_BASE_PAINT && this->mMyCarRenderUsage == CarRenderUsage_AIRacer &&
+                      part->GetBrandNameHash() == STRINGHASH_PEARL)) {
                     part_missing = false;
 
                     for (int n = 0; n < NUM_ELEMENTS(MissingCarPartTable); n++) {
@@ -1334,11 +1377,13 @@ void RideInfo::SetRandomPart(CAR_SLOT_ID slot, int upgrade_level) {
             }
         }
 
-        if (!foundModel) {
-            attempt++;
+        if (foundModel) {
+            break;
         }
-    } while (!foundModel && attempt < 16);
+        attempt++;
+    } while (attempt < 16);
 }
+#endif
 
 void RideInfo::SetRandomPaint() {
     int num_paints = CarPartDB.NewGetNumCarParts(this->Type, CARSLOTID_BASE_PAINT, 0, -1);
@@ -1589,7 +1634,13 @@ void RideInfo::DumpForPreset(FECarRecord *car) {
     }
 }
 
-bTList<PresetCar> PresetCarList;
+// gcdatos21: la definicion va tras NumRandomPartUpgrades (PS2_globals:5959 y
+// el .data objetivo de las dos PS2: [RandomPartUpgrades]
+// [NumRandomPartUpgrades][DecalsWeCareAbout][PresetCarList]
+// [CarMemoryInfoTable]; en la SLUS PresetCarList esta en +0x2214, justo tras
+// los 64 B de la tabla de decals en +0x21d4). Entre este punto y aquel no hay
+// ningun otro objeto con ctor en el fichero: el orden de ctors no cambia.
+extern bTList<PresetCar> PresetCarList;
 
 int LoaderFEPresetCars(bChunk *chunk) {
     if (chunk->GetID() == BCHUNK_FE_CAR_PRESETS) {
@@ -1679,9 +1730,25 @@ void RideInfo::FillWithPreset(unsigned int preset_name_hash) {
 // STRIPPED
 char *GetDriverTypeName(DriverTypeEnum driver_type) {}
 
-// STRIPPED
 DriverInfo::DriverInfo(int unique_driver_number, DriverTypeEnum driver_type, RideInfo *ride_info, const char *character_name, int skill_level,
-                       int personality_type, int starting_position) {}
+                       int personality_type, int starting_position) {
+    this->UniqueDriverNumber = unique_driver_number;
+    this->StartingPosition = starting_position;
+    this->DriverType = driver_type;
+    this->SkillLevel = skill_level;
+    this->PersonalityType = personality_type;
+    this->nEliminatedRank = 0;
+    this->bOnlineDriver = 0;
+    this->ReputationStars = 0.0f;
+    this->CurrentRideInfo = *ride_info;
+    this->DesiredCarType = this->CurrentRideInfo.Type;
+    bStrNCpy(this->DriverName, character_name, 16);
+    this->UseStartCoordinate = false;
+    this->StartCoordinate.x = 0.0f;
+    this->StartCoordinate.y = 0.0f;
+    this->StartCoordinate.z = 0.0f;
+    this->StartAngle = 0;
+}
 
 // STRIPPED
 void DriverInfo::DoSnapshot(ReplaySnapshot *snapshot) {}
@@ -1998,9 +2065,117 @@ int CarInfo_GetMaxCompositingBufferSize() {
 #endif
 }
 
-// RandomCarPartUpgrade RandomPartUpgrades[12]; // TODO
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos14: el tipo y la tabla de las dos PS2 (A124 0x6478b8, PS2_globals.hpp:5957; SLUS en
+// el mismo sitio), delante de NumRandomPartUpgrades. El tipo es el de los stabs (0x18:
+// CAR_SLOT_ID UpgradePartID, int UpgradeLevel, char UpgradeProbability[4][4]) y los valores
+// son los de su .data objetivo; la tercera fila de probabilidades de BASE_PAINT y PAINT_RIM
+// solo la trae la A124 (en SLUS va a 0).
+struct RandomCarPartUpgrade {
+    CAR_SLOT_ID UpgradePartID;
+    int UpgradeLevel;
+    char UpgradeProbability[4][4];
+};
+
+RandomCarPartUpgrade RandomPartUpgrades[12] = {
+    {CARSLOTID_HOOD, -1,
+     {
+         {60, 40, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_ROOF, -1,
+     {
+         {60, 40, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_SPOILER, -1,
+     {
+         {60, 40, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_FRONT_WHEEL, -1,
+     {
+         {60, 40, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_WINDOW_TINT, -1,
+     {
+         {50, 50, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_BRAKELIGHT, -1,
+     {
+         {50, 50, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_HEADLIGHT, -1,
+     {
+         {50, 50, 0, 0},
+         {20, 70, 10, 0},
+         {0, 20, 70, 10},
+         {0, 0, 20, 80},
+     }},
+    {CARSLOTID_VINYL_LAYER0, -1,
+     {
+         {80, 20, 0, 0},
+         {60, 30, 10, 0},
+         {50, 30, 10, 10},
+         {40, 20, 20, 20},
+     }},
+    {CARSLOTID_DECAL_FRONT_WINDOW_TEX0, -1,
+     {
+         {70, 30, 0, 0},
+         {40, 50, 10, 0},
+         {20, 40, 30, 10},
+         {10, 30, 30, 30},
+     }},
+    {CARSLOTID_DECAL_REAR_WINDOW_TEX0, -1,
+     {
+         {70, 30, 0, 0},
+         {40, 50, 10, 0},
+         {20, 40, 30, 10},
+         {10, 30, 30, 30},
+     }},
+    {CARSLOTID_BASE_PAINT, -1,
+     {
+         {70, 30, 0, 0},
+         {50, 50, 0, 0},
+#ifdef EA_BUILD_A124
+         {40, 40, 20, 0},
+#else
+         {0, 0, 0, 0},
+#endif
+         {30, 30, 40, 0},
+     }},
+    {CARSLOTID_PAINT_RIM, -1,
+     {
+         {70, 30, 0, 0},
+         {50, 50, 0, 0},
+#ifdef EA_BUILD_A124
+         {40, 40, 20, 0},
+#else
+         {0, 0, 0, 0},
+#endif
+         {30, 30, 40, 0},
+     }},
+};
+#endif
 
 int NumRandomPartUpgrades = 12;
+
+bTList<PresetCar> PresetCarList;
 
 struct CarMemoryInfo {
     char *CarMemType; // offset 0x0, size 0x4

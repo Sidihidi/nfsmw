@@ -28,13 +28,15 @@ void SNDI_patchtohdr(void *pbank /* r23 */, struct TAGGEDPATCH *ptp /* r30 */, s
 #else
     int playloc = 0x200;
 #endif
+#ifndef EA_PLATFORM_WIN32 // speed.exe 0x821C7C: PC no tiene memoria de audio aparte (el tag 0x8A no hace nada)
     int *paudioramaddr = NULL;
+#endif
     int i;
     unsigned char *tempID;
 
-    memset(pssf, 0, sizeof(SNDSAMPLEFORMAT));
-    memset(pssa, 0, sizeof(SNDSAMPLEATTR));
-    memset(pssd, 0, sizeof(SNDSAMPLEDESC));
+    SNDI_memclear(pssf, sizeof(SNDSAMPLEFORMAT));
+    SNDI_memclear(pssa, sizeof(SNDSAMPLEATTR));
+    SNDI_memclear(pssd, sizeof(SNDSAMPLEDESC));
 
     tempID = (unsigned char *)ptp;
 
@@ -120,7 +122,9 @@ void SNDI_patchtohdr(void *pbank /* r23 */, struct TAGGEDPATCH *ptp /* r30 */, s
         } else if (sti.tag == 0x85) {
             pssd->totalframes = sti.size;
         } else if (sti.tag == 0x8A) {
+#ifndef EA_PLATFORM_WIN32
             paudioramaddr = (int *)sti.pdata;
+#endif
         } else if (sti.tag == 0x13) {
             pssa->fxlevel0 = sti.size;
         } else if (sti.tag == 0x0A) {
@@ -161,6 +165,7 @@ void SNDI_patchtohdr(void *pbank /* r23 */, struct TAGGEDPATCH *ptp /* r30 */, s
             pssd->psamples[i] = (void *)((sndptrint)pbank + (sndptrint)pssd->psamples[i]);
         }
 
+#ifndef EA_PLATFORM_WIN32
         if ((pssa->rendermode & 0x308) && paudioramaddr) {
             if (i == 0) {
                 pssd->psamples[i] = (void *)*paudioramaddr;
@@ -168,5 +173,6 @@ void SNDI_patchtohdr(void *pbank /* r23 */, struct TAGGEDPATCH *ptp /* r30 */, s
                 pssd->psamples[i] = (void *)(*paudioramaddr + ((sndptrint)pssd->psamples[i] - (sndptrint)pssd->psamples[0]));
             }
         }
+#endif
     }
 }

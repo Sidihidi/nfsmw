@@ -89,7 +89,7 @@ void uiRepSheetBounty::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u
     switch (msg) {
         case 0xc407210: {
             BountyDatum *d = static_cast<BountyDatum *>(GetCurrentDatum());
-            if (GetNumDatum() < 1) {
+            if (GetNumDatum() <= 0) {
                 return;
             }
             if (d->IsLocked()) {

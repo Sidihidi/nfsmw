@@ -320,4 +320,11 @@ inline unsigned int ExactMatch_NumBytes(int numSentences) {
     (rule).parmIndex = (ruleData)[(index) * 3 + 1];                                                 \
     (rule).parmType = (ParmType)(ruleData)[(index) * 3 + 2]
 
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+// Xbox 360 milestone: la spch de Xenon avisa de los errores por esta funcion de impresion variadica
+// (EGM 0x82667ED0: guarda r4-r10, vsprintf a un bufer de pila y lo saca por los callbacks de 0x82A82A30).
+// Sin nombre en ningun binario con simbolos (la spch de la A124 ni la tiene): nombre neutro.
+void XenonUnknown82667ED0(const char *fmt, ...);
+#endif
+
 #endif

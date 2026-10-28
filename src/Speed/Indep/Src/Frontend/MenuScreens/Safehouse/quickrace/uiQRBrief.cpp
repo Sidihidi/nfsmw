@@ -207,16 +207,8 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
         case 0xc98356ba: {
             if (randomCount < 1)
                 return;
-            SelectableCar *next_car = reinterpret_cast<bTNode<SelectableCar> *>(pSelectedCar)->GetNext();
-            if (next_car == static_cast<SelectableCar *>(FilteredCarsList.EndOfList())) {
-                next_car = FilteredCarsList.GetHead();
-            }
-            pSelectedCar = next_car;
-            SelectableTrack *next_track = reinterpret_cast<bTNode<SelectableTrack> *>(pSelectedTrack)->GetNext();
-            if (next_track == static_cast<SelectableTrack *>(FilteredTracksList.EndOfList())) {
-                next_track = FilteredTracksList.GetHead();
-            }
-            pSelectedTrack = next_track;
+            pSelectedCar = FilteredCarsList.GetNextCircular(pSelectedCar);
+            pSelectedTrack = FilteredTracksList.GetNextCircular(pSelectedTrack);
             FEDatabase->GetRandomRaceOptions(&raceSettings, pSelectedTrack->pRaceParams->GetRaceType());
             RefreshHeader();
             randomCount--;
@@ -229,6 +221,13 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             int unlocked_at = fe_attrib.UnlockedAt();
             if (unlocked_at < FEDatabase->GetUserProfile(0)->GetCareer()->GetCurrentBin()) {
                 FEngSetScript(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xfe8fdbf7, FEHASH_APPEAR, true);
+#ifdef EA_BUILD_A124 // el prototipo compone "%d, %s" en un segundo bufer y lo pasa como unico argumento
+                char buf[128];
+                char rival_name_locdb[128];
+                FEngSNPrintf(buf, 128, "blacklist_rival_%02d_aka", unlocked_at);
+                bSNPrintf(rival_name_locdb, 128, "%d, %s", unlocked_at, GetLocalizedString(FEHashUpper(buf)));
+                FEPrintf(reinterpret_cast<MenuScreen *>(this)->GetPackageName(), 0xfe8fdbf7, GetLocalizedString(0x4ef2a115), rival_name_locdb);
+#else
                 char buf[128];
 #ifdef EA_PLATFORM_PLAYSTATION2
                 int req_bin = unlocked_at;
@@ -241,6 +240,7 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
                 unsigned int bin_hash = FEHashUpper(buf);
                 const char *bin_name = GetLocalizedString(bin_hash);
                 FEPrintf(pkg, 0xfe8fdbf7, locked_str, bin_name, req_bin);
+#endif
             }
             RideInfo ride;
             stable->BuildRideForPlayer(pSelectedCar->mHandle, 0, &ride);
@@ -254,6 +254,16 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             break;
         }
         case 0xe1fde1d1: {
+#ifdef EA_BUILD_A124 // el prototipo selecciona el coche real sin el registro comodin
+            RaceSettings *qr_settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
+            qr_settings->SelectedCar[0] = pSelectedCar->mHandle;
+            GRaceCustom *race = GRaceDatabase::Get().AllocCustomRace(pSelectedTrack->pRaceParams);
+            FEDatabase->FillCustomRace(race, &raceSettings);
+            GRaceDatabase::Get().SetStartupRace(race, GRace::kRaceContext_QuickRace);
+            GRaceDatabase::Get().FreeCustomRace(race);
+            RaceStarter::StartRace();
+            break;
+#else
             RaceSettings *qr_settings = FEDatabase->GetQuickRaceSettings(static_cast<GRace::Type>(0xb));
             qr_settings->SelectedCar[0] = 0x12345678;
             FEPlayerCarDB *stable = FEDatabase->GetPlayerCarStable(0);
@@ -274,6 +284,7 @@ void UIQRBrief::NotificationMessage(u32 msg, FEObject *pobj, u32 param1, u32 par
             GRaceDatabase::Get().FreeCustomRace(custom);
             RaceStarter::StartRace();
             break;
+#endif
         }
         case 0xc519bfc4:
             pSelectedCar = GetRandomCar();

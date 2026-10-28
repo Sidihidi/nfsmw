@@ -176,7 +176,13 @@ Vault::Vault(ExportManager &mgr, unsigned int, void *data, std::size_t bytes, IG
     }
     {
         const char *str = mStrings->Data();
+#ifdef EA_PLATFORM_XENON
+        // El EGM calcula el final desde Data(): add r10, mSize, r7 y addi r9, r10, -8
+        // en 0x8215D750-0x8215D758.
+        const char *end = mStrings->Data() + mStrings->mSize - sizeof(ChunkBlock);
+#else
         const char *end = &reinterpret_cast<char *>(mStrings)[mStrings->mSize];
+#endif
         unsigned int stringcount = 0;
         while (str < end) {
             stringcount++;
@@ -192,6 +198,18 @@ Vault::Vault(ExportManager &mgr, unsigned int, void *data, std::size_t bytes, IG
     mTransientData = reinterpret_cast<unsigned char *>(data);
     mNumDependencies = mDependencies->mCount;
     mNumExports = mExports->mCount;
+#ifdef EA_PLATFORM_XENON
+    // En el EGM las tres sumas cargan primero mNumExports (0x34) y luego
+    // mNumDependencies (0x14): lwz r11, 0x34(r31) en 0x8215D8AC (cola del bucle de
+    // placement-new) y en 0x8215D8C8 (el segundo Alloc), antes que el 0x14.
+    mDepData = reinterpret_cast<DataBlock *>(Alloc((mNumExports + mNumDependencies) * sizeof(DataBlock), "Attrib::DataBlocks"));
+    mExportData = &mDepData[mNumDependencies];
+
+    for (unsigned int i = 0; i < mNumExports + mNumDependencies; i++) {
+        new (&mDepData[i]) DataBlock();
+    }
+    mDepIDs = reinterpret_cast<unsigned int *>(Alloc((mNumExports + mNumDependencies) * sizeof(*mDepIDs), "Attrib::AssetIDs"));
+#else
     mDepData = reinterpret_cast<DataBlock *>(Alloc((mNumDependencies + mNumExports) * sizeof(DataBlock), "Attrib::DataBlocks"));
     mExportData = &mDepData[mNumDependencies];
 
@@ -199,6 +217,7 @@ Vault::Vault(ExportManager &mgr, unsigned int, void *data, std::size_t bytes, IG
         new (&mDepData[i]) DataBlock();
     }
     mDepIDs = reinterpret_cast<unsigned int *>(Alloc((mNumDependencies + mNumExports) * sizeof(*mDepIDs), "Attrib::AssetIDs"));
+#endif
     mExportIDs = &mDepIDs[mNumDependencies];
     for (unsigned int i = 0; i < mNumDependencies; i++) {
         mDepIDs[i] = mDependencies->GetAssetIDs()[i];

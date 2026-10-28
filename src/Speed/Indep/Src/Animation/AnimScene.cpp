@@ -14,7 +14,8 @@
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
+// ScreenPrintf de las milestone (en el EGM, UpdateTime imprime en 0x8214F7F4-0x8214F8A8).
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #endif
 
@@ -408,9 +409,10 @@ void CAnimScene::UpdateTime(float time_step) {
         return;
     }
 
-    // La A124 escribe en pantalla el tiempo y la escena (ScreenPrintf de zFe2); la version final ya no.
+    // Las milestone escriben en pantalla el tiempo y la escena (ScreenPrintf de zFe2; en el EGM 0x8214F740 las
+    // cuatro llamadas van a -300/-185, -165, -145 y -125); la version final ya no.
     if (bEnableNisTextDisplay) {
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
         ScreenPrintf(-300, -185, "NIS Time %3.1f sec - Frame %3.1f", mTimeElapsed, mTimeElapsed * 30.0f);
 #endif
     }
@@ -419,7 +421,7 @@ void CAnimScene::UpdateTime(float time_step) {
         char scene_name[16];
         GetSceneName(scene_name);
 
-#ifdef EA_BUILD_A124
+#if defined(EA_BUILD_A124) || (defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD))
         ScreenPrintf(-300, -165, "NIS Scene: %s", scene_name);
         ScreenPrintf(-300, -145, "NIS CameraTrack: %d", GetCameraTrackNumber());
         ScreenPrintf(-300, -125, "NIS Description: %s", GetAnimDescription());

@@ -17,7 +17,7 @@
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #include "Speed/Indep/Src/Online/VoiceCore.hpp"
 #endif
@@ -97,7 +97,7 @@ UIOptionsScreen::UIOptionsScreen(ScreenConstructorData* sd)
 }
 
 UIOptionsScreen::~UIOptionsScreen() {
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     JuiceStatsDB::Instance()->CompareOptions(FEDatabase->GetOptionsSettings());
 #endif
     delete OriginalAudioSettings;

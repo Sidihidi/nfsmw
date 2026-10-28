@@ -135,16 +135,22 @@ int bCheckForNewFiles(float seconds) {
 #endif
 }
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+extern "C" int snIsDebuggerRunning();
+#endif
+
 bool bIsDebuggerConnected() {
 #ifdef EA_PLATFORM_WIN32
     return false;
 #else
-
     if (bIsCodeineConnected()) {
-        // TODO: from sn debug.c
-        // return snIsDebuggerRunning();
+        return true;
     }
+#ifdef EA_PLATFORM_PLAYSTATION2
+    return snIsDebuggerRunning();
+#else
     return true;
+#endif
 #endif
 }
 
@@ -191,6 +197,21 @@ int bIsValidPointer(void *p, int size) {
         return false;
     }
     return !IsBadReadPtr(p, 1);
+#elif defined(EA_PLATFORM_PLAYSTATION2)
+    if ((reinterpret_cast<uintptr_t>(p) & size - 1) != 0) {
+        return false;
+    }
+    if ((reinterpret_cast<uintptr_t>(p) - 0x00080000 < 0x7f80000) || (reinterpret_cast<uintptr_t>(p) - 0x80000000 < 0x8000000) || (reinterpret_cast<uintptr_t>(p) - 0xa0080000 < 0x7f80000) || (reinterpret_cast<uintptr_t>(p) - 0x20080000 < 0x7f80000) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x70000000 < 0x4000) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x11000000 < 0x1000) || (reinterpret_cast<uintptr_t>(p) - 0x11004000 < 0x1000) || (reinterpret_cast<uintptr_t>(p) - 0x11008000 < 0x4000) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x1100c000 < 0x4000) || (reinterpret_cast<uintptr_t>(p) - 0x10003000 < 0xb0) || (reinterpret_cast<uintptr_t>(p) - 0x10003800 < 0x180) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x10003c00 < 0x180) || (reinterpret_cast<uintptr_t>(p) - 0x10008000 < 0x60) || (reinterpret_cast<uintptr_t>(p) - 0x10009000 < 0x60) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x1000a000 < 0x60) || (reinterpret_cast<uintptr_t>(p) - 0x1000b000 < 0x30) || (reinterpret_cast<uintptr_t>(p) - 0x1000b400 < 0x40) || (reinterpret_cast<uintptr_t>(p) - 0x1000c000 < 0x30) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x1000c400 < 0x40) || (reinterpret_cast<uintptr_t>(p) - 0x1000c800 < 0x30) || (reinterpret_cast<uintptr_t>(p) - 0x1000d000 < 0x30) || (reinterpret_cast<uintptr_t>(p) - 0x1000d080 < 0x10) ||
+        (reinterpret_cast<uintptr_t>(p) - 0x1000d400 < 0x40) || (reinterpret_cast<uintptr_t>(p) - 0x1000d480 < 0x10) || (reinterpret_cast<uintptr_t>(p) - 0x1000e000 < 0x70) || (reinterpret_cast<uintptr_t>(p) - 0x1000f520 < 0x10)) {
+        return true;
+    }
+    return (reinterpret_cast<uintptr_t>(p) - 0x1000f590 < 0x10);
 #else
     return (reinterpret_cast<uintptr_t>(p) & size - 1) == 0;
 #endif

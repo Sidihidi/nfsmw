@@ -75,7 +75,7 @@ class FnRawLinearChannel : public FnAnimMemoryMap {
     }
 
   private:
-    int mInterp; // offset 0x10, size 0x4
+    bool mInterp; // offset 0x10, size 0x1 (DWARF de GC; X360 lo escribe con stb, Carbon PS3 tambien bool)
 };
 
 }; // namespace EAGL4Anim

@@ -65,6 +65,8 @@ class ScreenEffectDB {
     void AddScreenEffect(ScreenEffectType type, ScreenEffectDef *info, unsigned int lock, ScreenEffectControl controller);
     void AddPaletteEffect(ScreenEffectPalette palette);
     void AddPaletteEffect(ScreenEffectPaletteDef *palette);
+    void RemovePaletteEffect(ScreenEffectPalette palette);
+    void RemovePaletteEffect(ScreenEffectPaletteDef *PalPtr);
 
     uint32 IsActive(ScreenEffectType type) {
         return SE_inf[type].active;

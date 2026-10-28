@@ -72,8 +72,15 @@ int32 DrawSky = 1;
 
 int32 DrawSkyEnvMap = 1;
 
+#ifdef EA_BUILD_A124
+// gcdatos16: en la A124 van cruzados (bytes de su .data objetivo en zWorld +0x2a50:
+// 00 00 00 00 y 01 00 00 00); las demas los tienen al reves.
+int32 DrawSkySpecular = 0;
+int32 DrawSkyInReflection = 1;
+#else
 int32 DrawSkySpecular = 1;
 int32 DrawSkyInReflection = 0;
+#endif
 
 int32 UseMainSkyInEnvMap = 0;
 
@@ -153,6 +160,32 @@ TextureInfo *GetCurrentSkyTexture(SKY_LAYER l, SKY_TEX_TYPE type) {}
 
 bool bSkyTexturesLoaded = false;
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x6C0B60): sin argumentos y sin cargar texturas (las del cielo de PC vienen con la region); la llama
+// NotifySkyLoader (Speed/PC/Src/Ecstasy/eViewPlat.cpp). Los huecos 4 y 5 son las nubes y el casquete B y el 7 el
+// casquete del mapa de entorno sin _GAMECUBE. La de dos argumentos de abajo no esta en speed.exe: se queda en WIN32
+// porque el RegionLoader de GameFlow.cpp todavia es el de GameCube (el de PC, 0x666AA0, no tiene la fase del cielo).
+void InitSkyHash() {
+    if (!bSkyTexturesLoaded) {
+        bSkyTexturesLoaded = true;
+
+        BaseSkyHash[0] = bStringHash("SKY_MIDDAY_A_CLOUDS_A");
+        BaseSkyHash[1] = bStringHash("SKY_MIDDAY_A_CAP_A");
+
+        SkyHash[0] = bStringHash("SKY_MIDDAY_A_GRADIENT_A");
+        SkyHash[1] = bStringHash("SKY_MIDDAY_A_CAP_A");
+        SkyHash[2] = bStringHash("SKY_MIDDAY_A_CLOUDS_A");
+        SkyHash[3] = bStringHash("SKY_MIDDAY_A_CAP_A");
+        SkyHash[4] = bStringHash("SKY_MIDDAY_A_CLOUDS_B");
+        SkyHash[5] = bStringHash("SKY_MIDDAY_A_CAP_B");
+        SkyHash[6] = bStringHash("SKY_MIDDAY_A_ENVIRONMENT_A");
+        SkyHash[7] = bStringHash("SKY_MIDDAY_A_ENVIRONMENT_CAP_A");
+        SkyHash[8] = bStringHash("SKY_MIDDAY_A_REFLECTION");
+        SkyHash[9] = bStringHash("SKY_MIDDAY_A_REFLECTION");
+    }
+}
+#endif
+
 void InitSkyHash(void (*callback)(intptr_t), intptr_t callback_param) {
     if (!bSkyTexturesLoaded) {
         eTimeOfDay tod;
@@ -183,7 +216,28 @@ void InitSkyHash(void (*callback)(intptr_t), intptr_t callback_param) {
     }
 }
 
-#ifndef EA_PLATFORM_XENON // Xenon: NotifySkyLoader es de plataforma (Speed/Xenon/Src/Ecstasy/eViewPlat.cpp)
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x6C0C30, entre InitSkyHash y NotifySkyUnloader): suelta los modelos de la instancia de escenario de un
+// cielo, como el NotifySkyLoader de Xenon con SKYDOME_XENON. NotifySkyLoader es de plataforma en PC
+// (Speed/PC/Src/Ecstasy/eViewPlat.cpp). Nombre nuestro.
+void SkyUnInitSceneryModels(unsigned int scenery_name_hash) {
+    if (FindSceneryInstance(scenery_name_hash)) {
+        SceneryInfo *scenery_info = FindSceneryInfo(scenery_name_hash);
+        for (int i = 0; i < 4; i++) {
+            if (scenery_info->pModel[i]) {
+                scenery_info->pModel[i]->UnInit();
+            }
+        }
+    }
+}
+
+// Las texturas del cielo de nueva generacion de PC (SKY_NEXGEN_CAP_A, _CLOUDS_B y _CAP_B, 0x9829F0) y si estan
+// puestas (0x982BCC): las pone NotifySkyLoader de PC y las quita NotifySkyUnloader. Nombres nuestros.
+TextureInfo *SkyNexGenTextures[3];
+bool SkyNexGenTexturesReady;
+#endif
+
+#if !defined(EA_PLATFORM_XENON) && !defined(EA_PLATFORM_WIN32) // Xenon y PC: NotifySkyLoader es de plataforma (eViewPlat.cpp)
 void NotifySkyLoader() {
     SkyInitModel(&SkydomeModel, &SkydomeLocalWorld, STRINGHASH_SKYDOME);
     SkyInitModel(&SkySpecularModel, &SkySpecularLocalWorld, STRINGHASH_SKY_SPECULAR);
@@ -203,13 +257,34 @@ void UnloadSkyTextures() {
 void NotifySkyUnloader() {
     SkydomeModel.UnInit();
     eIdentity(&SkydomeLocalWorld);
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x6C0C70): sin el modelo especular; quita las texturas de nueva generacion
+    SkyNexGenTextures[0] = nullptr;
+    SkyNexGenTextures[1] = nullptr;
+    SkyNexGenTextures[2] = nullptr;
+    SkyNexGenTexturesReady = false;
+#else
     SkySpecularModel.UnInit();
     eIdentity(&SkySpecularLocalWorld);
+#endif
 }
+
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x6C0D40): una de las texturas de nueva generacion. Nombre nuestro.
+TextureInfo *GetSkyNexGenTexture(int index) {
+    return SkyNexGenTextures[index];
+}
+#endif
 
 bVector3 SunPos;
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos16: 23000 (0x59d8) en las dos PS2 (bytes de su .data objetivo en zWorld:
+// d8 59, A124 +0x2ab0 y SLUS +0x129c); 17500 en las demas.
+bAngle SpecularOffset = 23000;
+#else
 bAngle SpecularOffset = 17500;
+#endif
 
 bAngle CloudOffest = 40;
 
@@ -388,8 +463,16 @@ void StuffSpecular(eView *view) {
     }
 }
 #endif
+#ifndef EA_PLATFORM_PLAYSTATION2
+// gcdatos21: en las dos PS2 no existen: ni stab en PS2_globals ni el par
+// 32.0f/200.0f en el .data objetivo de zWorld (A124/SLUS), y ningun codigo PS2
+// los referencia (solo el Ecstasy de GameCube, via extern). En GC si: DWARF
+// MinSkySpecular en 0x80437724 y el par en el .data objetivo. Sin las dos
+// definiciones, en PS2 SkyRenderForceOvercast cae tras deblayer/matAng como en
+// el objetivo (matAng en 0x64659c, ForceOvercast en 0x6465a0).
 float MinSkySpecular = 32.0f;
 float MaxSkySpecular = 200.0f;
+#endif
 
 float SkyRenderForceOvercast = -1.0f;
 

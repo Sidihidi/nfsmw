@@ -167,10 +167,10 @@ inline float bSqrt(float x) {
 
 inline int bMin(int a, int b) {
 #ifdef EA_PLATFORM_PLAYSTATION2
-    int c;
     // b primero, como en `b < a ? b : a`: el original da `pminw c, b, a` (SaveRaceData, los bClamp).
-    asm("pminw %0, %1, %2" : "=r"(c) : "r"(b), "r"(a));
-    return c;
+    // Sin local: los stabs de la A124 dan el parametro `a` en registro y ninguna `c` (FindHeliPoly).
+    asm("pminw %0, %1, %2" : "=r"(a) : "r"(b), "r"(a));
+    return a;
 #else
     if (b < a) {
         return b;
@@ -198,10 +198,10 @@ inline float bMin(float a, float b) {
 
 inline int bMax(int a, int b) {
 #ifdef EA_PLATFORM_PLAYSTATION2
-    int c;
+    // Sin local, como bMin: el parametro `a` es la salida (stabs de la A124).
 
-    asm("pmaxw %0, %1, %2" : "=r"(c) : "r"(a), "r"(b));
-    return c;
+    asm("pmaxw %0, %1, %2" : "=r"(a) : "r"(a), "r"(b));
+    return a;
 #else
     if (a > b) {
         return a;

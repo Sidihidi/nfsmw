@@ -47,7 +47,9 @@ class FECustomizationRecord {
     }
 
     static void operator delete(void *mem, size_t size) {
-        gFastMem.Free(mem, size, NULL);
+        if (mem) {
+            gFastMem.Free(mem, size, NULL);
+        }
     }
 
     static void *operator new(size_t size, const char *name) {}

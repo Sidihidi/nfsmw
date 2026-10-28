@@ -11,6 +11,13 @@ UTL::Collections::Listable<WCollider, 100>::List UTL::Collections::Listable<WCol
 
 // TODO move
 bool Tweak_colliderDraws = false;
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, tras Tweak_colliderDraws (PS2_globals.hpp:6176-6178),
+// a 0 en su .data objetivo.
+bool Tweak_colliderRegionDraws = false;
+bool Tweak_colliderContentsDraws = false;
+bool Tweak_colliderTriListDraws = false;
+#endif
 
 WCollider::WCollider(eColliderShape colliderShape, unsigned int typeMask, unsigned int exclusionMask)
     : fRequestedPosition(UMath::Vector3::kZero),     //
@@ -109,8 +116,15 @@ static void CalcNewRegionSizeFromRequested(bool useLastData, const UMath::Vector
     }
 }
 
+#ifdef MILESTONE_BUILD
 #ifdef EA_BUILD_A124
+// gcdatos21: en la A124 la definicion va en WDbgCollisionDraw.cpp (en el
+// objetivo esta en 0x649c28, entre gDisableCheckHitWorld y DebugDrawQuads);
+// este fichero le precede en el unity, asi que aqui solo cabe la declaracion.
+extern bool gDisableWCollider;
+#else
 bool gDisableWCollider;
+#endif
 #endif
 
 void WCollider::Refresh(const UMath::Vector3 &pt, float radius, bool predictiveSizing) {
@@ -119,7 +133,7 @@ void WCollider::Refresh(const UMath::Vector3 &pt, float radius, bool predictiveS
         return;
     }
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     if (gDisableWCollider) {
         this->EmptyLists(28);
         return;

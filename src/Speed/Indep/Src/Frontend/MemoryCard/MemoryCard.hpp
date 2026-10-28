@@ -367,6 +367,13 @@ class MemoryCard {
     // m_bInBootSequence en 0x24); el prototipo A124 no tiene tampoco m_bCancelNextAutoSave, los
     // indicadores de autoguardado, m_pGameInfo ni m_GameTitle (0xD0 en su volcado de tipos).
     RealmcIface::BootupCheckParams m_BootupParams; // offset: 0x0, size 0x10
+#ifdef EA_PLATFORM_XENON
+    // Sin nombre del original: solo Xenon, tamanos y posiciones del binario (el constructor los pone a 0).
+    int x360_unknown_0x10;  // offset: 0x10, size 0x4
+    bool x360_unknown_0x14; // offset: 0x14, size 0x1
+    int x360_unknown_0x18;  // offset: 0x18, size 0x4
+    bool x360_unknown_0x1C; // offset: 0x1C, size 0x1
+#endif
 #ifdef EA_PLATFORM_GAMECUBE
     struct GCIconDataInfo *m_pRMIcon;           // offset: 0x10, size 0x4
     struct GCBannerDataInfo *m_pRMBanner;       // offset: 0x14, size 0x4

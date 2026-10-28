@@ -58,12 +58,19 @@ struct SystemInterface {
         mThread = nullptr;
         mMutex = nullptr;
         mLocaleGetter = nullptr;
+#ifdef EA_PLATFORM_XENON
+        mTimerOverhead = 0;
+#endif
     }
 
     void *mAllocator;      // offset 0x0
     IThread *mThread;      // offset 0x4
     IMutex *mMutex;        // offset 0x8
     const char *(*mLocaleGetter)(int); // offset 0xC
+#ifdef EA_PLATFORM_XENON
+    // X360: cinco palabras (MemoryCard::Init las pone a 0 en el iSystem estatico; InterfaceImp copia 0x14 bytes)
+    unsigned int mTimerOverhead; // offset 0x10: nombre y tipo de realmemcard_ps3 1.00.00 (DWARF de Carbon PS3)
+#endif
 };
 
 namespace Locale {
@@ -295,6 +302,9 @@ struct SaveReq {
 
     unsigned int mNumSaves; // offset 0x0
     SaveInfo *mSaveInfo;    // offset 0x4
+#ifdef EA_PLATFORM_XENON
+    bool mAlwaysCheckAtBoot; // offset 0x8: nombre de realmemcard_ps3 1.00.00 (DWARF de Carbon PS3); MemoryCard::Init de 360 lo pone a 0
+#endif
 };
 
 #ifdef EA_PLATFORM_PLAYSTATION2
@@ -306,6 +316,16 @@ struct GameInfo {
     TitleId mTitleId;              // offset 0x84
     bool mMultipleSaveTypesUsed;   // offset 0x94
     bool mMultitapSupported;       // offset 0x98
+};
+#elif defined(EA_PLATFORM_WIN32)
+// total size: 0x4C (speed.exe MemoryCard::Init: new of 0x4C; realmemcard's own wchar_t title, 2 bytes with MSVC)
+struct GameInfo {
+    GameInfo(const wchar_t *name, unsigned int titleId, bool b1, bool b2);
+
+    wchar_t mGameTitle[33];      // offset 0x0
+    unsigned int mTitleId;       // offset 0x44
+    bool mMultipleSaveTypesUsed; // offset 0x48
+    bool mMultitapSupported;     // offset 0x49
 };
 #else
 // total size: 0x90

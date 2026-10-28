@@ -34,7 +34,16 @@ CSTATE_Base::~CSTATE_Base() {
     this->Destroy();
 }
 
+// gcdatos16/17: a 0 en posicion de fuente en las DOS PS2. A124: zEAXSound2 .data
+// +0x308 = 0x5e4bb8, PS2_globals.hpp:1252. SLUS: los 8 B D_005414C8 de +0x328
+// (0x5414c8), justo tras _11CSTATE_Base$s_StateInfo (0x5414b8) y delante del TypeInfo
+// de CSTATE_Collision, su hueco en el objetivo. Sin inicializar cae en el bloque
+// tentativo del final.
+#ifdef EA_PLATFORM_PLAYSTATION2
+int DEBUGPRINT_MIXERCONNECT = 0; // Decl: 46
+#else
 int DEBUGPRINT_MIXERCONNECT; // Decl: 46
+#endif
 
 void CSTATE_Base::DisconnectMixMap() {
 #ifdef EA_BUILD_A124

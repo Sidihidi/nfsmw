@@ -12,8 +12,9 @@
 #ifdef EA_PLATFORM_PLAYSTATION2
 // Las VU0_ en linea de UVectorMath.hpp, como en DeltaQ.h, y su Coord4NegOneXYZ (DeltaQFastPhysical::UnQuantize).
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
-#include "DeltaQ.h"
 #endif
+// TwoPower16Minus1 (TwoOverTwoPower16Minus1) y, en PS2, Coord4NegOneXYZ.
+#include "DeltaQ.h"
 
 namespace EAGL4Anim {
 
@@ -21,6 +22,7 @@ namespace EAGL4Anim {
 // las pliega). Las UnQuantize de los deltas las usan tal cual; el original no tiene funciones auxiliares.
 static const unsigned short TwoPower6Minus1 = 63;
 static const float OneOverTwoPower6Minus1 = 1.0f / TwoPower6Minus1;
+static const float TwoOverTwoPower16Minus1 = 2.0f / TwoPower16Minus1;
 static const unsigned short TwoPower12Minus1 = 4095;
 static const float TwoOverTwoPower12Minus1 = 2.0f / TwoPower12Minus1;
 // En el DWARF de GameCube (sin direccion) y en la A124 (.rodata 0x544360, los cuatro a -1): solo la
@@ -83,7 +85,7 @@ struct DeltaQFastPhysical {
         q.y = mY * TwoOverTwoPower12Minus1;
         q.z = mZ * TwoOverTwoPower12Minus1;
 
-        unsigned short w = (mW0 << 8) + (mW1 << 4) | mW2;
+        unsigned short w = (mW0 << 8) + (mW1 << 4) + mW2;
 
         q.w = w * TwoOverTwoPower12Minus1;
         VU0_v4add(q, Coord4NegOneXYZ, q);
@@ -92,15 +94,17 @@ struct DeltaQFastPhysical {
         q.y = mY * TwoOverTwoPower12Minus1 - 1.0f;
         q.z = mZ * TwoOverTwoPower12Minus1 - 1.0f;
 
-        unsigned short w = (mW0 << 8) + (mW1 << 4) | mW2;
+        unsigned short w = (mW0 << 8) + (mW1 << 4) + mW2;
 
         q.w = w * TwoOverTwoPower12Minus1 - 1.0f;
 #endif
     }
 
     // Como en DeltaQPhysical: en el EE (little-endian) el primer campo es el bit bajo, y los stabs de la A124
-    // declaran mW0 delante de mX (mX sale con `srl 4' y mW0 con `andi 0xf'). Todos `short unsigned int'.
-#ifdef EA_PLATFORM_PLAYSTATION2
+    // declaran mW0 delante de mX (mX sale con `srl 4' y mW0 con `andi 0xf'). Todos `short unsigned int', como en el
+    // DWARF de GameCube: con MSVC (PC y Xbox 360) un campo de bits de otro tipo abre otra unidad, y con mW0..mW2
+    // `unsigned char' la estructura media 12 B en vez de 6 (el EGM avanza 6 B por elemento en UpdateNextQs).
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
     unsigned short mW0 : 4; // offset 0x0, size 0x2
     unsigned short mX : 12; // offset 0x0, size 0x2
     unsigned short mW1 : 4; // offset 0x2, size 0x2
@@ -109,11 +113,11 @@ struct DeltaQFastPhysical {
     unsigned short mZ : 12; // offset 0x4, size 0x2
 #else
     unsigned short mX : 12; // offset 0x0, size 0x2
-    unsigned char mW0 : 4;  // offset 0x0, size 0x2
+    unsigned short mW0 : 4; // offset 0x0, size 0x2
     unsigned short mY : 12; // offset 0x2, size 0x2
-    unsigned char mW1 : 4;  // offset 0x2, size 0x2
+    unsigned short mW1 : 4; // offset 0x2, size 0x2
     unsigned short mZ : 12; // offset 0x4, size 0x2
-    unsigned char mW2 : 4;  // offset 0x4, size 0x2
+    unsigned short mW2 : 4; // offset 0x4, size 0x2
 #endif
 };
 
@@ -128,13 +132,13 @@ struct DeltaQFastDelta {
         q.y = minRangef.mRange.y * DeQuantize(mY) + minRangef.mMin.y;
         q.z = minRangef.mRange.z * DeQuantize(mZ) + minRangef.mMin.z;
 
-        unsigned char w = (mW0 << 4) + (mW1 << 2) | mW2;
+        unsigned char w = (mW0 << 4) + (mW1 << 2) + mW2;
 
         q.w = minRangef.mRange.w * DeQuantize(w) + minRangef.mMin.w;
     }
 
     // Igual que en DeltaQFastPhysical: la A124 declara mW0 delante de mX (mX con `srl 2', mW0 con `andi 3').
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
     unsigned char mW0 : 2; // offset 0x0, size 0x1
     unsigned char mX : 6;  // offset 0x0, size 0x1
     unsigned char mW1 : 2; // offset 0x1, size 0x1
@@ -210,9 +214,11 @@ struct DeltaQFast : public AnimMemoryMap {
     DeltaQFastDelta *GetDelta(unsigned char *binData, int deltaIdx) {}
 
     unsigned char *GetConstBoneIdx() {
-        const int binSize = AlignSize2(mNumBones * ((GetBinLength() - 1) * sizeof(DeltaQFastDelta) + sizeof(DeltaQFastPhysical)));
-        unsigned char *s = &GetBin(0)[binSize * (mNumKeys / GetBinLength())];
-        int r = mNumKeys % GetBinLength();
+        // El DWARF de GameCube: las locales binLen, binSize, s y r, y una sola expansion de GetBinLength.
+        unsigned int binLen = GetBinLength();
+        const int binSize = AlignSize2(mNumBones * ((binLen - 1) * sizeof(DeltaQFastDelta) + sizeof(DeltaQFastPhysical)));
+        unsigned char *s = &GetBin(0)[binSize * (mNumKeys / binLen)];
+        int r = mNumKeys % binLen;
 
         if (r > 0) {
             s = &s[mNumBones * ((r - 1) * sizeof(DeltaQFastDelta) + sizeof(DeltaQFastPhysical))];

@@ -56,8 +56,37 @@ static const CAR_SLOT_ID BreakOnModelInitCarSlotId = CARSLOTID_BASE;
 static const CAR_SLOT_ID BreakOnSetModelCarSlotId = CARSLOTID_BASE;
 static const CAR_SLOT_ID BreakOnRenderCarSlotId = CARSLOTID_BASE;
 
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
+const char *GetCarRenderUsageString(CarRenderUsage usage) {
+    switch (usage) {
+        case CarRenderUsage_Player:
+            return "Player";
+        case CarRenderUsage_RemotePlayer:
+            return "RemotePlayer";
+        case CarRenderUsage_AIRacer:
+            return "AIRacer";
+        case CarRenderUsage_AICop:
+            return "AICop";
+        case CarRenderUsage_AITraffic:
+            return "AITraffic";
+        case CarRenderUsage_AIHeli:
+            return "AIHeli";
+        case carRenderUsage_NISCar:
+            return "NISCar";
+        case CarRenderUsage_Invalid:
+#ifdef EA_BUILD_A124
+            return "Inva,";
+#else
+            return "Invalid";
+#endif
+        default:
+            return "Error!";
+    }
+}
+#else
 // STRIPPED
 const char *GetCarRenderUsageString(CarRenderUsage usage) {}
+#endif
 
 float culldiv = 12000.0f;
 
@@ -359,7 +388,7 @@ void CarPartCuller::CullParts(bVector3 *camera_eye, bAngle stang) {
 
 extern SlotPool *CarEmitterPositionSlotPool;
 
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // X360: InitCarEffects pasa 0x1F4 a bNewSlotPool
 const int MAX_CAR_PART_MODELS = 500;
 #else
 const int MAX_CAR_PART_MODELS = 250;
@@ -793,6 +822,15 @@ class CarRenderInfo {
     bool mMirrorLeftWheels;            // offset 0x178C, size 0x1
 };
 
+// gcdatos15/17: el estatico de CarRenderInfo, en su hueco exacto de las DOS PS2, entre
+// NISRaceDriverVisible y AlphaWritesEnabled, a 0 (false) en su .data objetivo. A124:
+// 0x645d08 = zWorld .data +0x2238 (PS2_globals:5793). SLUS: +0xa14 (0x59fe88), en el
+// trio de valores 1/0/1 de +0xa10 ([NISRaceDriverVisible][mAlphaWritesEnabled]
+// [AlphaWritesEnabled]) que repite el de la A124.
+#ifdef EA_PLATFORM_PLAYSTATION2
+bool CarRenderInfo::mAlphaWritesEnabled = false;
+#endif
+
 bool AlphaWritesEnabled = true;
 
 static const int NUM_DASHES = 3;
@@ -940,7 +978,9 @@ float CarLightFlareNormals[4][6] = {{1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f},
                                     {0.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f},
                                     {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f}};
 bVector3 EnvMapEyeOffset(0.0f, 0.0f, 0.95f);
+#ifndef EA_BUILD_A124 // en la A124 no existe: ni el simbolo (symbols.txt) ni su uso en UpdateEnvironmentMapCameras
 bVector3 EnvMapCamOffset(0.0f, 0.0f, 0.6f);
+#endif
 bMatrix4 CarScaleMatrix;
 
 typedef struct tagCarEffectParam {
@@ -2093,7 +2133,8 @@ void CarRenderInfo::UpdateDecalTextures(RideInfo *ride_info) {
         bStringHash("WIDE"),
     };
 
-    for (int i = CARSLOTID_DECAL_FRONT_WINDOW; i < CARSLOTID_BASE_PAINT; i++) {
+    // speed.exe cierra el bucle con `jle` (hasta el ultimo decal incluido), no con `jl` (antes de CARSLOTID_BASE_PAINT)
+    for (int i = CARSLOTID_DECAL_FRONT_WINDOW; i <= CARSLOTID_DECAL_RIGHT_QUARTER; i++) {
         CarPart *decal_model_part = ride_info->GetPart(i);
         int decal_index = i - CARSLOTID_DECAL_FRONT_WINDOW;
 
@@ -2865,11 +2906,16 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
     }
 #endif
     int car_pixel_size = view->GetPixelSize(&position, this->mRadius);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (view->GetID() == EVIEW_SHADOWMAP1) { // el mapa de sombras mide el coche con la vista 1 (PC 0x74E1C2, X360 0x82517BFC)
+        car_pixel_size = eGetView(EVIEW_PLAYER1, false)->GetPixelSize(&position, this->mRadius);
+    }
+#endif
     if (eGetCurrentViewMode() == EVIEWMODE_TWOH && !IsGameFlowInFrontEnd()) {
         car_pixel_size = bFloatToInt(static_cast<float>(car_pixel_size) * CarTwoPlayerLODFactor);
     }
     if (car_pixel_size < view->GetPixelMinSize()) {
-        if (static_cast<unsigned int>(view->ID - 13) > 1) {
+        if (view->ID != EVIEW_SHADOWMAP1 && view->ID != EVIEW_SHADOWMAP2) {
             return false;
         }
     }
@@ -3082,10 +3128,18 @@ bool CarRenderInfo::Render(eView *view, const bVector3 *world_position, const bM
 
     unsigned int body_render_flags;
     if (DrawCarShadow != 0 && !reflexion) {
+#ifdef EA_PLATFORM_WIN32
+        // PC: solo la sombra ambiente y solo en la vista del jugador 1 (speed.exe 0x74E812); la proyectada no tiene
+        // llamantes en speed.exe (la sombra de PC es el mapa de la vista 15).
+        if (view->GetID() == EVIEW_PLAYER1) {
+            this->DrawAmbientShadow(view, &position, shadow_scale, local_world, &world_local, biased_identity);
+        }
+#else
         this->DrawAmbientShadow(view, &position, shadow_scale, local_world, &world_local, biased_identity);
         if (!IsGameFlowInFrontEnd() && this->pRideInfo->Type != CARTYPE_COPHELI && !is_traffic_car) {
             this->DrawKeithProjShadow(view, &position, local_world, &world_local, biased_identity, car_body_lod);
         }
+#endif
     }
 
     body_render_flags = 0;
@@ -3928,7 +3982,11 @@ int ch2d(float **P, int n) {
 }
 
 inline bool ZPassesTest(float z, float zref) {
+#ifdef EA_BUILD_A124 // la A124 aun descarta los puntos de la sombra lejos del suelo
+    return bAbs(z - zref) <= 20.0f;
+#else
     return true;
+#endif
 }
 
 static bVector3 hull_Origin;
@@ -3984,11 +4042,31 @@ float car_elevation = 0.0f;
 
 float car_elevation_scale = 0.0f;
 
-bVector3 hullVertArray1[16];
+// gcdatos15/17: OpToM (PS2_globals:5887 `int OpToM`), en su hueco exacto de las DOS
+// PS2, entre car_elevation_scale y dshad, a 0 en su .data objetivo. A124: 0x64626c =
+// zWorld .data +0x279c. SLUS: +0xf88 = 0x59f648+... (el bloque de +0xf7c es
+// [FancyCarShadowEdgeMult][car_elevation][car_elevation_scale][OpToM][dshad=1], el
+// mismo reparto que la A124).
+#ifdef EA_PLATFORM_PLAYSTATION2
+int OpToM = 0;
+// gcdatos18: en las DOS PS2 dshad va aqui, tras OpToM y delante de cs_lightV, no
+// tras sh_Adjust como en las demas versiones. A124: PS2_globals:5888 (0x646270 =
+// zWorld .data +0x27a0, con el 1 en su .data objetivo); SLUS: el 01 00 00 00 de
+// +0xf8c, tras el bloque [FancyCarShadowEdgeMult][car_elevation][car_elevation_
+// scale][OpToM] de +0xf7c y delante de cs_lightV. Es POD con inicializador
+// constante: mover la definicion no toca ningun orden de inicializacion.
+int dshad = 1;
+#endif
 
-bVector3 hullVertArray2[16];
+// gcdatos21: estaticas de fichero (PS2_globals:6106-6108 `static bVector3
+// hullVertArray3[48]` etc., en .bss; DWARF de GC igual, `static struct bVector3`
+// en 0x804A678C+). Sin el static nuestro build PS2 las emitia en .data en posicion
+// de declaracion (1280 B de mas en zWorld) en vez de en .bss como en los objetivos.
+static bVector3 hullVertArray1[16];
 
-bVector3 hullVertArray3[48];
+static bVector3 hullVertArray2[16];
+
+static bVector3 hullVertArray3[48];
 
 static float *P[17];
 
@@ -4020,7 +4098,7 @@ void CarRenderInfo::convex_hull(bVector3 *p, const WCollider *wcoll, int &n, flo
             for (i = 0; i < n; i++) {
                 bFill(vec, P[i][0], P[i][1], fastZ);
 
-                if (ZPassesTest(vec->z, fastZ) && DotPassesTest(vec)) {
+                if (ZPassesTest(vec->z, Z) && DotPassesTest(vec)) {
                     vec++;
                 } else {
                     dec++;
@@ -4146,7 +4224,9 @@ inline bVector3 sh_Adjust(const bVector3 &p, const bVector3 &mid) {
     return v;
 }
 
+#ifndef EA_PLATFORM_PLAYSTATION2
 int dshad = 1;
+#endif
 
 // UNSOLVED r29, r24
 void CarRenderInfo::DrawKeithProjShadow(eView *view, const bVector3 *position, bMatrix4 *localWorld, bMatrix4 *worldLocal, bMatrix4 *biasedIdentity,

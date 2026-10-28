@@ -35,8 +35,15 @@ typedef struct SNDMIXSTATE {
     void (*unpackinit[12])(void *pstate, UNPACKINITPARAMS *pparams); // offset 0x18 (PS2: 0x20)
     char pad1[0x60 - 0x48];
     int unpackstatesize[12];             // offset 0x60 (PS2: 0x68)
+#ifdef EA_PLATFORM_XENON
+    // Xenon: voices (=smv) detras de stoppedvoiceaccwet, en 0x104 (MIX_settimemult de
+    // 360 en 0x82639D60); lo demas 4 B mas adelante (ver smixer.c).
+    char pad2[0x104 - 0x90];
+    MIXVOICE *voices;                    // offset 0x104
+#else
     char pad2[0x1DC - 0x90];
     MIXVOICE *voices;                    // offset 0x1DC (PS2: 0x1E4)
+#endif
 } SNDMIXSTATE;
 
 extern SNDMIXSTATE sndmix;

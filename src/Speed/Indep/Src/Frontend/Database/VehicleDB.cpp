@@ -517,7 +517,7 @@ void FEPlayerCarDB::AwardRivalCar(uint32 preset) {
 #else
 FECarRecord *FEPlayerCarDB::AwardRivalCar(uint32 preset) {
     if (preset == 0x03A94520) {
-        FEDatabase->GetCareerSettings()->SpecialFlags |= 0x100000;
+        FEDatabase->GetCareerSettings()->SetHasBeenAwardedEpicCar();
     }
 
     PresetCar *presetCar = FindFEPresetCar(preset);
@@ -945,9 +945,9 @@ bool FEPlayerCarDB::WriteRecordIntoPhysics(uint32 car, Attrib::Gen::pvehicle &at
 }
 
 FECarRecord::FECarRecord() {
-    Handle = 0xFFFFFFFF;
     FEKey = 0;
     VehicleKey = 0;
+    Handle = 0xFFFFFFFF;
     Customization = 0xFF;
     CareerHandle = 0xFF;
     FilterBits = 0;
@@ -1201,8 +1201,9 @@ void FECustomizationRecord::SetInstalledPart(int carslotid, CarPart *part) {
 }
 
 void FECustomizationRecord::WriteRecordIntoRide(RideInfo *ride) const {
-    for (int i = 0; i <= 0x8A; i++) {
-        ride->SetPart(i, GetInstalledPart(ride->Type, i), true);
+    for (int i = 0; i < 0x8B; i++) {
+        CarPart *part = GetInstalledPart(ride->Type, i);
+        ride->SetPart(i, part, true);
     }
 }
 
@@ -1221,8 +1222,13 @@ void FECustomizationRecord::BecomePreset(PresetCar *preset) {
 
     CarType cartype = CarPartDB.GetCarType(bStringHash(preset->CarTypeName));
     for (int i = 0; i < 0x8B; i++) {
+#ifdef EA_PLATFORM_XENON
+        int part_name_hash = preset->PartNameHashes[i];
+        if (part_name_hash != 1 && part_name_hash != 0) {
+#else
         unsigned int part_name_hash = preset->PartNameHashes[i];
         if (part_name_hash > 1) {
+#endif
             struct CarPart *part = CarPartDB.NewGetCarPart(cartype, i, part_name_hash, nullptr, -1);
             InstalledPartIndices[i] = static_cast<short>(CarPartDB.GetPartIndex(part));
         }
@@ -1366,10 +1372,16 @@ void FEImpoundData::NotifyPlayerUsedMarkerToRelease() {
 }
 
 bool FEImpoundData::NotifyWin() {
-    bool impounded = ImpoundedState != 0;
-    if (impounded && ((DaysBeforeRelease == 0 || --DaysBeforeRelease == 0) && ImpoundedState != IMPOUND_RELEASED)) {
-        ImpoundedState = IMPOUND_RELEASED;
-        return true;
+    if (IsImpounded()) {
+        if (DaysBeforeRelease > 0) {
+            DaysBeforeRelease--;
+        }
+        if (DaysBeforeRelease == 0) {
+            if (ImpoundedState != IMPOUND_RELEASED) {
+                ImpoundedState = IMPOUND_RELEASED;
+                return true;
+            }
+        }
     }
     return false;
 }
@@ -1381,13 +1393,11 @@ bool FEImpoundData::NotifyBusted() {
 }
 
 bool FEImpoundData::NotifyEvade() {
-    bool impounded = ImpoundedState != 0;
-
-    if (!impounded) {
+    if (!IsImpounded()) {
         EvadeCount = EvadeCount + 1;
         if (EvadeCount > 2) {
-            EvadeCount = 0;
             TimesBusted--;
+            EvadeCount = 0;
         }
         if (TimesBusted < 0) {
             TimesBusted = 0;

@@ -38,12 +38,12 @@ extern Table HumanNavLookAheadTable;
 #include "Speed/Indep/Src/Physics/PhysicsTypes.h"
 #include "Speed/Indep/Src/Physics/VehicleBehaviors.h"
 #include "Speed/Indep/Src/Sim/Simulation.h"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 // La A124 lleva el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en sus stabs).
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #endif
 #include "Speed/Indep/Src/World/OnlineManager.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 #include "Speed/Indep/Src/World/Common/WGrid.h"
@@ -712,9 +712,9 @@ void AIVehicle::UpdateRoadNavInfo() {
     }
 
     UMath::Vector3 position;
-    UMath::ScaleAdd(mCollisionBody->GetLinearVelocity(), 0.65f, mCollisionBody->GetPosition(), position);
+    UMath::ScaleAdd(GetLinearVelocity(), 0.65f, GetPosition(), position);
     mDrivableToNav = !WorldCollision(position, pdrivetonav->GetPosition());
-    UMath::Sub(pdrivetonav->GetPosition(), mCollisionBody->GetPosition(), mDirToNav);
+    UMath::Sub(pdrivetonav->GetPosition(), GetPosition(), mDirToNav);
     UMath::Unit(mDirToNav, mDirToNav);
 }
 
@@ -1002,10 +1002,9 @@ bool AIVehicle::GetWorldAvoidanceInfo(float dT, UMath::Vector3 &leftCollNormal, 
     UMath::Vector3 dimension;
     irb->GetDimension(dimension);
 
+    bool foundCollision = false;
     leftCollNormal = UMath::Vector3::kZero;
     rightCollNormal = UMath::Vector3::kZero;
-
-    bool foundCollision = false;
     for (float i = -1.0f; i <= 1.0f; i += 2.0f) {
         UMath::Vector3 collVec;
         UMath::Scale(rightVector, i, collVec);
@@ -1077,7 +1076,7 @@ void AIVehicle::SetSpawned() {
         ih->SetFuelFull();
     }
     mCanRespawn = false;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 
     switch (GetVehicle()->GetDriverClass()) {
         case DRIVER_COP:
@@ -1109,7 +1108,7 @@ void AIVehicle::UnSpawn() {
     if (GetOwner()->QueryInterface(&ipai)) {
         ipai->SetSupportGoal((const char *)nullptr);
     }
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 
     switch (GetVehicle()->GetDriverClass()) {
         case DRIVER_COP:
@@ -2198,22 +2197,28 @@ int AIPerpVehicle::GetCostToState() const {
     return mCostToState;
 }
 
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+// X360 Milestone (EGM 0x82A80C60): float; SetHeat lo compara con 0.0f y el menu y MWCommands::SetHeat lo escriben
+// con stfs.
+float ForcePursuitHeatLevel = 0.0f;
+#elif defined(EA_BUILD_A124)
 int ForcePursuitHeatLevel = 0; // del menu de depuracion de la A124 (NFSDebugMenu.cpp)
 #endif
 
 void AIPerpVehicle::SetHeat(float heat) {
     int current = static_cast<int>(mHeat);
     int now = static_cast<int>(heat);
-    bool useRaceHeatNow = false;
-
-    if (GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing &&
-        (!GRaceStatus::Get().GetRaceParameters() || !GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace())) {
-        useRaceHeatNow = true;
-    }
+    bool useRaceHeatNow =
+        GRaceStatus::Exists() && GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing &&
+        (!GRaceStatus::Get().GetRaceParameters() || !GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace());
 
     bool raceEventStatusChanged = useRaceHeatNow != mWasInRaceEventLastHeatUpdate;
-#ifdef EA_BUILD_A124
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    if (ForcePursuitHeatLevel != 0.0f) {
+        now = static_cast<int>(ForcePursuitHeatLevel);
+        heat = ForcePursuitHeatLevel;
+    }
+#elif defined(EA_BUILD_A124)
     if (ForcePursuitHeatLevel) {
         now = ForcePursuitHeatLevel;
         heat = now;
@@ -2431,7 +2436,13 @@ void AIPerpVehicle::OnCausedCollision(const COLLISION_INFO &cinfo, ISimable *fro
                 const UMath::Vector3 &my_vel = i_am_a ? cinfo.objAVel : cinfo.objBVel;
                 const UMath::Vector3 &his_vel = i_am_a ? cinfo.objBVel : cinfo.objAVel;
                 float his_closing_speed = normal_dir * UMath::Dot(his_vel, cinfo.normal);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+                // MSVC multiplica por -1.0f (exe 0x429C1D: fmul __real@bf800000 tras fmul st(1)=normal_dir);
+                // GCC de GC/PS2 niega el Dot (fneg). Cada forma es la del 100 % en su plataforma.
+                float my_closing_speed = normal_dir * UMath::Dot(my_vel, cinfo.normal) * -1.0f;
+#else
                 float my_closing_speed = normal_dir * -UMath::Dot(my_vel, cinfo.normal);
+#endif
                 intentionalhit = my_closing_speed > his_closing_speed;
             }
 
@@ -2534,7 +2545,7 @@ void AIPerpVehicle::OnCausedCollision(const COLLISION_INFO &cinfo, ISimable *fro
 
                             if (intentionalhit) {
                                 ivehicleai->GetTarget()->Aquire(from);
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
                                 DebugMenu::SetPursuitState(STATE_PURSUIT);
 #endif
                             }

@@ -30,6 +30,10 @@ class InGameAnyTutorialScreen : public MenuScreen {
 #ifndef EA_BUILD_A124
     SubTitler mSubtitler; // offset 0x2C
 #endif
+#ifdef EA_PLATFORM_WIN32
+    // speed.exe: Create allocates 0x50; the ctor saves FEManager's bAllowControllerError here and the dtor restores it
+    bool bAllowingControllerErrors; // offset 0x4C
+#endif
 };
 
 #endif

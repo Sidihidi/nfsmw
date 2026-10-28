@@ -23,10 +23,21 @@ extern "C" void MATRIX4_vect3mult3(const UMath::Vector3 *v, const UMath::Matrix4
 
 namespace UMath {
 // TODO apply these
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: NFS.exe has PI, TWOPI and OOTWOPI in .rdata (a block per unit: 3.1415927, 6.2831855, 0.15915494, 1e-6,
+// as at 0x820640D4) and no dynamic initializer for any of them. cl 14.00 puts a const float in .rdata only when its
+// initializer is made of literals: `1.0f / PI` with `PI = MATH_PI` became a .CRT$XCU function in every unit, and
+// `2 * PI` with a literal PI still goes to .data.
+const float PI = 3.141592653589793f;                   // size: 0x4, Decl: UMath.h:15
+const float OOPI = 1.0f / 3.141592653589793f;          // size: 0x4, Decl: UMath.h:16
+const float TWOPI = 2 * 3.141592653589793f;            // size: 0x4, Decl: UMath.h:18
+const float OOTWOPI = 1.0f / (2 * 3.141592653589793f); // size: 0x4, Decl: UMath.h:19
+#else
 const float PI = MATH_PI;           // size: 0x4, Decl: UMath.h:15
 const float OOPI = 1.0f / PI;       // size: 0x4, Decl: UMath.h:16
 const float TWOPI = 2 * PI;         // size: 0x4, Decl: UMath.h:18
 const float OOTWOPI = 1.0f / TWOPI; // size: 0x4, Decl: UMath.h:19
+#endif
 const float Epsilon = 0.000001f;    // size: 0x4, Decl: UMath.h:22
 }; // namespace UMath
 
@@ -224,10 +235,14 @@ inline void QuaternionToMatrix4(const Vector4 &q, Matrix4 &m) {
 #else
 void QuaternionToMatrix4(const Vector4 &q, Matrix4 &m);
 #ifdef EA_PLATFORM_PLAYSTATION2
-// En PS2 estas dos tambien son funciones de verdad y no inline; las dos
-// estan en el DWARF y en los simbolos de PS2.
-void QuaternionToEuler(const Vector4 &q, Vector3 &e);
-void Slerp(const Vector4 &a, const Vector4 &b, float t, Vector4 &r);
+// En PS2 estas dos viven aqui como inline (UMath.h:165 y 102 en la alpha) y el
+// ee-gcc emite su copia fuera de linea (8 B, `j' a la VU0) en una sola unidad.
+inline void QuaternionToEuler(const Vector4 &q, Vector3 &e) {
+    VU0_QuatToEuler(q, e);
+}
+inline void Slerp(const Vector4 &a, const Vector4 &b, float t, Vector4 &r) {
+    VU0_fastqslerp(a, b, r, t);
+}
 #endif
 #endif
 
@@ -531,7 +546,10 @@ inline float Pow(const float f, const float e) {
 
 inline float Ramp(const float a, const float amin, const float amax) {
     float arange = amax - amin;
-    return arange > UMath::Epsilon ? VU0_floatmax(0.0f, VU0_floatmin((a - amin) / arange, 1.0f)) : 0.0f;
+    if (arange > UMath::Epsilon) {
+        return VU0_floatmax(0.0f, VU0_floatmin((a - amin) / arange, 1.0f));
+    }
+    return 0.0f;
 }
 
 inline float Lerp(const float a, const float b, const float t) {
@@ -572,19 +590,22 @@ inline float Max(const float a, const float b) {
     return VU0_floatmax(a, b);
 }
 
+// Min/Max enteros con la comparacion escrita `b < a` / `b > a`: MSVC 7.1 compara en el orden de la fuente y speed.exe
+// lo hace asi (EngineRacer/EngineTraffic::GetBrakingTorque, CalcYawControlLimit, Physics::Info::Torque, DamageZone,
+// GetSegmentNumTrafficLanes); GCC (GameCube y PS2) da el mismo codigo que con `a > b`.
 inline int Min(const int a, const int b) {
-    return a > b ? b : a;
+    return b < a ? b : a;
 }
 
 inline int Max(const int a, const int b) {
-    return a < b ? b : a;
+    return b > a ? b : a;
 }
 inline unsigned int Min(const unsigned int a, const unsigned int b) {
-    return a > b ? b : a;
+    return b < a ? b : a;
 }
 
 inline unsigned int Max(const unsigned int a, const unsigned int b) {
-    return a < b ? b : a;
+    return b > a ? b : a;
 }
 
 #ifdef CLANGD_DAMNIT
@@ -609,6 +630,7 @@ inline float Limit(const float a, const float l) {
 } // namespace UMath
 
 void BuildRotate(UMath::Matrix4 &m, float r, float x, float y, float z);
+bool ValidateMatrix(const UMath::Matrix4 &matrix);
 
 #ifndef EA_BUILD_A124
 // TODO inline

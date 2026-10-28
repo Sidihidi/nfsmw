@@ -22,6 +22,50 @@ bool FEAnyTutorialScreen::PackageSet = false;
 
 static const char *FEAnyTutorialScreenName = "FEAnyTutorial.fng";
 
+#ifdef EA_BUILD_A124
+// La A124 no lleva subtitulos ni marca los tutoriales vistos: escribe las lineas del texto (LINE01..) y sus vinetas.
+FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
+    : MenuScreen(sd) {
+    unsigned int str_hash = 0;
+    int num_tutorial_strings = 4;
+
+    for (int i = 1; i <= num_tutorial_strings; i++) {
+        FEPrintf(GetPackageName(), FEngHashString("TUTORIAL_TEXT_%d", i), "");
+        FEngSetScript(GetPackageName(), FEngHashString("BULLET_%d", i), 0x16A259, true);
+    }
+
+    FEngSetMovieName(GetPackageName(), 0x0348FF9F, MovieFilename);
+
+    if (bStrCmp(MovieFilename, "drag_tutorial") == 0) {
+        str_hash = FEngHashString("TUTORIAL_DRAG_");
+    } else if (bStrCmp(MovieFilename, "speedtrap_tutorial") == 0) {
+        str_hash = FEngHashString("TUTORIAL_SPEEDTRAPRACE_");
+    } else if (bStrCmp(MovieFilename, "tollbooth_tutorial") == 0) {
+        num_tutorial_strings = 3;
+        str_hash = FEngHashString("TUTORIAL_TOLLBOOTH_");
+    } else if (bStrCmp(MovieFilename, "bounty_tutorial") == 0) {
+        str_hash = FEngHashString("TUTORIAL_BOUNTY_");
+    } else if (bStrCmp(MovieFilename, "pursuit_tutorial") == 0) {
+        str_hash = FEngHashString("TUTORIAL_PURSUIT_");
+    }
+
+    unsigned int label_hash = bStringHash("LABEL", str_hash);
+    FEngSetLanguageHash(GetPackageName(), 0x5A0EE0D9, label_hash);
+    FEngSetLanguageHash(GetPackageName(), 0xF414BF3E, label_hash);
+    FEngSetLanguageHash(GetPackageName(), 0x5A0EE0D8, label_hash);
+    FEngSetLanguageHash(GetPackageName(), 0x07D2EA5D, label_hash);
+
+    for (int i = 1; i <= num_tutorial_strings; i++) {
+        char num_str[8];
+        bSPrintf(num_str, "LINE%2.2d", i);
+        unsigned int text_hash = bStringHash(num_str, str_hash);
+        FEngSetLanguageHash(GetPackageName(), FEngHashString("TUTORIAL_TEXT_%d", i), text_hash);
+        FEngSetScript(GetPackageName(), FEngHashString("BULLET_%d", i), 0x5079C8F8, true);
+    }
+
+    new EFadeScreenOff(0x14035FB);
+}
+#else
 FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
     : MenuScreen(sd)
 #ifndef EA_BUILD_A124
@@ -44,32 +88,32 @@ FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
 
     if (bStrCmp(MovieFilename, "drag_tutorial") == 0) {
         if (career != nullptr && !career->HasDoneDragTutorial()) {
-            career->SetHasDoneDragTutorial();
             mSkipable = false;
+            career->SetHasDoneDragTutorial();
         }
         str_hash = FEngHashString("TUTORIAL_DRAG");
     } else if (bStrCmp(MovieFilename, "speedtrap_tutorial") == 0) {
         if (career != nullptr && !career->HasDoneSpeedTrapTutorial()) {
-            career->SetHasDoneSpeedTrapTutorial();
             mSkipable = false;
+            career->SetHasDoneSpeedTrapTutorial();
         }
         str_hash = FEngHashString("TUTORIAL_SPEEDTRAPRACE");
     } else if (bStrCmp(MovieFilename, "tollbooth_tutorial") == 0) {
         if (career != nullptr && !career->HasDoneTollBoothTutorial()) {
-            career->SetHasDoneTollBoothTutorial();
             mSkipable = false;
+            career->SetHasDoneTollBoothTutorial();
         }
         str_hash = FEngHashString("TUTORIAL_TOLLBOOTH");
     } else if (bStrCmp(MovieFilename, "bounty_tutorial") == 0) {
         if (career != nullptr && !career->HasDoneBountyTutorial()) {
-            career->SetHasDoneBountyTutorial();
             mSkipable = false;
+            career->SetHasDoneBountyTutorial();
         }
         str_hash = FEngHashString("TUTORIAL_BOUNTY");
     } else if (bStrCmp(MovieFilename, "pursuit_tutorial") == 0) {
         if (career != nullptr && !career->HasDonePursuitTutorial()) {
-            career->SetHasDonePursuitTutorial();
             mSkipable = false;
+            career->SetHasDonePursuitTutorial();
         }
         str_hash = FEngHashString("TUTORIAL_PURSUIT");
     }
@@ -90,6 +134,7 @@ FEAnyTutorialScreen::FEAnyTutorialScreen(ScreenConstructorData *sd)
 
     new EFadeScreenOff(0x14035FB);
 }
+#endif
 
 MenuScreen *FEAnyTutorialScreen::Create(ScreenConstructorData *sd) {
     return new ("FEAnyTutorialScreen", 0) FEAnyTutorialScreen(sd);

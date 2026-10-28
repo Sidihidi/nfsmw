@@ -120,8 +120,8 @@ void WWorldMath::NearestPointLine2D3(const UMath::Vector3 &pt, const UMath::Vect
         u = 0.0f;
     }
 
-    float x = u * (x2 - x1) + x1;
-    float z = u * (z2 - z1) + z1;
+    float x = x1 + u * (x2 - x1);
+    float z = z1 + u * (z2 - z1);
     nearPt.z = z;
     nearPt.y = 0.0f;
     nearPt.x = x;

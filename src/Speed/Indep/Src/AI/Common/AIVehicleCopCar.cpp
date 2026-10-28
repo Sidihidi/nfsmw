@@ -10,7 +10,7 @@
 #include "Speed/Indep/Src/Sim/Simulation.h"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
 #include "Speed/Indep/Tools/Inc/ConversionUtil.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 // La A124 lleva el estado de la persecucion al menu de depuracion (DebugMenu.h:75-78 en sus stabs).
 #include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #endif
@@ -208,7 +208,7 @@ bool AIVehicleCopCar::CheckForPursuit(IVehicle *itargetVehicle) {
         return false;
     }
 
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     DebugMenu::SetPursuitState(STATE_PURSUIT);
 #endif
     GetTarget()->Aquire(itargetSimable);

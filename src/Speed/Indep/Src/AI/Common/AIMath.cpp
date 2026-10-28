@@ -13,9 +13,9 @@ float AngleTo(const UMath::Vector3 &p0, const UMath::Vector3 &n0, const UMath::V
     UMath::Vector3 dir;
 
     UMath::Sub(p1, p0, dir);
-    VU0_v3unit(dir, dir);
-
-    return VU0_ACos(UMath::Clamp(UMath::Dot(dir, n0), -1.0f, 1.0f));
+    UMath::Unit(dir);
+    float dot = UMath::Dot(dir, n0);
+    return VU0_ACos(UMath::Clamp(dot, -1.0f, 1.0f));
 }
 
 //

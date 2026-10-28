@@ -8,6 +8,10 @@
 #include "Speed/Indep/Src/Ecstasy/Ecstasy.hpp"
 #include "Speed/Indep/Src/Interfaces/Simables/IRigidBody.h"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
+#ifdef EA_PLATFORM_XENON
+#include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
+#include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
+#endif
 #include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
 #include "Speed/Indep/bWare/Inc/bMemory.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
@@ -26,8 +30,12 @@ extern bool bIsDebuggerConnected();
 extern void WriteJoylogFileHeader();
 extern float PreviousGpuFrameRate;
 extern float fpsTolerateValue;
-extern int logCountDownMax;
-extern int countDown;
+// El TU de la A124 los DEFINE (MWExtension.cpp:195 del original, .data 0x617d34/0x617d38) y el
+// nuestro solo los declaraba: el $I$ de zMisc inicializa countDown con el valor de logCountDownMax
+// (`lw`/`sw` sobre los dos) y sin las definiciones no habia codigo que emitir. El valor es el de
+// la imagen .data del objeto original (838860800); countDown se inicializa con el, en dinamico.
+int logCountDownMax = 838860800;
+int countDown = logCountDownMax;
 
 bool JuicePutStringFunction(int terminal_channel, const char *s) {
     Juice::GameHook *gameHook =
@@ -410,6 +418,85 @@ char *MWExtension::GetCurrentZoneName() {
     return TheTrackStreamer.GetCurrentZoneName();
 }
 
+#ifdef EA_PLATFORM_XENON
+// X360 Milestone (EGM 0x823E0230): otra version del registro. Cuenta tambien las persecuciones y los coches de policia
+// ("PUR_%d - CAR_%d", con su evento PURSUIT-FPS), el evento detallado se llama DETAILED-FPS, el printf no lleva el
+// numero de frames y el bloque SUST escribe fpsTolerateValue. Los contadores se leen dentro de cada bloque (el EGM los
+// vuelve a leer en el segundo). La rama sin poligonos pasa cinco argumentos a un formato de tres: es lo que hace el EGM.
+void MWExtension::JuiceLowFrameRateLog(const float &fps) {
+    if (fps < fpsTolerateValue) {
+        char *zoneName = TheTrackStreamer.GetCurrentZoneName();
+        char *tempImgName = GetImageName();
+        char *tempPlayerPos = GetPlayerPosition();
+        char outcomeString[32];
+
+        if (countDown == logCountDownMax) {
+            int polyCount = DoPolyCount();
+            int rigidBodyCount = IRigidBody::GetList().size();
+            int pursuitCount = IPursuit::GetList().size();
+            int copCount = IVehicle::Count(VEHICLE_AICOPS);
+
+            bSPrintf(outcomeString, "INST_%.0f", fps);
+            bReleasePrintf("FRAME RATE: (%s) %s\n", zoneName, outcomeString);
+            GameHook::Instance()->GameEvent(
+                "WORLD", "FPS", outcomeString, static_cast<int>(fps), fps, zoneName, tempImgName, tempPlayerPos);
+
+            if (polyCount != 0) {
+                bSPrintf(outcomeString, "INST_%.0f {GPU_%.0f - SIM_%d - POLY_%d}", fps, PreviousGpuFrameRate,
+                         rigidBodyCount, polyCount);
+                GameHook::Instance()->GameEvent(
+                    "WORLD", "DETAILED-FPS", outcomeString, rigidBodyCount, fps, zoneName, tempImgName, tempPlayerPos);
+            } else {
+                bSPrintf(outcomeString, "INST_%.0f {GPU_%.0f - SIM_%d}", fps, PreviousGpuFrameRate, rigidBodyCount,
+                         pursuitCount, copCount);
+                GameHook::Instance()->GameEvent(
+                    "WORLD", "DETAILED-FPS", outcomeString, rigidBodyCount, fps, zoneName, tempImgName, tempPlayerPos);
+            }
+
+            if (pursuitCount != 0) {
+                bSPrintf(outcomeString, "INST_%.0f {PUR_%d - CAR_%d}", fps, pursuitCount, copCount);
+                GameHook::Instance()->GameEvent(
+                    "WORLD", "PURSUIT-FPS", outcomeString, rigidBodyCount, fps, zoneName, tempImgName, tempPlayerPos);
+            }
+        }
+
+        if (countDown <= 0) {
+            countDown = logCountDownMax - 1;
+            int polyCount = DoPolyCount();
+            int rigidBodyCount = IRigidBody::GetList().size();
+            int pursuitCount = IPursuit::GetList().size();
+            int copCount = IVehicle::Count(VEHICLE_AICOPS);
+
+            bSPrintf(outcomeString, "SUST_%.0f", fpsTolerateValue);
+            bReleasePrintf("FRAME RATE: (%s) %s\n", zoneName, outcomeString);
+            GameHook::Instance()->GameEvent("WORLD", "FPS", outcomeString, static_cast<int>(fpsTolerateValue),
+                                            fpsTolerateValue, zoneName, tempImgName, tempPlayerPos);
+
+            if (polyCount != 0) {
+                bSPrintf(outcomeString, "SUST_%.0f {GPU_%.0f - SIM_%d - POLY_%d}", fpsTolerateValue,
+                         PreviousGpuFrameRate, rigidBodyCount, polyCount);
+                GameHook::Instance()->GameEvent("WORLD", "DETAILED-FPS", outcomeString, rigidBodyCount,
+                                                fpsTolerateValue, zoneName, tempImgName, tempPlayerPos);
+            } else {
+                bSPrintf(outcomeString, "SUST_%.0f {GPU_%.0f - SIM_%d}", fpsTolerateValue, PreviousGpuFrameRate,
+                         rigidBodyCount, pursuitCount, copCount);
+                GameHook::Instance()->GameEvent("WORLD", "DETAILED-FPS", outcomeString, rigidBodyCount,
+                                                fpsTolerateValue, zoneName, tempImgName, tempPlayerPos);
+            }
+
+            if (pursuitCount != 0) {
+                bSPrintf(outcomeString, "SUST_%.0f {PUR_%d - CAR_%d}", fpsTolerateValue, pursuitCount, copCount);
+                GameHook::Instance()->GameEvent("WORLD", "PURSUIT-FPS", outcomeString, rigidBodyCount,
+                                                fpsTolerateValue, zoneName, tempImgName, tempPlayerPos);
+            }
+        } else {
+            countDown--;
+        }
+    } else {
+        countDown = logCountDownMax;
+    }
+}
+#else
 void MWExtension::JuiceLowFrameRateLog(const float &fps) {
     if (fps < fpsTolerateValue) {
         char *zoneName = TheTrackStreamer.GetCurrentZoneName();
@@ -461,6 +548,7 @@ void MWExtension::JuiceLowFrameRateLog(const float &fps) {
         countDown = logCountDownMax;
     }
 }
+#endif
 
 void MWExtension::JuiceScreenshot(char *fileName) {
     GameHook::Instance()

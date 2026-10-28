@@ -33,6 +33,23 @@ static inline float SceneryMPH2MPS(float mph) {
     return mph / 2.237f;
 }
 
+// gcdatos2: inline en el original (DWARF), sin copia fuera de linea; los literales del
+// objetivo van en orden del enum (High/Medium/Low/Reflection).
+inline char *GetSceneryDetailName(int detail_level) {
+    switch (detail_level) {
+        case SCENERY_DETAIL_HIGH:
+            return "High";
+        case SCENERY_DETAIL_MEDIUM:
+            return "Medium";
+        case SCENERY_DETAIL_LOW:
+            return "Low";
+        case SCENERY_DETAIL_REFLECTION:
+            return "Reflection";
+        default:
+            return "High";
+    }
+}
+
 int LoaderSceneryGroup(bChunk *chunk);
 int UnloaderSceneryGroup(bChunk *chunk);
 int LoaderScenery(bChunk *chunk);
@@ -88,12 +105,37 @@ class PrecullerBooBooManager {
 // r61-world: el objetivo lo emite en 0x80436000, DELANTE del hueco
 // gap_06_80436004_data y de EnvMapShadowExtraHeight.
 SceneryDetailLevel ForceAllSceneryDetailLevels = SCENERY_DETAIL_NONE;
+int DropTopSceneryLOD = 0;
 float EnvMapShadowExtraHeight = 2.0f;
 int CurrentZoneNumber = (int)0xFFFFFFFF;
 
+void (*ModelConnectionCallback)(ScenerySectionHeader *, int, eModel *) = nullptr;
+void (*ModelDisconnectionCallback)(ScenerySectionHeader *, int, eModel *) = nullptr;
+void (*SectionConnectionCallback)(ScenerySectionHeader *) = nullptr;
+void (*SectionDisconnectionCallback)(ScenerySectionHeader *) = nullptr;
+
 bTList<ScenerySectionHeader> ScenerySectionHeaderList;
 HashToHeirarchyMap HeirarchyMap;
+
+int SeeulatorToolActive = 0;
+int ScenerySectionToBlink = 0;
+int ShowSectionBoarder = 0;
+int SeeulatorRefreshTrackStreamer = 0;
+#ifdef EA_PLATFORM_PLAYSTATION2
+// gcdatos13: definido entero solo en las dos PS2, entre SeeulatorRefreshTrackStreamer
+// y LightTable (A124 0x630738, PS2_globals.hpp:5603; SLUS en el mismo hueco), valores
+// de su .data objetivo. En GC queda solo la palabra cadaver 99999.0f de 0x80436030
+// (gcdatos9); la declaracion esta en Scenery.hpp:296.
+float ScenerySectionHeader::mLodLevelDistance[3] = {80.0f, 160.0f, 99999.0f};
+#endif
+eLight *LightTable = nullptr;
+int MaxSceneryLightContexts = 0;
+eSceneryLightContext **SceneryLightContextTable = nullptr;
+SceneryOverrideInfo *SceneryOverrideInfoTable = nullptr;
+int NumSceneryOverrideInfos = 0;
+
 bTList<SceneryGroup> SceneryGroupList;
+signed char SceneryGroupEnabledTable[4096] = {1};
 
 bChunkLoader bChunkLoaderSceneryGroup(BCHUNK_SCENERY_BARRIER_GROUPS, LoaderSceneryGroup, UnloaderSceneryGroup);
 bChunkLoader bChunkLoaderScenerySection(BCHUNK_SCENERY_SECTION, LoaderScenery, UnloaderScenery);
@@ -102,28 +144,28 @@ bChunkLoader bChunkLoaderSceneryHeirarchy(BCHUNK_MODEL_HIERARCHY_TREE, LoaderSce
 bChunkLoader bChunkLoaderSceneryLighting(BCHUNK_SCENERY_LIGHT_CONTEXTS, LoaderScenery, UnloaderScenery);
 
 static const float EnablePrecullingSpeed = SceneryMPH2MPS(40.0f);
-
-void (*ModelConnectionCallback)(ScenerySectionHeader *, int, eModel *) = nullptr;
-void (*ModelDisconnectionCallback)(ScenerySectionHeader *, int, eModel *) = nullptr;
-void (*SectionConnectionCallback)(ScenerySectionHeader *) = nullptr;
-void (*SectionDisconnectionCallback)(ScenerySectionHeader *) = nullptr;
-int SeeulatorToolActive = 0;
-int ScenerySectionToBlink = 0;
-int ShowSectionBoarder = 0;
-int SeeulatorRefreshTrackStreamer = 0;
-eLight *LightTable = nullptr;
-int MaxSceneryLightContexts = 0;
-eSceneryLightContext **SceneryLightContextTable = nullptr;
-SceneryOverrideInfo *SceneryOverrideInfoTable = nullptr;
-int NumSceneryOverrideInfos = 0;
-signed char SceneryGroupEnabledTable[4096] = {1};
 eModel *pVisibleZoneBoundaryModel = nullptr;
 ePrecullerMode PrecullerMode = PRECULLER_MODE_ON;
 int DisablePrecullerCounter = 0;
+// gcdatos10: int muerto sin direccion en el DWARF (globals: int MostDrawInfo,
+// address 0xFFFFFFFF); en la A124 en 0x6317C8, entre el estatico bPrintName
+// de DrawAScenery (0x6317C4) y pDebugModel (0x6317CC), con valor 0 en su
+// .data. En GC es la segunda palabra del gap_06_80437058_data (8 B) entre
+// DisablePrecullerCounter (0x80437054) y pDebugModel (0x80437060).
+int MostDrawInfo = 0;
 eModel *pDebugModel = nullptr;
 int RunPrecullingTool = 0; // el LoadGlobalChunks de PS2 agranda el pool del streamer si esta puesta
 
 RegionQuery RegionInfo;
+#ifdef EA_BUILD_A124
+// gcdatos11: SceneryCullingStats (CullingStats, 0x8) sobrevive solo en el
+// prototipo: A124 la tiene en .bss 0x642C80 (symbols/PS2/PS2_globals.hpp,
+// entre RegionInfo y SceneryOverrideHashTable); en GC su DIE va sin direccion
+// (0xFFFFFFFF, symbols/mw_dwarfdump.nothpp:2202000, entre el const
+// LodUseDistance y LightTable) = eliminada en retail. Solo-A124, como los
+// demas datos de prototipo de esta cabecera.
+CullingStats SceneryCullingStats;
+#endif
 short SceneryOverrideHashTable[257];
 PrecullerBooBooManager gPrecullerBooBooManager;
 SceneryDrawInfo GrandSceneryCullInfo::SceneryDrawInfoTable[3500];
@@ -149,6 +191,25 @@ ModelHeirarchy *FindSceneryHeirarchyByName(unsigned int name_hash) {
 
 SceneryOverrideInfo *GetSceneryOverrideInfo(int override_info_number) {
     return &SceneryOverrideInfoTable[override_info_number];
+}
+
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40B71DE con low_pc=-1,
+// antes de FindSceneryHeirarchy; la A124 la trae igual, 144 B de codigo PS2 eliminado,
+// lineas 43-46 de su Scenery.cpp). Su DIE fija locales hash_index/info/last_info e
+// inline SceneryOverrideInfo::GetHashIndex(section_number), sin llamadas (info y
+// last_info en registros de paso): recorre el cubo de SceneryOverrideHashTable que
+// BuildSceneryOverrideHashTable ordena por (GetHashIndex & 0xFF). La comparacion
+// exacta no esta en la evidencia y la funcion no emite en ningun retail.
+SceneryOverrideInfo *FindSceneryOverrideInfo(short section_number, short instance_number) {
+    int hash_index = SceneryOverrideInfo::GetHashIndex(section_number) & 0xFF;
+    SceneryOverrideInfo *info = &SceneryOverrideInfoTable[SceneryOverrideHashTable[hash_index]];
+    SceneryOverrideInfo *last_info = &SceneryOverrideInfoTable[SceneryOverrideHashTable[hash_index + 1]];
+    for (; info < last_info; info++) {
+        if (info->SectionNumber == section_number && info->InstanceNumber == instance_number) {
+            return info;
+        }
+    }
+    return nullptr;
 }
 
 void SceneryOverrideInfo::AssignOverrides(ScenerySectionHeader *section_header) {
@@ -204,8 +265,24 @@ void LoadPrecullerBooBooScript(const char *filename, bool reset) {
     }
 }
 
-#ifdef EA_BUILD_A124
+// gcdatos2: el DWARF-1 de la CU zTrack de GC trae la variable (global_variable char*,
+// sin direccion asignada) y su cadena esta en la .rodata objetivo de GC y de SLUS,
+// aunque Modify/Set/Clr solo existen en la A124: la definicion se parseaba tambien
+// fuera de la A124 (en X360/PC la cadena no esta en el objetivo).
+// gcdatos10 (MEDIDO y REVERTIDO): su posicion probada en .data es el hueco
+// lbl_80436048 entre NumSceneryOverrideInfos y SceneryGroupEnabledTable
+// (GC: puntero 0xA68 a la cadena en .rodata+0xA68; A124: 0x630758 entre
+// 0x630754 y 0x630768), pero subir la definicion a ese bloque interno la
+// cadena delante del pool de conversion que en el objetivo va delante de
+// ella: GC .rodata 87,8572->87,6488 (falta 536->543) sin ganar .data
+// (97,8409 igual; el puntero apunta a nuestra cadena desplazada). Solo gano
+// la A124 (.data 99,2708->99,2757). No reintentar sin cerrar antes el
+// desplazamiento del bloque High/Medium/Low/Reflection.
+#if defined(EA_BUILD_A124) || defined(EA_PLATFORM_GAMECUBE) || defined(EA_PLATFORM_PLAYSTATION2)
 const char *PrecullerNetworkBooBooFilename = "..\\..\\World\\Global\\Scripts\\PrecullerBooBooScript.hoo";
+#endif
+
+#ifdef EA_BUILD_A124
 
 // La herramienta de la A124 que anade a mano una linea BOOBOO al guion desde la posicion de la camara.
 void ModifyPrecullerBooBooScript(const char *filename, bool set) {
@@ -299,6 +376,11 @@ SceneryGroup *FindSceneryGroup(unsigned int name_hash) {
     }
     return nullptr;
 }
+
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40BDA6B con low_pc=-1
+// y cuerpo vacio en el volcado; la A124 la trae igual, 8 B de codigo PS2 eliminado:
+// retorno pelado). Cuerpo vacio tal cual.
+void ServiceSceneryGroupTweakables() {}
 
 void EnableSceneryGroup(unsigned int group_name_hash, bool flip_artwork) {
     SceneryGroup *group = static_cast<SceneryGroup *>(FindSceneryGroup(group_name_hash));
@@ -662,6 +744,23 @@ SceneryInfo *FindSceneryInfo(unsigned int name_hash) {
     return nullptr;
 }
 
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40C2E64 con low_pc=-1,
+// antes de FindSceneryInstance; la A124 la trae igual, 76 B de codigo PS2 eliminado,
+// lineas 271-273 de su Scenery.cpp). Su DIE fija un unico local lod_num en un bloque y
+// 0 inlines (scenery_info y lod_num en registros de paso: sin llamadas), y su literal
+// "Unknown" esta en el pool de zTrack en obj+0xAD8. El esqueleto recorre los 4 LOD
+// buscando el primero con modelo y devuelve DebugName (el unico char* alcanzable sin
+// llamadas); la prueba exacta (pModel o NameHash) no esta en la evidencia y la funcion
+// no emite en ningun retail.
+char *GetSceneryInfoName(SceneryInfo *scenery_info) {
+    for (int lod_num = 0; lod_num < 4; lod_num++) {
+        if (scenery_info->pModel[lod_num] != nullptr) {
+            return scenery_info->DebugName;
+        }
+    }
+    return "Unknown";
+}
+
 SceneryInstance *FindSceneryInstance(unsigned int name_hash) {
     for (ScenerySectionHeader *section_header = ScenerySectionHeaderList.GetHead(); section_header != ScenerySectionHeaderList.EndOfList();
          section_header = section_header->GetNext()) {
@@ -747,6 +846,11 @@ void CloseVisibleZones() {
     }
 }
 
+// gcdatos6: sin llamantes en ninguna version (DIE de GC .debug+0x40C454E con low_pc=-1
+// y cuerpo vacio en el volcado, antes de IsInTable; la A124 la trae igual, 8 B de
+// codigo PS2 eliminado). Cuerpo vacio tal cual.
+void HandleJoystickBlinkSection(int param) {}
+
 int IsInTable(short *table, int num_entries, int entry) {
     for (int i = 0; i < num_entries; i++) {
         if (table[i] == entry) {
@@ -779,6 +883,12 @@ void ScenerySectionHeader::DrawAScenery(int scenery_instance_number, SceneryCull
     }
 
     SceneryInfo *my_scenery_info = &pSceneryInfo[scenery_instance->SceneryInfoNumber];
+    // gcdatos10: estatico local del DIE de GC (bool bPrintName @ 0x80437058,
+    // entre my_scenery_info y exclude_bits; en la A124 static bool en
+    // 0x6317C4, entre DisablePrecullerCounter y MostDrawInfo). Sin uso en el
+    // codigo retail (DrawAScenery casa al 100 % en GC sin tocarlo): solo
+    // ocupa su palabra en .data, a cero en GC y en la A124.
+    static bool bPrintName = false;
     int exclude_bits = scenery_instance->ExcludeFlags & 0xFF;
     int exclude_mask = 0x60;
     int exclude_flagxor = exclude_bits ^ exclude_mask;
@@ -944,6 +1054,28 @@ void ScenerySectionHeader::DrawAScenery(int scenery_instance_number, SceneryCull
     }
 }
 
+// gcdatos7: sin llamantes en ninguna version (DIE .debug+0x40C61BE low_pc=-1, tras
+// DrawAScenery; A124 164 B, lineas 490-494 de su Scenery.cpp). Unico bloque con
+// node/bbox_min/bbox_max/visibility_state y el inline GetBBox: prueba la caja del
+// nodo raiz contra la vista. La forma exacta del retorno no esta en la evidencia.
+int ScenerySectionHeader::IsVisible(SceneryCullInfo *scenery_cull_info) {
+    SceneryTreeNode *node = SceneryTreeNodeTable;
+    bVector3 bbox_min;
+    bVector3 bbox_max;
+    node->GetBBox(&bbox_min, &bbox_max);
+    unsigned int visibility_state = scenery_cull_info->pView->GetVisibleState(&bbox_min, &bbox_max, nullptr);
+    return visibility_state;
+}
+
+// gcdatos7: sin llamantes (DIE .debug+0x40C6505 low_pc=-1; A124 116 B, lineas
+// 495-498). Unico bloque {scenery_instance_number}, sin inlines: dibuja todas las
+// instancias con prueba por instancia (EVISIBLESTATE_PARTIAL en DrawAScenery).
+void ScenerySectionHeader::CullBruteForce(SceneryCullInfo *scenery_cull_info) {
+    for (int scenery_instance_number = 0; scenery_instance_number < NumSceneryInstances; scenery_instance_number++) {
+        DrawAScenery(scenery_instance_number, scenery_cull_info, EVISIBLESTATE_PARTIAL);
+    }
+}
+
 void ScenerySectionHeader::TreeCull(SceneryCullInfo *scenery_cull_info) {
     const int max_depth = 64;
     SceneryTreeNode *node_stack[max_depth];
@@ -979,6 +1111,34 @@ void ScenerySectionHeader::TreeCull(SceneryCullInfo *scenery_cull_info) {
                     pnode++;
                     pvisibility_state++;
                 }
+            }
+        }
+    }
+}
+
+// gcdatos7: sin llamantes (DIE .debug+0x40C6B72 low_pc=-1, tras TreeCull; A124
+// 344 B, lineas 515-523). La version recursiva del nucleo de TreeCull: bloque
+// {bbox_min/max + GetBBox} y bloque {child_number {child_code
+// {scenery_instance_number} {child_node}}} (las dos ramas del if/else).
+void ScenerySectionHeader::CullNodeRecursive(SceneryTreeNode *node, SceneryCullInfo *scenery_cull_info, uint32 visibility_state) {
+    if (visibility_state == 1) {
+        bVector3 bbox_min;
+        bVector3 bbox_max;
+
+        node->GetBBox(&bbox_min, &bbox_max);
+        visibility_state = scenery_cull_info->pView->GetVisibleState(&bbox_min, &bbox_max, nullptr);
+    }
+
+    if (visibility_state != 0) {
+        for (int child_number = 0; child_number < node->NumChildren; child_number++) {
+            short child_code = node->ChildCodes[child_number];
+            if (child_code >= 0) {
+                int scenery_instance_number = child_code;
+                DrawAScenery(scenery_instance_number, scenery_cull_info, visibility_state);
+            } else {
+                child_code = -child_code;
+                SceneryTreeNode *child_node = &SceneryTreeNodeTable[child_code];
+                CullNodeRecursive(child_node, scenery_cull_info, visibility_state);
             }
         }
     }
@@ -1282,6 +1442,22 @@ void GrandSceneryCullInfo::StuffScenery(eView *view, int stuff_flags) {
             }
         }
         return;
+    }
+}
+
+// gcdatos7: sin llamantes (DIE .debug+0x40C8BF8 low_pc=-1, tras StuffScenery; A124
+// 124 B, lineas 699-705). Locales profile_node (ctor de 2 args: la forma
+// (nullptr, 0) de la ronda 33, sin literal) y camera, como el prologo de
+// StuffScenery; bucle {n {scenery_cull_info {info}}} como el de DoCulling.
+void GrandSceneryCullInfo::CallbackScenery(eView *view, void (*callback)(SceneryDrawInfo *)) {
+    ProfileNode profile_node(nullptr, 0);
+    Camera *camera = view->GetCamera();
+
+    for (int n = 0; n < NumCullInfos; n++) {
+        SceneryCullInfo *scenery_cull_info = &SceneryCullInfos[n];
+        for (SceneryDrawInfo *info = scenery_cull_info->pFirstDrawInfo; info < scenery_cull_info->pCurrentDrawInfo; info++) {
+            callback(info);
+        }
     }
 }
 

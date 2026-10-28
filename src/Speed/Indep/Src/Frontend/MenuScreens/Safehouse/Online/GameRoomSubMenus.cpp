@@ -509,13 +509,25 @@ void EditGameDetails::Setup() {
             continue;
         }
         if (parms->GetRaceType() == GRace::kRaceType_Circuit) {
+#ifdef EA_BUILD_A124
             m_CircuitTracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true));
+#else
+            m_CircuitTracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true, 0)); // EGM: bin 0 (0x82284678)
+#endif
         }
         if (parms->GetRaceType() == GRace::kRaceType_P2P) {
+#ifdef EA_BUILD_A124
             m_SprintTracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true));
+#else
+            m_SprintTracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true, 0)); // EGM: bin 0 (0x82284678)
+#endif
         }
         if (parms->GetRaceType() == GRace::kRaceType_Drag) {
+#ifdef EA_BUILD_A124
             m_DragTracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true));
+#else
+            m_DragTracks.AddTail(new ("SelectableTrack", 0) SelectableTrack(parms, true, 0)); // EGM: bin 0 (0x82284678)
+#endif
         }
     }
 

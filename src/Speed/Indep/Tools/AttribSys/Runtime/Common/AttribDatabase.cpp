@@ -305,10 +305,14 @@ unsigned int Database::GetNumIndexedTypes() const {
 }
 
 const TypeDesc &Database::GetIndexedTypeDesc(unsigned short index) const {
+#ifdef EA_PLATFORM_XENON
+    unsigned int actualIndex = index < mPrivates.mNumCompiledTypes ? index : 0;
+#else
     unsigned int actualIndex = 0;
     if (index < mPrivates.mNumCompiledTypes) {
         actualIndex = index;
     }
+#endif
     const TypeDesc &result = *mPrivates.mCompiledTypes[actualIndex];
     return result;
 }

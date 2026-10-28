@@ -25,6 +25,18 @@ char *GetStichTypeName(STICH_TYPE CurType) {
     return "";
 }
 
+// gcdatos14/17: en las DOS PS2, entre RoadNoiseVolumes y
+// cSTICH_PlayBack::mSampleRefSlotPool, -1 en su .data objetivo. A124: 0x5e2d84,
+// PS2_globals.hpp:1006. SLUS: el ff ff ff ff de +0x18ec = 0x53f634, en el mismo
+// hueco entre RoadNoiseVolumes (+0x18c8) y mSampleRefSlotPool (+0x18f0).
+// gcdatos19: GC igual (el ff ff ff ff de zEAXSound .data +0x2b0, entre
+// RoadNoiseVolumes +0x28c y mSampleRefSlotPool +0x2b4; el DWARF de GC lo
+// declara int). En los tres objetivos va DELANTE de los dos miembros
+// estaticos, asi que la definicion va aqui; PC/X360 no lo definen (como
+// hasta ahora) y los miembros quedan en su sitio para ellos.
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+int DEBUG_PRUNING_STITCHS = -1;
+#endif
 // .data:0x804178E8 y 0x804178EC, 4 B cada una. Estaban declaradas en
 // STICH_Playback.h:168-169 y sin definir: el constructor de aqui les asigna
 // pero nadie las define. En .data (no COMMON), o sea con inicializador.
@@ -127,14 +139,29 @@ void cSTICH_PlayBack::DestroyAllStichs(void) {
     }
 }
 
+#ifdef EA_BUILD_A124
+    // La A124 escribe Vol, Pitch, ID, vt, RVerb, StichData, Az, Mag (su binario lo da 100 % con los seis
+    // por el ctor de seis argumentos).  El PC escribe vt, Vol, Pitch, ID, Az, Mag, RVerb, StichData:
+    // SndParams por defecto (Vol, Pitch) y los cuatro ceros en el cuerpo (speed.exe, 100 %).
 cStichWrapper::cStichWrapper(const SND_Stich &NewStichData)
-    : SndParams(0, 0x7FFF, 0x1000, 0, 0, 0) //
-{
+    : SndParams(0, 0x7FFF, 0x1000, 0, 0, 0) {
     this->StichData = const_cast<SND_Stich *>(&NewStichData);
     for (int i = 0; i < 18; i++) {
         this->ActiveSamplesRefs[i] = nullptr;
     }
 }
+#else
+cStichWrapper::cStichWrapper(const SND_Stich &NewStichData) {
+    this->SndParams.ID = 0;
+    this->SndParams.Az = 0;
+    this->SndParams.Mag = 0;
+    this->SndParams.RVerb = 0;
+    this->StichData = const_cast<SND_Stich *>(&NewStichData);
+    for (int i = 0; i < 18; i++) {
+        this->ActiveSamplesRefs[i] = nullptr;
+    }
+}
+#endif
 
 cStichWrapper::~cStichWrapper() {
     this->Destroy();
@@ -151,8 +178,8 @@ void cStichWrapper::operator delete(void *ptr) {
 }
 
 void cStichWrapper::Play(int Vol, int Pitch, int Azimuth) {
-    this->SndParams.Vol = Vol;
     this->SndParams.Az = Azimuth;
+    this->SndParams.Vol = Vol;
     this->SndParams.Pitch = Pitch;
     this->Play(&this->SndParams);
 }
@@ -456,6 +483,12 @@ int cSampleWarpper::Prune(STICH_TYPE type, int priority, int num_to_clear) {
 }
 
 UTL::FixedVector<SampleQueueItem, STICH_MAX_QUEUED_SAMPLES, 16> cSTICH_PlayBack::mQueuedSampleList[3];
+
+#ifdef EA_BUILD_A124
+// gcdatos14: solo en la A124, entre cSTICH_PlayBack::mQueuedSampleList y el _mLists del
+// ListableSet (0x5e31c8-0x5e31d0, PS2_globals.hpp:1010-1011), a 0 en su .data objetivo.
+bool bVerifyMemForStitches = false;
+#endif
 
 template <>
 UTL::Collections::ListableSet<cSampleWarpper, STICH_MAX_SAMPLES, STICH_TYPE, MAX_NUM_STICH_TYPE>::_ListSet

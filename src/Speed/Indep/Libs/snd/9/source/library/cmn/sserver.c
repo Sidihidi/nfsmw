@@ -171,6 +171,49 @@ void (*gMutexUnlockFn)() = DefaultMutexUnlockFn;
 
 } // namespace Snd
 
+#ifdef EA_PLATFORM_XENON
+// Xenon (EGM 0x8260D998/0x8260D9C8): la seccion critica no va por los
+// punteros anteriores. Lee el puntero global de 0x82A7F9F0 al nucleo snd de
+// Xenon (lo guarda su constructor, 0x8260A108: pide 0xD4 B, crea dos
+// EA::Thread::Mutex incrustados en +0x78 y +0xA8 y guarda el primero en
+// +0x5C); si el campo de funcion de +0x54/+0x58 esta a cero hace
+// Lock(kTimeoutNone)/Unlock() de ese Mutex (Unlock expandido:
+// --mnLockCount en +0x20 y RtlLeaveCriticalSection) y si no llama a la
+// funcion. Sin el incritical++ de las demas plataformas.
+// El tipo es el de sndcmn.h (con el asignador de +0x20, que usan las inline
+// de SNDMEMI_allocz/SNDMEMI_free).
+#include "eathread/eathread_mutex.h"
+
+XenonUnknown82A7F9F0_t *XenonUnknown82A7F9F0;
+
+static const EA::Thread::ThreadTime kSndTimeoutNone = 0xFFFFFFFF;
+
+void SNDSYS_entercritical() {
+    // El acceso va por un local: la copia suelta (0x8260D998) sale igual de
+    // las dos formas, pero al fundirse en los llamantes el local es el que
+    // da el reparto del EGM — en MIX_create, el prologo entero
+    // (0x82617590-0x826175EC: la copia de MIXCONFIG en r6/r5/r4 con
+    // `mr r3, r31` y la tienda de SetMemCpy de 0x826175E4 delante del
+    // `lwz r10, 0x54(r11)`); con el acceso directo repetido, el asignador
+    // del cl de X360 aparca la segunda palabra de la copia en un
+    // callee-saved y esa tienda cae detras del `cmplwi`.
+    XenonUnknown82A7F9F0_t *p = XenonUnknown82A7F9F0;
+
+    if (!p->enterFn) {
+        p->mutex->Lock(kSndTimeoutNone);
+    } else {
+        p->enterFn();
+    }
+}
+
+void SNDSYS_leavecritical() {
+    if (!XenonUnknown82A7F9F0->leaveFn) {
+        XenonUnknown82A7F9F0->mutex->Unlock();
+    } else {
+        XenonUnknown82A7F9F0->leaveFn();
+    }
+}
+#else
 void SNDSYS_entercritical() {
     Snd::gMutexLockFn();
     sndgs.incritical++;
@@ -180,3 +223,4 @@ void SNDSYS_leavecritical() {
     sndgs.incritical--;
     Snd::gMutexUnlockFn();
 }
+#endif

@@ -124,7 +124,7 @@ int SkidSet::AddSegment(bVector3 *position, bVector3 *delta_position, bool skid_
     bVector3 new_segment_normal;
     bVector3 new_segment_forward;
     float length = 0.0f;
-    if (this->NumSkidSegments > 0) {
+    if (this->NumSkidSegments >= 1) {
         new_segment_forward = *position - *this->SkidSegments[this->NumSkidSegments - 1].GetPosition();
         length = bLength(&new_segment_forward);
         bNormalize(&new_segment_normal, &new_segment_forward);
@@ -132,7 +132,7 @@ int SkidSet::AddSegment(bVector3 *position, bVector3 *delta_position, bool skid_
 
     int expand_last_skid_segment = 0;
     float error;
-    if (this->NumSkidSegments > 1) {
+    if (this->NumSkidSegments >= 2) {
         error = 1.0f - bDot(&new_segment_normal, &this->LastNormal);
         float new_segment_length = this->LastSegmentLength + length;
         if (error > SkidWayTooCurvyFactor) {

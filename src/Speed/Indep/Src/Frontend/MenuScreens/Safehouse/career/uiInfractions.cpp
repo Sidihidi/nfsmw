@@ -23,7 +23,11 @@ PostPursuitInfractionsScreen::PostPursuitInfractionsScreen(ScreenConstructorData
       bFirstTimeBusted(false) {
     if (!FEDatabase->GetCareerSettings()->HasBeenBustedOnce()) {
 #ifndef EA_BUILD_A124 // la A124 no regala marcadores la primera vez
+#ifdef EA_PLATFORM_XENON // X360: cmpwi r10,1 + bge en 0x822D2DB4 (la forma < 1)
+        if (TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0) < 1) {
+#else
         if (TheFEMarkerManager.GetNumMarkers(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0) <= 0) {
+#endif
             for (int i = 0; i <= 3; i++) {
                 TheFEMarkerManager.AddMarkerToInventory(FEMarkerManager::MARKER_GET_OUT_OF_JAIL, 0);
             }

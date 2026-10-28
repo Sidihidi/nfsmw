@@ -39,6 +39,9 @@
 #include "Speed/Indep/Src/World/TimeOfDay.hpp"
 #include "Speed/Indep/Src/World/VisualTreatment.h"
 #include "Speed/Indep/Src/World/WCollisionMgr.h"
+#ifdef EA_PLATFORM_XENON
+#include "Speed/Indep/Src/Misc/Timer.hpp"
+#endif
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bFunk.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
@@ -62,7 +65,11 @@ extern float Tweak_TuningAero;                           // zPhysics (PVehicle)
 extern bool Tweak_UseTweakerTunings;                     // zPhysics (PVehicle)
 extern int DrawFEng;                                     // zFe (FEManager)
 extern int FEngMemoryPoolNumber;                         // zFEng (FEngStandard)
+#ifdef EA_PLATFORM_XENON
+extern float ForcePursuitHeatLevel;                      // zAI (float en X360: EGM 0x82A80C60)
+#else
 extern int ForcePursuitHeatLevel;                        // zAI
+#endif
 extern bool RenderLookAtPoint;                           // zFeOverlay (FEPkg_GarageMain)
 extern bool gToggleLocTracking;                          // zFe2 (Localize)
 extern bool gbShowFreeIOPMem;                            // zMisc
@@ -807,7 +814,11 @@ void SwitchToAndFromFEngTestScreen() {
 }
 
 void FadeScreenOn() {
+#ifdef EA_BUILD_A124
     new EFadeScreenOn();
+#else
+    new EFadeScreenOn(false);
+#endif
 }
 
 void FadeScreenOff() {
@@ -981,13 +992,16 @@ void TriggerSetSpeed() {
 }
 
 void TriggerSetHeat() {
+#ifdef EA_PLATFORM_XENON
+    ForcePursuitHeatLevel = gHeat;
+#else
     ForcePursuitHeatLevel = static_cast<int>(gHeat);
+#endif
 
     IPlayer *player = IPlayer::First(PLAYER_LOCAL);
     IPerpetrator *iperp;
-    player->GetSimable()->QueryInterface(&iperp);
 
-    if (iperp) {
+    if (player->GetSimable()->QueryInterface(&iperp)) {
         iperp->SetHeat(gHeat);
     }
 
@@ -1043,6 +1057,17 @@ void CareerulatorReset() {
     gCareerBounty = 0;
 }
 
+#ifdef EA_PLATFORM_XENON
+// X360: el int que edita "Video Mode (PAL:0 PAL60:1 NTSC:2)" (EGM 0x829509FC, .data, vale 3) y la funcion que lo
+// rellena con el modo actual (EGM 0x822A48D8, entre CareerulatorReset y Careerulator; DebugMenuInit la expande).
+// Nombres neutros: el binario no los da.
+int DebugMenuVideoMode = 3;
+
+void DebugMenuReadVideoMode() {
+    DebugMenuVideoMode = GetVideoMode();
+}
+#endif
+
 void Careerulator() {
     if (gCareerCurBin) {
         int binNum = gCareerCurBin->GetBinNumber();
@@ -1054,7 +1079,8 @@ void Careerulator() {
                 GRaceParameters *raceParams = GRaceDatabase::Get().GetRaceFromHash(gCareerCurBin->GetWorldRaceHash(raceCounter));
                 GRaceSaveInfo *saveInfo = GRaceDatabase::Get().GetScoreInfo(raceParams->GetEventHash());
                 saveInfo->mFlags |= GRaceDatabase::kCompleted_ContextCareer;
-                FEDatabase->GetCareerSettings()->AwardCash(bFloatToInt(raceParams->GetCashValue()));
+                CareerSettings *career = FEDatabase->GetCareerSettings();
+                career->AwardCash(bFloatToInt(raceParams->GetCashValue()));
             }
         }
 
@@ -1083,6 +1109,9 @@ void DebugMenuAllocate() {
 void DebugMenuInit() {
     gDebugMenuIOHandler = new DebugMenuInputHandler();
     DebugMenuAllocate();
+#ifdef EA_PLATFORM_XENON
+    DebugMenuReadVideoMode();
+#endif
 }
 
 void DebugMenuUnload() {
@@ -2301,7 +2330,15 @@ void NFSMenuRender::renderOverlay(int x, int y, int width, int height, float alp
     poly.Vertices[2].y = y + height;
     poly.Vertices[3].x = x;
     poly.Vertices[3].y = y + height;
+#ifdef EA_PLATFORM_XENON
+    // Xenon: la z de los cuatro vertices a 0 y sin Flailer (EGM 0x822AE490).
+    poly.Vertices[0].z = 0.0f;
+    poly.Vertices[1].z = 0.0f;
+    poly.Vertices[2].z = 0.0f;
+    poly.Vertices[3].z = 0.0f;
+#else
     poly.SetFlailer(1);
+#endif
 
     reinterpret_cast<unsigned int *>(poly.Colours)[0] = (static_cast<int>(alpha * 255.0f) << 24) + color;
     reinterpret_cast<unsigned int *>(poly.Colours)[1] = (static_cast<int>(alpha * 255.0f) << 24) + color;

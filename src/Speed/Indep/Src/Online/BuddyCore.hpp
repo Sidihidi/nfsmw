@@ -56,7 +56,8 @@ struct InvitedPlayers {
     bool hasAccepted;
     char name[16];
 
-    InvitedPlayers() { bMemSet(&hasAccepted, 0, sizeof(bool)); }
+    // 4 B en la A124 (bool de 4 B) y en PC (bool de 1 B: speed.exe 0x78C5C0 pone a cero un dword): no es sizeof(bool)
+    InvitedPlayers() { bMemSet(&hasAccepted, 0, 4); }
 };
 
 // A124 (tipo 22359, 0x110, nace justo antes de VOIP_ChallengeInfo; ctor en L41@BuddyCore.hpp): la usan
@@ -88,7 +89,7 @@ struct VOIP_ChallengeInfo {
     char challengerName[32];
     char gameRoomName[128];
 
-    VOIP_ChallengeInfo() { bMemSet(&isActive, 0, sizeof(bool)); }
+    VOIP_ChallengeInfo() { bMemSet(&isActive, 0, 4); }
 };
 
 struct BuddySettings {
@@ -217,7 +218,12 @@ struct BuddyCore {
     BuddyCore();
     static BuddyCore *instance();
     int startconnect(const char *name, const char *passwd, BuddyConnectCallback callback, void *context);
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360: sin HLB; los llamantes del EGM pasan 0 (UIOnlineChatDialog 0x822923F0: `li r3, 0` a HLBListFlagTempBuddy).
+    HLBApiRefT *getApiRef() { return nullptr; }
+#else
     HLBApiRefT *getApiRef() { return HLBud; }
+#endif
     // A124: inline (L160@BuddyCore.hpp; lw 264(v0) en DisplayHLBerrorType y ~UIOnlineEA_Messenger).
     state_type GetConnectedState() { return state; }
     // A124: inlines de L133/L134/L151@BuddyCore.hpp (UIOnlineEAM_Options: lw/sw 2436(v0) y lw 280(v0)).

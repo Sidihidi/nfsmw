@@ -344,6 +344,12 @@ dialog_handle DialogInterface::ShowDialog(feDialogConfig *conf) {
 
 #ifdef EA_BUILD_A124 // la A124 no tiene dialogos de error fatal y pasa su ControlMask como mascara
     cFEng::Get()->QueuePackagePush(SecretDialogInfo.DialogPackage, reinterpret_cast<int>(&SecretDialogInfo), SecretDialogInfo.ControlMask, false);
+#elif defined(EA_PLATFORM_PLAYSTATION2) // la PS2 de venta empuja el error con la mascara de todos los mandos
+    if (SecretDialogInfo.Title == dialog_fatalerror) {
+        cFEng::Get()->PushErrorPackage(SecretDialogInfo.DialogPackage, reinterpret_cast<int>(&SecretDialogInfo), 0xff);
+    } else {
+        cFEng::Get()->QueuePackagePush(SecretDialogInfo.DialogPackage, reinterpret_cast<int>(&SecretDialogInfo), 0, false);
+    }
 #else
     if (SecretDialogInfo.Title == dialog_fatalerror) {
         int port = FEDatabase->GetPlayersJoystickPort(0);

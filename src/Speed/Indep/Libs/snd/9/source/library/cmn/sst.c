@@ -169,9 +169,10 @@ void SNDSTRMI_startstream(SNDSTREAMCHANNEL *pssc) {
 }
 
 int SNDSTRMI_calcdatarate(SNDSAMPLEFORMAT *pssf) {
-    int avgdatarate = pssf->samplerate;
+    int avgdatarate;
     int ratio = 0;
 
+    avgdatarate = pssf->samplerate;
     avgdatarate *= pssf->channels;
 
 #ifdef EA_PLATFORM_PLAYSTATION2
@@ -188,6 +189,10 @@ int SNDSTRMI_calcdatarate(SNDSAMPLEFORMAT *pssf) {
     } else if (pssf->samplerep == 22) {
         ratio = 102;
 #ifdef EA_PLATFORM_PLAYSTATION2
+    } else if (pssf->samplerep == 8) {
+#elif defined(EA_PLATFORM_WIN32)
+    } else if (pssf->samplerep == 9) {
+        ratio = 256;
     } else if (pssf->samplerep == 8) {
 #else
     } else if (pssf->samplerep == 7) {
@@ -438,12 +443,10 @@ int SNDSTRMI_isheld(SNDSTREAMCHANNEL *pssc) {
 #ifdef EA_PLATFORM_PLAYSTATION2
         // r18 (stash 712d44e1): branch-shape que cierra PS2 al 100 %; en GC
         // rompe al ~91 %.
-        if (bufferedtime < pssr->holdtime) {
-            goto check_state;
+        if (bufferedtime >= pssr->holdtime) {
+            pssr->holdtime = 0;
+            return 0;
         }
-        pssr->holdtime = 0;
-        return 0;
-        check_state:
         if (STREAM_state(pssc->streamhandle) == 2) {
             pssr->holdtime = 0;
             return 0;
@@ -577,7 +580,7 @@ allocated:
     pmem = (char *)pmem + sizeof(SNDSTREAMCHANNEL) + Snd::gMaxFxBuses * sizeof(Snd::SNDSTREAMFXVOLUME);
     memsize -= sizeof(SNDSTREAMCHANNEL) + Snd::gMaxFxBuses * sizeof(Snd::SNDSTREAMFXVOLUME);
     pMemForFx = (char *)pssc + sizeof(SNDSTREAMCHANNEL);
-    memset(pssc, 0, sizeof(SNDSTREAMCHANNEL));
+    SNDI_memclear(pssc, sizeof(SNDSTREAMCHANNEL));
 
     prequest = (Snd::SNDSTREAMREQUEST *)pmem;
     pmem = (char *)pmem + maxrequests * sizeof(Snd::SNDSTREAMREQUEST);
@@ -694,7 +697,7 @@ int SNDSTRMI_queue(int sndstreamhandle, int holdtime, char *param1, int param2, 
     SNDSYS_entercritical();
 
     pssr = (Snd::SNDSTREAMREQUEST *)SNDLINKI_pop(&pssc->freerequests);
-    memset(pssr, 0, sizeof(Snd::SNDSTREAMREQUEST));
+    SNDI_memclear(pssr, sizeof(Snd::SNDSTREAMREQUEST));
     SNDLINKI_pushtail(&pssc->allocatedrequests, (SNDLINKNODE *)pssr);
 
     pssr->streamrequestid = streamrequestid;
@@ -814,10 +817,10 @@ int SNDSTRM_purge(int sndStrmHandle) {
     pssc->parsingrequest = NULL;
     pssc->state = 0;
 
-    memset(&pssc->cursf, 0, sizeof(SNDSAMPLEFORMAT));
-    memset(&pssc->newsf, 0, sizeof(SNDSAMPLEFORMAT));
-    memset(&pssc->cursa, 0, sizeof(SNDSAMPLEATTR));
-    memset(&pssc->newsa, 0, sizeof(SNDSAMPLEATTR));
+    SNDI_memclear(&pssc->cursf, sizeof(SNDSAMPLEFORMAT));
+    SNDI_memclear(&pssc->newsf, sizeof(SNDSAMPLEFORMAT));
+    SNDI_memclear(&pssc->cursa, sizeof(SNDSAMPLEATTR));
+    SNDI_memclear(&pssc->newsa, sizeof(SNDSAMPLEATTR));
 
     SNDSYS_leavecritical();
 

@@ -44,7 +44,7 @@ void AIActionStaticRoadBlock::OnBehaviorChange(const UCrc32 &mechanic) {
     }
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionStaticRoadBlock("AIActionStaticRoadBlock", AIActionStaticRoadBlock::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionStaticRoadBlock(UCrc32("AIActionStaticRoadBlock"), AIActionStaticRoadBlock::Construct);
 
 AIAction *AIActionStaticRoadBlock::Construct(AIActionParams *params) {
     return new AIActionStaticRoadBlock(params, 1.0f);

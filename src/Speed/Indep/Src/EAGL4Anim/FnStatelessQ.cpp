@@ -75,12 +75,12 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
 
             int timeIndex = 0;
 
-            if (mPrevKey) {
-
-                timeIndex = mPrevKey - 1;
-            } else {
+            if (mPrevKey < 1) {
 
                 timeIndex = 0;
+            } else {
+
+                timeIndex = mPrevKey - 1;
             }
 
             if (statelessQ->mTimes[timeIndex] <= floorTime) {
@@ -224,14 +224,24 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
 #else
             for (ibone = 0; ibone < nBones; ibone++) {
 
-                *reinterpret_cast<unsigned int *>(&prevQ.x) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&prevQ.y) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&prevQ.z) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&prevQ.w) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.x) = StatelessQ::Uncompress2Bits(*nextFrameData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.y) = StatelessQ::Uncompress2Bits(*nextFrameData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.z) = StatelessQ::Uncompress2Bits(*nextFrameData++);
-                *reinterpret_cast<unsigned int *>(&nextQ.w) = StatelessQ::Uncompress2Bits(*nextFrameData++);
+                // El DWARF de GameCube no lista aqui StatelessQ::Uncompress2Bits: la cuenta va escrita, como en
+                // EvalSQTMask.
+                *reinterpret_cast<unsigned int *>(&prevQ.x) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&prevQ.y) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&prevQ.z) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&prevQ.w) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.x) = ((*nextFrameData & 0x8000) << 16) | ((*nextFrameData & 0x7FFF) << 15);
+                nextFrameData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.y) = ((*nextFrameData & 0x8000) << 16) | ((*nextFrameData & 0x7FFF) << 15);
+                nextFrameData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.z) = ((*nextFrameData & 0x8000) << 16) | ((*nextFrameData & 0x7FFF) << 15);
+                nextFrameData++;
+                *reinterpret_cast<unsigned int *>(&nextQ.w) = ((*nextFrameData & 0x8000) << 16) | ((*nextFrameData & 0x7FFF) << 15);
+                nextFrameData++;
 
                 index = boneIdxs[ibone] * 12;
                 q[index] = prevQ.x + scale * (nextQ.x - prevQ.x);
@@ -285,10 +295,14 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
             for (ibone = 0; ibone < nBones; ibone++) {
 
                 index = boneIdxs[ibone] * 12;
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*frameData++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*frameData++);
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*frameData & 0x8000) << 16) | ((*frameData & 0x7FFF) << 15);
+                frameData++;
             }
 #endif
         }
@@ -340,10 +354,14 @@ bool FnStatelessQ::EvalSQT(float currTime, float *sqt, const BoneMask *boneMask)
             for (ibone = 0; ibone < numConsts; ibone++) {
 
                 index = constIdxs[ibone] * 12;
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
-                *reinterpret_cast<unsigned int *>(&q[index++]) = StatelessQ::Uncompress2Bits(*constBuf++);
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
+                *reinterpret_cast<unsigned int *>(&q[index++]) = ((*constBuf & 0x8000) << 16) | ((*constBuf & 0x7FFF) << 15);
+                constBuf++;
             }
 #endif
         }

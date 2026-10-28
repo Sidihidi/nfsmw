@@ -136,11 +136,21 @@ parser.add_argument(
 parser.add_argument(
     "--gc-toolchain-source",
     "--gc-toolchain-fuente",
+    "--gc-toolchain-faithful",
     dest="gc_toolchain_source",
     action="store_true",
-    help="GameCube: compile with SN's compiler built from its GPL source (ProDG/3.9.3-src and "
-    "ProDG/3.9.3-v183src, made by tools/sn-gcc/build.sh) instead of the official binaries; "
-    "the environment variable NFSMW_GC_TOOLCHAIN_SOURCE=1 does the same",
+    help="GameCube: compile with the faithful replicas of SN's compilers built from their GPL source "
+    "(ProDG/3.9.3-src and ProDG/3.9.3-v183src, made by tools/sn-gcc/build.sh) instead of the official "
+    "binaries: the same report and DOL; the environment variable NFSMW_GC_TOOLCHAIN_SOURCE=1 does the same",
+)
+parser.add_argument(
+    "--gc-toolchain-experiments",
+    "--gc-toolchain-experimentos",
+    dest="gc_toolchain_experiments",
+    action="store_true",
+    help="GameCube: compile with the source-built compilers plus the project's experiments "
+    "(ProDG/3.9.3-src-exp and ProDG/3.9.3-v183src-exp, with -DSN_SOURCE_TOOLCHAIN); not the official "
+    "report (it loses functions); NFSMW_GC_TOOLCHAIN_SOURCE=experiments does the same",
 )
 args = parser.parse_args()
 
@@ -201,19 +211,26 @@ compilers_path = (
 )
 
 # Opcional (decision del usuario, 2026-09-30): GameCube con el compilador de SN hecho desde su fuente GPL
-# (orig/prodg) por tools/sn-gcc/build.sh, con los parches legibles en vez de los binarios. ProDG/3.9.3-src
-# sustituye a ProDG/3.9.3 (v1.79 + $LC: mismo ensamblador que el v1.76 en las 409 unidades v1.76) y
-# ProDG/3.9.3-v183src a la replica ProDG/3.9.3-v183r de path (+ el cambio de Keating). Sin la opcion no cambia
-# nada. La variable de entorno sirve para que pctall.py/medir.py, que llaman a configure.py sin argumentos, la
-# conserven.
-gc_toolchain_fuente = args.gc_toolchain_source or os.environ.get(
-    "NFSMW_GC_TOOLCHAIN_SOURCE", ""
-) not in ("", "0")
-if config.platform == Platform.GC_WII and gc_toolchain_fuente:
-    for _tc in ("ProDG/3.9.3-src", "ProDG/3.9.3-v183src"):
+# (orig/prodg) por tools/sn-gcc/build.sh, con los parches legibles en vez de los binarios. build.sh hace la
+# REPLICA FIEL (ProDG/3.9.3-src = v1.79 + $LC, mismo ensamblador que el v1.76 en las 409 unidades v1.76;
+# ProDG/3.9.3-v183src = la replica v1.83 de path, + el cambio de Keating) y, aparte (decision del usuario,
+# ronda 78), los EXPERIMENTOS del proyecto sobre ellas: ProDG/3.9.3-src-exp y ProDG/3.9.3-v183src-exp
+# (+ frsqrte-fres, fnmsubs-minus y bsqrt-order: los builtins y el scheduling del bSqrt de bMath.hpp).
+# Decision del usuario (ronda 79): --gc-toolchain-source (alias --gc-toolchain-fuente y --gc-toolchain-faithful;
+# NFSMW_GC_TOOLCHAIN_SOURCE=1 o faithful) es la REPLICA FIEL, que da el informe y el DOL oficiales; los
+# experimentos van aparte, con --gc-toolchain-experiments (NFSMW_GC_TOOLCHAIN_SOURCE=experiments o exp): las -exp
+# con -DSN_SOURCE_TOOLCHAIN (ronda 78: GOWE69 con ellas pierde 156 funciones y cambia el DOL). Sin opcion no
+# cambia nada. La variable de entorno sirve para que pctall.py/medir.py, que llaman a configure.py sin
+# argumentos, la conserven.
+_gc_tc_env = os.environ.get("NFSMW_GC_TOOLCHAIN_SOURCE", "")
+gc_toolchain_exp = args.gc_toolchain_experiments or _gc_tc_env in ("experiments", "exp")
+gc_toolchain_fiel = not gc_toolchain_exp and (args.gc_toolchain_source or _gc_tc_env not in ("", "0"))
+_gc_tc_suf = "-exp" if gc_toolchain_exp else ""
+if config.platform == Platform.GC_WII and (gc_toolchain_exp or gc_toolchain_fiel):
+    for _tc in ("ProDG/3.9.3-src" + _gc_tc_suf, "ProDG/3.9.3-v183src" + _gc_tc_suf):
         if not (compilers_path / _tc / "cc1plus.exe").is_file():
             sys.exit(
-                f"--gc-toolchain-source: {compilers_path / _tc} is missing; build it with "
+                f"--gc-toolchain-source/-experiments: {compilers_path / _tc} is missing; build it with "
                 "tools/sn-gcc/build.sh (see tools/sn-gcc/README.md)"
             )
 
@@ -276,7 +293,9 @@ config.reconfig_deps = []
 # Base flags, common to most GC/Wii games.
 # Generally leave untouched, with overrides added below.
 if config.platform == Platform.GC_WII:
-    config.linker_version = "ProDG/3.9.3-src" if gc_toolchain_fuente else "ProDG/3.9.3"
+    config.linker_version = (
+        "ProDG/3.9.3-src" + _gc_tc_suf if gc_toolchain_exp or gc_toolchain_fiel else "ProDG/3.9.3"
+    )
 
     dolphinsdk_root = "src/Speed/GameCube/bWare/GameCube/dolphinsdk"
 
@@ -366,8 +385,8 @@ if config.platform == Platform.GC_WII:
     if config.non_matching:
         cflags_base_prodg.append("-DNON_MATCHING")
 
-    if gc_toolchain_fuente:
-        # El compilador construido desde la fuente (Fase 2: __builtin_frsqrte/fres,
+    if gc_toolchain_exp:
+        # El compilador construido desde la fuente con los experimentos (-exp; Fase 2: __builtin_frsqrte/fres,
         # patron fnmsubs-minus y scheduling t1-antes-t2 de bSqrt): bMath.hpp lo usa
         # para el bSqrt de GameCube en vez del asm (byte-identico; el oficial lo necesita).
         cflags_base_prodg.append("-DSN_SOURCE_TOOLCHAIN")
@@ -623,6 +642,7 @@ elif config.platform == Platform.X360:
 
     cflags_snd = [
         *cflags_game,
+        "/TP",
         "/I src/Speed/Indep/Libs/snd/9/include",
     ]
 
@@ -637,8 +657,11 @@ elif config.platform == Platform.X360:
         "/I src/Speed/Indep/Libs/path/5.01.04/include",
     ]
 
+    # r86 (X360-A): spch y snd como C++ (/TP), como en PC: sus .c no compilan como C con el allocator de EA
+    # (iallocator.h abre `namespace EA`) y en GameCube ya son C++ (iSPCH_InitBanks__Fv).
     cflags_spch = [
         *cflags_game,
+        "/TP",
         "/I src/Speed/Indep/Libs/allocator/1.5.0",
         "/I src/Speed/Indep/Libs/csis/dev/include",
         "/I src/Speed/Indep/Libs/snd/9/include",
@@ -867,9 +890,12 @@ elif config.platform == Platform.WIN32:
     # fichero de cmn y mix); con el /O2 del juego, 16. Las unidades de PC son las de config/SPEED_EXE_1_3.
     # PC51: sin /EHsc. El tramo de snd del exe (0x819000-0x829000) no tiene ni un marco de excepciones (cero
     # `mov fs:[0]`) y SFILTER_unpackmtfinit/mtpfinit/mtlfinit (new CMTBLKDecf) solo casan sin la limpieza del new.
+    # r80 (decision del usuario): /Oi. El exe expande strlen/strcpy/memcpy en linea (el rep movsd de MIX_initreverb,
+    # SNDSTRMI_parseheader); banco de las 108 unidades de snd de PC (sdsound.c incluida): +1, 0 perdidas.
     cflags_snd = [
         *[f for f in cflags_game if f not in ("/O2", "/EHsc")],
         "/O1",
+        "/Oi",
         "/TP",
         "/I src/Speed/Indep/Libs/snd/9/include",
     ]
@@ -938,7 +964,15 @@ def solo_a124(*objs):
 # el "j" aborta con "fixed or forbidden register ... spilled for class VU_REGS").
 # La opcion sola, sin tocar la fuente, ya cambia el reparto del codigo normal:
 # medido en banco, +6 funciones en zAI y +2 en zWorld, ninguna perdida.
-vu0_ps2 = solo_ps2("-mvu0-use-vf0-vf15")
+# Ronda 75: con los 32 (-mvu0-use-vf0-vf31, como snd, path y zEagl4Anim). El umbral de loop.c es
+# (1 + registros no fijos) con llamadas en el bucle: 79 con vf15 y 95 con vf31 (medido en los volcados -dL).
+# Con vf15 el original sacaba del bucle invariantes que nosotros no (la familia de Checkout, UIQRBrief::Setup,
+# ReadMessageResponseTags y ClipGeneral; walk_all_paths, CompositeSkin32...): medido unidad a unidad en las dos
+# PS2, +25 funciones en la A124 y +28 en SLUS. Ningun N intermedio (19, 23, 27-30) da todas.
+vu0_ps2 = solo_ps2("-mvu0-use-vf0-vf31")
+# Ronda 76 (decision del usuario): tambien zSpeech, zTrack y zWorld. Sus tres funciones del borde del umbral
+# eran fuente corta: BuildHoleMovements tenia una inicializacion muerta de menos (vuelve al 100 %);
+# FindHeliPoly y VerifySampleIntegrity quedan pendientes (diario ps2a12475).
 
 # Las unidades del juego de GameCube se compilaron con -fkeep-inline-functions: el DWARF de las 33 SourceLists trae
 # una copia fuera de linea (Range 0xFFFFFFFF, estripada al enlazar) de TODAS sus static inline (217 de 217 en zFe2:
@@ -999,7 +1033,9 @@ PS2_TOOLCHAIN = {
 # v1.83. scripts/replica_v183.py lo reproduce en copias de los oficiales, con SHA-1 comprobado. Medido: path +11
 # en GameCube y +7 en cada PS2 sin perdidas; en las bibliotecas v1.76 la misma replica pierde (-59 en GameCube).
 GC_TOOLCHAIN = {
-    "path": "ProDG/3.9.3-v183src" if gc_toolchain_fuente else "ProDG/3.9.3-v183r",
+    "path": (
+        "ProDG/3.9.3-v183src" + _gc_tc_suf if gc_toolchain_exp or gc_toolchain_fiel else "ProDG/3.9.3-v183r"
+    ),
 }
 
 
@@ -1051,19 +1087,42 @@ if config.platform == Platform.WIN32:
         "/Dinline=__inline",
     ]
     cflags_realcore_win32 = [f for f in cflags_game if f != "/O2"] + ["/O1", "/Oy-"]
-    cflags_realmemcard_win32 = [f for f in cflags_game if f != "/O2"] + [
+    # Ronda 61: /EHsc heredado del juego sale (el original no usa excepciones) y entran /Oi y /GX-:
+    # con ello interfaceimp cierra 7/7 y memcard_interface 39/40 (CreateInstance, el ctor de GameInfo
+    # y ~MemcardInterface necesitan /GX-; el ctor de GameInfo, /Oi por el memcpy expandido) y no se
+    # rompe nada de impl/taskmanager/memvectors/utilities (medido TU a TU por pcx36060).
+    cflags_realmemcard_win32 = [f for f in cflags_game if f not in ("/O2", "/EHsc")] + [
         "/O1",
         "/Oy-",
+        "/Oi",
+        "/GX-",
         "/I src/Packages/realmemcard/3.04.01-layer2/include/common",
     ]
     cflags_rcmp_win32 = [f for f in cflags_game if f != "/O2"] + ["/O1", "/Oy-"]
+    # r86 (PC-B): dirtysock de PC (DirtySDK en C, como en la A124): /O2 del juego sin /EHsc. Medido contra el tramo
+    # de dirtysock del exe (0x834576-0x85D380) con las fuentes escritas del asm de la A124: con /O2 casan 18 funciones
+    # de lobbyapilist/lobbyapiutil/lobbyapiasync; con /O1 o /Oy- el parecido baja (0,75 -> 0,52/0,65).
+    # r87 (PC-B): y /GS: _LobbyApiCreate, _LobbyApiAsyncMoveRoom, _BuddyApiRoster... de speed.exe llaman a
+    # @__security_check_cookie@4 (las funciones con un char[] en la pila); el juego no lo lleva. Banco: ninguna baja.
+    cflags_dirtysock_win32 = [f for f in cflags_game if f != "/EHsc"] + ["/GS", "/I src/Speed/Indep/Libs/dirtysock/include"]
 else:
     cflags_vp6 = [
         f
         for f in cflags_game
         if f not in ("-G0", "-fmove-all-movables", "-fforce-addr", "-mps-nodf")
     ] + ["-O2", *solo_gc("-mps-float"), *solo_ps2("-G0", "-DVP6_VERSION=103")]
-    cflags_realcore_win32 = cflags_realmemcard_win32 = cflags_rcmp_win32 = []
+    cflags_realcore_win32 = cflags_realmemcard_win32 = cflags_rcmp_win32 = cflags_dirtysock_win32 = []
+    # X59: en Xbox 360 la capa comun de realmemcard entra en el enlace LTCG con los flags del juego (la 360 tiene
+    # BootupCheckParams::Clear suelto en 0x825E8E50 y expandido en el constructor de MemoryCard, 0x822B0B60).
+    if config.platform == Platform.X360:
+        cflags_realmemcard_win32 = [
+            *cflags_game,
+            "/I src/Packages/realmemcard/3.04.01-layer2/include/common",
+            # Ronda 61 (pcx36061): memcard_taskmanager llama strncasecmp, que es la funcion de la libc
+            # (src/libc/strncasecmp.c); en MSVC no existe y sin este define la TU no compila (medido A/B:
+            # el objeto cae y el numero no se mueve, asi que no es la fuente de ninguna perdida).
+            "/Dstrncasecmp=_strnicmp",
+        ]
 
 
 # vp6 en PS2: las dos PS2 llevan la 1.0.3 del paquete, no la 1.0.6 de GameCube. Lo
@@ -1852,7 +1911,10 @@ config.libs = [
                 # PCM6 (WIN32): los nombres POSIX por sus de MSVC + el _alloca
                 # declarado; 34 fn al 100 % en banco.
                 extra_cflags=solo_win32(
-                    "/Dstrcasecmp=_stricmp", "/D__builtin_alloca=_alloca", "/FImalloc.h"
+                    "/Dstrcasecmp=_stricmp", "/D__builtin_alloca=_alloca", "/FImalloc.h",
+                    # r82 (PC-A): /Oi. FILEOPERATION::SetName (0x7ED087) expande strlen en linea; el banco de
+                    # filesys da 40/40 con y sin /Oi y SetName casa con el.
+                    "/Oi",
                 ),
             ),
             Object(
@@ -2052,7 +2114,7 @@ config.libs = [
         "lib": "realmemcard",
         "toolchain_version": toolchain_de("realmemcard"),
         # PCM3: en WIN32, el bloque /O1 /Oy- de arriba; en GC/PS2, los de la lista.
-        "cflags": cflags_realmemcard_win32 if config.platform == Platform.WIN32 else [
+        "cflags": cflags_realmemcard_win32 if config.platform in (Platform.WIN32, Platform.X360) else [
             # Esta biblioteca NO lleva -G0 (sus estaticos viven en .sdata y se
             # leen con @sda21) ni -fforce-addr (accede a los globales sin
             # materializar la direccion en un registro salvado).
@@ -3694,6 +3756,38 @@ if config.platform == Platform.WIN32:
             "progress_category": "libs",
             "objects": [
                 Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/pc/sdsound.c"),
+                # r82: el driver de plataforma de PC (0x81EBF9-0x81F337), con nombres neutros donde no hay fuente
+                Object(NonMatching, "Speed/Indep/Libs/snd/9/source/library/pc/snddrv.c"),
+            ],
+        }
+    )
+
+if config.platform == Platform.WIN32:
+    # r86 (PC-B): dirtysock de PC (el DirtySDK de speed.exe, "Oct 19 2005"), con las fuentes de la A124 (escritas de su
+    # asm). Las cuatro que casan contra el tramo de dirtysock del exe (0x834576-0x85D380): 20 funciones al 100 %;
+    # lobbyapi.c sin sus cuatro arrays de relleno de tamano cero (MSVC no los admite en mitad de una struct: C2229).
+    # lobbytagfield compila pero el TagField de PC es otra version (ninguna al 100 %).
+    # r90 (PC-B): lobbytagfield dada de alta; emparejada por XREF con el tramo 0x83A0F0-0x83CBEB del exe
+    # (dentro de unassigned_23). 3 funciones a 0 diferencias contra el exe sin LTCG
+    # (_TagFieldFindIdx 86 B, _TagFieldGetNumber 98 B, _TagFieldGetFlags 59 B).
+    # r87 (PC-B): buddyapi/hlbudapi sin su relleno de tamano cero y weboffer con WebOfferUpdate declarada (decision del
+    # usuario de la ronda 86); emparejadas por orden y tamano con el tramo de dirtysock del exe.
+    config.libs.append(
+        {
+            "lib": "dirtysock",
+            "toolchain_version": config.linker_version,
+            "cflags": cflags_dirtysock_win32,
+            "host": False,
+            "progress_category": "libs",
+            "objects": [
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapi.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapilist.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiutil.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbyapiasync.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/buddyapi.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/hlbudapi.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/weboffer.c"),
+                Object(NonMatching, "Speed/Indep/Libs/dirtysock/source/library/ps2/final/lobbytagfield.c"),
             ],
         }
     )
@@ -3708,6 +3802,35 @@ if config.platform == Platform.X360:
             "progress_category": "sdk",  # str | List[str]
             "objects": [
                 Object(NonMatching, "Speed/Xenon/link_fix.cpp"),
+            ],
+        }
+    )
+    # r86 (X360-A): csis como unidad de X360 (hasta aqui solo IL en ltcg360.BIBLIOTECAS, ronda 76). Los flags del
+    # juego, como la copia de BIBLIOTECAS (la de PC lleva /O1: en Xenon no hay prueba de otros).
+    config.libs.append(
+        {
+            "lib": "csis",
+            "toolchain_version": config.linker_version,
+            "cflags": [*cflags_game, "/I src/Speed/Indep/Libs/csis/dev/source/library/cmn"],
+            "progress_category": "libs",
+            "objects": [
+                Object(NonMatching, "Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp"),
+            ],
+        }
+    )
+    # r86 (X360-A): el semaforo de EAThread con su backend de Xenon (source/xenon, del EGM 0x82669258-0x8266976C).
+    config.libs.append(
+        {
+            "lib": "eathread",
+            "toolchain_version": config.linker_version,
+            "cflags": cflags_game,
+            "progress_category": "libs",
+            "objects": [
+                Object(NonMatching, "Packages/eathread/1.1.0/source/eathread_semaphore.cpp"),
+                # r87 (X360-A): el mutex de EAThread de Xenon (source/xenon, EGM 0x82656070-0x82656370), el cerrojo de path.
+                Object(NonMatching, "Packages/eathread/1.1.0/source/eathread_mutex.cpp"),
+                # r88 (X360-A): los hilos de EAThread de Xenon (source/xenon, EGM 0x82654D18-0x82656070).
+                Object(NonMatching, "Packages/eathread/1.1.0/source/eathread_thread.cpp"),
             ],
         }
     )
@@ -3922,7 +4045,7 @@ OBJDIFF_GOWE69_SYMBOL_MAPPINGS: Dict[str, Dict[str, str]] = {
         # (value.10688_80456560) y asi no empareja por relocs con el nuestro; el sufijo
         # nuestro es el var_labelno actual (sufijo_local avisa si deriva: `value.*` seria
         # ambiguo con los otros seis value de la unidad).
-        "value.10688_80456560": "value.5847",
+        "value.10688_80456560": "value.5796",
         "_.tmp_0.10689": "_.tmp_0.*",
         "_.tmp_3.16708": "_.tmp_3.*",
         "_.tmp_11.18594": "_.tmp_11.*",

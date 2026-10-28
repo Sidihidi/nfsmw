@@ -83,7 +83,11 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
 
     void Clear() {
         if (Unk2) {
+#ifdef EA_PLATFORM_XENON
+            for (std::size_t i = 0; i < mTableSize && mNumEntries > 0; i++) {
+#else
             for (std::size_t i = 0; i < mTableSize && mNumEntries != 0; i++) {
+#endif
                 if (mTable[i].IsValid()) {
                     delete mTable[i].Get();
                     mNumEntries--;
@@ -151,7 +155,7 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
     }
 
     std::size_t GetNextValidIndex(std::size_t startPoint) const {
-        std::size_t index = startPoint;
+        std::size_t index = startPoint + 1;
         while (index < mTableSize && !mTable[index].IsValid()) {
             index++;
         }
@@ -223,9 +227,16 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
             searchLen++;
             actualIndex = Policy::WrapIndex(actualIndex + 1, tableSize, 0);
         }
+#ifdef EA_PLATFORM_XENON
+        // La prueba de nulidad la genera el propio compilador para el placement-new:
+        // en el EGM sale como add + cmplwi cr6 (0x8216086C-0x82160870), no en la
+        // forma record que sale de escribir la suma en la condicion.
+        new (&mTable[actualIndex]) Node(key, ptr);
+#else
         if (actualIndex * sizeof(Node) + (uintptr_t)mTable) {
             new (&mTable[actualIndex]) Node(key, ptr);
         }
+#endif
         mTable[targetIndex].SetSearchLength(searchLen);
         if (searchLen > mWorstCollision) {
             mWorstCollision = searchLen;
@@ -238,7 +249,13 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
     // con la asignacion explicita targetIndex = freeIndex: GC la deja en caida libre y la A124 en la ranura del salto.
     std::size_t UpdateSearchLength(std::size_t targetIndex, std::size_t freeIndex) {
         if (targetIndex == freeIndex) {
+#ifdef EA_PLATFORM_XENON
+            // Comparado con > 0: cmplwi + ble (no beq) en 0x82161A1C-0x82161A20
+            // aprox. de la instancia ICollection.
+            if (mTable[freeIndex].MaxSearch() > 0) {
+#else
             if (mTable[freeIndex].MaxSearch() != 0) {
+#endif
                 targetIndex = freeIndex;
             } else {
                 targetIndex = Policy::WrapIndex(targetIndex + mTableSize - mWorstCollision, mTableSize, 0);
@@ -293,10 +310,16 @@ template <typename KeyType, typename T, typename Policy, bool Unk2, std::size_t 
 
     void CopyFromOldTable(Node *oldTable, std::size_t oldSize, bool needFree) {
         for (std::size_t i = 0; i < mTableSize; i++) {
+#ifdef EA_PLATFORM_XENON
+            // Igual que en InternalAdd: la prueba la pone el compilador
+            // (add + cmplwi cr6 en 0x82160920-0x82160924, instancia ICollection).
+            new (&mTable[i]) Node();
+#else
             // TODO UNSOLVED
             if (i * sizeof(Node) + (uintptr_t)mTable) {
                 new (&mTable[i]) Node();
             }
+#endif
         }
         if (!oldTable) {
             return;

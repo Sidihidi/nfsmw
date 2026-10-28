@@ -13,14 +13,29 @@ static const unsigned int TWO_PLAYER_DISTANT_TARGET_AZIM_LEFT = 60074; // size: 
 bVector2 *SFXCTL_3DObjPos::m_pv2AzimRefDir = nullptr;                                                                       // size: 0x4, Decl: 17
 bVector2 *SFXCTL_3DObjPos::m_pv2AzimRefPos = nullptr;                                                                       // size: 0x4, Decl: 18
 bAngle SFXCTL_3DObjPos::m_CameraAngle = 0;                                                                                  // size: 0x2, Decl: 19
+// gcdatos18: en las DOS PS2 este tentativo y los dos m_OutTemp* van inicializados a
+// cero en posicion de fuente (A124: zEAXSound .data +0x2fe8 y +0x3000/+0x3040, en su
+// .data objetivo, entre m_CameraAngle y fratio; sin inicializador nuestro build PS2
+// los manda al bloque tentativo del final de la .data).
+#ifdef EA_PLATFORM_PLAYSTATION2
+bAngle SFXCTL_3DObjPos::m_PlyrCarAzimToCam[2] = {0, 0}; // size: 0x4, Decl: 20
+#else
 bAngle SFXCTL_3DObjPos::m_PlyrCarAzimToCam[2];                                                                              // size: 0x4, Decl: 20
+#endif
 bAngle SFXCTL_3DObjPos::m_PlyrCarLockAzim[2] = {TWO_PLAYER_DISTANT_TARGET_AZIM_RIGHT, TWO_PLAYER_DISTANT_TARGET_AZIM_LEFT}; // size: 0x4, Decl: 21
 float SFXCTL_3DObjPos::m_fDistBetweenPlyrCars = 0.0f;                                                                       // size: 0x4, Decl: 22
 int SFXCTL_3DObjPos::m_CurLeadCar = 0;                                                                                      // size: 0x4, Decl: 23
+#ifdef EA_PLATFORM_PLAYSTATION2
+int SFXCTL_3DObjPos::m_OutTempRefCar[16] = {0};   // size: 0x40, Decl: 24
+int SFXCTL_3DObjPos::m_OutTempOtherCar[16] = {0}; // size: 0x40, Decl: 25
+#else
 int SFXCTL_3DObjPos::m_OutTempRefCar[16];                                                                                   // size: 0x40, Decl: 24
 int SFXCTL_3DObjPos::m_OutTempOtherCar[16];                                                                                 // size: 0x40, Decl: 25
+#endif
 float SFXCTL_3DObjPos::fratio = 1.0f;                                                                                       // size: 0x4, Decl: 26
-float SFXCTL_3DObjPos::fratio_2 = 1.0f;                                                                                     // size: 0x4, Decl: 27
+// gcdatos16: 0.0f en la A124 (bytes de su .data objetivo en zEAXSound2 +0x3084:
+// 00 00 00 00), no 1.0f.
+float SFXCTL_3DObjPos::fratio_2 = 0.0f;                                                                                    // size: 0x4, Decl: 27
 bVector2 SFXCTL_3DObjPos::m_v2ObjPosCopy;                                                                                   // size: 0x8, Decl: 28
 
 bVector2 SFXCTL_3DObjPos::m_v2ObjDirCopy; // size: 0x8, Decl: 30

@@ -143,7 +143,7 @@ void WCollisionAssets::SetExclusionFlags(WCollisionPack *collisionPack) {
         if (flags != 0) {
             if (cInst->fCollisionArticle) {
                 const WCollisionBarrier *barrier = cInst->fCollisionArticle->GetBarrier(0u);
-                for (int i = 0; i < cInst->fCollisionArticle->fNumEdges; ++i, barrier = barrier->Next()) {
+                for (int i = 0; i < cInst->fCollisionArticle->fNumEdges; barrier = barrier->Next(), ++i) {
                     const_cast<WSurface &>(barrier->GetWSurface()).FlagsRef() |= flags;
                 }
             }
@@ -241,7 +241,7 @@ const WCollisionObject *WCollisionAssets::Object(unsigned int ind) const {
         return nullptr;
     }
 
-    if (ind > 0x7FFF) {
+    if (ind >= 0x8000) {
         return (*this->fManagedCollisionObjects)[ind];
     }
 

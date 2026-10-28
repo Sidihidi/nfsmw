@@ -26,7 +26,7 @@ int LobbyApiSetCallback(LobbyApiRefT *lobbyRef, LobbyApiCBTypeE type, LobbyApiCa
 void LobbyApiClearCallback(LobbyApiRefT *lobbyRef, LobbyApiCBTypeE type);
 void LobbyApiDisconnect(LobbyApiRefT *lobbyRef, int reason);
 void LobbyApiDestroy(LobbyApiRefT *lobbyRef);
-void LobbyApiCancelCB(LobbyApiRefT *lobbyRef);
+int LobbyApiCancelCB(LobbyApiRefT *lobbyRef, int kind);
 void LobbyApiDebug(LobbyApiRefT *lobbyRef, LobbyApiMsgT *msg);
 }
 
@@ -46,9 +46,18 @@ LobbyCore::LobbyCore()
       raceResultsAccepted(false),     //
       cheatResponseActive(false),     //
       sendCDKey(false),               //
-      mIsSuspended(false) {}
+      mIsSuspended(false) {
+#ifdef EA_PLATFORM_XENON // EGM 0x82576888 / 0x82576978: el mutex del lobby nace y muere con LobbyCore
+    lobbyMutex.Create();
+#endif
+}
 
-LobbyCore::~LobbyCore() { Reset(); }
+LobbyCore::~LobbyCore() {
+    Reset();
+#ifdef EA_PLATFORM_XENON
+    lobbyMutex.Destroy();
+#endif
+}
 
 LobbyCore &LobbyCore::Instance() {
     static LobbyCore theLobby;
@@ -191,8 +200,9 @@ void LobbyCore::AbortGroup(int32 commandID) {
     if (group) {
         for (LobbyCommand *lc = lobbyCommandQueue.GetHead(); lc != lobbyCommandQueue.EndOfList(); lc = lc->GetNext()) {
             if (lc->groupID == group) {
-                lc = lc->GetPrev();
-                delete lobbyCommandQueue.Remove(lc->GetNext());
+                LobbyCommand *prev = lc->GetPrev();
+                delete lobbyCommandQueue.Remove(lc);
+                lc = prev;
             }
         }
     }
@@ -206,8 +216,9 @@ void LobbyCore::AbortAllCommands() {
 
 void LobbyCore::AbortAllCommands_HaveMutex() {
     AbortCurrentCommand();
-    while (!lobbyCommandQueue.IsEmpty()) {
-        delete lobbyCommandQueue.RemoveHead();
+    for (LobbyCommand *lc = lobbyCommandQueue.GetHead(); lc != lobbyCommandQueue.EndOfList(); lc = lobbyCommandQueue.GetHead()) {
+        lobbyCommandQueue.RemoveHead();
+        delete lc;
     }
 }
 
@@ -238,6 +249,9 @@ void LobbyCore::Suspend() {
         LobbyGames::Instance().Reset();
         LobbyRooms::Instance().Reset();
         LobbyGameSessions::Instance().Suspend();
+#ifdef EA_PLATFORM_XENON // EGM 0x825774E8
+        LobbyRanks::Instance().Reset();
+#endif
         if (!FEDatabase->IsLANMode()) {
             BuddyCore::instance()->pause();
         }
@@ -270,7 +284,11 @@ void LobbyCore::Resume(bool fullResume) {
 
 int32 LobbyCore::QueueCommand(int kind, const char *request, LobbyApiCallbackT *lobbyCB, void *lobbyContext,
                               CommandCBFunc commandCB, void *commandContext, bool makeNextCommand) {
+#ifdef EA_PLATFORM_XENON // EGM 0x82577768: bMalloc(0x2C, ruta, 915, 8)
+    LobbyCommand *lc = new ("e:\\mw\\speed\\indep\\src\\online/LobbyCore.cpp", 915, 8)
+#else
     LobbyCommand *lc = new ("d:/p4_apex1666_d1001856/mw/speed/indep/src/online/LobbyCore.cpp", 0x385, 8)
+#endif
         LobbyCommand(kind, request, groupStarted, lobbyCB, lobbyContext, commandCB, commandContext);
     if (!lc) {
         return -2;
@@ -312,7 +330,11 @@ int LobbyCore::RegisterGlobalCallback(LobbyApiCBTypeE type, LobbyApiCallbackT *f
         }
     }
 
+#ifdef EA_PLATFORM_XENON // EGM 0x82577908: bMalloc(0x10, ruta, 1051, 8)
+    GlobalCB *cb = new ("e:\\mw\\speed\\indep\\src\\online/LobbyCore.cpp", 1051, 8) GlobalCB;
+#else
     GlobalCB *cb = new ("d:/p4_apex1666_d1001856/mw/speed/indep/src/online/LobbyCore.cpp", 0x40d, 8) GlobalCB;
+#endif
     cb->cbFunc = func;
     cb->context = context;
     if (cb) {
@@ -350,6 +372,13 @@ void LobbyCore::LobbyPrintf(void *ref, const char *text) {
         bStrLen(text);
     }
 }
+
+#ifdef EA_PLATFORM_XENON
+// Xbox 360: el entero de .data 0x82A81DA4 (justo tras OnlineEnabled); solo lo leen ConnectionCore::Init y
+// LobbyCore::Init, que con el alargan los plazos de conexion (probablemente una opcion de depuracion). Sin nombre en
+// ningun binario y sin definir en el arbol.
+extern int XenonUnknown82A81DA4;
+#endif
 
 int32 LobbyCore::Init() {
     if (pLobbyRef) {
@@ -393,7 +422,16 @@ int32 LobbyCore::Init() {
         return -1;
     }
 
+#ifdef EA_PLATFORM_XENON // EGM 0x82577CD4: 'rtim' (y 'stim') en lugar de 'itim'
+    if (XenonUnknown82A81DA4) {
+        LobbyApiControl(pLobbyRef, 'rtim', 500000000);
+        LobbyApiControl(pLobbyRef, 'stim', 500000000);
+    } else {
+        LobbyApiControl(pLobbyRef, 'rtim', 40000);
+    }
+#else
     LobbyApiControl(pLobbyRef, 'itim', 40000);
+#endif
     LobbyApiSetCallback(pLobbyRef, LOBBYAPI_CBTYPE_CONN, GlobalConnStatusCB, this);
     LobbyApiSetCallback(pLobbyRef, LOBBYAPI_CBTYPE_RESP, GlobalResponseCB, this);
     LobbyApiSetCallback(pLobbyRef, LOBBYAPI_CBTYPE_EVNT, GlobalEventCB, this);
@@ -435,7 +473,7 @@ void LobbyCore::Reset() {
 void LobbyCore::AbortCurrentCommand() {
     if (currentCommand) {
         if (currentCommand->lobbyCallbackID != -1) {
-            LobbyApiCancelCB(pLobbyRef);
+            LobbyApiCancelCB(pLobbyRef, currentCommand->lobbyCallbackID);
         }
         delete currentCommand;
         currentCommand = nullptr;
@@ -506,7 +544,7 @@ LobbyCore::LobbyCommand::LobbyCommand(int commandKind, const char *request, bool
     commandContext = completionContext;
     req = nullptr;
     commandID = cmdID;
-    if (commandID < 1) {
+    if (commandID <= 0) { // EGM 0x82578148: cmpwi 0 + bgt
         commandID = 1;
     }
     if (commandGroup == true) {
@@ -518,7 +556,11 @@ LobbyCore::LobbyCommand::LobbyCommand(int commandKind, const char *request, bool
         grpID = 0;
     }
     if (request && *request) {
+#ifdef EA_PLATFORM_XENON // EGM 0x8257822C: bMalloc(n, ruta, 1499, 8)
+        req = new ("e:\\mw\\speed\\indep\\src\\online/LobbyCore.cpp", 1499, 8) char[bStrLen(request) + 1];
+#else
         req = new ("d:/p4_apex1666_d1001856/mw/speed/indep/src/online/LobbyCore.cpp", 0x5bf, 8) char[bStrLen(request) + 1];
+#endif
         bStrCpy(req, request);
     }
 }
@@ -527,7 +569,7 @@ void LobbyCore::RaceResults::Clear() {
     raceResults.auth[0] = '\0';
     raceResults.when = 0;
     raceResults.rept[0] = '\0';
-    for (int i = 3; i >= 0; i--) {
+    for (int i = 0; i < 4; i++) {
         raceResults.name[i][0] = '\0';
     }
     raceResults.results[0] = '\0';

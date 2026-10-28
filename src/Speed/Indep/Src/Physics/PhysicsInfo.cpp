@@ -335,8 +335,7 @@ Rpm Physics::Info::Redline(const Attrib::Gen::engine &engine) {
 }
 
 Rpm Physics::Info::Redline(const Attrib::Gen::pvehicle &pvehicle) {
-    Attrib::Gen::engine engine(pvehicle.engine(0), 0, nullptr);
-    return Redline(engine);
+    return Redline(Attrib::Gen::engine(pvehicle.engine(0), 0, nullptr));
 }
 
 // Credits: Brawltendo
@@ -516,8 +515,8 @@ bool PerfStats::Fetch(const Attrib::Gen::pvehicle &pvehicle, struct bVector2 *gr
     }
 
     unsigned int gear = 0;
-    float speed = 0.0f;
     float time = 0.0f;
+    float speed = 0.0f;
     int data_index = 0;
     float mass = pvehicle.MASS();
     float dT = graph_data ? 1.0f : 0.125f;

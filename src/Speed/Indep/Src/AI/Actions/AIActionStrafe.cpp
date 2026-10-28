@@ -30,7 +30,7 @@ class AIActionStrafe : public AIAction {
     void OnBehaviorChange(const UCrc32 &mechanic) override {}
 };
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionStrafe("AIActionStrafe", AIActionStrafe::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionStrafe(UCrc32("AIActionStrafe"), AIActionStrafe::Construct);
 
 AIAction *AIActionStrafe::Construct(AIActionParams *params) {
     return new AIActionStrafe(params, 0.0f);

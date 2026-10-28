@@ -262,7 +262,7 @@ bool CreateJoint(IBoundable *ifemale, UCrc32 femalenode_name, IBoundable *imale,
 }
 
 Bounds *const Collection::GetRoot() const {
-    if (fNumBounds > 0) {
+    if (fNumBounds >= 1) {
         return (Bounds *)(this + 1);
     }
     return NULL;

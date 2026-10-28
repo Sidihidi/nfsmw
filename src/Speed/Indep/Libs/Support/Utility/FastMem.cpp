@@ -7,6 +7,17 @@ void *bMalloc(int size, int flags);
 void bFree(void *ptr);
 void bBreak();
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+class ConsoleDumpRecorder : public FastMem::DumpRecorder {
+  public:
+    void ReportBlockKind(const char *name, unsigned int bytes, unsigned int count, unsigned int highwater);
+    void ReportBlockSize(unsigned int size, unsigned int freeblocks, unsigned int usedblocks);
+};
+
+void ConsoleDumpRecorder::ReportBlockKind(const char *name, unsigned int bytes, unsigned int count, unsigned int highwater) {}
+void ConsoleDumpRecorder::ReportBlockSize(unsigned int size, unsigned int freeblocks, unsigned int usedblocks) {}
+#endif
+
 // total size: 0x10
 class AllocDesc {
     unsigned int mIndex; // offset 0x0, size 0x4
@@ -30,7 +41,8 @@ void FastMem::Init() {
             mAvail[i] = 0;
         }
         mBlock = CoreAlloc(mBytes, mName);
-        if (mExpansionSize != 0) {
+        // speed.exe cierra el if con `jbe` (mExpansionSize > 0 sin signo), no con `je` (msvc 7.1 no pliega uno al otro).
+        if (mExpansionSize > 0) {
             *(unsigned int *)mBlock = 0;
             ((unsigned int *)mBlock)[1] = mBytes;
             mUsed = 16;
@@ -38,6 +50,33 @@ void FastMem::Init() {
         mInited = true;
     }
 }
+
+#ifdef EA_PLATFORM_PLAYSTATION2
+void FastMem::Deinit() {
+    if (mInited) {
+        void *block = mBlock;
+        while (block) {
+            void *next = 0;
+            if (mExpansionSize) {
+                next = ((void **)block)[0];
+            }
+            CoreFree(block);
+            block = next;
+        }
+        mAllocOver = 0;
+        mName = 0;
+        mBlock = 0;
+        mBytes = 0;
+        mUsed = 0;
+        mExpansionSize = 0;
+        for (unsigned int i = 0; i < 64; i++) {
+            mFreeLists[i] = 0;
+            mAlloc[i] = 0;
+            mAvail[i] = 0;
+        }
+    }
+}
+#endif
 
 void *FastMem::Alloc(std::size_t bytes, const char *kind) {
     void *result;
@@ -58,9 +97,10 @@ void *FastMem::Alloc(std::size_t bytes, const char *kind) {
                 return 0;
             }
         }
-        FreeBlock *block = mFreeLists[listIndex];
-        result = block;
-        mFreeLists[listIndex] = block->mNext;
+        // Sin local para la cabeza (el DWARF de GC solo da result y listIndex): releerla de la lista hace que X360
+        // conserve el null check del `new` tras expandir Alloc, como el EGM.
+        result = mFreeLists[listIndex];
+        mFreeLists[listIndex] = mFreeLists[listIndex]->mNext;
 #ifdef EA_PLATFORM_WIN32
         bMemSet(result, 0, bytes);
 #else

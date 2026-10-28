@@ -43,6 +43,13 @@ int SNDPROFILE_voices(SNDPROFVOICES *pspv);
 }
 #endif
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x81B3C8, System::CapOutputMode): the driver of pc/ answers with a table of 9 output modes
+// (1 = supported). The driver function (0x81ED1C, pc/snddrv.c) has no name in any source: neutral name. Global,
+// outside namespace Snd, like its definition.
+int pc_snd_81ED1C(SNDSYSOPTS *psso, unsigned char *pchanmodes);
+#endif
+
 namespace Snd {
 
 // total size: 0x8
@@ -131,6 +138,84 @@ Result System::SetMaxBanks(int banks) {
     return RESULT_OK;
 }
 
+#ifdef EA_PLATFORM_WIN32
+// The PC snd (speed.exe 0x81B297-0x81B7AE) has the whole System API of sndo.h, in header order.
+Result System::GetMaxBanks(int *pbanks) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    *pbanks = sso.set.maxbanks;
+    return RESULT_OK;
+}
+
+Result System::SetMaxStreams(int maxstreams) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.set.maxstreams = maxstreams;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::SetStealEqualPriorityVoices(bool stealequalpriority) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.set.stealequalpriorityvoices = stealequalpriority;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::SetRandomSeed(unsigned int seed) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.set.randomseed = seed;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::SetUpdateRate(float rate) {
+    SNDSYSOPTS sso;
+
+    if (rate >= 0.0f) {
+        rate = 1000.0f / rate;
+    }
+    SafeGetOpts(&sso);
+    sso.set.updateperiod = rate;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::GetUpdateRate(float *prate) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    *prate = sso.set.updateperiod;
+    if (sso.set.updateperiod >= 0.0f) {
+        *prate = 1000.0f / sso.set.updateperiod;
+    }
+    return RESULT_OK;
+}
+#endif
+
+#ifdef EA_PLATFORM_WIN32
+Result System::CapOutputMode(OutputMode mode, bool *psupported) {
+    static unsigned char chanmodes[9];
+    SNDSYSOPTS sso;
+    int result;
+
+    *psupported = false;
+    result = pc_snd_81ED1C(&sso, chanmodes);
+    if (result < 0) {
+        return SndErrToResult(result);
+    }
+    if (chanmodes[mode] == 1) {
+        *psupported = true;
+    }
+    return RESULT_OK;
+}
+#else
 Result System::CapOutputMode(OutputMode mode, bool *psupported) {
     SNDSYSOPTS sso;
 
@@ -156,8 +241,9 @@ Result System::CapOutputMode(OutputMode mode, bool *psupported) {
 
     return RESULT_OK;
 }
+#endif
 
-#ifdef EA_PLATFORM_PLAYSTATION2
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_WIN32)
 Result System::GetOutputModeName(OutputMode mode, const char **pmodename) {
     switch (mode) {
     case OUTPUTMODE_MONO:
@@ -213,6 +299,35 @@ Result System::SetOutputMode(OutputMode mode) {
     return RESULT_OK;
 }
 
+#ifdef EA_PLATFORM_WIN32
+Result System::GetOutputMode(OutputMode *pmode) {
+    *pmode = outputmode;
+    return RESULT_OK;
+}
+
+Result System::CapOutputSampleRate(Device device, int requestedsamplerate, int *pclosestsamplerate) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+
+    switch (device) {
+    case DEVICE_MAIN:
+        if (requestedsamplerate < sso.cap.outputratemin) {
+            *pclosestsamplerate = sso.cap.outputratemin;
+        } else if (requestedsamplerate > sso.cap.outputratemax) {
+            *pclosestsamplerate = sso.cap.outputratemax;
+        } else {
+            *pclosestsamplerate = requestedsamplerate;
+        }
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+#endif
+
 Result System::SetOutputSampleRate(Device device, int samplerate) {
     SNDSYSOPTS sso;
 
@@ -252,6 +367,42 @@ Result System::SetOutputSampleRate(Device device, int samplerate) {
     return RESULT_OK;
 }
 
+#ifdef EA_PLATFORM_WIN32
+Result System::GetOutputSampleRate(Device device, int *psamplerate) {
+    SNDSYSOPTS sso;
+
+    *psamplerate = 0;
+    SafeGetOpts(&sso);
+
+    switch (device) {
+    case DEVICE_MAIN:
+        *psamplerate = sso.set.outputrate;
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+
+Result System::CapVoices(Device device, int *pvoices) {
+    SNDSYSOPTS sso;
+
+    *pvoices = 0;
+    SafeGetOpts(&sso);
+
+    switch (device) {
+    case DEVICE_MAIN:
+        *pvoices = sso.cap.voicesmaincpumax;
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+#endif
+
 Result System::SetVoices(Device device, int voices) {
     SNDSYSOPTS sso;
 
@@ -283,7 +434,7 @@ Result System::SetVoices(Device device, int voices) {
             gVoicesNext[device].changed = 1;
         }
         break;
-#else
+#elif !defined(EA_PLATFORM_WIN32) // speed.exe 0x81B611: only DEVICE_MAIN
     case DEVICE_HARDWARE:
         if (sndgs.installed == 0) {
             sso.set.voicesdsp = voices;
@@ -310,6 +461,106 @@ Result System::SetSndLoadsIopModules(bool loadIopModules) {
 
     SafeGetOpts(&sso);
     sso.set.loadiopmodules = loadIopModules;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+#elif defined(EA_PLATFORM_WIN32)
+Result System::GetVoices(Device device, int *pvoices) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+
+    switch (device) {
+    case DEVICE_MAIN:
+        *pvoices = sso.set.voicesmaincpu;
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+
+Result System::SetCompatibilityLevel(CompatibilityMode mode) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.set.compatibility = mode;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::SetResampleQuality(Device device, float quality) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+
+    switch (device) {
+    case DEVICE_MAIN:
+        sso.set.resamplequality = quality * 100.0f;
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::GetResampleQuality(Device device, float *pQuality) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+
+    switch (device) {
+    case DEVICE_MAIN:
+        *pQuality = sso.set.resamplequality * 0.01f;
+        break;
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+
+Result System::SetSse(bool useSse) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.set.usesse = useSse;
+    SafeSetOpts(&sso);
+    return RESULT_OK;
+}
+
+Result System::SetDtsQuality(float quality) {
+    return RESULT_ERR_INVOPT;
+}
+
+Result System::SetRouteMainFxToIop(bool enable) {
+    return RESULT_ERR_INVOPT;
+}
+
+Result System::SetRouteHardwareFxToIop(bool enable) {
+    return RESULT_ERR_INVOPT;
+}
+
+Result System::SetSndLoadsIopModules(bool loadIopModules) {
+    return RESULT_ERR_INVOPT;
+}
+
+Result System::SetIopModulePath(const char *iopModulePath) {
+    return RESULT_ERR_INVOPT;
+}
+
+Result System::SetSndInitsAram(bool sndInitsAram) {
+    return RESULT_ERR_INVOPT;
+}
+
+Result System::SetAbortHandler(void (*abortMessage)(const char *)) {
+    SNDSYSOPTS sso;
+
+    SafeGetOpts(&sso);
+    sso.vec.abortmsg = (void (*)(char *))abortMessage;
     SafeSetOpts(&sso);
     return RESULT_OK;
 }
@@ -342,6 +593,10 @@ Result System::Init(const int headerversion) {
     gOutputModeNext.changed = 0;
     sndgs.logmixing = 0;
     sndgs.logcallbackfn = NULL;
+#ifdef EA_PLATFORM_WIN32
+    sso.set.numrendermodes = 1;
+    sso.set.rendermode[0] = 0x24;
+#endif
 
     SNDPLATFORM_ModeSetUp(&sso, outputmode);
     SafeSetOpts(&sso);
@@ -434,6 +689,30 @@ Result Memory::SetHeap(Device device, void *pmem, int size) {
     return RESULT_OK;
 }
 
+// PC: speed.exe 0x81B96B. GameCube la compila y la estripa (Range 0xFFFFFFFF en su DWARF), pero la .rodata de
+// ssys.cpp en su DOL (4 B) no tiene lo que esta forma deja (switch y constantes): alli su cuerpo no se sabe.
+#ifdef EA_PLATFORM_WIN32
+Result Memory::GetHeap(Device device, void **ppmem, int *psize) {
+    *ppmem = NULL;
+    *psize = 0;
+
+    switch (device) {
+    case DEVICE_MAIN:
+        if (sndgs.installed != 1) {
+            return RESULT_ERR_NOTINIT;
+        }
+        *ppmem = pheap;
+        *psize = heapsize;
+        break;
+
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+#endif
+
 Result Memory::SetHeapThreshold(Device device, float threshold) {
     switch (device) {
     case DEVICE_MAIN: {
@@ -451,5 +730,27 @@ Result Memory::SetHeapThreshold(Device device, float threshold) {
 
     return RESULT_OK;
 }
+
+// PC: speed.exe 0x81B9E8 (en GameCube, como GetHeap: estripada y sin su 0.01f en la .rodata).
+#ifdef EA_PLATFORM_WIN32
+Result Memory::GetHeapThreshold(Device device, float *pthreshold) {
+    *pthreshold = 0.0f;
+
+    switch (device) {
+    case DEVICE_MAIN: {
+        SNDSYSOPTS sso;
+
+        SafeGetOpts(&sso);
+        *pthreshold = sso.set.sndheapthreshold * 0.01f;
+        break;
+    }
+
+    default:
+        return RESULT_ERR_INVOPT;
+    }
+
+    return RESULT_OK;
+}
+#endif
 
 } // namespace Snd

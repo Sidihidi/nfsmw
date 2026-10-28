@@ -17,6 +17,14 @@ extern float mStaticRange;
 }
 
 SndBase::TypeInfo SFXCTL_MasterVol::s_TypeInfo = {(int)0x00000000, "SFXCTL_MasterVol", &SFXCTL::s_TypeInfo, SFXCTL_MasterVol::CreateObject};
+#if defined(EA_PLATFORM_PLAYSTATION2) || defined(EA_PLATFORM_GAMECUBE)
+// gcdatos14: en la A124, entre SFXCTL_MasterVol::s_TypeInfo y SFXCTL_GameState::s_TypeInfo
+// (0x5e43c0, PS2_globals.hpp:1076), 0x7FFF en su .data objetivo.
+// gcdatos19: no es solo-A124: la palabra 0x7FFF esta en el mismo hueco entre
+// los dos s_TypeInfo en SLUS (zEAXSound .data +0x2f30) y en GC (+0x40c); el
+// DWARF de GC lo declara int. PC/X360 sin definir, como hasta ahora.
+int g_IG_Music_Scale = 0x7FFF;
+#endif
 
 SndBase::TypeInfo *SFXCTL_MasterVol::GetTypeInfo() const { return &s_TypeInfo; }
 

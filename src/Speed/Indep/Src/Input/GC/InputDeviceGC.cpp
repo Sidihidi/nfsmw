@@ -182,7 +182,7 @@ int gShowPortInfo = 0;
 static unsigned int pad_ticker = 0;
 static float pad_elapsed_ms = 0.0f;
 
-UTL::COM::Factory<int, InputDevice, UCrc32>::Prototype _GameDevice("GameDevice", GameDevice::Construct);
+UTL::COM::Factory<int, InputDevice, UCrc32>::Prototype _GameDevice(UCrc32("GameDevice"), GameDevice::Construct);
 
 void InputEffectState::Run(float ms) {
     if (ms <= 0.0f) {

@@ -67,7 +67,7 @@ AIActionHeliExit::AIActionHeliExit(AIActionParams *params, float score)
     mIRigidBody = params->mOwner->GetRigidBody();
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeliExit("AIActionHeliExit", AIActionHeliExit::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionHeliExit(UCrc32("AIActionHeliExit"), AIActionHeliExit::Construct);
 
 AIAction *AIActionHeliExit::Construct(AIActionParams *params) {
     return new AIActionHeliExit(params, 0.0f);

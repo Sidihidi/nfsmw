@@ -25,6 +25,9 @@ extern char sndlibauthor;
 
 int SNDPLATFORM_outputcaps();
 int SNDPLATFORM_outputset();
+#ifdef EA_PLATFORM_WIN32
+int pc_snd_81EC47();
+#endif
 int SNDPLATFORM_init(StartMode startMode);
 int SNDPLATFORM_restore(StartMode startMode);
 
@@ -85,7 +88,15 @@ int SNDSYS_getopts(SNDSYSOPTS *psso) {
         sndgs.sso.set.compatibility = 0;
         sndgs.sso.set.updateperiod = -1.0f;
         sndgs.prevset = sndgs.sso.set;
+#ifdef EA_PLATFORM_WIN32
+        // PC (speed.exe 0x81E67E): the driver of pc/ says whether it already has its caps (0x81EC47, no name in
+        // any source: neutral name) and only then are they asked for.
+        if (pc_snd_81EC47() != 1) {
+            ret = SNDPLATFORM_outputcaps();
+        }
+#else
         ret = SNDPLATFORM_outputcaps();
+#endif
         gotcaps = 1;
     }
 
@@ -110,7 +121,7 @@ int SNDSYSI_init(void *psndheap, int heapsize, int headerversion) {
         return 0;
     }
 
-    memset(psndheap, 0, heapsize);
+    SNDI_memclear(psndheap, heapsize);
     SNDMEMI_init(psndheap, heapsize);
 
     if (sndgs.voicestotal == 0) {
@@ -202,9 +213,13 @@ int SNDSYSI_chanpubinit() {
     int chanAllocSize;
     char *ptemp;
 
+#ifdef EA_PLATFORM_WIN32 // PC (0x81E784): (gMaxFxBuses + 0x24) * voicestotal * 4
+    chanAllocSize = sndgs.voicestotal * (sizeof(CHANPUB) + Snd::gMaxFxBuses * sizeof(FXVOLUME));
+#else
     chanAllocSize = sndgs.voicestotal * sizeof(CHANPUB) + Snd::gMaxFxBuses * (sndgs.voicestotal << 2);
+#endif
     sndgs.chan = (CHANPUB *)SNDMEMI_allocz(chanAllocSize);
-    memset(sndgs.chan, 0, chanAllocSize);
+    SNDI_memclear(sndgs.chan, chanAllocSize);
 
     ptemp = (char *)&sndgs.chan[sndgs.voicestotal];
     for (i = 0; i < sndgs.voicestotal; i++) {
@@ -257,7 +272,7 @@ int SNDSYSI_updatesso(SNDSYSOPTS *pSndSysOpts) {
                 Snd::gVoicesNext[device].changed = 0;
             }
             break;
-#else
+#elif !defined(EA_PLATFORM_WIN32) // PC (0x81E81D): solo DEVICE_MAIN
         case Snd::DEVICE_HARDWARE:
             if (Snd::gVoicesNext[device].changed != 0) {
                 pSndSysOpts->set.voicesdsp = Snd::gVoicesNext[device].value;

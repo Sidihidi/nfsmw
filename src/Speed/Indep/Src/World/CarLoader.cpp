@@ -19,8 +19,11 @@
 #include "Speed/Indep/Src/Misc/bFile.hpp"
 #include "Speed/Indep/Src/World/CarRender.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
+// ScreenPrintf de PrintMemoryUsage (las cadenas "%4d %4d %4d %s" y "Total  %d/%d" estan en la A124 y en el EGM
+// 0x820A3E40/0x820A3E88; en GC, SLUS y PC no estan).
+#include "Speed/Indep/Src/Frontend/DebugMenu.h"
 #endif
 
 int CarLoaderMemoryPoolNumber = -1;
@@ -58,9 +61,10 @@ static const int CarLoaderMemorySpongeNumAllocs = 0;
 
 static const int DisableCarLoaderDefragmentation = 0;
 
+int UsePrecompositeVinyls = 0;
+
 CarLoader TheCarLoader;
 
-int UsePrecompositeVinyls = 0;
 SlotPool *LoadedTexturePackSlotPool = nullptr;
 SlotPool *LoadedSolidPackSlotPool = nullptr;
 SlotPool *LoadedSkinLayerSlotPool = nullptr;
@@ -302,9 +306,17 @@ LoadedWheel::LoadedWheel(RideInfo *ride_info, bool in_fe) {
         }
     }
 
+#ifdef EA_PLATFORM_XENON
+    // El EGM guarda los tres estados en orden descendente de offset (stw a
+    // 0x10, 0xC y 0x8 en 0x825292E4-0x825292EC): Temp, Perm, LoadState.
+    this->LoadStateSkinTemp = CARLOADSTATE_LOADED;
+    this->LoadStateSkinPerm = CARLOADSTATE_LOADED;
+    this->LoadState = CARLOADSTATE_LOADED;
+#else
     this->LoadState = CARLOADSTATE_LOADED;
     this->LoadStateSkinPerm = CARLOADSTATE_LOADED;
     this->LoadStateSkinTemp = CARLOADSTATE_LOADED;
+#endif
 }
 
 LoadedCar::LoadedCar(RideInfo *ride_info, int in_front_end, int is_two_player) {
@@ -624,21 +636,32 @@ void CarLoader::PrintMemoryUsage(bool on_screen) {
         return;
     }
 
-#ifdef EA_PLATFORM_WIN32
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // X360: li r5, 0xC00 (NFS.exe 0x8252D624)
     void *allocation_table[3072];
 #else
     void *allocation_table[1152];
 #endif
     int num_allocations;
     char allocation_usage_table[1024];
-    int total_memory_used = 0;
+    int total_memory_used;
     int total_memory_used2;
     int screen_x;
     int screen_y;
 
     lastTime = GetDebugRealTime();
     num_allocations = bMemoryGetAllocations(CarLoaderMemoryPoolNumber, allocation_table, NUM_ELEMENTS(allocation_table));
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+    // Xbox 360 milestone (EGM 0x82529EE0-0x82529EF4; la cadena esta en 0x820A3D7C y la constante comparada es
+    // 0xC00, el MaxCarLoaderAllocations de arriba).
+    if (num_allocations >= MaxCarLoaderAllocations) {
+        bReleasePrintf("WARNING:  MaxCarLoaderAllocations execeded %d\n", MaxCarLoaderAllocations);
+    }
+#endif
     bMemSet(allocation_usage_table, 0, 0x400);
+
+    total_memory_used = 0;
+    screen_x = -115;
+    screen_y = -195;
 
     for (LoadedRideInfo *loaded_ride_info = this->LoadedRideInfoList.GetTail(); loaded_ride_info != this->LoadedRideInfoList.EndOfList();
          loaded_ride_info = loaded_ride_info->GetPrev()) {
@@ -648,37 +671,50 @@ void CarLoader::PrintMemoryUsage(bool on_screen) {
 
         void *memory_entries[256];
         int num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedCar, memory_entries, 0);
-        int memory_used = 0;
-        int memory_required = 0;
         int memory_budget;
 
         num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedSkin, memory_entries, num_memory_entries);
         num_memory_entries = this->GetMemoryEntries(loaded_ride_info->pLoadedWheel, memory_entries, num_memory_entries);
 
+        int memory_required = 0;
+        int memory_used = 0;
         for (int n = 0; n < num_memory_entries; n++) {
             void *memory_entry = memory_entries[n];
             int memory_entry_size = bGetMallocSize(memory_entry);
             int i;
             for (i = 0; i < num_allocations; i++) {
                 if (memory_entry == allocation_table[i]) {
-                    memory_used += memory_entry_size;
-
                     if (allocation_usage_table[i] == 0) {
                         memory_required += memory_entry_size;
                     }
 
+                    memory_used += memory_entry_size;
                     allocation_usage_table[i]++;
                     break;
                 }
             }
         }
 
-        if (loaded_ride_info->NumInstances > 0) {
+        if (loaded_ride_info->NumInstances) {
             total_memory_used += memory_required;
         }
 
         memory_budget = CarInfo_GetResourceCost(loaded_ride_info->TheRideInfo.Type, loaded_ride_info->IsPlayerCar != 0, this->TwoPlayerFlag != 0);
+#ifdef MILESTONE_BUILD
+        // Las milestone pintan el desglose por coche en pantalla (EGM 0x8252A0C8-0x8252A11C: a -115, de 15 en 15
+        // desde -195, con duracion 2.6f y los tres tamanos en K).
+        if (on_screen && loaded_ride_info->NumInstances > 0) {
+            ScreenPrintf(screen_x, screen_y, 2.6f, "%4d %4d %4d %s", memory_used / 1024, memory_required / 1024,
+                         memory_budget / 1024, loaded_ride_info->GetName());
+            screen_y += 15;
+        }
+#endif
     }
+#ifdef MILESTONE_BUILD
+    if (on_screen) {
+        ScreenPrintf(screen_x, screen_y, 2.6f, "Total  %d/%d", total_memory_used / 1024, this->MemoryPoolSize / 1024);
+    }
+#endif
 
     for (int allocation_num = 0; allocation_num < num_allocations; allocation_num++) {
         void *allocation = allocation_table[allocation_num];
@@ -1424,12 +1460,11 @@ int CarLoader::Load(RideInfo *ride_info) {
     this->LoadedRideInfoList.Remove(loaded_ride_info);
     // AddHead missing
     this->LoadedRideInfoList.AddTail(loaded_ride_info);
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     if (is_player_car) {
         Juice::GameHook::Instance()->AssetHit("CAR_DRIVE", GetCarTypeName(ride_info->Type));
-    } else {
-        Juice::GameHook::Instance()->AssetHit("CAR_LOAD", GetCarTypeName(ride_info->Type));
     }
+    Juice::GameHook::Instance()->AssetHit("CAR_LOAD", GetCarTypeName(ride_info->Type));
 #endif
     return loaded_ride_info->ID;
 }
@@ -1518,11 +1553,25 @@ LoadedRideInfo *CarLoader::AllocateRideInfo(RideInfo *ride_info, int is_player_c
         if (ride_info->SkinType != 0) {
             char vinyls_filename[72];
 
+#ifdef EA_PLATFORM_XENON
+            // Dos if anidados, no un ||: el EGM carga el formato PREVINYL en la
+            // caida de cada prueba (addi r4 en 0x8252C578 tras el beq de
+            // UsePrecompositeVinyls en 0x8252C570, y otra vez en 0x8252C58C tras
+            // el cmpwi SkinType, 2 de 0x8252C580) y el VINYLS queda al final.
+            if (UsePrecompositeVinyls != 0) {
+                bSPrintf(vinyls_filename, "CARS\\%s\\PREVINYL.BIN", car_type_info->GetCarTypeName());
+            } else if (ride_info->SkinType == 2) {
+                bSPrintf(vinyls_filename, "CARS\\%s\\PREVINYL.BIN", car_type_info->GetCarTypeName());
+            } else {
+                bSPrintf(vinyls_filename, "CARS\\%s\\VINYLS.BIN", car_type_info->GetCarTypeName());
+            }
+#else
             if (UsePrecompositeVinyls != 0 || ride_info->SkinType == 2) {
                 bSPrintf(vinyls_filename, "CARS\\%s\\PREVINYL.BIN", car_type_info->GetCarTypeName());
             } else {
                 bSPrintf(vinyls_filename, "CARS\\%s\\VINYLS.BIN", car_type_info->GetCarTypeName());
             }
+#endif
             car_type_info->GetCarTypeName(); // ?
 
             if (bFileExists(vinyls_filename)) {
@@ -1685,7 +1734,7 @@ int CarLoader::RemoveSomethingFromCarMemoryPool(bool force_unload) {
 
     if (this->NumSpongeAllocations != 0) {
         int mem_remaining;
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
         // la A124 avisa a Juice de que se ha tocado la marca de memoria
         mem_remaining = this->NumSpongeAllocations * CarLoaderMemorySpongeAllocSize;
         Juice::GameHook::Instance()->GameEvent("MEMORY", "CARLOADER", "Watermark Reached", mem_remaining, static_cast<float>(this->TwoPlayerFlag),
@@ -1936,17 +1985,23 @@ bool CarLoader::AllocateDefragmentStorage() {
     int copy_storage_size = 0;
     int num_copy_storage = 0;
 
-    if (copy_storage_size < DefragmentParams.LargestAllocationSize) {
-        do {
+    while (copy_storage_size < DefragmentParams.LargestAllocationSize && num_copy_storage <= 7) {
             int amount_needed = DefragmentParams.LargestAllocationSize - copy_storage_size;
             int best_pool_num = -1;
             int best_size = 0;
-            char *best_pool;
+#ifdef EA_BUILD_A124
+            char *pools_to_try[4] = {
+                "Main Pool", "Track Streaming", "Audio Memory Pool", "Speech Cache Memory Pool",
+            };
+
+            for (int n = 0; n < 4; n++) {
+#else
             char *pools_to_try[5] = {
                 "Main Pool", "Track Streaming", "Audio Memory Pool", "Speech Cache Memory Pool", "FEngMemoryPool",
             };
 
             for (int n = 0; n < 5; n++) {
+#endif
                 int pool_num = bGetMemoryPoolNum(pools_to_try[n]);
 
                 if (pool_num > -1) {
@@ -1971,7 +2026,6 @@ bool CarLoader::AllocateDefragmentStorage() {
             DefragmentParams.CopyStorageMem[num_copy_storage] = bMalloc(best_size, "CarLoaderDefragment", 0, best_pool_num & 0xF);
             copy_storage_size += best_size;
             num_copy_storage++;
-        } while (copy_storage_size < DefragmentParams.LargestAllocationSize && num_copy_storage <= 7);
     }
 
     DefragmentParams.NumCopyStorage = num_copy_storage;
@@ -2082,7 +2136,11 @@ int CarLoader::DefragmentPool() {
     }
 
     int ticks = bGetTicker();
+#ifdef EA_PLATFORM_XENON // X360: li r5, 0xC00 antes de bMemoryGetAllocations (NFS.exe 0x8252D624)
+    void *allocation_table[3072];
+#else
     void *allocation_table[1152];
+#endif
     int num_allocations = bMemoryGetAllocations(CarLoaderMemoryPoolNumber, allocation_table, NUM_ELEMENTS(allocation_table));
 
     bMemSet(&DefragmentParams, 0, sizeof(DefragmentParams));

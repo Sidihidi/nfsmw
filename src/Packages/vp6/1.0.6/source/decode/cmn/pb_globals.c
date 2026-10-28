@@ -38,30 +38,34 @@ BOOL VP6_AllocateTmpBuffers(PB_INSTANCE *pbi) {
     VP6_DeleteTmpBuffers(pbi);
 
     pbi->ReconDataBufferAlloc = (INT16 *)duck_malloc(64 * sizeof(INT16) + 32, DMEM_GENERAL);
-    if (!pbi->ReconDataBufferAlloc)
-        goto Exit;
+    if (!pbi->ReconDataBufferAlloc) {
+        VP6_DeleteTmpBuffers(pbi);
+        return FALSE;
+    }
     pbi->ReconDataBuffer = (INT16 *)(((UINT32)pbi->ReconDataBufferAlloc + 31) & ~31);
 
     pbi->TmpDataBufferAlloc = (INT16 *)duck_malloc(64 * sizeof(INT16) + 32, DMEM_GENERAL);
-    if (!pbi->TmpDataBufferAlloc)
-        goto Exit;
+    if (!pbi->TmpDataBufferAlloc) {
+        VP6_DeleteTmpBuffers(pbi);
+        return FALSE;
+    }
     pbi->TmpDataBuffer = (INT16 *)(((UINT32)pbi->TmpDataBufferAlloc + 31) & ~31);
 
     pbi->LoopFilteredBlockAlloc = (UINT8 *)duck_malloc(256 + 32, DMEM_GENERAL);
-    if (!pbi->LoopFilteredBlockAlloc)
-        goto Exit;
+    if (!pbi->LoopFilteredBlockAlloc) {
+        VP6_DeleteTmpBuffers(pbi);
+        return FALSE;
+    }
     pbi->LoopFilteredBlock = (UINT8 *)(((UINT32)pbi->LoopFilteredBlockAlloc + 31) & ~31);
 
     pbi->TmpReconBufferAlloc = (INT16 *)duck_malloc(64 * sizeof(INT16) + 32, DMEM_GENERAL);
-    if (!pbi->TmpReconBufferAlloc)
-        goto Exit;
+    if (!pbi->TmpReconBufferAlloc) {
+        VP6_DeleteTmpBuffers(pbi);
+        return FALSE;
+    }
     pbi->TmpReconBuffer = (INT16 *)(((UINT32)pbi->TmpReconBufferAlloc + 31) & ~31);
 
     return TRUE;
-
-Exit:
-    VP6_DeleteTmpBuffers(pbi);
-    return FALSE;
 }
 
 void VP6_DeletePBInstance(PB_INSTANCE **pbi) {

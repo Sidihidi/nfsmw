@@ -20,11 +20,7 @@ float kHeliVisualSphere = 75.0f;
 AIVehicleHelicopter *gHeliVehicle = nullptr;
 
 bool HeliVehicleActive() {
-    if (gHeliVehicle) {
-        return true;
-    } else {
-        return false;
-    }
+    return gHeliVehicle != nullptr;
 }
 
 AIVehicleHelicopter::AIVehicleHelicopter(const BehaviorParams &bp)

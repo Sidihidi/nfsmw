@@ -155,7 +155,7 @@ void FEScript::SetTrackCount(i32 Count) {
     pTracks = nullptr;
     TrackCount = Count;
 
-    if (Count != 0) {
+    if (TrackCount != 0) {
         pTracks = FNEW FEKeyTrack[Count];
     }
 }

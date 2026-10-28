@@ -190,17 +190,27 @@ void TwoStageSlider::Draw() {
 
     FEngSetBottomRightU(pFillBar, scale);
 
+#ifdef EA_PLATFORM_WIN32
+    float preview_pcnt = (fPreviewValue - fMinValue) / d;
+
+    FEngSetTopLeft(reinterpret_cast<FEObject *>(pHandle), base_x + fRange * preview_pcnt, base_y);
+#else
     scale = (fPreviewValue - fMinValue) / d;
 
     FEngSetTopLeft(reinterpret_cast<FEObject *>(pHandle), base_x + fRange * scale, base_y);
+#endif
 
     if (pValue) {
         FEPrintf(pValue, "%d", bFloatToInt(fCurValue));
     }
 
     if (pPreviewBar != nullptr) {
+#ifdef EA_PLATFORM_WIN32
+        scale = fRange * preview_pcnt;
+#else
         float preview_pcnt = fRange * scale;
         scale = preview_pcnt;
+#endif
         FEngSetSizeX(reinterpret_cast<FEObject *>(pPreviewBar), scale);
         FEngSetBottomRightU(pPreviewBar, scale);
         FEngSetTopLeft(reinterpret_cast<FEObject *>(pPreviewBar), base_x, base_y);

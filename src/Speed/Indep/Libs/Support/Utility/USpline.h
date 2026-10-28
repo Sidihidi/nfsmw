@@ -11,7 +11,12 @@
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 
-class SplinePointList : public std::list<UMath::Vector4> {};
+class SplinePointList : public std::list<UMath::Vector4> {
+  public:
+#ifdef EA_PLATFORM_PLAYSTATION2
+    USE_FASTALLOC(SplinePointList)
+#endif
+};
 
 // total size: 0x6C
 class USpline {

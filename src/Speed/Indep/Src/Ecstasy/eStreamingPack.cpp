@@ -220,7 +220,8 @@ eStreamingEntry *eStreamPackLoader::GetStreamingEntry(uint32 name_hash, eStreami
         int num_entries = streaming_pack->StreamingEntryNumEntries;
         if (streaming_pack->StreamingEntryTable) {
             eStreamingEntry *streaming_entry =
-                (eStreamingEntry *)ScanHashTableKey32(name_hash, streaming_pack->StreamingEntryTable, num_entries, 0x0, 0x18);
+                (eStreamingEntry *)ScanHashTableKey32(name_hash, streaming_pack->StreamingEntryTable, num_entries, 0x0,
+                                                      E_FILA_STREAMING_ENTRY);
             if (streaming_entry) {
                 return streaming_entry;
             }
@@ -991,7 +992,7 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
             eStreamingEntry *streaming_entry = load_info->StreamingEntry;
             uint32 name_hash = streaming_entry->NameHash;
 
-#ifdef EA_PLATFORM_WIN32 // speed.exe comprueba antes el RefCount que el bit 0x10 de Flags; GameCube casa al reves
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON) // speed.exe y X360 comprueban antes el RefCount que el bit 0x10 de Flags; GameCube casa al reves
             if (streaming_entry && streaming_entry->RefCount == 0 && (streaming_entry->Flags & 0x10) == 0) {
 #else
             if (streaming_entry && (streaming_entry->Flags & 0x10) == 0 && streaming_entry->RefCount == 0) {
@@ -1000,7 +1001,9 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
 
                 if (name_hash != prev_name_hash) {
                     prev_name_hash = name_hash;
-
+#ifdef EA_PLATFORM_XENON
+                    char malloc_name_uncompressed[128];
+#endif
                     if (pass == 0) {
                         char malloc_name[128];
                         int malloc_size;
@@ -1026,7 +1029,11 @@ int eStreamPackLoader::TestLoadStreamingEntry(unsigned int *name_hash_table, int
                             amount_not_alloc += malloc_size;
                         }
                     } else if (pass == 1) {
+#ifdef EA_PLATFORM_XENON
+                        char (&malloc_name)[128] = malloc_name_uncompressed;
+#else
                         char malloc_name[128];
+#endif
                         int malloc_size;
                         int allocation_params;
                         unsigned char *compressed_data;

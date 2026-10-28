@@ -365,8 +365,8 @@ void FEKeyboard::UpdateStringVisual() {
                 fitstring = reinterpret_cast<short *>(widestring);
                 mnWindowStartIdx = 0;
             } else {
-                mnWindowStartIdx = mnWindowStartIdx - 4;
                 fitstring = fitstring - 4;
+                mnWindowStartIdx = mnWindowStartIdx - 4;
             }
         }
 

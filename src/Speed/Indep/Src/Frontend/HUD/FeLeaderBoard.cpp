@@ -14,6 +14,10 @@
 #include "Speed/Indep/Src/FEng/FEImage.h"
 #include "Speed/Indep/Src/Frontend/FEngHashes/ScriptHashes.hpp"
 #include "Speed/Indep/Src/Generated/LanguageHashes.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
+#include "Speed/Indep/Src/Online/VoiceCore.hpp"
+#endif
 
 LeaderBoard::LeaderBoard(UTL::COM::Object *pOutter, const char *pkg_name, int player_number) : HudElement(pkg_name, 0x18), ILeaderBoard(pOutter) {
     mNumRacers = -1;
@@ -115,6 +119,41 @@ void LeaderBoard::Update(IPlayer *player) {
                     FEPrintf(mDataRacerText[i], "%s", mTopRacers[i].mRacerName);
                     FEPrintf(mDataRacerNum[i], "%$d", mTopRacers[i].mRacerNum);
                 }
+#ifdef EA_BUILD_A124 // en linea, el icono de voz de cada piloto
+                if (TheOnlineManager.IsOnlineRace()) {
+                    VoiceCore &voice = VoiceCore::instance(); // sin nombre en los stabs; sin ella releeria mInstance tras cada llamada
+                    char *icon = nullptr;
+                    if (i == mPlayerIndex) {
+                        if (voice.IsHeadsetConnected()) {
+                            if (voice.IsHeadsetSending()) {
+                                icon = "OL_VOICE";
+                            } else {
+                                icon = "OL_HEADSET";
+                            }
+                        }
+                    } else {
+                        int channel;
+                        if (voice.IsInVOIPChat(mTopRacers[i].mRacerName, &channel)) {
+                            if (voice.IsMuted(channel)) {
+                                icon = "OL_HEADSET_MUTE";
+                            } else if (voice.IsConnected(channel)) {
+                                if (voice.IsSpeaking(channel)) {
+                                    icon = "OL_VOICE";
+                                } else if (voice.IsActive(channel) && mTopRacers[i].mHasHeadset) {
+                                    icon = "OL_HEADSET";
+                                }
+                            }
+                        }
+                    }
+
+                    if (icon != nullptr) {
+                        FEngSetTextureHash(mDataRacerIcon[i], FEngHashString(icon));
+                        FEngSetScript(mDataRacerIcon[i], 0x1CA7C0, true);
+                    } else {
+                        FEngSetScript(mDataRacerIcon[i], 0x16A259, true);
+                    }
+                }
+#endif
             }
         }
         int numRacerNumToClearFrom = mNumRacers > 1 ? mNumRacers : 0;

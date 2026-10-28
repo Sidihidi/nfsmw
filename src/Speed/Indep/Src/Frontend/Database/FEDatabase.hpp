@@ -471,7 +471,7 @@ class CareerSettings {
         SpecialFlags |= CS_BEATEN_SPECIAL_CHALLENGE_EVENT;
     }
     bool HasBeatenChallengeSeries() {
-        return SpecialFlags & CS_BEEN_AWARDED_EPIC_CAR;
+        return SpecialFlags & CS_BEATEN_CHALLENGE_SERIES;
     }
     void SetHasBeatenChallengeSeries() {
         SpecialFlags |= CS_BEATEN_CHALLENGE_SERIES;
@@ -844,6 +844,13 @@ class cFrontendDatabase {
   private:
     uint32 FEGameMode; // offset 0x1C0, size 0x4
   public:
+#ifdef EA_PLATFORM_XENON
+    // X360 (NFS.exe): un int8 en 0x130, entre FEGameMode (0x12C) y LoadSaveGame (0x134; OnlineSettings va en 0x138:
+    // MinOnlinePlayers es el lbz/stb 0x13C del +/-1 de uiQRTrackOptions). Lo leen con lbz/extsb
+    // XenonSystemHudMonitor::IsNonControllingUserSignedIn (lo compara con el puerto 0-3 de cada usuario) y
+    // GarageMainScreen::HandleJoyEvents; probablemente el puerto del usuario que manda. Nombre nuestro.
+    int8 x360_unknown_0x130;
+#endif
     eLoadSaveGame LoadSaveGame; // offset 0x1C4, size 0x4
 #if ONLINE_SUPPORT
     cOnlineSettings OnlineSettings;
@@ -865,7 +872,15 @@ extern cFrontendDatabase *FEDatabase;
 char *SaveSomeData(void *save_to, void *save_from, int bytes, void *maxptr);
 char *LoadSomeData(void *load_to, void *load_from, int bytes, void *maxptr);
 
+#ifdef EA_PLATFORM_WIN32
+// En PC devuelve un byte (speed.exe 0x56E2C0: `mov al, byte ptr [0x8f8718]`; los llamantes hacen `test al, al`,
+// p. ej. 0x64A155 y 0x5236BB, y al expandirse en IsBonusCarAvailable (0x58ADC1) el resultado se normaliza con
+// `test al, al`/`setne al` al convertirse a bool). En el resto devuelve int (en X360,
+// ?GetIsCollectorsEdition@@YAHXZ en 0x822EE008).
+unsigned char GetIsCollectorsEdition();
+#else
 int GetIsCollectorsEdition();
+#endif
 void InitFrontendDatabase();
 int GetMikeMannBuild();
 

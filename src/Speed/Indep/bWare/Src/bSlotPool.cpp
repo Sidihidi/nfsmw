@@ -65,6 +65,20 @@ SlotPool *SlotPool::NewSlotPool(int slot_size, int num_slots, const char *debug_
     SlotPool *slot_pool =
         reinterpret_cast<SlotPool *>(bMalloc(slot_size * num_slots + (sizeof(SlotPool) - sizeof(SlotPoolEntry)), debug_name, 0, memory_pool));
     if (slot_pool) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+        // PC y X360: otro orden y sin WARN_IF_OVERFLOW (0xB; speed.exe 0x465DB0, NFS.exe 0x8216A494).
+        slot_pool->NumSlots = num_slots;
+        slot_pool->SlotSize = slot_size;
+        slot_pool->Flags = static_cast<SlotPoolFlags>(SLOTPOOL_FLAG_WARN_IF_NONEMPTY_DELETE | SLOTPOOL_FLAG_ZERO_ALLOCATED_MEMORY |
+                                                      SLOTPOOL_FLAG_OVERFLOW_IF_FULL);
+        slot_pool->FreeSlots = nullptr;
+        slot_pool->NextSlotPool = nullptr;
+        slot_pool->MemoryPool = memory_pool;
+        slot_pool->DebugName = debug_name;
+        slot_pool->TotalNumSlots = num_slots;
+        slot_pool->NumAllocatedSlots = 0;
+        slot_pool->MostNumAllocatedSlots = 0;
+#else
         slot_pool->SlotSize = slot_size;
         slot_pool->MemoryPool = memory_pool;
         slot_pool->DebugName = debug_name;
@@ -76,6 +90,7 @@ SlotPool *SlotPool::NewSlotPool(int slot_size, int num_slots, const char *debug_
         slot_pool->NextSlotPool = nullptr;
         slot_pool->NumAllocatedSlots = 0;
         slot_pool->MostNumAllocatedSlots = 0;
+#endif
         slot_pool->FlushSlotPool();
     }
     return slot_pool;
@@ -116,7 +131,7 @@ void SlotPool::ExpandSlotPool(int num_extra_slots) {
     }
     last_slot_pool->NextSlotPool = new_slot_pool;
 
-    SlotPoolEntry *last_slot = &new_slot_pool->Slots[(((num_extra_slots - 1) * SlotSize) / 4 * 4) / sizeof(SlotPoolEntry *)];
+    SlotPoolEntry *last_slot = &new_slot_pool->Slots[((num_extra_slots - 1) * SlotSize) / 4];
     last_slot->Next = FreeSlots;
 
     FreeSlots = new_slot_pool->FreeSlots;

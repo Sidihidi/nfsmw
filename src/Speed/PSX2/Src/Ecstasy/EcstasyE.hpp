@@ -212,6 +212,9 @@ template <typename T> struct eSList {
     T *Head;     // offset 0x0, size 0x4
     T **TailPtr; // offset 0x4, size 0x4
 
+    eSList() {
+        Reset();
+    }
     void Reset() {
         Head = 0;
         TailPtr = &Head;
@@ -678,6 +681,21 @@ extern int DisplayParticleSystemStats;
 namespace DebugCarRenderTest {
 void Render();
 };
+
+// Tabla de paginas y bloques de la VRAM del GS por formato. La usan EcstasyE.cpp y Movie_PS2.cpp (su GetPS2VramSize
+// estatica lee PS2VramInfoPSMCT32).
+struct PS2VramInfo {
+    // total size: 0x98
+    int PixelsPerPageX;    // offset 0x0, size 0x4
+    int PixelsPerPageY;    // offset 0x4, size 0x4
+    int PixelsPerBlockX;   // offset 0x8, size 0x4
+    int PixelsPerBlockY;   // offset 0xC, size 0x4
+    int BlocksPerPageX;    // offset 0x10, size 0x4
+    int BlocksPerPageY;    // offset 0x14, size 0x4
+    int BlockNumbers[32];  // offset 0x18, size 0x80
+};
+
+extern PS2VramInfo PS2VramInfoPSMCT32;
 #endif
 
 int eGetScreenWidth();
@@ -746,6 +764,9 @@ int epRenderStripsLit(eView *view, eSolid *solid, bMatrix4 *local_world, eLightC
 void ePutDisplayEnvironment();
 // Los rangos de z de pantalla de los dos juegos de matrices (CreateViewMatricies); EcstasyE.cpp.
 extern float ZRanges[2][6];
+// Las matrices de textura del VU1 de los dos buffers; se definen en eEnvEffectsE.cpp (linea 486 de la A124).
+extern bMatrix4 VU1textureModMatrix[2][4];
+extern bMatrix4 VU1clipToTexMatrix[2][2];
 void eSwapScreenBuffers();
 int Vif1InteruptHandler(int cause);
 // De psx2/src/Platform.cpp: eSetDisplaySystem la registra al cambiar de modo de video.

@@ -8,6 +8,8 @@ int SNDSTRM_requeststatus(int sndrequesthandle, SNDREQUESTSTATUS *psrs) {
     psrs->timetoend = 0;
     psrs->timebuffered = 0;
 
+    SNDI_CHECKINSTALLED();
+
     if (sndrequesthandle < 0) {
         return -8;
     }
@@ -22,7 +24,7 @@ int SNDSTRM_requeststatus(int sndrequesthandle, SNDREQUESTSTATUS *psrs) {
         if (psr->continuation == 0) {
             psrs->state = 0;
         } else {
-            unsigned short samplerate;
+            int samplerate;
 
             if ((Snd::SNDSTREAMREQUEST *)pssc->allocatedrequests.phead == psr) {
                 psrs->state = 2;

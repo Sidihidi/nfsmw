@@ -206,6 +206,10 @@ static void iSPCH_GetSentenceRuleSettings(VoxEvent *event, int sentenceNum,
     flagsAddr = settingsAddr + settingsSize;
 
     if (bytesPerRule > 4) {
+#if defined(EA_PLATFORM_XENON) && defined(MILESTONE_BUILD)
+        // Xbox 360 milestone (EGM 0x82668808-0x82668814; cadena en 0x82034DA0).
+        XenonUnknown82667ED0("iSPCH_GetSentenceRuleSettings - bytesPerRule > 4 not allowed.  Rule ignored.");
+#endif
         goto abort;
     }
 

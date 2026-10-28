@@ -18,7 +18,7 @@ int PATHI_addevent(unsigned int projectflags, PATHEVENT *event) {
     action = reinterpret_cast<PATHACTION *>(event + 1);
     indent = 0;
     projectflags &= 0xff000000;
-    for (a = 0; a < event->numactions; a++, action++) {
+    for (a = 0; a < event->numactions; action++, a++) {
         if (action->type == 1) {
             switch (action->assess) {
             case 0:
@@ -43,7 +43,7 @@ int PATHI_addevent(unsigned int projectflags, PATHEVENT *event) {
             (Path::pfstates[project]->idflags & projectflags) ==
                 Path::pfstates[project]->idflags) {
             eventindex = Path::pfstates[project]->eventindex;
-            if (eventindex > 15) {
+            if (eventindex >= 16) {
                 return PATHERR_TOOMANY;
             }
             result = 0;
@@ -220,7 +220,7 @@ void PATHI_moveevent(PATHEVENT *event, PATHEVENT *newlocation) {
     {
         int p;
 
-        for (p = 0; p <= 3; p++) {
+        for (p = 0; p < 4; p++) {
             PATHFINDERSTATE *pfs;
 
             pfs = Path::pfstates[p];

@@ -24,13 +24,18 @@ class UIQRTrackOptions : public UIWidgetMenu {
     void SetupSpeedTrap();
     void SetupTollbooth();
     void BoilerPlateOnline(const bool &boAddLaps);
-#ifdef EA_BUILD_A124 // la parte online del prototipo
+#if defined(EA_BUILD_A124) || (ONLINE_SUPPORT && defined(EA_PLATFORM_WIN32)) // la parte online del prototipo y de PC
     void SetOnlineTogglesProperties();
     void LoadOnlineDefaults();
     int32 GetDisconnectPercentage(int *percentage);
     static void GetExtendedStatsCB(struct LobbyApiMsgT *msg, void *context);
 #endif
 
+#ifdef EA_PLATFORM_WIN32
+    // speed.exe (0x144 B): NotificationMessage sets it after LoadOnlineDefaults + Reset and, on the next message,
+    // clears it and calls SetOnlineTogglesProperties
+    bool bOnlineTogglesPending; // offset 0x124, size 0x1
+#endif
     GRaceParameters *race;        // offset 0x138, size 0x4
     uint32 ConfirmPasswordId;     // offset 0x13C, size 0x4
     uint32 EnterPasswordId;       // offset 0x140, size 0x4

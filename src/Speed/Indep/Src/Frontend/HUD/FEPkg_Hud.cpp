@@ -50,6 +50,9 @@
 #include "Speed/Indep/Src/Frontend/HUD/FeWrongWIndi.hpp"
 #include "Speed/Indep/Src/Frontend/HUD/feMinimap.hpp"
 #include "Speed/Indep/Src/Frontend/MemoryCard/MemoryCard.hpp"
+#ifdef EA_BUILD_A124
+#include "Speed/Indep/Src/Misc/TestHooks/inputsimulation.h"
+#endif
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FeFadeScreen.hpp"
 #include "Speed/Indep/Src/Frontend/MenuScreens/InGame/FEPkg_PostRace.hpp"
 #include "Speed/Indep/Src/Generated/Events/EPause.hpp"
@@ -67,6 +70,9 @@
 #include "Speed/Indep/Src/Frontend/HUD/FeAutoSaveIcon.hpp"
 #endif
 #include "Speed/Indep/Src/World/OnlineManager.hpp"
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON))
+#include "Speed/Indep/Src/Frontend/HUD/FeOnlineHudSupport.hpp"
+#endif
 #include "Speed/Indep/Src/World/TrackInfo.hpp"
 #include "Speed/Indep/Src/World/TrackStreamer.hpp"
 #include "Speed/Indep/Src/Misc/bFile.hpp"
@@ -332,12 +338,16 @@ void HudResourceManager::ChooseLoadableTextures(ePlayerHudType hudType, int &tex
 void HudResourceManager::LoadRequiredResources(ePlayerHudType ht, const char *pkg_name) {
     mPhase = 0;
     const char *hud_tex_file = GetHudTexPackFilename(ht);
-    int allocation_params = 0x2000;
-
+#ifndef EA_PLATFORM_XENON
+    int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
+#endif
     eWaitUntilRenderingDone();
+#ifdef EA_PLATFORM_XENON
+    int allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT);
+#endif
 
     if (ht == PHT_DRAG) {
-        allocation_params = 0x2047;
+        allocation_params = BMEMORY_ALIGNMENT(BCHUNK_ALIGNMENT) | 0x47;
         TheTrackStreamer.MakeSpaceInPool(bFileSize(hud_tex_file), true);
     }
 
@@ -449,8 +459,7 @@ void HudResourceManager::LoadedCustomHudTexturesCallback() {
             FEngSetColor(mPackageName, fengObjHash, static_cast<unsigned int>(custColour));
         }
         unsigned int tex = mCustomizeHUDTexTextureResources[mPhaseCust];
-        FEImage *img = FEngFindImage(mPackageName, fengObjHash);
-        FEngSetTextureHash(img, tex);
+        FEngSetTextureHash(mPackageName, fengObjHash, tex);
     }
 
     int custColour = GetCustomHudColour(LoadingResourcesForHudType, CARSLOTID_HUD_CHARACTER_COLOUR);
@@ -538,6 +547,9 @@ FEngHud::FEngHud(ePlayerHudType ht, const char *pkg_name, IPlayer *player, int p
     pSpeedBreakerMeter = nullptr;
     pRaceOverMessage = nullptr;
     pGenericMessage = nullptr;
+#ifdef EA_BUILD_A124
+    pAutoSaveIcon = nullptr;
+#endif
     pRaceInformation = nullptr;
     pLeaderBoard = nullptr;
     pPursuitBoard = nullptr;
@@ -582,11 +594,17 @@ FEngHud::FEngHud(ePlayerHudType ht, const char *pkg_name, IPlayer *player, int p
         pTachometer = new ("Hud_Tachometer", 0) Tachometer(this, pPackageName, player_number);
 
         if (mPlayerHudType == PHT_STANDARD) {
+#ifdef EA_BUILD_A124
+            pHeatMeter = new ("Hud_HeatMeter", 0) HeatMeter(this, pkg_name, player_number);
+            pCostToState = new ("Hud_CostToState", 0) CostToState(this, pkg_name, player_number);
+            pReputation = new ("Hud_Reputation", 0) Reputation(this, pkg_name, player_number);
+#else
             if (GRaceStatus::Exists() && GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
                 pReputation = new ("Hud_Reputation", 0) Reputation(this, pkg_name, player_number);
             }
             pHeatMeter = new ("Hud_HeatMeter", 0) HeatMeter(this, pkg_name, player_number);
             pCostToState = new ("Hud_CostToState", 0) CostToState(this, pkg_name, player_number);
+#endif
             pPursuitBoard = new ("Hud_PursuitBoard", 0) PursuitBoard(this, pkg_name, player_number);
             pMilestoneBoard = new ("Hud_MilestoneBoard", 0) MilestoneBoard(this, pkg_name, player_number);
             pBustedMeter = new ("Hud_BustedMeter", 0) BustedMeter(this, pkg_name, player_number);
@@ -603,10 +621,23 @@ FEngHud::FEngHud(ePlayerHudType ht, const char *pkg_name, IPlayer *player, int p
     if (mPlayerHudType == PHT_STANDARD || mPlayerHudType == PHT_DRAG) {
         pSpeedBreakerMeter = new ("Hud_SpeedBreakerMeter", 0) SpeedBreakerMeter(this, pkg_name, player_number);
         pGetAwayMeter = new ("Hud_GetAwayMeter", 0) GetAwayMeter(this, pkg_name, player_number);
+#ifdef EA_BUILD_A124
+        pAutoSaveIcon = new ("Hud_AutoSaveIcon", 0) AutoSaveIcon(this, pkg_name, player_number);
+#endif
     }
 
+#if ONLINE_SUPPORT && (defined(EA_BUILD_A124) || defined(EA_PLATFORM_XENON))
+    // La A124 (0x28F2BC) y el EGM (0x822CFD00) crean aqui la parte online del HUD; PC no la tiene.
+    if (TheOnlineManager.IsOnlineRace()) {
+        pOnlineSupport = new ("Hud_OnlineHUDSupport", 0) OnlineHUDSupport(pkg_name);
+    } else {
+        FEngSetInvisible(FEngFindString(pkg_name, 0xC18C12FD));
+        FEngSetInvisible(FEngFindString(pkg_name, 0xC18C12FE));
+    }
+#else
     FEngSetInvisible(FEngFindString(pkg_name, 0xC18C12FD));
     FEngSetInvisible(FEngFindString(pkg_name, 0xC18C12FE));
+#endif
 
     CurrentHudFeatures = 0;
     SetHudFeatures(0xFFFFFFFF);
@@ -814,6 +845,116 @@ void FEngHud::JoyEnable() {
     }
 }
 
+#ifdef EA_BUILD_A124
+// La A124 lleva el joystick monkey del HUD, salta la NIS con 0x32 (y con la pausa si hay NIS), mira el autoguardado
+// solo para la accion 0x2E y pide el contexto de carrera para el mapa, la hoja de carreras y los SMS.
+void FEngHud::JoyHandle(IPlayer *player) {
+    if (EnableJoystickMonkey) {
+        GetHUDJoystickMonkeyAction(0);
+    } else {
+        if (player == nullptr || player->GetSettings() == nullptr) {
+            mActionQ.SetPort(-1);
+            mActionQ.SetConfig(0, "FEngHud");
+            return;
+        }
+
+        mActionQ.SetPort(player->GetControllerPort());
+        mActionQ.SetConfig(player->GetSettings()->GetControllerAttribs(CA_HUD), "FEngHud");
+
+        bool bIsAutoSaving = MemoryCard::GetInstance()->IsAutoSaving();
+
+        if (!mActionQ.IsEmpty()) {
+            ActionRef aRef = mActionQ.GetAction();
+
+            if (aRef.ID() == 0x32) {
+                if (UTL::Collections::Singleton<INIS>::Get() != nullptr) {
+                    UTL::Collections::Singleton<INIS>::Get()->SkipOverNIS();
+                }
+            } else if (aRef.ID() == 0x2D) {
+                if (UTL::Collections::Singleton<INIS>::Get() != nullptr) {
+                    UTL::Collections::Singleton<INIS>::Get()->SkipOverNIS();
+                } else if (TheHudResourceManager.AreResourcesLoaded(mPlayerHudType)) {
+                    new EPause(player->GetSettingsIndex(), 0);
+                }
+            } else if (CurrentHudFeatures != 0) {
+                switch (aRef.ID()) {
+                    case 0x2E: {
+                        if (!TheOnlineManager.IsOnlineRace() && !FEDatabase->IsLanMode() && !FEDatabase->IsOnlineMode() &&
+                            !bIsAutoSaving) {
+                            IVehicleAI *vehicleAI;
+                            if (player->GetSimable()->QueryInterface(&vehicleAI)) {
+                                IPursuit *ipursuit = vehicleAI->GetPursuit();
+                                if (ipursuit != nullptr) {
+                                    if (ipursuit->GetPursuitStatus() == 2) {
+                                        IMenuZoneTrigger *izone;
+                                        if (QueryInterface(&izone)) {
+                                            if (izone->IsPlayerInsideTrigger()) {
+                                                if (izone->IsType("safehouse")) {
+                                                    ipursuit->EndPursuitEnteringSafehouse();
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Racing &&
+                                !GRaceStatus::Get().GetRaceParameters()->GetIsPursuitRace()) {
+                                new EShowResults(FERESULTTYPE_RACE);
+                            } else if (mInPursuit) {
+                                new EShowResults(FERESULTTYPE_PURSUIT);
+                            } else {
+                                IMenuZoneTrigger *izone;
+                                if (QueryInterface(&izone)) {
+                                    if (izone->IsPlayerInsideTrigger()) {
+                                        izone->RequestEventInfoDialog(mActionQ.GetPort());
+                                        izone->RequestZoneInfoDialog(mActionQ.GetPort());
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case 0x2F: {
+                        if (GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
+                            if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career) {
+                                new EWorldMapOn();
+                            }
+                        }
+                        break;
+                    }
+                    case 0x30: {
+                        if (!FEDatabase->IsDDay()) {
+                            if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career &&
+                                GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
+                                new ERaceSheetOn(0);
+                            }
+                        }
+                        break;
+                    }
+                    case 0x31: {
+                        if (!FEDatabase->IsDDay()) {
+                            if (GRaceStatus::Get().GetRaceContext() == GRace::kRaceContext_Career &&
+                                GRaceStatus::Get().GetPlayMode() == GRaceStatus::kPlayMode_Roaming) {
+                                new EShowSMS(-1);
+                            }
+                        }
+                        break;
+                    }
+                    case 0x32:
+                    case 0x33:
+                        break;
+                }
+            }
+        }
+    }
+
+    while (!mActionQ.IsEmpty()) {
+        mActionQ.PopAction();
+    }
+}
+#else
 void FEngHud::JoyHandle(IPlayer *player) {
     if (player == nullptr || player->GetSettings() == nullptr) {
         mActionQ.SetPort(-1);
@@ -932,6 +1073,7 @@ void FEngHud::JoyHandle(IPlayer *player) {
         mActionQ.PopAction();
     }
 }
+#endif
 
 HudFeaturesType FEngHud::DetermineHudFeatures(IPlayer *player) {
     HudFeaturesType hud_features = 0;

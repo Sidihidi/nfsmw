@@ -305,8 +305,8 @@ class RigidBody : public Behavior,
     float GetOrientToGround() const override;
 
     bool IsInGroundContact() const override {
-#ifdef EA_PLATFORM_XENON
-        // X360 devuelve el char tal cual (li r3 directo); el resto usa != 0 (li r11 + clrlwi). Identico: char->bool.
+#if defined(EA_PLATFORM_XENON) || defined(EA_PLATFORM_WIN32)
+        // X360 (li r3) y PC (test/setne sin el xor) devuelven el char tal cual; GC y PS2, != 0. Identico: char->bool.
         return this->mData->leversInContact;
 #else
         return this->mData->leversInContact != 0;

@@ -47,7 +47,7 @@ void AIActionTooDamaged::OnBehaviorChange(const UCrc32 &mechanic) {
     }
 }
 
-UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionTooDamaged("AIActionTooDamaged", AIActionTooDamaged::Construct);
+UTL::COM::Factory<AIActionParams *, AIAction, UCrc32>::Prototype _AIActionTooDamaged(UCrc32("AIActionTooDamaged"), AIActionTooDamaged::Construct);
 
 AIAction *AIActionTooDamaged::Construct(AIActionParams *params) {
     return new AIActionTooDamaged(params, 1.0f);

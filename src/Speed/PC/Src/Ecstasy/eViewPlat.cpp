@@ -20,6 +20,9 @@
 #include "Speed/Indep/Src/World/Car.hpp"
 #include "Speed/Indep/Src/World/Rain.hpp"
 #include "Speed/Indep/Src/World/TimeOfDay.hpp"
+#include "Speed/Indep/Src/World/SkyRender.hpp"
+#include "Speed/Indep/Src/Generated/Hash.hpp"
+#include "Speed/Indep/bWare/Inc/Strings.hpp"
 
 // Globales de la ventana y del modo de vista de PC (nombres nuestros: el exe no trae simbolos de esta capa;
 // la corriente de datos de zPlatform es la que las declara).
@@ -119,6 +122,42 @@ void eViewPlatInterface::FERender(ePoly *poly, TextureInfo *texture_info, int us
 void eViewPlatInterface::FERender(ePoly *poly, TextureInfo *texture_info, TextureInfo *texture_info_mask,
                                   int use_previous_data) {
     Render(poly, texture_info, texture_info_mask, use_previous_data);
+}
+
+// El cielo de esta generacion (SKYDOME) se dibuja con el efecto SkyboxCurrentGen (eEffects[21], fx\skybox_cg.efx) en
+// todas sus mallas (speed.exe 0x6D1220). Nombre nuestro.
+void SetSkyboxCurrentGenEffect(eModel *model) {
+    eSolid *solid = model->GetSolid();
+    if (solid) {
+        eSolidPlatInfo *solid_plat_info = solid->GetPlatInfo();
+        for (int i = 0; i < solid_plat_info->NumMeshes; i++) {
+            solid_plat_info->MeshEntryTable[i].pEffect = eEffects[21];
+        }
+    }
+}
+
+// El NotifySkyLoader de PC (speed.exe 0x6D1CF0; lo llama TrackStreamer::FinishedLoading). El cielo es SKYDOME_XENON
+// si el efecto skyshader (eEffects[19], fx\skybox.efx) tiene puesto Unknown40 y SKYDOME si no, el mismo criterio con
+// el que Render(eModel) dibuja uno y se salta el otro. Al de nueva generacion se le sueltan los modelos de su
+// instancia de escenario (como en Xenon) y al otro se le pone SkyboxCurrentGen; luego las texturas SKY_NEXGEN_*.
+void NotifySkyLoader() {
+    if (!bSkyTexturesLoaded) {
+        InitSkyHash();
+        bSkyTexturesLoaded = true;
+    }
+
+    unsigned int sky_name_hash = eEffects[19]->Unknown40 ? STRINGHASH_SKYDOME_XENON : STRINGHASH_SKYDOME;
+    if (SkyInitModel(&SkydomeModel, &SkydomeLocalWorld, sky_name_hash)) {
+        if (sky_name_hash == STRINGHASH_SKYDOME) {
+            SetSkyboxCurrentGenEffect(&SkydomeModel);
+        } else {
+            SkyUnInitSceneryModels(STRINGHASH_SKYDOME_XENON);
+        }
+        SkyNexGenTextures[0] = GetTextureInfo(bStringHash("SKY_NEXGEN_CAP_A"), 1, 0);
+        SkyNexGenTextures[1] = GetTextureInfo(bStringHash("SKY_NEXGEN_CLOUDS_B"), 1, 0);
+        SkyNexGenTextures[2] = GetTextureInfo(bStringHash("SKY_NEXGEN_CAP_B"), 1, 0);
+        SkyNexGenTexturesReady = true;
+    }
 }
 
 // Un poligono del FE: de las coordenadas de pantalla de 640x480 a las de D3D, medio texel de correccion en las UV y

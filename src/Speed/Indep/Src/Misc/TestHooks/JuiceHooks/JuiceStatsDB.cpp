@@ -17,6 +17,9 @@ JuiceStatsDB *JuiceStatsDB::Instance() {
 JuiceStatsDB::JuiceStatsDB() {
     ResetPerRaceStats();
     ResetCareerData();
+#ifdef EA_PLATFORM_XENON
+    ResetFPSData();
+#endif
 }
 
 void JuiceStatsDB::ResetCareerData() {
@@ -197,11 +200,10 @@ void JuiceStatsDB::CompareOptions(OptionsSettings *compare) {
             break;
         case PSC_PURSUIT:
             bStrCpy(cameraString, "Pursuit");
-            goto camera_string_ready;
+            break;
         default:
-            goto camera_string_ready;
+            break;
         }
-camera_string_ready:
         bSPrintf(tempStr, "Current Camera - %s", cameraString);
         Juice::GameHook::Instance()->AssetHit("OPTIONS", tempStr);
     }
@@ -293,48 +295,35 @@ void JuiceStatsDB::ResetPerRaceStats() {
 }
 
 void JuiceStatsDB::IncrementPerRaceStat(JuicePerRaceStatType statType) {
-    if (statType == JUICE_COP_CHOPPER_UNSPAWN) {
-        goto chopper;
-    }
-    if (statType < JUICE_TRAFFIC_SPAWN) {
-        if (statType == JUICE_COP_CAR_UNSPAWN) {
-            goto car;
+    switch (statType) {
+    case JUICE_COP_CAR_UNSPAWN:
+        if (mPerRaceStatsDB[0] == 0) {
+            return;
         }
-    } else if (statType == JUICE_TRAFFIC_UNSPAWN) {
-        goto traffic;
+        if (mFrameOfLastInc[0] == eFrameCounter) {
+            mPerRaceStatsDB[0]--;
+            return;
+        }
+        break;
+    case JUICE_COP_CHOPPER_UNSPAWN:
+        if (mPerRaceStatsDB[2] == 0) {
+            return;
+        }
+        if (mFrameOfLastInc[2] == eFrameCounter) {
+            mPerRaceStatsDB[2]--;
+            return;
+        }
+        break;
+    case JUICE_TRAFFIC_UNSPAWN:
+        if (mPerRaceStatsDB[4] == 0) {
+            return;
+        }
+        if (mFrameOfLastInc[4] == eFrameCounter) {
+            mPerRaceStatsDB[4]--;
+            return;
+        }
+        break;
     }
-    goto increment;
-
-car:
-    if (mPerRaceStatsDB[0] == 0) {
-        return;
-    }
-    if (mFrameOfLastInc[0] == eFrameCounter) {
-        mPerRaceStatsDB[0]--;
-        return;
-    }
-    goto increment;
-
-chopper:
-    if (mPerRaceStatsDB[2] == 0) {
-        return;
-    }
-    if (mFrameOfLastInc[2] == eFrameCounter) {
-        mPerRaceStatsDB[2]--;
-        return;
-    }
-    goto increment;
-
-traffic:
-    if (mPerRaceStatsDB[4] == 0) {
-        return;
-    }
-    if (mFrameOfLastInc[4] == eFrameCounter) {
-        mPerRaceStatsDB[4]--;
-        return;
-    }
-
-increment:
     if (!mShouldDumpStats) {
         mShouldDumpStats = true;
     }
@@ -346,13 +335,14 @@ void JuiceStatsDB::UpdateTimers() {
     float elapsed = bGetTickerDifference(mCurrentTicker);
     if (elapsed > 500.0f) {
         elapsed = bGetTickerDifference(mCurrentTicker);
-        bool racing = TheGameFlowManager.GetState() == GAMEFLOW_STATE_RACING;
+        // X360 (0x823E39F8) reads the game flow state after this store and mCurrentTicker again after the camera one;
+        // the A124 gives the same code either way.
         mTimeAtHeatLevel[mPerRaceStatsDB[JUICE_CURRENT_HEAT]] += elapsed * 0.001f;
+        bool racing = TheGameFlowManager.GetState() == GAMEFLOW_STATE_RACING;
         if (racing) {
             elapsed = bGetTickerDifference(mCurrentTicker);
-            unsigned int start_ticks = mCurrentTicker;
             mTimeInCameraMode[mPerRaceStatsDB[JUICE_CURRENT_CAMERA]] += elapsed * 0.001f;
-            elapsed = bGetTickerDifference(start_ticks);
+            elapsed = bGetTickerDifference(mCurrentTicker);
             mTimeInRaceType[mPerRaceStatsDB[JUICE_CURRENT_RACE]] += elapsed * 0.001f;
         }
         mCurrentTicker = bGetTicker();
@@ -363,7 +353,7 @@ void JuiceStatsDB::SetHeat(int heat) {
     if (heat != mPerRaceStatsDB[JUICE_CURRENT_HEAT]) {
         mShouldDumpStats = true;
         mPerRaceStatsDB[JUICE_CURRENT_HEAT] = heat;
-        if (mPerRaceStatsDB[JUICE_MAX_HEAT] < heat) {
+        if (heat > mPerRaceStatsDB[JUICE_MAX_HEAT]) {
             mPerRaceStatsDB[JUICE_MAX_HEAT] = heat;
         }
     }
@@ -375,3 +365,42 @@ void JuiceStatsDB::SetCamera(int camID) {
         mShouldDumpStats = true;
     }
 }
+
+#ifdef EA_PLATFORM_XENON
+// X360 (EGM, tras SetCamera y en el orden del PDB de ProStreet). SetRace compara con la camara actual y escribe la
+// carrera actual: es lo que hace el EGM (fn_823E38E0: lwz 0x20 / stw 0x24).
+void JuiceStatsDB::SetRace(int raceType) {
+    if (raceType != mPerRaceStatsDB[JUICE_CURRENT_CAMERA]) {
+        mPerRaceStatsDB[JUICE_CURRENT_RACE] = raceType;
+        mShouldDumpStats = true;
+    }
+}
+
+void JuiceStatsDB::AddFrame(float fps) {
+    mTotalFps += fps;
+    mTotalFrames++;
+    if (fps < mLowestFps || mLowestFps == 0.0f) {
+        mLowestFps = fps;
+    }
+    if (fps > mSummaryFPS) {
+        mFramesAbove++;
+    }
+}
+
+float JuiceStatsDB::GetAverageFPS() {
+    return mTotalFps / static_cast<float>(mTotalFrames);
+}
+
+float JuiceStatsDB::GetPercOfFramesAbove() {
+    return static_cast<float>(mFramesAbove) / static_cast<float>(mTotalFrames) * 100.0f;
+}
+
+void JuiceStatsDB::ResetFPSData() {
+    mRecordState = 0;
+    mTotalFps = 0.0f;
+    mLowestFps = 0.0f;
+    mTotalFrames = 0;
+    mFramesAbove = 0;
+    mSummaryFPS = 60.0f;
+}
+#endif

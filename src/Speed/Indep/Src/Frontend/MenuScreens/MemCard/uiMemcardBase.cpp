@@ -561,6 +561,80 @@ void UIMemcardBase::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
     }
 
 
+#ifdef EA_PLATFORM_PLAYSTATION2
+    switch (msg) {
+        case 0x35F8620B:
+            InitComplete();
+            break;
+
+        case 0xE1FDE1D1:
+            ExitComplete();
+            break;
+
+        case 0x3A2BE557:
+            InitComplete();
+            break;
+
+        case 0xDA5B8712:
+            bStrCpy(m_FileName, FEngGetEditedString());
+            FEDatabase->GetUserProfile(0)->SetProfileName(m_FileName, true);
+            FEDatabase->DeallocBackupDB();
+            FEDatabase->bProfileLoaded = true;
+            DoSaveFlow(MCSF_PromptForSave);
+            break;
+
+        case 0xC9D30688:
+            if (gMemcardSetup.GetCommand() == MCO_CreateNew && !FEDatabase->bProfileLoaded) {
+                DoSaveFlow(MCSF_PromptForCreate);
+                break;
+            } else if ((gMemcardSetup.GetCommand() & 0x60) != 0 && FEDatabase->bProfileLoaded) {
+                DoSaveFlow(MCSF_PromptForDestoryCreate);
+                break;
+            } else {
+                FEPrintf(m_pDisplayMsg, "");
+                m_bDelayedFailed = true;
+            }
+            break;
+
+        case 0xC98356BA:
+            if (m_bDelayedFailed) {
+                m_bDelayedFailed = false;
+                cFEng::Get()->QueueGameMessage(0x8867412D, GetPackageName(), 0xff);
+            }
+            if (gMemcardSetup.GetCommand() == MCO_CheckCard) {
+                m_LoadedNetConfig++;
+                if (m_LoadedNetConfig >= 31) {
+                    m_LoadedNetConfig = -1000000;
+                }
+            }
+            break;
+
+        case 0xC502DF5D:
+            m_bInButtonAnimation = true;
+            TranslateButton(obj);
+            break;
+
+        case 0x0C407210:
+            m_bInButtonAnimation = false;
+            gMemcardSetup.mLastController = param1;
+            HandleButtonPressed(0x0C407210, obj, param1, param2, false);
+            break;
+
+        case 0xF35D144E:
+            SetupPromptCorruptProfile();
+            break;
+
+        case 0x8867412D:
+            break;
+
+        case 0x54B3AC6C: {
+            SetScreenVisible(false, 0);
+            cFEng::Get()->QueuePackagePush("MC_List.fng", 0, 0, false);
+            break;
+        }
+    }
+}
+#else
     switch (msg) {
 
 
@@ -649,6 +723,7 @@ void UIMemcardBase::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
     }
 }
 
+#endif
 void UIMemcardBase::HandleButtonPressed(u32 msg, FEObject *obj, u32 param1, u32 param2, bool bPadBack) {
     bool bYes = obj->NameHash == gButtonIDs[1] && !bPadBack;
 
@@ -1582,9 +1657,11 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
             m_SaveGameList.SetSelected(m_SaveGameList.Slots.GetHead());
             m_SaveGameList.HighlightSelected();
 
+#ifndef EA_PLATFORM_PLAYSTATION2
             UIMemcardBase *pParent = MemoryCard::GetInstance()->GetScreen();
 
             pParent->m_ExpectingInput = true;
+#endif
 
             m_Initialized++;
 
@@ -1623,6 +1700,9 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
             break;
 
         case 0x911AB364:
+#ifdef EA_PLATFORM_PLAYSTATION2
+            cFEng::Get()->QueueGameMessage(0x8867412D, MemoryCard::GetInstance()->GetScreen()->GetPackageName(), 0xff);
+#else
             if (MemoryCard::GetInstance()->InBootSequence()) {
 
                 cFEng::Get()->QueueGameMessage(0x8D0CC9F9, "MC_Main_GC.fng", 0xff);
@@ -1634,6 +1714,7 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
 
                 cFEng::Get()->QueueGameMessage(0x8867412D, MemoryCard::GetInstance()->GetScreen()->GetPackageName(), 0xff);
             }
+#endif
 
 
             gMemcardSetup.mLastController = param1;
@@ -1651,10 +1732,14 @@ void UIMemcardList::NotificationMessage(u32 msg, FEObject *obj, u32 param1, u32 
 
         case 0x406415E3:
             gMemcardSetup.mLastController = param1;
+#ifdef EA_BUILD_A124
+            FEDatabase->SetPlayersJoystickPort(0, FEngMapJoyParamToJoyport(param1));
+#else
             if (!FEDatabase->IsSplitScreenMode()) {
 
                 FEDatabase->SetPlayersJoystickPort(MemoryCard::GetInstance()->GetPlayerNum(), FEngMapJoyParamToJoyport(param1));
             }
+#endif
             MemoryCard::GetInstance()->SetMonitor(false);
 
             break;

@@ -30,9 +30,9 @@ void SNDI_patchtohdrgen(void *pbank, Sndgendef::GENTAGGEDPATCH *ptp, SNDSAMPLEFO
     int moretags;
     int i;
 
-    memset(pssf, 0, sizeof(SNDSAMPLEFORMAT));
-    memset(pssa, 0, sizeof(SNDSAMPLEATTR));
-    memset(pssd, 0, sizeof(SNDSAMPLEDESC));
+    SNDI_memclear(pssf, sizeof(SNDSAMPLEFORMAT));
+    SNDI_memclear(pssa, sizeof(SNDSAMPLEATTR));
+    SNDI_memclear(pssd, sizeof(SNDSAMPLEDESC));
 
     SND_attrsetdef(pssa);
 
@@ -52,7 +52,7 @@ void SNDI_patchtohdrgen(void *pbank, Sndgendef::GENTAGGEDPATCH *ptp, SNDSAMPLEFO
     stp[0xA0 - 0x80] = 10;
 
     while ((moretags = SNDI_gettag(&sti)) != 0) {
-        if (sti.tag <= 0x2A) {
+        if (sti.tag < 0x2B) {
             stc[sti.tag] = sti.size;
             pstc[sti.tag] = sti.pdata;
 
@@ -61,7 +61,7 @@ void SNDI_patchtohdrgen(void *pbank, Sndgendef::GENTAGGEDPATCH *ptp, SNDSAMPLEFO
                 pssa->userdatasize[userdatachunks] = sti.datasize;
                 userdatachunks++;
             }
-        } else if (sti.tag < 0x80 || sti.tag > 0xAD) {
+        } else if (sti.tag < 0x80 || sti.tag >= 0xAE) {
             if (sti.tag == 0xFE) {
                 moretags = 0;
                 break;
@@ -77,7 +77,11 @@ void SNDI_patchtohdrgen(void *pbank, Sndgendef::GENTAGGEDPATCH *ptp, SNDSAMPLEFO
     pssf->samplerate = stp[0x84 - 0x80];
     pssd->totalframes = stp[0x85 - 0x80];
     pssa->rendermode = 4;
+#ifdef EA_PLATFORM_WIN32
+    pssa->platformver = 2; // speed.exe 0x825069 (mov byte [edi+7], 2)
+#else
     pssa->platformver = 3;
+#endif
 
     for (i = 0; i < pssf->channels; i++) {
         pssa->azimuth[i] = sndgs.srcchancfg3d[pssf->channels - 1][i];

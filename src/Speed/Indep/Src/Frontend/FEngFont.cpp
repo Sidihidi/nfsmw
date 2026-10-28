@@ -926,8 +926,9 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
     if (pcString == nullptr) {
         return 0.0f;
     }
-    u32 k;
+
     float height = 0.0f;
+    float characterHeight;
 
     bool lastCharNotReturn = true;
     bool newLine = false;
@@ -936,16 +937,20 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
 
     short prev = 0;
     short c = *pcString++;
-    while (c != 0) {
+    // Un for con el avance en la llave de cierre (linea 988 del original: prev, la carga y la prueba de abajo) y
+    // continue para '\r', que salta al avance.
+    for (; c != 0; prev = c, c = *pcString++) {
+        u32 k;
 
         if (IsNewlineChar(c)) {
 
             newLine = true;
 
-        } else if (c != '\r') {
+        } else if (c == '\r') {
+            continue;
+        } else {
 
-            const RealFontOld::Glyph *pGlyph = pFont->GetGlyph(static_cast<int>(static_cast<unsigned int>(c) & 0xFF));
-            if (pGlyph) {
+            if (pFont->GetGlyph(static_cast<int>(static_cast<unsigned int>(c) & 0xFF))) {
                 lastCharNotReturn = true;
             }
 
@@ -963,10 +968,6 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
 
                 curLineWidth += GetCharacterWidth(c, prev, flags);
             }
-        } else {
-            // '\r' se salta la comprobacion de newLine: el objetivo salta directo
-            // a la cola del bucle (.L_8016F07C), no cae en el bloque de abajo.
-            goto next_character;
         }
 
         if (newLine == 1) {
@@ -978,10 +979,6 @@ float FEngFont::GetTextHeight(const i16 *pcString, int ilLeading, u32 flags, u32
             height += Height;
             lastCharNotReturn = false;
         }
-
-    next_character:
-        prev = c;
-        c = *pcString++;
     }
 
     if (lastCharNotReturn) {

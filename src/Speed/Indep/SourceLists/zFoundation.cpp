@@ -4,7 +4,7 @@
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Libs/Support/Utility/UCOM.h"
 #include "Speed/Indep/Libs/Support/Utility/UCollections.h"
-
+const UCrc32 UCrc32::kNull; // la definicion va AQUI, no en UGroup.cpp: ee-gcc 2.9 nombra los fragmentos _GLOBAL_$I$/$D$ con el primer .globl del ensamblado (el original: _6UCrc32$kNull), y ngccc de GC los nombra con la primera funcion (Evaluate__11UBezierLite, el del original de GC). Los dos nombres salen buenos a la vez y el orden de los inicializadores dinamicos no se mueve: kFloatScaleUp/Down ya se han registrado en el prefijo (UStandard.h incluye UVectorMath.h) y UBezierLite.cpp/UEALibs.cpp no aportan ninguno. Ver docs/analisis/2026-10-25_zfound91.md
 #include "Speed/Indep/Libs/Support/Utility/UBezierLite.cpp"
 
 #include "Speed/Indep/Libs/Support/Utility/UEALibs.cpp"

@@ -182,10 +182,24 @@ struct GameHook {
     float ReplayData(float &data, int channel, const char *name, int flags);
     int Replay_IsReplaying();
     int Replay_IsCapturing();
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
     void AdvanceCycle(int cycle);
 #endif
     void AssertLog(int, const char *, const char *, const char *, const char *);
+#ifdef EA_PLATFORM_XENON
+    unsigned int CalculateUsedBytes(unsigned int iData); // Xbox 360 0x8288BDF0 (1.5.2a: Juice.cpp)
+    // Xbox 360 0x8288B908: MainLoop la llama en cada vuelta con el valor que InitializeEverything guarda en 0x8296D17C
+    // (lo devuelve 0x8288B9B0 a partir del id del hilo principal, "Main Execution"); probablemente una muestra del
+    // perfilador de hilos de Juice. Ningun binario da el nombre (el Juice de PS2 no la tiene): nombre neutro.
+    void XenonUnknown8288B908(int value);
+    // Xbox 360 0x8288BA18, 0x8288B900, 0x8288B9B0 y 0x8288BA08: InitializeEverything las llama con Juice conectado
+    // (65000; sin argumentos; el id del hilo principal, que devuelve el valor de 0x8296D17C; el id y "Main
+    // Execution"): probablemente el alta del perfilador de hilos de Juice. Sin nombre en ningun binario: neutros.
+    void XenonUnknown8288BA18(int value);
+    void XenonUnknown8288B900();
+    int XenonUnknown8288B9B0(unsigned int threadId);
+    void XenonUnknown8288BA08(unsigned int threadId, const char *name);
+#endif
     int GetFrame() {
         return mFrame;
     }
@@ -194,10 +208,26 @@ struct GameHook {
 };
 
 // El gestor de repeticiones de Juice (biblioteca aparte): el juego solo lo para cuando el joylog se desincroniza.
+#ifdef EA_PLATFORM_XENON
+enum ReplayChannel {
+};
+#endif
 class ReplayManager {
   public:
     static ReplayManager *Instance();
     void StopReplaying();
+#ifdef EA_PLATFORM_XENON
+    // Xbox 360 (Joylog::IsReplaying): devuelven un byte (los llamantes lo recortan); en la 1.5.2a de la A124 son
+    // int. IsReplaying lee el estado de segmento (+0x10) y m_pSettings[estado]; IsReplayEnabled, m_bActive (+0xC).
+    bool IsReplaying();
+    bool IsReplayEnabled();
+    // Joylog::AddData/GetData de Xbox 360 (0x823EAB18, 0x823EA9B0); por forma con la 1.5.2a (JuiceReplayManager.cpp).
+    bool CheckPlaybackMask(ReplayChannel eChannel);
+    bool CheckRecordMask(ReplayChannel eChannel);
+    bool CheckOverWriteMask(ReplayChannel eChannel);
+    int GetData(int iSize, ReplayChannel eChannel);
+    void AddData(int iData, int iSize, ReplayChannel eChannel);
+#endif
 };
 
 struct PadConfigManager {
@@ -399,6 +429,16 @@ private:
     float mTimeInCameraMode[6];
     float mTimeInRaceType[6];
     unsigned int mCurrentTicker;
+#ifdef EA_PLATFORM_XENON
+    // X360 (EGM): el resumen de FPS. Nombres y tipos del PDB del prototipo de ProStreet (Sep 16, 2007), que los
+    // pone tras mCurrentTicker como aqui (0x220-0x237 en el EGM; mCurrentOptions va en 0x238 y el total es 0x2C4).
+    int mRecordState;
+    float mTotalFps;
+    float mLowestFps;
+    int mTotalFrames;
+    int mFramesAbove;
+    float mSummaryFPS;
+#endif
     OptionsSettings mCurrentOptions;
 
 public:
@@ -413,6 +453,13 @@ public:
     void ResetCareerData();
     void SetHeat(int heat);
     void SetCamera(int camID);
+#ifdef EA_PLATFORM_XENON
+    void SetRace(int raceType);
+    void AddFrame(float fps);
+    float GetAverageFPS();
+    float GetPercOfFramesAbove();
+    void ResetFPSData();
+#endif
     // Inline en la A124 (L88 de su cabecera; el constructor de UIOptionsScreen lo expande): el parametro va por
     // valor, de ahi las dos copias de 0xC0 bytes (a la pila y de la pila a mCurrentOptions).
     void SetOptions(OptionsSettings options) {

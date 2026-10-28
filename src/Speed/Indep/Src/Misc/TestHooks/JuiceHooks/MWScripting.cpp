@@ -15,14 +15,22 @@
 
 extern int DoScreenPrintf;
 extern bool UnlockAllThings;
+#ifdef EA_PLATFORM_XENON
+extern bool ForcePursuitNeverEnd; // AIPursuit.cpp; el EGM escribe un byte (0x823E1880)
+#else
 extern int ForcePursuitNeverEnd;
+#endif
 extern bool Tweak_InfiniteRaceBreaker;
 extern float fpsTolerateValue;
 extern int logCountDownMax;
+#ifdef EA_PLATFORM_XENON
+extern float ForcePursuitHeatLevel; // float en X360 (EGM 0x82A80C60)
+#else
 extern int ForcePursuitHeatLevel;
+#endif
 extern void JumpToNewPos(bVector3 *jumpPosition);
 extern float Tweak_TuningAero;
-extern int Tweak_UseTweakerTunings;
+extern bool Tweak_UseTweakerTunings;
 
 static float last_x;
 static float last_y;
@@ -126,7 +134,10 @@ int MWCommands::InfRaceBreaker(Scripting::VarArgs &params) {
 }
 
 int MWCommands::IsSplitScreen(Scripting::VarArgs &params) {
-    return static_cast<int>(IPlayer::Last(PLAYER_LOCAL) != nullptr);
+    if (!IPlayer::Last(PLAYER_LOCAL)) {
+        return 0;
+    }
+    return 1;
 }
 
 int MWCommands::PassChallenge(Scripting::VarArgs &params) {
@@ -135,13 +146,11 @@ int MWCommands::PassChallenge(Scripting::VarArgs &params) {
         return -1;
     }
     GMilestone *binMilestone = GManager::Get().GetFirstMilestone(true, career->GetCurrentBin());
-    if (binMilestone == nullptr) {
-        goto no_milestone;
+    if (binMilestone != nullptr) {
+        binMilestone->DebugForceComplete();
+        Game_ChallengeCompleted();
+        return 1;
     }
-    binMilestone->DebugForceComplete();
-    Game_ChallengeCompleted();
-    return 1;
-no_milestone:
     return 0;
 }
 
@@ -151,13 +160,11 @@ int MWCommands::PassSpeedtrap(Scripting::VarArgs &params) {
         return -1;
     }
     GSpeedTrap *binSpeedTrap = GManager::Get().GetFirstSpeedTrap(true, career->GetCurrentBin());
-    if (binSpeedTrap == nullptr) {
-        goto no_speed_trap;
+    if (binSpeedTrap != nullptr) {
+        binSpeedTrap->DebugForceComplete();
+        Game_ChallengeCompleted();
+        return 1;
     }
-    binSpeedTrap->DebugForceComplete();
-    Game_ChallengeCompleted();
-    return 1;
-no_speed_trap:
     return 0;
 }
 
@@ -183,57 +190,44 @@ int MWCommands::GetBountyValue(Scripting::VarArgs &params) {
 }
 
 int MWCommands::IsPursuit(Scripting::VarArgs &params) {
+    // One `return -1` for every failure: the X360 EGM has a single -1 block after `return 1` and `return 0`
+    // (0x823E1268), where cl places it only if the source has one; the A124 (EE-GCC) gives the same code as with
+    // an early return per check.
     IPlayer *player = IPlayer::First(PLAYER_LOCAL);
-    if (player == nullptr) {
-        return -1;
-    }
-    ISimable *isimable = player->GetSimable();
-    if (isimable == nullptr) {
-        return -1;
-    }
+    ISimable *isimable;
     IVehicle *ivehicle;
-    if (!isimable->QueryInterface(&ivehicle)) {
+    IVehicleAI *ivehicleai;
+    if (player == nullptr || (isimable = player->GetSimable()) == nullptr || !isimable->QueryInterface(&ivehicle) ||
+        (ivehicleai = ivehicle->GetAIVehiclePtr()) == nullptr) {
         return -1;
     }
-    IVehicleAI *ivehicleai = ivehicle->GetAIVehiclePtr();
-    if (ivehicleai == nullptr) {
-        return -1;
+    if (ivehicleai->GetPursuit() != nullptr) {
+        return 1;
     }
-    return static_cast<int>(ivehicleai->GetPursuit() != nullptr);
+    return 0;
 }
 
 char *MWCommands::GetTrackID(Scripting::VarArgs &params) {
-    if (!GRaceStatus::Exists()) {
-        goto no_track;
-    }
-    {
+    if (GRaceStatus::Exists()) {
         GRaceParameters *raceParams = GRaceStatus::Get().GetRaceParameters();
-        if (raceParams == nullptr) {
-            goto no_track;
+        if (raceParams != nullptr) {
+            return const_cast<char *>(raceParams->GetEventID());
         }
-        return const_cast<char *>(raceParams->GetEventID());
     }
-no_track:
     return "";
 }
 
 int MWCommands::InFrontEnd(Scripting::VarArgs &params) {
-    bool bVar1;
-    if (Sim::GetState() != Sim::STATE_NONE) {
-        bVar1 = cFEng::Get()->IsPackagePushed("Loading.fng");
-        if (!bVar1) {
-            return 0;
-        }
+    if (Sim::GetState() == Sim::STATE_NONE || cFEng::Get()->IsPackagePushed("Loading.fng")) {
+        return 1;
     }
-    return 1;
+    return 0;
 }
 
 char *MWCommands::DisplayFMVfilename(Scripting::VarArgs &params) {
-    if (gMoviePlayer == nullptr) {
-        goto no_movie;
+    if (gMoviePlayer != nullptr) {
+        return gMoviePlayer->GetMovieFilename();
     }
-    return gMoviePlayer->GetMovieFilename();
-no_movie:
     return "";
 }
 
@@ -249,16 +243,11 @@ int MWCommands::SetFrameRateThreshold(Scripting::VarArgs &params) {
 }
 
 int MWCommands::ScreenLoaded(Scripting::VarArgs &params) {
-    FEPackage *package = cFEng::Get()->FindPackageWithControl();
-    if (package == nullptr) {
-        goto not_loaded;
+    if (cFEng::Get()->FindPackageWithControl() != nullptr) {
+        if (cFEng::Get()->FindPackageWithControl()->GetNameHash() == mFEngScreenLoading) {
+            return 1;
+        }
     }
-    package = cFEng::Get()->FindPackageWithControl();
-    if (*reinterpret_cast<unsigned int *>(reinterpret_cast<char *>(package) + 0x10) != mFEngScreenLoading) {
-        goto not_loaded;
-    }
-    return 1;
-not_loaded:
     return 0;
 }
 
@@ -286,20 +275,25 @@ int MWCommands::InDriveMode(Scripting::VarArgs &params) {
 }
 
 int MWCommands::SetHeat(Scripting::VarArgs &params) {
-    int heat;
-    if (params.GetNumberOfRemainingArgs() <= 0) {
-        goto default_heat;
+#ifdef EA_PLATFORM_XENON // X360 (EGM 0x823E1F10): el calor llega como float (GetFloat, 4.0f por defecto)
+    float heat;
+    if (params.GetNumberOfRemainingArgs() > 0) {
+        params.GetFloat(heat);
+    } else {
+        heat = 4.0f;
     }
-    params.GetInt(heat);
-    goto set_heat;
-default_heat:
-    heat = 4;
-set_heat:
+#else
+    int heat;
+    if (params.GetNumberOfRemainingArgs() > 0) {
+        params.GetInt(heat);
+    } else {
+        heat = 4;
+    }
+#endif
     ForcePursuitHeatLevel = heat;
     IPlayer *player = IPlayer::First(PLAYER_LOCAL);
     IPerpetrator *perp;
-    player->GetSimable()->QueryInterface(&perp);
-    if (perp != nullptr) {
+    if (player->GetSimable()->QueryInterface(&perp)) {
         perp->SetHeat(static_cast<float>(heat));
         return 1;
     }
@@ -308,14 +302,11 @@ set_heat:
 
 int MWCommands::FinishRaceInPlace(Scripting::VarArgs &params) {
     int place;
-    if (params.GetNumberOfRemainingArgs() <= 0) {
-        goto default_place;
+    if (params.GetNumberOfRemainingArgs() > 0) {
+        params.GetInt(place);
+    } else {
+        place = 1;
     }
-    params.GetInt(place);
-    goto have_place;
-default_place:
-    place = 1;
-have_place:
     if (place > 0) {
         GRaceStatus::Get().SkipToEndOfRaceInPlace(place, 2.0f);
         return 1;
@@ -330,7 +321,7 @@ int MWCommands::TeleportToCoords(Scripting::VarArgs &params) {
     }
     int tempTeleportPos = 0;
     for (int index = 0; index < 3; index++) {
-        if (params.GetNumberOfRemainingArgs() < 1) {
+        if (params.GetNumberOfRemainingArgs() <= 0) {
             return 0;
         }
         params.GetInt(tempTeleportPos);
@@ -377,8 +368,8 @@ int MWCommands::TurnPursuitForeverOff(Scripting::VarArgs &params) {
 
 int MWCommands::TurnPursuitOn(Scripting::VarArgs &params) {
     if (ICopMgr::Exists() && TheGameFlowManager.IsInGame()) {
-        if (ICopMgr::mDisableCops) {
-            ICopMgr::mDisableCops = 0;
+        if (!ICopMgr::AreCopsEnabled()) {
+            ICopMgr::EnableCops();
         }
         return 1;
     }
@@ -387,8 +378,8 @@ int MWCommands::TurnPursuitOn(Scripting::VarArgs &params) {
 
 int MWCommands::TurnPursuitOff(Scripting::VarArgs &params) {
     if (ICopMgr::Exists() && TheGameFlowManager.IsInGame()) {
-        if (ICopMgr::mDisableCops == 0) {
-            ICopMgr::mDisableCops = 1;
+        if (ICopMgr::AreCopsEnabled()) {
+            ICopMgr::DisableCops();
         }
         return 1;
     }
@@ -399,18 +390,18 @@ int MWCommands::SpeedBoost(Scripting::VarArgs &params) {
     float gSpeed = 350.0f;
     params.GetFloat(gSpeed);
     IPlayer *player = IPlayer::First(PLAYER_LOCAL);
-    if (player != nullptr) {
-        IVehicle *vehicle;
-        if (player->GetSimable()->QueryInterface(&vehicle)) {
-            vehicle->SetSpeed(gSpeed * 0.447027266f);
-            Tweak_TuningAero = 1.0f;
-            Tweak_UseTweakerTunings = 1;
-            return 1;
-        } else {
-            return -1;
-        }
+    if (player == nullptr) {
+        return -1;
     }
-    return -1;
+    IVehicle *vehicle;
+    player->GetSimable()->QueryInterface(&vehicle);
+    if (vehicle == nullptr) {
+        return -1;
+    }
+    vehicle->SetSpeed(gSpeed * 0.447027266f);
+    Tweak_TuningAero = 1.0f;
+    Tweak_UseTweakerTunings = true;
+    return 1;
 }
 
 int MWCommands::ScatterCops(Scripting::VarArgs &params) {

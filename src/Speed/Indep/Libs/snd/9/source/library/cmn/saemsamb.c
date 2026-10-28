@@ -15,6 +15,8 @@ int SNDAEMS_addmodulebank(void *pBank, char *streamFileName, int streamFileNameO
     int midiSize;
     int midiDstOffset;
 
+    SNDI_CHECKINSTALLED();
+
     pModuleBank = reinterpret_cast<AemsDef::ModuleBank *>(pBank);
     if (sndaems.logaddmodulebank != NULL) {
         sndaems.logaddmodulebank();

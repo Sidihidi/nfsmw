@@ -20,7 +20,7 @@ Sim::IActivity *AvoidableManager::Construct(Sim::Param params) {
     return new AvoidableManager(params);
 }
 
-UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AvoidableManager("AvoidableManager", AvoidableManager::Construct);
+UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AvoidableManager(UCrc32("AvoidableManager"), AvoidableManager::Construct);
 
 IMPLEMENT_SAP_GRID(AIAvoidable);
 AvoidableList AIAvoidable::mAll = AvoidableList();

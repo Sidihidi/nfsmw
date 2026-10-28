@@ -229,7 +229,8 @@ def escribe_stubs(ruta, stubs):
     open(ruta, 'wb').write(d)
 
 
-def enlaza(raiz, ils, avisa, max_vueltas=6):
+def enlaza(raiz, ils, avisa, max_vueltas=6, libs=()):
+    """libs: [(IL, COFF)] de bibliotecas (ver BIBLIOTECAS): se enlazan detras de las unidades y no se trocean."""
     r = rutas(raiz)
     stubs = {}
     if os.path.exists(r['stubs']):
@@ -241,6 +242,8 @@ def enlaza(raiz, ils, avisa, max_vueltas=6):
     nuestros = set()
     for obj, _, _ in ils:
         nuestros |= definidos_coff(os.path.join(raiz, obj))
+    for _, coff in libs:
+        nuestros |= definidos_coff(coff)
     stubs = {n: k for n, k in stubs.items() if n not in nuestros}
     stubs.setdefault('main', 'F')
     for vuelta in range(max_vueltas):
@@ -248,6 +251,8 @@ def enlaza(raiz, ils, avisa, max_vueltas=6):
         with open(r['rsp'], 'w') as fh:
             for obj, _, _ in ils:
                 fh.write('"%s"\n' % os.path.join(r['il'], nombre_il(obj)))
+            for il, _ in libs:
+                fh.write('"%s"\n' % il)
             fh.write('"%s"\n' % r['stubobj'])  # el ultimo: con /FORCE:MULTIPLE gana la definicion nuestra
         for f in (r['exe'], r['map']):
             if os.path.exists(f):
@@ -348,6 +353,66 @@ def sext16(x):
     return x - 0x10000 if x & 0x8000 else x
 
 
+def nombres_originales(raiz):
+    """Los nombres de config/<V>/symbols.txt (para elegir entre alias)."""
+    p = os.path.join(raiz, 'config', V, 'symbols.txt')
+    if not os.path.exists(p):
+        return set()
+    return {linea.split(' = ', 1)[0] for linea in open(p, encoding='utf-8', errors='replace') if ' = ' in linea}
+
+
+_VAS = None
+
+
+def vas_originales(raiz):
+    """{nombre: VA} de los simbolos .text de config/<V>/symbols.txt.
+
+    Ronda 89 (coordinador): la base absoluta de una seccion se deducia SOLO de los nombres con
+    direccion (`fn_XXXXXXXX`/`lbl_XXXXXXXX`). Cuando una unidad se le nombraban sus ultimos `fn_`
+    se quedaba sin ninguno, `originales` saltaba la normalizacion entera del pool y las cargas
+    comparaban desplazamientos contra numeros de valor: `?crossfade@@YAXPAM00HH@Z` (snd/9/mix/stretch)
+    bajo de 100,00 a 99,98214 % sin que su codigo cambiara un byte (prueba en
+    docs/analisis/2026-10-23_x360a88.md, PROPUESTA 6). Aqui se deduce tambien de los simbolos con
+    nombre, cuya VA es conocida."""
+    global _VAS
+    if _VAS is None:
+        _VAS = {}
+        p = os.path.join(raiz, 'config', V, 'symbols.txt')
+        if os.path.exists(p):
+            for linea in open(p, encoding='utf-8', errors='replace'):
+                if ' = ' not in linea:
+                    continue
+                n, resto = linea.split(' = ', 1)
+                m = re.search(r'\.text:(0x[0-9A-Fa-f]+)', resto)
+                if m:
+                    _VAS[n] = int(m.group(1), 16)
+    return _VAS
+
+
+def reasigna_estaticos(funcs):
+    """[(rva, nombre, objeto, estatico)] ordenadas por rva -> lo mismo con el objeto de las copias de un estatico.
+
+    Ronda 87: un simbolo estatico (de enlace interno) que sale VARIAS veces en el .map (una copia por unidad que
+    incluye la cabecera: ??__EkFloatScaleDown@@YAXXZ de UVectorMath.h 30 veces, ??__EWAM_* 32, eFrameMallocMatrix 4)
+    lleva en el .map el MISMO objeto en todas sus copias (zMiscSmall.obj, zSim.obj...), cosa imposible: cada objeto
+    tiene la suya. LTCG coloca las funciones por objeto, asi que la copia es del objeto de la siguiente funcion que
+    no es una de esas copias (los inicializadores de cada unidad empiezan por kFloatScaleDown)."""
+    cuenta = collections.Counter(n for _, n, _, est in funcs if est)
+    dup = {n for n, c in cuenta.items() if c > 1}
+    if not dup:
+        return funcs
+    out = list(funcs)
+    siguiente = None
+    for k in range(len(out) - 1, -1, -1):
+        rva, n, ob, est = out[k]
+        if est and n in dup:
+            if siguiente is not None:
+                out[k] = (rva, n, siguiente, est)
+        else:
+            siguiente = ob
+    return out
+
+
 def trocea(raiz, ils, avisa, normalizar=True):
     """Un objeto COFF por unidad con las funciones del ejecutable enlazado. Devuelve {objeto de ninja: troceado}.
     Con `normalizar`, tambien escribe los originales normalizados (ver normaliza_originales) y aplica la misma
@@ -363,12 +428,16 @@ def trocea(raiz, ils, avisa, normalizar=True):
         if rva not in en or (en[rva][1] and not est):
             en[rva] = (n, est)
     funcs = sorted((rva, n, ob, est) for rva, n, ob, f, est in simbolos if f and t0 <= rva < t1)
-    # quita duplicados de direccion (alias): el primero publico
+    # quita duplicados de direccion (alias): el nombre que usa el original si alguno lo es; si no, el primero publico.
+    # Ronda 76: LTCG da la misma funcion a ??_G y ??_E; en 14 el original usa el que no es el primero y salian sin
+    # pareja (scripts/ltcgdiag360.py supervivencia)
+    del_original = nombres_originales(raiz)
     vistos = {}
     for x in funcs:
-        if x[0] not in vistos or (vistos[x[0]][3] and not x[3]):
+        v = vistos.get(x[0])
+        if v is None or (x[1] in del_original, not x[3]) > (v[1] in del_original, not v[3]):
             vistos[x[0]] = x
-    funcs = sorted(vistos.values())
+    funcs = reasigna_estaticos(sorted(vistos.values()))
     por_obj = {}
     for k, (rva, n, ob, est) in enumerate(funcs):
         fin = funcs[k + 1][0] if k + 1 < len(funcs) else t1
@@ -580,6 +649,14 @@ class Normalizacion:
                     if m:
                         bases[int(m.group(1), 16) - v] += 1
                 if not bases:
+                    # r89: sin ningun fn_/lbl_ (la unidad quedo nombrada del todo), la base sale de
+                    # los simbolos con nombre de symbols.txt. Ver vas_originales().
+                    vas = vas_originales(self.raiz)
+                    for v, nm in lista:
+                        va = vas.get(nm)
+                        if va is not None:
+                            bases[va - v] += 1
+                if not bases:
                     continue
                 base = bases.most_common(1)[0][0]
                 tipos = collections.defaultdict(set)
@@ -738,10 +815,55 @@ def escribe_unidad(destino, lista, pe, rel, en, norm=None):
     escribe_coff(destino, [('.text', bytes(datos), rels, 0x60500020)], simbolos)
 
 
+# --------------------------------------------------------------------------------------------- bibliotecas
+#
+# Ronda 76 (X360-LTCG-76); ENCENDIDO por defecto desde el cierre de la 76 (decision del usuario; LTCG360_BIBLIOTECAS=0 lo apaga):
+# bibliotecas que el original enlazo CON /GL y cuya fuente ya esta en el arbol. Se compilan con los flags de la
+# primera unidad y /GL, se enlazan detras de las unidades y NO se trocean (sus funciones van en auto_ del original):
+# solo cambian lo que LTCG hace con sus llamantes (expansiones entre modulos, reparto de registros). Prueba de csis:
+# NFS.exe 0x821FDD68 (el CommitMemberData de las clases de SND_GEN) lleva dentro Class::SetMemberData expandida
+# (WaitForSingleObject(gMutexHandle, INFINITE), SendParameters, ReleaseMutex): csis era IL en el enlace original.
+BIBLIOTECAS = [
+    ('csis', 'src/Speed/Indep/Libs/csis/dev/source/library/cmn/csis.cpp',
+     '-I src/Speed/Indep/Libs/csis/dev/source/library/cmn'),
+    # Ronda 83 (X360-B): zMiscSmall (Config.cpp) no es unidad de X360 y sus globales eran stubs opacos; el EGM las
+    # propaga como constantes (DebugMenu::selectionFitsOnScreen, NFS.exe 0x822A1390: BuildVersionChangelistName).
+    ('zMiscSmall', 'src/Speed/Indep/SourceLists/zMiscSmall.cpp', ''),
+]
+
+
+def compila_bibliotecas(raiz, unidades, avisa):
+    """[(IL, COFF)] de BIBLIOTECAS en build/<V>/ltcg/lib (el COFF sin /GL dice que simbolos ya no son stub)."""
+    d = os.path.join(rutas(raiz)['base'], 'lib')
+    os.makedirs(d, exist_ok=True)
+    cflags = unidades[0][2]
+    out = []
+    ya = {os.path.normpath(s) for _, s, _ in unidades}
+    for nombre, src, extra in BIBLIOTECAS:
+        if os.path.normpath(src) in ya:
+            continue  # ronda 86: ya es unidad (csis); dos definiciones rompen el enlace LTCG (LNK1223)
+        il, coff = os.path.join(d, nombre + '.obj'), os.path.join(d, nombre + '.coff')
+        fuente = os.path.join(raiz, src)
+        if not (os.path.exists(il) and os.path.exists(coff) and os.path.getmtime(il) >= os.path.getmtime(fuente)):
+            for gl, sal in (('/GL', il), ('', coff)):
+                cmd = '"%s" %s %s %s /Fo%s %s' % (os.path.join(raiz, CL), cflags, extra, gl, sal,
+                                                  src.replace('/', '\\'))
+                p = subprocess.run(cmd, cwd=raiz, capture_output=True, text=True, errors='replace')
+                if p.returncode != 0 or not os.path.exists(sal):
+                    avisa('ltcg360: la biblioteca %s no compila: %s' % (
+                        nombre, ' | '.join(x for x in p.stdout.splitlines() if 'error' in x)[:300]))
+                    break
+        if os.path.exists(il) and os.path.exists(coff):
+            out.append((il, coff))
+    return out
+
+
 # --------------------------------------------------------------------------------------------- todo
 
-def generar(raiz, ninja='build.ninja', fallidos=(), hilos=4, solo_trocear=False, avisa=print):
+def generar(raiz, ninja='build.ninja', fallidos=(), hilos=4, solo_trocear=False, avisa=print, bibliotecas=None):
     """El paso entero. Devuelve ({objeto de ninja: objeto troceado}, {objeto: motivo}) o (None, motivo)."""
+    if bibliotecas is None:
+        bibliotecas = os.environ.get('LTCG360_BIBLIOTECAS', '1') != '0'
     r = rutas(raiz)
     os.makedirs(r['base'], exist_ok=True)
     unidades = unidades_ninja(os.path.join(raiz, ninja))
@@ -755,7 +877,10 @@ def generar(raiz, ninja='build.ninja', fallidos=(), hilos=4, solo_trocear=False,
         t = time.time()
         ils, malos = compila_il(raiz, unidades, fallidos, hilos, avisa)
         avisa('ltcg360: IL de %d unidades (%d sin objeto) en %.0f s' % (len(ils), len(malos), time.time() - t))
-        if not ils or not enlaza(raiz, ils, avisa):
+        libs = compila_bibliotecas(raiz, unidades, avisa) if bibliotecas and ils else []
+        if libs:
+            avisa('ltcg360: bibliotecas con /GL en el enlace: %s' % ', '.join(os.path.basename(i) for i, _ in libs))
+        if not ils or not enlaza(raiz, ils, avisa, libs=libs):
             return None, 'el enlace LTCG fallo (ver %s)' % os.path.relpath(r['log'], raiz)
     return trocea(raiz, ils, avisa), malos
 
@@ -766,9 +891,12 @@ def main():
     ap.add_argument('--hilos', type=int, default=4)
     ap.add_argument('--fallidos', default='', help='objetos de ninja que fallaron, separados por comas')
     ap.add_argument('--solo-trocear', action='store_true')
+    ap.add_argument('--bibliotecas', action='store_true', help='enlaza tambien BIBLIOTECAS con /GL (apagado por '
+                    'defecto; o LTCG360_BIBLIOTECAS=1)')
     a = ap.parse_args()
     raiz = os.getcwd()
-    res, malos = generar(raiz, a.ninja, [x for x in a.fallidos.split(',') if x], a.hilos, a.solo_trocear)
+    res, malos = generar(raiz, a.ninja, [x for x in a.fallidos.split(',') if x], a.hilos, a.solo_trocear,
+                         bibliotecas=True if a.bibliotecas else None)
     if res is None:
         print('ltcg360: ' + malos)
         return 1

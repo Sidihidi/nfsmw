@@ -116,7 +116,6 @@ typedef struct BuddyApiBuddyRecT
     char Presence[0x2A];        // +0x35
     unsigned char Pad5F[0x85 - 0x5F];
     char Title[0x29];           // +0x85
-    unsigned char PadAE[0xAE - 0xAE];
     char PresenceExtra[0xF0 - 0xAE]; // +0xAE
     int iVoipState;             // +0xF0
     // Hueco medido: el original lee eState con lb en +0xF7 (3 hits) y voip con lw
@@ -124,7 +123,13 @@ typedef struct BuddyApiBuddyRecT
     // memset del original es de 0x11C.
     unsigned char PadF4[3];     // +0xF4
     signed char eState;         // +0xF7
+#ifdef EA_PLATFORM_WIN32
+    // PC (DirtySDK de speed.exe): unsigned. HLBBudIsBlocked y sus cuatro hermanas leen el bit con shr (la A124 con
+    // sra) y HLBListCancelGameInvite lo prueba con jbe.
+    unsigned int uFlags;        // +0xF8
+#else
     int uFlags;                // +0xF8
+#endif
     // Hueco medido: pHLBud va en +0x100 (lw/sw) e iIndex en +0x104; el unico acceso
     // en 0xF4-0xFF es el lb de eState en 0xF7. Sin estos 4 B el sizeof sale 0x118.
     unsigned char PadFC[4];     // +0xFC
@@ -269,8 +274,6 @@ void _setLastOpState(HLBApiRefT *pApi, int iState)
 
 void _signalBuddyListChanged(HLBApiRefT *pApi)
 {
-    if (pApi == NULL)
-        return;
     pApi->bListDirty = 1;
     if (pApi->pBuddyChangeCallback != NULL)
         pApi->pBuddyChangeCallback(pApi, 5, 0, pApi->pBuddyChangeRef);
@@ -317,11 +320,16 @@ void _listRemovePreConnTempBuddy(DispListT *pList, int iIndex)
 
 void _listMsgItemDestroy(HLBApiRefT *pApi, DispListT *pList, int iIndex)
 {
-    HLBMsgRecT *pMsg = DispListDelByIndex(pList, iIndex);
-    if (pMsg != NULL)
+    HLBMsgRecT *pMsg;
+
+    if (iIndex >= 0)
     {
-        pApi->pMemFree(pMsg->pText);
-        pApi->pMemFree(pMsg);
+        pMsg = DispListDelByIndex(pList, iIndex);
+        if (pMsg != NULL)
+        {
+            pApi->pMemFree(pMsg->pText);
+            pApi->pMemFree(pMsg);
+        }
     }
 }
 
@@ -433,9 +441,9 @@ void _preConnTempBudListLoad(HLBApiRefT *pApi)
                 unsigned int uFlag = 1;
                 do
                 {
-                    if (pBud->uFlags & uFlag)
+                    if ((pBud->uFlags & uFlag) > 0)
                         HLBListFlagTempBuddy(pApi, pBud->Name, uFlag);
-                    uFlag <<= 1;
+                    uFlag *= 2;
                 } while (uFlag < 0x80);
                 DispListDelByIndex(pApi->pPreConnTempBudList, i);
                 pApi->pMemFree(pBud);
@@ -619,12 +627,9 @@ int _canAddBuddy(HLBApiRefT *pApi, unsigned int uFlags)
         for (i = 0; i < iNum; i++)
         {
             HLBBudT *pBud = HLBListGetBuddyByIndex(pApi, i);
-            if (pBud == NULL || pBud->pBuddy == NULL)
-                goto next;
-            if ((pBud->pBuddy->uFlags & 0x100000) != 0 && (pBud->pBuddy->uFlags & 0xC0204) == 0
-                && (pBud->uFlags2 & 0x40) == 0)
+            if (pBud != NULL && pBud->pBuddy != NULL && (pBud->pBuddy->uFlags & 0x100000) != 0
+                && (pBud->pBuddy->uFlags & 0xC0204) == 0 && (pBud->uFlags2 & 0x40) == 0)
                 iCount = i + 1;
-next:
             if (iCount < pApi->iMaxTempBuddyCount)
                 continue;
             iRemoved = _removeOldestTempBuddy(pApi);
@@ -720,13 +725,15 @@ int _HLBMsgListDeleteOldestMsgForBud(HLBApiRefT *pApi, HLBBudT *pBud)
 
 int _HLBMsgListJettisonOldMsg(HLBApiRefT *pApi)
 {
-    if (_HLBMsgListDeleteOldestMsg(pApi, 1, 1) == 0)
-        return 0;
-    if (_HLBMsgListDeleteOldestMsg(pApi, 1, 0) == 0)
-        return 0;
-    if (_HLBMsgListDeleteOldestMsg(pApi, 0, 1) == 0)
-        return 0;
-    return _HLBMsgListDeleteOldestMsg(pApi, 0, 0);
+    int iResult = _HLBMsgListDeleteOldestMsg(pApi, 1, 1);
+
+    if (iResult != 0)
+        iResult = _HLBMsgListDeleteOldestMsg(pApi, 1, 0);
+    if (iResult != 0)
+        iResult = _HLBMsgListDeleteOldestMsg(pApi, 0, 1);
+    if (iResult != 0)
+        iResult = _HLBMsgListDeleteOldestMsg(pApi, 0, 0);
+    return iResult;
 }
 
 void _HLBMsgListAddMsg(HLBApiRefT *pApi, const char *pName, BuddyApiMsgRecT *pMsg, int iNew)
@@ -745,18 +752,19 @@ void _HLBMsgListAddMsg(HLBApiRefT *pApi, const char *pName, BuddyApiMsgRecT *pMs
         if (HLBBudIsWannaBeMyBuddy((HLBBudT *)pBud) && iNew == 0)
             HLBMsgListDelete((HLBBudT *)pBud, 0);
     }
-    if (HLBMsgListGetTotalCount((HLBBudT *)pBud) < pApi->iMaxMsgCount)
-        goto addMsg;
-    if (_HLBMsgListDeleteOldestMsgForBud(pApi, pBud) < 0)
-        return;
-    if (pApi->iTotalMsgs < pApi->iMaxTotalMsgCount)
-        goto addMsg;
-    // Medido (sltiu s1,v0,1): asignacion desde la comparacion, no if+movz;
-    // Jettison==0 es exito (libero hueco) -> se puede anadir.
-    bCanAdd = (_HLBMsgListJettisonOldMsg(pApi) == 0);
-    if (bCanAdd == 0)
-        return;
-addMsg:
+    if (HLBMsgListGetTotalCount((HLBBudT *)pBud) >= pApi->iMaxMsgCount)
+    {
+        if (_HLBMsgListDeleteOldestMsgForBud(pApi, pBud) < 0)
+            return;
+        if (pApi->iTotalMsgs >= pApi->iMaxTotalMsgCount)
+        {
+            // Medido (sltiu s1,v0,1): asignacion desde la comparacion, no if+movz;
+            // Jettison==0 es exito (libero hueco) -> se puede anadir.
+            bCanAdd = (_HLBMsgListJettisonOldMsg(pApi) == 0);
+            if (bCanAdd == 0)
+                return;
+        }
+    }
     pApi->iTotalMsgs += 1;
     iLen = strlen(pMsg->pData);
     pNewMsg = pApi->pMemAlloc(sizeof(HLBMsgRecT));
@@ -941,16 +949,17 @@ void _HLBBuddyChangeCallback(BuddyApiRefT *pBuddyApi, BuddyApiBuddyT *pBuddyIn, 
     if (uChange == 8)
     {
         if (HLBBudIsSameProduct((HLBBudT *)pHLBud))
-        {
             pHLBud->pBuddy->uFlags |= 0x8000;
-            goto checkFlags;
-        }
-        uChange = 0x8000;
+        else
+            uChange = 0x8000;
     }
-    if (pApi->iGameInviteTimeout2 > 0)
-        pApi->uGameInviteTime = pApi->uCurTime + pApi->iGameInviteTimeout2 * 1000;
-    strncpy(pApi->GameInviteName, HLBBudGetName((HLBBudT *)pHLBud), 0x20);
-checkFlags:
+    // con la invitacion del mismo producto (uChange sigue en 8) no se arma el plazo
+    if (uChange != 8)
+    {
+        if (pApi->iGameInviteTimeout2 > 0)
+            pApi->uGameInviteTime = pApi->uCurTime + pApi->iGameInviteTimeout2 * 1000;
+        strncpy(pApi->GameInviteName, HLBBudGetName((HLBBudT *)pHLBud), 0x20);
+    }
     if (uChange == 0x8000 || uChange == 0x800 || uChange == 0x400)
     {
         if (uChange == 0x400)
@@ -1041,7 +1050,7 @@ void HLBApiOverrideConstants(HLBApiRefT *pApi, int iNoText, int iSuspendPort, in
         pApi->iMaxTempBuddyCount = iMaxTempBuddyCount;
     if (iMaxTotalMsgCount != -1)
         pApi->iMaxTotalMsgCount = iMaxTotalMsgCount;
-    if (iMaxPreConnBuddyCount != -1 && iMaxPreConnBuddyCount < 201)
+    if (iMaxPreConnBuddyCount != -1 && iMaxPreConnBuddyCount <= 200)
         pApi->iMaxPreConnBuddyCount = iMaxPreConnBuddyCount;
     if (iNoText == 1)
         BuddyApiPresNoText(pApi->pBuddyApi);
@@ -1064,8 +1073,8 @@ int HLBApiConnect(HLBApiRefT *pApi, const char *pServer, int iPort, const char *
         return -3;
     _HLBRosterDestroy(pApi);
     pApi->iState = 0;
-    pApi->iTotalMsgs = 0;
     pApi->iConnectState = 1;
+    pApi->iTotalMsgs = 0;
     return BuddyApiConnect(pApi->pBuddyApi, pServer, iPort, pApi->iSuspendPort, pPassword, pContext,
                            _HLBConnectCallback, pApi);
 }
@@ -1082,7 +1091,7 @@ int HLBApiRegisterConnectCallback(HLBApiRefT *pApi,
 
 int HLBApiGetConnectState(HLBApiRefT *pApi)
 {
-    return pApi == NULL ? 0 : pApi->iConnectState;
+    return (pApi != NULL) ? pApi->iConnectState : 0;
 }
 
 void HLBApiDisconnect(HLBApiRefT *pApi)
@@ -1123,8 +1132,7 @@ void HLBApiUpdate(HLBApiRefT *pApi)
     if (pApi->uGameInviteTime != 0)
     {
         pApi->uCurTime = uCurTime;
-        if (pApi->uGameInviteTime >= uCurTime)
-            goto checkOp;
+        if (pApi->uGameInviteTime < uCurTime)
         {
             HLBBudT *pBud = HLBListGetBuddyByName(pApi, pApi->GameInviteName);
             pApi->GameInviteName[0] = '\0';
@@ -1137,7 +1145,6 @@ void HLBApiUpdate(HLBApiRefT *pApi)
             }
         }
     }
-checkOp:
     if (pApi->bOpPending != 0)
     {
         if (pApi->pOpCallback != NULL)
@@ -1280,19 +1287,17 @@ int HLBBudTempBuddyIs(HLBBudT *pBud, int iFlags)
 
 int HLBBudIsRealBuddy(HLBBudT *pBud)
 {
-    if (pBud == NULL)
-        return 0;
-    return (((HLBBudT *)pBud)->pBuddy->uFlags >> 2) & 1;
+    return (pBud != NULL) ? ((((HLBBudT *)pBud)->pBuddy->uFlags >> 2) & 1) : 0;
 }
 
 int HLBBudIsInGroup(HLBBudT *pBud)
 {
-    return ((HLBBudT *)pBud)->uGroup != 1;
+    return ((HLBBudT *)pBud)->uGroup == 1;
 }
 
 int HLBBudGetState(HLBBudT *pBud)
 {
-    return pBud == NULL ? 0 : ((HLBBudT *)pBud)->pBuddy->eState;
+    return (pBud != NULL) ? ((HLBBudT *)pBud)->pBuddy->eState : 0;
 }
 
 int HLBBudIsPassive(HLBBudT *pBud)
@@ -1360,9 +1365,9 @@ int HLBBudCanVoiceChat(HLBBudT *pBud)
 
 void *HLBMsgListGetFirstUnreadMsg(HLBBudT *pBud, int iIndex, int iMarkRead)
 {
-    int iNum = _listGetCount(((HLBBudT *)pBud)->pMsgList);
+    int iNum;
     int i;
-    for (i = iIndex; i < iNum; i++)
+    for (i = iIndex, iNum = _listGetCount(((HLBBudT *)pBud)->pMsgList); i < iNum; i++)
     {
         HLBMsgRecT *pMsg = _listItemGetByIndex(((HLBBudT *)pBud)->pMsgList, i);
         if (pMsg == NULL)
@@ -1379,15 +1384,15 @@ void *HLBMsgListGetFirstUnreadMsg(HLBBudT *pBud, int iIndex, int iMarkRead)
 int HLBMsgListGetUnreadCount(HLBBudT *pBud)
 {
     int iCount = 0;
-    int iNum = _listGetCount(((HLBBudT *)pBud)->pMsgList);
+    int iNum;
     int i;
-    for (i = 0; i < iNum; i++)
+    for (i = 0, iNum = _listGetCount(((HLBBudT *)pBud)->pMsgList); i < iNum; i++)
     {
         HLBMsgRecT *pMsg = _listItemGetByIndex(((HLBBudT *)pBud)->pMsgList, i);
         if (pMsg == NULL)
             continue;
         if ((pMsg->uFlags & 1) == 0)
-            iCount = i + 1;
+            iCount++;
     }
     return iCount;
 }
@@ -1420,14 +1425,12 @@ void HLBMsgListDeleteAll(HLBBudT *pBud, int iUnreadOnly)
                 continue;
             // Medido (beqzl s2->destroy; beqzl flag->latch): destruye si
             // iUnreadOnly == 0 o si el bit 0 esta a 1 (al reves del nombre;
-            // el unico llamante pasa 0). Sin && combinado: ramas separadas.
-            if (iUnreadOnly == 0)
-                goto destroy;
-            if ((pMsg->uFlags & 1) == 0)
-                continue;
-destroy:
-            _listMsgItemDestroy(((HLBBudT *)pBud)->pApi, ((HLBBudT *)pBud)->pMsgList, i);
-            ((HLBBudT *)pBud)->pApi->iTotalMsgs -= 1;
+            // el unico llamante pasa 0).
+            if (iUnreadOnly == 0 || (pMsg->uFlags & 1) != 0)
+            {
+                _listMsgItemDestroy(((HLBBudT *)pBud)->pApi, ((HLBBudT *)pBud)->pMsgList, i);
+                ((HLBBudT *)pBud)->pApi->iTotalMsgs -= 1;
+            }
         }
     }
 }
@@ -1442,11 +1445,10 @@ void _HLBMsgListDestroy(HLBBudT *pBud)
 HLBBudT *HLBListGetBuddyByName(HLBApiRefT *pApi, const char *pName)
 {
     HLBBudT *pBud = NULL;
-    if (_getRost(pApi) == NULL)
-        return NULL;
+    if (_getRost(pApi) != NULL)
     {
         BuddyApiBuddyRecT *pBuddy = (BuddyApiBuddyRecT *)BuddyApiFind(pApi->pBuddyApi, (BuddyApiBuddyT *)pName);
-        if (pBuddy != NULL)
+        if ((pBuddy != NULL) && (pBuddy->pHLBud != NULL))
             pBud = pBuddy->pHLBud;
     }
     return (HLBBudT *)pBud;
@@ -1455,11 +1457,10 @@ HLBBudT *HLBListGetBuddyByName(HLBApiRefT *pApi, const char *pName)
 HLBBudT *HLBListGetBuddyByIndex(HLBApiRefT *pApi, int iIndex)
 {
     HLBBudT *pBud = NULL;
-    if (_getRost(pApi) == NULL)
-        return pBud;
+    if (_getRost(pApi) != NULL)
     {
         BuddyApiBuddyRecT *pBuddy = DispListIndex(_getRost(pApi), iIndex);
-        if (pBuddy != NULL)
+        if ((pBuddy != NULL) && (pBuddy->pHLBud != NULL))
             pBud = pBuddy->pHLBud;
     }
     return (HLBBudT *)pBud;
@@ -1570,12 +1571,12 @@ int HLBListAnswerGameInvite(HLBApiRefT *pApi, const char *pName, int iAnswer,
 int HLBListCancelGameInvite(HLBApiRefT *pApi, void (*pCallback)(HLBApiRefT *, int, int, void *), void *pRef)
 {
     int iResult = 0;
-    int iNum = HLBListGetBuddyCount(pApi);
+    int iNum;
     int i;
-    for (i = 0; i < iNum; i++)
+    for (i = 0, iNum = HLBListGetBuddyCount(pApi); i < iNum; i++)
     {
         HLBBudT *pBud = HLBListGetBuddyByIndex(pApi, i);
-        if (pBud == NULL || pBud->pBuddy == NULL || (pBud->pBuddy->uFlags & 0x20000) == 0)
+        if (pBud == NULL || (pBud->pBuddy->uFlags & 0x20000) <= 0)
             continue;
         iResult = HLBListAnswerGameInvite(pApi, pBud->pBuddy->Name, 2, pCallback, pRef);
     }
@@ -1641,9 +1642,9 @@ int HLBListRemoveFromGroup(HLBApiRefT *pApi, const char *pName, int iGroup)
 
 int HLBListClearGroup(HLBApiRefT *pApi, int iGroup)
 {
-    int iNum = HLBListGetBuddyCount(pApi);
+    int iNum;
     int i;
-    for (i = 0; i < iNum; i++)
+    for (i = 0, iNum = HLBListGetBuddyCount(pApi); i < iNum; i++)
     {
         HLBBudT *pBud = HLBListGetBuddyByIndex(pApi, i);
         if (pBud != NULL)
@@ -1692,9 +1693,9 @@ int HLBApiPresenceSend(HLBApiRefT *pApi, HLBStatE eState, int iVoipState, const 
     BuddyApiPresSame(pApi->pBuddyApi, pPresence);
     if (iVoipState != -1)
         BuddyApiPresExFlags(pApi->pBuddyApi, iVoipState);
+    pApi->iStatus = eState;
     if (pApi->bSuppressPresence != 0)
         return 0;
-    pApi->iStatus = eState;
     // Medido en el original (move a3,s4 + move t0,zero): el 4.º argumento es
     // iWaitForCompletion y el 5.º es 0, no (pPresence, iWaitForCompletion).
     // VEDADO esta ronda: queda al 88 % por un colorido v0/v1 (el -1 va a v0 en el
@@ -1760,7 +1761,7 @@ int HLBListSendChatMsg(HLBApiRefT *pApi, const char *pName, const char *pText, i
 unsigned int HLBBudGetGameInviteFlags(HLBBudT *pBud)
 {
     unsigned int uFlags = ((HLBBudT *)pBud)->pBuddy->uFlags & 0x04428C08;
-    if (uFlags & 0x4000000)
+    if ((uFlags & 0x4000000) > 0)
         ((HLBBudT *)pBud)->pBuddy->uFlags &= 0xFBBD73F7;
     return uFlags;
 }

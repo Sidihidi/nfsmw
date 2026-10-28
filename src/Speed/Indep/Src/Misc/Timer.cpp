@@ -86,6 +86,7 @@ void PrepareRealTimestep(float video_time_elapsed) {
     RealTimeElapsedQuantized = quantized_video_time_elapsed;
     RealTimeElapsed = GetRealTimeElapsedFromQuantized(quantized_video_time_elapsed);
 
+#ifndef EA_PLATFORM_PLAYSTATION2
     static int SeenTimerProblem = 0;
     if (TimeDifferenceInMiliseconds > 86400000.0f || TimeDifferenceInMiliseconds < 0.0f || TimeDifferenceInSeconds > 86400.0f ||
         TimeDifferenceInSeconds < 0.0f || start_video_time_elapsed > 86400.0f || start_video_time_elapsed < 0.0f || video_time_elapsed > 86400.0f ||
@@ -136,6 +137,7 @@ void PrepareRealTimestep(float video_time_elapsed) {
             HadBad_MilisecondsToSeconds = 1;
         }
     }
+#endif
 }
 
 void AdvanceRealTime() {

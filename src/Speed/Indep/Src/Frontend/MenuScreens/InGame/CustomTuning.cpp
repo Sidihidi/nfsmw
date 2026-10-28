@@ -382,12 +382,12 @@ void CustomTuningScreen::StoreSettings() {
 }
 
 bool CustomTuningScreen::SettingsDidNotChange() {
-    for (int i = 0; i <= 2; i++) {
-        for (int j = 0; j <= 6; j++) {
-            float a = TuningRecord->GetTunings(i)->Value[j];
-            float b = TempTuningRecord.GetTunings(i)->Value[j];
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 7; j++) {
+            float original_setting = TuningRecord->GetTunings(i)->Value[j];
+            float new_setting = TempTuningRecord.GetTunings(i)->Value[j];
 
-            if (a != b) {
+            if (original_setting != new_setting) {
                 return false;
             }
         }
@@ -396,7 +396,10 @@ bool CustomTuningScreen::SettingsDidNotChange() {
 #ifdef EA_BUILD_A124
     return true;
 #else
-    return CurrentTuningType == TuningRecord->GetActiveTuning();
+    if (CurrentTuningType == TuningRecord->GetActiveTuning()) {
+        return true;
+    }
+    return false;
 #endif
 }
 

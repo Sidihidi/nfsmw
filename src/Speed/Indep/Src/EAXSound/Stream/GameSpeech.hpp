@@ -16,6 +16,29 @@ namespace Speech {
 struct SpeechSampleData;
 struct ScheduledSpeechEvent;
 
+// gcdatos13: tras el typedef CLUMP_IDX_FILE en los stabs de la A124
+// (PS2_types.nothpp:42676, 42683) y el DWARF de GC (mw_dwarfdump.nothpp:125950).
+// Flags son los bits de Module::m_flags (TestFlag(8) en IsBusy, TestFlag(1) en IsDataLoaded).
+enum eGameSpeechCallbackCodes {
+    GAMESPEECH_DAT_LOAD = 0,
+    GAMESPEECH_IDX_LOAD = 1,
+    GAMESPEECH_CSI_LOAD = 2,
+};
+
+enum Flags {
+    kInitialized = 1,
+    kPaused = 2,
+    kForcingSilence = 4,
+    kBusy = 8,
+    kEventNotify = 16,
+    kPanning = 32,
+    kCSILoaded = 64,
+    kDATLoaded = 128,
+    kIDXLoaded = 256,
+    kCommDisabled = 512,
+    kChirp = 1024,
+};
+
 #ifdef EA_PLATFORM_PLAYSTATION2
 DECLARE_CONTAINER_TYPE(SpeechSampleList);
 

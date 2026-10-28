@@ -65,6 +65,44 @@ const Matrix4 Matrix4::kIdentity = {{1.0f, 0.0f, 0.0f, 0.0f},
 
 } // namespace UMath
 
+#ifdef EA_BUILD_A124
+// Lineas 34-39 del UMath.cpp de la alpha, tras IsNaN: comprueba que la matriz manda el vector de prueba
+// (1,1,1,0) a otro de longitud parecida y que su columna w es (0,0,0,1). Solo la usa CARP::Trigger.
+bool ValidateMatrix(const UMath::Matrix4 &matrix) {
+    static const UMath::Vector4 test1 = {1.0f, 1.0f, 1.0f, 0.0f};
+    UMath::Vector4 test2;
+    VU0_MATRIX4_vect4mult(test1, matrix, test2);
+    float ratio = VU0_v4lengthsquare(test1) / VU0_v4lengthsquare(test2);
+    if (ratio < 0.9f || ratio > 1.1f) {
+        return false;
+    }
+    if (fabsf(matrix[0][3]) > 0.001 || fabsf(matrix[1][3]) > 0.001 || fabsf(matrix[2][3]) > 0.001) {
+        return false;
+    }
+    if (fabsf(matrix[3][3]) > 1.1f || fabsf(matrix[3][3]) < 0.9f) {
+        return false;
+    }
+    return true;
+}
+#endif
+
+#ifdef EA_BUILD_A124
+// Lineas 65-67 del UMath.cpp de la alpha: vuelca la rotacion 3x3 y la traslacion en la 4x4. Es la
+// unica copia que queda en los cinco informes (en las demas el enlazador la quita con su llamante).
+void BuildRotTrans(UMath::Matrix4 &quatTrans, const UMath::Matrix3 &orientation, const UMath::Vector3 &t) {
+    for (int mx = 0; mx < 3; mx++) {
+        for (int my = 0; my < 3; my++) {
+            quatTrans[mx][my] = orientation[mx][my];
+        }
+    }
+    quatTrans[0][3] = quatTrans[1][3] = quatTrans[2][3] = 0.0f;
+    quatTrans[3][0] = t.x;
+    quatTrans[3][1] = t.y;
+    quatTrans[3][2] = t.z;
+    quatTrans[3][3] = 1.0f;
+}
+#endif
+
 void BuildRotate(UMath::Matrix4 &m, float r, float x, float y, float z) {
     float angle;
     float fSin;

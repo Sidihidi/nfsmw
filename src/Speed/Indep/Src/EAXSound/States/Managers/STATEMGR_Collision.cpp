@@ -76,17 +76,18 @@ CSTATE_Base *CSTATEMGR_Collision::GetFreeState(void *ObjectPtr) {
     Sound::CollisionEvent *pCollision = static_cast<Sound::CollisionEvent *>(ObjectPtr);
     CSTATE_Collision *curcollision = static_cast<CSTATE_Collision *>(this->m_pHeadStateObj);
 
-    while ((curcollision != nullptr) && pCollision->IsDescribed(2)) {
+    for (; (curcollision != nullptr) && pCollision->IsDescribed(2);
+         curcollision = static_cast<CSTATE_Collision *>(curcollision->m_pNextState)) {
         if (curcollision->IsAttached()) {
             if (AgeThresholdForPruningDups < curcollision->m_pCollisionEvent->GetAge()) {
-                goto ContinueLooping;
+                continue;
             }
 
             if (curcollision->m_pCollisionEvent->IsDescribed(2) && !curcollision->m_pCollisionEvent->IsDescribed(0x200)) {
 
                 if (IntensityThresholdForPruning < static_cast<float>(pCollision->GetIntensity()) &&
                     static_cast<float>(curcollision->m_pCollisionEvent->GetIntensity()) < IntensityThresholdForPruning) {
-                    goto ContinueLooping;
+                    continue;
                 }
 
                 if ((pCollision->GetActor() == curcollision->m_pCollisionEvent->GetActor() &&
@@ -95,13 +96,8 @@ CSTATE_Base *CSTATEMGR_Collision::GetFreeState(void *ObjectPtr) {
                      pCollision->GetActee() == curcollision->m_pCollisionEvent->GetActor())) {
                     return nullptr;
                 }
-
-                goto ContinueLooping;
             }
         }
-
-    ContinueLooping:
-        curcollision = static_cast<CSTATE_Collision *>(curcollision->m_pNextState);
     }
 
     CSTATE_Base *CurReturn = CSTATEMGR_Base::GetFreeState(ObjectPtr);

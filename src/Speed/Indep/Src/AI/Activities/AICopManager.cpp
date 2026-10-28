@@ -50,7 +50,7 @@ template EAX_HeliState **find<EAX_HeliState **, EAX_HeliState *>(EAX_HeliState *
 #include "Speed/Indep/Src/Interfaces/Simables/IRigidBody.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IVehicle.h"
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
 #include "Speed/Indep/Src/Misc/TestHooks/JuiceHooks/JuiceHooks.h"
 #endif
 #include "Speed/Indep/Src/Misc/Hermes.h"
@@ -77,9 +77,9 @@ float AICopManager::mCopMaxSpawnDist = 400.0f;
 AICopManager *TheOneCopManager = nullptr;
 
 // TODO apply macros everywhere in zAI
-UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AIPursuit("AIPursuit", AIPursuit::Construct);
-UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AIRoadBlock("AIRoadBlock", AIRoadBlock::Construct);
-UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AICopManager("AICopManager", AICopManager::Construct);
+UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AIPursuit(UCrc32("AIPursuit"), AIPursuit::Construct);
+UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AIRoadBlock(UCrc32("AIRoadBlock"), AIRoadBlock::Construct);
+UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _AICopManager(UCrc32("AICopManager"), AICopManager::Construct);
 
 // Just an inflated stack
 AICopManager::AICopManager(Sim::Param params)
@@ -1207,10 +1207,7 @@ void AICopManager::UpdatePatrols() {
         UMath::Vector3 copPosition = ivehicle->GetSimable()->GetPosition();
         bool respawnAvailable = RespawnAvailable(copPosition, 0.0f);
         bool canRespawn = ivehicle->GetAIVehiclePtr()->CanRespawn(respawnAvailable);
-        bool shouldRespawn = false;
-        if (canRespawn && respawnAvailable) {
-            shouldRespawn = true;
-        }
+        bool shouldRespawn = canRespawn && respawnAvailable;
 
         bool bIsChopper = ivehicle->GetVehicleClass() == VehicleClass::CHOPPER;
         if (ivehicle->IsDestroyed()) {
@@ -1529,7 +1526,7 @@ void AICopManager::PursuitIsEvaded(IPursuit *ipursuit) {
                     IPerpetrator *perp;
                     AdjustStableHeat_EvadePursuit(plrIndex);
                     simable->QueryInterface(&perp);
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
                     if (perp) {
                         Juice::GameHook::Instance()->GameEvent("PURSUIT", "END", "Escaped", perp->GetPendingRepPointsNormal(), 0.0f,
                                                                Juice::MWExtension::GetCurrentZoneName(), Juice::MWExtension::GetImageName(),
@@ -1737,7 +1734,7 @@ void AICopManager::UpdatePursuits() {
             if (ipursuit->IsPerpBusted()) {
                 mPursuitsInARow = 0;
                 GManager::Get().NotifyPursuitEnded(false);
-#ifdef EA_BUILD_A124
+#ifdef MILESTONE_BUILD
                 // simable: nombre nuestro (los stabs no la tienen; sin ella no casa)
                 ISimable *simable = ipursuit->GetTarget()->GetSimable();
                 IPlayer *player = simable ? UTL::COM::QueryInterface<IPlayer>(simable) : nullptr;
@@ -1747,8 +1744,8 @@ void AICopManager::UpdatePursuits() {
                 FormationType tempFormationType = ipursuit->GetFormationType();
                 char *tempStr = Juice::MWExtension::GetFormationStr(tempFormationType);
                 Juice::GameHook::Instance()->LogText(tempStr);
-                Juice::GameHook::Instance()->LogText("
-");
+                Juice::GameHook::Instance()->LogText("\n"
+);
                 Juice::GameHook::Instance()->GameEvent("PURSUIT", tempStr, "COP_ATTEMPT_SUCCEEDED", 0, 0.0f, Juice::MWExtension::GetCurrentZoneName(),
                                                        Juice::MWExtension::GetImageName(), Juice::MWExtension::GetPlayerPosition(player));
 #endif
@@ -1983,8 +1980,8 @@ void AICopManager::PursueAtHeatLevel(int minHeatLevel) {
         for (Pursuits::const_iterator iter = mIPursuitList.begin(); iter != mIPursuitList.end(); ++iter) {
             IPursuit *ipursuit = *iter;
             if (ipursuit->GetTarget()->GetSimable() == player->GetSimable()) {
-                alreadyPursued = true;
                 playerPursuit = ipursuit;
+                alreadyPursued = true;
                 break;
             }
         }

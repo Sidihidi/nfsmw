@@ -52,19 +52,19 @@ void System::Init() {
 }
 
 uint64_t System::CreateKey(UCrc32 port, UCrc32 messageID) {
-    uint64_t x = messageID.GetValue();
-    uint64_t y = port.GetValue();
+    uint64_t x = port.GetValue();
+    uint64_t y = messageID.GetValue();
     x = (x | x << 16) & 0xffff0000ffffULL;
-    y = (y | y << 16) & 0xffff0000ffffULL;
     x = (x | x << 8) & 0xff00ff00ff00ffULL;
-    y = (y | y << 8) & 0xff00ff00ff00ffULL;
     x = (x | x << 4) & 0xf0f0f0f0f0f0f0fULL;
-    y = (y | y << 4) & 0xf0f0f0f0f0f0f0fULL;
     x = (x | x << 2) & 0x3333333333333333ULL;
+    x = (x | x << 1) & 0x5555555555555555ULL;
+    y = (y | y << 16) & 0xffff0000ffffULL;
+    y = (y | y << 8) & 0xff00ff00ff00ffULL;
+    y = (y | y << 4) & 0xf0f0f0f0f0f0f0fULL;
     y = (y | y << 2) & 0x3333333333333333ULL;
     y = (y | y << 1) & 0x5555555555555555ULL;
-    x = (x | x << 1) & 0x5555555555555555ULL;
-    uint64_t result = y | (x << 1);
+    uint64_t result = x | (y << 1);
 
     return result;
 }

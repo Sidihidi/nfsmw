@@ -54,13 +54,22 @@ uint32 SPECIAL_EVENTS[2] = {0x17B768A,
 // size: 0x38, address: 0x804182C0, Decl: 108
 uint32 AmbientCrossMap[14] = {
     0x011BBC15, 0x01E40616, 0x01919B1B, 0x01C505B7, 0x0134209F, 0x012F7671, 0x0127205F,
-    0x01B2D374, 0x019509F2, 0x0146EDA3, 0x0196E300, 0x017690D2, 0x01E6FF17, 0x01E45B3F,
+    0x01B2D374, 0x019509F2, 0x0146EDA3, 0x0196E300, 0x017690D2, 0x01E6FF17,
+#ifdef EA_BUILD_A124
+    // gcdatos16: la ultima entrada es 0x019df7da en la A124 (bytes de su .data objetivo
+    // en zEAXSound2: da f7 9d 01); las demas 0x01e45b3f (SLUS y GC casan con ese).
+    0x019DF7DA,
+#else
+    0x01E45B3F,
+#endif
 };
 
 SFXObj_Pathfinder::SFXObj_Pathfinder() : CARSFX() {
     this->m_pSFXCTL_Pathfinder = nullptr;
     this->m_PFParms[0].pmapfile = nullptr;
+#ifndef EA_PLATFORM_XENON
     this->m_PFParms[1].pmapfile = nullptr;
+#endif
 #ifdef EA_BUILD_A124
     // La A124 lo deja a cero (68 B: cuatro `sw zero`).
     this->m_Flags = 0;

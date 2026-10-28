@@ -20,4 +20,27 @@ class eView;
 void StuffSkyLayer(eView *view, SKY_LAYER layer);
 void StuffSpecular(eView *view);
 void GetLayerMod(eView *view, SKY_LAYER l, float *r, float *g, float *b, float *a);
+
+#ifdef EA_PLATFORM_WIN32
+// El cielo de PC: SkyRender.cpp y su NotifySkyLoader de plataforma (Speed/PC/Src/Ecstasy/eViewPlat.cpp)
+class eModel;
+struct bMatrix4;
+class TextureInfo;
+
+void InitSkyHash();
+int SkyInitModel(eModel *model, bMatrix4 *local_world, unsigned int scenery_name_hash);
+void SkyUnInitSceneryModels(unsigned int scenery_name_hash);
+
+extern eModel SkydomeModel;
+extern bMatrix4 SkydomeLocalWorld;
+extern bool bSkyTexturesLoaded;
+extern TextureInfo *SkyNexGenTextures[3];
+extern bool SkyNexGenTexturesReady;
+extern float MainSkyScale;
+extern int DrawSky;
+extern int DrawSkyEnvMap;
+
+void ReplaceSkyTextures(SKY_LAYER layer);
+void StuffSkyLayer(eView *view, SKY_LAYER layer, float intensity); // la de PC (Speed/PC/Src/Ecstasy/EcstasyE.cpp)
+#endif
 #endif

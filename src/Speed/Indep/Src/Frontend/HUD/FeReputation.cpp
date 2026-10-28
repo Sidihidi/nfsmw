@@ -21,20 +21,18 @@ Reputation::Reputation(UTL::COM::Object *pOutter, const char *pkg_name, int play
 }
 
 void Reputation::Update(IPlayer *player) {
-    if (mDataReputationCareer == nullptr) {
-        return;
-    }
-
-    if (mNumFramesLeftToShow > 0) {
-        mNumFramesLeftToShow = mNumFramesLeftToShow - 1;
-        FEngSetLanguageHash(mDataTitle, 0x7D0171E4);
-        FEPrintf(mDataReputationCareer, "%$d", mReputationCareer);
-        if (!FEngIsScriptSet(mDataReputationGrp, FEHASH_APPEAR)) {
-            FEngSetScript(mDataReputationGrp, FEHASH_APPEAR, true);
-        }
-    } else {
-        if (FEngIsScriptSet(mDataReputationGrp, FEHASH_APPEAR)) {
-            FEngSetScript(mDataReputationGrp, 0x33113AC, true);
+    if (mDataReputationCareer != nullptr) {
+        if (mNumFramesLeftToShow > 0) {
+            mNumFramesLeftToShow = mNumFramesLeftToShow - 1;
+            FEngSetLanguageHash(mDataTitle, 0x7D0171E4);
+            FEPrintf(mDataReputationCareer, "%$d", mReputationCareer);
+            if (!FEngIsScriptSet(mDataReputationGrp, FEHASH_APPEAR)) {
+                FEngSetScript(mDataReputationGrp, FEHASH_APPEAR, true);
+            }
+        } else {
+            if (FEngIsScriptSet(mDataReputationGrp, FEHASH_APPEAR)) {
+                FEngSetScript(mDataReputationGrp, 0x33113AC, true);
+            }
         }
     }
 }

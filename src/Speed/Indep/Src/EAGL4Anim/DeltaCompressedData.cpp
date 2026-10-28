@@ -165,7 +165,11 @@ void DeltaCompressedData::DecompressValuesIndexed(int startDof, int numDofs, int
                 break;
             }
             case 4: {
+#ifdef EA_PLATFORM_XENON // X360: srawi+addze en 0x821A952C-0x821A9534 (division con signo, no desplazamiento)
+                const unsigned char *delta4 = reinterpret_cast<const unsigned char *>(&deltaBlock[prevFrame * ((mNumDofs + 1) / 2)]);
+#else
                 const unsigned char *delta4 = reinterpret_cast<const unsigned char *>(&deltaBlock[prevFrame * ((mNumDofs + 1) >> 1)]);
+#endif
                 bool dofEven = !(startDof & ~1u);
                 for (iframe = prevFrame; iframe < currFrame; iframe++) {
                     dofInfo = dofInfoStart;

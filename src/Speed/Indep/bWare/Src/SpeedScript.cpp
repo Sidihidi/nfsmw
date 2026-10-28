@@ -33,8 +33,13 @@ SpeedScript::SpeedScript(const char *filename, BOOL enable_fatal_error) {
     this->InitFromFile(filename);
 }
 
-// STRIPPED
-SpeedScript::SpeedScript(const char *script_name, const char *text_buffer, int enable_fatal_error) {}
+SpeedScript::SpeedScript(const char *script_name, const char *text_buffer, int enable_fatal_error) {
+    this->ErrorFunction = nullptr;
+    if (enable_fatal_error) {
+        this->ErrorFunction = SpeedScript::DefaultErrorFunction;
+    }
+    this->Init(script_name, text_buffer, bStrLen(text_buffer) + 1);
+}
 
 // STRIPPED
 SpeedScript::SpeedScript(const char *filename, void (*error_function)(const char *)) {}
@@ -123,7 +128,7 @@ void SpeedScript::ResizeEntryTable(int new_size) {
 
 SpeedScriptEntry *SpeedScript::AddEntry() {
     if (this->NumEntries == this->MaxEntries) {
-        this->ResizeEntryTable((this->NumEntries * 4) / 3 + 1);
+        this->ResizeEntryTable((this->MaxEntries * 4) / 3 + 1);
     }
     SpeedScriptEntry *entry = &this->EntryTable[this->NumEntries];
     this->NumEntries++;
@@ -190,9 +195,9 @@ bool SpeedScript::ParseNextWord(char *word, const char *buffer, int buffer_size,
 }
 
 void SpeedScript::Init(const char *name, const char *buffer, int buffer_size) {
+    this->ErrorText[0] = '\0';
     this->NumFiles = 1;
     SpeedScriptFile *file = &this->FileTable[0];
-    this->ErrorText[0] = '\0';
     bStrCpy(file->Filename, name);
     file->ArgBuf = new char[buffer_size + 1];
     this->NumEntries = 0;
@@ -227,8 +232,15 @@ void SpeedScript::Init(const char *name, const char *buffer, int buffer_size) {
             }
         }
     }
+#ifdef EA_PLATFORM_XENON
+    // entry_num se calcula desde NumEntries antes de copiarlo a prev_command_num
+    // (lwz r10, addi r11, r10, -1 y mr r8, r10 en 0x8217075C-0x82170764):
+    // las dos variables nacen en la cabecera del for, en ese orden.
+    for (int entry_num = this->NumEntries - 1, prev_command_num = this->NumEntries; entry_num >= 0; entry_num--) {
+#else
     int prev_command_num = this->NumEntries;
     for (int entry_num = prev_command_num - 1; entry_num >= 0; entry_num--) {
+#endif
         this->EntryTable[entry_num].NextCommandOffset = prev_command_num - entry_num;
         if (this->EntryTable[entry_num].IsCommand) {
             prev_command_num = entry_num;

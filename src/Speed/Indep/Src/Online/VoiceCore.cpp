@@ -3,13 +3,20 @@
 
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
+#ifdef EA_PLATFORM_XENON
+#include "Speed/Indep/Src/World/OnlineManager.hpp"
+#endif
 
 extern "C" {
 VoipRefT *VoipStartup(int maxPeers);
 void VoipShutdown(VoipRefT *voip);
 void VoipSetLocalUser(VoipRefT *voip, const char *name);
 int VoipControl(VoipRefT *voip, int control, int value);
+#ifdef EA_PLATFORM_XENON
+int VoipRemote(VoipRefT *voip, int channel); // el EGM compara su estado con signo (cmpwi)
+#else
 unsigned int VoipRemote(VoipRefT *voip, int channel);
+#endif
 int VoipLocal(VoipRefT *voip);
 void VoipMicrophone(VoipRefT *voip, int mask);
 void VoipSpeaker(VoipRefT *voip, int mask);
@@ -18,6 +25,7 @@ void VoipSpeaker(VoipRefT *voip, int mask);
 VoiceCore *VoiceCore::mInstance;
 static NetworkMutex voiceMutex;
 
+#ifndef EA_PLATFORM_XENON
 VoiceCore::PushToTalk::PushToTalk() { mIsPolling = false; }
 
 void VoiceCore::PushToTalk::StartPolling() {
@@ -57,7 +65,22 @@ bool VoiceCore::PushToTalk::IsPressed() {
     }
     return ispressed;
 }
+#endif
 
+#ifdef EA_PLATFORM_XENON
+// EGM 0x82584100: el ctor crea el mutex de la voz; 0x82584168 (sin llamantes) lo destruye.
+VoiceCore::VoiceCore()
+    : VoipRef(nullptr), //
+      headset_state_at_last_shutdown(true), //
+      headset_ready_remember(false), //
+      speaker_state_remember(false), //
+      speaker_volume_remember(0.7f), //
+      playback_volume_remember(0.7f) {
+    voiceMutex.Create();
+}
+
+VoiceCore::~VoiceCore() { voiceMutex.Destroy(); }
+#else
 VoiceCore::VoiceCore()
     : mTransmit(false), //
       VoipRef(nullptr), //
@@ -71,9 +94,29 @@ VoiceCore::VoiceCore()
 }
 
 inline VoiceCore::~VoiceCore() {}
+#endif
 
 void VoiceCore::Construct() { mInstance = new ("VoiceCore", 0) VoiceCore; }
 
+#ifdef EA_PLATFORM_XENON
+void VoiceCore::Startup() {
+    voiceMutex.Lock();
+    VoipRef = VoipStartup(3);
+    if (!VoipRef) {
+        voiceMutex.Unlock();
+        return;
+    }
+    ClearMuteRecords();
+    bMemSet(channels, 0, sizeof(channels));
+    headset_ready_remember = false;
+    startup_timer = RealTimer;
+    _SetSpeakerState(speaker_state_remember);
+    _SetSpeakerVolume(speaker_volume_remember);
+    _SetPlaybackVolume(playback_volume_remember);
+    SetMicState(true);
+    voiceMutex.Unlock();
+}
+#else
 void VoiceCore::Startup() {
     voiceMutex.Lock();
     VoipRef = VoipStartup(4);
@@ -91,7 +134,28 @@ void VoiceCore::Startup() {
     SetMicState(false);
     voiceMutex.Unlock();
 }
+#endif
 
+#ifdef EA_PLATFORM_XENON
+void VoiceCore::Shutdown() {
+    voiceMutex.Lock();
+    if (!VoipRef) {
+        voiceMutex.Unlock();
+        return;
+    }
+    headset_state_at_last_shutdown = _IsHeadsetConnected();
+    _RemoveAllPlayers();
+    VoipShutdown(VoipRef);
+    VoipRef = nullptr;
+    voiceMutex.Unlock();
+}
+
+void VoiceCore::AddPlayer(int channel, const char *persona) {
+    voiceMutex.Lock();
+    _AddPlayer(channel, persona);
+    voiceMutex.Unlock();
+}
+#else
 void VoiceCore::Shutdown() {
     voiceMutex.Lock();
     if (!VoipRef) {
@@ -118,6 +182,7 @@ int VoiceCore::AddPlayer(const char *persona) {
     voiceMutex.Unlock();
     return channel;
 }
+#endif
 
 inline void VoiceCore::RemovePlayer(int channel) {
     voiceMutex.Lock();
@@ -152,7 +217,15 @@ void VoiceCore::SetPlaybackVolume(float v) {
     voiceMutex.Unlock();
 }
 
+#ifdef EA_PLATFORM_XENON
+void VoiceCore::SetSpeakerState(bool enable) {
+    voiceMutex.Lock();
+    _SetSpeakerState(enable);
+    voiceMutex.Unlock();
+}
+#else
 void VoiceCore::SetSpeakerState(bool enable) {}
+#endif
 
 void VoiceCore::SetHeadsetPort(int port) {
     voiceMutex.Lock();
@@ -162,11 +235,13 @@ void VoiceCore::SetHeadsetPort(int port) {
     voiceMutex.Unlock();
 }
 
+#ifndef EA_PLATFORM_XENON
 void VoiceCore::SetMicStatus(bool enable) {
     voiceMutex.Lock();
     SetMicState(enable);
     voiceMutex.Unlock();
 }
+#endif
 
 bool VoiceCore::IsMuted(int channel) {
     voiceMutex.Lock();
@@ -195,6 +270,18 @@ bool VoiceCore::IsSpeaking(int channel) {
     return rc;
 }
 
+#ifdef EA_PLATFORM_XENON
+bool VoiceCore::IsSpeaking(const char *persona) {
+    int channel;
+    voiceMutex.Lock();
+    bool rc = false;
+    if (_IsInVOIPChat(persona, &channel)) {
+        rc = _IsSpeaking(channel);
+    }
+    voiceMutex.Unlock();
+    return rc;
+}
+#else
 bool VoiceCore::IsSpeaking(const char *persona) {
     int channel;
     bool rc = false;
@@ -205,6 +292,7 @@ bool VoiceCore::IsSpeaking(const char *persona) {
     voiceMutex.Unlock();
     return rc;
 }
+#endif
 
 bool VoiceCore::IsConnected(int channel) {
     voiceMutex.Lock();
@@ -213,6 +301,28 @@ bool VoiceCore::IsConnected(int channel) {
     return rc;
 }
 
+#ifdef EA_PLATFORM_XENON
+bool VoiceCore::IsConnected(const char *persona) {
+    int channel;
+    voiceMutex.Lock();
+    bool rc = false;
+    if (_IsInVOIPChat(persona, &channel)) {
+        rc = _IsConnected(channel);
+    }
+    voiceMutex.Unlock();
+    return rc;
+}
+
+bool VoiceCore::IsActive(int channel) {
+    voiceMutex.Lock();
+    bool rc = false;
+    if (VoipRef) {
+        rc = _IsConnected(channel) && (VoipRemote(VoipRef, channel) & 8) != 0;
+    }
+    voiceMutex.Unlock();
+    return rc;
+}
+#else
 bool VoiceCore::IsConnected(const char *persona) {
     int channel;
     bool rc = false;
@@ -237,6 +347,7 @@ bool VoiceCore::IsActive(int channel) {
     voiceMutex.Unlock();
     return rc;
 }
+#endif
 
 bool VoiceCore::IsHeadsetConnected() {
     voiceMutex.Lock();
@@ -252,6 +363,64 @@ bool VoiceCore::IsHeadsetSending() {
     return rc;
 }
 
+#ifdef EA_PLATFORM_XENON
+// EGM 0x82584A18. Sin cascos (y pasado el primer segundo tras Startup) suenan los altavoces; al enchufar o quitar
+// los cascos, los altavoces toman el estado anterior de los cascos, salvo recien arrancado fuera del lobby.
+void VoiceCore::Update() {
+    voiceMutex.Lock();
+    if (VoipRef) {
+        static int last_local_status;
+        int local_status = VoipLocal(VoipRef);
+        if (local_status != last_local_status) {
+            last_local_status = local_status;
+        }
+
+        bool just_started = startup_timer.IsSet() && (RealTimer - startup_timer).GetSeconds() < 1.0f;
+        if (!_IsHeadsetConnected() && !just_started) {
+            _SetSpeakerState(true);
+        } else if (headset_ready_remember != _IsHeadsetConnected()) {
+            bool racing_start = just_started && TheOnlineManager.GetState() != OLS_LOBBY_IN_LOBBY;
+            if (racing_start && !headset_ready_remember && !headset_state_at_last_shutdown) {
+                _SetSpeakerState(false);
+            } else if (headset_ready_remember || !just_started) {
+                _SetSpeakerState(headset_ready_remember);
+            }
+            startup_timer.UnSet();
+        }
+        headset_ready_remember = _IsHeadsetConnected();
+
+        for (int i = 0; i < 3; i++) {
+            if (channels[i].assigned) {
+                int remote_status = VoipRemote(VoipRef, i);
+                if (remote_status != last_remote_status[i]) {
+                    last_remote_status[i] = remote_status;
+                }
+            }
+        }
+    }
+    voiceMutex.Unlock();
+}
+
+bool VoiceCore::IsInVOIPChat(const char *name, int *channel) {
+    voiceMutex.Lock();
+    bool rc = _IsInVOIPChat(name, channel);
+    voiceMutex.Unlock();
+    return rc;
+}
+
+char *VoiceCore::GetChannelPersona(int channel) {
+    voiceMutex.Lock();
+    char *persona = channels[channel].persona_name;
+    voiceMutex.Unlock();
+    return persona;
+}
+
+void VoiceCore::XenonUnknown82584CB0(const char *persona) {
+    voiceMutex.Lock();
+    _XenonUnknown82585438(persona);
+    voiceMutex.Unlock();
+}
+#else
 void VoiceCore::Update() {
     voiceMutex.Lock();
     if (!VoipRef) {
@@ -290,9 +459,33 @@ bool VoiceCore::IsInVOIPChat(const char *name, int *channel) {
 }
 
 char *VoiceCore::GetChannelPersona(int channel) { return channels[channel].persona_name; }
+#endif
 
 inline bool VoiceCore::IsAssigned(int channel) { return channels[channel].assigned; }
 
+#ifdef EA_PLATFORM_XENON
+void VoiceCore::SetMuted(int channel, bool mute) {
+    if (!channels[channel].assigned) {
+        return;
+    }
+    channels[channel].muted = mute;
+    int mask = 0;
+    for (int i = 0; i < 3; i++) {
+        if (!channels[i].muted) {
+            mask |= 1 << i;
+        }
+    }
+    VoipMicrophone(VoipRef, mask);
+    VoipSpeaker(VoipRef, mask);
+}
+
+bool VoiceCore::IsMicOn() {
+    if (VoipRef && (VoipLocal(VoipRef) & 0x10)) {
+        return true;
+    }
+    return false;
+}
+#else
 void VoiceCore::SetMuted(int channel, bool mute) {
     if (!channels[channel].assigned) {
         return;
@@ -313,6 +506,7 @@ void VoiceCore::SetMuted(int channel, bool mute) {
 inline bool VoiceCore::IsMicOn() {
     return VoipRef && (VoipLocal(VoipRef) & 1) != 0;
 }
+#endif
 
 void VoiceCore::SetMicState(bool enable) {
     if (VoipRef) {
@@ -320,6 +514,58 @@ void VoiceCore::SetMicState(bool enable) {
     }
 }
 
+#ifdef EA_PLATFORM_XENON
+// EGM 0x82584DE8: el registro de silencio de la persona se recupera y se borra.
+void VoiceCore::_AddPlayer(int channel, const char *persona) {
+    if (!channels[channel].assigned || bStrCmp(persona, channels[channel].persona_name) != 0) {
+        _RemovePlayer(channel);
+        channels[channel].assigned = true;
+        channels[channel].muted = false;
+        bStrCpy(channels[channel].persona_name, persona);
+        last_remote_status[channel] = -1;
+        bool mute = false;
+        for (int i = 0; i < 8; i++) {
+            if (bStrCmp(channels[channel].persona_name, mute_record[i].persona_name) == 0) {
+                mute = mute_record[i].muted;
+                bMemSet(&mute_record[i], 0, sizeof(channel_type));
+                break;
+            }
+        }
+        SetMuted(channel, mute);
+    }
+}
+
+// EGM 0x82584F00: si el canal estaba silenciado, su registro entra el primero en mute_record y los demas bajan uno
+// (el octavo se pierde).
+void VoiceCore::_RemovePlayer(int channel) {
+    if (channels[channel].assigned) {
+        if (channels[channel].muted) {
+            int i;
+            for (i = 0; i < 7; i++) {
+                if (!mute_record[i].assigned) {
+                    break;
+                }
+            }
+            for (int j = i; j > 0; j--) {
+                mute_record[j] = mute_record[j - 1];
+            }
+            bMemCpy(&mute_record[0], &channels[channel], sizeof(channel_type));
+        }
+        bMemSet(&channels[channel], 0, sizeof(channel_type));
+    }
+}
+
+void VoiceCore::_RemoveAllPlayers() {
+    if (VoipRef) {
+        for (int i = 0; i < 3; i++) {
+            _RemovePlayer(i);
+        }
+    }
+}
+
+bool VoiceCore::_IsInVOIPChat(const char *name, int *channel) {
+    for (int i = 0; i < 3; i++) {
+#else
 void VoiceCore::_AddPlayer(int channel, const char *persona) {
     if (!channels[channel].assigned || bStrCmp(persona, channels[channel].persona_name) != 0) {
         _RemovePlayer(channel);
@@ -362,6 +608,7 @@ void VoiceCore::_RemoveAllPlayers() {
 
 bool VoiceCore::_IsInVOIPChat(const char *name, int *channel) {
     for (int i = 0; i < 4; i++) {
+#endif
         if (channels[i].assigned && bStrCmp(name, channels[i].persona_name) == 0) {
             if (channel) {
                 *channel = i;
@@ -375,6 +622,19 @@ bool VoiceCore::_IsInVOIPChat(const char *name, int *channel) {
     return false;
 }
 
+#ifdef EA_PLATFORM_XENON
+bool VoiceCore::_IsMuted(int channel) {
+    return channels[channel].assigned && channels[channel].muted;
+}
+
+bool VoiceCore::_IsMuted(const char *persona) {
+    int channel;
+    if (_IsInVOIPChat(persona, &channel)) {
+        return _IsMuted(channel);
+    }
+    return false;
+}
+#else
 bool VoiceCore::_IsMuted(int channel) {
     bool rc = false;
     if (channels[channel].assigned) {
@@ -393,7 +653,30 @@ bool VoiceCore::_IsMuted(const char *persona) {
     }
     return rc;
 }
+#endif
 
+#ifdef EA_PLATFORM_XENON
+void VoiceCore::_ToggleMuted(const char *persona) {
+    int channel;
+    if (_IsInVOIPChat(persona, &channel)) {
+        SetMuted(channel, !_IsMuted(channel));
+    }
+}
+
+bool VoiceCore::_IsSpeaking(int c) {
+    if (VoipRef) {
+        return (VoipRemote(VoipRef, c) & 2) != 0;
+    }
+    return false;
+}
+
+bool VoiceCore::_IsConnected(int c) {
+    if (VoipRef) {
+        return (VoipRemote(VoipRef, c) & 1) != 0;
+    }
+    return false;
+}
+#else
 void VoiceCore::_ToggleMuted(const char *persona) {
     int channel;
     if (_IsInVOIPChat(persona, &channel)) {
@@ -414,6 +697,7 @@ bool VoiceCore::_IsConnected(int c) {
     }
     return false;
 }
+#endif
 
 bool VoiceCore::_IsHeadsetConnected() {
     if (VoipRef) {
@@ -429,7 +713,16 @@ bool VoiceCore::_IsHeadsetSending() {
     return false;
 }
 
+#ifdef EA_PLATFORM_XENON
+void VoiceCore::_SetSpeakerState(bool enable) {
+    speaker_state_remember = enable;
+    if (VoipRef) {
+        VoipControl(VoipRef, 'spkr', enable);
+    }
+}
+#else
 inline void VoiceCore::_SetSpeakerState(bool enable) {}
+#endif
 
 void VoiceCore::_SetSpeakerVolume(float v) {
     speaker_volume_remember = VU0_floatmin(1.0f, VU0_floatmax(0.0f, v));
@@ -442,3 +735,18 @@ void VoiceCore::_SetPlaybackVolume(float v) {
         VoipControl(VoipRef, 'play', static_cast<int>(v * 99.0f));
     }
 }
+
+#ifdef EA_PLATFORM_XENON
+// EGM 0x82585428 (sin cerrojo; Startup la expande).
+void VoiceCore::ClearMuteRecords() { bMemSet(mute_record, 0, sizeof(mute_record)); }
+
+// EGM 0x82585438: busca la persona en mute_record y pone su registro a cero. Sin nombre en ningun binario.
+void VoiceCore::_XenonUnknown82585438(const char *persona) {
+    for (int i = 0; i < 8; i++) {
+        if (bStrCmp(persona, mute_record[i].persona_name) == 0) {
+            bMemSet(&mute_record[i], 0, sizeof(channel_type));
+            return;
+        }
+    }
+}
+#endif

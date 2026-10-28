@@ -127,7 +127,6 @@ struct BuddyApiBuddyT
     char Presence[0x2A];        // +0x35
     unsigned char Pad5F[0x85 - 0x5F];
     char Title[0x29];           // +0x85
-    unsigned char PadAE[0xAE - 0xAE];
     char PresenceExtra[0xF0 - 0xAE]; // +0xAE
     int iVoipState;             // +0xF0
     unsigned char F4, F5, F6;   // +0xF4 (codigo de producto partido)
@@ -301,8 +300,7 @@ int _BuddyApiFlagsFromAttr(void *pApi, BuddyApiMsgT Msg)
     int iResult = iFlags & 0x80000;
 
     iResult |= iFlags & 0x40000;
-    if ((iFlags & 0x100000) != 0)
-        iResult |= 0x1000000;
+    iResult |= ((iFlags & 0x100000) != 0) ? 0x1000000 : 0;
     return iResult;
 }
 
@@ -481,17 +479,17 @@ static int _BuddyApiProd(void *pApi, int iId, short *pCodes, int iCount, char *p
 // flag +0x20 o si no trae '.', -3 si trae '.'
 int _BuddyApiValidateName(BuddyApiRefT *pApi, const char *pName)
 {
-    if (pName == NULL)
-        goto Fail;
-    if (pName[0] == 0)
-        goto Fail;
-    if (strchr(pName, '/') != NULL)
-        return -3;
-    if (strchr(pName, '@') != NULL)
-        return -3;
-    if (pApi->iX20 == 0 && strchr(pName, '.') == NULL)
-        return 0;
-Fail:
+    if ((pName != NULL) && (pName[0] != 0))
+    {
+        if (strchr(pName, '/') != NULL)
+            return -3;
+        if (strchr(pName, '@') != NULL)
+            return -3;
+        if (pApi->iX20 != 0)
+            return 0;
+        if (strchr(pName, '.') == NULL)
+            return 0;
+    }
     return -3;
 }
 
@@ -809,12 +807,11 @@ int _BuddyApiExtractRandomSeed(BuddyApiRefT *pApi)
     char Tmp[0x20];
 
     memset(Rec, 0, 0x11);
-    if (pApi->XA8 == NULL || pApi->XA8[0] == 0 || pApi->XA8[0x0F] == 0)
-        goto Tick;
-    sprintf(Tmp, "$%c%c%c%c", pApi->XA8[0x0C], pApi->XA8[0x0D], pApi->XA8[0x0E], pApi->XA8[0x0F]);
-    TagFieldGetBinary(Tmp, Rec, 0x11);
-    return *(unsigned short *)Rec;
-Tick:
+    if (pApi->XA8 != NULL && pApi->XA8[0] != 0 && pApi->XA8[0x0F] != 0) {
+        sprintf(Tmp, "$%c%c%c%c", pApi->XA8[0x0C], pApi->XA8[0x0D], pApi->XA8[0x0E], pApi->XA8[0x0F]);
+        TagFieldGetBinary(Tmp, Rec, 0x11);
+        return *(unsigned short *)Rec;
+    }
     return ProtoAriesTick(pApi->pAries) & 0xFFFF;
 }
 
@@ -1074,8 +1071,9 @@ void _BuddyApiHandlePGETMsg(BuddyApiRefT *pApi, BuddyApiMsgT Msg)
         return;
     pBuddy = (BuddyApiBuddyT *)DispListGet(pApi->pRosterList, iIndex);
     Old = *pBuddy;
-    iChanged = -1;
-    if (_BuddyApiPresRecv(pApi, &Msg, pBuddy) != 1)
+    if (_BuddyApiPresRecv(pApi, &Msg, pBuddy) == 1)
+        iChanged = -1;
+    else
         iChanged = Old.eState;
     if (memcmp(&Old, pBuddy, 0x11C) != 0)
     {
@@ -1321,8 +1319,8 @@ DispListT *BuddyApiRoster(BuddyApiRefT *pApi, void (*pFlushCallback)(BuddyApiRef
     char Rec[0x100];
 
     pApi->pFlushCallback = pFlushCallback;
-    _createBuddyDispList(pApi);
     pApi->pFlushRef = pFlushRef;
+    _createBuddyDispList(pApi);
     Rec[0] = 0;
     TagFieldSetString(Rec, 0x100, "LRSC", pApi->X6B4);
     TagFieldSetNumber(Rec, 0x100, "ID", 4);

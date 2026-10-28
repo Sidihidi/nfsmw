@@ -258,8 +258,8 @@ void UIQRTrackSelect::BuildPresetTrackList() {
     Tracks.Sort(SortTrackByLocked);
 #else
     {
-        int bin_num = 0x15;
         pCurrentNode = nullptr;
+        int bin_num = 0x15;
         do {
             GRaceBin *bin = GRaceDatabase::Get().GetBinNumber(bin_num);
             for (unsigned int i = 0; i < bin->GetWorldRaceCount(); i++) {
@@ -445,7 +445,7 @@ void UIQRTrackSelect::RefreshHeader() {
 
 void UIQRTrackSelect::ScrollTracks(eScrollDir dir) {
     int count = Tracks.CountElements();
-    if (count < 1) {
+    if (count <= 0) {
         return;
     }
     GRaceParameters *oldTrack = pCurrentTrack;

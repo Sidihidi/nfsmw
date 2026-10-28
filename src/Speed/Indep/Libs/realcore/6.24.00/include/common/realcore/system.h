@@ -10,6 +10,10 @@ struct Mutex {
 #ifdef EA_PLATFORM_PLAYSTATION2
     // total size: 0x10 (DWARF de la alpha 124)
     char mBuf[16]; // offset 0x0, size 0x10
+#elif defined(EA_PLATFORM_XENON)
+    // total size: 0x20: el ctor del EGM (0x8284FDF8) pone a cero 0x20 B y Create/Lock/Unlock pasan this + 4 a
+    // RtlInitializeCriticalSection/RtlEnterCriticalSection/RtlLeaveCriticalSection; el contador de OnlineMutex va en +0x20.
+    char mBuf[32]; // offset 0x0, size 0x20
 #else
     // total size: 0x1C
     char mBuf[28]; // offset 0x0, size 0x1C

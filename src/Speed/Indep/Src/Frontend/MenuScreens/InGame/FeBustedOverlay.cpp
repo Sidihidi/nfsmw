@@ -10,12 +10,12 @@ BustedOverlayScreen::BustedOverlayScreen(ScreenConstructorData *sd) : MenuScreen
     if (INIS::Get()) {
         if (INIS::Get()->GetType() == CAnimChooser::Arrest) {
             int languageHashToUse = 0x626ac043;
-            if (PostRacePursuitScreen::GetPursuitData().mNumRoadblocksDodged >= 2) {
+            if (PostRacePursuitScreen::GetPursuitData().mNumRoadblocksDodged > 1) {
                 languageHashToUse = 0x626ac042;
                 if (PostRacePursuitScreen::GetPursuitData().mNumSpikeStripsDodged > 1) {
                     languageHashToUse = 0x626ac045;
                 }
-            } else if (PostRacePursuitScreen::GetPursuitData().mNumCopsDestroyed >= 2) {
+            } else if (PostRacePursuitScreen::GetPursuitData().mNumCopsDestroyed > 1) {
                 languageHashToUse = 0x626ac044;
             } else if (static_cast<float>(PostRacePursuitScreen::GetPursuitData().mCostToStateAchieved) > 10000.0f) {
                 languageHashToUse = 0x626ac046;
@@ -25,23 +25,23 @@ BustedOverlayScreen::BustedOverlayScreen(ScreenConstructorData *sd) : MenuScreen
             finishTimer.PrintToString(finishTimerString, 0);
             switch (languageHashToUse) {
                 case 0x626ac042:
-                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(0x626ac042), PostRacePursuitScreen::GetPursuitData().mNumCopsDamaged, PostRacePursuitScreen::GetPursuitData().mNumCopsDestroyed,
+                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(languageHashToUse), PostRacePursuitScreen::GetPursuitData().mNumCopsDamaged, PostRacePursuitScreen::GetPursuitData().mNumCopsDestroyed,
                              PostRacePursuitScreen::GetPursuitData().mNumRoadblocksDodged, PostRacePursuitScreen::GetPursuitData().mCostToStateAchieved, finishTimerString);
                     break;
                 case 0x626ac043:
-                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(0x626ac043), finishTimerString,
+                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(languageHashToUse), finishTimerString,
                              GInfractionManager::Get().GetNumInfractions());
                     break;
                 case 0x626ac044:
-                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(0x626ac044), finishTimerString, PostRacePursuitScreen::GetPursuitData().mNumCopsDamaged,
+                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(languageHashToUse), finishTimerString, PostRacePursuitScreen::GetPursuitData().mNumCopsDamaged,
                              PostRacePursuitScreen::GetPursuitData().mNumCopsDestroyed, GInfractionManager::Get().GetNumInfractions());
                     break;
                 case 0x626ac045:
-                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(0x626ac045), finishTimerString,
+                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(languageHashToUse), finishTimerString,
                              PostRacePursuitScreen::GetPursuitData().mNumSpikeStripsDodged, PostRacePursuitScreen::GetPursuitData().mNumRoadblocksDodged, GInfractionManager::Get().GetNumInfractions());
                     break;
                 case 0x626ac046:
-                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(0x626ac046), finishTimerString,
+                    FEPrintf(GetPackageName(), static_cast<int>(0xf1ed545a), GetLocalizedString(languageHashToUse), finishTimerString,
                              PostRacePursuitScreen::GetPursuitData().mCostToStateAchieved, GInfractionManager::Get().GetNumInfractions());
                     break;
             }

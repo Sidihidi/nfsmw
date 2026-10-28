@@ -1,8 +1,9 @@
 #include "OnlineManager.hpp"
 
-#ifdef EA_BUILD_A124
+#if ONLINE_SUPPORT
 // El gestor online de verdad: solo existe en el prototipo (A124). Las funciones salen del asm de la A124, con las
 // locales de sus stabs y las lineas de su .mdebug; GameCube y SLUS solo tienen el gestor vacio de mas abajo.
+// PC (speed.exe) tiene otra revision: lo que cambia va bajo EA_PLATFORM_WIN32 con la direccion de la funcion.
 #include "Speed/Indep/Src/Animation/AnimPlayer.hpp"
 #include "Speed/Indep/Src/Frontend/Database/FEDatabase.hpp"
 #include "Speed/Indep/Src/Frontend/FEngInterfaces/FEngInterface.hpp"
@@ -27,14 +28,49 @@
 #include "Speed/Indep/Src/Online/VoiceCore.hpp"
 #include "Speed/Indep/Src/World/RaceParameters.hpp"
 #include "Speed/Indep/Src/World/World.hpp"
+#ifdef EA_PLATFORM_WIN32
+#include "Speed/Indep/Src/Camera/CameraAI.hpp"
+#include "Speed/Indep/Src/Camera/ICE/ICEManager.hpp"
+#include "Speed/Indep/Src/EAXSound/EAXSOund.hpp"
+#include "Speed/Indep/Src/Generated/Events/EEngineBlown.hpp"
+#include "Speed/Indep/Src/Generated/Events/EMomentStrm.hpp"
+#endif
 #include "Speed/Indep/bWare/Inc/SpeedScript.hpp"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 #include "Speed/Indep/bWare/Inc/bDebug.hpp"
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
+#ifdef EA_PLATFORM_PLAYSTATION2
 #include "Speed/PSX2/Src/Online/PlatformNetworkCore.hpp"
+#elif defined(EA_PLATFORM_XENON)
+#include "Speed/Indep/Src/Online/NetworkCore.hpp"
+// XDK (winbase.h, GetCommandLine): <xtl.h> aqui rompe las unidades que siguen en zWorld (CarRender.cpp).
+extern "C" char *GetCommandLineA();
+char *bStrChr(const char *string, int character); // bWare (Strings.cpp); Strings.hpp no la declara
+#endif
 
 extern int OnlineIsServer;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+extern "C" int LobbyApiInfoInt(LobbyApiRefT *lobbyRef, int selector);
+#endif
 
+#ifdef EA_BUILD_A124
+// gcdatos21: en la A124 TheOnlineManager va delante del bloque de trampas
+// (.data objetivo de zWorld: TheOnlineManager en +0x3d0 y
+// ONLINE_SCREENPRINT_CHEAT_REPORT tras el, en +0x1ad4; los stabs dan el mismo
+// orden). El bloque movido es POD con inicializador constante;
+// TheOnlineManager conserva su orden relativo de ctor.
+OnlineManager TheOnlineManager;
+
+int ONLINE_SCREENPRINT_CHEAT_REPORT = 1;
+int ONLINE_CHEAT_FALSESTART = 0;
+float ONLINE_CHEAT_SLOW_WORLDTIMER = 1.0f;
+int ONLINE_CHEAT_NOSEND_CRC = 0;
+int ONLINE_CHEAT_IGNORE_TIMEUP = 0;
+int ONLINE_CHEAT_IGNORETOOSLOW = 0;
+int ONLINE_CHEAT_IGNORE_SELFDISCONNECT = 1;
+int ONLINE_CHEATSCORE_THRESHOLD = 51;
+float MinCheatFreq[16] = {0.0f, 10.0f, 0.0f, 5.0f, 0.0f, 5.0f, 0.0f, 0.0f, 2.0f, 10.0f, 1.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f};
+#else
 int ONLINE_SCREENPRINT_CHEAT_REPORT = 1;
 int ONLINE_CHEAT_FALSESTART = 0;
 float ONLINE_CHEAT_SLOW_WORLDTIMER = 1.0f;
@@ -46,6 +82,7 @@ int ONLINE_CHEATSCORE_THRESHOLD = 51;
 float MinCheatFreq[16] = {0.0f, 10.0f, 0.0f, 5.0f, 0.0f, 5.0f, 0.0f, 0.0f, 2.0f, 10.0f, 1.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f};
 
 OnlineManager TheOnlineManager;
+#endif
 
 void OnlineManager::InitQuantizers() {
     float min_value;
@@ -54,7 +91,11 @@ void OnlineManager::InitQuantizers() {
     PositionQuantizerX.Init("PositionQuantizerX", -4800.0f, 1792.0f, 0.01f);
     PositionQuantizerY.Init("PositionQuantizerY", -15.0f, 300.0f, 0.01f);
     max_value = 1.0f;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    PositionQuantizerZ.Init("PositionQuantizerZ", -1664.0f, 4840.0f, 0.01f); // PC (speed.exe 0x734D80)
+#else
     PositionQuantizerZ.Init("PositionQuantizerZ", -1664.0f, 4224.0f, 0.01f);
+#endif
     min_value = 0.0f;
     VelocityQuantizer.Init("VelocityQuantizer", -125.0f, 125.0f, 0.1f);
     MatrixQuantizer.Init("MatrixQuantizer", -1.0f, max_value, 0.01f);
@@ -65,7 +106,11 @@ void OnlineManager::InitQuantizers() {
     QuantFloatSimTime.Init("QuantFloatSimTime", min_value, 5400.0f, 0.001f);
     QuantCarSlotID.Init("QuantCarSlotID", 0, 0x8b);
     QuantCarPartIndex.Init("QuantPartIndex", 0, 16000);
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    QuantCarType.Init("QuantCarType", 0, 0x54); // PC (speed.exe 0x734D80)
+#else
     QuantCarType.Init("QuantCarType", 0, 0x4e);
+#endif
     QuantInt2Bit.Init("QuantInt2Bit", 0, 3);
     QuantInt3Bit.Init("QuantInt3Bit", 0, 7);
     QuantInt4Bit.Init("QuantInt4Bit", 0, 0xf);
@@ -124,6 +169,19 @@ void OnlineRacer::SetRaceScore(int score) {
     }
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x735040): dos if anidados (la coma de la A124 da otro codigo con MSVC).
+void OnlineRacer::ChangeState(eOnlineRacerState new_state) {
+    if (new_state != State) {
+        State = new_state;
+        if (new_state == OPS_RACING) {
+            BadnessCountdown.SetTime(20.0f);
+            GraceCountdown.SetTime(6.0f);
+            BadnessReason = 0;
+        }
+    }
+}
+#else
 void OnlineRacer::ChangeState(eOnlineRacerState new_state) {
     if ((new_state != State) && (State = new_state, new_state == OPS_RACING)) {
         BadnessCountdown.SetTime(20.0f);
@@ -131,7 +189,154 @@ void OnlineRacer::ChangeState(eOnlineRacerState new_state) {
         BadnessReason = 0;
     }
 }
+#endif
 
+#ifdef EA_PLATFORM_WIN32
+// PC (speed.exe 0x754C30): sin nombre en ningun binario. Busca el GRacerInfo de este corredor: el IPlayer cuyo
+// IOnlinePlayer lleva este OnlineRacer; devuelve tambien su simable.
+GRacerInfo *OnlineRacer::Win32Unknown754C30(ISimable **simable) {
+    if (!GRaceStatus::Exists()) {
+        return nullptr;
+    }
+    for (IPlayer *player = IPlayer::First(PLAYER_ALL); player; player = player->Next(PLAYER_ALL)) {
+        IOnlinePlayer *online_player;
+        if (player->QueryInterface(&online_player) && this == online_player->GetOnlineRacer()) {
+            *simable = player->GetSimable();
+            if (*simable) {
+                return GRaceStatus::Get().GetRacerInfo(*simable);
+            }
+        }
+    }
+    return nullptr;
+}
+
+// PC (speed.exe 0x754CF0): en vez de las estadisticas de la A124 manda por la red el GRacerInfo del corredor (tiempos,
+// vueltas o parciales) y lanza la camara lenta, el estado de sonido y el momento de la llegada.
+void OnlineRacer::Finish(int nRank, bool bBlinkBlinkPoof, int raceFinishReason) {
+    SmartBitStream data;
+    data.AddByte(DriverNumber);
+    data.AddByte(static_cast<uint8>(nRank));
+    bool value = bBlinkBlinkPoof || raceFinishReason == 0xb;
+    data.AddByte(value);
+    data.AddByte(static_cast<uint8>(raceFinishReason));
+    data.AddRawData(reinterpret_cast<const char *>(CheatTally), 0x20);
+    ISimable *simable;
+    GRacerInfo *racer_info = Win32Unknown754C30(&simable);
+    if (racer_info) {
+        data.AddBool(true);
+        data.AddFloat(racer_info->GetRaceTime());
+        data.AddFloat(static_cast<float>(racer_info->GetLapsCompleted()));
+        data.AddFloat(racer_info->mPctRaceComplete);
+        data.AddFloat(racer_info->mDistanceDriven);
+        data.AddFloat(racer_info->mTopSpeed);
+        data.AddFloat(racer_info->mPoundsNOSUsed);
+        data.AddFloat(racer_info->mZeroToSixtyTime);
+        data.AddFloat(racer_info->mQuarterMileTime);
+        data.AddInt(racer_info->mNumPerfectShifts);
+        if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_Circuit) {
+            for (int i = 0; i < GRaceStatus::Get().GetRaceParameters()->GetNumLaps(); i++) {
+                data.AddFloat(GRaceStatus::Get().GetLapTime(i, racer_info->GetIndex(), false));
+            }
+        } else {
+            for (int i = 0; i < 4; i++) {
+                data.AddFloat(racer_info->GetSplitTime(i));
+                data.AddInt(racer_info->GetSplitRanking(i));
+            }
+        }
+    } else {
+        data.AddBool(false);
+    }
+    if (Online::IsInitialized()) {
+        Online::SignalDriverFinish(data);
+    }
+    ChangeState(OPS_FINISHED);
+    CameraAI::StartCinematicSlowdown(EVIEW_PLAYER1, 0.75f);
+    SetSoundControlState(true, SNDSTATE_FADEOUT, "CinemSlow");
+    new EMomentStrm(UMath::Vector4::kZero, UMath::Vector4::kZero, UMath::Vector4::kZero, 0, nullptr, 0x9FE1EE17);
+    TheICEManager.SetUseRealTime(true);
+}
+
+// PC (speed.exe 0x758B30): lee lo que manda Finish y lo aplica al GRacerInfo del corredor; el rango y el parpadeo que
+// llegan no se usan (FinishDriver recibe el rango del GRacerInfo y false).
+void OnlineRacer::SignalFinish(SmartBitStream &data) {
+    uint8 rank;
+    uint8 blinkPoof;
+    uint8 finishReason;
+
+    data.GetByte(rank);
+    data.GetByte(blinkPoof);
+    data.GetByte(finishReason);
+
+    uint16 remote_cheat_tally[16];
+
+    data.GetRawData(reinterpret_cast<char *>(remote_cheat_tally), sizeof(remote_cheat_tally));
+
+    ISimable *simable;
+    GRacerInfo *racer_info = Win32Unknown754C30(&simable);
+    if (racer_info) {
+        switch (finishReason) {
+        case 8:
+            if (simable) {
+                new EEngineBlown(simable->GetInstanceHandle());
+            }
+            break;
+        case 9:
+            racer_info->TotalVehicle();
+            break;
+        case 0xb:
+            break;
+        default:
+            racer_info->FinishRace();
+            break;
+        }
+    }
+
+    if (data.GetBool()) {
+        if (racer_info) {
+            float race_time = data.GetFloat();
+            racer_info->GetRaceTimer().SetTime(race_time);
+            racer_info->mLapsCompleted = static_cast<int>(data.GetFloat());
+            racer_info->mPctRaceComplete = data.GetFloat();
+            racer_info->mDistanceDriven = data.GetFloat();
+            racer_info->mTopSpeed = data.GetFloat();
+            racer_info->mPoundsNOSUsed = data.GetFloat();
+            racer_info->mZeroToSixtyTime = data.GetFloat();
+            racer_info->mQuarterMileTime = data.GetFloat();
+            racer_info->mNumPerfectShifts = data.GetInt();
+            if (GRaceStatus::Get().GetRaceType() == GRace::kRaceType_Circuit) {
+                for (int i = 0; i < GRaceStatus::Get().GetRaceParameters()->GetNumLaps(); i++) {
+                    GRaceStatus::Get().SetLapTime(i, racer_info->GetIndex(), data.GetFloat());
+                }
+            } else {
+                for (int i = 0; i < 4; i++) {
+                    racer_info->mSplitTimes[i] = data.GetFloat();
+                    racer_info->mSplitRankings[i] = data.GetInt();
+                }
+            }
+        } else {
+            data.GetFloat();
+            data.GetFloat();
+            data.GetFloat();
+            data.GetFloat();
+            data.GetFloat();
+            data.GetFloat();
+            data.GetFloat();
+            data.GetInt();
+            for (int i = 0; i < 4; i++) {
+                data.GetFloat();
+                data.GetInt();
+            }
+        }
+    }
+
+    for (int i = 0; i < 16; i++) {
+        CheatTally[i] = bMax(remote_cheat_tally[i], CheatTally[i]);
+    }
+
+    ChangeState(OPS_FINISHED);
+    TheOnlineManager.FinishDriver(racer_info->GetIndex(), racer_info->GetRanking(), false, finishReason);
+}
+#else
 void OnlineRacer::Finish(int nRank, bool bBlinkBlinkPoof, int raceFinishReason) {
     SmartBitStream data;
     data.AddByte(DriverNumber);
@@ -171,9 +376,20 @@ void OnlineRacer::SignalFinish(SmartBitStream &data) {
 
     ChangeState(OPS_FINISHED);
 }
+#endif
 
 void OnlineRacer::UpdateEndRaceStats() {}
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x7350A0): con IsConnected() en vez de la local de la A124 (mini banco: es la unica forma
+// que da las dos colas de la funcion del exe).
+void OnlineRacer::DriverDisconnect(eOnlineRacerState new_state, int finish_reason) {
+    if (IsConnected()) {
+        ChangeState(new_state);
+    }
+    FinishedRaceStats.FinishReason = finish_reason;
+}
+#else
 void OnlineRacer::DriverDisconnect(eOnlineRacerState new_state, int finish_reason) {
     bool connected = false;
     if (State == OPS_LOST_CONNECTION || State == OPS_QUIT || State == OPS_DISCONNECTED) {
@@ -188,6 +404,7 @@ void OnlineRacer::DriverDisconnect(eOnlineRacerState new_state, int finish_reaso
         FinishedRaceStats.FinishReason = finish_reason;
     }
 }
+#endif
 
 void OnlineRacer::UpdateLocal(float t) {
     if (!GRaceStatus::Exists()) {
@@ -213,15 +430,20 @@ void OnlineRacer::UpdateLocal(float t) {
     }
 }
 
+// El bucle hacia delante: PC (expandida en ??0OnlineRacer, 0x760B20) lo junta en ocho dwords a cero; la A124 da el
+// mismo codigo que con el bucle hacia atras.
 void OnlineRacer::ClearCheatInfo() {
-    int i;
-    for (i = 15; i > -1; i--) {
+    for (int i = 0; i < 16; i++) {
         CheatTally[i] = 0;
     }
 }
 
 inline void OnlineRacer::DetectedCheat(int reason) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    if (TheOnlineManager.IsAntiCheatingEnabled() && CheatTally[reason] < 0xFE01) { // PC (speed.exe 0x740FA0)
+#else
     if (TheOnlineManager.IsAntiCheatingEnabled() && CheatTally[reason] <= 0xFE00) {
+#endif
         CheatTally[reason]++;
     }
 }
@@ -244,6 +466,9 @@ OnlineManager::OnlineManager()
     bOnlineRace = false;
     mMasterTime = 0;
     mServerTime = 0;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    mAnimFinishAndLoadHudTime = 0.0f;
+#endif
     CountdownSyncAnims.UnSet();
     CountdownSendDataCRC.UnSet();
     LastSyncedWTTimeStamp.UnSet();
@@ -251,10 +476,21 @@ OnlineManager::OnlineManager()
     LastAntiCheatRealTimer.UnSet();
     TimeRaceFinished.UnSet();
     RaceTimeup = false;
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    win32_unknown_0x118 = false;
+    win32_unknown_0x119 = false;
+#endif
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    // PC (speed.exe 0x740FF0): en orden creciente.
+    for (int i = 0; i < 4; ++i) {
+        pRacers[i] = nullptr;
+    }
+#else
     for (int i = 3; i >= 0; --i) {
         pRacers[i] = nullptr;
     }
+#endif
     ClearAnimWorldObjects();
 }
 
@@ -275,10 +511,21 @@ void OnlineManager::PrintCheatTallies(bool) {}
 OnlineManager::~OnlineManager() {}
 
 void OnlineManager::Initialize(int argc, char **argv) {
+#ifdef EA_PLATFORM_XENON
+    // EGM 0x8250A0E8: sin argc/argv; el .cfg es lo que sigue al primer espacio de la linea de ordenes.
+    char *filename = bStrChr(GetCommandLineA(), ' ');
+    if (filename) {
+        filename++;
+    }
+    OnlineCfg::ReadConfigFile(filename);
+    VoiceCore::Construct();
+#elif !defined(EA_PLATFORM_WIN32)
+#ifdef EA_PLATFORM_PLAYSTATION2
     if (bIsPlatSuperBender()) {
         argc = SuperBenderGetCommandLineArgc();
         argv = SuperBenderGetCommandLineArgv();
     }
+#endif
 
     const char *filename = nullptr;
     for (int i = 1; i < argc; i++) {
@@ -290,6 +537,7 @@ void OnlineManager::Initialize(int argc, char **argv) {
     }
     OnlineCfg::ReadConfigFile(filename);
     VoiceCore::Construct();
+#endif
     if (!SkipFE) {
         OnlineEnabled = 1;
     }
@@ -375,12 +623,22 @@ void OnlineManager::ChangeState(eOnlineState newState) {
         if (newState == OLS_RACING || oldState == OLS_RACING) {
             Timer to;
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            to.SetTime(TheOnlineManager.GetMasterTime() * 0.002f); // PC (speed.exe 0x741230)
+#else
             to.SetTime(TheOnlineManager.GetMasterTime() * 0.001f);
+#endif
             Scheduler::Get().Synchronize(to);
         }
     }
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x735620): sin la local de la A124.
+bool OnlineManager::IsOnlineRace() {
+    return bOnlineRace || Online::IsInitialized();
+}
+#else
 bool OnlineManager::IsOnlineRace() {
     bool online_race = false;
     if (bOnlineRace || Online::IsInitialized()) {
@@ -388,6 +646,7 @@ bool OnlineManager::IsOnlineRace() {
     }
     return online_race;
 }
+#endif
 
 bool OnlineManager::IsServer() {
     return OnlineIsServer != 0;
@@ -409,8 +668,8 @@ void OnlineManager::Update(bool receive) {
 
     bool host_disconnected = IsOnlineRace() && State != OLS_RACE_END && !IsServer() &&
                              !CUIOnlineDisconnect::mIsHostInGameDisconnect &&
-                             (!ConnectionCore::Instance().GetPlayer(0) ||
-                              ConnectionCore::Instance().GetPlayer(0)->GameInfo.eStatus != CONNAPI_STATUS_ACTV);
+                             (!ConnectionCore::Instance().GetHost() ||
+                              ConnectionCore::Instance().GetHost()->GameInfo.eStatus != CONNAPI_STATUS_ACTV);
     if (host_disconnected && TheGameFlowManager.GetState() == GAMEFLOW_STATE_RACING) {
         CUIOnlineDisconnect::mIsHostInGameDisconnect = true;
         cFEng::Get()->QueuePackagePush("UI_OL_Disconnect_BG.fng", 0, 0, false);
@@ -623,6 +882,25 @@ void OnlineManager::StartOnlineRace() {
     ChangeState(OLS_RACE_DATA_SYNC);
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x761240): sin RemoveDriverInfo.
+void OnlineManager::SetupRestartRace() {
+    TheRaceParameters.RaceType = RACE_TYPE_SINGLE_RACE;
+    for (int driver_number = 0; driver_number < 4; ++driver_number) {
+        OnlineRacer *racer = pRacers[driver_number];
+        if (racer && racer != pLocalRacer) {
+            if (!racer->bShouldRestart) {
+                delete racer;
+                pRacers[driver_number] = nullptr;
+                --NumRacers;
+            } else {
+                racer->bShouldRestart = false;
+                racer->SetRaceScore(0);
+            }
+        }
+    }
+}
+#else
 void OnlineManager::SetupRestartRace() {
     TheRaceParameters.RaceType = RACE_TYPE_SINGLE_RACE;
 
@@ -645,13 +923,29 @@ void OnlineManager::SetupRestartRace() {
         ++racer;
     } while (driver_number < 4);
 }
+#endif
 
 void OnlineManager::EndOnlineRace(bool bForced) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    bool players_left = true;
+    if (RaceEndReason == OEND_NO_PLAYERS) {
+        players_left = false;
+    }
+    MNotifyOnlineRaceOver(players_left).Post(UCrc32(0x20d60dbf));
+#else
     MNotifyOnlineRaceOver().Post(UCrc32(0x20d60dbf));
+#endif
 
     if (pCurrentWorld) {
         pCurrentWorld->EndOnlinePause();
     }
+
+#ifdef EA_PLATFORM_WIN32
+    // PC (speed.exe 0x761313): el anfitrion (GameDetails == eHOSTING) baja el bool de la sesion (bit 0x4000) al acabar la carrera.
+    if (FEDatabase->OnlineSettings.GameDetails == eHOSTING) {
+        LobbyGameSessions::Instance().Win32Unknown79A1D0(false);
+    }
+#endif
 
     if (State == OLS_RACING || State == OLS_RACE_LOAD_TRACK || State == OLS_RACE_START_LINE) {
         if (bForced) {
@@ -684,7 +978,7 @@ void OnlineManager::EndOnlineRace(bool bForced) {
                     numDiscAtCurrentTime++;
                     if (numDiscAtCurrentTime > 1) {
                         r->ChangeState(OPS_DISCONNECTED);
-                        if (index > -1) {
+                        if (index >= 0) {
                             GetOnlineRacer(index)->ChangeState(OPS_DISCONNECTED);
                             index = -1;
                         }
@@ -785,10 +1079,39 @@ uint32 OnlineManager::GetServerTime() {
     return mServerTime + NetworkCore::Instance().GetTime();
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x7358A0): vacia.
+void OnlineManager::StartSimFrame() {}
+#else
 void OnlineManager::StartSimFrame() {
     NetworkCore::DoNetworkProcessing();
 }
+#endif
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x7358B0): `> 100` y la latencia de la sesion en una sola cadena de if.
+void OnlineManager::EndSimFrame() {
+    uint32 time = NetworkCore::Instance().GetTime();
+    if (time - mLastUpdateTime > 100) {
+        if (!bHasStalled) {
+            GetMasterTime();
+        }
+        bHasStalled = true;
+    } else {
+        bHasStalled = false;
+    }
+
+    if (IsServer()) {
+        LobbyGameSessions::Instance().SetSessionLatency(0);
+    } else if (ConnectionCore::Instance().GetHost() &&
+               ConnectionCore::Instance().GetHost()->GameInfo.eStatus == CONNAPI_STATUS_ACTV) {
+        LobbyGameSessions::Instance().SetSessionLatency(
+            NetGameLinkStatus(ConnectionCore::Instance().GetHost()->pGameLinkRef)->late);
+    } else {
+        LobbyGameSessions::Instance().SetSessionLatency(-1);
+    }
+}
+#else
 void OnlineManager::EndSimFrame() {
     uint32 time = NetworkCore::Instance().GetTime();
     if (time - mLastUpdateTime >= 0x65) {
@@ -803,21 +1126,22 @@ void OnlineManager::EndSimFrame() {
     if (IsServer()) {
         LobbyGameSessions::Instance().SetSessionLatency(0);
     } else {
-        ConnApiClientT *player = ConnectionCore::Instance().GetPlayer(0);
+        ConnApiClientT *player = ConnectionCore::Instance().GetHost();
         if (!player) {
             LobbyGameSessions::Instance().SetSessionLatency(-1);
         } else {
-            player = ConnectionCore::Instance().GetPlayer(0);
+            player = ConnectionCore::Instance().GetHost();
             if (player->GameInfo.eStatus != CONNAPI_STATUS_ACTV) {
                 LobbyGameSessions::Instance().SetSessionLatency(-1);
             } else {
                 LobbyGameSessions *sessions = &LobbyGameSessions::Instance();
-                player = ConnectionCore::Instance().GetPlayer(0);
+                player = ConnectionCore::Instance().GetHost();
                 sessions->SetSessionLatency(NetGameLinkStatus(player->pGameLinkRef)->late);
             }
         }
     }
 }
+#endif
 
 void OnlineManager::SetStartRaceTime(uint32 from_tick, float time, float ping) {
     if (!mStartRaceIsSet || ping < mStartRacePing) {
@@ -862,9 +1186,16 @@ void OnlineManager::ImportRaceParams(int local_driver_number, int server_driver_
 
     settings->RaceMode = static_cast<GRace::Type>(static_cast<uint8>(data.GetBits(8)));
     settings->CollisionDetection = data.GetBool();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    settings->PerformanceMatching = data.GetBool();
+    settings->UseNOS = data.GetBool();
+#endif
     settings->GetRaceSettings()->TrackDirection = data.GetBits(8);
     settings->GetRaceSettings()->NumLaps = data.GetBits(16);
     settings->GetRaceSettings()->CopDensity = data.GetByte();
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    settings->GetRaceSettings()->TimeOfDay = data.GetFloat();
+#endif
     SetupRaceParams();
     SetupLocalDriver(local_driver_number);
     CreateOnlineRacer(server_driver_number, nullptr, true, nullptr);
@@ -975,6 +1306,18 @@ int OnlineManager::GetNumConnectedRacers() {
     return num_connected;
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (SendEndOfRaceResults, speed.exe 0x741780, la expande en cuatro pruebas en orden creciente).
+int OnlineManager::GetNumRacers() {
+    int num_racers = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (IsValidRacer(i)) {
+            ++num_racers;
+        }
+    }
+    return num_racers;
+}
+#else
 int OnlineManager::GetNumRacers() {
     int num_racers = 0;
     OnlineRacer **racer = pRacers;
@@ -988,11 +1331,24 @@ int OnlineManager::GetNumRacers() {
     } while (i >= 0);
     return num_racers;
 }
+#endif
 
 OnlineRacer *OnlineManager::GetOnlineRacer(int driver_number) {
     return pRacers[driver_number];
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x735AE0): devuelve GetOnlineRacer(x) (la de la A124, el puntero que recorre). Nombres del
+// parametro y de la local de Carbon PS3 (DWARF de la Alpha 56).
+OnlineRacer *OnlineManager::GetOnlineRacer(const char *racerName) {
+    for (int x = 0; x < 4; ++x) {
+        if (IsValidRacer(x) && bStrCmp(GetOnlineRacer(x)->GetPersona(), racerName) == 0) {
+            return GetOnlineRacer(x);
+        }
+    }
+    return nullptr;
+}
+#else
 OnlineRacer *OnlineManager::GetOnlineRacer(const char *racer_name) {
     int driver_number = 0;
     OnlineRacer **racer = pRacers;
@@ -1004,7 +1360,19 @@ OnlineRacer *OnlineManager::GetOnlineRacer(const char *racer_name) {
     }
     return nullptr;
 }
+#endif
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x735B30): como GetOnlineRacer(const char *) de PC, devuelve GetOnlineRacer(driver_number).
+OnlineRacer *OnlineManager::GetServerRacer() {
+    for (int driver_number = 0; driver_number < 4; ++driver_number) {
+        if (IsValidRacer(driver_number) && GetOnlineRacer(driver_number)->IsServer()) {
+            return GetOnlineRacer(driver_number);
+        }
+    }
+    return nullptr;
+}
+#else
 OnlineRacer *OnlineManager::GetServerRacer() {
     int driver_number = 0;
     OnlineRacer **racer = pRacers;
@@ -1017,8 +1385,16 @@ OnlineRacer *OnlineManager::GetServerRacer() {
     } while (driver_number < 4);
     return nullptr;
 }
+#endif
 
 void OnlineManager::SetupRaceParams() {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    OnlineRaceParameters *race_settings = FEDatabase->GetOnlineSettings()->GetRaceSettings();
+    unsigned int seconds = LobbyApiInfoInt(LobbyCore::Instance().GetLobbyApiRef(), 'stim');
+    float time_of_day = ((seconds % 3600) * 1000) * (1.0f / 1800000.0f);
+
+    race_settings->TimeOfDay = time_of_day < 1.0f ? time_of_day : 2.0f - time_of_day;
+#endif
     RaceStarter::SetupOnlineRace();
     g_tweakDriftPhysics = 0;
 }
@@ -1032,6 +1408,30 @@ void OnlineManager::SetupLocalDriver(int driver_num) {
     pLocalRacer->DriverNumber = driver_num;
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x735C10): otra revision, sin la rama de pCurrentRace ni RemoveDriverInfo.
+void OnlineManager::DriverLeft(int driver_number, bool he_quit) {
+    if (!IsValidRacer(driver_number)) {
+        return;
+    }
+
+    OnlineRacer *racer = GetOnlineRacer(driver_number);
+
+    racer->SetDisconnectTime(WorldTimer.GetSeconds());
+    if (State == OLS_RACE_DATA_SYNC) {
+        racer->ChangeState(OPS_DISCONNECTED);
+    } else {
+        racer->ChangeState(he_quit ? OPS_QUIT : OPS_LOST_CONNECTION);
+    }
+    if (racer->IsServer()) {
+        for (int i = 0; i < 4; i++) {
+            if (IsValidRacer(i) && GetOnlineRacer(i) != racer) {
+                GetOnlineRacer(i)->ChangeState(OPS_DISCONNECTED);
+            }
+        }
+    }
+}
+#else
 void OnlineManager::DriverLeft(int driver_number, bool he_quit) {
     if (!IsValidRacer(driver_number)) {
         return;
@@ -1076,6 +1476,7 @@ void OnlineManager::DriverLeft(int driver_number, bool he_quit) {
         }
     }
 }
+#endif
 
 void OnlineManager::SignalDriverFinish(SmartBitStream &data) {
     uint8 drivernum;
@@ -1088,6 +1489,41 @@ void OnlineManager::SignalDriverFinish(SmartBitStream &data) {
 
 void OnlineManager::SignalSyncAnimationMessage(SmartBitStream &) {}
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (speed.exe 0x755140): sin las comprobaciones de trampas de la A124, `> 0` en CheatTally, y el tiempo de
+// cierre (TimeupLength) se pone con la primera llegada; en los modos 8 y 9 sale del porcentaje de carrera.
+bool OnlineManager::FinishDriver(int driver_number, int nRank, bool bBlinkBlinkPoof,
+                                 int raceFinishReason) {
+    GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(driver_number);
+    OnlineRacer *racer = GetOnlineRacer(racerInfo.GetName());
+    bool finished = racer->IsFinishedRacing();
+
+    if (!finished && racer == pLocalRacer) {
+        racer->Finish(nRank, bBlinkBlinkPoof, raceFinishReason);
+        finished = true;
+
+        if (raceFinishReason == 0xb && racer->CheatTally[2] > 0) {
+            for (int i = 0; i < 4; ++i) {
+                OnlineRacer *other_racer = GetOnlineRacer(i);
+                if (other_racer && other_racer != racer) {
+                    other_racer->DriverDisconnect(OPS_DISCONNECTED, 0xc);
+                }
+            }
+        }
+    }
+
+    if (!TimeupStartTime.IsSet()) {
+        TimeupStartTime.SetTime(racerInfo.GetRaceTime() + mPostCountdownStartRaceTime);
+        if (raceFinishReason == 8 || raceFinishReason == 9) {
+            TimeupLength =
+                (static_cast<float>(static_cast<int>(6.0f - racerInfo.GetPctRaceComplete() * 0.06f)) + 1.0f) * 10.0f;
+        } else {
+            TimeupLength = 30.0f;
+        }
+    }
+    return finished;
+}
+#else
 bool OnlineManager::FinishDriver(int driver_number, int nRank, bool bBlinkBlinkPoof,
                                  int raceFinishReason) {
     GRacerInfo &racerInfo = GRaceStatus::Get().GetRacerInfo(driver_number);
@@ -1120,6 +1556,7 @@ bool OnlineManager::FinishDriver(int driver_number, int nRank, bool bBlinkBlinkP
     }
     return finished;
 }
+#endif
 
 void OnlineManager::CalculateFinishOrder() {
     int num_racers = 0;
@@ -1268,14 +1705,22 @@ void OnlineManager::SendEndOfRaceResults() {
 
         uint16 cheat_bitmask = 0;
         for (int i = 0; i < NUM_CHEAT_REASONS; i++) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            if (racer->GetCheatTally(static_cast<eOnlineCheatReason>(i)) > 0) { // PC: `cmp; jbe` (0x741780)
+#else
             if (racer->GetCheatTally(static_cast<eOnlineCheatReason>(i))) {
+#endif
                 cheat_bitmask |= 1 << i;
             }
         }
         data.AddShort(cheat_bitmask);
 
         for (int i = 0; i < NUM_CHEAT_REASONS; i++) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+            if (racer->GetCheatTally(static_cast<eOnlineCheatReason>(i)) > 0) { // PC: `test; jbe` (0x741780)
+#else
             if (racer->GetCheatTally(static_cast<eOnlineCheatReason>(i))) {
+#endif
                 data.AddShort(racer->GetCheatTally(static_cast<eOnlineCheatReason>(i)));
             }
         }
@@ -1304,6 +1749,15 @@ void OnlineManager::SendSyncAnimations() {
 
 void OnlineManager::SignalScoreMessage(SmartBitStream &) {}
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+// PC (el ctor 0x740FF0 la expande en ocho escrituras en orden creciente).
+void OnlineManager::ClearAnimWorldObjects() {
+    NumWorldObjects = 0;
+    for (int i = 0; i < 8; ++i) {
+        pAnimWorldObjects[i] = nullptr;
+    }
+}
+#else
 void OnlineManager::ClearAnimWorldObjects() {
     NumWorldObjects = 0;
     int i = 7;
@@ -1314,6 +1768,7 @@ void OnlineManager::ClearAnimWorldObjects() {
         --object;
     } while (i > -1);
 }
+#endif
 
 void OnlineManager::BuildAnimWorldObjects() {
     ClearAnimWorldObjects();
@@ -1343,8 +1798,12 @@ void OnlineManager::MapRacers2PlayerIDs() {
     bMemSet(PersonaMap, 0, 0x40);
 }
 
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+void OnlineManager::ImportPositionData(int driver_number, SmartBitStream &data, ePosDataPriorityMask priority_mask) {
+#else
 void OnlineManager::ImportPositionData(int driver_number, SmartBitStream &data, float timestamp,
                                        ePosDataPriorityMask priority_mask) {
+#endif
     if (pRacers[driver_number]) {
         if (data.GetByteLengthRemaining() > 1) {
             GetOnlineRacer(driver_number)->ImportStream(data, priority_mask);
@@ -1458,6 +1917,7 @@ int OnlineManager::AreAllPlayersFinishedRacing() {
     return State == OLS_DISCONNECTED;
 }
 
+#if !defined(EA_PLATFORM_WIN32) && !defined(EA_PLATFORM_XENON)
 void OnlineManager::NotifyDiscEjected() {
     if (pLocalRacer && pCurrentRace) {
         pLocalRacer->DriverDisconnect(OPS_DISCERROR, 0xc);
@@ -1473,9 +1933,16 @@ void OnlineManager::NotifyDiscEjected() {
         Online::Close();
     }
 }
+#endif
 
 #else
 OnlineManager TheOnlineManager;
 
+#ifdef EA_PLATFORM_PLAYSTATION2 // declarado en la cabecera solo en PS2 (SLUS 0x411400)
+OnlineManager::~OnlineManager() {}
+#endif
+
+#if !ONLINE_SUPPORT || !defined(EA_PLATFORM_WIN32)
 inline void OnlineManager::InitQuantizers() {}
+#endif
 #endif

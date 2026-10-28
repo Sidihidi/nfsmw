@@ -40,10 +40,14 @@ class StringKey {
         return this->mHash32;
     }
     bool IsEmpty() const {
+#ifdef EA_PLATFORM_XENON
+        return (this->mString != nullptr) ? this->mString[0] == 0 : true;
+#else
         if (this->mString != nullptr) {
             return this->mString[0] == 0;
         }
         return true;
+#endif
     }
 
     bool IsNotEmpty() const {

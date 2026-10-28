@@ -3,7 +3,15 @@
 #include "Speed/Indep/Src/Lua/source/lua.h"
 #include "Speed/Indep/Src/Main/EventDynamicData.h"
 
-ENISMotionBlur::ENISMotionBlur(int pEnableMotionBlur) : Event(0x10), fEnableMotionBlur(pEnableMotionBlur) {}
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+extern bool NISMotionBlurEnabled; // ICEManager.cpp
+#endif
+
+ENISMotionBlur::ENISMotionBlur(int pEnableMotionBlur) : Event(0x10), fEnableMotionBlur(pEnableMotionBlur) {
+#if defined(EA_PLATFORM_WIN32) || defined(EA_PLATFORM_XENON)
+    NISMotionBlurEnabled = pEnableMotionBlur != 0; // speed.exe 0x622EFB
+#endif
+}
 
 ENISMotionBlur::~ENISMotionBlur() {}
 
